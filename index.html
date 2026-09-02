@@ -101,7 +101,7 @@
     COMPANY_NAME: "Black Horse Beamish Ltd",
     COMPANY_ADDRESS: "The Black Horse, Red Row, Beamish, County Durham, DH9 0RW",  // <-- confirm
     VAT_NUMBER: "GB113205865",
-    LOGO_URL: "./logo.png"
+    LOGO_URL: ""   // optional: URL of a hosted logo image; blank = text wordmark
   };
 </script>
 
@@ -472,9 +472,14 @@ function openReceipt(id){
       <td style="text-align:right">${money(gross)}</td></tr>`;
   }).join("");
   const gTot=+s.total, nTot=gTot/(1+vat), vTot=gTot-nTot;
+  const logo = CFG.LOGO_URL
+    ? `<img src="${CFG.LOGO_URL}" alt="Black Horse Beamish" crossorigin="anonymous"/>`
+    : `<div style="font-family:Georgia,serif;font-weight:700;line-height:1.1">
+         <div style="font-size:22px;letter-spacing:1px">BLACK HORSE</div>
+         <div style="font-size:13px;letter-spacing:4px;color:#9c7a3c">BEAMISH</div></div>`;
   document.getElementById("invoice").innerHTML = `
     <div class="top">
-      <img src="${CFG.LOGO_URL}" alt="Black Horse Beamish" crossorigin="anonymous"/>
+      ${logo}
       <div class="co">
         <strong>${esc(CFG.COMPANY_NAME)}</strong><br/>
         ${esc(CFG.COMPANY_ADDRESS)}<br/>
