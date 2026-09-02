@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Black Horse Beamish — Live Till Portal</title>
+<style>
+  :root{
+    --ink:#1a1a1a; --cream:#f6f0e4; --paper:#fcfaf4; --brass:#9c7a3c;
+    --claret:#7a2e2e; --line:rgba(26,26,26,.14);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Georgia,"Times New Roman",serif;background:var(--cream);color:var(--ink)}
+  h1,h2,h3{font-weight:700;margin:0}
+  .wrap{max-width:1240px;margin:0 auto;padding:20px}
+  header{display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between;
+    border-bottom:2px solid var(--ink);padding-bottom:14px}
+  header .title{font-size:22px}
+  header .title small{display:block;font-size:12px;letter-spacing:3px;color:var(--brass);font-weight:700}
+  .controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .controls input[type=date],.controls input[type=text],.controls select{
+    font:inherit;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:#fff}
+  button{font:inherit;cursor:pointer;border:1.5px solid var(--ink);background:#fff;color:var(--ink);
+    padding:8px 14px;border-radius:8px;font-weight:700}
+  button.primary{background:var(--ink);color:#fff}
+  .muted{color:#0009;font-size:12px}
+
+  nav.tabs{display:flex;gap:6px;margin:16px 0}
+  nav.tabs button{border-color:var(--line);background:var(--paper)}
+  nav.tabs button.active{background:var(--ink);color:#fff;border-color:var(--ink)}
+
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+  .kpi{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+  .kpi .label{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--brass);font-weight:700}
+  .kpi .value{font-size:26px;font-weight:800;margin-top:4px}
+  .kpi.big .value{font-size:32px}
+  .split{display:flex;gap:10px;margin:12px 0 20px}
+  .split .seg{flex:1;background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:10px 14px}
+  .split .seg b{display:block;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--brass)}
+  .split .seg .n{font-size:20px;font-weight:800}
+
+  h2.sec{font-size:14px;letter-spacing:2px;text-transform:uppercase;color:var(--brass);margin:24px 0 10px}
+  .tills{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+  .till{background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:16px;position:relative}
+  .till h3{font-size:17px}
+  .till .outlet{font-size:12px;color:var(--brass);font-weight:700;text-transform:uppercase;letter-spacing:1px}
+  .till .dot{position:absolute;top:16px;right:16px;font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px}
+  .till .dot.open{background:#e7f2e9;color:#2f6d3d}.till .dot.closed{background:#eee;color:#666}
+  .till .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;margin-top:12px}
+  .till .grid div span{display:block;font-size:11px;color:#0009}.till .grid div b{font-size:18px;font-weight:800}
+  .till .fb{display:flex;gap:8px;margin-top:12px;font-size:12px}
+  .till .fb span{flex:1;padding:6px 8px;border-radius:8px;background:#fff;border:1px solid var(--line)}
+  .till .last{margin-top:10px;font-size:11px;color:#0009}
+
+  table{width:100%;border-collapse:collapse;background:var(--paper);border:1px solid var(--line);
+    border-radius:12px;overflow:hidden}
+  th,td{padding:8px 12px;text-align:right;font-size:13px;white-space:nowrap}
+  th:first-child,td:first-child,th.l,td.l{text-align:left}
+  thead th{background:#efe9db;font-weight:800}
+  tbody tr{border-top:1px solid var(--line)}
+  tbody tr.clk{cursor:pointer}
+  tbody tr.clk:hover{background:#fff}
+  .yn.y{color:#2f6d3d;font-weight:800}.yn.n{color:#0007}
+  .tablewrap{overflow-x:auto}
+  .neg{color:var(--claret);font-weight:700}
+
+  #gate{position:fixed;inset:0;background:var(--cream);display:flex;align-items:center;justify-content:center;z-index:30}
+  #gate .card{background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:32px;max-width:360px;width:90%;text-align:center}
+  #gate input{font:inherit;width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;margin:14px 0}
+  #gate .err{color:var(--claret);font-size:13px;min-height:18px}
+  .hidden{display:none!important}
+
+  /* receipt overlay */
+  #rcpt{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:40;display:none;overflow:auto;padding:24px}
+  #rcpt.show{display:block}
+  .invoice{background:#fff;color:#111;max-width:800px;margin:0 auto;padding:40px;border-radius:8px;font-size:13px}
+  .invoice .top{display:flex;justify-content:space-between;align-items:flex-start;gap:20px}
+  .invoice .top img{height:70px}
+  .invoice h1{font-size:22px;letter-spacing:1px}
+  .invoice .co{text-align:right;font-size:12px;line-height:1.5}
+  .invoice .meta{display:flex;gap:40px;margin:22px 0 10px;font-size:12px}
+  .invoice table{border:none;background:none}
+  .invoice th,.invoice td{border-bottom:1px solid #ddd;white-space:normal}
+  .invoice .tot td{border:none;font-weight:800}
+  .rcpt-actions{max-width:800px;margin:14px auto 0;display:flex;gap:10px;justify-content:flex-end}
+  @media print{ body *{visibility:hidden} #rcpt,#rcpt *{visibility:visible} #rcpt{position:absolute;inset:0;background:#fff;padding:0} .rcpt-actions{display:none} }
+</style>
+</head>
+<body>
+
+<!-- ============================ CONFIG ============================ -->
+<script>
+  const CFG = {
+    SUPABASE_URL: "https://safcrtrfdzsnftghibot.supabase.co",
+    SUPABASE_KEY: "sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU",
+    PORTAL_PASSWORD: "bhbTILL-K7m2qx",   // change, commit + push to redeploy
+    DAY_START_HOUR: 5,
+    DEFAULT_VAT: 0.20,
+    REFRESH_MS: 20000,
+    // Printed on VAT receipts:
+    COMPANY_NAME: "Black Horse Beamish Ltd",
+    COMPANY_ADDRESS: "The Black Horse, Red Row, Beamish, County Durham, DH9 0RW",  // <-- confirm
+    VAT_NUMBER: "GB113205865",
+    LOGO_URL: "./logo.png"
+  };
+</script>
+
+<div id="gate">
+  <div class="card">
+    <div style="font-size:13px;letter-spacing:3px;color:var(--brass);font-weight:700">BLACK HORSE BEAMISH</div>
+    <h2 style="margin:8px 0 0">Till Portal</h2>
+    <input id="pw" type="password" placeholder="Password" autofocus />
+    <div class="err" id="gateErr"></div>
+    <button class="primary" style="width:100%" onclick="tryUnlock()">View</button>
+  </div>
+</div>
+
+<div class="wrap hidden" id="app">
+  <header>
+    <div class="title">Live Till Portal <small>BLACK HORSE BEAMISH</small></div>
+    <div class="controls">
+      <label class="muted">Trading day <input type="date" id="day" /></label>
+      <button onclick="load()">Refresh</button>
+      <span class="muted" id="updated"></span>
+    </div>
+  </header>
+
+  <nav class="tabs" id="tabs">
+    <button data-tab="overview" class="active">Overview</button>
+    <button data-tab="receipts">Receipts</button>
+    <button data-tab="team">Team</button>
+    <button data-tab="refunds">Refunds &amp; voids</button>
+  </nav>
+
+  <!-- OVERVIEW -->
+  <section id="tab-overview">
+    <div class="kpis">
+      <div class="kpi big"><div class="label">Total gross</div><div class="value" id="kGross">£0.00</div></div>
+      <div class="kpi"><div class="label">Total nett</div><div class="value" id="kNett">£0.00</div></div>
+      <div class="kpi"><div class="label">VAT</div><div class="value" id="kVat">£0.00</div></div>
+      <div class="kpi"><div class="label">Transactions</div><div class="value" id="kTxn">0</div></div>
+      <div class="kpi"><div class="label">Items sold</div><div class="value" id="kItems">0</div></div>
+      <div class="kpi"><div class="label">Refunds</div><div class="value" id="kRef">£0.00</div></div>
+    </div>
+    <div class="split">
+      <div class="seg"><b>Beverage</b><span class="n" id="sBev">£0.00</span></div>
+      <div class="seg"><b>Food</b><span class="n" id="sFood">£0.00</span></div>
+      <div class="seg"><b>Tills trading</b><span class="n" id="sTills">0</span></div>
+    </div>
+    <h2 class="sec">Tills</h2>
+    <div class="tills" id="tills"></div>
+    <h2 class="sec">Products sold — all tills</h2>
+    <div class="tablewrap"><table id="prodTable">
+      <thead><tr><th class="l">Item</th><th class="l">Cat</th><th>Qty</th><th>Gross</th><th>Nett</th></tr></thead>
+      <tbody id="prodBody"></tbody></table></div>
+  </section>
+
+  <!-- RECEIPTS -->
+  <section id="tab-receipts" class="hidden">
+    <div class="controls" style="margin-bottom:12px">
+      <select id="fTill"><option value="">All tills</option></select>
+      <label class="muted"><input type="checkbox" id="fVat" /> VAT requested only</label>
+      <input type="text" id="fText" placeholder="search item / email / txn no" style="min-width:220px" />
+      <span class="muted" id="rcptCount"></span>
+    </div>
+    <div class="tablewrap"><table id="rcptTable">
+      <thead><tr>
+        <th class="l">Txn no</th><th>Amount</th><th class="l">Date</th><th class="l">Time</th>
+        <th class="l">Till</th><th class="l">Server</th><th>VAT req.</th><th>VAT sent</th><th class="l">Email</th>
+      </tr></thead>
+      <tbody id="rcptBody"></tbody></table></div>
+    <p class="muted" style="margin-top:10px">Click a row to open its VAT receipt. Tick “VAT sent” once you’ve emailed it.</p>
+  </section>
+
+  <!-- TEAM -->
+  <section id="tab-team" class="hidden">
+    <h2 class="sec">Team performance — {{day}}</h2>
+    <div class="tablewrap"><table>
+      <thead><tr><th class="l">Team member</th><th>Transactions</th><th>Sales (gross)</th><th>Refunds</th><th>Net</th></tr></thead>
+      <tbody id="teamBody"></tbody></table></div>
+  </section>
+
+  <!-- REFUNDS & VOIDS -->
+  <section id="tab-refunds" class="hidden">
+    <h2 class="sec">Refunds</h2>
+    <div class="tablewrap"><table>
+      <thead><tr><th class="l">Txn no</th><th>Amount</th><th class="l">Date</th><th class="l">Time</th><th class="l">Till</th><th class="l">Server</th></tr></thead>
+      <tbody id="refBody"></tbody></table></div>
+    <h2 class="sec">Voids (removed before payment)</h2>
+    <div class="tablewrap"><table>
+      <thead><tr><th class="l">Item</th><th>Qty</th><th>Value</th><th class="l">Scope</th><th class="l">Date</th><th class="l">Time</th><th class="l">Till</th><th class="l">Server</th></tr></thead>
+      <tbody id="voidBody"></tbody></table></div>
+  </section>
+
+  <p class="muted" style="margin-top:24px">
+    Nett = gross ÷ (1 + VAT rate) using each till’s own rate. Trading day 05:00 → 05:00. Auto-refreshes every 20 s.
+  </p>
+</div>
+
+<!-- VAT receipt overlay -->
+<div id="rcpt">
+  <div class="invoice" id="invoice"></div>
+  <div class="rcpt-actions">
+    <button onclick="downloadReceipt()">Download PDF</button>
+    <button class="primary" onclick="closeReceipt()">Close</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script>
+const CAT = {draft:"Draft",bottle:"Bottle",soft:"Soft",hot:"Hot",food:"Food"};
+const money = n => (n<0?"-£":"£") + Math.abs(Math.round((n+Number.EPSILON)*100)/100)
+  .toLocaleString("en-GB",{minimumFractionDigits:2,maximumFractionDigits:2});
+const esc = s => String(s??"").replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const txnNo = seq => "BHB-" + String(seq??0).padStart(6,"0");
+const isFood = c => c === "food";
+
+let ST = { sales:[], sessions:[], voids:[], tab:"overview", sessById:{} };
+
+/* ---------- gate ---------- */
+function tryUnlock(){
+  if(document.getElementById("pw").value === CFG.PORTAL_PASSWORD){
+    try{ sessionStorage.setItem("bhb_portal_ok","1"); }catch(e){}
+    showApp();
+  } else document.getElementById("gateErr").textContent = "Incorrect password";
+}
+document.getElementById("pw").addEventListener("keydown",e=>{ if(e.key==="Enter") tryUnlock(); });
+try{ if(sessionStorage.getItem("bhb_portal_ok")==="1") showApp(); }catch(e){}
+
+function showApp(){
+  document.getElementById("gate").classList.add("hidden");
+  document.getElementById("app").classList.remove("hidden");
+  const d = new Date();
+  if(d.getHours() < CFG.DAY_START_HOUR) d.setDate(d.getDate()-1);
+  document.getElementById("day").value = d.toISOString().slice(0,10);
+  document.getElementById("day").addEventListener("change", load);
+  document.querySelectorAll("#tabs button").forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
+  ["fTill","fVat","fText"].forEach(id=>document.getElementById(id).addEventListener("input", renderReceipts));
+  load();
+  setInterval(load, CFG.REFRESH_MS);
+}
+function setTab(t){
+  ST.tab = t;
+  document.querySelectorAll("#tabs button").forEach(b=>b.classList.toggle("active", b.dataset.tab===t));
+  ["overview","receipts","team","refunds"].forEach(x=>
+    document.getElementById("tab-"+x).classList.toggle("hidden", x!==t));
+  renderAll();
+}
+
+/* ---------- data ---------- */
+function dayWindow(){
+  const [y,m,d] = document.getElementById("day").value.split("-").map(Number);
+  const start = new Date(y, m-1, d, CFG.DAY_START_HOUR, 0, 0);
+  return { start, end: new Date(start.getTime()+24*3600*1000) };
+}
+async function sb(path, opts){
+  const r = await fetch(CFG.SUPABASE_URL + "/rest/v1/" + path, {
+    ...opts,
+    headers:{ apikey:CFG.SUPABASE_KEY, Authorization:"Bearer "+CFG.SUPABASE_KEY,
+              "content-type":"application/json", ...(opts&&opts.headers||{}) }
+  });
+  if(r.status===404 || r.status===400){
+    const b = await r.text();
+    if(/does not exist|Could not find the table|PGRST205/i.test(b)){ const e=new Error("SETUP"); e.setup=true; throw e; }
+    throw new Error(path+" → "+r.status+" "+b);
+  }
+  if(!r.ok) throw new Error(path+" → "+r.status+" "+await r.text());
+  return r.status===204 ? null : r.json();
+}
+
+let _busy=false;
+async function load(){
+  if(_busy) return; _busy=true;
+  try{
+    const {start,end}=dayWindow();
+    const [sales,sessions,voids] = await Promise.all([
+      sb(`till_sales?select=*&ts=gte.${start.toISOString()}&ts=lt.${end.toISOString()}&order=ts.desc`),
+      sb(`till_sessions?select=*`),
+      sb(`till_voids?select=*&ts=gte.${start.toISOString()}&ts=lt.${end.toISOString()}&order=ts.desc`)
+    ]);
+    ST.sales=sales; ST.sessions=sessions; ST.voids=voids;
+    ST.sessById={}; sessions.forEach(s=>ST.sessById[s.id]=s);
+    renderAll();
+    document.getElementById("updated").textContent = "updated " + new Date().toLocaleTimeString("en-GB");
+  }catch(e){
+    if(e.setup){
+      document.getElementById("updated").textContent = "waiting for setup";
+      document.getElementById("tills").innerHTML =
+        '<p class="muted">Portal tables not created yet. Run <code>supabase/schema.sql</code> in the Supabase SQL Editor.</p>';
+    } else document.getElementById("updated").textContent = "⚠ " + e.message;
+  }finally{ _busy=false; }
+}
+
+function vatOf(sale){
+  const s = ST.sessById[sale.session_id];
+  return (s && s.vat_rate!=null) ? Number(s.vat_rate) : CFG.DEFAULT_VAT;
+}
+
+/* ---------- render ---------- */
+function renderAll(){
+  document.querySelectorAll("[id^=tab-]").forEach(()=>{});
+  renderOverview(); renderReceiptsFilterOptions(); renderReceipts(); renderTeam(); renderRefunds();
+  document.querySelectorAll("#tab-team .sec").forEach(h=>h.textContent =
+    "Team performance — " + document.getElementById("day").value);
+}
+
+function renderOverview(){
+  const tills={}; let gG=0,gN=0,gItems=0,gTxn=0,gBev=0,gFood=0,gRef=0;
+  const products={};
+  for(const sale of ST.sales){
+    const dev=sale.device_id||"?"; const vat=vatOf(sale);
+    const t = tills[dev] || (tills[dev]={label:sale.device_label||"Unnamed till",
+      outlet:sale.outlet||"—", gross:0,nett:0,items:0,txn:0,bev:0,food:0,last:null,sessId:sale.session_id});
+    t.txn++; gTxn++;
+    t.gross+=+sale.total; gG+=+sale.total;
+    t.nett+=(+sale.total)/(1+vat); gN+=(+sale.total)/(1+vat);
+    if(sale.is_refund) gRef+=+sale.total;
+    if(!t.last||sale.ts>t.last) t.last=sale.ts;
+    for(const l of (sale.lines||[])){
+      const q=+l.qty||0, line=(+l.unitPrice||0)*q;
+      t.items+=q; gItems+=q;
+      if(isFood(l.category)){ t.food+=line; gFood+=line; } else { t.bev+=line; gBev+=line; }
+      const nm=l.name+(l.unitLabel?" ("+l.unitLabel.toLowerCase()+")":"");
+      const p=products[l.category+"|"+nm]||(products[l.category+"|"+nm]={name:nm,cat:l.category,qty:0,gross:0,vat});
+      p.qty+=q; p.gross+=line;
+    }
+  }
+  for(const s of ST.sessions){
+    const {start,end}=dayWindow(); const o=new Date(s.opened_at);
+    if(o>=start && o<end && !tills[s.device_id])
+      tills[s.device_id]={label:s.device_label||"Unnamed till",outlet:s.outlet||"—",
+        gross:0,nett:0,items:0,txn:0,bev:0,food:0,last:null,sessId:s.id,empty:true};
+  }
+  set("kGross",money(gG)); set("kNett",money(gN)); set("kVat",money(gG-gN));
+  set("kTxn",gTxn); set("kItems",gItems); set("kRef",money(gRef));
+  set("sBev",money(gBev)); set("sFood",money(gFood)); set("sTills",Object.keys(tills).length);
+
+  const wrap=document.getElementById("tills");
+  const arr=Object.values(tills).sort((a,b)=>b.gross-a.gross);
+  wrap.innerHTML = arr.length? "" : '<p class="muted">No tills have traded on this day yet.</p>';
+  for(const t of arr){
+    const sess=ST.sessById[t.sessId]; const open = sess? !sess.closed : true;
+    const el=document.createElement("div"); el.className="till";
+    el.innerHTML=`<span class="dot ${open?'open':'closed'}">${open?'OPEN':'CLOSED'}</span>
+      <div class="outlet">${esc(t.outlet)}</div><h3>${esc(t.label)}</h3>
+      <div class="grid">
+        <div><span>Gross</span><b>${money(t.gross)}</b></div>
+        <div><span>Nett</span><b>${money(t.nett)}</b></div>
+        <div><span>Transactions</span><b>${t.txn}</b></div>
+        <div><span>Items</span><b>${t.items}</b></div>
+      </div>
+      <div class="fb"><span>Bev ${money(t.bev)}</span><span>Food ${money(t.food)}</span></div>
+      <div class="last">${t.last? "last sale "+new Date(t.last).toLocaleTimeString("en-GB") : "no sales yet"}</div>`;
+    wrap.appendChild(el);
+  }
+  const pb=document.getElementById("prodBody");
+  const rows=Object.values(products).sort((a,b)=>{
+    const o=["draft","bottle","soft","hot","food"];
+    return (o.indexOf(a.cat)-o.indexOf(b.cat)) || b.gross-a.gross; });
+  pb.innerHTML = rows.length? "" : '<tr><td colspan="5" class="muted">No sales yet.</td></tr>';
+  for(const p of rows){
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td class="l">${esc(p.name)}</td><td class="l">${CAT[p.cat]||p.cat}</td>
+      <td>${p.qty}</td><td>${money(p.gross)}</td><td>${money(p.gross/(1+p.vat))}</td>`;
+    pb.appendChild(tr);
+  }
+}
+
+function renderReceiptsFilterOptions(){
+  const sel=document.getElementById("fTill");
+  const cur=sel.value;
+  const tills=[...new Set(ST.sales.map(s=>s.device_label||"Unnamed till"))].sort();
+  sel.innerHTML='<option value="">All tills</option>'+tills.map(t=>`<option>${esc(t)}</option>`).join("");
+  sel.value=cur;
+}
+function receiptsFiltered(){
+  const till=document.getElementById("fTill").value;
+  const vatOnly=document.getElementById("fVat").checked;
+  const q=document.getElementById("fText").value.trim().toLowerCase();
+  return ST.sales.filter(s=>{
+    if(till && (s.device_label||"Unnamed till")!==till) return false;
+    if(vatOnly && !s.vat_requested) return false;
+    if(q){
+      const hay=[txnNo(s.seq), s.vat_email, (s.team_member||""), (s.lines||[]).map(l=>l.name).join(" ")].join(" ").toLowerCase();
+      if(!hay.includes(q)) return false;
+    }
+    return true;
+  });
+}
+function renderReceipts(){
+  const rows=receiptsFiltered();
+  document.getElementById("rcptCount").textContent = rows.length+" transaction"+(rows.length===1?"":"s");
+  const b=document.getElementById("rcptBody");
+  b.innerHTML = rows.length? "" : '<tr><td colspan="9" class="muted">Nothing matches.</td></tr>';
+  for(const s of rows){
+    const d=new Date(s.ts); const tr=document.createElement("tr"); tr.className="clk";
+    tr.onclick=(ev)=>{ if(ev.target.tagName!=="INPUT") openReceipt(s.id); };
+    tr.innerHTML=`
+      <td class="l">${txnNo(s.seq)}</td>
+      <td class="${(+s.total)<0?'neg':''}">${money(+s.total)}</td>
+      <td class="l">${d.toLocaleDateString("en-GB")}</td>
+      <td class="l">${d.toLocaleTimeString("en-GB")}</td>
+      <td class="l">${esc(s.device_label||"Unnamed till")}</td>
+      <td class="l">${esc(s.team_member||"—")}</td>
+      <td class="yn ${s.vat_requested?'y':'n'}">${s.vat_requested?"Y":"N"}</td>
+      <td><input type="checkbox" ${s.vat_sent?"checked":""} ${s.vat_requested?"":"disabled"}
+           onchange="markVatSent('${s.id}', this.checked)"></td>
+      <td class="l">${esc(s.vat_email||"")}</td>`;
+    b.appendChild(tr);
+  }
+}
+async function markVatSent(id, val){
+  try{ await sb(`till_sales?id=eq.${id}`, {method:"PATCH", body:JSON.stringify({vat_sent:val})});
+       const s=ST.sales.find(x=>x.id===id); if(s) s.vat_sent=val; }
+  catch(e){ alert("Could not update: "+e.message); load(); }
+}
+
+function renderTeam(){
+  const t={};
+  for(const s of ST.sales){
+    const who=s.team_member||"Unassigned";
+    const x=t[who]||(t[who]={txn:0,gross:0,refund:0});
+    x.txn++; if(s.is_refund) x.refund+=+s.total; else x.gross+=+s.total;
+  }
+  const b=document.getElementById("teamBody");
+  const rows=Object.entries(t).sort((a,b)=>(b[1].gross+b[1].refund)-(a[1].gross+a[1].refund));
+  b.innerHTML = rows.length? "" : '<tr><td colspan="5" class="muted">No sales yet.</td></tr>';
+  for(const [who,x] of rows){
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td class="l">${esc(who)}</td><td>${x.txn}</td><td>${money(x.gross)}</td>
+      <td class="${x.refund?'neg':''}">${money(x.refund)}</td><td>${money(x.gross+x.refund)}</td>`;
+    b.appendChild(tr);
+  }
+}
+
+function renderRefunds(){
+  const rb=document.getElementById("refBody");
+  const refs=ST.sales.filter(s=>s.is_refund);
+  rb.innerHTML = refs.length? "" : '<tr><td colspan="6" class="muted">No refunds.</td></tr>';
+  for(const s of refs){
+    const d=new Date(s.ts); const tr=document.createElement("tr"); tr.className="clk";
+    tr.onclick=()=>openReceipt(s.id);
+    tr.innerHTML=`<td class="l">${txnNo(s.seq)}</td><td class="neg">${money(+s.total)}</td>
+      <td class="l">${d.toLocaleDateString("en-GB")}</td><td class="l">${d.toLocaleTimeString("en-GB")}</td>
+      <td class="l">${esc(s.device_label||"Unnamed till")}</td><td class="l">${esc(s.team_member||"—")}</td>`;
+    rb.appendChild(tr);
+  }
+  const vb=document.getElementById("voidBody");
+  vb.innerHTML = ST.voids.length? "" : '<tr><td colspan="8" class="muted">No voids.</td></tr>';
+  for(const v of ST.voids){
+    const d=new Date(v.ts); const tr=document.createElement("tr");
+    tr.innerHTML=`<td class="l">${esc(v.item_name)}${v.unit_label?" ("+esc(v.unit_label.toLowerCase())+")":""}</td>
+      <td>${v.qty}</td><td>${money((+v.unit_price)*(+v.qty))}</td>
+      <td class="l">${v.scope==='all'?'void all':'void 1'}</td>
+      <td class="l">${d.toLocaleDateString("en-GB")}</td><td class="l">${d.toLocaleTimeString("en-GB")}</td>
+      <td class="l">${esc(v.device_label||"Unnamed till")}</td><td class="l">${esc(v.team_member||"—")}</td>`;
+    vb.appendChild(tr);
+  }
+}
+
+/* ---------- VAT receipt ---------- */
+function openReceipt(id){
+  const s = ST.sales.find(x=>x.id===id); if(!s) return;
+  const vat = vatOf(s);
+  const d = new Date(s.ts);
+  const lines = (s.lines||[]).map(l=>{
+    const q=+l.qty||0, gross=(+l.unitPrice||0)*q, nett=gross/(1+vat);
+    return `<tr><td>${esc(l.name)}${l.unitLabel?" ("+esc(l.unitLabel.toLowerCase())+")":""}</td>
+      <td style="text-align:right">${q}</td>
+      <td style="text-align:right">${money(gross/q)}</td>
+      <td style="text-align:right">${money(nett)}</td>
+      <td style="text-align:right">${money(gross)}</td></tr>`;
+  }).join("");
+  const gTot=+s.total, nTot=gTot/(1+vat), vTot=gTot-nTot;
+  document.getElementById("invoice").innerHTML = `
+    <div class="top">
+      <img src="${CFG.LOGO_URL}" alt="Black Horse Beamish" crossorigin="anonymous"/>
+      <div class="co">
+        <strong>${esc(CFG.COMPANY_NAME)}</strong><br/>
+        ${esc(CFG.COMPANY_ADDRESS)}<br/>
+        VAT No. ${esc(CFG.VAT_NUMBER)}
+      </div>
+    </div>
+    <h1 style="margin-top:24px">${gTot<0?"VAT Credit Note":"VAT Receipt"}</h1>
+    <div class="meta">
+      <div><strong>Receipt no</strong><br/>${txnNo(s.seq)}</div>
+      <div><strong>Date</strong><br/>${d.toLocaleDateString("en-GB")} ${d.toLocaleTimeString("en-GB")}</div>
+      <div><strong>Outlet</strong><br/>${esc(s.outlet||"")}${s.device_label?" · "+esc(s.device_label):""}</div>
+      <div><strong>Served by</strong><br/>${esc(s.team_member||"—")}</div>
+    </div>
+    <table>
+      <thead><tr><th style="text-align:left">Description</th><th style="text-align:right">Qty</th>
+        <th style="text-align:right">Unit</th><th style="text-align:right">Nett</th><th style="text-align:right">Gross</th></tr></thead>
+      <tbody>${lines}</tbody>
+      <tbody>
+        <tr class="tot"><td colspan="4" style="text-align:right">Subtotal (nett)</td><td style="text-align:right">${money(nTot)}</td></tr>
+        <tr class="tot"><td colspan="4" style="text-align:right">VAT @ ${(vat*100).toFixed(0)}%</td><td style="text-align:right">${money(vTot)}</td></tr>
+        <tr class="tot"><td colspan="4" style="text-align:right">Total ${gTot<0?"refunded":"paid"} (card)</td><td style="text-align:right">${money(gTot)}</td></tr>
+      </tbody>
+    </table>
+    <p style="margin-top:24px;font-size:11px;color:#666">
+      ${esc(CFG.COMPANY_NAME)} · VAT registration ${esc(CFG.VAT_NUMBER)} · This document is a valid VAT receipt.
+    </p>`;
+  document.getElementById("rcpt").classList.add("show");
+  ST._rcptName = txnNo(s.seq);
+}
+function closeReceipt(){ document.getElementById("rcpt").classList.remove("show"); }
+function downloadReceipt(){
+  const el = document.getElementById("invoice");
+  if(window.html2pdf){
+    html2pdf().set({margin:10, filename:(ST._rcptName||"receipt")+".pdf",
+      image:{type:"jpeg",quality:0.98}, html2canvas:{scale:2,useCORS:true},
+      jsPDF:{unit:"mm",format:"a4",orientation:"portrait"}}).from(el).save();
+  } else { window.print(); }
+}
+function set(id,v){ document.getElementById(id).textContent = v; }
+</script>
+</body>
+</html>
