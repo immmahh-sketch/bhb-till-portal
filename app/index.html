@@ -32,6 +32,11 @@
   .wordmark{font-family:Georgia,serif;text-align:center;line-height:1}
   .wordmark b{font-size:26px;letter-spacing:1px}
   .wordmark span{display:block;font-size:12px;letter-spacing:5px;color:var(--brass);margin-top:4px}
+  .lg-d,.lg-l{display:block;height:auto;object-fit:contain}
+  #setup .lg-d,#gate .lg-d{width:230px;max-width:70%;margin:0 auto 8px}
+  .topbar .lg-l{height:30px;width:auto}
+  #thanks .lg-l{height:44px;width:auto;margin-bottom:26px;opacity:.95}
+  #printarea .lg-d{height:52px;width:auto;margin-bottom:14px}
   .btn-primary{width:100%;padding:15px;border-radius:12px;background:var(--claret);color:#fff;font-size:17px;
     font-weight:800;letter-spacing:1px}
   .btn-primary:disabled{background:#c9c2b4;color:#fff}
@@ -131,7 +136,7 @@
 <!-- ======================= GATE (once per tablet) ======================= -->
 <section id="gate" class="screen">
   <div class="card">
-    <div class="wordmark"><b>BLACK HORSE</b><span>BEAMISH · TILL</span></div>
+    <img class="lg-d" src="./logo-dark.png" alt="Black Horse Beamish">
     <h1>Enter access password</h1>
     <p class="sub">Asked once per tablet. After this the till works offline.</p>
     <div class="fld"><label>Password</label><input id="gPw" type="password" autocomplete="off"></div>
@@ -143,7 +148,7 @@
 <!-- ======================= SETUP ======================= -->
 <section id="setup" class="screen">
   <div class="card">
-    <div class="wordmark"><b>BLACK HORSE</b><span>BEAMISH</span></div>
+    <img class="lg-d" src="./logo-dark.png" alt="Black Horse Beamish">
     <h1>Which outlet is this till?</h1>
     <p class="sub">Each outlet reports separately on the portal.</p>
     <div class="fld">
@@ -165,7 +170,7 @@
 <!-- ======================= TILL ======================= -->
 <section id="till" class="screen">
   <div class="topbar" id="topbar">
-    <span class="wm">BH</span>
+    <img class="lg-l" src="./logo-light.png" alt="Black Horse Beamish">
     <span class="outlet" id="tbOutlet">—</span>
     <button id="tbName">Name</button>
     <button id="tbRefund">Refund</button>
@@ -193,6 +198,7 @@
 
 <!-- ======================= THANK YOU ======================= -->
 <section id="thanks" class="screen">
+  <img class="lg-l" src="./logo-light.png" alt="">
   <div class="big" id="thBig">Thank you</div>
   <div class="sub" id="thSub">next customer please</div>
   <button class="vat" id="thVat">VAT receipt</button>
@@ -274,7 +280,7 @@ var CFG = {
   PASSWORD: "P455w0rd1",
   VAT_DEFAULT: 0.20,
   DAY_START_HOUR: 5,
-  BUILD: "web-1.2 (2026-09-03)"
+  BUILD: "web-1.3 (2026-09-03)"
 };
 // Must match kPresetOutlets in the app (lib/models/enums.dart).
 var OUTLETS = ["Outside Bar","Marquee pop up food station","Marquee pop up bar","Marquee BBQ","Field BBQ","Car Barn BBQ","Other"];
@@ -720,7 +726,7 @@ function showRead(type){
   });
 }
 function printRead(){
-  $("printarea").innerHTML = '<div class="wordmark" style="text-align:left"><b>BLACK HORSE BEAMISH</b></div>' + $("readOut")._html;
+  $("printarea").innerHTML = '<img class="lg-d" src="./logo-dark.png" alt="Black Horse Beamish">' + $("readOut")._html;
   window.print();
 }
 function doZRead(){
@@ -732,19 +738,24 @@ function doZRead(){
     Promise.all([ stPut('archive', arc), kvPut('session', S.session) ])
       .then(function(){ return S.online ? sync() : null; })
       .then(function(){
-        // fresh session, same outlet + server
-        S.session = { id:uuid(), outlet:S.settings.outlet, teamMember:S.settings.teamMember,
-          openedAt:Date.now(), firstSaleAt:null, closed:false };
-        return kvPut('session', S.session);
+        // session ended — clear it. Next person sets the till up fresh.
+        S._zSales = sales;      // keep for print/void until they leave
+        S.session = null;
+        return delKv('session');
       }).then(function(){
         $("readOut").innerHTML = readHtml(r) +
-          '<p style="color:var(--claret);font-weight:700;margin-top:14px">Session closed. A new session has started.</p>'+
-          '<div class="row2"><button class="b-out" onclick="printRead()">Print / Save PDF</button></div>';
+          '<p style="color:var(--claret);font-weight:700;margin-top:14px">Session closed and totals cleared.</p>'+
+          '<div class="row2">'+
+            '<button class="b-out" onclick="printRead()">Print / Save PDF</button>'+
+            '<button class="b-claret" onclick="show(\'setup\')">Start new session</button>'+
+          '</div>';
         $("readOut")._html = readHtml(r);
+        $("tbOutlet").textContent = "—";
         countPending();
       });
   });
 }
+function delKv(k){ return tx('kv','readwrite').then(function(s){ return new Promise(function(res){ var r=s.delete(k); r.onsuccess=function(){res();}; r.onerror=function(){res();} ; }); }); }
 
 /* ============================ SETTINGS + MENU EDIT ============================ */
 function openSettings(){
@@ -866,9 +877,10 @@ function autoCloseCheck(){
       var arc={ id:uuid(), ts:Date.now(), outlet:r.outlet, gross:r.gross, html:readHtml(r), auto:true };
       S.session.closed=true; S.session.closedAt=Date.now();
       Promise.all([stPut('archive',arc), kvPut('session',S.session)]).then(function(){
-        S.session={ id:uuid(), outlet:S.settings.outlet, teamMember:S.settings.teamMember,
-          openedAt:Date.now(), firstSaleAt:null, closed:false };
-        kvPut('session',S.session); if(S.online) sync();
+        // 2am auto-close: end the session; next person sets the till up fresh.
+        S.session=null; delKv('session'); if(S.online) sync();
+        if(!document.getElementById("till").classList.contains("on")) return;
+        $("tbOutlet").textContent="—"; show("setup");
       });
     });
   }
@@ -890,15 +902,22 @@ function wire(){
   $("payCard").onclick=completePay;
   $("thanks").onclick=function(e){ if(e.target.id==="thVat") return; nextCustomer(); };
   $("thVat").onclick=vatReceipt;
-  $("rpBack").onclick=function(){ enterTill(); };
-  $("stBack").onclick=function(){ enterTill(); };
+  $("rpBack").onclick=function(){ S.session ? enterTill() : show("setup"); };
+  $("stBack").onclick=function(){ S.session ? enterTill() : show("setup"); };
   $("stSaveSync").onclick=function(){ saveSettings(); };
   $("mAddCat").onchange=function(){ $("mAddHalf").disabled=this.value!=="draft"; };
   $("mAddBtn").onclick=menuAdd;
   window.addEventListener("online", function(){ S.online=true; renderSyncPills(); sync(); });
   window.addEventListener("offline", function(){ S.online=false; renderSyncPills(); });
 }
-function openReports(){ renderSyncPills(); showRead('X'); show("reports"); }
+function openReports(){
+  renderSyncPills(); show("reports");
+  if(S.session){ showRead('X'); }
+  else {
+    $("readOut").innerHTML = '<p class="muted">No session open. Start one from the '+
+      '<a href="#" onclick="show(\'setup\');return false">setup screen</a>.</p>';
+  }
+}
 
 /* ============================ GATE ============================ */
 function tryGate(){

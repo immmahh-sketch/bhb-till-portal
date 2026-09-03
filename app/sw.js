@@ -1,11 +1,13 @@
 /* Black Horse Till — service worker. Cache-first for the app shell so the till
    runs with no network. Bump CACHE when you change any shell file. */
-const CACHE = 'bh-till-v4';
+const CACHE = 'bh-till-v5';
 const SHELL = [
   './',
   './index.html',
   './manifest.webmanifest',
   './icon.svg',
+  './logo-dark.png',
+  './logo-light.png',
 ];
 
 self.addEventListener('install', (e) => {
