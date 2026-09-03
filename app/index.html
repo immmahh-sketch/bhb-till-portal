@@ -144,12 +144,8 @@
 <section id="setup" class="screen">
   <div class="card">
     <div class="wordmark"><b>BLACK HORSE</b><span>BEAMISH</span></div>
-    <h1>Set up this till</h1>
-    <p class="sub">Each till identifies itself separately on the reports.</p>
-    <div class="fld">
-      <label>This till's name</label>
-      <input id="suLabel" type="text" autocomplete="off" placeholder="e.g. Marquee Till 1">
-    </div>
+    <h1>Which outlet is this till?</h1>
+    <p class="sub">Each outlet reports separately on the portal.</p>
     <div class="fld">
       <label>Outlet</label>
       <select id="suOutlet"><option value="">Select an outlet</option></select>
@@ -220,8 +216,7 @@
 <section id="settings" class="screen sheet">
   <div class="hd"><button id="stBack">‹ Home</button><h2>Settings</h2><span class="syncpill" id="stSync"></span></div>
   <div class="cont">
-    <div class="fld"><label>This tablet's name (shows on the portal)</label><input id="stLabel" type="text"></div>
-    <div class="fld"><label>Outlet</label><input id="stOutlet" type="text"></div>
+    <div class="fld"><label>Outlet (this till's identity on the portal)</label><input id="stOutlet" type="text"></div>
     <div class="fld"><label>Server on till</label><input id="stName" type="text"></div>
     <div class="fld"><label>VAT rate %</label><input id="stVat" type="number" step="0.5" min="0" max="100"></div>
     <div class="row2">
@@ -279,9 +274,10 @@ var CFG = {
   PASSWORD: "P455w0rd1",
   VAT_DEFAULT: 0.20,
   DAY_START_HOUR: 5,
-  BUILD: "web-1.0 (2026-09-02)"
+  BUILD: "web-1.2 (2026-09-03)"
 };
-var OUTLETS = ["Field BBQ","Marquee Bar","Courtyard Bar","Car Barn","Beer Tent","Pizza Station","Coffee Cart","Other"];
+// Must match kPresetOutlets in the app (lib/models/enums.dart).
+var OUTLETS = ["Outside Bar","Marquee pop up food station","Marquee pop up bar","Marquee BBQ","Field BBQ","Car Barn BBQ","Other"];
 var CAT = {
   draft:{label:"Draft",v:"--draft"}, bottle:{label:"Bottles",v:"--bottle"},
   soft:{label:"Soft & Hot",v:"--soft"}, hot:{label:"Hot",v:"--hot"},
@@ -330,7 +326,7 @@ function stDel(store,k){ return tx(store,'readwrite').then(function(s){ return n
 
 /* ============================ STATE ============================ */
 var S = {
-  settings:{ outlet:"", teamMember:"", vatRate:CFG.VAT_DEFAULT, deviceId:"", deviceLabel:"" },
+  settings:{ outlet:"", teamMember:"", vatRate:CFG.VAT_DEFAULT, deviceId:"" },
   session:null,           // {id, outlet, teamMember, openedAt, firstSaleAt, closed}
   menu:[],
   cart:{ lines:[], refund:false },
@@ -382,7 +378,8 @@ function pushPending(){
     chain = chain.then(function(){
       return sbFetch("till_sessions?on_conflict=id", { method:"POST",
         prefer:"resolution=merge-duplicates,return=minimal", body:[{
-          id:ses.id, device_id:S.settings.deviceId, device_label:S.settings.deviceLabel||null,
+          id:ses.id, device_id:S.settings.deviceId,
+          device_label:ses.outlet||"Unassigned outlet",
           outlet:ses.outlet||"Unassigned outlet",
           team_member:ses.teamMember||null,
           opened_at:new Date(ses.openedAt).toISOString(),
@@ -400,7 +397,7 @@ function pushPending(){
         return sbFetch("till_sales?on_conflict=id", { method:"POST",
           prefer:"resolution=merge-duplicates,return=minimal", body:[{
             id:sale.id, session_id:sale.session_id, device_id:S.settings.deviceId,
-            device_label:S.settings.deviceLabel||null, outlet:sale.outlet,
+            device_label:sale.outlet, outlet:sale.outlet,
             team_member:sale.team_member||null, ts:new Date(sale.ts).toISOString(),
             total:sale.total, is_refund:!!sale.is_refund,
             vat_requested:!!sale.vat_requested, vat_email:sale.vat_email||null,
@@ -415,7 +412,7 @@ function pushPending(){
         return sbFetch("till_voids?on_conflict=id", { method:"POST",
           prefer:"resolution=merge-duplicates,return=minimal", body:[{
             id:v.id, session_id:v.session_id, device_id:S.settings.deviceId,
-            device_label:S.settings.deviceLabel||null, outlet:v.outlet,
+            device_label:v.outlet, outlet:v.outlet,
             team_member:v.team_member||null, ts:new Date(v.ts).toISOString(),
             item_name:v.item_name, unit_label:v.unit_label||null, category:v.category,
             qty:v.qty, unit_price:v.unit_price, scope:v.scope
@@ -463,21 +460,19 @@ function initSetup(){
   function chk(){
     var v = sel.value==="Other" ? $("suOther").value.trim() : sel.value;
     $("suOtherWrap").style.display = sel.value==="Other" ? "" : "none";
-    $("suOpen").disabled = !(v && $("suName").value.trim() && $("suLabel").value.trim());
+    $("suOpen").disabled = !(v && $("suName").value.trim());
   }
-  sel.onchange=chk; $("suOther").oninput=chk; $("suName").oninput=chk; $("suLabel").oninput=chk;
+  sel.onchange=chk; $("suOther").oninput=chk; $("suName").oninput=chk;
   if(S.settings.teamMember) $("suName").value=S.settings.teamMember;
-  if(S.settings.deviceLabel) $("suLabel").value=S.settings.deviceLabel;
   if(S.settings.outlet && OUTLETS.indexOf(S.settings.outlet)>=0) sel.value=S.settings.outlet;
   chk();
   $("suOpen").onclick=function(){
     var outlet = sel.value==="Other" ? $("suOther").value.trim() : sel.value;
-    openTill(outlet, $("suName").value.trim(), $("suLabel").value.trim());
+    openTill(outlet, $("suName").value.trim());
   };
 }
-function openTill(outlet, name, label){
+function openTill(outlet, name){
   S.settings.outlet=outlet; S.settings.teamMember=name;
-  if(label) S.settings.deviceLabel=label;
   S.session = { id:uuid(), outlet:outlet, teamMember:name, openedAt:Date.now(),
                 firstSaleAt:null, closed:false };
   Promise.all([ kvPut('settings', S.settings), kvPut('session', S.session) ]).then(function(){
@@ -753,7 +748,6 @@ function doZRead(){
 
 /* ============================ SETTINGS + MENU EDIT ============================ */
 function openSettings(){
-  $("stLabel").value=S.settings.deviceLabel||"";
   $("stOutlet").value=S.settings.outlet||"";
   $("stName").value=S.settings.teamMember||"";
   $("stVat").value=(S.settings.vatRate*100).toString();
@@ -761,7 +755,6 @@ function openSettings(){
   renderMenuList(); renderSyncPills(); show("settings");
 }
 function saveSettings(){
-  S.settings.deviceLabel=$("stLabel").value.trim();
   S.settings.outlet=$("stOutlet").value.trim();
   S.settings.teamMember=$("stName").value.trim();
   var vp=parseFloat($("stVat").value); if(!isNaN(vp)&&vp>=0&&vp<=100) S.settings.vatRate=vp/100;

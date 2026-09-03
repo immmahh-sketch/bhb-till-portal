@@ -174,7 +174,7 @@
   <!-- RECEIPTS -->
   <section id="tab-receipts" class="hidden">
     <div class="controls" style="margin-bottom:12px">
-      <select id="fTill"><option value="">All tills</option></select>
+      <select id="fTill"><option value="">All outlets</option></select>
       <label class="muted"><input type="checkbox" id="fVat" /> VAT requested only</label>
       <input type="text" id="fText" placeholder="search item / email / txn no" style="min-width:220px" />
       <span class="muted" id="rcptCount"></span>
@@ -182,7 +182,7 @@
     <div class="tablewrap"><table id="rcptTable">
       <thead><tr>
         <th class="l">Txn no</th><th>Amount</th><th class="l">Date</th><th class="l">Time</th>
-        <th class="l">Till</th><th class="l">Server</th><th>VAT req.</th><th>VAT sent</th><th class="l">Email</th>
+        <th class="l">Outlet</th><th class="l">Server</th><th>VAT req.</th><th>VAT sent</th><th class="l">Email</th>
       </tr></thead>
       <tbody id="rcptBody"></tbody></table></div>
     <p class="muted" style="margin-top:10px">Click a row to open its VAT receipt. Tick “VAT sent” once you’ve emailed it.</p>
@@ -200,11 +200,11 @@
   <section id="tab-refunds" class="hidden">
     <h2 class="sec">Refunds</h2>
     <div class="tablewrap"><table>
-      <thead><tr><th class="l">Txn no</th><th>Amount</th><th class="l">Date</th><th class="l">Time</th><th class="l">Till</th><th class="l">Server</th></tr></thead>
+      <thead><tr><th class="l">Txn no</th><th>Amount</th><th class="l">Date</th><th class="l">Time</th><th class="l">Outlet</th><th class="l">Server</th></tr></thead>
       <tbody id="refBody"></tbody></table></div>
     <h2 class="sec">Voids (removed before payment)</h2>
     <div class="tablewrap"><table>
-      <thead><tr><th class="l">Item</th><th>Qty</th><th>Value</th><th class="l">Scope</th><th class="l">Date</th><th class="l">Time</th><th class="l">Till</th><th class="l">Server</th></tr></thead>
+      <thead><tr><th class="l">Item</th><th>Qty</th><th>Value</th><th class="l">Scope</th><th class="l">Date</th><th class="l">Time</th><th class="l">Outlet</th><th class="l">Server</th></tr></thead>
       <tbody id="voidBody"></tbody></table></div>
   </section>
 
@@ -356,10 +356,14 @@ function renderAll(){
 function renderOverview(){
   const tills={}; let gG=0,gN=0,gItems=0,gTxn=0,gBev=0,gFood=0,gRef=0;
   const products={};
+  function till(key){
+    return tills[key] || (tills[key]={outlet:key,gross:0,nett:0,items:0,txn:0,bev:0,food:0,
+      last:null,devices:new Set(),anyOpen:false});
+  }
   for(const sale of ST.sales){
-    const dev=sale.device_id||"?"; const vat=vatOf(sale);
-    const t = tills[dev] || (tills[dev]={label:sale.device_label||"Unnamed till",
-      outlet:sale.outlet||"—", gross:0,nett:0,items:0,txn:0,bev:0,food:0,last:null,sessId:sale.session_id});
+    const key=sale.outlet||"Unassigned outlet"; const vat=vatOf(sale);
+    const t=till(key);
+    if(sale.device_id) t.devices.add(sale.device_id);
     t.txn++; gTxn++;
     t.gross+=+sale.total; gG+=+sale.total;
     t.nett+=(+sale.total)/(1+vat); gN+=(+sale.total)/(1+vat);
@@ -374,11 +378,14 @@ function renderOverview(){
       p.qty+=q; p.gross+=line;
     }
   }
+  const {start,end}=dayWindow();
   for(const s of ST.sessions){
-    const {start,end}=dayWindow(); const o=new Date(s.opened_at);
-    if(o>=start && o<end && !tills[s.device_id])
-      tills[s.device_id]={label:s.device_label||"Unnamed till",outlet:s.outlet||"—",
-        gross:0,nett:0,items:0,txn:0,bev:0,food:0,last:null,sessId:s.id,empty:true};
+    const o=new Date(s.opened_at);
+    if(o>=start && o<end){
+      const t=till(s.outlet||"Unassigned outlet");
+      if(s.device_id) t.devices.add(s.device_id);
+      if(!s.closed) t.anyOpen=true;
+    }
   }
   set("kGross",money(gG)); set("kNett",money(gN)); set("kVat",money(gG-gN));
   set("kTxn",gTxn); set("kItems",gItems); set("kRef",money(gRef));
@@ -388,10 +395,10 @@ function renderOverview(){
   const arr=Object.values(tills).sort((a,b)=>b.gross-a.gross);
   wrap.innerHTML = arr.length? "" : '<p class="muted">No tills have traded on this day yet.</p>';
   for(const t of arr){
-    const sess=ST.sessById[t.sessId]; const open = sess? !sess.closed : true;
+    const nDev=t.devices.size;
     const el=document.createElement("div"); el.className="till";
-    el.innerHTML=`<span class="dot ${open?'open':'closed'}">${open?'OPEN':'CLOSED'}</span>
-      <div class="outlet">${esc(t.outlet)}</div><h3>${esc(t.label)}</h3>
+    el.innerHTML=`<span class="dot ${t.anyOpen?'open':'closed'}">${t.anyOpen?'OPEN':'CLOSED'}</span>
+      <div class="outlet">OUTLET</div><h3>${esc(t.outlet)}</h3>
       <div class="grid">
         <div><span>Gross</span><b>${money(t.gross)}</b></div>
         <div><span>Nett</span><b>${money(t.nett)}</b></div>
@@ -399,7 +406,7 @@ function renderOverview(){
         <div><span>Items</span><b>${t.items}</b></div>
       </div>
       <div class="fb"><span>Bev ${money(t.bev)}</span><span>Food ${money(t.food)}</span></div>
-      <div class="last">${t.last? "last sale "+new Date(t.last).toLocaleTimeString("en-GB") : "no sales yet"}</div>`;
+      <div class="last">${t.last? "last sale "+new Date(t.last).toLocaleTimeString("en-GB") : "no sales yet"}${nDev>1?" · "+nDev+" tablets":""}</div>`;
     wrap.appendChild(el);
   }
   const pb=document.getElementById("prodBody");
@@ -418,8 +425,8 @@ function renderOverview(){
 function renderReceiptsFilterOptions(){
   const sel=document.getElementById("fTill");
   const cur=sel.value;
-  const tills=[...new Set(ST.sales.map(s=>s.device_label||"Unnamed till"))].sort();
-  sel.innerHTML='<option value="">All tills</option>'+tills.map(t=>`<option>${esc(t)}</option>`).join("");
+  const tills=[...new Set(ST.sales.map(s=>s.outlet||"Unassigned outlet"))].sort();
+  sel.innerHTML='<option value="">All outlets</option>'+tills.map(t=>`<option>${esc(t)}</option>`).join("");
   sel.value=cur;
 }
 function receiptsFiltered(){
@@ -427,7 +434,7 @@ function receiptsFiltered(){
   const vatOnly=document.getElementById("fVat").checked;
   const q=document.getElementById("fText").value.trim().toLowerCase();
   return ST.sales.filter(s=>{
-    if(till && (s.device_label||"Unnamed till")!==till) return false;
+    if(till && (s.outlet||"Unassigned outlet")!==till) return false;
     if(vatOnly && !s.vat_requested) return false;
     if(q){
       const hay=[txnNo(s.seq), s.vat_email, (s.team_member||""), (s.lines||[]).map(l=>l.name).join(" ")].join(" ").toLowerCase();
@@ -449,7 +456,7 @@ function renderReceipts(){
       <td class="${(+s.total)<0?'neg':''}">${money(+s.total)}</td>
       <td class="l">${d.toLocaleDateString("en-GB")}</td>
       <td class="l">${d.toLocaleTimeString("en-GB")}</td>
-      <td class="l">${esc(s.device_label||"Unnamed till")}</td>
+      <td class="l">${esc(s.outlet||"Unassigned outlet")}</td>
       <td class="l">${esc(s.team_member||"—")}</td>
       <td class="yn ${s.vat_requested?'y':'n'}">${s.vat_requested?"Y":"N"}</td>
       <td><input type="checkbox" ${s.vat_sent?"checked":""} ${s.vat_requested?"":"disabled"}
@@ -491,7 +498,7 @@ function renderRefunds(){
     tr.onclick=()=>openReceipt(s.id);
     tr.innerHTML=`<td class="l">${txnNo(s.seq)}</td><td class="neg">${money(+s.total)}</td>
       <td class="l">${d.toLocaleDateString("en-GB")}</td><td class="l">${d.toLocaleTimeString("en-GB")}</td>
-      <td class="l">${esc(s.device_label||"Unnamed till")}</td><td class="l">${esc(s.team_member||"—")}</td>`;
+      <td class="l">${esc(s.outlet||"Unassigned outlet")}</td><td class="l">${esc(s.team_member||"—")}</td>`;
     rb.appendChild(tr);
   }
   const vb=document.getElementById("voidBody");
@@ -502,7 +509,7 @@ function renderRefunds(){
       <td>${v.qty}</td><td>${money((+v.unit_price)*(+v.qty))}</td>
       <td class="l">${v.scope==='all'?'void all':'void 1'}</td>
       <td class="l">${d.toLocaleDateString("en-GB")}</td><td class="l">${d.toLocaleTimeString("en-GB")}</td>
-      <td class="l">${esc(v.device_label||"Unnamed till")}</td><td class="l">${esc(v.team_member||"—")}</td>`;
+      <td class="l">${esc(v.outlet||"Unassigned outlet")}</td><td class="l">${esc(v.team_member||"—")}</td>`;
     vb.appendChild(tr);
   }
 }
@@ -627,7 +634,7 @@ function openReceipt(id){
     <div class="meta">
       <div><strong>Receipt no</strong><br/>${txnNo(s.seq)}</div>
       <div><strong>Date</strong><br/>${d.toLocaleDateString("en-GB")} ${d.toLocaleTimeString("en-GB")}</div>
-      <div><strong>Outlet</strong><br/>${esc(s.outlet||"")}${s.device_label?" · "+esc(s.device_label):""}</div>
+      <div><strong>Outlet</strong><br/>${esc(s.outlet||"")}</div>
       <div><strong>Served by</strong><br/>${esc(s.team_member||"—")}</div>
     </div>
     <table>

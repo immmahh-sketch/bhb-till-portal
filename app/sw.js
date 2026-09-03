@@ -1,6 +1,6 @@
 /* Black Horse Till — service worker. Cache-first for the app shell so the till
    runs with no network. Bump CACHE when you change any shell file. */
-const CACHE = 'bh-till-v2';
+const CACHE = 'bh-till-v4';
 const SHELL = [
   './',
   './index.html',
