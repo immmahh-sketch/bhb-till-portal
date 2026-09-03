@@ -128,12 +128,28 @@
 </head>
 <body>
 
+<!-- ======================= GATE (once per tablet) ======================= -->
+<section id="gate" class="screen">
+  <div class="card">
+    <div class="wordmark"><b>BLACK HORSE</b><span>BEAMISH · TILL</span></div>
+    <h1>Enter access password</h1>
+    <p class="sub">Asked once per tablet. After this the till works offline.</p>
+    <div class="fld"><label>Password</label><input id="gPw" type="password" autocomplete="off"></div>
+    <div class="sub" id="gErr" style="color:var(--claret);min-height:16px"></div>
+    <button id="gGo" class="btn-primary">Unlock</button>
+  </div>
+</section>
+
 <!-- ======================= SETUP ======================= -->
 <section id="setup" class="screen">
   <div class="card">
     <div class="wordmark"><b>BLACK HORSE</b><span>BEAMISH</span></div>
-    <h1>Where is this till set up?</h1>
-    <p class="sub">Shown on the till and on the reports.</p>
+    <h1>Set up this till</h1>
+    <p class="sub">Each till identifies itself separately on the reports.</p>
+    <div class="fld">
+      <label>This till's name</label>
+      <input id="suLabel" type="text" autocomplete="off" placeholder="e.g. Marquee Till 1">
+    </div>
     <div class="fld">
       <label>Outlet</label>
       <select id="suOutlet"><option value="">Select an outlet</option></select>
@@ -226,6 +242,19 @@
 </section>
 
 <div id="toast"></div>
+
+<!-- ⋯ menu -->
+<div class="modal" id="tmenu">
+  <div class="box">
+    <h3 style="margin-bottom:16px">Till menu</h3>
+    <div class="row2" style="flex-direction:column;margin:0">
+      <button class="b-out" id="tm_name">Change server name</button>
+      <button class="b-out" id="tm_reports">Reports (X / Z read)</button>
+      <button class="b-out" id="tm_settings">Settings &amp; menu</button>
+      <button class="b-ink" id="tm_close">Close</button>
+    </div>
+  </div>
+</div>
 
 <!-- name / vat email modal -->
 <div class="modal" id="modal">
@@ -418,7 +447,7 @@ function sync(){
 
 /* ============================ SCREENS ============================ */
 function show(name){
-  ["setup","till","pay","thanks","reports","settings"].forEach(function(n){
+  ["gate","setup","till","pay","thanks","reports","settings"].forEach(function(n){
     $(n).classList.toggle("on", n===name);
   });
   if(name==="thanks"){ armThanks(); }
@@ -427,21 +456,28 @@ function show(name){
 /* ============================ SETUP ============================ */
 function initSetup(){
   var sel=$("suOutlet");
-  OUTLETS.forEach(function(o){ var op=document.createElement("option"); op.value=o; op.textContent=o; sel.appendChild(op); });
+  if(!sel.dataset.filled){
+    OUTLETS.forEach(function(o){ var op=document.createElement("option"); op.value=o; op.textContent=o; sel.appendChild(op); });
+    sel.dataset.filled="1";
+  }
   function chk(){
     var v = sel.value==="Other" ? $("suOther").value.trim() : sel.value;
     $("suOtherWrap").style.display = sel.value==="Other" ? "" : "none";
-    $("suOpen").disabled = !(v && $("suName").value.trim());
+    $("suOpen").disabled = !(v && $("suName").value.trim() && $("suLabel").value.trim());
   }
-  sel.onchange=chk; $("suOther").oninput=chk; $("suName").oninput=chk;
+  sel.onchange=chk; $("suOther").oninput=chk; $("suName").oninput=chk; $("suLabel").oninput=chk;
   if(S.settings.teamMember) $("suName").value=S.settings.teamMember;
+  if(S.settings.deviceLabel) $("suLabel").value=S.settings.deviceLabel;
+  if(S.settings.outlet && OUTLETS.indexOf(S.settings.outlet)>=0) sel.value=S.settings.outlet;
+  chk();
   $("suOpen").onclick=function(){
     var outlet = sel.value==="Other" ? $("suOther").value.trim() : sel.value;
-    openTill(outlet, $("suName").value.trim());
+    openTill(outlet, $("suName").value.trim(), $("suLabel").value.trim());
   };
 }
-function openTill(outlet, name){
+function openTill(outlet, name, label){
   S.settings.outlet=outlet; S.settings.teamMember=name;
+  if(label) S.settings.deviceLabel=label;
   S.session = { id:uuid(), outlet:outlet, teamMember:name, openedAt:Date.now(),
                 firstSaleAt:null, closed:false };
   Promise.all([ kvPut('settings', S.settings), kvPut('session', S.session) ]).then(function(){
@@ -849,15 +885,13 @@ function autoCloseCheck(){
 function wire(){
   $("tbName").onclick=changeName;
   $("tbRefund").onclick=function(){ S.cart.refund=!S.cart.refund; renderCart(); };
-  $("tbMenu").onclick=function(){
-    var w=prompt("Menu — enter password for Reports / Settings, or Cancel:");
-    if(w===null) return;
-    if(w===CFG.PASSWORD){
-      var go=prompt("Type R for Reports, S for Settings:");
-      if(go && go.toUpperCase().indexOf("R")===0){ openReports(); }
-      else if(go && go.toUpperCase().indexOf("S")===0){ openSettings(); }
-    } else alert("Wrong password");
-  };
+  $("tbMenu").onclick=function(){ $("tmenu").classList.add("on"); };
+  $("tm_close").onclick=function(){ $("tmenu").classList.remove("on"); };
+  $("tm_name").onclick=function(){ $("tmenu").classList.remove("on"); changeName(); };
+  $("tm_reports").onclick=function(){ $("tmenu").classList.remove("on"); openReports(); };
+  $("tm_settings").onclick=function(){ $("tmenu").classList.remove("on"); openSettings(); };
+  $("gGo").onclick=tryGate;
+  $("gPw").addEventListener("keydown",function(e){ if(e.key==="Enter") tryGate(); });
   $("paybar").onclick=toPay;
   $("payBack").onclick=function(){ show("till"); };
   $("payCard").onclick=completePay;
@@ -873,6 +907,20 @@ function wire(){
 }
 function openReports(){ renderSyncPills(); showRead('X'); show("reports"); }
 
+/* ============================ GATE ============================ */
+function tryGate(){
+  if($("gPw").value === CFG.PASSWORD){
+    kvPut('unlocked','1').then(afterGate);
+  } else {
+    $("gErr").textContent = "Incorrect password";
+  }
+}
+function afterGate(){
+  initSetup();
+  if(S.session && !S.session.closed) enterTill();
+  else show("setup");
+}
+
 /* ============================ BOOT ============================ */
 function boot(){
   wire();
@@ -882,14 +930,13 @@ function boot(){
   function wl(){ if(navigator.wakeLock) navigator.wakeLock.request("screen").catch(function(){}); }
   wl(); document.addEventListener("visibilitychange", function(){ if(!document.hidden) wl(); });
 
-  Promise.all([ kvGet('settings'), kvGet('session'), stAll('menu') ]).then(function(r){
+  Promise.all([ kvGet('settings'), kvGet('session'), stAll('menu'), kvGet('unlocked') ]).then(function(r){
     if(r[0]) S.settings = Object.assign(S.settings, r[0]);
     if(!S.settings.deviceId){ S.settings.deviceId = uuid(); kvPut('settings', S.settings); }
     S.session = r[1] || null;
     S.menu = r[2] || [];
-    initSetup();
-    if(S.session && !S.session.closed){ enterTill(); }
-    else { show("setup"); }
+    if(r[3] === '1'){ afterGate(); }
+    else { show("gate"); setTimeout(function(){ $("gPw").focus(); }, 60); }
     countPending();
     sync();
     autoCloseCheck();
