@@ -218,7 +218,7 @@
     <div class="menu-add">
       <div><label>Name</label><input id="maName" type="text" placeholder="e.g. Cruzcampo"></div>
       <div><label>Category</label>
-        <select id="maCat" onchange="document.getElementById('maHalf').disabled=this.value!=='draft'">
+        <select id="maCat" onchange="document.getElementById('maHalf').disabled=this.value!=='draft';document.getElementById('maMember').disabled=this.value!=='food'">
           <option value="draft">Draft</option><option value="bottle">Bottle</option>
           <option value="soft">Soft</option><option value="hot">Hot</option>
           <option value="food" selected>Food</option>
@@ -226,13 +226,14 @@
       </div>
       <div><label>Price £</label><input id="maPrice" type="number" step="0.01" min="0" style="width:90px"></div>
       <div><label>Half £ (draft)</label><input id="maHalf" type="number" step="0.01" min="0" style="width:90px" disabled></div>
+      <div><label>Members £ (food)</label><input id="maMember" type="number" step="0.01" min="0" style="width:90px"></div>
       <div><label>Sub-group</label><input id="maSub" type="text" placeholder="optional"></div>
       <button class="primary" onclick="menuAdd()">Add item</button>
     </div>
     <div class="tablewrap"><table class="menu-tbl" id="menuTbl">
       <thead><tr>
         <th class="l">Name</th><th class="l">Category</th><th>Price £</th>
-        <th>Half £</th><th class="l">Sub-group</th><th></th>
+        <th>Half £</th><th>Members £</th><th class="l">Sub-group</th><th></th>
       </tr></thead>
       <tbody id="menuBody"></tbody>
     </table></div>
@@ -531,6 +532,7 @@ function renderMenu(){
       <td class="l"><select data-f="category">${opts}</select></td>
       <td><input type="number" step="0.01" min="0" data-f="price" value="${m.price!=null?(+m.price):0}"></td>
       <td><input type="number" step="0.01" min="0" data-f="half_price" value="${m.half_price!=null?(+m.half_price):""}"${m.category==="draft"?"":" disabled"}></td>
+      <td><input type="number" step="0.01" min="0" data-f="member_price" value="${m.member_price!=null?(+m.member_price):""}"${m.category==="food"?"":" disabled"}></td>
       <td class="l"><input type="text" data-f="sub_group" value="${esc(m.sub_group||"")}"></td>
       <td class="act">
         <button onclick="menuSave('${m.id}',this)">Save</button>
@@ -538,6 +540,7 @@ function renderMenu(){
       </td>`;
     tr.querySelector('[data-f=category]').addEventListener('change',e=>{
       tr.querySelector('[data-f=half_price]').disabled = e.target.value!=="draft";
+      tr.querySelector('[data-f=member_price]').disabled = e.target.value!=="food";
     });
     b.appendChild(tr);
   }
@@ -555,11 +558,13 @@ async function reloadMenu(){
 function rowBody(get){
   const cat=get("category");
   const half=get("half_price");
+  const member=get("member_price");
   return {
     name:get("name").trim(),
     category:cat,
     price:Number(get("price"))||0,
     half_price:(cat==="draft" && half!=="" && Number(half)>0) ? Number(half) : null,
+    member_price:(cat==="food" && member!=="" && Number(member)>0) ? Number(member) : null,
     sub_group:get("sub_group").trim() || null
   };
 }
@@ -578,18 +583,19 @@ async function menuAdd(){
   const g=id=>document.getElementById(id).value;
   const name=g("maName").trim();
   if(!name){ alert("Enter a name."); return; }
-  const cat=g("maCat"), half=g("maHalf");
+  const cat=g("maCat"), half=g("maHalf"), member=g("maMember");
   const maxSort=(ST.menu||[]).reduce((m,x)=>Math.max(m,x.sort_order||0),0);
   const body={
     name, category:cat,
     price:Number(g("maPrice"))||0,
     half_price:(cat==="draft" && half!=="" && Number(half)>0) ? Number(half) : null,
+    member_price:(cat==="food" && member!=="" && Number(member)>0) ? Number(member) : null,
     sub_group:g("maSub").trim() || null,
     sort_order:maxSort+1
   };
   try{
     await sb(`till_menu_items`, {method:"POST", headers:{Prefer:"return=minimal"}, body:JSON.stringify(body)});
-    ["maName","maPrice","maHalf","maSub"].forEach(i=>document.getElementById(i).value="");
+    ["maName","maPrice","maHalf","maMember","maSub"].forEach(i=>document.getElementById(i).value="");
     await reloadMenu(); menuStatus("Added “"+name+"”.");
   }catch(e){ alert("Add failed: "+e.message); }
 }

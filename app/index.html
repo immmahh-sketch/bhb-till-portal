@@ -173,6 +173,7 @@
     <img class="lg-l" src="./logo-light.png" alt="Black Horse Beamish">
     <span class="outlet" id="tbOutlet">—</span>
     <button id="tbName">Name</button>
+    <button id="tbTier" class="hidden">Tier</button>
     <button id="tbRefund">Refund</button>
     <button id="tbMenu">⋯</button>
   </div>
@@ -235,6 +236,7 @@
       <select id="mAddCat"><option value="draft">Draft</option><option value="bottle">Bottle</option><option value="soft">Soft</option><option value="hot">Hot</option><option value="food" selected>Food</option></select>
       <input class="px" id="mAddPrice" type="number" step="0.01" placeholder="£">
       <input class="px" id="mAddHalf" type="number" step="0.01" placeholder="½ £" disabled>
+      <input class="px" id="mAddMember" type="number" step="0.01" placeholder="Members £">
       <button class="b-ink" style="padding:7px 12px;border-radius:8px;font-weight:800" id="mAddBtn">Add</button>
     </div>
     <div id="menuList"></div>
@@ -243,6 +245,18 @@
 </section>
 
 <div id="toast"></div>
+
+<!-- new-order pricing gate — blocks the till until a tier is chosen -->
+<div class="modal" id="tierGate" style="z-index:65">
+  <div class="box" style="max-width:460px;text-align:center">
+    <h3 style="margin-bottom:4px">New order</h3>
+    <p style="color:#0008;font-size:13px;margin:0 0 18px">Choose pricing for this customer.</p>
+    <div class="row2" style="margin:0">
+      <button class="b-claret" id="tgMember" style="padding:26px 10px;font-size:17px;letter-spacing:1px;font-weight:900">MEMBER</button>
+      <button class="b-ink" id="tgNon" style="padding:26px 10px;font-size:17px;letter-spacing:1px;font-weight:900">NON-MEMBER</button>
+    </div>
+  </div>
+</div>
 
 <!-- ⋯ menu -->
 <div class="modal" id="tmenu">
@@ -280,7 +294,7 @@ var CFG = {
   PASSWORD: "P455w0rd1",
   VAT_DEFAULT: 0.20,
   DAY_START_HOUR: 5,
-  BUILD: "web-1.3 (2026-09-03)"
+  BUILD: "web-1.4 (2026-09-04)"
 };
 // Must match kPresetOutlets in the app (lib/models/enums.dart).
 var OUTLETS = ["Outside Bar","Marquee pop up food station","Marquee pop up bar","Marquee BBQ","Field BBQ","Car Barn BBQ","Other"];
@@ -335,7 +349,7 @@ var S = {
   settings:{ outlet:"", teamMember:"", vatRate:CFG.VAT_DEFAULT, deviceId:"" },
   session:null,           // {id, outlet, teamMember, openedAt, firstSaleAt, closed}
   menu:[],
-  cart:{ lines:[], refund:false },
+  cart:{ lines:[], refund:false, tier:null },
   online: navigator.onLine,
   syncing:false, lastSync:null, pendingCount:0
 };
@@ -369,7 +383,9 @@ function pullMenu(){
     return stClear('menu').then(function(){
       return Promise.all(rows.map(function(r){ return stPut('menu', {
         id:r.id, name:r.name, category:r.category, price:+r.price||0,
-        half_price:(r.half_price==null?null:+r.half_price), sub_group:r.sub_group||null,
+        half_price:(r.half_price==null?null:+r.half_price),
+        member_price:(r.member_price==null?null:+r.member_price),
+        sub_group:r.sub_group||null,
         sort_order:+r.sort_order||0
       }); }));
     }).then(function(){ return stAll('menu'); }).then(function(m){ S.menu=m; renderGrid(); renderMenuList(); });
@@ -488,8 +504,18 @@ function openTill(outlet, name){
 function enterTill(){
   $("tbOutlet").textContent = S.settings.outlet || "—";
   $("tbName").textContent = S.settings.teamMember || "Name";
-  S.cart={lines:[],refund:false};
+  S.cart={lines:[],refund:false,tier:null};
   renderGrid(); renderCart(); show("till");
+  $("tierGate").classList.add("on");
+}
+function chooseTier(t){
+  S.cart.tier = t;
+  $("tierGate").classList.remove("on");
+  renderGrid(); renderCart();
+}
+function priceFor(m){
+  if(m.category==="food" && S.cart.tier==="member" && m.member_price!=null && m.member_price>0) return m.member_price;
+  return m.price;
 }
 
 /* ============================ TILL GRID ============================ */
@@ -519,8 +545,11 @@ function renderGrid(){
         b[0].onclick=function(){ addItem(m,'Pint',m.price); };
         if(half) b[1].onclick=function(){ addItem(m,'Half',m.half_price); };
       } else {
-        el.innerHTML+='<div class="pr" style="background:'+col+'">'+money(m.price)+'</div>';
-        el.onclick=function(){ addItem(m,'',m.price); };
+        var pr = priceFor(m);
+        var memberTag = (S.cart.tier==="member" && m.category==="food" && m.member_price!=null && m.member_price>0)
+          ? '<div style="font-size:9px;font-weight:800;color:#ffffffb0;margin-top:-2px">MEMBERS</div>' : '';
+        el.innerHTML+='<div class="pr" style="background:'+col+'">'+money(pr)+'</div>'+memberTag;
+        el.onclick=function(){ addItem(m,'',pr); };
       }
       box.appendChild(el);
     });
@@ -584,6 +613,8 @@ function renderCart(){
   $("tbRefund").className = ref ? "on" : "";
   $("tbRefund").textContent = ref ? "Refunding" : "Refund";
   $("refstrip").classList.toggle("hidden", !ref);
+  $("tbTier").classList.toggle("hidden", !S.cart.tier);
+  $("tbTier").textContent = S.cart.tier==="member" ? "Member" : (S.cart.tier==="standard" ? "Non-member" : "");
 }
 function voidLine(l){
   modal2("Void “"+ (l.unitLabel? l.name+" ("+l.unitLabel.toLowerCase()+")":l.name) +"”",
@@ -630,7 +661,7 @@ function completePay(){
   var p = stPut('sales', sale);
   if(!S.session.firstSaleAt){ S.session.firstSaleAt = now; p = p.then(function(){ return kvPut('session', S.session); }); }
   p.then(countPending).then(function(){
-    S.cart={lines:[],refund:false};
+    S.cart={lines:[],refund:false,tier:null};
     $("thBig").textContent = ref ? "Refund complete" : "Thank you";
     $("thSub").textContent = (ref?"Refunded ":"Paid ")+money(Math.abs(sale.total))+" · next customer please";
     $("thVat").classList.remove("hidden"); $("thVatDone").classList.add("hidden");
@@ -783,24 +814,31 @@ function renderMenuList(){
   }).forEach(function(m){
     var d=document.createElement("div"); d.className="menucard";
     d.innerHTML =
-      '<input class="nm" value="'+esc(m.name)+'">'+
-      '<select>'+CATORDER.map(function(c){return '<option value="'+c+'"'+(c===m.category?' selected':'')+'>'+CAT[c].label+'</option>';}).join("")+'</select>'+
-      '<input class="px" type="number" step="0.01" value="'+(m.price!=null?m.price:0)+'">'+
-      '<input class="px" type="number" step="0.01" placeholder="½ £" value="'+(m.half_price!=null?m.half_price:"")+'"'+(m.category==="draft"?"":" disabled")+'>'+
-      '<button class="b-ink" style="padding:6px 10px;border-radius:7px;font-weight:800">Save</button>'+
-      '<button class="b-out" style="padding:6px 10px;border-radius:7px;font-weight:800">Del</button>';
-    var ins=d.querySelectorAll("input"), selc=d.querySelector("select"), bs=d.querySelectorAll("button");
-    selc.onchange=function(){ ins[3].disabled = selc.value!=="draft"; };
-    bs[0].onclick=function(){
-      var body={ name:ins[0].value.trim(), category:selc.value, price:parseFloat(ins[2].value)||0,
-        half_price:(selc.value==="draft" && ins[3].value!=="" && parseFloat(ins[3].value)>0)?parseFloat(ins[3].value):null,
+      '<input class="nm" data-f="name" value="'+esc(m.name)+'">'+
+      '<select data-f="category">'+CATORDER.map(function(c){return '<option value="'+c+'"'+(c===m.category?' selected':'')+'>'+CAT[c].label+'</option>';}).join("")+'</select>'+
+      '<input class="px" data-f="price" type="number" step="0.01" value="'+(m.price!=null?m.price:0)+'">'+
+      '<input class="px" data-f="half" type="number" step="0.01" placeholder="½ £" value="'+(m.half_price!=null?m.half_price:"")+'"'+(m.category==="draft"?"":" disabled")+'>'+
+      '<input class="px" data-f="member" type="number" step="0.01" placeholder="Members £" value="'+(m.member_price!=null?m.member_price:"")+'"'+(m.category==="food"?"":" disabled")+'>'+
+      '<button class="b-ink" data-act="save" style="padding:6px 10px;border-radius:7px;font-weight:800">Save</button>'+
+      '<button class="b-out" data-act="del" style="padding:6px 10px;border-radius:7px;font-weight:800">Del</button>';
+    var get=function(f){ return d.querySelector('[data-f='+f+']'); };
+    var selc=get('category');
+    selc.onchange=function(){
+      get('half').disabled = selc.value!=="draft";
+      get('member').disabled = selc.value!=="food";
+    };
+    d.querySelector('[data-act=save]').onclick=function(){
+      var half=get('half').value, mem=get('member').value;
+      var body={ name:get('name').value.trim(), category:selc.value, price:parseFloat(get('price').value)||0,
+        half_price:(selc.value==="draft" && half!=="" && parseFloat(half)>0)?parseFloat(half):null,
+        member_price:(selc.value==="food" && mem!=="" && parseFloat(mem)>0)?parseFloat(mem):null,
         sub_group:m.sub_group||null };
       if(!body.name){ toast("Name blank"); return; }
       sbFetch("till_menu_items?id=eq."+m.id, {method:"PATCH", prefer:"return=minimal", body:body})
         .then(function(){ toast("Saved “"+body.name+"”"); return sync(); })
         .catch(function(e){ toast("Save failed — offline?"); });
     };
-    bs[1].onclick=function(){
+    d.querySelector('[data-act=del]').onclick=function(){
       if(!confirm("Delete “"+m.name+"”?")) return;
       sbFetch("till_menu_items?id=eq."+m.id, {method:"DELETE"})
         .then(function(){ toast("Deleted"); return sync(); })
@@ -811,13 +849,14 @@ function renderMenuList(){
 }
 function menuAdd(){
   var name=$("mAddName").value.trim(); if(!name){ toast("Enter a name"); return; }
-  var cat=$("mAddCat").value, half=$("mAddHalf").value;
+  var cat=$("mAddCat").value, half=$("mAddHalf").value, mem=$("mAddMember").value;
   var maxSort=S.menu.reduce(function(x,m){return Math.max(x,m.sort_order||0);},0);
   var body={ name:name, category:cat, price:parseFloat($("mAddPrice").value)||0,
     half_price:(cat==="draft" && half!=="" && parseFloat(half)>0)?parseFloat(half):null,
+    member_price:(cat==="food" && mem!=="" && parseFloat(mem)>0)?parseFloat(mem):null,
     sub_group:null, sort_order:maxSort+1 };
   sbFetch("till_menu_items", {method:"POST", prefer:"return=minimal", body:body})
-    .then(function(){ $("mAddName").value=""; $("mAddPrice").value=""; $("mAddHalf").value="";
+    .then(function(){ $("mAddName").value=""; $("mAddPrice").value=""; $("mAddHalf").value=""; $("mAddMember").value="";
       toast("Added “"+name+"”"); return sync(); })
     .catch(function(){ toast("Add failed — needs internet"); });
 }
@@ -889,6 +928,9 @@ function autoCloseCheck(){
 /* ============================ WIRING ============================ */
 function wire(){
   $("tbName").onclick=changeName;
+  $("tbTier").onclick=function(){ $("tierGate").classList.add("on"); };
+  $("tgMember").onclick=function(){ chooseTier("member"); };
+  $("tgNon").onclick=function(){ chooseTier("standard"); };
   $("tbRefund").onclick=function(){ S.cart.refund=!S.cart.refund; renderCart(); };
   $("tbMenu").onclick=function(){ $("tmenu").classList.add("on"); };
   $("tm_close").onclick=function(){ $("tmenu").classList.remove("on"); };
@@ -905,7 +947,7 @@ function wire(){
   $("rpBack").onclick=function(){ S.session ? enterTill() : show("setup"); };
   $("stBack").onclick=function(){ S.session ? enterTill() : show("setup"); };
   $("stSaveSync").onclick=function(){ saveSettings(); };
-  $("mAddCat").onchange=function(){ $("mAddHalf").disabled=this.value!=="draft"; };
+  $("mAddCat").onchange=function(){ $("mAddHalf").disabled=this.value!=="draft"; $("mAddMember").disabled=this.value!=="food"; };
   $("mAddBtn").onclick=menuAdd;
   window.addEventListener("online", function(){ S.online=true; renderSyncPills(); sync(); });
   window.addEventListener("offline", function(){ S.online=false; renderSyncPills(); });
