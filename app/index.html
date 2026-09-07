@@ -299,7 +299,7 @@ var CFG = {
   PASSWORD: "P455w0rd1",
   VAT_DEFAULT: 0.20,
   DAY_START_HOUR: 5,
-  BUILD: "web-1.6 (2026-09-07)"
+  BUILD: "web-1.7 (2026-09-07)"
 };
 // Must match kPresetOutlets in the app (lib/models/enums.dart).
 var OUTLETS = ["Outside Bar","Marquee pop up food station","Marquee pop up bar","Marquee BBQ","Field BBQ","Car Barn BBQ","Other"];
@@ -337,17 +337,50 @@ function idb(){
       if(!d.objectStoreNames.contains('voids')) d.createObjectStore('voids',{keyPath:'id'});
       if(!d.objectStoreNames.contains('archive')) d.createObjectStore('archive',{keyPath:'id'});
     };
-    r.onsuccess=function(){ DB=r.result; res(DB); };
+    r.onsuccess=function(){
+      DB=r.result;
+      DB.onclose=function(){ DB=null; };
+      DB.onversionchange=function(){ try{ DB.close(); }catch(e){} DB=null; };
+      res(DB);
+    };
     r.onerror=function(){ rej(r.error); };
   });
 }
-function tx(store,mode){ return idb().then(function(d){ return d.transaction(store,mode).objectStore(store); }); }
-function kvGet(k){ return tx('kv','readonly').then(function(s){ return new Promise(function(res){ var r=s.get(k); r.onsuccess=function(){res(r.result);}; r.onerror=function(){res(undefined);} ; }); }); }
-function kvPut(k,v){ return tx('kv','readwrite').then(function(s){ return new Promise(function(res,rej){ var r=s.put(v,k); r.onsuccess=function(){res();}; r.onerror=function(){rej(r.error);} ; }); }); }
-function stPut(store,v){ return tx(store,'readwrite').then(function(s){ return new Promise(function(res,rej){ var r=s.put(v); r.onsuccess=function(){res();}; r.onerror=function(){rej(r.error);} ; }); }); }
-function stAll(store){ return tx(store,'readonly').then(function(s){ return new Promise(function(res){ var r=s.getAll(); r.onsuccess=function(){res(r.result||[]);}; r.onerror=function(){res([]);} ; }); }); }
-function stClear(store){ return tx(store,'readwrite').then(function(s){ return new Promise(function(res){ var r=s.clear(); r.onsuccess=function(){res();}; r.onerror=function(){res();} ; }); }); }
-function stDel(store,k){ return tx(store,'readwrite').then(function(s){ return new Promise(function(res){ var r=s.delete(k); r.onsuccess=function(){res();}; r.onerror=function(){res();} ; }); }); }
+// One IndexedDB op per call. The request MUST be issued synchronously in the
+// same turn the transaction is created — Safari/WebKit auto-closes an idle
+// transaction the moment control returns to the event loop, so splitting
+// "make transaction" and "use store" across a promise tick throws
+// "transaction is inactive or finished".
+var IDB_THROW = {};   // sentinel: no fallback -> reject on failure
+function idbOp(store, mode, run, fallback, _retried){
+  if(arguments.length < 4) fallback = IDB_THROW;
+  return idb().then(function(d){
+    return new Promise(function(res, rej){
+      var req;
+      try {
+        req = run(d.transaction(store, mode).objectStore(store));
+      } catch(e){
+        // Stale/closed connection (Safari drops idle handles) — drop the
+        // cached DB and try once more with a fresh open.
+        if(!_retried){ DB=null; res(idbOp(store, mode, run, fallback, true)); return; }
+        if(fallback===IDB_THROW) rej(e); else res(fallback);
+        return;
+      }
+      req.onsuccess = function(){ res(req.result); };
+      req.onerror   = function(){ if(fallback===IDB_THROW) rej(req.error); else res(fallback); };
+    });
+  }, function(openErr){
+    if(fallback===IDB_THROW) throw openErr;
+    return fallback;
+  });
+}
+function kvGet(k){ return idbOp('kv','readonly', function(os){ return os.get(k); }, undefined); }
+function kvPut(k,v){ return idbOp('kv','readwrite', function(os){ return os.put(v,k); }); }
+function delKv(k){ return idbOp('kv','readwrite', function(os){ return os.delete(k); }, null); }
+function stPut(store,v){ return idbOp(store,'readwrite', function(os){ return os.put(v); }); }
+function stAll(store){ return idbOp(store,'readonly', function(os){ return os.getAll(); }, []).then(function(r){ return r||[]; }); }
+function stClear(store){ return idbOp(store,'readwrite', function(os){ return os.clear(); }, null); }
+function stDel(store,k){ return idbOp(store,'readwrite', function(os){ return os.delete(k); }, null); }
 
 /* ============================ STATE ============================ */
 var S = {
@@ -834,7 +867,7 @@ function doZRead(){
       });
   });
 }
-function delKv(k){ return tx('kv','readwrite').then(function(s){ return new Promise(function(res){ var r=s.delete(k); r.onsuccess=function(){res();}; r.onerror=function(){res();} ; }); }); }
+/* delKv is defined with the other IndexedDB helpers above. */
 
 /* ============================ SETTINGS + MENU EDIT ============================ */
 function openSettings(){
