@@ -55,9 +55,11 @@
   .catrow{margin-bottom:14px}
   .cathead{font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:800;color:#fff;
     display:inline-block;padding:3px 10px;border-radius:20px;margin-bottom:8px}
-  .items{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+  /* flex-wrap (not grid) + margin gutters so it also renders on Android 5.1 WebView */
+  .items{display:flex;flex-wrap:wrap;margin:-4px}
   .item{border:2px solid;border-radius:12px;padding:10px;background:#fff;text-align:center;min-height:74px;
-    display:flex;flex-direction:column;justify-content:center}
+    display:flex;flex-direction:column;justify-content:center;
+    flex:1 1 150px;max-width:260px;margin:4px}
   .item .nm{font-weight:700;font-size:14px;line-height:1.15}
   .item .pr{margin-top:6px;font-weight:800;font-size:15px;color:#fff;border-radius:8px;padding:6px 4px}
   .item .halves{display:flex;gap:6px;margin-top:6px}
@@ -292,6 +294,16 @@
 
 <script>
 "use strict";
+/* ---- polyfills for very old Android WebView (Galaxy Tab A / Android 5.1) ---- */
+if(typeof Object.assign !== "function"){
+  Object.assign = function(target){
+    for(var i=1;i<arguments.length;i++){
+      var s=arguments[i]; if(!s) continue;
+      for(var k in s){ if(Object.prototype.hasOwnProperty.call(s,k)) target[k]=s[k]; }
+    }
+    return target;
+  };
+}
 /* ============================ CONFIG ============================ */
 var CFG = {
   SUPABASE_URL: "https://safcrtrfdzsnftghibot.supabase.co",
@@ -299,7 +311,7 @@ var CFG = {
   PASSWORD: "P455w0rd1",
   VAT_DEFAULT: 0.20,
   DAY_START_HOUR: 5,
-  BUILD: "web-1.7 (2026-09-07)"
+  BUILD: "web-1.8 (2026-09-07)"
 };
 // Must match kPresetOutlets in the app (lib/models/enums.dart).
 var OUTLETS = ["Outside Bar","Marquee pop up food station","Marquee pop up bar","Marquee BBQ","Field BBQ","Car Barn BBQ","Other"];
@@ -392,42 +404,36 @@ var S = {
   syncing:false, lastSync:null, pendingCount:0
 };
 
-/* ============================ SUPABASE (plain HTTP) ============================ */
+/* ============================ SUPABASE (plain HTTP) ============================
+   Uses XMLHttpRequest, not fetch() — the fetch API only landed in Chrome 42, and
+   some of the field tablets run a stock Android 5.1 WebView (Chromium ~39).    */
 function sbFetch(path, opts){
   opts = opts || {};
   var url = CFG.SUPABASE_URL + "/rest/v1/" + path;
-  var headers = { apikey: CFG.SUPABASE_KEY, Authorization: "Bearer " + CFG.SUPABASE_KEY };
-  if(opts.prefer) headers.Prefer = opts.prefer;
-  if(opts.body != null) headers["Content-Type"] = "application/json";
-  var init = {
-    method: opts.method || "GET",
-    headers: headers,
-    body: opts.body != null ? JSON.stringify(opts.body) : undefined
-  };
-
-  var run;
-  if(typeof AbortController === "function"){
-    var ctrl = new AbortController();
-    var to = setTimeout(function(){ ctrl.abort(); }, 15000);
-    init.signal = ctrl.signal;
-    run = fetch(url, init).then(function(r){ clearTimeout(to); return r; },
-                               function(e){ clearTimeout(to); throw e; });
-  } else {
-    // Old WebViews (no AbortController) — race the fetch against a timeout.
-    run = Promise.race([
-      fetch(url, init),
-      new Promise(function(_, rej){ setTimeout(function(){ rej(new Error("timeout")); }, 15000); })
-    ]);
-  }
-
-  return run.then(function(r){
-    if(!r.ok) return r.text().then(function(t){ throw new Error("HTTP "+r.status+" "+String(t).slice(0,200)); });
-    return r.status===204 ? null : r.text().then(function(t){ return t?JSON.parse(t):null; });
-  }, function(e){
-    // Normalise into a short, human-readable reason we can show on the tablet.
-    var msg = (e && e.message) ? e.message : String(e);
-    if(/Failed to fetch|NetworkError|Load failed/i.test(msg)) msg = "network/TLS blocked (old browser or connection)";
-    throw new Error(msg);
+  var body = opts.body != null ? JSON.stringify(opts.body) : null;
+  return new Promise(function(resolve, reject){
+    var xhr = new XMLHttpRequest();
+    try { xhr.open(opts.method || "GET", url, true); }
+    catch(e){ reject(new Error("bad request")); return; }
+    xhr.timeout = 15000;
+    xhr.setRequestHeader("apikey", CFG.SUPABASE_KEY);
+    xhr.setRequestHeader("Authorization", "Bearer " + CFG.SUPABASE_KEY);
+    if(opts.prefer) xhr.setRequestHeader("Prefer", opts.prefer);
+    if(body != null) xhr.setRequestHeader("Content-Type", "application/json");
+    xhr.onreadystatechange = function(){
+      if(xhr.readyState !== 4) return;
+      if(xhr.status === 0){ reject(new Error("no connection / certificate not trusted by this tablet")); return; }
+      if(xhr.status < 200 || xhr.status >= 300){
+        reject(new Error("HTTP " + xhr.status + " " + String(xhr.responseText || "").slice(0,200)));
+        return;
+      }
+      if(xhr.status === 204 || !xhr.responseText){ resolve(null); return; }
+      try { resolve(JSON.parse(xhr.responseText)); }
+      catch(e){ reject(new Error("bad JSON from server")); }
+    };
+    xhr.ontimeout = function(){ reject(new Error("timed out")); };
+    xhr.onerror   = function(){ reject(new Error("no connection / certificate not trusted by this tablet")); };
+    try { xhr.send(body); } catch(e){ reject(new Error("send failed")); }
   });
 }
 
