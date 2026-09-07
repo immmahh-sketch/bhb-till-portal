@@ -299,7 +299,7 @@ var CFG = {
   PASSWORD: "P455w0rd1",
   VAT_DEFAULT: 0.20,
   DAY_START_HOUR: 5,
-  BUILD: "web-1.5 (2026-09-07)"
+  BUILD: "web-1.6 (2026-09-07)"
 };
 // Must match kPresetOutlets in the app (lib/models/enums.dart).
 var OUTLETS = ["Outside Bar","Marquee pop up food station","Marquee pop up bar","Marquee BBQ","Field BBQ","Car Barn BBQ","Other"];
@@ -362,23 +362,40 @@ var S = {
 /* ============================ SUPABASE (plain HTTP) ============================ */
 function sbFetch(path, opts){
   opts = opts || {};
-  var ctrl = new AbortController();
-  var to = setTimeout(function(){ ctrl.abort(); }, 12000);
-  return fetch(CFG.SUPABASE_URL + "/rest/v1/" + path, {
+  var url = CFG.SUPABASE_URL + "/rest/v1/" + path;
+  var headers = { apikey: CFG.SUPABASE_KEY, Authorization: "Bearer " + CFG.SUPABASE_KEY };
+  if(opts.prefer) headers.Prefer = opts.prefer;
+  if(opts.body != null) headers["Content-Type"] = "application/json";
+  var init = {
     method: opts.method || "GET",
-    signal: ctrl.signal,
-    headers: {
-      apikey: CFG.SUPABASE_KEY,
-      Authorization: "Bearer " + CFG.SUPABASE_KEY,
-      "Content-Type": "application/json",
-      Prefer: opts.prefer || ""
-    },
-    body: opts.body ? JSON.stringify(opts.body) : undefined
-  }).then(function(r){
-    clearTimeout(to);
-    if(!r.ok) return r.text().then(function(t){ throw new Error(r.status+" "+t); });
+    headers: headers,
+    body: opts.body != null ? JSON.stringify(opts.body) : undefined
+  };
+
+  var run;
+  if(typeof AbortController === "function"){
+    var ctrl = new AbortController();
+    var to = setTimeout(function(){ ctrl.abort(); }, 15000);
+    init.signal = ctrl.signal;
+    run = fetch(url, init).then(function(r){ clearTimeout(to); return r; },
+                               function(e){ clearTimeout(to); throw e; });
+  } else {
+    // Old WebViews (no AbortController) — race the fetch against a timeout.
+    run = Promise.race([
+      fetch(url, init),
+      new Promise(function(_, rej){ setTimeout(function(){ rej(new Error("timeout")); }, 15000); })
+    ]);
+  }
+
+  return run.then(function(r){
+    if(!r.ok) return r.text().then(function(t){ throw new Error("HTTP "+r.status+" "+String(t).slice(0,200)); });
     return r.status===204 ? null : r.text().then(function(t){ return t?JSON.parse(t):null; });
-  }, function(e){ clearTimeout(to); throw e; });
+  }, function(e){
+    // Normalise into a short, human-readable reason we can show on the tablet.
+    var msg = (e && e.message) ? e.message : String(e);
+    if(/Failed to fetch|NetworkError|Load failed/i.test(msg)) msg = "network/TLS blocked (old browser or connection)";
+    throw new Error(msg);
+  });
 }
 
 /* ---- pull shared menu (read-only; never writes to the shared table) ---- */
@@ -468,7 +485,8 @@ function pullOnly(){
     S.lastSync=new Date(); S.online=true;
     toast(S.menu.length ? ("Menu updated — "+S.menu.length+" items") : "No menu found on the portal yet");
   }).catch(function(e){
-    S.online=false; toast("Couldn't reach the portal — check this tablet's internet & clock");
+    S.online=false; S.lastSyncErr=(e&&e.message)?e.message:String(e);
+    toast("Sync failed: "+S.lastSyncErr);
     console.warn("pull failed", e);
   }).then(function(){
     S.syncing=false; renderGrid(); return countPending();
@@ -479,11 +497,14 @@ function sync(){
   if(S.syncing) return Promise.resolve();
   S.syncing=true; renderSyncPills();
   return pushPending().then(pullMenu).then(function(){
-    S.lastSync=new Date(); S.online=true;
+    S.lastSync=new Date(); S.online=true; S.lastSyncErr=null;
   }).catch(function(e){
-    S.online=false; console.warn("sync failed", e);
+    S.online=false; S.lastSyncErr=(e&&e.message)?e.message:String(e);
+    console.warn("sync failed", e);
   }).then(function(){
-    S.syncing=false; return countPending();
+    S.syncing=false;
+    if(!S.menu.length) renderGrid();
+    return countPending();
   });
 }
 
@@ -544,7 +565,11 @@ function priceFor(m){
 /* ============================ TILL GRID ============================ */
 function renderGrid(){
   var g=$("grid"); g.innerHTML="";
-  if(!S.menu.length){ g.innerHTML='<div style="padding:24px;color:#0008">No menu yet. It will appear once the tablet syncs, or add items in Settings.</div>'; return; }
+  if(!S.menu.length){
+    g.innerHTML='<div style="padding:24px;color:#0008">No menu yet — it appears automatically once this tablet reaches the portal (retrying every few seconds).'+
+      (S.lastSyncErr ? '<br><br><b>Last error:</b> '+esc(S.lastSyncErr) : '')+'</div>';
+    return;
+  }
   CATORDER.forEach(function(cat){
     var items = S.menu.filter(function(m){ return m.category===cat; })
       .sort(function(a,b){ return (a.sort_order-b.sort_order)||a.name.localeCompare(b.name); });
@@ -888,7 +913,7 @@ function menuAdd(){
 function renderSyncPills(){
   var txt, cls;
   if(S.syncing){ txt="Syncing…"; cls="pend"; }
-  else if(!S.online){ txt = S.pendingCount ? (S.pendingCount+" to send when online") : "Offline"; cls="off"; }
+  else if(!S.online){ txt = (S.pendingCount ? (S.pendingCount+" to send — ") : "Offline") + (S.lastSyncErr ? (" · "+S.lastSyncErr) : ""); cls="off"; }
   else if(S.pendingCount){ txt = S.pendingCount+" to send"; cls="pend"; }
   else { txt = "Synced" + (S.lastSync ? " "+S.lastSync.toLocaleTimeString("en-GB") : ""); cls="ok"; }
   ["rpSync","stSync"].forEach(function(id){ var e=$(id); if(e){ e.textContent=txt; e.className="syncpill "+cls; } });
