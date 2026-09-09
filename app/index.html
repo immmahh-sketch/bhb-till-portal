@@ -8,127 +8,129 @@
 <link rel="apple-touch-icon" href="./icon.svg" />
 <title>Black Horse Till</title>
 <style>
-  :root{
-    --ink:#1a1a1a; --cream:#f6f0e4; --paper:#fbf7ee; --brass:#9c7a3c; --claret:#7a2e2e;
-    --line:rgba(26,26,26,.14);
-    --draft:#c0882e; --bottle:#3e7a4e; --soft:#2f6da4; --hot:#7a5230; --food:#7a2e2e; --misc:#5f5f5f;
-  }
+  /* No CSS custom properties, no inset shorthand, no #rgba hex, no flex gap —
+     stock Android 5.1 WebView (~Chromium 39) understands none of those.
+     Palette: ink #1a1a1a  cream #f6f0e4  paper #fbf7ee  brass #9c7a3c
+              claret #7a2e2e  line rgba(26,26,26,.14) */
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;height:100%;overflow:hidden;font-family:-apple-system,Roboto,"Segoe UI",sans-serif;
-    background:var(--cream);color:var(--ink);user-select:none}
+    background:#f6f0e4;color:#1a1a1a;-webkit-user-select:none;user-select:none}
   button{font:inherit;cursor:pointer;border:0;background:none;color:inherit}
-  .screen{position:fixed;inset:0;display:none;flex-direction:column}
-  .screen.on{display:flex}
+  .screen{position:fixed;top:0;right:0;bottom:0;left:0;display:none;-webkit-flex-direction:column;flex-direction:column}
+  .screen.on{display:-webkit-flex;display:flex}
   .hidden{display:none!important}
 
   /* ---- setup ---- */
-  #setup{align-items:center;justify-content:center;background:var(--cream)}
-  #setup .card{background:var(--paper);border:1px solid var(--line);border-radius:18px;padding:32px;max-width:460px;width:92%}
+  #setup{-webkit-align-items:center;align-items:center;-webkit-justify-content:center;justify-content:center;background:#f6f0e4}
+  #setup .card{background:#fbf7ee;border:1px solid rgba(26,26,26,.14);border-radius:18px;padding:32px;max-width:460px;width:92%}
   #setup h1{font-size:20px;text-align:center;margin:14px 0 4px}
-  #setup p.sub{text-align:center;color:#0008;font-size:13px;margin:0 0 20px}
+  #setup p.sub{text-align:center;color:rgba(0,0,0,.5);font-size:13px;margin:0 0 20px}
   .fld{margin-bottom:14px}
-  .fld label{display:block;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--brass);font-weight:700;margin-bottom:5px}
-  .fld input,.fld select{width:100%;padding:12px;border:1px solid var(--line);border-radius:10px;background:#fff;font-size:16px}
+  .fld label{display:block;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#9c7a3c;font-weight:700;margin-bottom:5px}
+  .fld input,.fld select{width:100%;padding:12px;border:1px solid rgba(26,26,26,.14);border-radius:10px;background:#fff;font-size:16px}
   .wordmark{font-family:Georgia,serif;text-align:center;line-height:1}
   .wordmark b{font-size:26px;letter-spacing:1px}
-  .wordmark span{display:block;font-size:12px;letter-spacing:5px;color:var(--brass);margin-top:4px}
+  .wordmark span{display:block;font-size:12px;letter-spacing:5px;color:#9c7a3c;margin-top:4px}
   .lg-d,.lg-l{display:block;height:auto;object-fit:contain}
   #setup .lg-d,#gate .lg-d{width:230px;max-width:70%;margin:0 auto 8px}
   .topbar .lg-l{height:30px;width:auto}
   #thanks .lg-l{height:44px;width:auto;margin-bottom:26px;opacity:.95}
   #printarea .lg-d{height:52px;width:auto;margin-bottom:14px}
-  .btn-primary{width:100%;padding:15px;border-radius:12px;background:var(--claret);color:#fff;font-size:17px;
+  .btn-primary{width:100%;padding:15px;border-radius:12px;background:#7a2e2e;color:#fff;font-size:17px;
     font-weight:800;letter-spacing:1px}
   .btn-primary:disabled{background:#c9c2b4;color:#fff}
 
   /* ---- till ---- */
-  #till{background:var(--cream)}
-  .topbar{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--ink);color:#fff;flex:0 0 auto}
-  .topbar.refund{background:var(--claret)}
+  #till{background:#f6f0e4}
+  .topbar{display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;padding:8px 12px;background:#1a1a1a;color:#fff;-webkit-flex:0 0 auto;flex:0 0 auto}
+  .topbar>*+*{margin-left:10px}
+  .topbar.refund{background:#7a2e2e}
   .topbar .wm{font-family:Georgia,serif;font-weight:700;font-size:15px;white-space:nowrap}
-  .topbar .outlet{font-weight:800;font-size:18px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+  .topbar .outlet{font-weight:800;font-size:18px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;-webkit-flex:1;flex:1}
   .topbar button{color:#fff;border:1px solid rgba(255,255,255,.35);border-radius:8px;padding:7px 10px;font-size:13px;font-weight:700;white-space:nowrap}
   .topbar button.on{background:rgba(255,255,255,.22)}
-  .refstrip{background:var(--claret);color:#fff;font-weight:700;text-align:center;padding:6px;font-size:13px;flex:0 0 auto}
-  .body{flex:1;display:flex;min-height:0}
-  .grid{flex:1;overflow-y:auto;padding:10px}
+  .refstrip{background:#7a2e2e;color:#fff;font-weight:700;text-align:center;padding:6px;font-size:13px;-webkit-flex:0 0 auto;flex:0 0 auto}
+  .body{-webkit-flex:1;flex:1;display:-webkit-flex;display:flex;min-height:0}
+  .grid{-webkit-flex:1;flex:1;overflow-y:auto;padding:10px}
   .catrow{margin-bottom:14px}
   .cathead{font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:800;color:#fff;
     display:inline-block;padding:3px 10px;border-radius:20px;margin-bottom:8px}
-  /* flex-wrap (not grid) + margin gutters so it also renders on Android 5.1 WebView */
-  .items{display:flex;flex-wrap:wrap;margin:-4px}
+  .items{display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;margin:-4px}
   .item{border:2px solid;border-radius:12px;padding:10px;background:#fff;text-align:center;min-height:74px;
-    display:flex;flex-direction:column;justify-content:center;
-    flex:1 1 150px;max-width:260px;margin:4px}
+    display:-webkit-flex;display:flex;-webkit-flex-direction:column;flex-direction:column;-webkit-justify-content:center;justify-content:center;
+    -webkit-flex:1 1 150px;flex:1 1 150px;max-width:260px;margin:4px}
   .item .nm{font-weight:700;font-size:14px;line-height:1.15}
   .item .pr{margin-top:6px;font-weight:800;font-size:15px;color:#fff;border-radius:8px;padding:6px 4px}
-  .item .halves{display:flex;gap:6px;margin-top:6px}
-  .item .halves button{flex:1;color:#fff;border-radius:8px;padding:7px 2px;font-weight:800;font-size:13px}
-  .order{width:38%;max-width:400px;min-width:260px;background:var(--ink);color:#fff;display:flex;flex-direction:column}
+  .item .halves{display:-webkit-flex;display:flex;margin-top:6px}
+  .item .halves button{-webkit-flex:1;flex:1;color:#fff;border-radius:8px;padding:7px 2px;font-weight:800;font-size:13px}
+  .item .halves button+button{margin-left:6px}
+  .order{width:38%;max-width:400px;min-width:260px;background:#1a1a1a;color:#fff;display:-webkit-flex;display:flex;-webkit-flex-direction:column;flex-direction:column}
   .order h3{margin:0;padding:12px 14px;font-size:13px;letter-spacing:2px;text-transform:uppercase;
-    display:flex;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,.15)}
-  .lines{flex:1;overflow-y:auto}
-  .ln{display:flex;justify-content:space-between;gap:8px;padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.08)}
-  .ln .l{flex:1;min-width:0}
+    display:-webkit-flex;display:flex;-webkit-justify-content:space-between;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,.15)}
+  .lines{-webkit-flex:1;flex:1;overflow-y:auto}
+  .ln{display:-webkit-flex;display:flex;-webkit-justify-content:space-between;justify-content:space-between;padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.08)}
+  .ln .l{-webkit-flex:1;flex:1;min-width:0}
   .ln .nm{font-weight:600;font-size:14px}
-  .ln .ea{font-size:11px;color:#ffffff99}
-  .ln .amt{font-weight:800;white-space:nowrap}
-  .subtot{padding:12px 14px;display:flex;justify-content:space-between;font-weight:800;border-top:1px solid rgba(255,255,255,.15)}
-  .pay{flex:0 0 auto;background:#8a8a8a;color:#fff;display:flex;align-items:center;justify-content:space-between;
+  .ln .ea{font-size:11px;color:rgba(255,255,255,.6)}
+  .ln .amt{font-weight:800;white-space:nowrap;margin-left:8px}
+  .subtot{padding:12px 14px;display:-webkit-flex;display:flex;-webkit-justify-content:space-between;justify-content:space-between;font-weight:800;border-top:1px solid rgba(255,255,255,.15)}
+  .pay{-webkit-flex:0 0 auto;flex:0 0 auto;background:#8a8a8a;color:#fff;display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;-webkit-justify-content:space-between;justify-content:space-between;
     padding:0 22px;height:66px;font-weight:900}
-  .pay.on{background:var(--claret)}
+  .pay.on{background:#7a2e2e}
   .pay.refund{background:#9c2b2b}
   .pay .mid{font-size:24px;letter-spacing:5px}
   .pay .amt{font-size:22px}
-  .empty{padding:24px;text-align:center;color:#ffffff88}
+  .empty{padding:24px;text-align:center;color:rgba(255,255,255,.53)}
 
   /* ---- pay / thanks ---- */
-  #pay,#thanks{background:var(--ink);color:#fff;align-items:center;justify-content:center;text-align:center;padding:24px}
+  #pay,#thanks{background:#1a1a1a;color:#fff;-webkit-align-items:center;align-items:center;-webkit-justify-content:center;justify-content:center;text-align:center;padding:24px}
   #pay.refund,#thanks.refund{background:#5c1f1f}
   #pay .amt{font-size:74px;font-weight:900;margin:6px 0}
-  #pay .lbl{color:#ffffff88;letter-spacing:4px;font-size:16px}
-  #pay .card{margin-top:26px;background:#d8b25a;color:var(--ink);border-radius:16px;padding:20px 34px;
+  #pay .lbl{color:rgba(255,255,255,.53);letter-spacing:4px;font-size:16px}
+  #pay .card{margin-top:26px;background:#d8b25a;color:#1a1a1a;border-radius:16px;padding:20px 34px;
     font-size:22px;font-weight:900;letter-spacing:1px}
-  #pay .back{position:fixed;top:16px;left:16px;color:#ffffffaa;font-size:14px}
+  #pay .back{position:fixed;top:16px;left:16px;color:rgba(255,255,255,.67);font-size:14px}
   #thanks .big{font-size:44px;font-weight:900}
-  #thanks .sub{color:#ffffffb0;margin-top:6px}
-  #thanks .vat{margin-top:22px;border:2px solid #ffffff99;border-radius:12px;padding:12px 20px;font-weight:700}
-  #thanks .done{margin-top:26px;color:#ffffff55;font-size:13px}
+  #thanks .sub{color:rgba(255,255,255,.69);margin-top:6px}
+  #thanks .vat{margin-top:22px;border:2px solid rgba(255,255,255,.6);border-radius:12px;padding:12px 20px;font-weight:700}
+  #thanks .done{margin-top:26px;color:rgba(255,255,255,.33);font-size:13px}
 
   /* ---- reports / settings ---- */
-  .sheet{background:var(--cream)}
-  .sheet .hd{display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--ink);color:#fff;flex:0 0 auto}
+  .sheet{background:#f6f0e4}
+  .sheet .hd{display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;padding:12px 14px;background:#1a1a1a;color:#fff;-webkit-flex:0 0 auto;flex:0 0 auto}
+  .sheet .hd>*+*{margin-left:12px}
   .sheet .hd button{color:#fff;font-size:14px}
-  .sheet .hd h2{font-size:17px;margin:0;flex:1}
-  .sheet .cont{flex:1;overflow-y:auto;padding:16px;max-width:760px;width:100%;margin:0 auto}
-  .rd h3{font-size:13px;letter-spacing:2px;text-transform:uppercase;color:var(--brass);margin:18px 0 8px}
-  .kv{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--line);font-size:14px}
+  .sheet .hd h2{font-size:17px;margin:0;-webkit-flex:1;flex:1}
+  .sheet .cont{-webkit-flex:1;flex:1;overflow-y:auto;padding:16px;max-width:760px;width:100%;margin:0 auto}
+  .rd h3{font-size:13px;letter-spacing:2px;text-transform:uppercase;color:#9c7a3c;margin:18px 0 8px}
+  .kv{display:-webkit-flex;display:flex;-webkit-justify-content:space-between;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(26,26,26,.14);font-size:14px}
   table{width:100%;border-collapse:collapse;font-size:13px}
-  th,td{padding:6px 8px;text-align:right;border-bottom:1px solid var(--line)}
+  th,td{padding:6px 8px;text-align:right;border-bottom:1px solid rgba(26,26,26,.14)}
   th:first-child,td:first-child{text-align:left}
-  .row2{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
-  .row2 button{flex:1;min-width:130px;padding:13px;border-radius:10px;font-weight:800}
-  .b-ink{background:var(--ink);color:#fff}.b-claret{background:var(--claret);color:#fff}
-  .b-out{border:1.5px solid var(--ink)}
-  .menucard{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px;
-    display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-  .menucard input,.menucard select{padding:7px;border:1px solid var(--line);border-radius:7px;background:#fff;font-size:14px}
-  .menucard .nm{flex:1;min-width:120px}
+  .row2{display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;margin:14px -5px 0}
+  .row2 button{-webkit-flex:1;flex:1;min-width:130px;margin:5px;padding:13px;border-radius:10px;font-weight:800}
+  .b-ink{background:#1a1a1a;color:#fff}.b-claret{background:#7a2e2e;color:#fff}
+  .b-out{border:1.5px solid #1a1a1a}
+  .menucard{background:#fbf7ee;border:1px solid rgba(26,26,26,.14);border-radius:12px;padding:10px 12px;margin-bottom:8px;
+    display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;-webkit-flex-wrap:wrap;flex-wrap:wrap}
+  .menucard>*{margin:3px}
+  .menucard input,.menucard select{padding:7px;border:1px solid rgba(26,26,26,.14);border-radius:7px;background:#fff;font-size:14px}
+  .menucard .nm{-webkit-flex:1;flex:1;min-width:120px}
   .menucard .px{width:80px;text-align:right}
   .syncpill{font-size:12px;padding:3px 9px;border-radius:20px;font-weight:700}
-  .syncpill.ok{background:#e7f2e9;color:#2f6d3d}.syncpill.off{background:#f3e2e2;color:var(--claret)}
+  .syncpill.ok{background:#e7f2e9;color:#2f6d3d}.syncpill.off{background:#f3e2e2;color:#7a2e2e}
   .syncpill.pend{background:#faf0d8;color:#8a6d1e}
 
-  #toast{position:fixed;left:50%;bottom:80px;transform:translateX(-50%);background:var(--ink);color:#fff;
-    padding:10px 18px;border-radius:22px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:50}
+  #toast{position:fixed;left:50%;bottom:80px;-webkit-transform:translateX(-50%);transform:translateX(-50%);background:#1a1a1a;color:#fff;
+    padding:10px 18px;border-radius:22px;font-size:14px;opacity:0;-webkit-transition:opacity .2s;transition:opacity .2s;pointer-events:none;z-index:50}
   #toast.show{opacity:1}
-  .modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:60;padding:20px}
-  .modal.on{display:flex}
+  .modal{position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(0,0,0,.5);display:none;-webkit-align-items:center;align-items:center;-webkit-justify-content:center;justify-content:center;z-index:60;padding:20px}
+  .modal.on{display:-webkit-flex;display:flex}
   .modal .box{background:#fff;border-radius:16px;padding:22px;max-width:400px;width:100%}
   .modal h3{margin:0 0 12px}
-  .modal input{width:100%;padding:12px;border:1px solid var(--line);border-radius:10px;font-size:16px;margin-bottom:14px}
-  .modal .acts{display:flex;gap:10px}
-  .modal .acts button{flex:1;padding:12px;border-radius:10px;font-weight:800}
+  .modal input{width:100%;padding:12px;border:1px solid rgba(26,26,26,.14);border-radius:10px;font-size:16px;margin-bottom:14px}
+  .modal .acts{display:-webkit-flex;display:flex;margin:0 -5px}
+  .modal .acts button{-webkit-flex:1;flex:1;margin:0 5px;padding:12px;border-radius:10px;font-weight:800}
   @media print{ .screen{display:none!important} #printarea{display:block!important;position:static} body{overflow:visible;height:auto} }
   #printarea{display:none;padding:24px;font-size:13px;color:#000;background:#fff}
 </style>
@@ -142,7 +144,7 @@
     <h1>Enter access password</h1>
     <p class="sub">Asked once per tablet. After this the till works offline.</p>
     <div class="fld"><label>Password</label><input id="gPw" type="password" autocomplete="off"></div>
-    <div class="sub" id="gErr" style="color:var(--claret);min-height:16px"></div>
+    <div class="sub" id="gErr" style="color:#7a2e2e;min-height:16px"></div>
     <button id="gGo" class="btn-primary">Unlock</button>
   </div>
 </section>
@@ -232,12 +234,12 @@
       <button class="b-out" id="stPull">Update this tablet</button>
       <button class="b-ink" id="stSaveSync">Save changes &amp; sync from this tablet</button>
     </div>
-    <p style="font-size:12px;color:#0008;margin:8px 0 0">
+    <p style="font-size:12px;color:rgba(0,0,0,.5);margin:8px 0 0">
       <b>Update this tablet</b> just downloads the latest menu &amp; prices from the portal — it never changes the shared menu.
       <b>Save changes &amp; sync</b> also sends this tablet's own sales up. Neither one can delete menu items.
     </p>
     <h3 class="rd" style="margin-top:22px">Menu</h3>
-    <p style="font-size:12px;color:#0008;margin:4px 0 10px">Also editable on the reports portal. Changes save to the shared menu.</p>
+    <p style="font-size:12px;color:rgba(0,0,0,.5);margin:4px 0 10px">Also editable on the reports portal. Changes save to the shared menu.</p>
     <div class="menucard">
       <input class="nm" id="mAddName" placeholder="New item name">
       <select id="mAddCat"><option value="draft">Draft</option><option value="bottle">Bottle</option><option value="soft">Soft</option><option value="hot">Hot</option><option value="food" selected>Food</option></select>
@@ -247,7 +249,7 @@
       <button class="b-ink" style="padding:7px 12px;border-radius:8px;font-weight:800" id="mAddBtn">Add</button>
     </div>
     <div id="menuList"></div>
-    <p style="font-size:12px;color:#0008;margin-top:18px">Build <span id="buildTag"></span></p>
+    <p style="font-size:12px;color:rgba(0,0,0,.5);margin-top:18px">Build <span id="buildTag"></span></p>
   </div>
 </section>
 
@@ -257,7 +259,7 @@
 <div class="modal" id="tierGate" style="z-index:65">
   <div class="box" style="max-width:460px;text-align:center">
     <h3 style="margin-bottom:4px">New order</h3>
-    <p style="color:#0008;font-size:13px;margin:0 0 18px">Choose pricing for this customer.</p>
+    <p style="color:rgba(0,0,0,.5);font-size:13px;margin:0 0 18px">Choose pricing for this customer.</p>
     <div class="row2" style="margin:0">
       <button class="b-claret" id="tgMember" style="padding:26px 10px;font-size:17px;letter-spacing:1px;font-weight:900">MEMBER</button>
       <button class="b-ink" id="tgNon" style="padding:26px 10px;font-size:17px;letter-spacing:1px;font-weight:900">NON-MEMBER</button>
@@ -311,14 +313,14 @@ var CFG = {
   PASSWORD: "P455w0rd1",
   VAT_DEFAULT: 0.20,
   DAY_START_HOUR: 5,
-  BUILD: "web-1.8 (2026-09-07)"
+  BUILD: "web-1.9 (2026-09-09)"
 };
 // Must match kPresetOutlets in the app (lib/models/enums.dart).
 var OUTLETS = ["Outside Bar","Marquee pop up food station","Marquee pop up bar","Marquee BBQ","Field BBQ","Car Barn BBQ","Other"];
 var CAT = {
-  draft:{label:"Draft",v:"--draft"}, bottle:{label:"Bottles",v:"--bottle"},
-  soft:{label:"Soft & Hot",v:"--soft"}, hot:{label:"Hot",v:"--hot"},
-  food:{label:"Food",v:"--food"}, misc:{label:"Misc",v:"--misc"}
+  draft:{label:"Draft",v:"#c0882e"}, bottle:{label:"Bottles",v:"#3e7a4e"},
+  soft:{label:"Soft & Hot",v:"#2f6da4"}, hot:{label:"Hot",v:"#7a5230"},
+  food:{label:"Food",v:"#7a2e2e"}, misc:{label:"Misc",v:"#5f5f5f"}
 };
 var CATORDER = ["draft","bottle","soft","hot","food"];
 
@@ -605,7 +607,7 @@ function priceFor(m){
 function renderGrid(){
   var g=$("grid"); g.innerHTML="";
   if(!S.menu.length){
-    g.innerHTML='<div style="padding:24px;color:#0008">No menu yet — it appears automatically once this tablet reaches the portal (retrying every few seconds).'+
+    g.innerHTML='<div style="padding:24px;color:rgba(0,0,0,.5)">No menu yet — it appears automatically once this tablet reaches the portal (retrying every few seconds).'+
       (S.lastSyncErr ? '<br><br><b>Last error:</b> '+esc(S.lastSyncErr) : '')+'</div>';
     return;
   }
@@ -615,11 +617,11 @@ function renderGrid(){
     if(!items.length) return;
     var wrap=document.createElement("div"); wrap.className="catrow";
     var h=document.createElement("span"); h.className="cathead";
-    h.style.background="var("+CAT[cat].v+")"; h.textContent=CAT[cat].label;
+    h.style.background=CAT[cat].v; h.textContent=CAT[cat].label;
     wrap.appendChild(h);
     var box=document.createElement("div"); box.className="items";
     items.forEach(function(m){
-      var col="var("+CAT[cat].v+")";
+      var col=CAT[cat].v;
       var el=document.createElement("div"); el.className="item"; el.style.borderColor=col;
       var isDraft = cat==="draft";
       var half = (isDraft && m.half_price!=null && m.half_price>0);
@@ -634,7 +636,7 @@ function renderGrid(){
       } else {
         var pr = priceFor(m);
         var memberTag = (S.cart.tier==="member" && m.category==="food" && m.member_price!=null && m.member_price>0)
-          ? '<div style="font-size:9px;font-weight:800;color:#ffffffb0;margin-top:-2px">MEMBERS</div>' : '';
+          ? '<div style="font-size:9px;font-weight:800;color:rgba(255,255,255,.69);margin-top:-2px">MEMBERS</div>' : '';
         el.innerHTML+='<div class="pr" style="background:'+col+'">'+money(pr)+'</div>'+memberTag;
         el.onclick=function(){ addItem(m,'',pr); };
       }
@@ -644,10 +646,10 @@ function renderGrid(){
   });
   // misc buttons
   var mrow=document.createElement("div"); mrow.className="catrow";
-  mrow.innerHTML='<span class="cathead" style="background:var(--misc)">Misc</span>'+
+  mrow.innerHTML='<span class="cathead" style="background:#5f5f5f">Misc</span>'+
     '<div class="items">'+
-    '<div class="item" style="border-color:var(--misc)"><div class="nm">Misc Drink</div><div class="pr" style="background:var(--misc)">enter £</div></div>'+
-    '<div class="item" style="border-color:var(--misc)"><div class="nm">Misc Food</div><div class="pr" style="background:var(--misc)">enter £</div></div>'+
+    '<div class="item" style="border-color:#5f5f5f"><div class="nm">Misc Drink</div><div class="pr" style="background:#5f5f5f">enter £</div></div>'+
+    '<div class="item" style="border-color:#5f5f5f"><div class="nm">Misc Food</div><div class="pr" style="background:#5f5f5f">enter £</div></div>'+
     '</div>';
   var mi=mrow.querySelectorAll(".item");
   mi[0].onclick=function(){ miscPrompt(false); };
@@ -862,7 +864,7 @@ function doZRead(){
         return delKv('session');
       }).then(function(){
         $("readOut").innerHTML = readHtml(r) +
-          '<p style="color:var(--claret);font-weight:700;margin-top:14px">Session closed and totals cleared.</p>'+
+          '<p style="color:#7a2e2e;font-weight:700;margin-top:14px">Session closed and totals cleared.</p>'+
           '<div class="row2">'+
             '<button class="b-out" onclick="printRead()">Print / Save PDF</button>'+
             '<button class="b-claret" onclick="show(\'setup\')">Start new session</button>'+
