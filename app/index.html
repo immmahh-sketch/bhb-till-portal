@@ -313,7 +313,7 @@ var CFG = {
   PASSWORD: "P455w0rd1",
   VAT_DEFAULT: 0.20,
   DAY_START_HOUR: 5,
-  BUILD: "web-2.1 (2026-09-09)"
+  BUILD: "web-2.2 (2026-09-09)"
 };
 // Must match kPresetOutlets in the app (lib/models/enums.dart).
 var OUTLETS = ["Outside Bar","Marquee pop up food station","Marquee pop up bar","Marquee BBQ","Field BBQ","Car Barn BBQ","Other"];
@@ -396,6 +396,26 @@ function stAll(store){ return idbOp(store,'readonly', function(os){ return os.ge
 function stClear(store){ return idbOp(store,'readwrite', function(os){ return os.clear(); }, null); }
 function stDel(store,k){ return idbOp(store,'readwrite', function(os){ return os.delete(k); }, null); }
 
+// Clear a store and write many rows in ONE transaction. Firing dozens of
+// separate readwrite transactions (one per row) deadlocks the IndexedDB
+// implementation in the old Android 5.1 WebView.
+function stReplaceAll(store, rows){
+  return idb().then(function(d){
+    return new Promise(function(res, rej){
+      var t;
+      try {
+        t = d.transaction(store, 'readwrite');
+        var os = t.objectStore(store);
+        os.clear();
+        for(var i=0;i<rows.length;i++) os.put(rows[i]);
+      } catch(e){ rej(e); return; }
+      t.oncomplete = function(){ res(); };
+      t.onerror    = function(){ rej(t.error || new Error('idb error')); };
+      t.onabort    = function(){ rej(t.error || new Error('idb abort')); };
+    });
+  });
+}
+
 /* ============================ STATE ============================ */
 var S = {
   settings:{ outlet:"", teamMember:"", vatRate:CFG.VAT_DEFAULT, deviceId:"" },
@@ -455,15 +475,17 @@ function pullMenu(){
     // Keep the last-known-good menu if the response is missing or empty —
     // a blank reply must never wipe a working till.
     if(!Array.isArray(rows) || rows.length===0) return;
-    return stClear('menu').then(function(){
-      return Promise.all(rows.map(function(r){ return stPut('menu', {
-        id:r.id, name:r.name, category:r.category, price:+r.price||0,
-        half_price:(r.half_price==null?null:+r.half_price),
-        member_price:(r.member_price==null?null:+r.member_price),
-        sub_group:r.sub_group||null,
-        sort_order:+r.sort_order||0
-      }); }));
-    }).then(function(){ return stAll('menu'); }).then(function(m){ S.menu=m; renderGrid(); renderMenuList(); });
+    var items = rows.map(function(r){ return {
+      id:r.id, name:r.name, category:r.category, price:+r.price||0,
+      half_price:(r.half_price==null?null:+r.half_price),
+      member_price:(r.member_price==null?null:+r.member_price),
+      sub_group:r.sub_group||null,
+      sort_order:+r.sort_order||0
+    }; });
+    return stReplaceAll('menu', items).then(function(){
+      S.menu = items.slice();
+      renderGrid(); renderMenuList();
+    });
   });
 }
 
