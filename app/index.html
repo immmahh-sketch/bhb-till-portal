@@ -313,7 +313,7 @@ var CFG = {
   PASSWORD: "P455w0rd1",
   VAT_DEFAULT: 0.20,
   DAY_START_HOUR: 5,
-  BUILD: "web-2.0 (2026-09-09)"
+  BUILD: "web-2.1 (2026-09-09)"
 };
 // Must match kPresetOutlets in the app (lib/models/enums.dart).
 var OUTLETS = ["Outside Bar","Marquee pop up food station","Marquee pop up bar","Marquee BBQ","Field BBQ","Car Barn BBQ","Other"];
@@ -429,14 +429,17 @@ function sbFetch(path, opts){
     if(body != null) xhr.setRequestHeader("Content-Type", "application/json");
     xhr.onreadystatechange = function(){
       if(xhr.readyState !== 4) return;
+      var txt = "";
+      try { txt = xhr.responseText || ""; } catch(e){ txt = ""; }
+      S.diag = { status: xhr.status, len: txt.length, when: new Date() };
       if(xhr.status === 0){ settle(reject, new Error("can't reach the portal from this tablet (network or certificate)")); return; }
       if(xhr.status < 200 || xhr.status >= 300){
-        settle(reject, new Error("HTTP " + xhr.status + " " + String(xhr.responseText || "").slice(0,200)));
+        settle(reject, new Error("HTTP " + xhr.status + " " + txt.slice(0,200)));
         return;
       }
-      if(xhr.status === 204 || !xhr.responseText){ settle(resolve, null); return; }
-      try { settle(resolve, JSON.parse(xhr.responseText)); }
-      catch(e){ settle(reject, new Error("bad JSON from server")); }
+      if(xhr.status === 204 || !txt){ settle(resolve, null); return; }
+      try { settle(resolve, JSON.parse(txt)); }
+      catch(e){ settle(reject, new Error("bad JSON (" + txt.length + "b): " + txt.slice(0,120))); }
     };
     xhr.ontimeout = function(){ settle(reject, new Error("timed out")); };
     xhr.onerror   = function(){ settle(reject, new Error("can't reach the portal from this tablet (network or certificate)")); };
@@ -447,6 +450,8 @@ function sbFetch(path, opts){
 /* ---- pull shared menu (read-only; never writes to the shared table) ---- */
 function pullMenu(){
   return sbFetch("till_menu_items?select=*").then(function(rows){
+    S.diag = S.diag || {};
+    S.diag.rows = Array.isArray(rows) ? rows.length : (rows===null ? "null" : typeof rows);
     // Keep the last-known-good menu if the response is missing or empty —
     // a blank reply must never wipe a working till.
     if(!Array.isArray(rows) || rows.length===0) return;
@@ -618,8 +623,17 @@ function priceFor(m){
 function renderGrid(){
   var g=$("grid"); g.innerHTML="";
   if(!S.menu.length){
+    var d = S.diag || {};
+    var dbg = 'sync=' + (S.syncing ? 'running' : 'idle') +
+      ' · online=' + S.online +
+      ' · http=' + (d.status==null ? '—' : d.status) +
+      ' · bytes=' + (d.len==null ? '—' : d.len) +
+      ' · rows=' + (d.rows==null ? '—' : d.rows) +
+      ' · err=' + (S.lastSyncErr ? esc(S.lastSyncErr) : 'none') +
+      (d.when ? (' · at ' + d.when.toLocaleTimeString("en-GB")) : '');
     g.innerHTML='<div style="padding:24px;color:rgba(0,0,0,.5)">No menu yet — it appears automatically once this tablet reaches the portal (retrying every few seconds).'+
-      (S.lastSyncErr ? '<br><br><b>Last error:</b> '+esc(S.lastSyncErr) : '')+'</div>';
+      '<br><br><span style="font-size:11px">'+dbg+'</span>'+
+      '<br><br><button class="b-ink" style="padding:10px 16px;border-radius:8px;font-weight:800" onclick="pullOnly()">Retry now</button></div>';
     return;
   }
   CATORDER.forEach(function(cat){
