@@ -313,7 +313,7 @@ var CFG = {
   PASSWORD: "P455w0rd1",
   VAT_DEFAULT: 0.20,
   DAY_START_HOUR: 5,
-  BUILD: "web-1.9 (2026-09-09)"
+  BUILD: "web-2.0 (2026-09-09)"
 };
 // Must match kPresetOutlets in the app (lib/models/enums.dart).
 var OUTLETS = ["Outside Bar","Marquee pop up food station","Marquee pop up bar","Marquee BBQ","Field BBQ","Car Barn BBQ","Other"];
@@ -415,27 +415,32 @@ function sbFetch(path, opts){
   var body = opts.body != null ? JSON.stringify(opts.body) : null;
   return new Promise(function(resolve, reject){
     var xhr = new XMLHttpRequest();
+    var done = false;
+    function settle(fn, arg){ if(done) return; done = true; clearTimeout(killer); try{ xhr.onreadystatechange = null; }catch(e){} fn(arg); }
+    // Belt-and-braces: some old Samsung WebViews never fire xhr.timeout or
+    // xhr.onerror, leaving the request (and the whole sync) hung forever.
+    var killer = setTimeout(function(){ try{ xhr.abort(); }catch(e){} settle(reject, new Error("timed out")); }, 15000);
     try { xhr.open(opts.method || "GET", url, true); }
-    catch(e){ reject(new Error("bad request")); return; }
-    xhr.timeout = 15000;
+    catch(e){ settle(reject, new Error("bad request")); return; }
+    try { xhr.timeout = 15000; } catch(e){}
     xhr.setRequestHeader("apikey", CFG.SUPABASE_KEY);
     xhr.setRequestHeader("Authorization", "Bearer " + CFG.SUPABASE_KEY);
     if(opts.prefer) xhr.setRequestHeader("Prefer", opts.prefer);
     if(body != null) xhr.setRequestHeader("Content-Type", "application/json");
     xhr.onreadystatechange = function(){
       if(xhr.readyState !== 4) return;
-      if(xhr.status === 0){ reject(new Error("no connection / certificate not trusted by this tablet")); return; }
+      if(xhr.status === 0){ settle(reject, new Error("can't reach the portal from this tablet (network or certificate)")); return; }
       if(xhr.status < 200 || xhr.status >= 300){
-        reject(new Error("HTTP " + xhr.status + " " + String(xhr.responseText || "").slice(0,200)));
+        settle(reject, new Error("HTTP " + xhr.status + " " + String(xhr.responseText || "").slice(0,200)));
         return;
       }
-      if(xhr.status === 204 || !xhr.responseText){ resolve(null); return; }
-      try { resolve(JSON.parse(xhr.responseText)); }
-      catch(e){ reject(new Error("bad JSON from server")); }
+      if(xhr.status === 204 || !xhr.responseText){ settle(resolve, null); return; }
+      try { settle(resolve, JSON.parse(xhr.responseText)); }
+      catch(e){ settle(reject, new Error("bad JSON from server")); }
     };
-    xhr.ontimeout = function(){ reject(new Error("timed out")); };
-    xhr.onerror   = function(){ reject(new Error("no connection / certificate not trusted by this tablet")); };
-    try { xhr.send(body); } catch(e){ reject(new Error("send failed")); }
+    xhr.ontimeout = function(){ settle(reject, new Error("timed out")); };
+    xhr.onerror   = function(){ settle(reject, new Error("can't reach the portal from this tablet (network or certificate)")); };
+    try { xhr.send(body); } catch(e){ settle(reject, new Error("send failed")); }
   });
 }
 
@@ -537,15 +542,21 @@ function pullOnly(){
 function sync(){
   if(S.syncing) return Promise.resolve();
   S.syncing=true; renderSyncPills();
-  return pushPending().then(pullMenu).then(function(){
+  // Pull the menu first and on its own — getting the till usable must not wait
+  // on (or be blocked by) pushing sessions/sales up, which is the slow part on
+  // old tablets.
+  return pullMenu().then(function(){
     S.lastSync=new Date(); S.online=true; S.lastSyncErr=null;
   }).catch(function(e){
     S.online=false; S.lastSyncErr=(e&&e.message)?e.message:String(e);
-    console.warn("sync failed", e);
+    console.warn("pull failed", e);
   }).then(function(){
-    S.syncing=false;
     if(!S.menu.length) renderGrid();
     return countPending();
+  }).then(function(){
+    return pushPending().catch(function(e){ console.warn("push failed", e); });
+  }).then(function(){
+    S.syncing=false; renderSyncPills();
   });
 }
 
