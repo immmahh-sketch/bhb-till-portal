@@ -168,6 +168,7 @@
       <input id="suName" type="text" autocomplete="off" placeholder="e.g. Sam">
     </div>
     <button id="suOpen" class="btn-primary" disabled>OPEN TILL</button>
+    <button id="suBack" class="b-out hidden" style="width:100%;padding:12px;border-radius:12px;font-weight:800;margin-top:10px">‹ Back to till (no change)</button>
   </div>
 </section>
 
@@ -273,6 +274,7 @@
     <h3 style="margin-bottom:16px">Till menu</h3>
     <div class="row2" style="flex-direction:column;margin:0">
       <button class="b-out" id="tm_name">Change server name</button>
+      <button class="b-out" id="tm_outlet">Change outlet / server</button>
       <button class="b-out" id="tm_reports">Reports (X / Z read)</button>
       <button class="b-out" id="tm_settings">Settings &amp; menu</button>
       <button class="b-ink" id="tm_close">Close</button>
@@ -313,7 +315,7 @@ var CFG = {
   PASSWORD: "P455w0rd1",
   VAT_DEFAULT: 0.20,
   DAY_START_HOUR: 5,
-  BUILD: "web-2.2 (2026-09-09)"
+  BUILD: "web-2.3 (2026-09-10)"
 };
 // Must match kPresetOutlets in the app (lib/models/enums.dart).
 var OUTLETS = ["Outside Bar","Marquee pop up food station","Marquee pop up bar","Marquee BBQ","Field BBQ","Car Barn BBQ","Other"];
@@ -592,6 +594,7 @@ function show(name){
   ["gate","setup","till","pay","thanks","reports","settings"].forEach(function(n){
     $(n).classList.toggle("on", n===name);
   });
+  if(name==="setup"){ initSetup(); }
   if(name==="thanks"){ armThanks(); }
 }
 
@@ -610,11 +613,39 @@ function initSetup(){
   sel.onchange=chk; $("suOther").oninput=chk; $("suName").oninput=chk;
   if(S.settings.teamMember) $("suName").value=S.settings.teamMember;
   if(S.settings.outlet && OUTLETS.indexOf(S.settings.outlet)>=0) sel.value=S.settings.outlet;
+  var open = !!(S.session && !S.session.closed);
+  $("suOpen").textContent = open ? "APPLY CHANGES" : "OPEN TILL";
+  $("suBack").classList.toggle("hidden", !open);
+  $("suBack").onclick=function(){ enterTill(); };
   chk();
   $("suOpen").onclick=function(){
     var outlet = sel.value==="Other" ? $("suOther").value.trim() : sel.value;
-    openTill(outlet, $("suName").value.trim());
+    startSession(outlet, $("suName").value.trim());
   };
+}
+/* Reached from the setup screen. New shift -> new session. Mid-shift with a
+   session already open: same outlet just reassigns the server and keeps the
+   running totals; a different outlet closes this session and opens a fresh
+   one so each outlet's takings stay separate on the portal. */
+function startSession(outlet, name){
+  var s = S.session;
+  if(s && !s.closed){
+    if(s.outlet === outlet){
+      s.teamMember = name;
+      S.settings.outlet = outlet; S.settings.teamMember = name;
+      Promise.all([ kvPut('settings', S.settings), kvPut('session', s) ]).then(function(){
+        toast("Server set to " + name);
+        enterTill(); sync();
+      });
+      return;
+    }
+    s.closed = true; s.closedAt = Date.now();
+    kvPut('session', s).then(function(){ return S.online ? sync() : null; }).then(function(){
+      openTill(outlet, name);
+    });
+    return;
+  }
+  openTill(outlet, name);
 }
 function openTill(outlet, name){
   S.settings.outlet=outlet; S.settings.teamMember=name;
@@ -623,6 +654,10 @@ function openTill(outlet, name){
   Promise.all([ kvPut('settings', S.settings), kvPut('session', S.session) ]).then(function(){
     enterTill(); sync();
   });
+}
+function changeOutlet(){
+  if(S.cart.lines.length && !confirm("You have an unfinished order — changing the outlet/server clears it. Continue?")) return;
+  show("setup");
 }
 function enterTill(){
   $("tbOutlet").textContent = S.settings.outlet || "—";
@@ -1071,6 +1106,7 @@ function wire(){
   $("tbMenu").onclick=function(){ $("tmenu").classList.add("on"); };
   $("tm_close").onclick=function(){ $("tmenu").classList.remove("on"); };
   $("tm_name").onclick=function(){ $("tmenu").classList.remove("on"); changeName(); };
+  $("tm_outlet").onclick=function(){ $("tmenu").classList.remove("on"); changeOutlet(); };
   $("tm_reports").onclick=function(){ $("tmenu").classList.remove("on"); openReports(); };
   $("tm_settings").onclick=function(){ $("tmenu").classList.remove("on"); openSettings(); };
   $("gGo").onclick=tryGate;
