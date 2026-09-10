@@ -78,6 +78,10 @@
     letter-spacing:1px;display:block;margin-bottom:4px}
   .menu-add input,.menu-add select{font:inherit;padding:7px 9px;border:1px solid var(--line);
     border-radius:8px;background:#fff}
+  .dz{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;
+    border:1.5px solid var(--claret);border-radius:10px;padding:14px 16px;background:#fbf1f1}
+  .dz button.danger{border-color:var(--claret);background:var(--claret);color:#fff;font-weight:800;white-space:nowrap}
+  .dz button.danger:disabled{opacity:.55}
 
   #gate{position:fixed;inset:0;background:var(--cream);display:flex;align-items:center;justify-content:center;z-index:30}
   #gate .card{background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:32px;max-width:360px;width:90%;text-align:center}
@@ -169,6 +173,15 @@
     <div class="tablewrap"><table id="prodTable">
       <thead><tr><th class="l">Item</th><th class="l">Cat</th><th>Qty</th><th>Gross</th><th>Nett</th></tr></thead>
       <tbody id="prodBody"></tbody></table></div>
+
+    <h2 class="sec">Clear transactions</h2>
+    <div class="dz">
+      <div>
+        <b>Clear the transactions shown for <span id="dzDate">this day</span></b>
+        <div class="muted" id="dzInfo">Permanently deletes every sale and void recorded for the selected day. Sessions and the menu are not touched. Asks for the portal password first.</div>
+      </div>
+      <button id="clearDay" class="danger">Clear this day</button>
+    </div>
   </section>
 
   <!-- RECEIPTS -->
@@ -284,6 +297,7 @@ function showApp(){
   document.getElementById("day").addEventListener("change", load);
   document.querySelectorAll("#tabs button").forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
   ["fTill","fVat","fText"].forEach(id=>document.getElementById(id).addEventListener("input", renderReceipts));
+  document.getElementById("clearDay").addEventListener("click", clearDay);
   load();
   setInterval(load, CFG.REFRESH_MS);
 }
@@ -350,8 +364,44 @@ function vatOf(sale){
 function renderAll(){
   document.querySelectorAll("[id^=tab-]").forEach(()=>{});
   renderOverview(); renderReceiptsFilterOptions(); renderReceipts(); renderTeam(); renderRefunds(); renderMenu();
+  renderDangerZone();
   document.querySelectorAll("#tab-team .sec").forEach(h=>h.textContent =
     "Team performance — " + document.getElementById("day").value);
+}
+
+function renderDangerZone(){
+  const day = document.getElementById("day").value;
+  const nS = (ST.sales||[]).length, nV = (ST.voids||[]).length;
+  document.getElementById("dzDate").textContent = day;
+  document.getElementById("dzInfo").textContent =
+    nS + " sale" + (nS===1?"":"s") + " and " + nV + " void" + (nV===1?"":"s") +
+    " on " + day + " will be permanently deleted. Sessions and the menu are not touched. Asks for the portal password first.";
+  const btn = document.getElementById("clearDay");
+  if(btn && !btn.disabled) btn.textContent = (nS+nV) ? ("Clear " + (nS+nV) + " transaction" + ((nS+nV)===1?"":"s")) : "Nothing to clear";
+}
+
+async function clearDay(){
+  const day = document.getElementById("day").value;
+  const { start, end } = dayWindow();
+  const nS = (ST.sales||[]).length, nV = (ST.voids||[]).length;
+  if(nS+nV === 0){ alert("There are no transactions for " + day + "."); return; }
+  const pw = prompt("Enter the portal password to clear " + (nS+nV) + " transaction(s) for " + day + ":");
+  if(pw === null) return;
+  if(pw !== CFG.PORTAL_PASSWORD){ alert("Incorrect password — nothing was cleared."); return; }
+  if(!confirm("PERMANENTLY delete " + nS + " sale(s) and " + nV + " void(s) recorded on " + day + "?\n\nThis cannot be undone.")) return;
+  const btn = document.getElementById("clearDay");
+  btn.disabled = true; btn.textContent = "Clearing…";
+  try{
+    const q = "ts=gte." + start.toISOString() + "&ts=lt." + end.toISOString();
+    await sb("till_voids?" + q, { method:"DELETE" });
+    await sb("till_sales?" + q, { method:"DELETE" });
+    await load();
+    alert(day + " cleared — " + nS + " sale(s) and " + nV + " void(s) removed.");
+  }catch(e){
+    alert("Clear failed: " + e.message);
+  }
+  btn.disabled = false;
+  renderDangerZone();
 }
 
 function renderOverview(){
