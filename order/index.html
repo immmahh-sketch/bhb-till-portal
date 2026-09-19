@@ -93,10 +93,19 @@
   <div class="scroll" id="catList"></div>
 </section>
 
+<!-- ===================== DRINKS SUB-CATEGORIES ===================== -->
+<section id="drinksub" class="screen">
+  <header class="top">
+    <div class="backrow"><button onclick="show('categories')">‹ Categories</button></div>
+    <div><h1>Drinks</h1></div>
+  </header>
+  <div class="scroll" id="drinkGroupList"></div>
+</section>
+
 <!-- ===================== MENU ===================== -->
 <section id="menu" class="screen">
   <header class="top">
-    <div class="backrow"><button onclick="show('categories')">‹ Categories</button></div>
+    <div class="backrow"><button id="menuBackBtn" onclick="show('categories')">‹ Categories</button></div>
     <div><h1 id="menuSectionTitle">Menu</h1></div>
   </header>
   <div class="scroll" id="menuList"></div>
@@ -160,15 +169,16 @@ var CFG = {
   SUPABASE_KEY: "sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU"
 };
 var SECTIONS = ["Small Plates & Starters","Main Courses","From the Grill","Desserts","Drinks"];
+var DRINK_GROUPS = ["Hot beverages","Soft drinks","Wine","Bottles and Draft","Spirits and cocktails"];
 var TRAY_CHARGE = 5.00;
-var S = { menu: [], cart: {}, currentSection: null /* itemId -> {item, qty} */ };
+var S = { menu: [], cart: {}, currentSection: null, currentDrinkGroup: null /* itemId -> {item, qty} */ };
 
 function $(id){ return document.getElementById(id); }
 function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
 function money(n){ return (Math.round((n+Number.EPSILON)*100)/100).toFixed(2); }
 function toast(m){ var t=$("toast"); t.textContent=m; t.classList.add("show"); clearTimeout(toast._t); toast._t=setTimeout(function(){t.classList.remove("show");},2400); }
 function show(name){
-  ["categories","menu","basket","status","closed"].forEach(function(n){ $(n).classList.toggle("on", n===name); });
+  ["categories","drinksub","menu","basket","status","closed"].forEach(function(n){ $(n).classList.toggle("on", n===name); });
   if(name==="basket") renderBasket();
   renderBasketBar();
 }
@@ -207,13 +217,49 @@ function renderCategories(){
       '<div class="ctext"><div class="cname">'+esc(sec)+'</div>'+
       '<div class="ccount">'+items.length+' item'+(items.length===1?'':'s')+'</div></div>'+
       '<div class="carrow">›</div>';
-    el.onclick = function(){ openSection(sec); };
+    el.onclick = function(){ if(sec==="Drinks") openDrinkGroups(); else openSection(sec); };
     box.appendChild(el);
   });
 }
 function openSection(sec){
   S.currentSection = sec;
+  S.currentDrinkGroup = null;
   $("menuSectionTitle").textContent = sec;
+  $("menuBackBtn").textContent = "‹ Categories";
+  $("menuBackBtn").onclick = function(){ show("categories"); };
+  renderMenu();
+  show("menu");
+}
+
+/* ---------------- drinks sub-categories ---------------- */
+function openDrinkGroups(){
+  renderDrinkGroups();
+  show("drinksub");
+}
+function renderDrinkGroups(){
+  var box = $("drinkGroupList"); box.innerHTML = "";
+  var drinkItems = S.menu.filter(function(m){ return m.menu_section==="Drinks"; });
+  var any = false;
+  DRINK_GROUPS.forEach(function(g){
+    var items = drinkItems.filter(function(m){ return m.drink_group===g; });
+    if(!items.length) return;
+    any = true;
+    var el = document.createElement("div"); el.className="cattile";
+    el.innerHTML =
+      '<div class="ctext"><div class="cname">'+esc(g)+'</div>'+
+      '<div class="ccount">'+items.length+' item'+(items.length===1?'':'s')+'</div></div>'+
+      '<div class="carrow">›</div>';
+    el.onclick = function(){ openDrinkGroup(g); };
+    box.appendChild(el);
+  });
+  if(!any) box.innerHTML = '<div class="empty">Nothing here right now.</div>';
+}
+function openDrinkGroup(g){
+  S.currentSection = "Drinks";
+  S.currentDrinkGroup = g;
+  $("menuSectionTitle").textContent = g;
+  $("menuBackBtn").textContent = "‹ Drinks";
+  $("menuBackBtn").onclick = function(){ show("drinksub"); };
   renderMenu();
   show("menu");
 }
@@ -221,7 +267,10 @@ function openSection(sec){
 /* ---------------- menu ---------------- */
 function renderMenu(){
   var box = $("menuList"); box.innerHTML = "";
-  var items = S.menu.filter(function(m){ return m.menu_section===S.currentSection; });
+  var items = S.menu.filter(function(m){
+    if(S.currentSection!=="Drinks") return m.menu_section===S.currentSection;
+    return m.menu_section==="Drinks" && m.drink_group===S.currentDrinkGroup;
+  });
   if(!items.length){ box.innerHTML = '<div class="empty">Nothing here right now.</div>'; return; }
   items.forEach(function(m){
       var row = S.cart[m.id];
@@ -252,7 +301,7 @@ function cartTotal(){ return cartLines().reduce(function(s,l){ return s + l.item
 function cartCount(){ return cartLines().reduce(function(s,l){ return s + l.qty; }, 0); }
 function renderBasketBar(){
   var n = cartCount();
-  var onOrderableScreen = $("categories").classList.contains("on") || $("menu").classList.contains("on");
+  var onOrderableScreen = $("categories").classList.contains("on") || $("drinksub").classList.contains("on") || $("menu").classList.contains("on");
   $("basketBar").classList.toggle("show", n>0 && onOrderableScreen);
   $("basketN").textContent = n + " item" + (n===1?"":"s");
   $("basketTotal").textContent = money(cartTotal());
