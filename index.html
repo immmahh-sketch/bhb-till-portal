@@ -62,6 +62,10 @@
   .ticket .t-head{text-align:center;font-weight:800;letter-spacing:2px;border-bottom:1px dashed #0004;padding-bottom:8px;margin-bottom:8px}
   .ticket .t-row{display:flex;justify-content:space-between;gap:8px}
   .ticket .t-line{display:flex;justify-content:space-between;gap:8px;margin-top:4px}
+  .ticket .t-section{font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;margin-top:10px;color:var(--claret)}
+  .ticket .t-section:first-child{margin-top:0}
+  .ticket .t-signoff{border-top:1px dashed #0004;margin-top:10px;padding-top:8px;font-size:11px;color:#0009}
+  .ticket .so-line{border-bottom:1px solid #0007;height:24px;margin-top:12px}
   .ticket .t-foot{border-top:1px dashed #0004;margin-top:8px;padding-top:8px;display:flex;justify-content:space-between;align-items:center}
   .ticket .t-status{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
   .ticket .t-status.pending{color:var(--claret)}
@@ -865,9 +869,13 @@ async function clearBusyNotice(){
 /* ---------- Room service: orders & refunds ---------- */
 function ticketHtml(job){
   const p = job.payload || {};
-  const lines = (p.lines||[]).map(l=>
-    `<div class="t-line"><span>${l.qty} × ${esc(l.name)}</span></div>`
-  ).join("");
+  const allLines = p.lines || [];
+  const food = allLines.filter(l=>l.category==="food");
+  const drink = allLines.filter(l=>l.category!=="food");
+  const lineHtml = l => `<div class="t-line"><span>${l.qty} × ${esc(l.name)}</span></div>`;
+  const sections =
+    (food.length ? `<div class="t-section">Food</div>${food.map(lineHtml).join("")}` : "") +
+    (drink.length ? `<div class="t-section">Drinks</div>${drink.map(lineHtml).join("")}` : "");
   const time = new Date(job.created_at).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"});
   const pending = job.status==="pending";
   return `
@@ -875,7 +883,11 @@ function ticketHtml(job){
       <div class="t-head">${job.destination==="kitchen"?"KITCHEN":"BAR"} TICKET</div>
       <div class="t-row"><span>Order #${p.order_no??"—"}</span><span>${time}</span></div>
       <div class="t-row"><span>Room ${esc(p.room_number??"—")}</span><span>${esc(p.guest_name??"")}</span></div>
-      <div style="margin-top:8px">${lines || '<div class="t-line muted">(no lines)</div>'}</div>
+      <div style="margin-top:4px">${sections || '<div class="t-line muted">(no lines)</div>'}</div>
+      <div class="t-signoff">
+        Guest sign-off — I confirm I received my full order as listed above
+        <div class="so-line"></div>
+      </div>
       <div class="t-foot">
         <span class="t-status ${pending?"pending":"printed"}">${pending?"Would print now":"Printed"}</span>
         ${pending ? `<button class="b-out" onclick="markPrinted('${job.id}')">Mark printed</button>` : ""}
@@ -949,7 +961,7 @@ async function refundOrder(id){
 }
 
 /* ---------- Room service: menu editor ---------- */
-const RS_SECTIONS = ["Small Plates & Starters","Main Courses","From the Grill","Desserts","Drinks"];
+const RS_SECTIONS = ["Small Plates & Starters","Main Courses","From the Grill","Sides","Desserts","Drinks"];
 const RS_DRINK_GROUPS = ["Hot beverages","Soft drinks","Wine","Bottles and Draft","Spirits and cocktails"];
 function rsSectionOptions(selected){
   return RS_SECTIONS.map(s=>`<option value="${esc(s)}"${s===selected?" selected":""}>${esc(s)}</option>`).join("");

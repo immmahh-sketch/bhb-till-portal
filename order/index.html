@@ -21,6 +21,11 @@
     text-align:center;font-size:12px;font-weight:700;letter-spacing:.5px;padding:7px 8px}
   body.test-mode #testBanner{display:block}
   body.test-mode .screen{top:28px}
+  .sidebanner{flex:0 0 auto;background:#faf6ef;border-bottom:1px solid var(--line);padding:12px 16px 14px}
+  .sidebanner .sb-title{font-size:13px;font-weight:600;margin-bottom:8px;font-style:italic;color:var(--muted)}
+  .sidebanner .sb-scroll{display:flex;gap:10px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px}
+  .sidebanner .sb-item{flex:0 0 auto;background:#fff;border:1px solid var(--line);border-radius:20px;padding:9px 16px;font-size:13px;white-space:nowrap;cursor:pointer}
+  .sidebanner .sb-item b{margin-left:8px;font-weight:600}
   header.top{flex:0 0 auto;background:var(--ink);color:#fff;padding:16px;display:flex;align-items:center;gap:12px}
   header.top img{height:32px}
   header.top h1{font-size:18px;margin:0;font-weight:600;letter-spacing:2px;text-transform:uppercase}
@@ -140,6 +145,10 @@
   <header class="top">
     <div class="backrow"><button onclick="show('menu')">‹ Menu</button></div>
   </header>
+  <div class="sidebanner" id="sideBanner" style="display:none">
+    <div class="sb-title">Fancy something on the side?</div>
+    <div class="sb-scroll" id="sideScroll"></div>
+  </div>
   <div class="scroll">
     <div id="lines"></div>
     <div class="subtotrow minor"><span>Items</span><span>£<span id="itemsSubtotal">0.00</span></span></div>
@@ -211,7 +220,7 @@ var CFG = {
   SUPABASE_URL: "https://safcrtrfdzsnftghibot.supabase.co",
   SUPABASE_KEY: "sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU"
 };
-var SECTIONS = ["Small Plates & Starters","Main Courses","From the Grill","Desserts","Drinks"];
+var SECTIONS = ["Small Plates & Starters","Main Courses","From the Grill","Sides","Desserts","Drinks"];
 var DRINK_GROUPS = ["Hot beverages","Soft drinks","Wine","Bottles and Draft","Spirits and cocktails"];
 var TRAY_CHARGE = 5.00;
 var S = { menu: [], cart: {}, currentSection: null, currentDrinkGroup: null, currentWineType: null, testMode: false /* itemId -> {item, qty} */ };
@@ -444,7 +453,21 @@ function renderBasketBar(){
 $("basketBar").onclick = function(){ if(cartCount()>0) show("basket"); };
 
 /* ---------------- basket / checkout ---------------- */
+function renderSideBanner(){
+  var banner = $("sideBanner");
+  var sides = S.menu.filter(function(m){ return m.menu_section==="Sides"; });
+  if(!sides.length){ banner.style.display = "none"; return; }
+  var box = $("sideScroll"); box.innerHTML = "";
+  sides.forEach(function(m){
+    var el = document.createElement("div"); el.className = "sb-item";
+    el.innerHTML = esc(m.name) + '<b>£' + money(m.price) + '</b>';
+    el.onclick = function(){ openSection("Sides"); };
+    box.appendChild(el);
+  });
+  banner.style.display = "";
+}
 function renderBasket(){
+  renderSideBanner();
   var box = $("lines"); box.innerHTML = "";
   var lines = cartLines();
   if(!lines.length){ box.innerHTML = '<div class="empty">Your order is empty.</div>'; }
@@ -545,15 +568,13 @@ $("testPassInput").addEventListener("keydown", function(e){ if(e.key==="Enter") 
 
 async function queueTestPrintJobs(order){
   var lines = order.lines || [];
-  var food = lines.filter(function(l){ return l.category==="food"; });
-  var drink = lines.filter(function(l){ return l.category!=="food"; });
-  var base = { order_no: order.order_no, guest_name: order.guest_name, room_number: order.room_number };
-  var jobs = [];
-  if(food.length) jobs.push({ order_id: order.id, destination:"kitchen", payload: Object.assign({}, base, {lines:food}) });
-  if(drink.length) jobs.push({ order_id: order.id, destination:"bar", payload: Object.assign({}, base, {lines:drink}) });
-  if(jobs.length){
-    await sb("print_jobs", { method:"POST", headers:{Prefer:"return=minimal"}, body: JSON.stringify(jobs) });
-  }
+  if(!lines.length) return;
+  var payload = { order_no: order.order_no, guest_name: order.guest_name, room_number: order.room_number, lines: lines };
+  var jobs = [
+    { order_id: order.id, destination:"kitchen", payload: payload },
+    { order_id: order.id, destination:"bar", payload: payload }
+  ];
+  await sb("print_jobs", { method:"POST", headers:{Prefer:"return=minimal"}, body: JSON.stringify(jobs) });
 }
 function showTestThankYou(o){
   show("status");
