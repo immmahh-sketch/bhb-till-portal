@@ -22,8 +22,6 @@
   header.top h1{font-size:18px;margin:0;font-weight:600;letter-spacing:2px;text-transform:uppercase}
   header.top .sub{font-size:12px;color:#ffffffa0;margin-top:2px;font-style:italic}
   .scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 16px 110px}
-  .catlabel{font-family:'Kristi',cursive;font-size:34px;font-weight:400;color:var(--ink);margin:26px 4px 8px;line-height:1}
-  .catlabel:first-child{margin-top:6px}
   .cattile{background:#fff;border:1px solid var(--line);border-radius:2px;padding:22px 20px;margin-bottom:12px;
     display:flex;align-items:center;justify-content:space-between;cursor:pointer}
   .cattile .ctext{flex:1;min-width:0}
@@ -109,6 +107,15 @@
   <div class="scroll" id="drinkGroupList"></div>
 </section>
 
+<!-- ===================== WINE TYPES ===================== -->
+<section id="winetype" class="screen">
+  <header class="top">
+    <div class="backrow"><button onclick="show('drinksub')">‹ Drinks</button></div>
+    <div><h1>Wine</h1></div>
+  </header>
+  <div class="scroll" id="wineTypeList"></div>
+</section>
+
 <!-- ===================== MENU ===================== -->
 <section id="menu" class="screen">
   <header class="top">
@@ -187,14 +194,14 @@ var CFG = {
 var SECTIONS = ["Small Plates & Starters","Main Courses","From the Grill","Desserts","Drinks"];
 var DRINK_GROUPS = ["Hot beverages","Soft drinks","Wine","Bottles and Draft","Spirits and cocktails"];
 var TRAY_CHARGE = 5.00;
-var S = { menu: [], cart: {}, currentSection: null, currentDrinkGroup: null /* itemId -> {item, qty} */ };
+var S = { menu: [], cart: {}, currentSection: null, currentDrinkGroup: null, currentWineType: null /* itemId -> {item, qty} */ };
 
 function $(id){ return document.getElementById(id); }
 function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
 function money(n){ return (Math.round((n+Number.EPSILON)*100)/100).toFixed(2); }
 function toast(m){ var t=$("toast"); t.textContent=m; t.classList.add("show"); clearTimeout(toast._t); toast._t=setTimeout(function(){t.classList.remove("show");},2400); }
 function show(name){
-  ["categories","drinksub","menu","basket","status","closed"].forEach(function(n){ $(n).classList.toggle("on", n===name); });
+  ["categories","drinksub","winetype","menu","basket","status","closed"].forEach(function(n){ $(n).classList.toggle("on", n===name); });
   if(name==="basket") renderBasket();
   renderBasketBar();
 }
@@ -273,6 +280,8 @@ function renderDrinkGroups(){
 function openDrinkGroup(g){
   S.currentSection = "Drinks";
   S.currentDrinkGroup = g;
+  S.currentWineType = null;
+  if(g==="Wine"){ openWineTypes(); return; }
   $("menuSectionTitle").textContent = g;
   $("menuBackBtn").textContent = "‹ Drinks";
   $("menuBackBtn").onclick = function(){ show("drinksub"); };
@@ -280,9 +289,43 @@ function openDrinkGroup(g){
   show("menu");
 }
 
-/* ---------------- menu ---------------- */
+/* ---------------- wine types ---------------- */
 var WINE_TYPES = ["Sparkling","White","Rose","Red"];
 var WINE_TYPE_LABEL = { Sparkling:"Sparkling", White:"White", Rose:"Rosé", Red:"Red" };
+function openWineTypes(){
+  renderWineTypes();
+  show("winetype");
+}
+function renderWineTypes(){
+  var box = $("wineTypeList"); box.innerHTML = "";
+  var wines = S.menu.filter(function(m){ return m.menu_section==="Drinks" && m.drink_group==="Wine"; });
+  var any = false;
+  WINE_TYPES.forEach(function(t){
+    var items = wines.filter(function(m){ return m.wine_type===t; });
+    if(!items.length) return;
+    any = true;
+    var el = document.createElement("div"); el.className="cattile";
+    el.innerHTML =
+      '<div class="ctext"><div class="cname">'+esc(WINE_TYPE_LABEL[t])+'</div>'+
+      '<div class="ccount">'+items.length+' item'+(items.length===1?'':'s')+'</div></div>'+
+      '<div class="carrow">›</div>';
+    el.onclick = function(){ openWineType(t); };
+    box.appendChild(el);
+  });
+  if(!any) box.innerHTML = '<div class="empty">Nothing here right now.</div>';
+}
+function openWineType(t){
+  S.currentSection = "Drinks";
+  S.currentDrinkGroup = "Wine";
+  S.currentWineType = t;
+  $("menuSectionTitle").textContent = WINE_TYPE_LABEL[t];
+  $("menuBackBtn").textContent = "‹ Wine";
+  $("menuBackBtn").onclick = function(){ show("winetype"); };
+  renderMenu();
+  show("menu");
+}
+
+/* ---------------- menu ---------------- */
 function buildItemEl(m){
   var hasVariants = Array.isArray(m.variants) && m.variants.length>0;
   var el = document.createElement("div"); el.className="item";
@@ -317,20 +360,11 @@ function renderMenu(){
   var box = $("menuList"); box.innerHTML = "";
   var items = S.menu.filter(function(m){
     if(S.currentSection!=="Drinks") return m.menu_section===S.currentSection;
+    if(S.currentDrinkGroup==="Wine") return m.drink_group==="Wine" && m.wine_type===S.currentWineType;
     return m.menu_section==="Drinks" && m.drink_group===S.currentDrinkGroup;
   });
   if(!items.length){ box.innerHTML = '<div class="empty">Nothing here right now.</div>'; return; }
-  if(S.currentDrinkGroup==="Wine"){
-    WINE_TYPES.forEach(function(t){
-      var group = items.filter(function(m){ return m.wine_type===t; });
-      if(!group.length) return;
-      var h = document.createElement("div"); h.className="catlabel"; h.textContent = WINE_TYPE_LABEL[t];
-      box.appendChild(h);
-      group.forEach(function(m){ box.appendChild(buildItemEl(m)); });
-    });
-  } else {
-    items.forEach(function(m){ box.appendChild(buildItemEl(m)); });
-  }
+  items.forEach(function(m){ box.appendChild(buildItemEl(m)); });
 }
 var _variantItem = null;
 function openVariantPicker(item){
