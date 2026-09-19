@@ -281,6 +281,38 @@ function openDrinkGroup(g){
 }
 
 /* ---------------- menu ---------------- */
+var WINE_TYPES = ["Sparkling","White","Rose","Red"];
+var WINE_TYPE_LABEL = { Sparkling:"Sparkling", White:"White", Rose:"Rosé", Red:"Red" };
+function buildItemEl(m){
+  var hasVariants = Array.isArray(m.variants) && m.variants.length>0;
+  var el = document.createElement("div"); el.className="item";
+  if(hasVariants){
+    var qtyForItem = cartLines().filter(function(l){ return l.itemId===m.id; }).reduce(function(s,l){ return s+l.qty; }, 0);
+    var minPrice = Math.min.apply(null, m.variants.map(function(v){ return v.price; }));
+    el.innerHTML =
+      '<div class="info"><div class="nm">'+esc(m.name)+'</div>'+
+      (m.description ? '<div class="dsc">'+esc(m.description)+'</div>' : '')+
+      '<div class="pr">From £'+money(minPrice)+'</div>'+
+      (qtyForItem>0 ? '<div class="picked">'+qtyForItem+' in your order</div>' : '')+
+      '</div>'+
+      '<div class="stepper"><button class="choose-btn">Choose</button></div>';
+    el.querySelector(".choose-btn").onclick = function(){ openVariantPicker(m); };
+  } else {
+    var row = S.cart[m.id];
+    el.innerHTML =
+      '<div class="info"><div class="nm">'+esc(m.name)+'</div>'+
+      (m.description ? '<div class="dsc">'+esc(m.description)+'</div>' : '')+
+      '<div class="pr">£'+money(m.price)+'</div></div>'+
+      '<div class="stepper">'+
+        (row&&row.qty>0 ? '<button class="rm">−</button><span class="qty">'+row.qty+'</span>' : '')+
+        '<button class="add">+</button>'+
+      '</div>';
+    el.querySelector(".add").onclick = function(){ addToCart(m, null); };
+    var rmBtn = el.querySelector(".rm");
+    if(rmBtn) rmBtn.onclick = function(){ adjustCartQty(m.id, -1); };
+  }
+  return el;
+}
 function renderMenu(){
   var box = $("menuList"); box.innerHTML = "";
   var items = S.menu.filter(function(m){
@@ -288,36 +320,17 @@ function renderMenu(){
     return m.menu_section==="Drinks" && m.drink_group===S.currentDrinkGroup;
   });
   if(!items.length){ box.innerHTML = '<div class="empty">Nothing here right now.</div>'; return; }
-  items.forEach(function(m){
-      var hasVariants = Array.isArray(m.variants) && m.variants.length>0;
-      var el = document.createElement("div"); el.className="item";
-      if(hasVariants){
-        var qtyForItem = cartLines().filter(function(l){ return l.itemId===m.id; }).reduce(function(s,l){ return s+l.qty; }, 0);
-        var minPrice = Math.min.apply(null, m.variants.map(function(v){ return v.price; }));
-        el.innerHTML =
-          '<div class="info"><div class="nm">'+esc(m.name)+'</div>'+
-          (m.description ? '<div class="dsc">'+esc(m.description)+'</div>' : '')+
-          '<div class="pr">From £'+money(minPrice)+'</div>'+
-          (qtyForItem>0 ? '<div class="picked">'+qtyForItem+' in your order</div>' : '')+
-          '</div>'+
-          '<div class="stepper"><button class="choose-btn">Choose</button></div>';
-        el.querySelector(".choose-btn").onclick = function(){ openVariantPicker(m); };
-      } else {
-        var row = S.cart[m.id];
-        el.innerHTML =
-          '<div class="info"><div class="nm">'+esc(m.name)+'</div>'+
-          (m.description ? '<div class="dsc">'+esc(m.description)+'</div>' : '')+
-          '<div class="pr">£'+money(m.price)+'</div></div>'+
-          '<div class="stepper">'+
-            (row&&row.qty>0 ? '<button class="rm">−</button><span class="qty">'+row.qty+'</span>' : '')+
-            '<button class="add">+</button>'+
-          '</div>';
-        el.querySelector(".add").onclick = function(){ addToCart(m, null); };
-        var rmBtn = el.querySelector(".rm");
-        if(rmBtn) rmBtn.onclick = function(){ adjustCartQty(m.id, -1); };
-      }
-      box.appendChild(el);
-  });
+  if(S.currentDrinkGroup==="Wine"){
+    WINE_TYPES.forEach(function(t){
+      var group = items.filter(function(m){ return m.wine_type===t; });
+      if(!group.length) return;
+      var h = document.createElement("div"); h.className="catlabel"; h.textContent = WINE_TYPE_LABEL[t];
+      box.appendChild(h);
+      group.forEach(function(m){ box.appendChild(buildItemEl(m)); });
+    });
+  } else {
+    items.forEach(function(m){ box.appendChild(buildItemEl(m)); });
+  }
 }
 var _variantItem = null;
 function openVariantPicker(item){

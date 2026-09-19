@@ -339,17 +339,22 @@
       </div>
       <div id="rsDrinkGroupWrap" style="display:none">
         <label>Drink group</label>
-        <select id="rsDrinkGroup"></select>
+        <select id="rsDrinkGroup" onchange="rsToggleWineTypeWrap()"></select>
+      </div>
+      <div id="rsWineTypeWrap" style="display:none">
+        <label>Wine type</label>
+        <select id="rsWineType"></select>
       </div>
       <div><label>Price £</label><input id="rsPrice" type="number" step="0.01" min="0" style="width:90px"></div>
       <div><label>Variants (optional)</label><input id="rsVariants" type="text" placeholder="e.g. Half:3.25, Pint:6.50" style="min-width:220px"></div>
       <button class="primary" onclick="rsMenuAdd()">Add item</button>
     </div>
     <p class="muted" style="margin:0 0 12px">Pick "Drinks" as the section to reveal the drink group field — that's what puts a cocktail, wine, beer or soft drink in the right place in the guest app.
+      Picking "Wine" as the drink group reveals Wine type (Sparkling/White/Rosé/Red), used to group the wine list for guests.
       Use Variants for things guests choose a size for — e.g. <code>Half:3.25, Pint:6.50</code> or <code>Small:5, Medium:7, Large:9, Bottle:22</code> — leave it blank for a single-price item.</p>
     <div class="tablewrap"><table class="menu-tbl" id="rsMenuTbl">
       <thead><tr>
-        <th class="l">Name</th><th class="l">Description</th><th class="l">Section</th><th class="l">Drink group</th>
+        <th class="l">Name</th><th class="l">Description</th><th class="l">Section</th><th class="l">Drink group</th><th class="l">Wine type</th>
         <th>Price £</th><th class="l">Variants</th><th>Available</th><th></th>
       </tr></thead>
       <tbody id="rsMenuBody"></tbody>
@@ -952,13 +957,29 @@ function rsSectionOptions(selected){
 function rsDrinkGroupOptions(selected){
   return RS_DRINK_GROUPS.map(g=>`<option value="${esc(g)}"${g===selected?" selected":""}>${esc(g)}</option>`).join("");
 }
+const RS_WINE_TYPES = ["Sparkling","White","Rose","Red"];
+const RS_WINE_TYPE_LABEL = { Sparkling:"Sparkling", White:"White", Rose:"Rosé", Red:"Red" };
+function rsWineTypeOptions(selected){
+  return RS_WINE_TYPES.map(t=>`<option value="${esc(t)}"${t===selected?" selected":""}>${esc(RS_WINE_TYPE_LABEL[t])}</option>`).join("");
+}
 function rsToggleDrinkGroupWrap(){
   const isDrink = document.getElementById("rsSection").value === "Drinks";
   document.getElementById("rsDrinkGroupWrap").style.display = isDrink ? "" : "none";
+  rsToggleWineTypeWrap();
+}
+function rsToggleWineTypeWrap(){
+  const isWine = document.getElementById("rsSection").value === "Drinks" && document.getElementById("rsDrinkGroup").value === "Wine";
+  document.getElementById("rsWineTypeWrap").style.display = isWine ? "" : "none";
 }
 function rsRowToggleDrinkGroup(sel){
   const tr = sel.closest("tr");
   tr.querySelector('[data-f="drink_group"]').style.display = sel.value==="Drinks" ? "" : "none";
+  rsRowToggleWineType(tr.querySelector('[data-f="drink_group"]'));
+}
+function rsRowToggleWineType(sel){
+  const tr = sel.closest("tr");
+  const isWine = tr.querySelector('[data-f="menu_section"]').value==="Drinks" && sel.value==="Wine";
+  tr.querySelector('[data-f="wine_type"]').style.display = isWine ? "" : "none";
 }
 function rsVariantsToText(variants){
   return Array.isArray(variants) && variants.length ? variants.map(v=>`${v.label}:${v.price}`).join(", ") : "";
@@ -982,16 +1003,19 @@ function renderRsMenu(){
   const b=document.getElementById("rsMenuBody");
   document.getElementById("rsSection").innerHTML = rsSectionOptions("Main Courses");
   document.getElementById("rsDrinkGroup").innerHTML = rsDrinkGroupOptions();
+  document.getElementById("rsWineType").innerHTML = rsWineTypeOptions();
   const rows=(ST.rsMenu||[]).slice().sort((a,b)=>(a.sort_order||0)-(b.sort_order||0)||String(a.name).localeCompare(String(b.name)));
-  b.innerHTML = rows.length ? "" : '<tr><td colspan="8" class="muted">No room-service items yet — add one above.</td></tr>';
+  b.innerHTML = rows.length ? "" : '<tr><td colspan="9" class="muted">No room-service items yet — add one above.</td></tr>';
   for(const m of rows){
     const isDrink = m.menu_section==="Drinks";
+    const isWine = isDrink && m.drink_group==="Wine";
     const tr=document.createElement("tr");
     tr.innerHTML=`
       <td class="l"><input type="text" data-f="name" value="${esc(m.name)}"></td>
       <td class="l"><input type="text" data-f="description" value="${esc(m.description||"")}"></td>
       <td class="l"><select data-f="menu_section" onchange="rsRowToggleDrinkGroup(this)">${rsSectionOptions(m.menu_section)}</select></td>
-      <td class="l"><select data-f="drink_group" style="${isDrink?"":"display:none"}">${rsDrinkGroupOptions(m.drink_group)}</select></td>
+      <td class="l"><select data-f="drink_group" style="${isDrink?"":"display:none"}" onchange="rsRowToggleWineType(this)">${rsDrinkGroupOptions(m.drink_group)}</select></td>
+      <td class="l"><select data-f="wine_type" style="${isWine?"":"display:none"}">${rsWineTypeOptions(m.wine_type)}</select></td>
       <td><input type="number" step="0.01" min="0" data-f="price" value="${m.price!=null?(+m.price):0}"></td>
       <td class="l"><input type="text" data-f="variants" value="${esc(rsVariantsToText(m.variants))}" placeholder="e.g. Half:3.25, Pint:6.50" style="min-width:180px"></td>
       <td><input class="rs-avail" type="checkbox" data-f="available" ${m.available!==false?"checked":""}></td>
@@ -1006,11 +1030,13 @@ async function reloadRsMenu(){ ST.rsMenu = await sb(`roomservice_menu_items?sele
 function rsRowBody(get, getChecked){
   const section = get("menu_section");
   const isDrink = section === "Drinks";
+  const drinkGroup = isDrink ? get("drink_group") : null;
   return {
     name: get("name").trim(),
     description: get("description").trim() || null,
     menu_section: section,
-    drink_group: isDrink ? get("drink_group") : null,
+    drink_group: drinkGroup,
+    wine_type: drinkGroup==="Wine" ? get("wine_type") : null,
     category: isDrink ? "drink" : "food",
     price: Number(get("price"))||0,
     variants: rsParseVariants(get("variants")),
@@ -1034,10 +1060,12 @@ async function rsMenuAdd(){
   if(!name){ alert("Enter a name."); return; }
   const section = g("rsSection");
   const isDrink = section === "Drinks";
+  const drinkGroup = isDrink ? g("rsDrinkGroup") : null;
   const maxSort=(ST.rsMenu||[]).reduce((m,x)=>Math.max(m,x.sort_order||0),0);
   const body={
     name, description:g("rsDesc").trim()||null,
-    menu_section: section, drink_group: isDrink ? g("rsDrinkGroup") : null,
+    menu_section: section, drink_group: drinkGroup,
+    wine_type: drinkGroup==="Wine" ? g("rsWineType") : null,
     category: isDrink ? "drink" : "food",
     price:Number(g("rsPrice"))||0, variants: rsParseVariants(g("rsVariants")),
     available:true, sort_order:maxSort+1
