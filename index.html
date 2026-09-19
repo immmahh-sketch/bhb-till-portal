@@ -53,6 +53,20 @@
   .pill.refunded,.pill.partially_refunded{background:#f3e2e2;color:var(--claret)}
   .rs-lines{font-size:12px;color:#0009;max-width:260px}
   .rs-avail{width:auto}
+  .printers-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  @media (max-width:760px){ .printers-grid{grid-template-columns:1fr} }
+  .printer-h{font-size:13px;text-transform:uppercase;letter-spacing:1px;color:var(--brass);margin:0 0 10px}
+  .ticket{background:#fff;border:1px dashed #0004;border-radius:2px;padding:14px 16px;margin-bottom:14px;
+    font-family:'Courier New',monospace;font-size:12.5px;line-height:1.55;box-shadow:0 1px 3px #0001}
+  .ticket.printed{opacity:.5}
+  .ticket .t-head{text-align:center;font-weight:800;letter-spacing:2px;border-bottom:1px dashed #0004;padding-bottom:8px;margin-bottom:8px}
+  .ticket .t-row{display:flex;justify-content:space-between;gap:8px}
+  .ticket .t-line{display:flex;justify-content:space-between;gap:8px;margin-top:4px}
+  .ticket .t-foot{border-top:1px dashed #0004;margin-top:8px;padding-top:8px;display:flex;justify-content:space-between;align-items:center}
+  .ticket .t-status{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+  .ticket .t-status.pending{color:var(--claret)}
+  .ticket .t-status.printed{color:#2f6d3d}
+  .ticket button{font-size:11px;padding:4px 10px}
   .till .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;margin-top:12px}
   .till .grid div span{display:block;font-size:11px;color:#0009}.till .grid div b{font-size:18px;font-weight:800}
   .till .fb{display:flex;gap:8px;margin-top:12px;font-size:12px}
@@ -292,6 +306,19 @@
       </div>
     </div>
 
+    <h2 class="sec" style="margin-top:30px">Virtual printers</h2>
+    <p class="muted" style="margin:0 0 12px">Shows exactly what the kitchen and bar printers would print for each paid order — until the real network printers are wired up. Updates automatically as orders come in.</p>
+    <div class="printers-grid">
+      <div>
+        <h3 class="printer-h">Kitchen</h3>
+        <div id="kitchenTickets"></div>
+      </div>
+      <div>
+        <h3 class="printer-h">Bar</h3>
+        <div id="barTickets"></div>
+      </div>
+    </div>
+
     <h2 class="sec" style="margin-top:30px">Orders — selected day</h2>
     <p class="muted" style="margin:0 0 12px" id="rsSummary"></p>
     <div class="tablewrap"><table id="rsOrdersTable">
@@ -307,15 +334,20 @@
     <div class="menu-add">
       <div><label>Name</label><input id="rsName" type="text" placeholder="e.g. Club Sandwich"></div>
       <div><label>Description</label><input id="rsDesc" type="text" placeholder="optional" style="min-width:200px"></div>
-      <div><label>Category</label>
-        <select id="rsCat"><option value="food" selected>Food</option><option value="drink">Drink</option></select>
+      <div><label>Section</label>
+        <select id="rsSection" onchange="rsToggleDrinkGroupWrap()"></select>
+      </div>
+      <div id="rsDrinkGroupWrap" style="display:none">
+        <label>Drink group</label>
+        <select id="rsDrinkGroup"></select>
       </div>
       <div><label>Price £</label><input id="rsPrice" type="number" step="0.01" min="0" style="width:90px"></div>
       <button class="primary" onclick="rsMenuAdd()">Add item</button>
     </div>
+    <p class="muted" style="margin:0 0 12px">Pick "Drinks" as the section to reveal the drink group field — that's what puts a cocktail, wine, beer or soft drink in the right place in the guest app.</p>
     <div class="tablewrap"><table class="menu-tbl" id="rsMenuTbl">
       <thead><tr>
-        <th class="l">Name</th><th class="l">Description</th><th class="l">Category</th>
+        <th class="l">Name</th><th class="l">Description</th><th class="l">Section</th><th class="l">Drink group</th>
         <th>Price £</th><th>Available</th><th></th>
       </tr></thead>
       <tbody id="rsMenuBody"></tbody>
@@ -406,7 +438,7 @@ async function load(){
   if(_busy) return; _busy=true;
   try{
     const {start,end}=dayWindow();
-    const [sales,sessions,voids,menu,rsOrders,rsMenu,notice,rsAvail] = await Promise.all([
+    const [sales,sessions,voids,menu,rsOrders,rsMenu,notice,rsAvail,printJobs] = await Promise.all([
       sb(`till_sales?select=*&ts=gte.${start.toISOString()}&ts=lt.${end.toISOString()}&order=ts.desc`),
       sb(`till_sessions?select=*`),
       sb(`till_voids?select=*&ts=gte.${start.toISOString()}&ts=lt.${end.toISOString()}&order=ts.desc`),
@@ -414,11 +446,12 @@ async function load(){
       sb(`roomservice_orders?select=*&created_at=gte.${start.toISOString()}&created_at=lt.${end.toISOString()}&order=created_at.desc`).catch(()=>[]),
       sb(`roomservice_menu_items?select=*&order=sort_order.asc`).catch(()=>[]),
       sb(`busy_notice?id=eq.1&select=*`).catch(()=>[]),
-      sb(`roomservice_availability?id=eq.1&select=*`).catch(()=>[])
+      sb(`roomservice_availability?id=eq.1&select=*`).catch(()=>[]),
+      sb(`print_jobs?select=*&order=created_at.desc&limit=40`).catch(()=>[])
     ]);
     ST.sales=sales; ST.sessions=sessions; ST.voids=voids; ST.menu=menu||[];
     ST.rsOrders=rsOrders||[]; ST.rsMenu=rsMenu||[]; ST.busyNotice=(notice&&notice[0])||null;
-    ST.rsAvailability=(rsAvail&&rsAvail[0])||null;
+    ST.rsAvailability=(rsAvail&&rsAvail[0])||null; ST.printJobs=printJobs||[];
     ST.sessById={}; sessions.forEach(s=>ST.sessById[s.id]=s);
     renderAll();
     document.getElementById("updated").textContent = "updated " + new Date().toLocaleTimeString("en-GB");
@@ -823,9 +856,45 @@ async function clearBusyNotice(){
 }
 
 /* ---------- Room service: orders & refunds ---------- */
+function ticketHtml(job){
+  const p = job.payload || {};
+  const lines = (p.lines||[]).map(l=>
+    `<div class="t-line"><span>${l.qty} × ${esc(l.name)}</span></div>`
+  ).join("");
+  const time = new Date(job.created_at).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"});
+  const pending = job.status==="pending";
+  return `
+    <div class="ticket${pending?"":" printed"}">
+      <div class="t-head">${job.destination==="kitchen"?"KITCHEN":"BAR"} TICKET</div>
+      <div class="t-row"><span>Order #${p.order_no??"—"}</span><span>${time}</span></div>
+      <div class="t-row"><span>Room ${esc(p.room_number??"—")}</span><span>${esc(p.guest_name??"")}</span></div>
+      <div style="margin-top:8px">${lines || '<div class="t-line muted">(no lines)</div>'}</div>
+      <div class="t-foot">
+        <span class="t-status ${pending?"pending":"printed"}">${pending?"Would print now":"Printed"}</span>
+        ${pending ? `<button class="b-out" onclick="markPrinted('${job.id}')">Mark printed</button>` : ""}
+      </div>
+    </div>`;
+}
+function renderPrinters(){
+  const jobs = ST.printJobs||[];
+  const kitchen = jobs.filter(j=>j.destination==="kitchen");
+  const bar = jobs.filter(j=>j.destination==="bar");
+  document.getElementById("kitchenTickets").innerHTML =
+    kitchen.length ? kitchen.map(ticketHtml).join("") : '<p class="muted">No kitchen tickets yet.</p>';
+  document.getElementById("barTickets").innerHTML =
+    bar.length ? bar.map(ticketHtml).join("") : '<p class="muted">No bar tickets yet.</p>';
+}
+async function markPrinted(id){
+  try{
+    await sb(`print_jobs?id=eq.${id}`, {method:"PATCH", body:JSON.stringify({status:"printed", printed_at:new Date().toISOString()})});
+    ST.printJobs = await sb(`print_jobs?select=*&order=created_at.desc&limit=40`) || [];
+    renderPrinters();
+  }catch(e){ alert("Couldn't update: "+e.message); }
+}
 function renderRoomService(){
   renderRsAvailabilityBox();
   renderBusyNoticeBox();
+  renderPrinters();
   const rows = (ST.rsOrders||[]).slice();
   const paid = rows.filter(r=>r.status==="paid");
   document.getElementById("rsSummary").textContent =
@@ -873,16 +942,36 @@ async function refundOrder(id){
 }
 
 /* ---------- Room service: menu editor ---------- */
+const RS_SECTIONS = ["Small Plates & Starters","Main Courses","From the Grill","Desserts","Drinks"];
+const RS_DRINK_GROUPS = ["Hot beverages","Soft drinks","Wine","Bottles and Draft","Spirits and cocktails"];
+function rsSectionOptions(selected){
+  return RS_SECTIONS.map(s=>`<option value="${esc(s)}"${s===selected?" selected":""}>${esc(s)}</option>`).join("");
+}
+function rsDrinkGroupOptions(selected){
+  return RS_DRINK_GROUPS.map(g=>`<option value="${esc(g)}"${g===selected?" selected":""}>${esc(g)}</option>`).join("");
+}
+function rsToggleDrinkGroupWrap(){
+  const isDrink = document.getElementById("rsSection").value === "Drinks";
+  document.getElementById("rsDrinkGroupWrap").style.display = isDrink ? "" : "none";
+}
+function rsRowToggleDrinkGroup(sel){
+  const tr = sel.closest("tr");
+  tr.querySelector('[data-f="drink_group"]').style.display = sel.value==="Drinks" ? "" : "none";
+}
 function renderRsMenu(){
   const b=document.getElementById("rsMenuBody");
+  document.getElementById("rsSection").innerHTML = rsSectionOptions("Main Courses");
+  document.getElementById("rsDrinkGroup").innerHTML = rsDrinkGroupOptions();
   const rows=(ST.rsMenu||[]).slice().sort((a,b)=>(a.sort_order||0)-(b.sort_order||0)||String(a.name).localeCompare(String(b.name)));
-  b.innerHTML = rows.length ? "" : '<tr><td colspan="6" class="muted">No room-service items yet — add one above.</td></tr>';
+  b.innerHTML = rows.length ? "" : '<tr><td colspan="7" class="muted">No room-service items yet — add one above.</td></tr>';
   for(const m of rows){
+    const isDrink = m.menu_section==="Drinks";
     const tr=document.createElement("tr");
     tr.innerHTML=`
       <td class="l"><input type="text" data-f="name" value="${esc(m.name)}"></td>
       <td class="l"><input type="text" data-f="description" value="${esc(m.description||"")}"></td>
-      <td class="l"><select data-f="category"><option value="food"${m.category==="food"?" selected":""}>Food</option><option value="drink"${m.category==="drink"?" selected":""}>Drink</option></select></td>
+      <td class="l"><select data-f="menu_section" onchange="rsRowToggleDrinkGroup(this)">${rsSectionOptions(m.menu_section)}</select></td>
+      <td class="l"><select data-f="drink_group" style="${isDrink?"":"display:none"}">${rsDrinkGroupOptions(m.drink_group)}</select></td>
       <td><input type="number" step="0.01" min="0" data-f="price" value="${m.price!=null?(+m.price):0}"></td>
       <td><input class="rs-avail" type="checkbox" data-f="available" ${m.available!==false?"checked":""}></td>
       <td class="act">
@@ -894,10 +983,14 @@ function renderRsMenu(){
 }
 async function reloadRsMenu(){ ST.rsMenu = await sb(`roomservice_menu_items?select=*&order=sort_order.asc`) || []; renderRsMenu(); }
 function rsRowBody(get, getChecked){
+  const section = get("menu_section");
+  const isDrink = section === "Drinks";
   return {
     name: get("name").trim(),
     description: get("description").trim() || null,
-    category: get("category"),
+    menu_section: section,
+    drink_group: isDrink ? get("drink_group") : null,
+    category: isDrink ? "drink" : "food",
     price: Number(get("price"))||0,
     available: getChecked("available")
   };
@@ -915,10 +1008,17 @@ async function rsMenuSave(id, btn){
 }
 async function rsMenuAdd(){
   const g=id=>document.getElementById(id).value;
-  const name=g("rsName").trim();
+  const name=document.getElementById("rsName").value.trim();
   if(!name){ alert("Enter a name."); return; }
+  const section = g("rsSection");
+  const isDrink = section === "Drinks";
   const maxSort=(ST.rsMenu||[]).reduce((m,x)=>Math.max(m,x.sort_order||0),0);
-  const body={ name, description:g("rsDesc").trim()||null, category:g("rsCat"), price:Number(g("rsPrice"))||0, available:true, sort_order:maxSort+1 };
+  const body={
+    name, description:g("rsDesc").trim()||null,
+    menu_section: section, drink_group: isDrink ? g("rsDrinkGroup") : null,
+    category: isDrink ? "drink" : "food",
+    price:Number(g("rsPrice"))||0, available:true, sort_order:maxSort+1
+  };
   try{
     await sb(`roomservice_menu_items`, {method:"POST", headers:{Prefer:"return=minimal"}, body:JSON.stringify(body)});
     ["rsName","rsDesc","rsPrice"].forEach(i=>document.getElementById(i).value="");
