@@ -485,7 +485,14 @@ function openAccidentDetail(a){
       .then(function(){ toast("Saved"); modal.remove(); loadAll(); }).catch(function(e){ toast("Failed: "+e.message); });
   };
   $("printAcc").onclick = function(){
-    var printable = html.replace(/<div class="addbar" style="margin-top:16px">[\s\S]*?<\/div>/, "");
+    var riddorText = '<h2 class="sec">RIDDOR</h2>' +
+      kv("RIDDOR reportable", $("accRiddor").checked?"Yes":"No") +
+      kv("RIDDOR category", $("accRiddorCat").value ? $("accRiddorCat").value.replace(/_/g," ") : "—") +
+      kv("Reported to HSE", $("accHse").checked?"Yes":"No") +
+      kv("HSE reference", esc($("accHseRef").value.trim()||"—"));
+    var printable = html
+      .replace(/<h2 class="sec">RIDDOR<\/h2><div class="addbar">[\s\S]*?<\/div>/, riddorText)
+      .replace(/<div class="addbar" style="margin-top:16px">[\s\S]*?<\/div>/, "");
     $("printarea").innerHTML = printable;
     window.print();
   };
