@@ -56,6 +56,8 @@
     font-weight:600;letter-spacing:2px;text-transform:uppercase;box-shadow:0 8px 24px #0004}
   .paybtn:disabled{background:#b8b8b8}
   .subtotrow{display:flex;justify-content:space-between;padding:14px 6px 4px;font-weight:700;font-size:17px;border-top:1px solid var(--line);margin-top:16px}
+  .subtotrow.minor{font-weight:400;font-size:14px;color:var(--muted);padding:4px 6px;border-top:0;margin-top:0}
+  .subtotrow.total{border-top:1px solid var(--line);margin-top:6px}
   .empty{padding:60px 20px;text-align:center;color:var(--muted);font-style:italic}
 
   /* status screens */
@@ -96,7 +98,9 @@
   </header>
   <div class="scroll">
     <div id="lines"></div>
-    <div class="subtotrow"><span>Total</span><span>£<span id="subtotal">0.00</span></span></div>
+    <div class="subtotrow minor"><span>Items</span><span>£<span id="itemsSubtotal">0.00</span></span></div>
+    <div class="subtotrow minor"><span>Tray charge</span><span>£<span id="trayCharge">0.00</span></span></div>
+    <div class="subtotrow total"><span>Total</span><span>£<span id="subtotal">0.00</span></span></div>
     <div class="fld"><label>Your name</label><input id="gName" placeholder="e.g. Sarah Jones" autocomplete="name"></div>
     <div class="fld"><label>Room number</label><input id="gRoom" placeholder="e.g. 12" inputmode="numeric" autocomplete="off"></div>
     <div class="err" id="basketErr"></div>
@@ -140,6 +144,7 @@ var CFG = {
   SUPABASE_KEY: "sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU"
 };
 var CAT_LABEL = { food: "Food", drink: "Drinks" };
+var TRAY_CHARGE = 5.00;
 var S = { menu: [], cart: {} /* itemId -> {item, qty} */ };
 
 function $(id){ return document.getElementById(id); }
@@ -226,9 +231,12 @@ function renderBasket(){
       '<div class="amt">£'+money(l.item.price*l.qty)+'</div>';
     box.appendChild(d);
   });
-  var t = cartTotal();
-  $("subtotal").textContent = money(t);
-  $("payTotal").textContent = money(t);
+  var itemsTotal = cartTotal();
+  var grandTotal = lines.length ? itemsTotal + TRAY_CHARGE : 0;
+  $("itemsSubtotal").textContent = money(itemsTotal);
+  $("trayCharge").textContent = money(lines.length ? TRAY_CHARGE : 0);
+  $("subtotal").textContent = money(grandTotal);
+  $("payTotal").textContent = money(grandTotal);
   $("payBtn").disabled = lines.length===0;
 }
 $("gName").addEventListener("input", function(){ try{ sessionStorage.setItem("rs_name", this.value); }catch(e){} });
@@ -248,11 +256,11 @@ $("payBtn").onclick = async function(){
     var lines = cartLines().map(function(l){ return {
       item_id: l.item.id, name: l.item.name, category: l.item.category, qty: l.qty, unit_price: l.item.price
     }; });
-    var subtotal = cartTotal();
+    var subtotal = cartTotal() + TRAY_CHARGE;
     var order = await sb("roomservice_orders", {
       method: "POST",
       headers: { Prefer: "return=representation" },
-      body: JSON.stringify([{ guest_name:name, room_number:room, lines:lines, subtotal:subtotal, status:"pending_payment" }])
+      body: JSON.stringify([{ guest_name:name, room_number:room, lines:lines, subtotal:subtotal, tray_charge:TRAY_CHARGE, status:"pending_payment" }])
     });
     var orderId = order[0].id;
     try{ localStorage.setItem("rs_last_order", orderId); }catch(e){}
