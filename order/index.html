@@ -39,6 +39,12 @@
   .stepper button{width:32px;height:32px;border-radius:50%;border:1.3px solid var(--ink);background:#fff;font-size:17px;font-weight:600;line-height:1;display:flex;align-items:center;justify-content:center;font-family:Georgia,serif}
   .stepper button.add{background:var(--ink);color:#fff}
   .stepper .qty{width:26px;text-align:center;font-weight:700;font-size:15px}
+  .choose-btn{background:var(--ink);color:#fff;border:0;padding:11px 20px;border-radius:20px;font-size:13px;font-weight:600;letter-spacing:.5px;white-space:nowrap}
+  .item .picked{font-size:12.5px;color:var(--muted);margin-top:4px}
+  .variant-opt{display:flex;justify-content:space-between;align-items:center;padding:15px 4px;border-bottom:1px solid var(--line);cursor:pointer}
+  .variant-opt:last-child{border-bottom:0}
+  .variant-opt .vlabel{font-weight:600;font-size:16px}
+  .variant-opt .vprice{font-weight:700}
   .basketbar{position:fixed;left:16px;right:16px;bottom:16px;background:var(--ink);color:#fff;border-radius:2px;
     padding:16px 20px;display:none;align-items:center;justify-content:space-between;font-weight:600;letter-spacing:.3px;box-shadow:0 8px 24px #0004;z-index:20}
   .basketbar.show{display:flex}
@@ -49,11 +55,12 @@
   #basket .scroll{padding-bottom:230px}
   .backrow{display:flex;align-items:center;gap:10px;color:#fff}
   .backrow button{background:none;border:0;color:#fff;font-size:15px;font-weight:600;letter-spacing:.5px}
-  .line{display:flex;justify-content:space-between;align-items:center;background:#fff;border:1px solid var(--line);
+  .line{display:flex;justify-content:space-between;align-items:center;gap:10px;background:#fff;border:1px solid var(--line);
     border-radius:2px;padding:14px 16px;margin-bottom:8px}
+  .line .l{flex:1;min-width:0}
   .line .l b{font-size:15.5px;font-weight:600}
   .line .l .ea{display:block;font-size:12px;color:var(--muted);margin-top:2px;font-style:italic}
-  .line .amt{font-weight:700;margin-left:10px}
+  .line .amt{font-weight:700;margin-left:0;flex:0 0 auto;min-width:52px;text-align:right}
   .fld{margin:20px 4px 0}
   .fld label{display:block;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);font-weight:600;margin-bottom:6px}
   .fld input{width:100%;padding:13px;border:1px solid var(--line);border-radius:2px;background:#fff;font-size:16px;font-family:'EB Garamond',Georgia,serif}
@@ -152,6 +159,15 @@
 </section>
 
 <div class="toast" id="toast"></div>
+
+<!-- ===================== VARIANT PICKER ===================== -->
+<div id="variantModal" style="position:fixed;inset:0;background:rgba(17,17,17,.72);display:none;align-items:center;justify-content:center;z-index:100;padding:24px">
+  <div style="background:#fff;max-width:380px;width:100%;padding:26px 24px;border-radius:2px">
+    <div id="variantModalTitle" style="font-size:19px;font-weight:600;margin-bottom:14px"></div>
+    <div id="variantModalList"></div>
+    <button onclick="closeVariantModal()" style="margin-top:16px;background:none;border:0;color:var(--muted);font-size:13px;text-decoration:underline;width:100%;padding:6px;font-family:inherit">Cancel</button>
+  </div>
+</div>
 
 <!-- ===================== BUSY NOTICE ===================== -->
 <div id="busyModal" style="position:fixed;inset:0;background:rgba(17,17,17,.72);display:none;align-items:center;justify-content:center;z-index:100;padding:24px">
@@ -273,31 +289,82 @@ function renderMenu(){
   });
   if(!items.length){ box.innerHTML = '<div class="empty">Nothing here right now.</div>'; return; }
   items.forEach(function(m){
-      var row = S.cart[m.id];
+      var hasVariants = Array.isArray(m.variants) && m.variants.length>0;
       var el = document.createElement("div"); el.className="item";
-      el.innerHTML =
-        '<div class="info"><div class="nm">'+esc(m.name)+'</div>'+
-        (m.description ? '<div class="dsc">'+esc(m.description)+'</div>' : '')+
-        '<div class="pr">£'+money(m.price)+'</div></div>'+
-        '<div class="stepper">'+
-          (row&&row.qty>0 ? '<button class="rm">−</button><span class="qty">'+row.qty+'</span>' : '')+
-          '<button class="add">+</button>'+
-        '</div>';
-      var addBtn = el.querySelector(".add");
-      addBtn.onclick = function(){ changeQty(m, 1); };
-      var rmBtn = el.querySelector(".rm");
-      if(rmBtn) rmBtn.onclick = function(){ changeQty(m, -1); };
+      if(hasVariants){
+        var qtyForItem = cartLines().filter(function(l){ return l.itemId===m.id; }).reduce(function(s,l){ return s+l.qty; }, 0);
+        var minPrice = Math.min.apply(null, m.variants.map(function(v){ return v.price; }));
+        el.innerHTML =
+          '<div class="info"><div class="nm">'+esc(m.name)+'</div>'+
+          (m.description ? '<div class="dsc">'+esc(m.description)+'</div>' : '')+
+          '<div class="pr">From £'+money(minPrice)+'</div>'+
+          (qtyForItem>0 ? '<div class="picked">'+qtyForItem+' in your order</div>' : '')+
+          '</div>'+
+          '<div class="stepper"><button class="choose-btn">Choose</button></div>';
+        el.querySelector(".choose-btn").onclick = function(){ openVariantPicker(m); };
+      } else {
+        var row = S.cart[m.id];
+        el.innerHTML =
+          '<div class="info"><div class="nm">'+esc(m.name)+'</div>'+
+          (m.description ? '<div class="dsc">'+esc(m.description)+'</div>' : '')+
+          '<div class="pr">£'+money(m.price)+'</div></div>'+
+          '<div class="stepper">'+
+            (row&&row.qty>0 ? '<button class="rm">−</button><span class="qty">'+row.qty+'</span>' : '')+
+            '<button class="add">+</button>'+
+          '</div>';
+        el.querySelector(".add").onclick = function(){ addToCart(m, null); };
+        var rmBtn = el.querySelector(".rm");
+        if(rmBtn) rmBtn.onclick = function(){ adjustCartQty(m.id, -1); };
+      }
       box.appendChild(el);
   });
 }
-function changeQty(item, delta){
-  var row = S.cart[item.id] || { item: item, qty: 0 };
-  row.qty += delta;
-  if(row.qty <= 0) delete S.cart[item.id]; else S.cart[item.id] = row;
+var _variantItem = null;
+function openVariantPicker(item){
+  _variantItem = item;
+  $("variantModalTitle").textContent = item.name;
+  var box = $("variantModalList"); box.innerHTML = "";
+  item.variants.forEach(function(v){
+    var el = document.createElement("div"); el.className="variant-opt";
+    el.innerHTML = '<span class="vlabel">'+esc(v.label)+'</span><span class="vprice">£'+money(v.price)+'</span>';
+    el.onclick = function(){
+      addToCart(_variantItem, v);
+      toast("Added "+v.label+" "+_variantItem.name);
+      closeVariantModal();
+    };
+    box.appendChild(el);
+  });
+  $("variantModal").style.display = "flex";
+}
+function closeVariantModal(){ $("variantModal").style.display = "none"; _variantItem = null; }
+function cartKey(itemId, variantLabel){ return variantLabel ? itemId+"::"+variantLabel : itemId; }
+function addToCart(item, variant){
+  var key = cartKey(item.id, variant && variant.label);
+  var row = S.cart[key];
+  if(row){ row.qty += 1; }
+  else{
+    S.cart[key] = {
+      key: key,
+      itemId: item.id,
+      name: variant ? item.name + " (" + variant.label + ")" : item.name,
+      category: item.category,
+      unitPrice: variant ? variant.price : item.price,
+      qty: 1,
+      variant: variant ? variant.label : null
+    };
+  }
   renderMenu(); renderBasketBar();
 }
-function cartLines(){ return Object.keys(S.cart).map(function(id){ return S.cart[id]; }); }
-function cartTotal(){ return cartLines().reduce(function(s,l){ return s + l.item.price*l.qty; }, 0); }
+function adjustCartQty(key, delta){
+  var row = S.cart[key];
+  if(!row) return;
+  row.qty += delta;
+  if(row.qty <= 0) delete S.cart[key];
+  renderMenu(); renderBasketBar();
+  if($("basket").classList.contains("on")) renderBasket();
+}
+function cartLines(){ return Object.keys(S.cart).map(function(k){ return S.cart[k]; }); }
+function cartTotal(){ return cartLines().reduce(function(s,l){ return s + l.unitPrice*l.qty; }, 0); }
 function cartCount(){ return cartLines().reduce(function(s,l){ return s + l.qty; }, 0); }
 function renderBasketBar(){
   var n = cartCount();
@@ -315,8 +382,11 @@ function renderBasket(){
   if(!lines.length){ box.innerHTML = '<div class="empty">Your order is empty.</div>'; }
   lines.forEach(function(l){
     var d = document.createElement("div"); d.className="line";
-    d.innerHTML = '<div class="l"><b>'+l.qty+' × '+esc(l.item.name)+'</b><span class="ea">£'+money(l.item.price)+' each</span></div>'+
-      '<div class="amt">£'+money(l.item.price*l.qty)+'</div>';
+    d.innerHTML = '<div class="l"><b>'+esc(l.name)+'</b><span class="ea">£'+money(l.unitPrice)+' each</span></div>'+
+      '<div class="stepper"><button class="rm">−</button><span class="qty">'+l.qty+'</span><button class="add">+</button></div>'+
+      '<div class="amt">£'+money(l.unitPrice*l.qty)+'</div>';
+    d.querySelector(".rm").onclick = function(){ adjustCartQty(l.key, -1); };
+    d.querySelector(".add").onclick = function(){ adjustCartQty(l.key, 1); };
     box.appendChild(d);
   });
   var itemsTotal = cartTotal();
@@ -342,7 +412,7 @@ $("payBtn").onclick = async function(){
   var btn = $("payBtn"); btn.disabled = true; var oldTxt = btn.textContent; btn.textContent = "Please wait…";
   try{
     var lines = cartLines().map(function(l){ return {
-      item_id: l.item.id, name: l.item.name, category: l.item.category, qty: l.qty, unit_price: l.item.price
+      item_id: l.itemId, variant: l.variant, name: l.name, category: l.category, qty: l.qty, unit_price: l.unitPrice
     }; });
     var subtotal = cartTotal() + TRAY_CHARGE;
     var order = await sb("roomservice_orders", {
