@@ -16,7 +16,8 @@ if (typeof Object.assign !== "function") {
 var CFG = {
   SUPABASE_URL: "https://safcrtrfdzsnftghibot.supabase.co",
   SUPABASE_KEY: "sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU",
-  PASSWORD: "P455w0rd1",
+  PASSWORD_LOG: ["01207", "BlackH0rse#"],
+  PASSWORD_PORTAL: "BlackH0rse#",
   COMPANY_NAME: "Black Horse Beamish Ltd"
 };
 

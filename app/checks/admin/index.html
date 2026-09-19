@@ -54,6 +54,17 @@
     background:#fff;border:1px solid rgba(26,26,26,.14);border-radius:10px;padding:10px 12px;margin-bottom:8px}
   .rowline .nm{font-weight:700;font-size:14px}
   .rowline .meta{font-size:12px;color:rgba(0,0,0,.55);margin-top:2px}
+  .legend{display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;margin-bottom:16px}
+  .legend>span{display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;font-size:12px;margin:0 14px 6px 0;color:rgba(26,26,26,.7)}
+  .legend .dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:6px}
+  .todaybar-row{margin-bottom:12px}
+  .todaybar-row .lbl{display:-webkit-flex;display:flex;-webkit-justify-content:space-between;justify-content:space-between;font-size:13px;margin-bottom:4px}
+  .todaybar-row .lbl span:first-child{font-weight:700}
+  .todaybar{height:26px;border-radius:6px;width:100%}
+  .todaybar.completed{background:#2f6d3d}
+  .todaybar.late{background:#c9822e}
+  .todaybar.missed{background:#141414}
+  .todaybar.pending{background:#c8a13c}
   .tplcard{background:#fff;border:1px solid rgba(26,26,26,.14);border-radius:12px;padding:14px;margin-bottom:12px}
   .tplhead{display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-align-items:center;align-items:center}
   .tplhead>*{margin:3px 6px 3px 0}
@@ -108,6 +119,7 @@
     </header>
     <nav class="tabs" id="tabs">
       <button data-tab="overview" class="active">Overview</button>
+      <button data-tab="today">Today</button>
       <button data-tab="history">History</button>
       <button data-tab="manage">Manage checklists</button>
       <button data-tab="documents">Documents</button>
@@ -115,6 +127,7 @@
     </nav>
 
     <section id="tab-overview"></section>
+    <section id="tab-today" class="hidden"></section>
     <section id="tab-history" class="hidden"></section>
     <section id="tab-manage" class="hidden"></section>
     <section id="tab-documents" class="hidden"></section>
@@ -137,7 +150,7 @@ try{ if(sessionStorage.getItem("checksAdminOk")==="1") showApp(); }catch(e){}
 $("gGo").onclick = tryGate;
 $("gPw").addEventListener("keydown", function(e){ if(e.key==="Enter") tryGate(); });
 function tryGate(){
-  if($("gPw").value===CFG.PASSWORD){ try{sessionStorage.setItem("checksAdminOk","1");}catch(e){} showApp(); }
+  if($("gPw").value===CFG.PASSWORD_PORTAL){ try{sessionStorage.setItem("checksAdminOk","1");}catch(e){} showApp(); }
   else $("gErr").textContent = "Incorrect password";
 }
 function showApp(){
@@ -149,7 +162,7 @@ function showApp(){
 function setTab(t){
   ST.tab = t;
   Array.prototype.forEach.call(document.querySelectorAll("#tabs button"), function(b){ b.classList.toggle("active", b.getAttribute("data-tab")===t); });
-  ["overview","history","manage","documents","accidents"].forEach(function(x){ $("tab-"+x).classList.toggle("hidden", x!==t); });
+  ["overview","today","history","manage","documents","accidents"].forEach(function(x){ $("tab-"+x).classList.toggle("hidden", x!==t); });
   renderTab();
 }
 
@@ -172,6 +185,7 @@ function runFor(t, key){ return ST.runs.filter(function(r){ return r.template_id
 
 function renderTab(){
   if(ST.tab==="overview") renderOverview();
+  else if(ST.tab==="today") renderToday();
   else if(ST.tab==="history") renderHistory();
   else if(ST.tab==="manage") renderManage();
   else if(ST.tab==="documents") renderDocuments();
@@ -200,6 +214,48 @@ function renderOverview(){
     html += '</div>';
   });
   $("tab-overview").innerHTML = html || '<p class="muted">No active checklists.</p>';
+}
+
+/* ================= TODAY ================= */
+function renderToday(){
+  var cats = [["guest_journey","Guest Journey"],["shift","Shift Checks"],["health_safety","Health & Safety"]];
+  var now = new Date();
+  var html = '<div class="legend">' +
+    '<span><span class="dot" style="background:#2f6d3d"></span>Completed</span>' +
+    '<span><span class="dot" style="background:#c9822e"></span>Completed late</span>' +
+    '<span><span class="dot" style="background:#141414"></span>Missed</span>' +
+    '<span><span class="dot" style="background:#c8a13c"></span>Not yet due</span>' +
+    '</div>';
+  var any = false;
+  cats.forEach(function(c){
+    var list = ST.templates.filter(function(t){
+      if(t.category!==c[0] || !t.active) return false;
+      var due = periodDueAt(t.frequency, t.due_time, now);
+      return due.getFullYear()===now.getFullYear() && due.getMonth()===now.getMonth() && due.getDate()===now.getDate();
+    });
+    if(!list.length) return;
+    any = true;
+    html += '<div class="catcard"><h3>'+c[1]+'</h3>';
+    list.forEach(function(t){
+      var key = periodKey(t.frequency, now);
+      var due = periodDueAt(t.frequency, t.due_time, now);
+      var run = runFor(t, key);
+      var status, label;
+      if(run){
+        var late = new Date(run.completed_at) > due;
+        status = late ? "late" : "completed";
+        label = (late ? "Completed late" : "Completed") + " · " + esc(run.completed_by) + " · " + fmtDT(run.completed_at);
+      } else if(now > due){
+        status = "missed"; label = "Missed — was due " + fmtDT(due);
+      } else {
+        status = "pending"; label = "Not yet due — due " + fmtDT(due);
+      }
+      html += '<div class="todaybar-row"><div class="lbl"><span>'+esc(t.name)+'</span><span class="muted">'+label+'</span></div>' +
+        '<div class="todaybar '+status+'"></div></div>';
+    });
+    html += '</div>';
+  });
+  $("tab-today").innerHTML = html + (any ? "" : '<p class="muted">No checklists due today.</p>');
 }
 
 /* ================= HISTORY ================= */

@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#141414" />
+<title>Black Horse Checks</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<style>
+  /* Conservative CSS on purpose — some tablets run a stock Android 5.1
+     WebView: no var(), no inset, no #rgba hex, no flex gap. See shared.js. */
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;min-height:100%;font-family:-apple-system,Roboto,"Segoe UI",sans-serif;
+    background:#f0efe9;color:#141414;-webkit-user-select:none;user-select:none}
+  button{font:inherit;cursor:pointer;border:0;background:none;color:inherit}
+  input,textarea,select{font:inherit}
+  .hidden{display:none!important}
+  .screen{min-height:100vh;display:none;-webkit-flex-direction:column;flex-direction:column}
+  .screen.on{display:-webkit-flex;display:flex}
+
+  #gate,#name{align-items:center;-webkit-align-items:center;justify-content:center;-webkit-justify-content:center;padding:24px}
+  .card{background:#f7f6f1;border:1px solid rgba(26,26,26,.14);border-radius:18px;padding:32px;max-width:420px;width:100%;margin:0 auto}
+  .logobar{background:#141414;border-radius:10px;padding:14px 18px;text-align:center;margin:0 0 18px}
+  .logobar img{height:30px;display:inline-block}
+  .card h1{font-family:"Playfair Display",Georgia,serif;font-size:22px;text-align:center;margin:0 0 6px}
+  .card p.sub{text-align:center;color:rgba(0,0,0,.5);font-size:13px;margin:0 0 20px}
+  .fld{margin-bottom:14px}
+  .fld label{display:block;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#5c6b52;font-weight:700;margin-bottom:5px}
+  .fld input,.fld textarea,.fld select{width:100%;padding:12px;border:1px solid rgba(26,26,26,.14);border-radius:10px;background:#fff;font-size:16px}
+  .btn{width:100%;padding:15px;border-radius:12px;background:#96402f;color:#fff;font-size:16px;font-weight:800}
+  .btn:disabled{background:#c9c2b4}
+  .btn.out{background:#fff;border:1.5px solid #141414;color:#141414}
+  .btn.ink{background:#141414}
+  .err{color:#96402f;font-size:13px;min-height:16px;text-align:center}
+
+  .topbar{display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;padding:12px 14px;background:#141414;color:#fff}
+  .topbar>*+*{margin-left:10px}
+  .topbar .wm{display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center}
+  .topbar .wm img{height:22px;display:block}
+  .topbar .wm span{font-family:"Playfair Display",Georgia,serif;font-weight:700;font-size:15px;margin-left:8px}
+  .topbar .who{-webkit-flex:1;flex:1;font-size:13px;color:rgba(255,255,255,.7);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .topbar button{color:#fff;border:1px solid rgba(255,255,255,.35);border-radius:8px;padding:7px 10px;font-size:12px;font-weight:700;white-space:nowrap}
+
+  .body{-webkit-flex:1;flex:1;overflow-y:auto;padding:14px}
+  .accbtn{display:block;width:100%;background:#96402f;color:#fff;border-radius:14px;padding:16px;text-align:left;margin-bottom:16px}
+  .accbtn b{display:block;font-size:16px}
+  .accbtn span{display:block;font-size:12px;color:rgba(255,255,255,.8);margin-top:2px}
+
+  h2.cat{font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#5c6b52;font-weight:800;margin:18px 0 8px}
+  .item{background:#fff;border:1px solid rgba(26,26,26,.14);border-left:5px solid #9c9c9c;border-radius:12px;
+    padding:12px 14px;margin-bottom:10px;display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center}
+  .item.done{border-left-color:#2f6d3d}
+  .item.overdue{border-left-color:#96402f}
+  .item .main{-webkit-flex:1;flex:1;min-width:0}
+  .item .nm{font-weight:700;font-size:15px}
+  .item .meta{font-size:12px;color:rgba(0,0,0,.55);margin-top:2px}
+  .tag{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;
+    padding:3px 8px;border-radius:20px;white-space:nowrap;margin-left:8px}
+  .tag.done{background:#e7f2e9;color:#2f6d3d}
+  .tag.due{background:#faf0d8;color:#8a6d1e}
+  .tag.overdue{background:#f5e0da;color:#96402f}
+  .empty{text-align:center;color:rgba(0,0,0,.45);padding:30px 10px;font-size:14px}
+
+  /* ---- fill-in screen ---- */
+  #fill .body{padding:16px}
+  .q{background:#fff;border:1px solid rgba(26,26,26,.14);border-radius:12px;padding:14px;margin-bottom:12px}
+  .q .prompt{font-weight:700;font-size:15px;margin-bottom:4px}
+  .q .help{font-size:12px;color:rgba(0,0,0,.5);margin-bottom:10px}
+  .yn{display:-webkit-flex;display:flex}
+  .yn button{-webkit-flex:1;flex:1;padding:12px;border-radius:10px;border:1.5px solid rgba(26,26,26,.25);font-weight:800}
+  .yn button+button{margin-left:8px}
+  .yn button.sel-yes{background:#2f6d3d;border-color:#2f6d3d;color:#fff}
+  .yn button.sel-no{background:#96402f;border-color:#96402f;color:#fff}
+  .q input[type=text],.q input[type=number],.q textarea{width:100%;padding:11px;border:1px solid rgba(26,26,26,.2);border-radius:8px;background:#f7f6f1}
+  .q textarea{min-height:70px}
+  .rangehint{font-size:11px;color:#5c6b52;margin-top:6px}
+  .flagwarn{font-size:12px;color:#96402f;font-weight:700;margin-top:6px}
+  .q .photoRow{display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center}
+  .q .photoRow img{height:60px;border-radius:6px;margin-left:10px}
+
+  .sigwrap{background:#fff;border:1px solid rgba(26,26,26,.14);border-radius:12px;padding:14px;margin-bottom:16px}
+  .sigwrap label{display:block;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#5c6b52;font-weight:700;margin-bottom:8px}
+  canvas.sig{width:100%;height:140px;background:#f7f6f1;border:1px dashed rgba(26,26,26,.3);border-radius:8px;display:block;touch-action:none}
+  .sigclear{margin-top:8px;font-size:12px;color:#96402f;font-weight:700}
+
+  #toast{position:fixed;left:50%;bottom:24px;-webkit-transform:translateX(-50%);transform:translateX(-50%);background:#141414;color:#fff;
+    padding:10px 18px;border-radius:22px;font-size:14px;opacity:0;-webkit-transition:opacity .2s;transition:opacity .2s;pointer-events:none;z-index:50;max-width:88%;text-align:center}
+  #toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<section id="gate" class="screen on">
+  <div class="card">
+    <div class="logobar"><img src="../assets/logo.png" alt="Black Horse Beamish"></div>
+    <h1>Checks</h1>
+    <p class="sub">Enter the password to continue</p>
+    <div class="fld"><input id="gPw" type="password" placeholder="Password" autocomplete="off"></div>
+    <div class="err" id="gErr"></div>
+    <button id="gGo" class="btn">Unlock</button>
+  </div>
+</section>
+
+<section id="name" class="screen">
+  <div class="card">
+    <div class="logobar"><img src="../assets/logo.png" alt="Black Horse Beamish"></div>
+    <h1>Who's this?</h1>
+    <p class="sub">Your name is recorded against every check you complete.</p>
+    <div class="fld"><label>Your name</label><input id="nmInput" type="text" placeholder="e.g. Sam" autocomplete="off"></div>
+    <button id="nmGo" class="btn" disabled>Continue</button>
+  </div>
+</section>
+
+<section id="home" class="screen">
+  <div class="topbar">
+    <span class="wm"><img src="../assets/logo.png" alt="Black Horse Beamish"><span>Checks</span></span>
+    <span class="who" id="whoLbl"></span>
+    <button id="btnChangeName">Change name</button>
+  </div>
+  <div class="body" id="homeBody"></div>
+</section>
+
+<section id="fill" class="screen">
+  <div class="topbar">
+    <button id="fillBack">&lsaquo; Back</button>
+    <span class="who" id="fillTitle"></span>
+  </div>
+  <div class="body" id="fillBody"></div>
+</section>
+
+<section id="accident" class="screen">
+  <div class="topbar">
+    <button id="accBack">&lsaquo; Back</button>
+    <span class="who">Report an accident / incident</span>
+  </div>
+  <div class="body" id="accBody"></div>
+</section>
+
+<div id="toast"></div>
+
+<script src="../shared.js"></script>
+<script>
+"use strict";
+var S = { templates: [], items: {}, runsByKey: {}, name: "" };
+function $(id){ return document.getElementById(id); }
+function toast(m){ var t=$("toast"); t.textContent=m; t.classList.add("show"); clearTimeout(toast._t); toast._t=setTimeout(function(){t.classList.remove("show");},2800); }
+function show(id){ ["gate","name","home","fill","accident"].forEach(function(n){ $(n).classList.toggle("on", n===id); }); }
+function ls(k,v){ try{ if(v===undefined) return localStorage.getItem(k); localStorage.setItem(k,v); }catch(e){ return null; } }
+
+/* ---------------- gate + name ---------------- */
+function tryGate(){
+  if(CFG.PASSWORD_LOG.indexOf($("gPw").value) > -1){ ls("checksUnlocked","1"); afterGate(); }
+  else $("gErr").textContent = "Incorrect password";
+}
+function afterGate(){
+  var nm = ls("checksName");
+  if(nm){ S.name = nm; enterHome(); } else show("name");
+}
+function enterHome(){
+  $("whoLbl").textContent = S.name;
+  show("home");
+  loadAll();
+}
+$("gGo").onclick = tryGate;
+$("gPw").addEventListener("keydown", function(e){ if(e.key==="Enter") tryGate(); });
+$("nmInput").addEventListener("input", function(){ $("nmGo").disabled = !this.value.trim(); });
+$("nmGo").onclick = function(){ S.name = $("nmInput").value.trim(); ls("checksName", S.name); enterHome(); };
+$("btnChangeName").onclick = function(){ $("nmInput").value = S.name; show("name"); };
+
+/* ---------------- load templates/items/runs ---------------- */
+function loadAll(){
+  $("homeBody").innerHTML = '<div class="empty">Loading…</div>';
+  Promise.all([
+    sb("checklist_templates?select=*&active=eq.true&order=sort_order"),
+    sb("checklist_items?select=*&active=eq.true&order=sort_order")
+  ]).then(function(r){
+    S.templates = r[0] || [];
+    S.items = {};
+    (r[1]||[]).forEach(function(it){ (S.items[it.template_id] = S.items[it.template_id]||[]).push(it); });
+    var now = new Date();
+    var keys = {};
+    S.templates.forEach(function(t){ t._period = periodKey(t.frequency, now); t._due = periodDueAt(t.frequency, t.due_time, now); keys[t._period]=1; });
+    var inList = Object.keys(keys).join(",");
+    return sb("checklist_runs?select=*&period_key=in.(" + inList + ")");
+  }).then(function(runs){
+    S.runsByKey = {};
+    (runs||[]).forEach(function(r){ S.runsByKey[r.template_id+"|"+r.period_key] = r; });
+    renderHome();
+  }).catch(function(e){
+    $("homeBody").innerHTML = '<div class="empty">Couldn’t load checklists.<br><br>' + esc(e.message) +
+      '<br><br><button class="btn out" style="width:auto;padding:10px 18px" onclick="loadAll()">Retry</button></div>';
+  });
+}
+
+function runFor(t){ return S.runsByKey[t.id + "|" + t._period]; }
+
+function renderHome(){
+  var cats = ["guest_journey","shift","health_safety"];
+  var html = '<button class="accbtn" id="accOpenBtn"><b>⚠ Report an accident / incident</b><span>Tap to fill in an accident report</span></button>';
+  cats.forEach(function(cat){
+    var list = S.templates.filter(function(t){ return t.category===cat; });
+    if(!list.length) return;
+    html += '<h2 class="cat">' + CAT_LABEL[cat] + '</h2>';
+    list.forEach(function(t){
+      var run = runFor(t);
+      var overdue = !run && new Date() > t._due;
+      var cls = run ? "done" : (overdue ? "overdue" : "");
+      var tag = run ? '<span class="tag done">Done</span>' : (overdue ? '<span class="tag overdue">Overdue</span>' : '<span class="tag due">Due</span>');
+      var meta = run
+        ? ("Completed by " + esc(run.completed_by) + " · " + fmtDT(run.completed_at))
+        : (FREQ_LABEL[t.frequency] + " · due " + t._due.toLocaleString("en-GB", {weekday: t.frequency==="daily"?undefined:"short", day:"numeric", month:"short", hour:"2-digit", minute:"2-digit"}));
+      html += '<div class="item ' + cls + '" data-id="' + t.id + '" onclick="' + (run ? "" : "openFill('" + t.id + "')") + '">' +
+        '<div class="main"><div class="nm">' + esc(t.name) + '</div><div class="meta">' + meta + '</div></div>' + tag + '</div>';
+    });
+  });
+  $("homeBody").innerHTML = html;
+  $("accOpenBtn").onclick = openAccident;
+}
+
+/* ---------------- fill in a checklist ---------------- */
+var FILL = null;
+function openFill(templateId){
+  var t = S.templates.filter(function(x){ return x.id===templateId; })[0];
+  if(!t) return;
+  FILL = { template: t, photos: {} };
+  $("fillTitle").textContent = t.name;
+  var items = S.items[t.id] || [];
+  var html = '';
+  items.forEach(function(it){
+    html += '<div class="q" data-item="' + it.id + '" data-type="' + it.input_type + '">' +
+      '<div class="prompt">' + esc(it.prompt) + (it.required ? '' : ' <span style="color:rgba(0,0,0,.4);font-weight:400">(optional)</span>') + '</div>' +
+      (it.help_text ? '<div class="help">' + esc(it.help_text) + '</div>' : '') +
+      renderInput(it) + '</div>';
+  });
+  html += '<div class="q"><div class="prompt">Additional notes</div><textarea id="fillNotes" placeholder="Anything else to record (optional)"></textarea></div>';
+  html += '<div class="sigwrap"><label>Sign off</label><canvas id="sigPad" class="sig"></canvas><button class="sigclear" id="sigClear" type="button">Clear signature</button></div>';
+  html += '<button class="btn" id="fillSubmit">Submit checklist</button>';
+  $("fillBody").innerHTML = html;
+  setupSig();
+  wireInputs();
+  $("fillSubmit").onclick = submitFill;
+  show("fill");
+}
+function renderInput(it){
+  if(it.input_type==="yes_no") return '<div class="yn"><button type="button" data-v="yes">YES</button><button type="button" data-v="no">NO</button></div>';
+  if(it.input_type==="text") return '<textarea data-field="value" placeholder="Type here"></textarea>';
+  if(it.input_type==="number") return '<input type="number" step="0.01" data-field="value" placeholder="Enter a number">';
+  if(it.input_type==="temperature"){
+    var hint = '';
+    if(it.pass_max!=null && it.pass_min==null) hint = 'Should be ' + it.pass_max + '°C or below';
+    else if(it.pass_min!=null && it.pass_max==null) hint = 'Should be ' + it.pass_min + '°C or above';
+    else if(it.pass_min!=null && it.pass_max!=null) hint = 'Should be between ' + it.pass_min + '°C and ' + it.pass_max + '°C';
+    return '<input type="number" step="0.1" data-field="value" placeholder="°C">' + (hint?'<div class="rangehint">'+hint+'</div>':'') + '<div class="flagwarn hidden">Outside the expected range — will be flagged</div>';
+  }
+  if(it.input_type==="photo") return '<div class="photoRow"><input type="file" accept="image/*" capture="environment" data-field="photo"><img class="hidden"></div>';
+  return '';
+}
+function wireInputs(){
+  Array.prototype.forEach.call(document.querySelectorAll("#fillBody .q"), function(q){
+    var type = q.getAttribute("data-type");
+    if(type==="yes_no"){
+      var btns = q.querySelectorAll(".yn button");
+      Array.prototype.forEach.call(btns, function(b){
+        b.onclick = function(){
+          Array.prototype.forEach.call(btns, function(x){ x.className = ""; });
+          b.className = "sel-" + b.getAttribute("data-v");
+          q.setAttribute("data-value", b.getAttribute("data-v"));
+        };
+      });
+    } else if(type==="temperature" || type==="number"){
+      var inp = q.querySelector("input");
+      var warn = q.querySelector(".flagwarn");
+      var it = (S.items[FILL.template.id]||[]).filter(function(x){ return x.id===q.getAttribute("data-item"); })[0];
+      inp.addEventListener("input", function(){
+        q.setAttribute("data-value", inp.value);
+        if(!warn || !it) return;
+        var n = parseFloat(inp.value);
+        var out = inp.value!=="" && !isNaN(n) && ((it.pass_min!=null && n<it.pass_min) || (it.pass_max!=null && n>it.pass_max));
+        warn.classList.toggle("hidden", !out);
+      });
+    } else if(type==="text"){
+      q.querySelector("textarea").addEventListener("input", function(){ q.setAttribute("data-value", this.value); });
+    } else if(type==="photo"){
+      var file = q.querySelector('input[type=file]');
+      file.addEventListener("change", function(){
+        var f = file.files && file.files[0];
+        if(!f) return;
+        FILL.photos[q.getAttribute("data-item")] = f;
+        var img = q.querySelector("img");
+        img.src = URL.createObjectURL(f);
+        img.classList.remove("hidden");
+        q.setAttribute("data-value", "photo");
+      });
+    }
+  });
+}
+/* ---- signature pad ---- */
+var sigCtx=null, sigDrawing=false, sigHas=false;
+function setupSig(){
+  var c = $("sigPad");
+  var ratio = window.devicePixelRatio || 1;
+  var w = c.clientWidth || 300, h = 140;
+  c.width = w*ratio; c.height = h*ratio;
+  sigCtx = c.getContext("2d");
+  sigCtx.scale(ratio, ratio);
+  sigCtx.strokeStyle = "#141414"; sigCtx.lineWidth = 2.2; sigCtx.lineCap = "round";
+  sigHas = false;
+  function pos(e){
+    var r = c.getBoundingClientRect();
+    var p = e.touches ? e.touches[0] : e;
+    return { x: p.clientX - r.left, y: p.clientY - r.top };
+  }
+  function start(e){ e.preventDefault(); sigDrawing = true; var p = pos(e); sigCtx.beginPath(); sigCtx.moveTo(p.x,p.y); }
+  function move(e){ if(!sigDrawing) return; e.preventDefault(); var p = pos(e); sigCtx.lineTo(p.x,p.y); sigCtx.stroke(); sigHas = true; }
+  function end(e){ sigDrawing = false; }
+  c.addEventListener("mousedown", start); c.addEventListener("mousemove", move); window.addEventListener("mouseup", end);
+  c.addEventListener("touchstart", start, {passive:false}); c.addEventListener("touchmove", move, {passive:false}); c.addEventListener("touchend", end);
+  $("sigClear").onclick = function(){ sigCtx.clearRect(0,0,c.width,c.height); sigHas = false; };
+}
+function submitFill(){
+  var t = FILL.template;
+  var qs = Array.prototype.slice.call(document.querySelectorAll("#fillBody .q[data-item]"));
+  var missing = qs.filter(function(q){
+    var it = (S.items[t.id]||[]).filter(function(x){ return x.id===q.getAttribute("data-item"); })[0];
+    return it && it.required && !q.getAttribute("data-value");
+  });
+  if(missing.length){ toast("Please answer all required questions"); missing[0].scrollIntoView({block:"center"}); return; }
+  if(!sigHas){ toast("Please sign to confirm"); return; }
+  var btn = $("fillSubmit"); btn.disabled = true; btn.textContent = "Submitting…";
+  var runId = uid();
+  canvasToBlob($("sigPad"), function(blob){
+    sbUpload("checklist-media", "signatures/" + runId + ".png", blob, "image/png").then(function(sigUrl){
+      var photoUploads = qs.map(function(q){
+        var itemId = q.getAttribute("data-item");
+        if(!FILL.photos[itemId]) return Promise.resolve(null);
+        return sbUpload("checklist-media", "photos/" + runId + "-" + itemId + ".jpg", FILL.photos[itemId], "image/jpeg")
+          .then(function(url){ return { itemId: itemId, url: url }; });
+      });
+      return Promise.all(photoUploads).then(function(photoResults){
+        var photoMap = {}; photoResults.forEach(function(p){ if(p) photoMap[p.itemId]=p.url; });
+        var answers = qs.map(function(q){
+          var itemId = q.getAttribute("data-item");
+          var type = q.getAttribute("data-type");
+          var val = q.getAttribute("data-value") || "";
+          var it = (S.items[t.id]||[]).filter(function(x){ return x.id===itemId; })[0];
+          var flagged = false;
+          if(type==="yes_no") flagged = (val==="no");
+          else if((type==="number"||type==="temperature") && val!==""){
+            var n = parseFloat(val);
+            if(it.pass_min!=null && n<it.pass_min) flagged = true;
+            if(it.pass_max!=null && n>it.pass_max) flagged = true;
+          }
+          return { id: uid(), run_id: runId, item_id: itemId, value: type==="photo" ? "photo" : val, flagged: flagged, photo_url: photoMap[itemId]||null };
+        });
+        var run = { id: runId, template_id: t.id, period_key: t._period, due_at: t._due.toISOString(),
+          status: "completed", completed_by: S.name, completed_at: new Date().toISOString(),
+          signature_url: sigUrl, notes: ($("fillNotes").value||"").trim() || null };
+        return sb("checklist_runs", { method:"POST", prefer:"return=minimal", body:[run] })
+          .then(function(){ return sb("checklist_answers", { method:"POST", prefer:"return=minimal", body:answers }); });
+      });
+    }).then(function(){
+      toast("Checklist submitted");
+      show("home"); loadAll();
+    }).catch(function(e){
+      btn.disabled = false; btn.textContent = "Submit checklist";
+      toast("Submit failed: " + e.message);
+    });
+  }, "image/png");
+}
+$("fillBack").onclick = function(){ if(confirm("Discard this checklist?")) show("home"); };
+
+/* ---------------- accident report ---------------- */
+function openAccident(){
+  var html =
+    '<div class="q"><div class="prompt">Date &amp; time of incident</div><input type="datetime-local" data-f="incident_at"></div>' +
+    '<div class="q"><div class="prompt">Location</div><input type="text" data-f="location" placeholder="e.g. Marquee bar area"></div>' +
+    '<div class="q"><div class="prompt">Injured person’s name</div><input type="text" data-f="injured_name"></div>' +
+    '<div class="q"><div class="prompt">Injured person is a…</div><select data-f="injured_type">' +
+      '<option value="guest">Guest</option><option value="staff">Staff</option><option value="contractor">Contractor</option><option value="other">Other</option></select></div>' +
+    '<div class="q"><div class="prompt">Contact details (phone/email, optional)</div><input type="text" data-f="injured_contact"></div>' +
+    '<div class="q"><div class="prompt">What happened?</div><textarea data-f="what_happened" placeholder="Describe what happened"></textarea></div>' +
+    '<div class="q"><div class="prompt">Injury sustained</div><textarea data-f="injury_description" placeholder="e.g. cut, bruise, sprain"></textarea></div>' +
+    '<div class="q"><div class="prompt">Body part(s) affected</div><input type="text" data-f="body_part"></div>' +
+    '<div class="q"><div class="prompt">First aid given?</div><div class="yn"><button type="button" data-v="yes">YES</button><button type="button" data-v="no">NO</button></div><input type="hidden" data-f="first_aid_given"></div>' +
+    '<div class="q"><div class="prompt">First aider’s name</div><input type="text" data-f="first_aider_name"></div>' +
+    '<div class="q"><div class="prompt">Treatment given</div><textarea data-f="treatment_given"></textarea></div>' +
+    '<div class="q"><div class="prompt">Did they go to hospital / GP?</div><div class="yn"><button type="button" data-v="yes">YES</button><button type="button" data-v="no">NO</button></div><input type="hidden" data-f="went_to_hospital"></div>' +
+    '<div class="q"><div class="prompt">Witnesses (names/contact)</div><textarea data-f="witnesses"></textarea></div>' +
+    '<div class="q"><div class="prompt">Cause / contributing factors</div><textarea data-f="cause" placeholder="e.g. spillage, trip hazard, equipment failure"></textarea></div>' +
+    '<div class="q"><div class="prompt">Immediate action taken</div><textarea data-f="actions_taken" placeholder="e.g. area cordoned off, hazard removed"></textarea></div>' +
+    '<div class="sigwrap"><label>Reported by — sign to confirm</label><canvas id="sigPad" class="sig"></canvas><button class="sigclear" id="sigClear" type="button">Clear signature</button></div>' +
+    '<button class="btn" id="accSubmit">Submit accident report</button>';
+  $("accBody").innerHTML = html;
+  Array.prototype.forEach.call(document.querySelectorAll("#accBody .yn"), function(yn){
+    var hidden = yn.parentNode.querySelector('input[type=hidden]');
+    Array.prototype.forEach.call(yn.querySelectorAll("button"), function(b){
+      b.onclick = function(){
+        Array.prototype.forEach.call(yn.querySelectorAll("button"), function(x){ x.className=""; });
+        b.className = "sel-" + b.getAttribute("data-v");
+        hidden.value = b.getAttribute("data-v");
+      };
+    });
+  });
+  setupSig();
+  $("accSubmit").onclick = submitAccident;
+  show("accident");
+}
+function submitAccident(){
+  var get = function(f){ var el = document.querySelector('#accBody [data-f="'+f+'"]'); return el ? el.value.trim() : ""; };
+  if(!get("location") || !get("injured_name") || !get("what_happened")){ toast("Please fill in location, name and what happened"); return; }
+  if(!sigHas){ toast("Please sign to confirm"); return; }
+  var btn = $("accSubmit"); btn.disabled = true; btn.textContent = "Submitting…";
+  var id = uid();
+  canvasToBlob($("sigPad"), function(blob){
+    sbUpload("checklist-media", "accidents/" + id + "-sig.png", blob, "image/png").then(function(sigUrl){
+      var incidentAt = get("incident_at") ? new Date(get("incident_at")).toISOString() : new Date().toISOString();
+      var rec = {
+        id: id, reported_by: S.name, incident_at: incidentAt, location: get("location"),
+        injured_name: get("injured_name"), injured_type: get("injured_type") || "guest",
+        injured_contact: get("injured_contact") || null, what_happened: get("what_happened"),
+        injury_description: get("injury_description") || null, body_part: get("body_part") || null,
+        first_aid_given: get("first_aid_given") === "yes", first_aider_name: get("first_aider_name") || null,
+        treatment_given: get("treatment_given") || null, went_to_hospital: get("went_to_hospital") === "yes",
+        witnesses: get("witnesses") || null, cause: get("cause") || null, actions_taken: get("actions_taken") || null,
+        signature_url: sigUrl
+      };
+      return sb("accident_reports", { method:"POST", prefer:"return=minimal", body:[rec] });
+    }).then(function(){
+      toast("Accident report submitted");
+      show("home");
+    }).catch(function(e){
+      btn.disabled = false; btn.textContent = "Submit accident report";
+      toast("Submit failed: " + e.message);
+    });
+  }, "image/png");
+}
+$("accBack").onclick = function(){ if(confirm("Discard this report?")) show("home"); };
+
+/* ---------------- boot ---------------- */
+if(ls("checksUnlocked")==="1") afterGate(); else { show("gate"); setTimeout(function(){ $("gPw").focus(); }, 60); }
+</script>
+</body>
+</html>
