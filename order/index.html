@@ -17,6 +17,10 @@
   button{font:inherit;cursor:pointer}
   .screen{position:fixed;inset:0;display:none;flex-direction:column;background:var(--paper)}
   .screen.on{display:flex}
+  #testBanner{display:none;position:fixed;top:0;left:0;right:0;z-index:120;background:#b3261e;color:#fff;
+    text-align:center;font-size:12px;font-weight:700;letter-spacing:.5px;padding:7px 8px}
+  body.test-mode #testBanner{display:block}
+  body.test-mode .screen{top:28px}
   header.top{flex:0 0 auto;background:var(--ink);color:#fff;padding:16px;display:flex;align-items:center;gap:12px}
   header.top img{height:32px}
   header.top h1{font-size:18px;margin:0;font-weight:600;letter-spacing:2px;text-transform:uppercase}
@@ -88,6 +92,7 @@
 </style>
 </head>
 <body>
+<div id="testBanner">TEST MODE — no payment will be taken</div>
 
 <!-- ===================== CATEGORIES ===================== -->
 <section id="categories" class="screen on">
@@ -160,12 +165,27 @@
 
 <!-- ===================== CLOSED (room service unavailable) ===================== -->
 <section id="closed" class="screen">
+  <button id="testTrigger" onclick="openTestModal()" aria-hidden="true" tabindex="-1"
+    style="position:fixed;top:0;right:0;width:64px;height:64px;opacity:0;border:0;background:transparent;padding:0;margin:0;z-index:60"></button>
   <img src="../app/logo-light.png" alt="">
   <div class="big" style="margin-top:22px">Room service is currently unavailable</div>
   <div class="msg">Please contact the restaurant on 01207 232569 or pop into the restaurant for assistance.</div>
 </section>
 
 <div class="toast" id="toast"></div>
+
+<!-- ===================== TEST PURCHASE PASSWORD ===================== -->
+<div id="testModal" style="position:fixed;inset:0;background:rgba(17,17,17,.72);display:none;align-items:center;justify-content:center;z-index:110;padding:24px">
+  <div style="background:#fff;max-width:340px;width:100%;padding:26px 24px;border-radius:2px">
+    <div style="font-size:17px;font-weight:600;margin-bottom:10px">Test purchase</div>
+    <p style="font-size:13.5px;color:var(--muted);line-height:1.4;margin:0 0 14px">Staff only. Enter the password to open a test order screen — no card is charged.</p>
+    <input id="testPassInput" type="password" placeholder="Password" autocomplete="off"
+      style="width:100%;box-sizing:border-box;padding:12px;border:1px solid #ddd;border-radius:2px;font-size:15px;margin-bottom:10px;font-family:inherit">
+    <div id="testModalErr" style="color:#b3261e;font-size:12.5px;min-height:16px;margin-bottom:8px"></div>
+    <button onclick="submitTestPassword()" style="width:100%;background:var(--ink);color:#fff;border:0;padding:13px;border-radius:2px;font-weight:600;letter-spacing:1px;text-transform:uppercase;font-size:13px;margin-bottom:8px;font-family:inherit">Unlock</button>
+    <button onclick="closeTestModal()" style="background:none;border:0;color:var(--muted);font-size:13px;text-decoration:underline;width:100%;padding:6px;font-family:inherit">Cancel</button>
+  </div>
+</div>
 
 <!-- ===================== VARIANT PICKER ===================== -->
 <div id="variantModal" style="position:fixed;inset:0;background:rgba(17,17,17,.72);display:none;align-items:center;justify-content:center;z-index:100;padding:24px">
@@ -194,7 +214,8 @@ var CFG = {
 var SECTIONS = ["Small Plates & Starters","Main Courses","From the Grill","Desserts","Drinks"];
 var DRINK_GROUPS = ["Hot beverages","Soft drinks","Wine","Bottles and Draft","Spirits and cocktails"];
 var TRAY_CHARGE = 5.00;
-var S = { menu: [], cart: {}, currentSection: null, currentDrinkGroup: null, currentWineType: null /* itemId -> {item, qty} */ };
+var S = { menu: [], cart: {}, currentSection: null, currentDrinkGroup: null, currentWineType: null, testMode: false /* itemId -> {item, qty} */ };
+var TEST_PASSWORD = "Test01207";
 
 function $(id){ return document.getElementById(id); }
 function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
@@ -456,12 +477,30 @@ $("payBtn").onclick = async function(){
   $("basketErr").textContent = "";
   if(!cartLines().length) return;
   if(!name || !room){ $("basketErr").textContent = "Please enter your name and room number."; return; }
-  var btn = $("payBtn"); btn.disabled = true; var oldTxt = btn.textContent; btn.textContent = "Please wait…";
+  var btn = $("payBtn"); btn.disabled = true; var oldHtml = btn.innerHTML; btn.textContent = "Please wait…";
   try{
     var lines = cartLines().map(function(l){ return {
       item_id: l.itemId, variant: l.variant, name: l.name, category: l.category, qty: l.qty, unit_price: l.unitPrice
     }; });
     var subtotal = cartTotal() + TRAY_CHARGE;
+
+    if(S.testMode){
+      var testOrder = await sb("roomservice_orders", {
+        method: "POST",
+        headers: { Prefer: "return=representation" },
+        body: JSON.stringify([{
+          guest_name:name, room_number:room, lines:lines, subtotal:subtotal, tray_charge:TRAY_CHARGE,
+          status:"paid", paid_at:new Date().toISOString(), sumup_transaction_id:"TEST", is_test:true
+        }])
+      });
+      var to = testOrder[0];
+      await queueTestPrintJobs(to);
+      S.cart = {};
+      btn.disabled = false; btn.innerHTML = oldHtml;
+      showTestThankYou(to);
+      return;
+    }
+
     var order = await sb("roomservice_orders", {
       method: "POST",
       headers: { Prefer: "return=representation" },
@@ -482,9 +521,48 @@ $("payBtn").onclick = async function(){
     location.href = data.hosted_checkout_url;
   }catch(e){
     $("basketErr").textContent = "Couldn't start payment: " + e.message;
-    btn.disabled = false; btn.textContent = oldTxt;
+    btn.disabled = false; btn.innerHTML = oldHtml;
   }
 };
+
+/* ---------------- test purchase (no payment) ---------------- */
+function openTestModal(){
+  $("testPassInput").value = "";
+  $("testModalErr").textContent = "";
+  $("testModal").style.display = "flex";
+  setTimeout(function(){ $("testPassInput").focus(); }, 30);
+}
+function closeTestModal(){ $("testModal").style.display = "none"; }
+function submitTestPassword(){
+  if($("testPassInput").value !== TEST_PASSWORD){ $("testModalErr").textContent = "Incorrect password."; return; }
+  S.testMode = true;
+  document.body.classList.add("test-mode");
+  closeTestModal();
+  loadMenu();
+  show("categories");
+}
+$("testPassInput").addEventListener("keydown", function(e){ if(e.key==="Enter") submitTestPassword(); });
+
+async function queueTestPrintJobs(order){
+  var lines = order.lines || [];
+  var food = lines.filter(function(l){ return l.category==="food"; });
+  var drink = lines.filter(function(l){ return l.category!=="food"; });
+  var base = { order_no: order.order_no, guest_name: order.guest_name, room_number: order.room_number };
+  var jobs = [];
+  if(food.length) jobs.push({ order_id: order.id, destination:"kitchen", payload: Object.assign({}, base, {lines:food}) });
+  if(drink.length) jobs.push({ order_id: order.id, destination:"bar", payload: Object.assign({}, base, {lines:drink}) });
+  if(jobs.length){
+    await sb("print_jobs", { method:"POST", headers:{Prefer:"return=minimal"}, body: JSON.stringify(jobs) });
+  }
+}
+function showTestThankYou(o){
+  show("status");
+  $("stSpin").style.display = "none";
+  $("stBack").style.display = "";
+  $("stBig").classList.add("script");
+  $("stBig").textContent = "Thank you, " + (o.guest_name||"") + "!";
+  $("stMsg").textContent = "TEST order #" + o.order_no + " for Room " + o.room_number + " has been sent to the virtual printers. No payment was taken.";
+}
 
 /* ---------------- post-payment status ---------------- */
 var _pollTimer = null, _pollTries = 0;
