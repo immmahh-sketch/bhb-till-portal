@@ -71,6 +71,7 @@
   .fld{margin:20px 4px 0}
   .fld label{display:block;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);font-weight:600;margin-bottom:6px}
   .fld input{width:100%;padding:13px;border:1px solid var(--line);border-radius:2px;background:#fff;font-size:16px;font-family:'EB Garamond',Georgia,serif}
+  .fld .lockedval{width:100%;box-sizing:border-box;padding:13px;border:1px solid var(--line);border-radius:2px;background:#f4f4f2;font-size:16px;font-weight:600}
   .checkoutbar{position:fixed;left:16px;right:16px;bottom:16px;z-index:20}
   .paybtn{width:100%;padding:18px;border:0;border-radius:2px;background:var(--ink);color:#fff;font-size:15px;
     font-weight:600;letter-spacing:2px;text-transform:uppercase;box-shadow:0 8px 24px #0004}
@@ -154,8 +155,9 @@
     <div class="subtotrow minor"><span>Items</span><span>£<span id="itemsSubtotal">0.00</span></span></div>
     <div class="subtotrow minor"><span>Tray charge</span><span>£<span id="trayCharge">0.00</span></span></div>
     <div class="subtotrow total"><span>Total</span><span>£<span id="subtotal">0.00</span></span></div>
-    <div class="fld"><label>Your name</label><input id="gName" placeholder="e.g. Sarah Jones" autocomplete="name"></div>
-    <div class="fld"><label>Room number</label><input id="gRoom" placeholder="e.g. 12" inputmode="numeric" autocomplete="off"></div>
+    <div class="fld"><label>Name the room is booked under</label><input id="gName" placeholder="e.g. Sarah Jones" autocomplete="name"></div>
+    <div class="fld" id="roomFld"><label>Room number</label><input id="gRoom" placeholder="e.g. 12" inputmode="numeric" autocomplete="off"></div>
+    <div class="fld" id="roomLockedFld" style="display:none"><label>Room</label><div class="lockedval" id="roomLockedVal"></div></div>
     <div class="err" id="basketErr"></div>
   </div>
   <div class="checkoutbar">
@@ -202,6 +204,26 @@
     <div id="variantModalTitle" style="font-size:19px;font-weight:600;margin-bottom:14px"></div>
     <div id="variantModalList"></div>
     <button onclick="closeVariantModal()" style="margin-top:16px;background:none;border:0;color:var(--muted);font-size:13px;text-decoration:underline;width:100%;padding:6px;font-family:inherit">Cancel</button>
+  </div>
+</div>
+
+<!-- ===================== COOKING PREFERENCE ===================== -->
+<div id="cookingModal" style="position:fixed;inset:0;background:rgba(17,17,17,.72);display:none;align-items:center;justify-content:center;z-index:100;padding:24px">
+  <div style="background:#fff;max-width:380px;width:100%;padding:26px 24px;border-radius:2px">
+    <div style="font-size:19px;font-weight:600;margin-bottom:4px" id="cookingModalTitle"></div>
+    <p style="font-size:13.5px;color:var(--muted);margin:0 0 14px">How would you like it cooking?</p>
+    <div id="cookingModalList"></div>
+    <button onclick="closeCookingModal()" style="margin-top:16px;background:none;border:0;color:var(--muted);font-size:13px;text-decoration:underline;width:100%;padding:6px;font-family:inherit">Cancel</button>
+  </div>
+</div>
+
+<!-- ===================== SAUCE UPSELL ===================== -->
+<div id="sauceModal" style="position:fixed;inset:0;background:rgba(17,17,17,.72);display:none;align-items:center;justify-content:center;z-index:100;padding:24px">
+  <div style="background:#fff;max-width:380px;width:100%;padding:26px 24px;border-radius:2px">
+    <div style="font-size:19px;font-weight:600;margin-bottom:4px">Add a sauce for your steak?</div>
+    <p style="font-size:13.5px;color:var(--muted);margin:0 0 14px">Tap to add — you can add more than one.</p>
+    <div id="sauceModalList"></div>
+    <button onclick="closeSauceModal()" style="margin-top:16px;background:var(--ink);color:#fff;border:0;padding:13px;border-radius:2px;font-weight:600;letter-spacing:1px;text-transform:uppercase;font-size:13px;width:100%;font-family:inherit">No thanks</button>
   </div>
 </div>
 
@@ -370,6 +392,16 @@ function buildItemEl(m){
       '</div>'+
       '<div class="stepper"><button class="choose-btn">Choose</button></div>';
     el.querySelector(".choose-btn").onclick = function(){ openVariantPicker(m); };
+  } else if(m.needs_cooking_pref){
+    var qtyForSteak = cartLines().filter(function(l){ return l.itemId===m.id; }).reduce(function(s,l){ return s+l.qty; }, 0);
+    el.innerHTML =
+      '<div class="info"><div class="nm">'+esc(m.name)+'</div>'+
+      (m.description ? '<div class="dsc">'+esc(m.description)+'</div>' : '')+
+      '<div class="pr">£'+money(m.price)+'</div>'+
+      (qtyForSteak>0 ? '<div class="picked">'+qtyForSteak+' in your order</div>' : '')+
+      '</div>'+
+      '<div class="stepper"><button class="choose-btn">Choose</button></div>';
+    el.querySelector(".choose-btn").onclick = function(){ openCookingModal(m); };
   } else {
     var row = S.cart[m.id];
     el.innerHTML =
@@ -414,6 +446,45 @@ function openVariantPicker(item){
   $("variantModal").style.display = "flex";
 }
 function closeVariantModal(){ $("variantModal").style.display = "none"; _variantItem = null; }
+
+var COOKING_OPTIONS = ["Rare","Medium rare","Medium","Medium well","Well done"];
+var _cookingItem = null;
+function openCookingModal(item){
+  _cookingItem = item;
+  $("cookingModalTitle").textContent = item.name;
+  var box = $("cookingModalList"); box.innerHTML = "";
+  COOKING_OPTIONS.forEach(function(opt){
+    var el = document.createElement("div"); el.className = "variant-opt";
+    el.innerHTML = '<span class="vlabel">'+esc(opt)+'</span>';
+    el.onclick = function(){
+      addToCart(_cookingItem, {label: opt, price: _cookingItem.price});
+      toast("Added "+_cookingItem.name+" ("+opt+")");
+      closeCookingModal();
+      openSauceModal();
+    };
+    box.appendChild(el);
+  });
+  $("cookingModal").style.display = "flex";
+}
+function closeCookingModal(){ $("cookingModal").style.display = "none"; _cookingItem = null; }
+
+function openSauceModal(){
+  var sauces = S.menu.filter(function(m){ return m.menu_section==="From the Grill" && !m.needs_cooking_pref; });
+  if(!sauces.length) return;
+  var box = $("sauceModalList"); box.innerHTML = "";
+  sauces.forEach(function(m){
+    var el = document.createElement("div"); el.className = "variant-opt";
+    el.innerHTML = '<span class="vlabel">'+esc(m.name)+'</span><span class="vprice">£'+money(m.price)+'</span>';
+    el.onclick = function(){
+      addToCart(m, null);
+      toast("Added "+m.name);
+      closeSauceModal();
+    };
+    box.appendChild(el);
+  });
+  $("sauceModal").style.display = "flex";
+}
+function closeSauceModal(){ $("sauceModal").style.display = "none"; }
 function cartKey(itemId, variantLabel){ return variantLabel ? itemId+"::"+variantLabel : itemId; }
 function addToCart(item, variant){
   var key = cartKey(item.id, variant && variant.label);
@@ -496,10 +567,11 @@ try{
 }catch(e){}
 
 $("payBtn").onclick = async function(){
-  var name = $("gName").value.trim(), room = $("gRoom").value.trim();
+  var name = $("gName").value.trim(), room = S.lockedRoom || $("gRoom").value.trim();
   $("basketErr").textContent = "";
   if(!cartLines().length) return;
-  if(!name || !room){ $("basketErr").textContent = "Please enter your name and room number."; return; }
+  if(!name){ $("basketErr").textContent = "Please enter the name the room is booked under."; return; }
+  if(!room){ $("basketErr").textContent = "Please enter your room number."; return; }
   var btn = $("payBtn"); btn.disabled = true; var oldHtml = btn.innerHTML; btn.textContent = "Please wait…";
   try{
     var lines = cartLines().map(function(l){ return {
@@ -669,6 +741,13 @@ async function checkBusyNotice(){
 /* ---------------- boot ---------------- */
 (function boot(){
   var params = new URLSearchParams(location.search);
+  var lockedRoom = params.get("room");
+  if(lockedRoom){
+    S.lockedRoom = lockedRoom;
+    $("roomFld").style.display = "none";
+    $("roomLockedFld").style.display = "";
+    $("roomLockedVal").textContent = lockedRoom;
+  }
   var orderId = params.get("order");
   if(orderId){ loadMenu(); pollOrder(orderId); return; }
   checkAvailability().then(function(available){

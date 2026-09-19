@@ -359,15 +359,17 @@
       </div>
       <div><label>Price £</label><input id="rsPrice" type="number" step="0.01" min="0" style="width:90px"></div>
       <div><label>Variants (optional)</label><input id="rsVariants" type="text" placeholder="e.g. Half:3.25, Pint:6.50" style="min-width:220px"></div>
+      <div><label>Cooking pref?</label><input id="rsCookingPref" type="checkbox" style="width:20px;height:20px"></div>
       <button class="primary" onclick="rsMenuAdd()">Add item</button>
     </div>
     <p class="muted" style="margin:0 0 12px">Pick "Drinks" as the section to reveal the drink group field — that's what puts a cocktail, wine, beer or soft drink in the right place in the guest app.
       Picking "Wine" as the drink group reveals Wine type (Sparkling/White/Rosé/Red), used to group the wine list for guests.
-      Use Variants for things guests choose a size for — e.g. <code>Half:3.25, Pint:6.50</code> or <code>Small:5, Medium:7, Large:9, Bottle:22</code> — leave it blank for a single-price item.</p>
+      Use Variants for things guests choose a size for — e.g. <code>Half:3.25, Pint:6.50</code> or <code>Small:5, Medium:7, Large:9, Bottle:22</code> — leave it blank for a single-price item.
+      Tick "Cooking pref?" for steaks — guests are asked rare/medium rare/medium/medium well/well done and then offered a sauce upsell (any other item in the same section becomes the sauce list).</p>
     <div class="tablewrap"><table class="menu-tbl" id="rsMenuTbl">
       <thead><tr>
         <th class="l">Name</th><th class="l">Description</th><th class="l">Section</th><th class="l">Drink group</th><th class="l">Wine type</th>
-        <th>Price £</th><th class="l">Variants</th><th>Available</th><th></th>
+        <th>Price £</th><th class="l">Variants</th><th>Cooking?</th><th>Available</th><th></th>
       </tr></thead>
       <tbody id="rsMenuBody"></tbody>
     </table></div>
@@ -1064,7 +1066,7 @@ function renderRsMenu(){
   document.getElementById("rsDrinkGroup").innerHTML = rsDrinkGroupOptions();
   document.getElementById("rsWineType").innerHTML = rsWineTypeOptions();
   const rows=(ST.rsMenu||[]).slice().sort((a,b)=>(a.sort_order||0)-(b.sort_order||0)||String(a.name).localeCompare(String(b.name)));
-  b.innerHTML = rows.length ? "" : '<tr><td colspan="9" class="muted">No room-service items yet — add one above.</td></tr>';
+  b.innerHTML = rows.length ? "" : '<tr><td colspan="10" class="muted">No room-service items yet — add one above.</td></tr>';
   for(const m of rows){
     const isDrink = m.menu_section==="Drinks";
     const isWine = isDrink && m.drink_group==="Wine";
@@ -1077,6 +1079,7 @@ function renderRsMenu(){
       <td class="l"><select data-f="wine_type" style="${isWine?"":"display:none"}">${rsWineTypeOptions(m.wine_type)}</select></td>
       <td><input type="number" step="0.01" min="0" data-f="price" value="${m.price!=null?(+m.price):0}"></td>
       <td class="l"><input type="text" data-f="variants" value="${esc(rsVariantsToText(m.variants))}" placeholder="e.g. Half:3.25, Pint:6.50" style="min-width:180px"></td>
+      <td><input type="checkbox" data-f="needs_cooking_pref" ${m.needs_cooking_pref?"checked":""}></td>
       <td><input class="rs-avail" type="checkbox" data-f="available" ${m.available!==false?"checked":""}></td>
       <td class="act">
         <button onclick="rsMenuSave('${m.id}',this)">Save</button>
@@ -1099,6 +1102,7 @@ function rsRowBody(get, getChecked){
     category: isDrink ? "drink" : "food",
     price: Number(get("price"))||0,
     variants: rsParseVariants(get("variants")),
+    needs_cooking_pref: getChecked("needs_cooking_pref"),
     available: getChecked("available")
   };
 }
@@ -1127,11 +1131,13 @@ async function rsMenuAdd(){
     wine_type: drinkGroup==="Wine" ? g("rsWineType") : null,
     category: isDrink ? "drink" : "food",
     price:Number(g("rsPrice"))||0, variants: rsParseVariants(g("rsVariants")),
+    needs_cooking_pref: document.getElementById("rsCookingPref").checked,
     available:true, sort_order:maxSort+1
   };
   try{
     await sb(`roomservice_menu_items`, {method:"POST", headers:{Prefer:"return=minimal"}, body:JSON.stringify(body)});
     ["rsName","rsDesc","rsPrice","rsVariants"].forEach(i=>document.getElementById(i).value="");
+    document.getElementById("rsCookingPref").checked = false;
     await reloadRsMenu(); menuStatus("Added “"+name+"”.");
   }catch(e){ alert("Add failed: "+e.message); }
 }
