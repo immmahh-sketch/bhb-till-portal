@@ -323,6 +323,14 @@
       </div>
     </div>
 
+    <h2 class="sec" style="margin-top:30px">Cash up — selected day</h2>
+    <p class="muted" style="margin:0 0 10px" id="rsCashupSummary"></p>
+    <div class="tablewrap"><table id="rsCashupTable">
+      <thead><tr><th class="l">Item</th><th>Qty</th><th>Total</th></tr></thead>
+      <tbody id="rsCashupBody"></tbody>
+    </table></div>
+    <p class="muted" style="margin:8px 0 0">Excludes test orders and anything not marked paid — ring these totals through the till as room service sales.</p>
+
     <h2 class="sec" style="margin-top:30px">Orders — selected day</h2>
     <p class="muted" style="margin:0 0 12px" id="rsSummary"></p>
     <div class="tablewrap"><table id="rsOrdersTable">
@@ -914,8 +922,9 @@ function renderRoomService(){
   renderRsAvailabilityBox();
   renderBusyNoticeBox();
   renderPrinters();
+  renderRsCashup();
   const rows = (ST.rsOrders||[]).slice();
-  const paid = rows.filter(r=>r.status==="paid");
+  const paid = rows.filter(r=>r.status==="paid" && !r.is_test);
   document.getElementById("rsSummary").textContent =
     rows.length + " order" + (rows.length===1?"":"s") + " · " + paid.length + " paid · £" +
     paid.reduce((s,r)=>s+Number(r.subtotal||0),0).toFixed(2) + " taken";
@@ -926,7 +935,7 @@ function renderRoomService(){
     const items=(o.lines||[]).map(l=>l.qty+"× "+l.name).join(", ");
     const tr=document.createElement("tr");
     let action="";
-    if(o.status==="paid") action = `<button class="del" onclick="refundOrder('${o.id}')">Refund</button>`;
+    if(o.status==="paid" && !o.is_test) action = `<button class="del" onclick="refundOrder('${o.id}')">Refund</button>`;
     else if(o.status==="refunded") action = `<span class="muted">Refunded</span>`;
     tr.innerHTML =
       `<td class="l">${o.order_no}</td>`+
@@ -935,11 +944,49 @@ function renderRoomService(){
       `<td class="l">${esc(o.room_number)}</td>`+
       `<td class="l rs-lines">${esc(items)}</td>`+
       `<td>£${Number(o.subtotal||0).toFixed(2)}</td>`+
-      `<td class="l"><span class="pill ${o.status}">${o.status.replace(/_/g," ")}</span></td>`+
+      `<td class="l"><span class="pill ${o.status}">${o.is_test?"TEST":o.status.replace(/_/g," ")}</span></td>`+
       `<td class="l">${esc(o.sumup_transaction_id || o.sumup_checkout_id || "—")}</td>`+
       `<td class="act">${action}</td>`;
     b.appendChild(tr);
   }
+}
+function renderRsCashup(){
+  const rows = (ST.rsOrders||[]).filter(o=>o.status==="paid" && !o.is_test);
+  const itemMap = {};
+  let itemsTotal = 0, trayTotal = 0;
+  for(const o of rows){
+    trayTotal += Number(o.tray_charge||0);
+    for(const l of (o.lines||[])){
+      const row = itemMap[l.name] || (itemMap[l.name] = {name:l.name, qty:0, total:0});
+      const lineTotal = (Number(l.unit_price)||0) * (Number(l.qty)||0);
+      row.qty += Number(l.qty)||0;
+      row.total += lineTotal;
+      itemsTotal += lineTotal;
+    }
+  }
+  const items = Object.values(itemMap).sort((a,b)=>a.name.localeCompare(b.name));
+  const grandTotal = itemsTotal + trayTotal;
+  document.getElementById("rsCashupSummary").textContent =
+    rows.length + " transaction" + (rows.length===1?"":"s") + " · £" + grandTotal.toFixed(2) + " to ring through";
+  const b = document.getElementById("rsCashupBody");
+  if(!items.length){
+    b.innerHTML = '<tr><td colspan="3" class="muted">No paid room-service orders for this day.</td></tr>';
+    return;
+  }
+  b.innerHTML = "";
+  for(const it of items){
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td class="l">${esc(it.name)}</td><td>${it.qty}</td><td>£${it.total.toFixed(2)}</td>`;
+    b.appendChild(tr);
+  }
+  if(trayTotal>0){
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td class="l"><i>Tray charge</i></td><td>${rows.length}</td><td>£${trayTotal.toFixed(2)}</td>`;
+    b.appendChild(tr);
+  }
+  const total = document.createElement("tr");
+  total.innerHTML = `<td class="l"><b>Total</b></td><td></td><td><b>£${grandTotal.toFixed(2)}</b></td>`;
+  b.appendChild(total);
 }
 async function refundOrder(id){
   const o = (ST.rsOrders||[]).find(x=>x.id===id);
