@@ -178,6 +178,7 @@
     <button data-tab="refunds">Refunds &amp; voids</button>
     <button data-tab="menu">Menu</button>
     <button data-tab="roomservice">Room Service</button>
+    <button data-tab="outside">Outside Tables</button>
   </nav>
 
   <!-- OVERVIEW -->
@@ -343,8 +344,8 @@
       <tbody id="rsOrdersBody"></tbody>
     </table></div>
 
-    <h2 class="sec" style="margin-top:34px">Room service menu</h2>
-    <p class="muted" style="margin:0 0 12px">Shown to guests on the QR-code ordering page. Untick "Available" to hide an item without deleting it.</p>
+    <h2 class="sec" style="margin-top:34px">Menu (Room service &amp; Outside tables)</h2>
+    <p class="muted" style="margin:0 0 12px">Shared by both ordering channels. Untick "Room svc" or "Outside" to hide an item from that channel's guest app without deleting it.</p>
     <div class="menu-add">
       <div><label>Name</label><input id="rsName" type="text" placeholder="e.g. Club Sandwich"></div>
       <div><label>Description</label><input id="rsDesc" type="text" placeholder="optional" style="min-width:200px"></div>
@@ -367,13 +368,67 @@
     <p class="muted" style="margin:0 0 12px">Pick "Drinks" as the section to reveal the drink group field — that's what puts a cocktail, wine, beer or soft drink in the right place in the guest app.
       Picking "Wine" as the drink group reveals Wine type (Sparkling/White/Rosé/Red), used to group the wine list for guests.
       Use Variants for things guests choose a size for — e.g. <code>Half:3.25, Pint:6.50</code> or <code>Small:5, Medium:7, Large:9, Bottle:22</code> — leave it blank for a single-price item.
-      Tick "Cooking pref?" for steaks — guests are asked rare/medium rare/medium/medium well/well done and then offered a sauce upsell (any other item in the same section becomes the sauce list).</p>
+      Tick "Cooking pref?" for steaks — guests are asked rare/medium rare/medium/medium well/well done and then offered a sauce upsell (any other item in the same section becomes the sauce list).
+      New items are available to both Room service and Outside by default — untick either in the table below if an item shouldn't appear on that channel.</p>
     <div class="tablewrap"><table class="menu-tbl" id="rsMenuTbl">
       <thead><tr>
         <th class="l">Name</th><th class="l">Description</th><th class="l">Section</th><th class="l">Drink group</th><th class="l">Wine type</th>
-        <th>Price £</th><th class="l">Variants</th><th>Cooking?</th><th>Available</th><th></th>
+        <th>Price £</th><th class="l">Variants</th><th>Cooking?</th><th>Room svc</th><th>Outside</th><th></th>
       </tr></thead>
       <tbody id="rsMenuBody"></tbody>
+    </table></div>
+  </section>
+
+  <!-- OUTSIDE TABLES -->
+  <section id="tab-outside" class="hidden">
+    <h2 class="sec">Outside table service availability</h2>
+    <div class="dz" id="outAvailBox" style="border-color:var(--brass);background:#fdf6e8">
+      <div>
+        <b id="outAvailStatus">Available</b>
+        <div class="muted" id="outAvailInfo" style="margin-top:4px"></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end">
+        <label class="muted"><input type="checkbox" id="outAvailToggle" onchange="setOutAvailable(this.checked)"> Outside tables available</label>
+        <label class="muted"><input type="checkbox" id="outAutomateToggle" onchange="setOutAutomate(this.checked)"> Automatically follow opening hours (12:00–20:45, 12:00–18:00 Sundays)</label>
+      </div>
+    </div>
+
+    <h2 class="sec" style="margin-top:30px">Kitchen busy notice</h2>
+    <div class="dz" id="outBusyBox" style="border-color:var(--brass);background:#fdf6e8">
+      <div>
+        <b id="outBusyStatus">Off</b>
+        <div class="muted" id="outBusyInfo" style="margin-top:4px">Shown as a pop-up to guests the moment they open the outside-table ordering page.</div>
+        <textarea id="outBusyMsg" rows="2" style="width:100%;max-width:520px;margin-top:10px;padding:9px;border:1px solid var(--line);border-radius:8px;font:inherit"></textarea>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end">
+        <div class="row2" style="margin:0">
+          <button class="b-out" onclick="setOutBusyNotice(0.5)">30 min</button>
+          <button class="b-out" onclick="setOutBusyNotice(1)">1 hr</button>
+          <button class="b-out" onclick="setOutBusyNotice(2)">2 hrs</button>
+          <button class="b-out" onclick="setOutBusyNotice(3)">3 hrs</button>
+        </div>
+        <button class="b-ink" onclick="clearOutBusyNotice()">Turn off now</button>
+      </div>
+    </div>
+
+    <p class="muted" style="margin:30px 0 0">Kitchen and bar tickets for outside orders print through the same Virtual printers panel as room service (headed "OUTSIDE / Table N") — see the Room Service tab. The menu is also shared — manage item names, prices and per-channel availability from the Room Service tab's menu editor.</p>
+
+    <h2 class="sec" style="margin-top:30px">Cash up — selected day</h2>
+    <p class="muted" style="margin:0 0 10px" id="outCashupSummary"></p>
+    <div class="tablewrap"><table id="outCashupTable">
+      <thead><tr><th class="l">Item</th><th>Qty</th><th>Total</th></tr></thead>
+      <tbody id="outCashupBody"></tbody>
+    </table></div>
+    <p class="muted" style="margin:8px 0 0">Excludes test orders and anything not marked paid — ring these totals through the till as outside-table sales.</p>
+
+    <h2 class="sec" style="margin-top:30px">Orders — selected day</h2>
+    <p class="muted" style="margin:0 0 12px" id="outSummary"></p>
+    <div class="tablewrap"><table id="outOrdersTable">
+      <thead><tr>
+        <th class="l">#</th><th class="l">Time</th><th class="l">Guest</th><th class="l">Table</th>
+        <th class="l">Items</th><th>Total</th><th class="l">Status</th><th class="l">Reference</th><th></th>
+      </tr></thead>
+      <tbody id="outOrdersBody"></tbody>
     </table></div>
   </section>
 
@@ -429,7 +484,7 @@ function showApp(){
 function setTab(t){
   ST.tab = t;
   document.querySelectorAll("#tabs button").forEach(b=>b.classList.toggle("active", b.dataset.tab===t));
-  ["overview","receipts","team","refunds","menu","roomservice"].forEach(x=>
+  ["overview","receipts","team","refunds","menu","roomservice","outside"].forEach(x=>
     document.getElementById("tab-"+x).classList.toggle("hidden", x!==t));
   renderAll();
 }
@@ -461,7 +516,7 @@ async function load(){
   if(_busy) return; _busy=true;
   try{
     const {start,end}=dayWindow();
-    const [sales,sessions,voids,menu,rsOrders,rsMenu,notice,rsAvail,printJobs] = await Promise.all([
+    const [sales,sessions,voids,menu,rsOrders,rsMenu,notice,rsAvail,printJobs,outNotice,outAvail] = await Promise.all([
       sb(`till_sales?select=*&ts=gte.${start.toISOString()}&ts=lt.${end.toISOString()}&order=ts.desc`),
       sb(`till_sessions?select=*`),
       sb(`till_voids?select=*&ts=gte.${start.toISOString()}&ts=lt.${end.toISOString()}&order=ts.desc`),
@@ -470,11 +525,14 @@ async function load(){
       sb(`roomservice_menu_items?select=*&order=sort_order.asc`).catch(()=>[]),
       sb(`busy_notice?id=eq.1&select=*`).catch(()=>[]),
       sb(`roomservice_availability?id=eq.1&select=*`).catch(()=>[]),
-      sb(`print_jobs?select=*&order=created_at.desc&limit=40`).catch(()=>[])
+      sb(`print_jobs?select=*&order=created_at.desc&limit=40`).catch(()=>[]),
+      sb(`outside_busy_notice?id=eq.1&select=*`).catch(()=>[]),
+      sb(`outside_availability?id=eq.1&select=*`).catch(()=>[])
     ]);
     ST.sales=sales; ST.sessions=sessions; ST.voids=voids; ST.menu=menu||[];
     ST.rsOrders=rsOrders||[]; ST.rsMenu=rsMenu||[]; ST.busyNotice=(notice&&notice[0])||null;
     ST.rsAvailability=(rsAvail&&rsAvail[0])||null; ST.printJobs=printJobs||[];
+    ST.outBusyNotice=(outNotice&&outNotice[0])||null; ST.outAvailability=(outAvail&&outAvail[0])||null;
     ST.sessById={}; sessions.forEach(s=>ST.sessById[s.id]=s);
     renderAll();
     document.getElementById("updated").textContent = "updated " + new Date().toLocaleTimeString("en-GB");
@@ -496,7 +554,7 @@ function vatOf(sale){
 function renderAll(){
   document.querySelectorAll("[id^=tab-]").forEach(()=>{});
   renderOverview(); renderReceiptsFilterOptions(); renderReceipts(); renderTeam(); renderRefunds(); renderMenu();
-  renderDangerZone(); renderRoomService(); renderRsMenu();
+  renderDangerZone(); renderRoomService(); renderRsMenu(); renderOutside();
   document.querySelectorAll("#tab-team .sec").forEach(h=>h.textContent =
     "Team performance — " + document.getElementById("day").value);
 }
@@ -890,11 +948,12 @@ function ticketHtml(job){
     (drink.length ? `<div class="t-section">Drinks</div>${drink.map(lineHtml).join("")}` : "");
   const time = new Date(job.created_at).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"});
   const pending = job.status==="pending";
+  const isOutside = p.channel==="outside";
   return `
     <div class="ticket${pending?"":" printed"}">
       <div class="t-dest">${job.destination==="kitchen"?"Kitchen":"Bar"}</div>
-      <div class="t-bighead">ROOM SERVICE</div>
-      <div class="t-bigroom">Room ${esc(p.room_number??"—")}</div>
+      <div class="t-bighead">${isOutside?"OUTSIDE":"ROOM SERVICE"}</div>
+      <div class="t-bigroom">${isOutside?"Table":"Room"} ${esc(p.room_number??"—")}</div>
       <div class="t-row"><span>Order #${p.order_no??"—"}</span><span>${time}</span></div>
       <div class="t-row"><span>${esc(p.guest_name??"")}</span></div>
       <div style="margin-top:4px">${sections || '<div class="t-line muted">(no lines)</div>'}</div>
@@ -929,7 +988,7 @@ function renderRoomService(){
   renderBusyNoticeBox();
   renderPrinters();
   renderRsCashup();
-  const rows = (ST.rsOrders||[]).slice();
+  const rows = (ST.rsOrders||[]).filter(o=>o.channel==="room_service");
   const paid = rows.filter(r=>r.status==="paid" && !r.is_test);
   document.getElementById("rsSummary").textContent =
     rows.length + " order" + (rows.length===1?"":"s") + " · " + paid.length + " paid · £" +
@@ -957,7 +1016,7 @@ function renderRoomService(){
   }
 }
 function renderRsCashup(){
-  const rows = (ST.rsOrders||[]).filter(o=>o.status==="paid" && !o.is_test);
+  const rows = (ST.rsOrders||[]).filter(o=>o.channel==="room_service" && o.status==="paid" && !o.is_test);
   const itemMap = {};
   let itemsTotal = 0, trayTotal = 0;
   for(const o of rows){
@@ -998,8 +1057,10 @@ async function refundOrder(id){
   const o = (ST.rsOrders||[]).find(x=>x.id===id);
   if(!o) return;
   const ref = o.sumup_transaction_id || o.sumup_checkout_id || "(no reference on file)";
+  const loc = o.channel==="outside" ? "Table "+o.room_number : "Room "+o.room_number;
+  const kind = o.channel==="outside" ? "Outside table order" : "Room service order";
   const ok = confirm(
-    "Room service order #"+o.order_no+" — "+o.guest_name+", Room "+o.room_number+"\n"+
+    kind+" #"+o.order_no+" — "+o.guest_name+", "+loc+"\n"+
     "Amount: £"+Number(o.subtotal||0).toFixed(2)+"\n"+
     "SumUp reference: "+ref+"\n\n"+
     "This portal can't send the refund to the card automatically yet — refund it in the SumUp app on your phone using that reference, THEN press OK here to mark it refunded on the portal."
@@ -1011,6 +1072,145 @@ async function refundOrder(id){
     })});
     await load();
   }catch(e){ alert("Couldn't update the order: "+e.message); }
+}
+
+/* ---------- Outside tables: availability ---------- */
+function renderOutAvailabilityBox(){
+  const row = ST.outAvailability || {automate:true, manual_available:true};
+  const automate = !!row.automate;
+  const availableNow = isRoomServiceAvailableNow(row);
+  document.getElementById("outAutomateToggle").checked = automate;
+  const toggle = document.getElementById("outAvailToggle");
+  toggle.checked = automate ? availableNow : !!row.manual_available;
+  toggle.disabled = automate;
+  document.getElementById("outAvailStatus").textContent = availableNow ? "Available" : "Not available";
+  document.getElementById("outAvailInfo").textContent = automate
+    ? "Following opening hours automatically (12:00–20:45, 12:00–18:00 Sundays)."
+    : "Automation is off — this stays as set until you change it.";
+  const box = document.getElementById("outAvailBox");
+  box.style.borderColor = availableNow ? "var(--brass)" : "var(--claret)";
+  box.style.background = availableNow ? "#fdf6e8" : "#fbf1f1";
+}
+async function setOutAutomate(checked){
+  try{
+    const body = { automate:checked, updated_at:new Date().toISOString() };
+    if(!checked) body.manual_available = isRoomServiceAvailableNow(ST.outAvailability || {automate:true});
+    await sb(`outside_availability?id=eq.1`, {method:"PATCH", body:JSON.stringify(body)});
+    ST.outAvailability = (await sb(`outside_availability?id=eq.1&select=*`))?.[0] || null;
+    renderOutAvailabilityBox();
+  }catch(e){ alert("Couldn't update automation: "+e.message); renderOutAvailabilityBox(); }
+}
+async function setOutAvailable(checked){
+  try{
+    await sb(`outside_availability?id=eq.1`, {method:"PATCH", body:JSON.stringify({ manual_available:checked, updated_at:new Date().toISOString() })});
+    ST.outAvailability = (await sb(`outside_availability?id=eq.1&select=*`))?.[0] || null;
+    renderOutAvailabilityBox();
+  }catch(e){ alert("Couldn't update availability: "+e.message); renderOutAvailabilityBox(); }
+}
+
+/* ---------- Outside tables: busy notice ---------- */
+function renderOutBusyNoticeBox(){
+  const n = ST.outBusyNotice;
+  const msgEl = document.getElementById("outBusyMsg");
+  const box = document.getElementById("outBusyBox");
+  if(document.activeElement !== msgEl) msgEl.value = (n && n.message) || BUSY_DEFAULT_MSG;
+  const activeNow = !!(n && n.active && n.until && new Date(n.until) > new Date());
+  document.getElementById("outBusyStatus").textContent = activeNow
+    ? "Active until " + new Date(n.until).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})
+    : "Off";
+  box.style.borderColor = activeNow ? "var(--claret)" : "var(--brass)";
+  box.style.background = activeNow ? "#fbf1f1" : "#fdf6e8";
+}
+async function setOutBusyNotice(hours){
+  const msg = document.getElementById("outBusyMsg").value.trim() || BUSY_DEFAULT_MSG;
+  const requested = new Date(Date.now() + hours*3600*1000);
+  const ceiling = busyCeilingTonight();
+  const until = requested < ceiling ? requested : ceiling;
+  try{
+    await sb(`outside_busy_notice?id=eq.1`, {method:"PATCH", body:JSON.stringify({
+      active:true, message:msg, until: until.toISOString()
+    })});
+    ST.outBusyNotice = (await sb(`outside_busy_notice?id=eq.1&select=*`))?.[0] || null;
+    renderOutBusyNoticeBox();
+  }catch(e){ alert("Couldn't set the notice: "+e.message); }
+}
+async function clearOutBusyNotice(){
+  try{
+    await sb(`outside_busy_notice?id=eq.1`, {method:"PATCH", body:JSON.stringify({ active:false, until:null })});
+    ST.outBusyNotice = (await sb(`outside_busy_notice?id=eq.1&select=*`))?.[0] || null;
+    renderOutBusyNoticeBox();
+  }catch(e){ alert("Couldn't clear the notice: "+e.message); }
+}
+
+/* ---------- Outside tables: orders & cash up ---------- */
+function renderOutside(){
+  renderOutAvailabilityBox();
+  renderOutBusyNoticeBox();
+  renderOutCashup();
+  const rows = (ST.rsOrders||[]).filter(o=>o.channel==="outside");
+  const paid = rows.filter(r=>r.status==="paid" && !r.is_test);
+  document.getElementById("outSummary").textContent =
+    rows.length + " order" + (rows.length===1?"":"s") + " · " + paid.length + " paid · £" +
+    paid.reduce((s,r)=>s+Number(r.subtotal||0),0).toFixed(2) + " taken";
+  const b=document.getElementById("outOrdersBody");
+  b.innerHTML = rows.length ? "" : '<tr><td colspan="9" class="muted">No outside-table orders for this day.</td></tr>';
+  for(const o of rows){
+    const d=new Date(o.created_at);
+    const items=(o.lines||[]).map(l=>l.qty+"× "+l.name).join(", ");
+    const tr=document.createElement("tr");
+    let action="";
+    if(o.status==="paid" && !o.is_test) action = `<button class="del" onclick="refundOrder('${o.id}')">Refund</button>`;
+    else if(o.status==="refunded") action = `<span class="muted">Refunded</span>`;
+    tr.innerHTML =
+      `<td class="l">${o.order_no}</td>`+
+      `<td class="l">${d.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}</td>`+
+      `<td class="l">${esc(o.guest_name)}</td>`+
+      `<td class="l">${esc(o.room_number)}</td>`+
+      `<td class="l rs-lines">${esc(items)}</td>`+
+      `<td>£${Number(o.subtotal||0).toFixed(2)}</td>`+
+      `<td class="l"><span class="pill ${o.status}">${o.is_test?"TEST":o.status.replace(/_/g," ")}</span></td>`+
+      `<td class="l">${esc(o.sumup_transaction_id || o.sumup_checkout_id || "—")}</td>`+
+      `<td class="act">${action}</td>`;
+    b.appendChild(tr);
+  }
+}
+function renderOutCashup(){
+  const rows = (ST.rsOrders||[]).filter(o=>o.channel==="outside" && o.status==="paid" && !o.is_test);
+  const itemMap = {};
+  let itemsTotal = 0, chargeTotal = 0;
+  for(const o of rows){
+    chargeTotal += Number(o.tray_charge||0);
+    for(const l of (o.lines||[])){
+      const row = itemMap[l.name] || (itemMap[l.name] = {name:l.name, qty:0, total:0});
+      const lineTotal = (Number(l.unit_price)||0) * (Number(l.qty)||0);
+      row.qty += Number(l.qty)||0;
+      row.total += lineTotal;
+      itemsTotal += lineTotal;
+    }
+  }
+  const items = Object.values(itemMap).sort((a,b)=>a.name.localeCompare(b.name));
+  const grandTotal = itemsTotal + chargeTotal;
+  document.getElementById("outCashupSummary").textContent =
+    rows.length + " transaction" + (rows.length===1?"":"s") + " · £" + grandTotal.toFixed(2) + " to ring through";
+  const b = document.getElementById("outCashupBody");
+  if(!items.length){
+    b.innerHTML = '<tr><td colspan="3" class="muted">No paid outside-table orders for this day.</td></tr>';
+    return;
+  }
+  b.innerHTML = "";
+  for(const it of items){
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td class="l">${esc(it.name)}</td><td>${it.qty}</td><td>£${it.total.toFixed(2)}</td>`;
+    b.appendChild(tr);
+  }
+  if(chargeTotal>0){
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td class="l"><i>Service charge (10%)</i></td><td>${rows.length}</td><td>£${chargeTotal.toFixed(2)}</td>`;
+    b.appendChild(tr);
+  }
+  const total = document.createElement("tr");
+  total.innerHTML = `<td class="l"><b>Total</b></td><td></td><td><b>£${grandTotal.toFixed(2)}</b></td>`;
+  b.appendChild(total);
 }
 
 /* ---------- Room service: menu editor ---------- */
@@ -1070,7 +1270,7 @@ function renderRsMenu(){
   document.getElementById("rsDrinkGroup").innerHTML = rsDrinkGroupOptions();
   document.getElementById("rsWineType").innerHTML = rsWineTypeOptions();
   const rows=(ST.rsMenu||[]).slice().sort((a,b)=>(a.sort_order||0)-(b.sort_order||0)||String(a.name).localeCompare(String(b.name)));
-  b.innerHTML = rows.length ? "" : '<tr><td colspan="10" class="muted">No room-service items yet — add one above.</td></tr>';
+  b.innerHTML = rows.length ? "" : '<tr><td colspan="11" class="muted">No menu items yet — add one above.</td></tr>';
   for(const m of rows){
     const isDrink = m.menu_section==="Drinks";
     const isWine = isDrink && m.drink_group==="Wine";
@@ -1085,6 +1285,7 @@ function renderRsMenu(){
       <td class="l"><input type="text" data-f="variants" value="${esc(rsVariantsToText(m.variants))}" placeholder="e.g. Half:3.25, Pint:6.50" style="min-width:180px"></td>
       <td><input type="checkbox" data-f="needs_cooking_pref" ${m.needs_cooking_pref?"checked":""}></td>
       <td><input class="rs-avail" type="checkbox" data-f="available" ${m.available!==false?"checked":""}></td>
+      <td><input class="rs-avail" type="checkbox" data-f="available_outside" ${m.available_outside!==false?"checked":""}></td>
       <td class="act">
         <button onclick="rsMenuSave('${m.id}',this)">Save</button>
         <button class="del" onclick="rsMenuDelete('${m.id}')">Delete</button>
@@ -1107,7 +1308,8 @@ function rsRowBody(get, getChecked){
     price: Number(get("price"))||0,
     variants: rsParseVariants(get("variants")),
     needs_cooking_pref: getChecked("needs_cooking_pref"),
-    available: getChecked("available")
+    available: getChecked("available"),
+    available_outside: getChecked("available_outside")
   };
 }
 async function rsMenuSave(id, btn){
@@ -1136,7 +1338,7 @@ async function rsMenuAdd(){
     category: isDrink ? "drink" : "food",
     price:Number(g("rsPrice"))||0, variants: rsParseVariants(g("rsVariants")),
     needs_cooking_pref: document.getElementById("rsCookingPref").checked,
-    available:true, sort_order:maxSort+1
+    available:true, available_outside:true, sort_order:maxSort+1
   };
   try{
     await sb(`roomservice_menu_items`, {method:"POST", headers:{Prefer:"return=minimal"}, body:JSON.stringify(body)});
