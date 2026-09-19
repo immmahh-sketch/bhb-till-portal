@@ -59,7 +59,9 @@
   .ticket{background:#fff;border:1px dashed #0004;border-radius:2px;padding:14px 16px;margin-bottom:14px;
     font-family:'Courier New',monospace;font-size:12.5px;line-height:1.55;box-shadow:0 1px 3px #0001}
   .ticket.printed{opacity:.5}
-  .ticket .t-head{text-align:center;font-weight:800;letter-spacing:2px;border-bottom:1px dashed #0004;padding-bottom:8px;margin-bottom:8px}
+  .ticket .t-dest{text-align:center;font-size:10.5px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--brass)}
+  .ticket .t-bighead{text-align:center;font-size:22px;font-weight:800;letter-spacing:1.5px;line-height:1.2;margin-top:2px}
+  .ticket .t-bigroom{text-align:center;font-size:17px;font-weight:700;border-bottom:1px dashed #0004;padding-bottom:8px;margin-bottom:8px}
   .ticket .t-row{display:flex;justify-content:space-between;gap:8px}
   .ticket .t-line{display:flex;justify-content:space-between;gap:8px;margin-top:4px}
   .ticket .t-section{font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;margin-top:10px;color:var(--claret)}
@@ -890,9 +892,11 @@ function ticketHtml(job){
   const pending = job.status==="pending";
   return `
     <div class="ticket${pending?"":" printed"}">
-      <div class="t-head">${job.destination==="kitchen"?"KITCHEN":"BAR"} TICKET</div>
+      <div class="t-dest">${job.destination==="kitchen"?"Kitchen":"Bar"}</div>
+      <div class="t-bighead">ROOM SERVICE</div>
+      <div class="t-bigroom">Room ${esc(p.room_number??"—")}</div>
       <div class="t-row"><span>Order #${p.order_no??"—"}</span><span>${time}</span></div>
-      <div class="t-row"><span>Room ${esc(p.room_number??"—")}</span><span>${esc(p.guest_name??"")}</span></div>
+      <div class="t-row"><span>${esc(p.guest_name??"")}</span></div>
       <div style="margin-top:4px">${sections || '<div class="t-line muted">(no lines)</div>'}</div>
       <div class="t-signoff">
         Guest sign-off — I confirm I received my full order as listed above
