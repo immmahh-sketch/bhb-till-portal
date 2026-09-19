@@ -24,6 +24,12 @@
   .scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 16px 110px}
   .catlabel{font-family:'Kristi',cursive;font-size:34px;font-weight:400;color:var(--ink);margin:26px 4px 8px;line-height:1}
   .catlabel:first-child{margin-top:6px}
+  .cattile{background:#fff;border:1px solid var(--line);border-radius:2px;padding:22px 20px;margin-bottom:12px;
+    display:flex;align-items:center;justify-content:space-between;cursor:pointer}
+  .cattile .ctext{flex:1;min-width:0}
+  .cattile .cname{font-size:19px;font-weight:600}
+  .cattile .ccount{font-size:12.5px;color:var(--muted);margin-top:4px;font-style:italic}
+  .cattile .carrow{font-size:26px;color:var(--muted);margin-left:14px;line-height:1}
   .item{background:#fff;border:1px solid var(--line);border-radius:2px;padding:16px;margin-bottom:10px;display:flex;gap:14px;align-items:center}
   .item .info{flex:1;min-width:0}
   .item .nm{font-weight:600;font-size:17px}
@@ -78,18 +84,28 @@
 </head>
 <body>
 
-<!-- ===================== MENU ===================== -->
-<section id="menu" class="screen on">
+<!-- ===================== CATEGORIES ===================== -->
+<section id="categories" class="screen on">
   <header class="top">
     <img src="../app/logo-light.png" alt="">
-    <div><h1>Room Service</h1><div class="sub" id="hint">Add items, then check out</div></div>
+    <div><h1>Room Service</h1><div class="sub">Choose a category to get started</div></div>
+  </header>
+  <div class="scroll" id="catList"></div>
+</section>
+
+<!-- ===================== MENU ===================== -->
+<section id="menu" class="screen">
+  <header class="top">
+    <div class="backrow"><button onclick="show('categories')">‹ Categories</button></div>
+    <div><h1 id="menuSectionTitle">Menu</h1></div>
   </header>
   <div class="scroll" id="menuList"></div>
-  <div class="basketbar" id="basketBar">
-    <span class="n" id="basketN">0 items</span>
-    <span class="go">View order  £<span id="basketTotal">0.00</span> ›</span>
-  </div>
 </section>
+
+<div class="basketbar" id="basketBar">
+  <span class="n" id="basketN">0 items</span>
+  <span class="go">View order  £<span id="basketTotal">0.00</span> ›</span>
+</div>
 
 <!-- ===================== BASKET / DETAILS ===================== -->
 <section id="basket" class="screen">
@@ -143,15 +159,19 @@ var CFG = {
   SUPABASE_URL: "https://safcrtrfdzsnftghibot.supabase.co",
   SUPABASE_KEY: "sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU"
 };
-var CAT_LABEL = { food: "Food", drink: "Drinks" };
+var SECTIONS = ["Small Plates & Starters","Main Courses","From the Grill","Desserts","Drinks"];
 var TRAY_CHARGE = 5.00;
-var S = { menu: [], cart: {} /* itemId -> {item, qty} */ };
+var S = { menu: [], cart: {}, currentSection: null /* itemId -> {item, qty} */ };
 
 function $(id){ return document.getElementById(id); }
 function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
 function money(n){ return (Math.round((n+Number.EPSILON)*100)/100).toFixed(2); }
 function toast(m){ var t=$("toast"); t.textContent=m; t.classList.add("show"); clearTimeout(toast._t); toast._t=setTimeout(function(){t.classList.remove("show");},2400); }
-function show(name){ ["menu","basket","status","closed"].forEach(function(n){ $(n).classList.toggle("on", n===name); }); if(name==="basket") renderBasket(); }
+function show(name){
+  ["categories","menu","basket","status","closed"].forEach(function(n){ $(n).classList.toggle("on", n===name); });
+  if(name==="basket") renderBasket();
+  renderBasketBar();
+}
 
 async function sb(path, opts){
   opts = opts || {};
@@ -166,25 +186,44 @@ async function sb(path, opts){
   return txt ? JSON.parse(txt) : null;
 }
 
-/* ---------------- menu ---------------- */
+/* ---------------- categories ---------------- */
 async function loadMenu(){
   try{
     var rows = await sb("roomservice_menu_items?select=*&available=eq.true&order=sort_order.asc");
     S.menu = rows || [];
-    renderMenu();
+    renderCategories();
   }catch(e){
-    $("menuList").innerHTML = '<div class="empty">Couldn’t load the menu — check your connection and pull to refresh.</div>';
+    $("catList").innerHTML = '<div class="empty">Couldn’t load the menu — check your connection and pull to refresh.</div>';
   }
 }
+function renderCategories(){
+  var box = $("catList"); box.innerHTML = "";
+  if(!S.menu.length){ box.innerHTML = '<div class="empty">Nothing on the menu right now — please call reception.</div>'; return; }
+  SECTIONS.forEach(function(sec){
+    var items = S.menu.filter(function(m){ return m.menu_section===sec; });
+    if(!items.length) return;
+    var el = document.createElement("div"); el.className="cattile";
+    el.innerHTML =
+      '<div class="ctext"><div class="cname">'+esc(sec)+'</div>'+
+      '<div class="ccount">'+items.length+' item'+(items.length===1?'':'s')+'</div></div>'+
+      '<div class="carrow">›</div>';
+    el.onclick = function(){ openSection(sec); };
+    box.appendChild(el);
+  });
+}
+function openSection(sec){
+  S.currentSection = sec;
+  $("menuSectionTitle").textContent = sec;
+  renderMenu();
+  show("menu");
+}
+
+/* ---------------- menu ---------------- */
 function renderMenu(){
   var box = $("menuList"); box.innerHTML = "";
-  if(!S.menu.length){ box.innerHTML = '<div class="empty">Nothing on the menu right now — please call reception.</div>'; return; }
-  ["food","drink"].forEach(function(cat){
-    var items = S.menu.filter(function(m){ return m.category===cat; });
-    if(!items.length) return;
-    var h = document.createElement("div"); h.className="catlabel"; h.textContent = CAT_LABEL[cat] || cat;
-    box.appendChild(h);
-    items.forEach(function(m){
+  var items = S.menu.filter(function(m){ return m.menu_section===S.currentSection; });
+  if(!items.length){ box.innerHTML = '<div class="empty">Nothing here right now.</div>'; return; }
+  items.forEach(function(m){
       var row = S.cart[m.id];
       var el = document.createElement("div"); el.className="item";
       el.innerHTML =
@@ -200,7 +239,6 @@ function renderMenu(){
       var rmBtn = el.querySelector(".rm");
       if(rmBtn) rmBtn.onclick = function(){ changeQty(m, -1); };
       box.appendChild(el);
-    });
   });
 }
 function changeQty(item, delta){
@@ -214,7 +252,8 @@ function cartTotal(){ return cartLines().reduce(function(s,l){ return s + l.item
 function cartCount(){ return cartLines().reduce(function(s,l){ return s + l.qty; }, 0); }
 function renderBasketBar(){
   var n = cartCount();
-  $("basketBar").classList.toggle("show", n>0);
+  var onOrderableScreen = $("categories").classList.contains("on") || $("menu").classList.contains("on");
+  $("basketBar").classList.toggle("show", n>0 && onOrderableScreen);
   $("basketN").textContent = n + " item" + (n===1?"":"s");
   $("basketTotal").textContent = money(cartTotal());
 }
@@ -322,7 +361,7 @@ function restart(){
   S.cart = {};
   try{ history.replaceState(null, "", location.pathname); }catch(e){}
   renderBasketBar();
-  show("menu");
+  show("categories");
 }
 
 /* ---------------- room service availability ---------------- */
