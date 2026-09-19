@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#1a1a1a" />
+<title>Room Service — Black Horse Beamish</title>
+<style>
+  :root{ --ink:#1a1a1a; --cream:#f6f0e4; --paper:#fbf7ee; --brass:#9c7a3c; --claret:#7a2e2e; --line:rgba(26,26,26,.14); }
+  *{box-sizing:border-box}
+  html,body{margin:0;min-height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--cream);color:var(--ink)}
+  button{font:inherit;cursor:pointer}
+  .screen{position:fixed;inset:0;display:none;flex-direction:column;background:var(--cream)}
+  .screen.on{display:flex}
+  header.top{flex:0 0 auto;background:var(--ink);color:#fff;padding:14px 16px;display:flex;align-items:center;gap:12px}
+  header.top img{height:34px}
+  header.top h1{font-size:17px;margin:0;font-weight:800;letter-spacing:.3px}
+  header.top .sub{font-size:12px;color:#ffffffa0;margin-top:1px}
+  .scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 14px 110px}
+  .catlabel{font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:800;color:var(--brass);margin:22px 4px 10px}
+  .catlabel:first-child{margin-top:4px}
+  .item{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:10px;display:flex;gap:12px;align-items:center}
+  .item .info{flex:1;min-width:0}
+  .item .nm{font-weight:700;font-size:15.5px}
+  .item .dsc{font-size:12.5px;color:#0009;margin-top:3px;line-height:1.35}
+  .item .pr{font-weight:800;color:var(--claret);margin-top:6px;font-size:14px}
+  .stepper{display:flex;align-items:center;gap:0;flex:0 0 auto}
+  .stepper button{width:34px;height:34px;border-radius:50%;border:1.5px solid var(--ink);background:#fff;font-size:18px;font-weight:800;line-height:1;display:flex;align-items:center;justify-content:center}
+  .stepper button.add{background:var(--ink);color:#fff}
+  .stepper .qty{width:28px;text-align:center;font-weight:800;font-size:15px}
+  .basketbar{position:fixed;left:14px;right:14px;bottom:14px;background:var(--claret);color:#fff;border-radius:16px;
+    padding:15px 18px;display:none;align-items:center;justify-content:space-between;font-weight:800;box-shadow:0 8px 24px #0004;z-index:20}
+  .basketbar.show{display:flex}
+  .basketbar .n{font-size:14px}
+  .basketbar .go{font-size:15px;letter-spacing:.5px}
+
+  /* basket / checkout */
+  #basket .scroll{padding-bottom:230px}
+  .backrow{display:flex;align-items:center;gap:10px;color:#fff}
+  .backrow button{background:none;border:0;color:#fff;font-size:15px;font-weight:700}
+  .line{display:flex;justify-content:space-between;align-items:center;background:#fff;border:1px solid var(--line);
+    border-radius:12px;padding:12px 14px;margin-bottom:8px}
+  .line .l b{font-size:14.5px}
+  .line .l .ea{display:block;font-size:12px;color:#0008;margin-top:2px}
+  .line .amt{font-weight:800;margin-left:10px}
+  .fld{margin:18px 4px 0}
+  .fld label{display:block;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--brass);font-weight:800;margin-bottom:6px}
+  .fld input{width:100%;padding:13px;border:1px solid var(--line);border-radius:10px;background:#fff;font-size:16px}
+  .checkoutbar{position:fixed;left:14px;right:14px;bottom:14px;z-index:20}
+  .paybtn{width:100%;padding:17px;border:0;border-radius:16px;background:var(--claret);color:#fff;font-size:16px;
+    font-weight:800;letter-spacing:.5px;box-shadow:0 8px 24px #0004}
+  .paybtn:disabled{background:#c9b9b9}
+  .subtotrow{display:flex;justify-content:space-between;padding:14px 6px 4px;font-weight:800;font-size:16px;border-top:1px solid var(--line);margin-top:14px}
+  .empty{padding:60px 20px;text-align:center;color:#0007}
+
+  /* status screens */
+  #status{align-items:center;justify-content:center;text-align:center;padding:30px;background:var(--ink);color:#fff}
+  #status img{height:44px;margin-bottom:26px;opacity:.95}
+  #status .big{font-size:26px;font-weight:900;margin-bottom:10px}
+  #status .msg{color:#ffffffb0;font-size:15px;max-width:320px}
+  .spinner{width:40px;height:40px;border-radius:50%;border:4px solid #ffffff33;border-top-color:#fff;
+    animation:spin .8s linear infinite;margin-bottom:24px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  #status .back{margin-top:28px;background:#fff;color:var(--ink);border:0;padding:13px 26px;border-radius:12px;font-weight:800}
+  .err{color:#c0392b;font-size:13px;margin-top:6px;min-height:16px}
+  .toast{position:fixed;left:50%;bottom:100px;transform:translateX(-50%);background:var(--ink);color:#fff;
+    padding:10px 18px;border-radius:22px;font-size:13.5px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:50}
+  .toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<!-- ===================== MENU ===================== -->
+<section id="menu" class="screen on">
+  <header class="top">
+    <img src="../app/logo-light.png" alt="">
+    <div><h1>Room Service</h1><div class="sub" id="hint">Add items, then check out</div></div>
+  </header>
+  <div class="scroll" id="menuList"></div>
+  <div class="basketbar" id="basketBar">
+    <span class="n" id="basketN">0 items</span>
+    <span class="go">View order  £<span id="basketTotal">0.00</span> ›</span>
+  </div>
+</section>
+
+<!-- ===================== BASKET / DETAILS ===================== -->
+<section id="basket" class="screen">
+  <header class="top">
+    <div class="backrow"><button onclick="show('menu')">‹ Menu</button></div>
+  </header>
+  <div class="scroll">
+    <div id="lines"></div>
+    <div class="subtotrow"><span>Total</span><span>£<span id="subtotal">0.00</span></span></div>
+    <div class="fld"><label>Your name</label><input id="gName" placeholder="e.g. Sarah Jones" autocomplete="name"></div>
+    <div class="fld"><label>Room number</label><input id="gRoom" placeholder="e.g. 12" inputmode="numeric" autocomplete="off"></div>
+    <div class="err" id="basketErr"></div>
+  </div>
+  <div class="checkoutbar">
+    <button class="paybtn" id="payBtn">Pay £<span id="payTotal">0.00</span></button>
+  </div>
+</section>
+
+<!-- ===================== STATUS (processing / done / failed) ===================== -->
+<section id="status" class="screen">
+  <img src="../app/logo-light.png" alt="">
+  <div id="stSpin" class="spinner"></div>
+  <div class="big" id="stBig">Confirming your payment…</div>
+  <div class="msg" id="stMsg">This only takes a few seconds — please don't close this page.</div>
+  <button class="back hidden" id="stBack" style="display:none" onclick="restart()">Back to menu</button>
+</section>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+var CFG = {
+  SUPABASE_URL: "https://safcrtrfdzsnftghibot.supabase.co",
+  SUPABASE_KEY: "sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU"
+};
+var CAT_LABEL = { food: "Food", drink: "Drinks" };
+var S = { menu: [], cart: {} /* itemId -> {item, qty} */ };
+
+function $(id){ return document.getElementById(id); }
+function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
+function money(n){ return (Math.round((n+Number.EPSILON)*100)/100).toFixed(2); }
+function toast(m){ var t=$("toast"); t.textContent=m; t.classList.add("show"); clearTimeout(toast._t); toast._t=setTimeout(function(){t.classList.remove("show");},2400); }
+function show(name){ ["menu","basket","status"].forEach(function(n){ $(n).classList.toggle("on", n===name); }); if(name==="basket") renderBasket(); }
+
+async function sb(path, opts){
+  opts = opts || {};
+  var r = await fetch(CFG.SUPABASE_URL + "/rest/v1/" + path, Object.assign({}, opts, {
+    headers: Object.assign({
+      apikey: CFG.SUPABASE_KEY, Authorization: "Bearer " + CFG.SUPABASE_KEY,
+      "Content-Type": "application/json"
+    }, opts.headers || {})
+  }));
+  if(!r.ok){ var t = await r.text(); throw new Error("HTTP " + r.status + " " + t.slice(0,200)); }
+  var txt = await r.text();
+  return txt ? JSON.parse(txt) : null;
+}
+
+/* ---------------- menu ---------------- */
+async function loadMenu(){
+  try{
+    var rows = await sb("roomservice_menu_items?select=*&available=eq.true&order=sort_order.asc");
+    S.menu = rows || [];
+    renderMenu();
+  }catch(e){
+    $("menuList").innerHTML = '<div class="empty">Couldn’t load the menu — check your connection and pull to refresh.</div>';
+  }
+}
+function renderMenu(){
+  var box = $("menuList"); box.innerHTML = "";
+  if(!S.menu.length){ box.innerHTML = '<div class="empty">Nothing on the menu right now — please call reception.</div>'; return; }
+  ["food","drink"].forEach(function(cat){
+    var items = S.menu.filter(function(m){ return m.category===cat; });
+    if(!items.length) return;
+    var h = document.createElement("div"); h.className="catlabel"; h.textContent = CAT_LABEL[cat] || cat;
+    box.appendChild(h);
+    items.forEach(function(m){
+      var row = S.cart[m.id];
+      var el = document.createElement("div"); el.className="item";
+      el.innerHTML =
+        '<div class="info"><div class="nm">'+esc(m.name)+'</div>'+
+        (m.description ? '<div class="dsc">'+esc(m.description)+'</div>' : '')+
+        '<div class="pr">£'+money(m.price)+'</div></div>'+
+        '<div class="stepper">'+
+          (row&&row.qty>0 ? '<button class="rm">−</button><span class="qty">'+row.qty+'</span>' : '')+
+          '<button class="add">+</button>'+
+        '</div>';
+      var addBtn = el.querySelector(".add");
+      addBtn.onclick = function(){ changeQty(m, 1); };
+      var rmBtn = el.querySelector(".rm");
+      if(rmBtn) rmBtn.onclick = function(){ changeQty(m, -1); };
+      box.appendChild(el);
+    });
+  });
+}
+function changeQty(item, delta){
+  var row = S.cart[item.id] || { item: item, qty: 0 };
+  row.qty += delta;
+  if(row.qty <= 0) delete S.cart[item.id]; else S.cart[item.id] = row;
+  renderMenu(); renderBasketBar();
+}
+function cartLines(){ return Object.keys(S.cart).map(function(id){ return S.cart[id]; }); }
+function cartTotal(){ return cartLines().reduce(function(s,l){ return s + l.item.price*l.qty; }, 0); }
+function cartCount(){ return cartLines().reduce(function(s,l){ return s + l.qty; }, 0); }
+function renderBasketBar(){
+  var n = cartCount();
+  $("basketBar").classList.toggle("show", n>0);
+  $("basketN").textContent = n + " item" + (n===1?"":"s");
+  $("basketTotal").textContent = money(cartTotal());
+}
+$("basketBar").onclick = function(){ if(cartCount()>0) show("basket"); };
+
+/* ---------------- basket / checkout ---------------- */
+function renderBasket(){
+  var box = $("lines"); box.innerHTML = "";
+  var lines = cartLines();
+  if(!lines.length){ box.innerHTML = '<div class="empty">Your order is empty.</div>'; }
+  lines.forEach(function(l){
+    var d = document.createElement("div"); d.className="line";
+    d.innerHTML = '<div class="l"><b>'+l.qty+' × '+esc(l.item.name)+'</b><span class="ea">£'+money(l.item.price)+' each</span></div>'+
+      '<div class="amt">£'+money(l.item.price*l.qty)+'</div>';
+    box.appendChild(d);
+  });
+  var t = cartTotal();
+  $("subtotal").textContent = money(t);
+  $("payTotal").textContent = money(t);
+  $("payBtn").disabled = lines.length===0;
+}
+$("gName").addEventListener("input", function(){ try{ sessionStorage.setItem("rs_name", this.value); }catch(e){} });
+$("gRoom").addEventListener("input", function(){ try{ sessionStorage.setItem("rs_room", this.value); }catch(e){} });
+try{
+  var savedName = sessionStorage.getItem("rs_name"); if(savedName) $("gName").value = savedName;
+  var savedRoom = sessionStorage.getItem("rs_room"); if(savedRoom) $("gRoom").value = savedRoom;
+}catch(e){}
+
+$("payBtn").onclick = async function(){
+  var name = $("gName").value.trim(), room = $("gRoom").value.trim();
+  $("basketErr").textContent = "";
+  if(!cartLines().length) return;
+  if(!name || !room){ $("basketErr").textContent = "Please enter your name and room number."; return; }
+  var btn = $("payBtn"); btn.disabled = true; var oldTxt = btn.textContent; btn.textContent = "Please wait…";
+  try{
+    var lines = cartLines().map(function(l){ return {
+      item_id: l.item.id, name: l.item.name, category: l.item.category, qty: l.qty, unit_price: l.item.price
+    }; });
+    var subtotal = cartTotal();
+    var order = await sb("roomservice_orders", {
+      method: "POST",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify([{ guest_name:name, room_number:room, lines:lines, subtotal:subtotal, status:"pending_payment" }])
+    });
+    var orderId = order[0].id;
+    try{ localStorage.setItem("rs_last_order", orderId); }catch(e){}
+
+    var res = await fetch(CFG.SUPABASE_URL + "/functions/v1/sumup-create-checkout", {
+      method: "POST",
+      headers: { "Content-Type":"application/json", Authorization:"Bearer "+CFG.SUPABASE_KEY, apikey: CFG.SUPABASE_KEY },
+      body: JSON.stringify({ order_id: orderId, redirect_url: location.origin + location.pathname + "?order=" + orderId })
+    });
+    var data = await res.json().catch(function(){ return {}; });
+    if(!res.ok || !data.hosted_checkout_url){
+      throw new Error(data.error || ("Payment setup failed (" + res.status + ")"));
+    }
+    location.href = data.hosted_checkout_url;
+  }catch(e){
+    $("basketErr").textContent = "Couldn't start payment: " + e.message;
+    btn.disabled = false; btn.textContent = oldTxt;
+  }
+};
+
+/* ---------------- post-payment status ---------------- */
+var _pollTimer = null, _pollTries = 0;
+function pollOrder(orderId){
+  show("status");
+  $("stSpin").style.display=""; $("stBack").style.display="none";
+  $("stBig").textContent = "Confirming your payment…";
+  $("stMsg").textContent = "This only takes a few seconds — please don't close this page.";
+  clearInterval(_pollTimer); _pollTries = 0;
+  _pollTimer = setInterval(async function(){
+    _pollTries++;
+    try{
+      var rows = await sb("roomservice_orders?id=eq."+orderId+"&select=status,order_no,guest_name,room_number");
+      var o = rows && rows[0];
+      if(o && o.status === "paid"){
+        clearInterval(_pollTimer);
+        $("stSpin").style.display="none";
+        $("stBig").textContent = "Thank you, " + (o.guest_name||"") + "!";
+        $("stMsg").textContent = "Order #" + o.order_no + " for Room " + o.room_number + " is on its way. It'll be with you shortly.";
+        $("stBack").style.display="";
+      } else if(o && (o.status === "failed" || o.status === "cancelled")){
+        clearInterval(_pollTimer);
+        $("stSpin").style.display="none";
+        $("stBig").textContent = "Payment not completed";
+        $("stMsg").textContent = "Your card wasn't charged. You can go back and try again.";
+        $("stBack").style.display="";
+      } else if(_pollTries > 40){ // ~2 minutes
+        clearInterval(_pollTimer);
+        $("stSpin").style.display="none";
+        $("stBig").textContent = "Still confirming…";
+        $("stMsg").textContent = "This is taking longer than expected. If you were charged, your order will still come through — please call reception if you're unsure.";
+        $("stBack").style.display="";
+      }
+    }catch(e){ /* keep polling */ }
+  }, 3000);
+}
+function restart(){
+  S.cart = {};
+  try{ history.replaceState(null, "", location.pathname); }catch(e){}
+  renderBasketBar();
+  show("menu");
+}
+
+/* ---------------- boot ---------------- */
+(function boot(){
+  var params = new URLSearchParams(location.search);
+  var orderId = params.get("order");
+  loadMenu();
+  if(orderId){ pollOrder(orderId); }
+})();
+</script>
+</body>
+</html>
