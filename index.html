@@ -342,13 +342,15 @@
         <select id="rsDrinkGroup"></select>
       </div>
       <div><label>Price £</label><input id="rsPrice" type="number" step="0.01" min="0" style="width:90px"></div>
+      <div><label>Variants (optional)</label><input id="rsVariants" type="text" placeholder="e.g. Half:3.25, Pint:6.50" style="min-width:220px"></div>
       <button class="primary" onclick="rsMenuAdd()">Add item</button>
     </div>
-    <p class="muted" style="margin:0 0 12px">Pick "Drinks" as the section to reveal the drink group field — that's what puts a cocktail, wine, beer or soft drink in the right place in the guest app.</p>
+    <p class="muted" style="margin:0 0 12px">Pick "Drinks" as the section to reveal the drink group field — that's what puts a cocktail, wine, beer or soft drink in the right place in the guest app.
+      Use Variants for things guests choose a size for — e.g. <code>Half:3.25, Pint:6.50</code> or <code>Small:5, Medium:7, Large:9, Bottle:22</code> — leave it blank for a single-price item.</p>
     <div class="tablewrap"><table class="menu-tbl" id="rsMenuTbl">
       <thead><tr>
         <th class="l">Name</th><th class="l">Description</th><th class="l">Section</th><th class="l">Drink group</th>
-        <th>Price £</th><th>Available</th><th></th>
+        <th>Price £</th><th class="l">Variants</th><th>Available</th><th></th>
       </tr></thead>
       <tbody id="rsMenuBody"></tbody>
     </table></div>
@@ -958,12 +960,30 @@ function rsRowToggleDrinkGroup(sel){
   const tr = sel.closest("tr");
   tr.querySelector('[data-f="drink_group"]').style.display = sel.value==="Drinks" ? "" : "none";
 }
+function rsVariantsToText(variants){
+  return Array.isArray(variants) && variants.length ? variants.map(v=>`${v.label}:${v.price}`).join(", ") : "";
+}
+function rsParseVariants(text){
+  text = (text||"").trim();
+  if(!text) return null;
+  const out = [];
+  for(const part of text.split(",")){
+    const p = part.trim();
+    if(!p) continue;
+    const idx = p.lastIndexOf(":");
+    if(idx<0) continue;
+    const label = p.slice(0,idx).trim();
+    const price = Number(p.slice(idx+1).trim());
+    if(label && !isNaN(price)) out.push({label, price});
+  }
+  return out.length ? out : null;
+}
 function renderRsMenu(){
   const b=document.getElementById("rsMenuBody");
   document.getElementById("rsSection").innerHTML = rsSectionOptions("Main Courses");
   document.getElementById("rsDrinkGroup").innerHTML = rsDrinkGroupOptions();
   const rows=(ST.rsMenu||[]).slice().sort((a,b)=>(a.sort_order||0)-(b.sort_order||0)||String(a.name).localeCompare(String(b.name)));
-  b.innerHTML = rows.length ? "" : '<tr><td colspan="7" class="muted">No room-service items yet — add one above.</td></tr>';
+  b.innerHTML = rows.length ? "" : '<tr><td colspan="8" class="muted">No room-service items yet — add one above.</td></tr>';
   for(const m of rows){
     const isDrink = m.menu_section==="Drinks";
     const tr=document.createElement("tr");
@@ -973,6 +993,7 @@ function renderRsMenu(){
       <td class="l"><select data-f="menu_section" onchange="rsRowToggleDrinkGroup(this)">${rsSectionOptions(m.menu_section)}</select></td>
       <td class="l"><select data-f="drink_group" style="${isDrink?"":"display:none"}">${rsDrinkGroupOptions(m.drink_group)}</select></td>
       <td><input type="number" step="0.01" min="0" data-f="price" value="${m.price!=null?(+m.price):0}"></td>
+      <td class="l"><input type="text" data-f="variants" value="${esc(rsVariantsToText(m.variants))}" placeholder="e.g. Half:3.25, Pint:6.50" style="min-width:180px"></td>
       <td><input class="rs-avail" type="checkbox" data-f="available" ${m.available!==false?"checked":""}></td>
       <td class="act">
         <button onclick="rsMenuSave('${m.id}',this)">Save</button>
@@ -992,6 +1013,7 @@ function rsRowBody(get, getChecked){
     drink_group: isDrink ? get("drink_group") : null,
     category: isDrink ? "drink" : "food",
     price: Number(get("price"))||0,
+    variants: rsParseVariants(get("variants")),
     available: getChecked("available")
   };
 }
@@ -1017,11 +1039,12 @@ async function rsMenuAdd(){
     name, description:g("rsDesc").trim()||null,
     menu_section: section, drink_group: isDrink ? g("rsDrinkGroup") : null,
     category: isDrink ? "drink" : "food",
-    price:Number(g("rsPrice"))||0, available:true, sort_order:maxSort+1
+    price:Number(g("rsPrice"))||0, variants: rsParseVariants(g("rsVariants")),
+    available:true, sort_order:maxSort+1
   };
   try{
     await sb(`roomservice_menu_items`, {method:"POST", headers:{Prefer:"return=minimal"}, body:JSON.stringify(body)});
-    ["rsName","rsDesc","rsPrice"].forEach(i=>document.getElementById(i).value="");
+    ["rsName","rsDesc","rsPrice","rsVariants"].forEach(i=>document.getElementById(i).value="");
     await reloadRsMenu(); menuStatus("Added “"+name+"”.");
   }catch(e){ alert("Add failed: "+e.message); }
 }
