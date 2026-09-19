@@ -262,7 +262,19 @@
 
   <!-- ROOM SERVICE -->
   <section id="tab-roomservice" class="hidden">
-    <h2 class="sec">Kitchen busy notice</h2>
+    <h2 class="sec">Room service availability</h2>
+    <div class="dz" id="rsAvailBox" style="border-color:var(--brass);background:#fdf6e8">
+      <div>
+        <b id="rsAvailStatus">Available</b>
+        <div class="muted" id="rsAvailInfo" style="margin-top:4px"></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end">
+        <label class="muted"><input type="checkbox" id="rsAvailToggle" onchange="setRsAvailable(this.checked)"> Room service available</label>
+        <label class="muted"><input type="checkbox" id="rsAutomateToggle" onchange="setRsAutomate(this.checked)"> Automatically follow opening hours (12:00–20:45, 12:00–18:00 Sundays)</label>
+      </div>
+    </div>
+
+    <h2 class="sec" style="margin-top:30px">Kitchen busy notice</h2>
     <div class="dz" id="busyBox" style="border-color:var(--brass);background:#fdf6e8">
       <div>
         <b id="busyStatus">Off</b>
@@ -394,17 +406,19 @@ async function load(){
   if(_busy) return; _busy=true;
   try{
     const {start,end}=dayWindow();
-    const [sales,sessions,voids,menu,rsOrders,rsMenu,notice] = await Promise.all([
+    const [sales,sessions,voids,menu,rsOrders,rsMenu,notice,rsAvail] = await Promise.all([
       sb(`till_sales?select=*&ts=gte.${start.toISOString()}&ts=lt.${end.toISOString()}&order=ts.desc`),
       sb(`till_sessions?select=*`),
       sb(`till_voids?select=*&ts=gte.${start.toISOString()}&ts=lt.${end.toISOString()}&order=ts.desc`),
       sb(`till_menu_items?select=*`),
       sb(`roomservice_orders?select=*&created_at=gte.${start.toISOString()}&created_at=lt.${end.toISOString()}&order=created_at.desc`).catch(()=>[]),
       sb(`roomservice_menu_items?select=*&order=sort_order.asc`).catch(()=>[]),
-      sb(`busy_notice?id=eq.1&select=*`).catch(()=>[])
+      sb(`busy_notice?id=eq.1&select=*`).catch(()=>[]),
+      sb(`roomservice_availability?id=eq.1&select=*`).catch(()=>[])
     ]);
     ST.sales=sales; ST.sessions=sessions; ST.voids=voids; ST.menu=menu||[];
     ST.rsOrders=rsOrders||[]; ST.rsMenu=rsMenu||[]; ST.busyNotice=(notice&&notice[0])||null;
+    ST.rsAvailability=(rsAvail&&rsAvail[0])||null;
     ST.sessById={}; sessions.forEach(s=>ST.sessById[s.id]=s);
     renderAll();
     document.getElementById("updated").textContent = "updated " + new Date().toLocaleTimeString("en-GB");
@@ -720,6 +734,53 @@ async function menuDelete(id){
   }catch(e){ alert("Delete failed: "+e.message); }
 }
 
+/* ---------- Room service: availability ---------- */
+function isRoomServiceAvailableNow(row){
+  if(!row) return true;
+  if(!row.automate) return !!row.manual_available;
+  const now = new Date();
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone:"Europe/London", hour:"2-digit", minute:"2-digit", hour12:false, weekday:"short"
+  }).formatToParts(now);
+  const get = t => parts.find(p=>p.type===t).value;
+  const mins = parseInt(get("hour"),10)*60 + parseInt(get("minute"),10);
+  const openMin = 12*60;
+  const closeMin = get("weekday")==="Sun" ? 18*60 : (20*60+45);
+  return mins>=openMin && mins<closeMin;
+}
+function renderRsAvailabilityBox(){
+  const row = ST.rsAvailability || {automate:true, manual_available:true};
+  const automate = !!row.automate;
+  const availableNow = isRoomServiceAvailableNow(row);
+  document.getElementById("rsAutomateToggle").checked = automate;
+  const toggle = document.getElementById("rsAvailToggle");
+  toggle.checked = automate ? availableNow : !!row.manual_available;
+  toggle.disabled = automate;
+  document.getElementById("rsAvailStatus").textContent = availableNow ? "Available" : "Not available";
+  document.getElementById("rsAvailInfo").textContent = automate
+    ? "Following opening hours automatically (12:00–20:45, 12:00–18:00 Sundays)."
+    : "Automation is off — this stays as set until you change it.";
+  const box = document.getElementById("rsAvailBox");
+  box.style.borderColor = availableNow ? "var(--brass)" : "var(--claret)";
+  box.style.background = availableNow ? "#fdf6e8" : "#fbf1f1";
+}
+async function setRsAutomate(checked){
+  try{
+    const body = { automate:checked, updated_at:new Date().toISOString() };
+    if(!checked) body.manual_available = isRoomServiceAvailableNow(ST.rsAvailability || {automate:true});
+    await sb(`roomservice_availability?id=eq.1`, {method:"PATCH", body:JSON.stringify(body)});
+    ST.rsAvailability = (await sb(`roomservice_availability?id=eq.1&select=*`))?.[0] || null;
+    renderRsAvailabilityBox();
+  }catch(e){ alert("Couldn't update automation: "+e.message); renderRsAvailabilityBox(); }
+}
+async function setRsAvailable(checked){
+  try{
+    await sb(`roomservice_availability?id=eq.1`, {method:"PATCH", body:JSON.stringify({ manual_available:checked, updated_at:new Date().toISOString() })});
+    ST.rsAvailability = (await sb(`roomservice_availability?id=eq.1&select=*`))?.[0] || null;
+    renderRsAvailabilityBox();
+  }catch(e){ alert("Couldn't update availability: "+e.message); renderRsAvailabilityBox(); }
+}
+
 /* ---------- Room service: kitchen busy notice ---------- */
 const BUSY_DEFAULT_MSG = "The restaurant is currently extremely busy — please be aware your order will take longer than usual to prepare.";
 function busyCeilingTonight(){
@@ -763,6 +824,7 @@ async function clearBusyNotice(){
 
 /* ---------- Room service: orders & refunds ---------- */
 function renderRoomService(){
+  renderRsAvailabilityBox();
   renderBusyNoticeBox();
   const rows = (ST.rsOrders||[]).slice();
   const paid = rows.filter(r=>r.status==="paid");
