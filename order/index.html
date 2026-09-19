@@ -31,6 +31,9 @@
   header.top h1{font-size:18px;margin:0;font-weight:600;letter-spacing:2px;text-transform:uppercase}
   header.top .sub{font-size:12px;color:#ffffffa0;margin-top:2px;font-style:italic}
   .scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 16px 110px}
+  .grouplabel{font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);
+    margin:22px 4px 10px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+  .grouplabel:first-child{margin-top:4px}
   .cattile{background:#fff;border:1px solid var(--line);border-radius:2px;padding:22px 20px;margin-bottom:12px;
     display:flex;align-items:center;justify-content:space-between;cursor:pointer}
   .cattile .ctext{flex:1;min-width:0}
@@ -104,7 +107,7 @@
 <section id="categories" class="screen on">
   <header class="top">
     <img src="../app/logo-light.png" alt="">
-    <div><h1>Room Service</h1><div class="sub">Choose a category to get started</div></div>
+    <div><h1 id="catHeading">Room Service</h1><div class="sub" id="catSub">Choose a category to get started</div></div>
   </header>
   <div class="scroll" id="catList"></div>
 </section>
@@ -153,11 +156,11 @@
   <div class="scroll">
     <div id="lines"></div>
     <div class="subtotrow minor"><span>Items</span><span>£<span id="itemsSubtotal">0.00</span></span></div>
-    <div class="subtotrow minor"><span>Tray charge</span><span>£<span id="trayCharge">0.00</span></span></div>
+    <div class="subtotrow minor"><span id="chargeLabel">Tray charge</span><span>£<span id="trayCharge">0.00</span></span></div>
     <div class="subtotrow total"><span>Total</span><span>£<span id="subtotal">0.00</span></span></div>
-    <div class="fld"><label>Name the room is booked under</label><input id="gName" placeholder="e.g. Sarah Jones" autocomplete="name"></div>
-    <div class="fld" id="roomFld"><label>Room number</label><input id="gRoom" placeholder="e.g. 12" inputmode="numeric" autocomplete="off"></div>
-    <div class="fld" id="roomLockedFld" style="display:none"><label>Room</label><div class="lockedval" id="roomLockedVal"></div></div>
+    <div class="fld"><label id="nameLbl">Name the room is booked under</label><input id="gName" placeholder="e.g. Sarah Jones" autocomplete="name"></div>
+    <div class="fld" id="roomFld"><label id="roomLbl">Room number</label><input id="gRoom" placeholder="e.g. 12" inputmode="numeric" autocomplete="off"></div>
+    <div class="fld" id="roomLockedFld" style="display:none"><label id="roomLockedLbl">Room</label><div class="lockedval" id="roomLockedVal"></div></div>
     <div class="err" id="basketErr"></div>
   </div>
   <div class="checkoutbar">
@@ -179,7 +182,7 @@
   <button id="testTrigger" onclick="openTestModal()" aria-hidden="true" tabindex="-1"
     style="position:fixed;top:0;right:0;width:64px;height:64px;opacity:0;border:0;background:transparent;padding:0;margin:0;z-index:60"></button>
   <img src="../app/logo-light.png" alt="">
-  <div class="big" style="margin-top:22px">Room service is currently unavailable</div>
+  <div class="big" id="closedHeading" style="margin-top:22px">Room service is currently unavailable</div>
   <div class="msg">Please contact the restaurant on 01207 232569 or pop into the restaurant for assistance.</div>
 </section>
 
@@ -245,8 +248,35 @@ var CFG = {
 var SECTIONS = ["Small Plates & Starters","Main Courses","From the Grill","Sides","Desserts","Drinks"];
 var DRINK_GROUPS = ["Hot beverages","Soft drinks","Wine","Bottles and Draft","Spirits and cocktails"];
 var TRAY_CHARGE = 5.00;
-var S = { menu: [], cart: {}, currentSection: null, currentDrinkGroup: null, currentWineType: null, testMode: false /* itemId -> {item, qty} */ };
+var SERVICE_CHARGE_PCT = 0.10;
+var S = { menu: [], cart: {}, currentSection: null, currentDrinkGroup: null, currentWineType: null, testMode: false, channel: "room_service", lockedRoom: null /* itemId -> {item, qty} */ };
 var TEST_PASSWORD = "Test01207";
+function isOutside(){ return S.channel === "outside"; }
+function extraCharge(itemsTotal){
+  if(!itemsTotal) return 0;
+  return isOutside() ? Math.round((itemsTotal*SERVICE_CHARGE_PCT + Number.EPSILON)*100)/100 : TRAY_CHARGE;
+}
+function applyChannelCopy(){
+  if(isOutside()){
+    document.title = "Outside — Black Horse Beamish";
+    $("catHeading").textContent = "Order To Your Table";
+    $("catSub").textContent = "Choose a category to get started";
+    $("chargeLabel").textContent = "Service charge (10%)";
+    $("nameLbl").textContent = "Your name";
+    $("roomLbl").textContent = "Table number";
+    $("roomLockedLbl").textContent = "Table";
+    $("closedHeading").textContent = "Outside table service is currently unavailable";
+  } else {
+    document.title = "Room Service — Black Horse Beamish";
+    $("catHeading").textContent = "Room Service";
+    $("catSub").textContent = "Choose a category to get started";
+    $("chargeLabel").textContent = "Tray charge";
+    $("nameLbl").textContent = "Name the room is booked under";
+    $("roomLbl").textContent = "Room number";
+    $("roomLockedLbl").textContent = "Room";
+    $("closedHeading").textContent = "Room service is currently unavailable";
+  }
+}
 
 function $(id){ return document.getElementById(id); }
 function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
@@ -274,7 +304,8 @@ async function sb(path, opts){
 /* ---------------- categories ---------------- */
 async function loadMenu(){
   try{
-    var rows = await sb("roomservice_menu_items?select=*&available=eq.true&order=sort_order.asc");
+    var field = isOutside() ? "available_outside" : "available";
+    var rows = await sb("roomservice_menu_items?select=*&"+field+"=eq.true&order=sort_order.asc");
     S.menu = rows || [];
     renderCategories();
   }catch(e){
@@ -426,7 +457,23 @@ function renderMenu(){
     return m.menu_section==="Drinks" && m.drink_group===S.currentDrinkGroup;
   });
   if(!items.length){ box.innerHTML = '<div class="empty">Nothing here right now.</div>'; return; }
-  items.forEach(function(m){ box.appendChild(buildItemEl(m)); });
+  if(S.currentDrinkGroup==="Bottles and Draft"){
+    var isDraught = function(m){ return Array.isArray(m.variants) && m.variants.length>0; };
+    var draught = items.filter(isDraught);
+    var bottles = items.filter(function(m){ return !isDraught(m); });
+    if(draught.length){
+      var dh = document.createElement("div"); dh.className="grouplabel"; dh.textContent="Draught";
+      box.appendChild(dh);
+      draught.forEach(function(m){ box.appendChild(buildItemEl(m)); });
+    }
+    if(bottles.length){
+      var bh = document.createElement("div"); bh.className="grouplabel"; bh.textContent="Bottles";
+      box.appendChild(bh);
+      bottles.forEach(function(m){ box.appendChild(buildItemEl(m)); });
+    }
+  } else {
+    items.forEach(function(m){ box.appendChild(buildItemEl(m)); });
+  }
 }
 var _variantItem = null;
 function openVariantPicker(item){
@@ -552,9 +599,10 @@ function renderBasket(){
     box.appendChild(d);
   });
   var itemsTotal = cartTotal();
-  var grandTotal = lines.length ? itemsTotal + TRAY_CHARGE : 0;
+  var charge = lines.length ? extraCharge(itemsTotal) : 0;
+  var grandTotal = itemsTotal + charge;
   $("itemsSubtotal").textContent = money(itemsTotal);
-  $("trayCharge").textContent = money(lines.length ? TRAY_CHARGE : 0);
+  $("trayCharge").textContent = money(charge);
   $("subtotal").textContent = money(grandTotal);
   $("payTotal").textContent = money(grandTotal);
   $("payBtn").disabled = lines.length===0;
@@ -570,21 +618,23 @@ $("payBtn").onclick = async function(){
   var name = $("gName").value.trim(), room = S.lockedRoom || $("gRoom").value.trim();
   $("basketErr").textContent = "";
   if(!cartLines().length) return;
-  if(!name){ $("basketErr").textContent = "Please enter the name the room is booked under."; return; }
-  if(!room){ $("basketErr").textContent = "Please enter your room number."; return; }
+  if(!name){ $("basketErr").textContent = isOutside() ? "Please enter your name." : "Please enter the name the room is booked under."; return; }
+  if(!room){ $("basketErr").textContent = isOutside() ? "Please enter your table number." : "Please enter your room number."; return; }
   var btn = $("payBtn"); btn.disabled = true; var oldHtml = btn.innerHTML; btn.textContent = "Please wait…";
   try{
     var lines = cartLines().map(function(l){ return {
       item_id: l.itemId, variant: l.variant, name: l.name, category: l.category, qty: l.qty, unit_price: l.unitPrice
     }; });
-    var subtotal = cartTotal() + TRAY_CHARGE;
+    var itemsTotal = cartTotal();
+    var charge = extraCharge(itemsTotal);
+    var subtotal = itemsTotal + charge;
 
     if(S.testMode){
       var testOrder = await sb("roomservice_orders", {
         method: "POST",
         headers: { Prefer: "return=representation" },
         body: JSON.stringify([{
-          guest_name:name, room_number:room, lines:lines, subtotal:subtotal, tray_charge:TRAY_CHARGE,
+          guest_name:name, room_number:room, lines:lines, subtotal:subtotal, tray_charge:charge, channel:S.channel,
           status:"paid", paid_at:new Date().toISOString(), sumup_transaction_id:"TEST", is_test:true
         }])
       });
@@ -599,7 +649,7 @@ $("payBtn").onclick = async function(){
     var order = await sb("roomservice_orders", {
       method: "POST",
       headers: { Prefer: "return=representation" },
-      body: JSON.stringify([{ guest_name:name, room_number:room, lines:lines, subtotal:subtotal, tray_charge:TRAY_CHARGE, status:"pending_payment" }])
+      body: JSON.stringify([{ guest_name:name, room_number:room, lines:lines, subtotal:subtotal, tray_charge:charge, channel:S.channel, status:"pending_payment" }])
     });
     var orderId = order[0].id;
     try{ localStorage.setItem("rs_last_order", orderId); }catch(e){}
@@ -641,7 +691,7 @@ $("testPassInput").addEventListener("keydown", function(e){ if(e.key==="Enter") 
 async function queueTestPrintJobs(order){
   var lines = order.lines || [];
   if(!lines.length) return;
-  var payload = { order_no: order.order_no, guest_name: order.guest_name, room_number: order.room_number, lines: lines };
+  var payload = { order_no: order.order_no, guest_name: order.guest_name, room_number: order.room_number, channel: order.channel, lines: lines };
   var jobs = [
     { order_id: order.id, destination:"kitchen", payload: payload },
     { order_id: order.id, destination:"bar", payload: payload }
@@ -654,7 +704,8 @@ function showTestThankYou(o){
   $("stBack").style.display = "";
   $("stBig").classList.add("script");
   $("stBig").textContent = "Thank you, " + (o.guest_name||"") + "!";
-  $("stMsg").textContent = "TEST order #" + o.order_no + " for Room " + o.room_number + " has been sent to the virtual printers. No payment was taken.";
+  var loc = (o.channel==="outside" ? "Table " : "Room ") + o.room_number;
+  $("stMsg").textContent = "TEST order #" + o.order_no + " for " + loc + " has been sent to the virtual printers. No payment was taken.";
 }
 
 /* ---------------- post-payment status ---------------- */
@@ -669,14 +720,15 @@ function pollOrder(orderId){
   _pollTimer = setInterval(async function(){
     _pollTries++;
     try{
-      var rows = await sb("roomservice_orders?id=eq."+orderId+"&select=status,order_no,guest_name,room_number");
+      var rows = await sb("roomservice_orders?id=eq."+orderId+"&select=status,order_no,guest_name,room_number,channel");
       var o = rows && rows[0];
       if(o && o.status === "paid"){
         clearInterval(_pollTimer);
         $("stSpin").style.display="none";
         $("stBig").classList.add("script");
         $("stBig").textContent = "Thank you, " + (o.guest_name||"") + "!";
-        $("stMsg").textContent = "Order #" + o.order_no + " for Room " + o.room_number + " is on its way. It'll be with you shortly.";
+        var loc = (o.channel==="outside" ? "Table " : "Room ") + o.room_number;
+        $("stMsg").textContent = "Order #" + o.order_no + " for " + loc + " is on its way. It'll be with you shortly.";
         $("stBack").style.display="";
       } else if(o && (o.status === "failed" || o.status === "cancelled")){
         clearInterval(_pollTimer);
@@ -718,7 +770,8 @@ function isRoomServiceAvailableNow(row){
 }
 async function checkAvailability(){
   try{
-    var rows = await sb("roomservice_availability?id=eq.1&select=automate,manual_available");
+    var table = isOutside() ? "outside_availability" : "roomservice_availability";
+    var rows = await sb(table+"?id=eq.1&select=automate,manual_available");
     var row = rows && rows[0];
     if(!isRoomServiceAvailableNow(row)){ show("closed"); return false; }
   }catch(e){ /* fail open — never block ordering on this */ }
@@ -729,7 +782,8 @@ async function checkAvailability(){
 function dismissBusyModal(){ $("busyModal").style.display = "none"; }
 async function checkBusyNotice(){
   try{
-    var rows = await sb("busy_notice?id=eq.1&select=active,message,until");
+    var table = isOutside() ? "outside_busy_notice" : "busy_notice";
+    var rows = await sb(table+"?id=eq.1&select=active,message,until");
     var n = rows && rows[0];
     if(n && n.active && n.until && new Date(n.until) > new Date()){
       $("busyModalMsg").textContent = n.message || "The kitchen is very busy right now — your order may take longer than usual.";
@@ -741,7 +795,10 @@ async function checkBusyNotice(){
 /* ---------------- boot ---------------- */
 (function boot(){
   var params = new URLSearchParams(location.search);
-  var lockedRoom = params.get("room");
+  var lockedTable = params.get("table");
+  var lockedRoom = lockedTable || params.get("room");
+  S.channel = lockedTable ? "outside" : "room_service";
+  applyChannelCopy();
   if(lockedRoom){
     S.lockedRoom = lockedRoom;
     $("roomFld").style.display = "none";
