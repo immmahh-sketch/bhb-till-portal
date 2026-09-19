@@ -3,68 +3,74 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#1a1a1a" />
+<meta name="theme-color" content="#111111" />
 <title>Room Service — Black Horse Beamish</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Kristi&family=EB+Garamond:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
 <style>
-  :root{ --ink:#1a1a1a; --cream:#f6f0e4; --paper:#fbf7ee; --brass:#9c7a3c; --claret:#7a2e2e; --line:rgba(26,26,26,.14); }
+  /* Matches blackhorsebeamish.co.uk: EB Garamond serif body, Kristi script
+     for accents, near-black/white — no colour palette on the real site. */
+  :root{ --ink:#111111; --paper:#ffffff; --line:rgba(17,17,17,.16); --muted:rgba(17,17,17,.55); }
   *{box-sizing:border-box}
-  html,body{margin:0;min-height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--cream);color:var(--ink)}
+  html,body{margin:0;min-height:100%;font-family:'EB Garamond',Georgia,'Times New Roman',serif;background:var(--paper);color:var(--ink)}
   button{font:inherit;cursor:pointer}
-  .screen{position:fixed;inset:0;display:none;flex-direction:column;background:var(--cream)}
+  .screen{position:fixed;inset:0;display:none;flex-direction:column;background:var(--paper)}
   .screen.on{display:flex}
-  header.top{flex:0 0 auto;background:var(--ink);color:#fff;padding:14px 16px;display:flex;align-items:center;gap:12px}
-  header.top img{height:34px}
-  header.top h1{font-size:17px;margin:0;font-weight:800;letter-spacing:.3px}
-  header.top .sub{font-size:12px;color:#ffffffa0;margin-top:1px}
-  .scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 14px 110px}
-  .catlabel{font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:800;color:var(--brass);margin:22px 4px 10px}
-  .catlabel:first-child{margin-top:4px}
-  .item{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:10px;display:flex;gap:12px;align-items:center}
+  header.top{flex:0 0 auto;background:var(--ink);color:#fff;padding:16px;display:flex;align-items:center;gap:12px}
+  header.top img{height:32px}
+  header.top h1{font-size:18px;margin:0;font-weight:600;letter-spacing:2px;text-transform:uppercase}
+  header.top .sub{font-size:12px;color:#ffffffa0;margin-top:2px;font-style:italic}
+  .scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 16px 110px}
+  .catlabel{font-family:'Kristi',cursive;font-size:34px;font-weight:400;color:var(--ink);margin:26px 4px 8px;line-height:1}
+  .catlabel:first-child{margin-top:6px}
+  .item{background:#fff;border:1px solid var(--line);border-radius:2px;padding:16px;margin-bottom:10px;display:flex;gap:14px;align-items:center}
   .item .info{flex:1;min-width:0}
-  .item .nm{font-weight:700;font-size:15.5px}
-  .item .dsc{font-size:12.5px;color:#0009;margin-top:3px;line-height:1.35}
-  .item .pr{font-weight:800;color:var(--claret);margin-top:6px;font-size:14px}
+  .item .nm{font-weight:600;font-size:17px}
+  .item .dsc{font-size:13px;color:var(--muted);margin-top:4px;line-height:1.4;font-style:italic}
+  .item .pr{font-weight:700;color:var(--ink);margin-top:8px;font-size:15px}
   .stepper{display:flex;align-items:center;gap:0;flex:0 0 auto}
-  .stepper button{width:34px;height:34px;border-radius:50%;border:1.5px solid var(--ink);background:#fff;font-size:18px;font-weight:800;line-height:1;display:flex;align-items:center;justify-content:center}
+  .stepper button{width:32px;height:32px;border-radius:50%;border:1.3px solid var(--ink);background:#fff;font-size:17px;font-weight:600;line-height:1;display:flex;align-items:center;justify-content:center;font-family:Georgia,serif}
   .stepper button.add{background:var(--ink);color:#fff}
-  .stepper .qty{width:28px;text-align:center;font-weight:800;font-size:15px}
-  .basketbar{position:fixed;left:14px;right:14px;bottom:14px;background:var(--claret);color:#fff;border-radius:16px;
-    padding:15px 18px;display:none;align-items:center;justify-content:space-between;font-weight:800;box-shadow:0 8px 24px #0004;z-index:20}
+  .stepper .qty{width:26px;text-align:center;font-weight:700;font-size:15px}
+  .basketbar{position:fixed;left:16px;right:16px;bottom:16px;background:var(--ink);color:#fff;border-radius:2px;
+    padding:16px 20px;display:none;align-items:center;justify-content:space-between;font-weight:600;letter-spacing:.3px;box-shadow:0 8px 24px #0004;z-index:20}
   .basketbar.show{display:flex}
   .basketbar .n{font-size:14px}
-  .basketbar .go{font-size:15px;letter-spacing:.5px}
+  .basketbar .go{font-size:14px;letter-spacing:1px;text-transform:uppercase}
 
   /* basket / checkout */
   #basket .scroll{padding-bottom:230px}
   .backrow{display:flex;align-items:center;gap:10px;color:#fff}
-  .backrow button{background:none;border:0;color:#fff;font-size:15px;font-weight:700}
+  .backrow button{background:none;border:0;color:#fff;font-size:15px;font-weight:600;letter-spacing:.5px}
   .line{display:flex;justify-content:space-between;align-items:center;background:#fff;border:1px solid var(--line);
-    border-radius:12px;padding:12px 14px;margin-bottom:8px}
-  .line .l b{font-size:14.5px}
-  .line .l .ea{display:block;font-size:12px;color:#0008;margin-top:2px}
-  .line .amt{font-weight:800;margin-left:10px}
-  .fld{margin:18px 4px 0}
-  .fld label{display:block;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--brass);font-weight:800;margin-bottom:6px}
-  .fld input{width:100%;padding:13px;border:1px solid var(--line);border-radius:10px;background:#fff;font-size:16px}
-  .checkoutbar{position:fixed;left:14px;right:14px;bottom:14px;z-index:20}
-  .paybtn{width:100%;padding:17px;border:0;border-radius:16px;background:var(--claret);color:#fff;font-size:16px;
-    font-weight:800;letter-spacing:.5px;box-shadow:0 8px 24px #0004}
-  .paybtn:disabled{background:#c9b9b9}
-  .subtotrow{display:flex;justify-content:space-between;padding:14px 6px 4px;font-weight:800;font-size:16px;border-top:1px solid var(--line);margin-top:14px}
-  .empty{padding:60px 20px;text-align:center;color:#0007}
+    border-radius:2px;padding:14px 16px;margin-bottom:8px}
+  .line .l b{font-size:15.5px;font-weight:600}
+  .line .l .ea{display:block;font-size:12px;color:var(--muted);margin-top:2px;font-style:italic}
+  .line .amt{font-weight:700;margin-left:10px}
+  .fld{margin:20px 4px 0}
+  .fld label{display:block;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);font-weight:600;margin-bottom:6px}
+  .fld input{width:100%;padding:13px;border:1px solid var(--line);border-radius:2px;background:#fff;font-size:16px;font-family:'EB Garamond',Georgia,serif}
+  .checkoutbar{position:fixed;left:16px;right:16px;bottom:16px;z-index:20}
+  .paybtn{width:100%;padding:18px;border:0;border-radius:2px;background:var(--ink);color:#fff;font-size:15px;
+    font-weight:600;letter-spacing:2px;text-transform:uppercase;box-shadow:0 8px 24px #0004}
+  .paybtn:disabled{background:#b8b8b8}
+  .subtotrow{display:flex;justify-content:space-between;padding:14px 6px 4px;font-weight:700;font-size:17px;border-top:1px solid var(--line);margin-top:16px}
+  .empty{padding:60px 20px;text-align:center;color:var(--muted);font-style:italic}
 
   /* status screens */
   #status{align-items:center;justify-content:center;text-align:center;padding:30px;background:var(--ink);color:#fff}
-  #status img{height:44px;margin-bottom:26px;opacity:.95}
-  #status .big{font-size:26px;font-weight:900;margin-bottom:10px}
-  #status .msg{color:#ffffffb0;font-size:15px;max-width:320px}
-  .spinner{width:40px;height:40px;border-radius:50%;border:4px solid #ffffff33;border-top-color:#fff;
+  #status img{height:40px;margin-bottom:26px;opacity:.95}
+  #status .big{font-size:22px;font-weight:600;margin-bottom:12px;line-height:1.3}
+  #status .big.script{font-family:'Kristi',cursive;font-size:38px;font-weight:400;line-height:1.1}
+  #status .msg{color:#ffffffb0;font-size:15px;max-width:320px;font-style:italic}
+  .spinner{width:38px;height:38px;border-radius:50%;border:3px solid #ffffff33;border-top-color:#fff;
     animation:spin .8s linear infinite;margin-bottom:24px}
   @keyframes spin{to{transform:rotate(360deg)}}
-  #status .back{margin-top:28px;background:#fff;color:var(--ink);border:0;padding:13px 26px;border-radius:12px;font-weight:800}
-  .err{color:#c0392b;font-size:13px;margin-top:6px;min-height:16px}
+  #status .back{margin-top:28px;background:#fff;color:var(--ink);border:0;padding:13px 28px;border-radius:2px;font-weight:600;letter-spacing:1px;text-transform:uppercase;font-size:13px}
+  .err{color:#7a1f1f;font-size:13px;margin-top:8px;min-height:16px;font-style:italic}
   .toast{position:fixed;left:50%;bottom:100px;transform:translateX(-50%);background:var(--ink);color:#fff;
-    padding:10px 18px;border-radius:22px;font-size:13.5px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:50}
+    padding:10px 18px;border-radius:2px;font-size:13.5px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:50}
   .toast.show{opacity:1}
 </style>
 </head>
@@ -110,6 +116,15 @@
 </section>
 
 <div class="toast" id="toast"></div>
+
+<!-- ===================== BUSY NOTICE ===================== -->
+<div id="busyModal" style="position:fixed;inset:0;background:rgba(17,17,17,.72);display:none;align-items:center;justify-content:center;z-index:100;padding:24px">
+  <div style="background:#fff;max-width:380px;width:100%;padding:30px 26px;text-align:center;border-radius:2px">
+    <div style="font-family:'Kristi',cursive;font-size:32px;margin-bottom:14px">A note from the kitchen</div>
+    <p id="busyModalMsg" style="font-size:15.5px;line-height:1.5;color:var(--ink);margin:0 0 24px"></p>
+    <button onclick="dismissBusyModal()" style="background:var(--ink);color:#fff;border:0;padding:14px 30px;border-radius:2px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;font-size:13px;width:100%">Continue to menu</button>
+  </div>
+</div>
 
 <script>
 "use strict";
@@ -256,6 +271,7 @@ var _pollTimer = null, _pollTries = 0;
 function pollOrder(orderId){
   show("status");
   $("stSpin").style.display=""; $("stBack").style.display="none";
+  $("stBig").classList.remove("script");
   $("stBig").textContent = "Confirming your payment…";
   $("stMsg").textContent = "This only takes a few seconds — please don't close this page.";
   clearInterval(_pollTimer); _pollTries = 0;
@@ -267,6 +283,7 @@ function pollOrder(orderId){
       if(o && o.status === "paid"){
         clearInterval(_pollTimer);
         $("stSpin").style.display="none";
+        $("stBig").classList.add("script");
         $("stBig").textContent = "Thank you, " + (o.guest_name||"") + "!";
         $("stMsg").textContent = "Order #" + o.order_no + " for Room " + o.room_number + " is on its way. It'll be with you shortly.";
         $("stBack").style.display="";
@@ -293,12 +310,25 @@ function restart(){
   show("menu");
 }
 
+/* ---------------- busy notice ---------------- */
+function dismissBusyModal(){ $("busyModal").style.display = "none"; }
+async function checkBusyNotice(){
+  try{
+    var rows = await sb("busy_notice?id=eq.1&select=active,message,until");
+    var n = rows && rows[0];
+    if(n && n.active && n.until && new Date(n.until) > new Date()){
+      $("busyModalMsg").textContent = n.message || "The kitchen is very busy right now — your order may take longer than usual.";
+      $("busyModal").style.display = "flex";
+    }
+  }catch(e){ /* fail quiet — never block ordering on this */ }
+}
+
 /* ---------------- boot ---------------- */
 (function boot(){
   var params = new URLSearchParams(location.search);
   var orderId = params.get("order");
   loadMenu();
-  if(orderId){ pollOrder(orderId); }
+  if(orderId){ pollOrder(orderId); } else { checkBusyNotice(); }
 })();
 </script>
 </body>

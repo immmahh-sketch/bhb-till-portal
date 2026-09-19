@@ -46,6 +46,13 @@
   .till .outlet{font-size:12px;color:var(--brass);font-weight:700;text-transform:uppercase;letter-spacing:1px}
   .till .dot{position:absolute;top:16px;right:16px;font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px}
   .till .dot.open{background:#e7f2e9;color:#2f6d3d}.till .dot.closed{background:#eee;color:#666}
+  .pill{display:inline-block;font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;white-space:nowrap}
+  .pill.paid{background:#e7f2e9;color:#2f6d3d}
+  .pill.pending_payment{background:#faf0d8;color:#8a6d1e}
+  .pill.failed,.pill.cancelled{background:#eee;color:#666}
+  .pill.refunded,.pill.partially_refunded{background:#f3e2e2;color:var(--claret)}
+  .rs-lines{font-size:12px;color:#0009;max-width:260px}
+  .rs-avail{width:auto}
   .till .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;margin-top:12px}
   .till .grid div span{display:block;font-size:11px;color:#0009}.till .grid div b{font-size:18px;font-weight:800}
   .till .fb{display:flex;gap:8px;margin-top:12px;font-size:12px}
@@ -150,6 +157,7 @@
     <button data-tab="team">Team</button>
     <button data-tab="refunds">Refunds &amp; voids</button>
     <button data-tab="menu">Menu</button>
+    <button data-tab="roomservice">Room Service</button>
   </nav>
 
   <!-- OVERVIEW -->
@@ -252,6 +260,56 @@
     </table></div>
   </section>
 
+  <!-- ROOM SERVICE -->
+  <section id="tab-roomservice" class="hidden">
+    <h2 class="sec">Kitchen busy notice</h2>
+    <div class="dz" id="busyBox" style="border-color:var(--brass);background:#fdf6e8">
+      <div>
+        <b id="busyStatus">Off</b>
+        <div class="muted" id="busyInfo" style="margin-top:4px">Shown as a pop-up to guests the moment they open the room-service ordering page.</div>
+        <textarea id="busyMsg" rows="2" style="width:100%;max-width:520px;margin-top:10px;padding:9px;border:1px solid var(--line);border-radius:8px;font:inherit"></textarea>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end">
+        <div class="row2" style="margin:0">
+          <button class="b-out" onclick="setBusyNotice(0.5)">30 min</button>
+          <button class="b-out" onclick="setBusyNotice(1)">1 hr</button>
+          <button class="b-out" onclick="setBusyNotice(2)">2 hrs</button>
+          <button class="b-out" onclick="setBusyNotice(3)">3 hrs</button>
+        </div>
+        <button class="b-ink" onclick="clearBusyNotice()">Turn off now</button>
+      </div>
+    </div>
+
+    <h2 class="sec" style="margin-top:30px">Orders — selected day</h2>
+    <p class="muted" style="margin:0 0 12px" id="rsSummary"></p>
+    <div class="tablewrap"><table id="rsOrdersTable">
+      <thead><tr>
+        <th class="l">#</th><th class="l">Time</th><th class="l">Guest</th><th class="l">Room</th>
+        <th class="l">Items</th><th>Total</th><th class="l">Status</th><th class="l">Reference</th><th></th>
+      </tr></thead>
+      <tbody id="rsOrdersBody"></tbody>
+    </table></div>
+
+    <h2 class="sec" style="margin-top:34px">Room service menu</h2>
+    <p class="muted" style="margin:0 0 12px">Shown to guests on the QR-code ordering page. Untick "Available" to hide an item without deleting it.</p>
+    <div class="menu-add">
+      <div><label>Name</label><input id="rsName" type="text" placeholder="e.g. Club Sandwich"></div>
+      <div><label>Description</label><input id="rsDesc" type="text" placeholder="optional" style="min-width:200px"></div>
+      <div><label>Category</label>
+        <select id="rsCat"><option value="food" selected>Food</option><option value="drink">Drink</option></select>
+      </div>
+      <div><label>Price £</label><input id="rsPrice" type="number" step="0.01" min="0" style="width:90px"></div>
+      <button class="primary" onclick="rsMenuAdd()">Add item</button>
+    </div>
+    <div class="tablewrap"><table class="menu-tbl" id="rsMenuTbl">
+      <thead><tr>
+        <th class="l">Name</th><th class="l">Description</th><th class="l">Category</th>
+        <th>Price £</th><th>Available</th><th></th>
+      </tr></thead>
+      <tbody id="rsMenuBody"></tbody>
+    </table></div>
+  </section>
+
   <p class="muted" style="margin-top:24px">
     Nett = gross ÷ (1 + VAT rate) using each till’s own rate. Trading day 05:00 → 05:00. Auto-refreshes every 20 s.
   </p>
@@ -304,7 +362,7 @@ function showApp(){
 function setTab(t){
   ST.tab = t;
   document.querySelectorAll("#tabs button").forEach(b=>b.classList.toggle("active", b.dataset.tab===t));
-  ["overview","receipts","team","refunds","menu"].forEach(x=>
+  ["overview","receipts","team","refunds","menu","roomservice"].forEach(x=>
     document.getElementById("tab-"+x).classList.toggle("hidden", x!==t));
   renderAll();
 }
@@ -336,13 +394,17 @@ async function load(){
   if(_busy) return; _busy=true;
   try{
     const {start,end}=dayWindow();
-    const [sales,sessions,voids,menu] = await Promise.all([
+    const [sales,sessions,voids,menu,rsOrders,rsMenu,notice] = await Promise.all([
       sb(`till_sales?select=*&ts=gte.${start.toISOString()}&ts=lt.${end.toISOString()}&order=ts.desc`),
       sb(`till_sessions?select=*`),
       sb(`till_voids?select=*&ts=gte.${start.toISOString()}&ts=lt.${end.toISOString()}&order=ts.desc`),
-      sb(`till_menu_items?select=*`)
+      sb(`till_menu_items?select=*`),
+      sb(`roomservice_orders?select=*&created_at=gte.${start.toISOString()}&created_at=lt.${end.toISOString()}&order=created_at.desc`).catch(()=>[]),
+      sb(`roomservice_menu_items?select=*&order=sort_order.asc`).catch(()=>[]),
+      sb(`busy_notice?id=eq.1&select=*`).catch(()=>[])
     ]);
     ST.sales=sales; ST.sessions=sessions; ST.voids=voids; ST.menu=menu||[];
+    ST.rsOrders=rsOrders||[]; ST.rsMenu=rsMenu||[]; ST.busyNotice=(notice&&notice[0])||null;
     ST.sessById={}; sessions.forEach(s=>ST.sessById[s.id]=s);
     renderAll();
     document.getElementById("updated").textContent = "updated " + new Date().toLocaleTimeString("en-GB");
@@ -364,7 +426,7 @@ function vatOf(sale){
 function renderAll(){
   document.querySelectorAll("[id^=tab-]").forEach(()=>{});
   renderOverview(); renderReceiptsFilterOptions(); renderReceipts(); renderTeam(); renderRefunds(); renderMenu();
-  renderDangerZone();
+  renderDangerZone(); renderRoomService(); renderRsMenu();
   document.querySelectorAll("#tab-team .sec").forEach(h=>h.textContent =
     "Team performance — " + document.getElementById("day").value);
 }
@@ -655,6 +717,158 @@ async function menuDelete(id){
   try{
     await sb(`till_menu_items?id=eq.${id}`, {method:"DELETE"});
     await reloadMenu(); menuStatus("Deleted “"+nm+"”.");
+  }catch(e){ alert("Delete failed: "+e.message); }
+}
+
+/* ---------- Room service: kitchen busy notice ---------- */
+const BUSY_DEFAULT_MSG = "The restaurant is currently extremely busy — please be aware your order will take longer than usual to prepare.";
+function busyCeilingTonight(){
+  const n = new Date();
+  const ceiling = new Date(n.getFullYear(), n.getMonth(), n.getDate(), 23, 0, 0, 0);
+  if(n >= ceiling) ceiling.setDate(ceiling.getDate()+1); // already past 11pm — shouldn't normally happen from the portal
+  return ceiling;
+}
+function renderBusyNoticeBox(){
+  const n = ST.busyNotice;
+  const msgEl = document.getElementById("busyMsg");
+  const box = document.getElementById("busyBox");
+  if(document.activeElement !== msgEl) msgEl.value = (n && n.message) || BUSY_DEFAULT_MSG;
+  const activeNow = !!(n && n.active && n.until && new Date(n.until) > new Date());
+  document.getElementById("busyStatus").textContent = activeNow
+    ? "Active until " + new Date(n.until).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})
+    : "Off";
+  box.style.borderColor = activeNow ? "var(--claret)" : "var(--brass)";
+  box.style.background = activeNow ? "#fbf1f1" : "#fdf6e8";
+}
+async function setBusyNotice(hours){
+  const msg = document.getElementById("busyMsg").value.trim() || BUSY_DEFAULT_MSG;
+  const requested = new Date(Date.now() + hours*3600*1000);
+  const ceiling = busyCeilingTonight();
+  const until = requested < ceiling ? requested : ceiling;
+  try{
+    await sb(`busy_notice?id=eq.1`, {method:"PATCH", body:JSON.stringify({
+      active:true, message:msg, until: until.toISOString(), updated_at: new Date().toISOString()
+    })});
+    ST.busyNotice = (await sb(`busy_notice?id=eq.1&select=*`))?.[0] || null;
+    renderBusyNoticeBox();
+  }catch(e){ alert("Couldn't set the notice: "+e.message); }
+}
+async function clearBusyNotice(){
+  try{
+    await sb(`busy_notice?id=eq.1`, {method:"PATCH", body:JSON.stringify({ active:false, until:null, updated_at: new Date().toISOString() })});
+    ST.busyNotice = (await sb(`busy_notice?id=eq.1&select=*`))?.[0] || null;
+    renderBusyNoticeBox();
+  }catch(e){ alert("Couldn't clear the notice: "+e.message); }
+}
+
+/* ---------- Room service: orders & refunds ---------- */
+function renderRoomService(){
+  renderBusyNoticeBox();
+  const rows = (ST.rsOrders||[]).slice();
+  const paid = rows.filter(r=>r.status==="paid");
+  document.getElementById("rsSummary").textContent =
+    rows.length + " order" + (rows.length===1?"":"s") + " · " + paid.length + " paid · £" +
+    paid.reduce((s,r)=>s+Number(r.subtotal||0),0).toFixed(2) + " taken";
+  const b=document.getElementById("rsOrdersBody");
+  b.innerHTML = rows.length ? "" : '<tr><td colspan="9" class="muted">No room-service orders for this day.</td></tr>';
+  for(const o of rows){
+    const d=new Date(o.created_at);
+    const items=(o.lines||[]).map(l=>l.qty+"× "+l.name).join(", ");
+    const tr=document.createElement("tr");
+    let action="";
+    if(o.status==="paid") action = `<button class="del" onclick="refundOrder('${o.id}')">Refund</button>`;
+    else if(o.status==="refunded") action = `<span class="muted">Refunded</span>`;
+    tr.innerHTML =
+      `<td class="l">${o.order_no}</td>`+
+      `<td class="l">${d.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}</td>`+
+      `<td class="l">${esc(o.guest_name)}</td>`+
+      `<td class="l">${esc(o.room_number)}</td>`+
+      `<td class="l rs-lines">${esc(items)}</td>`+
+      `<td>£${Number(o.subtotal||0).toFixed(2)}</td>`+
+      `<td class="l"><span class="pill ${o.status}">${o.status.replace(/_/g," ")}</span></td>`+
+      `<td class="l">${esc(o.sumup_transaction_id || o.sumup_checkout_id || "—")}</td>`+
+      `<td class="act">${action}</td>`;
+    b.appendChild(tr);
+  }
+}
+async function refundOrder(id){
+  const o = (ST.rsOrders||[]).find(x=>x.id===id);
+  if(!o) return;
+  const ref = o.sumup_transaction_id || o.sumup_checkout_id || "(no reference on file)";
+  const ok = confirm(
+    "Room service order #"+o.order_no+" — "+o.guest_name+", Room "+o.room_number+"\n"+
+    "Amount: £"+Number(o.subtotal||0).toFixed(2)+"\n"+
+    "SumUp reference: "+ref+"\n\n"+
+    "This portal can't send the refund to the card automatically yet — refund it in the SumUp app on your phone using that reference, THEN press OK here to mark it refunded on the portal."
+  );
+  if(!ok) return;
+  try{
+    await sb(`roomservice_orders?id=eq.${id}`, {method:"PATCH", body:JSON.stringify({
+      status:"refunded", refunded_at:new Date().toISOString(), refund_amount:o.subtotal
+    })});
+    await load();
+  }catch(e){ alert("Couldn't update the order: "+e.message); }
+}
+
+/* ---------- Room service: menu editor ---------- */
+function renderRsMenu(){
+  const b=document.getElementById("rsMenuBody");
+  const rows=(ST.rsMenu||[]).slice().sort((a,b)=>(a.sort_order||0)-(b.sort_order||0)||String(a.name).localeCompare(String(b.name)));
+  b.innerHTML = rows.length ? "" : '<tr><td colspan="6" class="muted">No room-service items yet — add one above.</td></tr>';
+  for(const m of rows){
+    const tr=document.createElement("tr");
+    tr.innerHTML=`
+      <td class="l"><input type="text" data-f="name" value="${esc(m.name)}"></td>
+      <td class="l"><input type="text" data-f="description" value="${esc(m.description||"")}"></td>
+      <td class="l"><select data-f="category"><option value="food"${m.category==="food"?" selected":""}>Food</option><option value="drink"${m.category==="drink"?" selected":""}>Drink</option></select></td>
+      <td><input type="number" step="0.01" min="0" data-f="price" value="${m.price!=null?(+m.price):0}"></td>
+      <td><input class="rs-avail" type="checkbox" data-f="available" ${m.available!==false?"checked":""}></td>
+      <td class="act">
+        <button onclick="rsMenuSave('${m.id}',this)">Save</button>
+        <button class="del" onclick="rsMenuDelete('${m.id}')">Delete</button>
+      </td>`;
+    b.appendChild(tr);
+  }
+}
+async function reloadRsMenu(){ ST.rsMenu = await sb(`roomservice_menu_items?select=*&order=sort_order.asc`) || []; renderRsMenu(); }
+function rsRowBody(get, getChecked){
+  return {
+    name: get("name").trim(),
+    description: get("description").trim() || null,
+    category: get("category"),
+    price: Number(get("price"))||0,
+    available: getChecked("available")
+  };
+}
+async function rsMenuSave(id, btn){
+  const tr=btn.closest("tr");
+  const body=rsRowBody(f=>tr.querySelector(`[data-f=${f}]`).value, f=>tr.querySelector(`[data-f=${f}]`).checked);
+  if(!body.name){ alert("Name can’t be blank."); return; }
+  btn.disabled=true; btn.textContent="Saving…";
+  try{
+    await sb(`roomservice_menu_items?id=eq.${id}`, {method:"PATCH", body:JSON.stringify({...body, updated_at:new Date().toISOString()})});
+    await reloadRsMenu(); menuStatus("Saved “"+body.name+"”.");
+  }catch(e){ alert("Save failed: "+e.message); }
+  btn.disabled=false; btn.textContent="Save";
+}
+async function rsMenuAdd(){
+  const g=id=>document.getElementById(id).value;
+  const name=g("rsName").trim();
+  if(!name){ alert("Enter a name."); return; }
+  const maxSort=(ST.rsMenu||[]).reduce((m,x)=>Math.max(m,x.sort_order||0),0);
+  const body={ name, description:g("rsDesc").trim()||null, category:g("rsCat"), price:Number(g("rsPrice"))||0, available:true, sort_order:maxSort+1 };
+  try{
+    await sb(`roomservice_menu_items`, {method:"POST", headers:{Prefer:"return=minimal"}, body:JSON.stringify(body)});
+    ["rsName","rsDesc","rsPrice"].forEach(i=>document.getElementById(i).value="");
+    await reloadRsMenu(); menuStatus("Added “"+name+"”.");
+  }catch(e){ alert("Add failed: "+e.message); }
+}
+async function rsMenuDelete(id){
+  const m=(ST.rsMenu||[]).find(x=>x.id===id); const nm=m?m.name:"this item";
+  if(!confirm("Delete “"+nm+"” from the room-service menu?")) return;
+  try{
+    await sb(`roomservice_menu_items?id=eq.${id}`, {method:"DELETE"});
+    await reloadRsMenu(); menuStatus("Deleted “"+nm+"”.");
   }catch(e){ alert("Delete failed: "+e.message); }
 }
 
