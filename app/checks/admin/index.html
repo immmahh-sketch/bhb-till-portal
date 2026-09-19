@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Black Horse Checks — Admin</title>
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;font-family:-apple-system,Roboto,"Segoe UI",sans-serif;background:#f6f0e4;color:#1a1a1a}
+  h1,h2,h3{font-weight:700;margin:0}
+  .wrap{max-width:1180px;margin:0 auto;padding:20px}
+  header{display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-align-items:center;align-items:center;
+    -webkit-justify-content:space-between;justify-content:space-between;border-bottom:2px solid #1a1a1a;padding-bottom:14px}
+  header>*{margin:4px 8px 4px 0}
+  header .title{font-family:Georgia,serif;font-size:21px}
+  header .title small{display:block;font-size:11px;letter-spacing:2px;color:#9c7a3c;font-weight:700}
+  button{font:inherit;cursor:pointer;border:1.5px solid #1a1a1a;background:#fff;color:#1a1a1a;padding:8px 14px;border-radius:8px;font-weight:700}
+  button.primary{background:#1a1a1a;color:#fff}
+  button.claret{background:#7a2e2e;border-color:#7a2e2e;color:#fff}
+  button.del{border-color:#7a2e2e;color:#7a2e2e}
+  button:disabled{opacity:.5}
+  input,select,textarea{font:inherit;padding:7px 9px;border:1px solid rgba(26,26,26,.14);border-radius:8px;background:#fff}
+  .muted{color:rgba(0,0,0,.55);font-size:12px}
+  nav.tabs{display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;margin:16px 0}
+  nav.tabs button{border-color:rgba(26,26,26,.14);background:#fbf7ee;margin:0 6px 6px 0}
+  nav.tabs button.active{background:#1a1a1a;color:#fff;border-color:#1a1a1a}
+  .card{background:#fbf7ee;border:1px solid rgba(26,26,26,.14);border-radius:14px;padding:16px;margin-bottom:14px}
+  h2.sec{font-size:13px;letter-spacing:2px;text-transform:uppercase;color:#9c7a3c;margin:20px 0 10px}
+  table{width:100%;border-collapse:collapse;background:#fbf7ee;border:1px solid rgba(26,26,26,.14);border-radius:12px;overflow:hidden}
+  th,td{padding:8px 10px;text-align:left;font-size:13px;vertical-align:top}
+  th{background:#efe9db;font-weight:800}
+  tbody tr{border-top:1px solid rgba(26,26,26,.14)}
+  tbody tr.clk{cursor:pointer}
+  tbody tr.clk:hover{background:#fff}
+  .tablewrap{overflow-x:auto}
+  .pill{display:inline-block;font-size:11px;font-weight:800;padding:3px 9px;border-radius:20px;white-space:nowrap}
+  .pill.done{background:#e7f2e9;color:#2f6d3d}
+  .pill.due{background:#faf0d8;color:#8a6d1e}
+  .pill.overdue{background:#f3e2e2;color:#7a2e2e}
+  .pill.open{background:#f3e2e2;color:#7a2e2e}
+  .pill.reviewed{background:#faf0d8;color:#8a6d1e}
+  .pill.closed{background:#e7f2e9;color:#2f6d3d}
+  .pill.expiring{background:#faf0d8;color:#8a6d1e}
+  .pill.expired{background:#f3e2e2;color:#7a2e2e}
+  .catcard{margin-bottom:22px}
+  .catcard h3{font-size:15px;margin-bottom:8px}
+  .rowline{display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;-webkit-justify-content:space-between;justify-content:space-between;
+    background:#fff;border:1px solid rgba(26,26,26,.14);border-radius:10px;padding:10px 12px;margin-bottom:8px}
+  .rowline .nm{font-weight:700;font-size:14px}
+  .rowline .meta{font-size:12px;color:rgba(0,0,0,.55);margin-top:2px}
+  .tplcard{background:#fff;border:1px solid rgba(26,26,26,.14);border-radius:12px;padding:14px;margin-bottom:12px}
+  .tplhead{display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-align-items:center;align-items:center}
+  .tplhead>*{margin:3px 6px 3px 0}
+  .itemrow{display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-align-items:center;align-items:center;
+    border-top:1px solid rgba(26,26,26,.1);padding:8px 0}
+  .itemrow>*{margin:3px 6px 3px 0}
+  .itemrow input[data-f=prompt]{-webkit-flex:1;flex:1;min-width:220px}
+  .addbar{display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-align-items:center;align-items:center}
+  .addbar>*{margin:4px 6px 4px 0}
+  .hidden{display:none!important}
+  #gate{position:fixed;top:0;right:0;bottom:0;left:0;background:#f6f0e4;display:-webkit-flex;display:flex;
+    -webkit-align-items:center;align-items:center;-webkit-justify-content:center;justify-content:center;z-index:30}
+  #gate .card{max-width:360px;width:90%;text-align:center}
+  #gate input{width:100%;margin:14px 0}
+  #gate .err{color:#7a2e2e;font-size:13px;min-height:18px}
+  .detail{background:#fff;border:1px solid rgba(26,26,26,.14);border-radius:12px;padding:16px}
+  .kv{display:-webkit-flex;display:flex;-webkit-justify-content:space-between;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(26,26,26,.1);font-size:13px}
+  .qa{border-bottom:1px solid rgba(26,26,26,.1);padding:8px 0}
+  .qa .p{font-weight:700;font-size:13px}
+  .qa .v{font-size:13px;margin-top:2px}
+  .qa .v.flag{color:#7a2e2e;font-weight:800}
+  .sigimg{max-width:280px;border:1px solid rgba(26,26,26,.14);border-radius:8px;margin-top:6px}
+  #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1a1a1a;color:#fff;padding:10px 18px;border-radius:22px;
+    font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:50}
+  #toast.show{opacity:1}
+  #printarea{display:none}
+  @media print{
+    body *{visibility:hidden}
+    #printarea,#printarea *{visibility:visible}
+    #printarea{display:block!important;position:absolute;top:0;left:0;width:100%;padding:20px}
+  }
+</style>
+</head>
+<body>
+
+<div id="gate">
+  <div class="card">
+    <h1>Checks — Admin</h1>
+    <p class="muted">Enter the portal password</p>
+    <input id="gPw" type="password" placeholder="Password" autofocus>
+    <div class="err" id="gErr"></div>
+    <button class="primary" style="width:100%" id="gGo">Unlock</button>
+  </div>
+</div>
+
+<div id="app" class="hidden">
+  <div class="wrap">
+    <header>
+      <div class="title">Black Horse Checks<small>ADMIN PORTAL</small></div>
+      <span class="muted" id="updated"></span>
+    </header>
+    <nav class="tabs" id="tabs">
+      <button data-tab="overview" class="active">Overview</button>
+      <button data-tab="history">History</button>
+      <button data-tab="manage">Manage checklists</button>
+      <button data-tab="documents">Documents</button>
+      <button data-tab="accidents">Accident reports</button>
+    </nav>
+
+    <section id="tab-overview"></section>
+    <section id="tab-history" class="hidden"></section>
+    <section id="tab-manage" class="hidden"></section>
+    <section id="tab-documents" class="hidden"></section>
+    <section id="tab-accidents" class="hidden"></section>
+  </div>
+</div>
+
+<div id="toast"></div>
+<div id="printarea"></div>
+
+<script src="../shared.js"></script>
+<script>
+"use strict";
+var ST = { templates:[], items:[], runs:[], accidents:[], docs:[], tab:"overview" };
+function $(id){ return document.getElementById(id); }
+function toast(m){ var t=$("toast"); t.textContent=m; t.classList.add("show"); clearTimeout(toast._t); toast._t=setTimeout(function(){t.classList.remove("show");},2800); }
+
+/* ---------------- gate ---------------- */
+try{ if(sessionStorage.getItem("checksAdminOk")==="1") showApp(); }catch(e){}
+$("gGo").onclick = tryGate;
+$("gPw").addEventListener("keydown", function(e){ if(e.key==="Enter") tryGate(); });
+function tryGate(){
+  if($("gPw").value===CFG.PASSWORD){ try{sessionStorage.setItem("checksAdminOk","1");}catch(e){} showApp(); }
+  else $("gErr").textContent = "Incorrect password";
+}
+function showApp(){
+  $("gate").classList.add("hidden"); $("app").classList.remove("hidden");
+  Array.prototype.forEach.call(document.querySelectorAll("#tabs button"), function(b){ b.onclick=function(){ setTab(b.getAttribute("data-tab")); }; });
+  loadAll();
+  setInterval(loadAll, 60000);
+}
+function setTab(t){
+  ST.tab = t;
+  Array.prototype.forEach.call(document.querySelectorAll("#tabs button"), function(b){ b.classList.toggle("active", b.getAttribute("data-tab")===t); });
+  ["overview","history","manage","documents","accidents"].forEach(function(x){ $("tab-"+x).classList.toggle("hidden", x!==t); });
+  renderTab();
+}
+
+/* ---------------- load ---------------- */
+function loadAll(){
+  Promise.all([
+    sb("checklist_templates?select=*&order=sort_order"),
+    sb("checklist_items?select=*&order=sort_order"),
+    sb("checklist_runs?select=*&order=completed_at.desc&limit=500"),
+    sb("accident_reports?select=*&order=incident_at.desc"),
+    sb("compliance_documents?select=*&order=expiry_date.asc.nullslast")
+  ]).then(function(r){
+    ST.templates=r[0]||[]; ST.items=r[1]||[]; ST.runs=r[2]||[]; ST.accidents=r[3]||[]; ST.docs=r[4]||[];
+    $("updated").textContent = "updated " + new Date().toLocaleTimeString("en-GB");
+    renderTab();
+  }).catch(function(e){ $("updated").textContent = "⚠ " + e.message; });
+}
+function itemsFor(tid){ return ST.items.filter(function(i){ return i.template_id===tid; }); }
+function runFor(t, key){ return ST.runs.filter(function(r){ return r.template_id===t.id && r.period_key===key; })[0]; }
+
+function renderTab(){
+  if(ST.tab==="overview") renderOverview();
+  else if(ST.tab==="history") renderHistory();
+  else if(ST.tab==="manage") renderManage();
+  else if(ST.tab==="documents") renderDocuments();
+  else if(ST.tab==="accidents") renderAccidents();
+}
+
+/* ================= OVERVIEW ================= */
+function renderOverview(){
+  var cats = [["guest_journey","Guest Journey"],["shift","Shift Checks"],["health_safety","Health & Safety"]];
+  var now = new Date();
+  var html = "";
+  cats.forEach(function(c){
+    var list = ST.templates.filter(function(t){ return t.category===c[0] && t.active; });
+    if(!list.length) return;
+    html += '<div class="catcard"><h3>'+c[1]+'</h3>';
+    list.forEach(function(t){
+      var key = periodKey(t.frequency, now);
+      var due = periodDueAt(t.frequency, t.due_time, now);
+      var run = runFor(t, key);
+      var overdue = !run && now > due;
+      var pill = run ? '<span class="pill done">Done</span>' : (overdue ? '<span class="pill overdue">Overdue</span>' : '<span class="pill due">Due</span>');
+      var meta = run ? ("Completed by "+esc(run.completed_by)+" · "+fmtDT(run.completed_at)) :
+        (FREQ_LABEL[t.frequency]+" · due "+fmtDT(due));
+      html += '<div class="rowline"><div><div class="nm">'+esc(t.name)+'</div><div class="meta">'+meta+'</div></div>'+pill+'</div>';
+    });
+    html += '</div>';
+  });
+  $("tab-overview").innerHTML = html || '<p class="muted">No active checklists.</p>';
+}
+
+/* ================= HISTORY ================= */
+function renderHistory(){
+  var tplOpts = '<option value="">All checklists</option>' + ST.templates.map(function(t){ return '<option value="'+t.id+'">'+esc(t.name)+'</option>'; }).join("");
+  var html =
+    '<div class="card"><div class="addbar">' +
+      '<select id="hFilter">'+tplOpts+'</select>' +
+      '<label class="muted"><input type="checkbox" id="hFlagged"> flagged answers only</label>' +
+      '<span class="muted" id="hCount"></span>' +
+    '</div></div>' +
+    '<div class="tablewrap"><table><thead><tr><th>Checklist</th><th>Period</th><th>Completed by</th><th>When</th><th>Flags</th></tr></thead><tbody id="hBody"></tbody></table></div>';
+  $("tab-history").innerHTML = html;
+  $("hFilter").onchange = renderHistoryRows; $("hFlagged").onchange = renderHistoryRows;
+  renderHistoryRows();
+}
+function renderHistoryRows(){
+  var tplId = $("hFilter").value, flaggedOnly = $("hFlagged").checked;
+  var rows = ST.runs.slice();
+  if(tplId) rows = rows.filter(function(r){ return r.template_id===tplId; });
+  var body = $("hBody"); body.innerHTML="";
+  var shown=0;
+  rows.forEach(function(r){
+    var t = ST.templates.filter(function(x){ return x.id===r.template_id; })[0];
+    if(!t) return;
+    var flags = 0; // computed lazily on click; show count via answers fetch is expensive, so mark unknown here
+    var tr = document.createElement("tr"); tr.className="clk";
+    tr.innerHTML = '<td>'+esc(t.name)+'</td><td>'+esc(periodLabel(t.frequency,r.period_key))+'</td>' +
+      '<td>'+esc(r.completed_by)+'</td><td>'+fmtDT(r.completed_at)+'</td><td id="flagcell-'+r.id+'">…</td>';
+    tr.onclick = function(){ openRun(r, t); };
+    body.appendChild(tr);
+    shown++;
+  });
+  $("hCount").textContent = shown + " record" + (shown===1?"":"s");
+  if(flaggedOnly){ /* filter after we know flag counts — simplified: just note count per row below */ }
+  loadFlagCounts(rows);
+}
+function loadFlagCounts(rows){
+  var ids = rows.map(function(r){return r.id;});
+  if(!ids.length) return;
+  sb("checklist_answers?select=run_id,flagged&run_id=in.("+ids.join(",")+")&flagged=eq.true").then(function(flagged){
+    var counts = {};
+    (flagged||[]).forEach(function(a){ counts[a.run_id]=(counts[a.run_id]||0)+1; });
+    rows.forEach(function(r){
+      var cell = $("flagcell-"+r.id);
+      if(!cell) return;
+      var n = counts[r.id]||0;
+      cell.innerHTML = n ? ('<span class="pill overdue">'+n+' flagged</span>') : '<span class="muted">none</span>';
+      if($("hFlagged").checked && !n) cell.closest("tr").classList.add("hidden");
+    });
+  }).catch(function(){});
+}
+function openRun(r, t){
+  Promise.all([
+    sb("checklist_answers?select=*&run_id=eq."+r.id),
+    Promise.resolve(itemsFor(t.id))
+  ]).then(function(res){
+    var answers = res[0]||[], items = res[1];
+    var byItem = {}; answers.forEach(function(a){ byItem[a.item_id]=a; });
+    var rowsHtml = items.map(function(it){
+      var a = byItem[it.id];
+      var val = a ? a.value : "—";
+      if(it.input_type==="yes_no") val = val==="yes" ? "Yes" : (val==="no" ? "No" : val);
+      var photo = a && a.photo_url ? '<br><img class="sigimg" src="'+a.photo_url+'">' : "";
+      return '<div class="qa"><div class="p">'+esc(it.prompt)+'</div><div class="v'+(a&&a.flagged?' flag':'')+'">'+esc(val)+(a&&a.flagged?' — FLAGGED':'')+photo+'</div></div>';
+    }).join("");
+    var html = '<div class="detail">' +
+      '<h2>'+esc(t.name)+' — '+esc(periodLabel(t.frequency,r.period_key))+'</h2>' +
+      '<div class="kv"><span>Completed by</span><span>'+esc(r.completed_by)+'</span></div>' +
+      '<div class="kv"><span>Completed at</span><span>'+fmtDT(r.completed_at)+'</span></div>' +
+      '<div class="kv"><span>Due</span><span>'+fmtDT(r.due_at)+(new Date(r.completed_at)>new Date(r.due_at)?' (completed late)':'')+'</span></div>' +
+      (r.notes ? '<div class="kv"><span>Notes</span><span>'+esc(r.notes)+'</span></div>' : "") +
+      '<h2 class="sec">Answers</h2>' + rowsHtml +
+      (r.signature_url ? '<h2 class="sec">Signature</h2><img class="sigimg" src="'+r.signature_url+'">' : "") +
+      '<div class="addbar" style="margin-top:16px"><button class="primary" id="closeDetail">‹ Back</button><button id="printDetail">Print / Save PDF</button></div>' +
+      '</div>';
+    var modal = document.createElement("div");
+    modal.style.cssText = "position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(0,0,0,.5);z-index:40;overflow:auto;padding:20px";
+    modal.innerHTML = '<div style="max-width:760px;margin:0 auto;background:#f6f0e4;border-radius:14px;padding:20px">'+html+'</div>';
+    document.body.appendChild(modal);
+    $("closeDetail").onclick = function(){ modal.remove(); };
+    $("printDetail").onclick = function(){
+      var printable = html.replace(/<div class="addbar" style="margin-top:16px">[\s\S]*?<\/div>/, "");
+      $("printarea").innerHTML = printable;
+      window.print();
+    };
+  });
+}
+
+/* ================= MANAGE ================= */
+var CATORDER = ["guest_journey","shift","health_safety"];
+var CATLBL = {guest_journey:"Guest Journey", shift:"Shift Checks", health_safety:"Health & Safety"};
+function renderManage(){
+  var html = '<div class="card"><div class="addbar">' +
+    '<input id="mtName" placeholder="New checklist name" style="min-width:220px">' +
+    '<select id="mtCat">'+CATORDER.map(function(c){return '<option value="'+c+'">'+CATLBL[c]+'</option>';}).join("")+'</select>' +
+    '<input id="mtArea" placeholder="Area (e.g. Bar)" style="width:140px">' +
+    '<select id="mtFreq"><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option><option value="six_monthly">6-monthly</option><option value="annual">Annual</option></select>' +
+    '<input id="mtTime" type="time" value="18:00">' +
+    '<button class="primary" id="mtAdd">Add checklist</button>' +
+    '</div></div><div id="mtList"></div>';
+  $("tab-manage").innerHTML = html;
+  $("mtAdd").onclick = addTemplate;
+  renderTemplateList();
+}
+function renderTemplateList(){
+  var box = $("mtList"); box.innerHTML="";
+  ST.templates.forEach(function(t){
+    var items = itemsFor(t.id);
+    var div = document.createElement("div"); div.className="tplcard";
+    div.innerHTML =
+      '<div class="tplhead">' +
+        '<b>'+esc(t.name)+'</b>' +
+        '<span class="muted">'+CATLBL[t.category]+' · '+esc(t.area)+' · '+FREQ_LABEL[t.frequency]+' · due '+esc(t.due_time).slice(0,5)+'</span>' +
+        '<span style="-webkit-flex:1;flex:1"></span>' +
+        '<button data-act="toggle">'+(t.active?"Deactivate":"Activate")+'</button>' +
+        '<button class="del" data-act="del">Delete checklist</button>' +
+      '</div>' +
+      '<div class="items"></div>' +
+      '<div class="addbar" style="margin-top:8px">' +
+        '<input data-new-prompt placeholder="New question" style="min-width:220px">' +
+        '<select data-new-type><option value="yes_no">Yes/No</option><option value="text">Text</option><option value="number">Number</option><option value="temperature">Temperature</option><option value="photo">Photo</option></select>' +
+        '<button data-act="addItem">Add question</button>' +
+      '</div>';
+    var itemsBox = div.querySelector(".items");
+    items.forEach(function(it){ itemsBox.appendChild(itemRow(it)); });
+    div.querySelector('[data-act=toggle]').onclick = function(){ toggleTemplate(t); };
+    div.querySelector('[data-act=del]').onclick = function(){ deleteTemplate(t); };
+    div.querySelector('[data-act=addItem]').onclick = function(){
+      var p = div.querySelector('[data-new-prompt]').value.trim();
+      var ty = div.querySelector('[data-new-type]').value;
+      if(!p){ toast("Enter a question"); return; }
+      var maxSort = items.reduce(function(m,i){return Math.max(m,i.sort_order||0);},0);
+      sb("checklist_items", {method:"POST", prefer:"return=minimal", body:[{template_id:t.id, sort_order:maxSort+1, prompt:p, input_type:ty, required:true}]})
+        .then(function(){ toast("Question added"); loadAll(); }).catch(function(e){ toast("Failed: "+e.message); });
+    };
+    box.appendChild(div);
+  });
+}
+function itemRow(it){
+  var row = document.createElement("div"); row.className="itemrow";
+  row.innerHTML =
+    '<input data-f="prompt" value="'+esc(it.prompt)+'">' +
+    '<select data-f="input_type">'+["yes_no","text","number","temperature","photo"].map(function(ty){return '<option value="'+ty+'"'+(ty===it.input_type?' selected':'')+'>'+ty+'</option>';}).join("")+'</select>' +
+    '<label class="muted"><input type="checkbox" data-f="required" '+(it.required?"checked":"")+'> required</label>' +
+    '<input data-f="pass_min" type="number" step="0.1" placeholder="min" value="'+(it.pass_min!=null?it.pass_min:"")+'" style="width:70px">' +
+    '<input data-f="pass_max" type="number" step="0.1" placeholder="max" value="'+(it.pass_max!=null?it.pass_max:"")+'" style="width:70px">' +
+    '<button data-act="save">Save</button><button class="del" data-act="del">Delete</button>';
+  row.querySelector('[data-act=save]').onclick = function(){
+    var body = {
+      prompt: row.querySelector('[data-f=prompt]').value.trim(),
+      input_type: row.querySelector('[data-f=input_type]').value,
+      required: row.querySelector('[data-f=required]').checked,
+      pass_min: row.querySelector('[data-f=pass_min]').value===""?null:parseFloat(row.querySelector('[data-f=pass_min]').value),
+      pass_max: row.querySelector('[data-f=pass_max]').value===""?null:parseFloat(row.querySelector('[data-f=pass_max]').value)
+    };
+    sb("checklist_items?id=eq."+it.id, {method:"PATCH", prefer:"return=minimal", body:body})
+      .then(function(){ toast("Saved"); loadAll(); }).catch(function(e){ toast("Failed: "+e.message); });
+  };
+  row.querySelector('[data-act=del]').onclick = function(){
+    if(!confirm('Delete question “'+it.prompt+'”?')) return;
+    sb("checklist_items?id=eq."+it.id, {method:"DELETE"}).then(function(){ toast("Deleted"); loadAll(); }).catch(function(e){ toast("Failed: "+e.message); });
+  };
+  return row;
+}
+function addTemplate(){
+  var name=$("mtName").value.trim(); if(!name){ toast("Enter a name"); return; }
+  var maxSort = ST.templates.reduce(function(m,t){return Math.max(m,t.sort_order||0);},0);
+  var body = { name:name, category:$("mtCat").value, area:$("mtArea").value.trim()||"General", frequency:$("mtFreq").value, due_time:$("mtTime").value+":00", sort_order:maxSort+1 };
+  sb("checklist_templates", {method:"POST", prefer:"return=minimal", body:[body]})
+    .then(function(){ $("mtName").value=""; $("mtArea").value=""; toast("Checklist added"); loadAll(); })
+    .catch(function(e){ toast("Failed: "+e.message); });
+}
+function toggleTemplate(t){
+  sb("checklist_templates?id=eq."+t.id, {method:"PATCH", prefer:"return=minimal", body:{active: !t.active}})
+    .then(function(){ toast(t.active?"Deactivated":"Activated"); loadAll(); }).catch(function(e){ toast("Failed: "+e.message); });
+}
+function deleteTemplate(t){
+  if(!confirm('Delete "'+t.name+'" and all its history? This cannot be undone.')) return;
+  sb("checklist_templates?id=eq."+t.id, {method:"DELETE"}).then(function(){ toast("Deleted"); loadAll(); }).catch(function(e){ toast("Failed: "+e.message); });
+}
+
+/* ================= DOCUMENTS ================= */
+var DOC_CATS = ["Fire Alarm Service","Fire Extinguisher Service","Fixed Wire Testing (EICR)","PAT Testing","Boiler Service","Kitchen Extract Cleaning","Emergency Lighting Service","Insurance","Gas Safety","Other"];
+function renderDocuments(){
+  var html = '<div class="card"><div class="addbar">' +
+    '<select id="dCat">'+DOC_CATS.map(function(c){return '<option>'+c+'</option>';}).join("")+'</select>' +
+    '<input id="dTitle" placeholder="Title (e.g. Annual fire alarm service)" style="min-width:220px">' +
+    '<label class="muted">Issued <input id="dIssued" type="date"></label>' +
+    '<label class="muted">Expires <input id="dExpiry" type="date"></label>' +
+    '<input id="dFile" type="file">' +
+    '<button class="primary" id="dUpload">Upload</button>' +
+    '</div></div>' +
+    '<div class="tablewrap"><table><thead><tr><th>Category</th><th>Title</th><th>Issued</th><th>Expires</th><th>File</th><th></th></tr></thead><tbody id="dBody"></tbody></table></div>';
+  $("tab-documents").innerHTML = html;
+  $("dUpload").onclick = uploadDocument;
+  var body = $("dBody"); body.innerHTML="";
+  var now = new Date();
+  ST.docs.forEach(function(d){
+    var tr = document.createElement("tr");
+    var pill = "";
+    if(d.expiry_date){
+      var exp = new Date(d.expiry_date);
+      var days = (exp-now)/86400000;
+      if(days<0) pill = '<span class="pill expired">Expired</span>';
+      else if(days<30) pill = '<span class="pill expiring">Expires soon</span>';
+    }
+    tr.innerHTML = '<td>'+esc(d.category)+'</td><td>'+esc(d.title)+' '+pill+'</td>' +
+      '<td>'+(d.issued_date||"—")+'</td><td>'+(d.expiry_date||"—")+'</td>' +
+      '<td><a href="'+d.file_url+'" target="_blank">View</a></td>' +
+      '<td><button class="del" data-act="del">Delete</button></td>';
+    tr.querySelector('[data-act=del]').onclick = function(){
+      if(!confirm('Delete "'+d.title+'"?')) return;
+      sb("compliance_documents?id=eq."+d.id, {method:"DELETE"}).then(function(){ toast("Deleted"); loadAll(); }).catch(function(e){ toast("Failed: "+e.message); });
+    };
+    body.appendChild(tr);
+  });
+}
+function uploadDocument(){
+  var f = $("dFile").files && $("dFile").files[0];
+  var title = $("dTitle").value.trim();
+  if(!f || !title){ toast("Choose a file and enter a title"); return; }
+  var btn = $("dUpload"); btn.disabled=true; btn.textContent="Uploading…";
+  var path = uid() + "-" + f.name.replace(/[^a-zA-Z0-9._-]/g,"_");
+  sbUpload("compliance", path, f, f.type||"application/octet-stream").then(function(url){
+    var body = { category:$("dCat").value, title:title, file_url:url, file_name:f.name,
+      issued_date: $("dIssued").value||null, expiry_date: $("dExpiry").value||null, uploaded_by:"admin" };
+    return sb("compliance_documents", {method:"POST", prefer:"return=minimal", body:[body]});
+  }).then(function(){
+    toast("Document uploaded"); loadAll();
+  }).catch(function(e){ toast("Upload failed: "+e.message); }).then(function(){ btn.disabled=false; btn.textContent="Upload"; });
+}
+
+/* ================= ACCIDENT REPORTS ================= */
+function renderAccidents(){
+  var html = '<div class="tablewrap"><table><thead><tr><th>Ref</th><th>Date</th><th>Location</th><th>Injured</th><th>Reported by</th><th>Status</th></tr></thead><tbody id="aBody"></tbody></table></div>';
+  $("tab-accidents").innerHTML = html;
+  var body = $("aBody"); body.innerHTML="";
+  ST.accidents.forEach(function(a){
+    var tr = document.createElement("tr"); tr.className="clk";
+    tr.innerHTML = '<td>#'+a.ref_no+'</td><td>'+fmtDT(a.incident_at)+'</td><td>'+esc(a.location)+'</td>' +
+      '<td>'+esc(a.injured_name)+' ('+a.injured_type+')</td><td>'+esc(a.reported_by)+'</td>' +
+      '<td><span class="pill '+a.status+'">'+a.status+'</span></td>';
+    tr.onclick = function(){ openAccidentDetail(a); };
+    body.appendChild(tr);
+  });
+  if(!ST.accidents.length) $("tab-accidents").innerHTML += '<p class="muted">No accident reports.</p>';
+}
+function openAccidentDetail(a){
+  var html = '<div class="detail">' +
+    '<h2>Accident report #'+a.ref_no+'</h2>' +
+    kv("Status",'<select id="accStatus"><option value="open"'+(a.status==="open"?" selected":"")+'>Open</option><option value="reviewed"'+(a.status==="reviewed"?" selected":"")+'>Reviewed</option><option value="closed"'+(a.status==="closed"?" selected":"")+'>Closed</option></select>') +
+    kv("Reported by", esc(a.reported_by)) + kv("Reported at", fmtDT(a.reported_at)) +
+    kv("Incident date/time", fmtDT(a.incident_at)) + kv("Location", esc(a.location)) +
+    kv("Injured person", esc(a.injured_name)+" ("+a.injured_type+")") +
+    kv("Contact", esc(a.injured_contact||"—")) +
+    kv("What happened", esc(a.what_happened)) +
+    kv("Injury", esc(a.injury_description||"—")) + kv("Body part", esc(a.body_part||"—")) +
+    kv("First aid given", a.first_aid_given?("Yes"+(a.first_aider_name?" — "+esc(a.first_aider_name):"")):"No") +
+    kv("Treatment", esc(a.treatment_given||"—")) +
+    kv("Went to hospital/GP", a.went_to_hospital?"Yes":"No") +
+    kv("Witnesses", esc(a.witnesses||"—")) + kv("Cause", esc(a.cause||"—")) +
+    kv("Actions taken", esc(a.actions_taken||"—")) +
+    '<h2 class="sec">RIDDOR</h2>' +
+    '<div class="addbar"><label class="muted"><input type="checkbox" id="accRiddor" '+(a.riddor_reportable?"checked":"")+'> RIDDOR reportable</label>' +
+    '<select id="accRiddorCat"><option value="">— category —</option>' +
+      ["death","specified_injury","over_7_day","occupational_disease","dangerous_occurrence"].map(function(c){return '<option value="'+c+'"'+(a.riddor_category===c?" selected":"")+'>'+c.replace(/_/g," ")+'</option>';}).join("") +
+    '</select>' +
+    '<label class="muted"><input type="checkbox" id="accHse" '+(a.reported_to_hse?"checked":"")+'> Reported to HSE</label>' +
+    '<input id="accHseRef" placeholder="HSE reference" value="'+esc(a.hse_reference||"")+'"></div>' +
+    (a.signature_url ? '<h2 class="sec">Signature</h2><img class="sigimg" src="'+a.signature_url+'">' : "") +
+    '<div class="addbar" style="margin-top:16px"><button class="primary" id="closeDetail">‹ Back</button><button id="saveAcc">Save changes</button><button id="printAcc">Print / Save PDF</button></div>' +
+    '</div>';
+  var modal = document.createElement("div");
+  modal.style.cssText = "position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(0,0,0,.5);z-index:40;overflow:auto;padding:20px";
+  modal.innerHTML = '<div style="max-width:760px;margin:0 auto;background:#f6f0e4;border-radius:14px;padding:20px">'+html+'</div>';
+  document.body.appendChild(modal);
+  $("closeDetail").onclick = function(){ modal.remove(); };
+  $("saveAcc").onclick = function(){
+    var body = { status:$("accStatus").value, riddor_reportable:$("accRiddor").checked, riddor_category:$("accRiddorCat").value||null,
+      reported_to_hse:$("accHse").checked, hse_reference:$("accHseRef").value.trim()||null };
+    sb("accident_reports?id=eq."+a.id, {method:"PATCH", prefer:"return=minimal", body:body})
+      .then(function(){ toast("Saved"); modal.remove(); loadAll(); }).catch(function(e){ toast("Failed: "+e.message); });
+  };
+  $("printAcc").onclick = function(){
+    var printable = html.replace(/<div class="addbar" style="margin-top:16px">[\s\S]*?<\/div>/, "");
+    $("printarea").innerHTML = printable;
+    window.print();
+  };
+}
+function kv(k,v){ return '<div class="kv"><span>'+k+'</span><span>'+v+'</span></div>'; }
+</script>
+</body>
+</html>
