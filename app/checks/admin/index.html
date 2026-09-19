@@ -4,29 +4,35 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Black Horse Checks — Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
 <style>
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-  html,body{margin:0;font-family:-apple-system,Roboto,"Segoe UI",sans-serif;background:#f6f0e4;color:#1a1a1a}
+  html,body{margin:0;font-family:-apple-system,Roboto,"Segoe UI",sans-serif;background:#f0efe9;color:#141414}
   h1,h2,h3{font-weight:700;margin:0}
   .wrap{max-width:1180px;margin:0 auto;padding:20px}
   header{display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-align-items:center;align-items:center;
-    -webkit-justify-content:space-between;justify-content:space-between;border-bottom:2px solid #1a1a1a;padding-bottom:14px}
+    -webkit-justify-content:space-between;justify-content:space-between;border-bottom:2px solid #141414;padding-bottom:14px}
   header>*{margin:4px 8px 4px 0}
-  header .title{font-family:Georgia,serif;font-size:21px}
-  header .title small{display:block;font-size:11px;letter-spacing:2px;color:#9c7a3c;font-weight:700}
-  button{font:inherit;cursor:pointer;border:1.5px solid #1a1a1a;background:#fff;color:#1a1a1a;padding:8px 14px;border-radius:8px;font-weight:700}
-  button.primary{background:#1a1a1a;color:#fff}
-  button.claret{background:#7a2e2e;border-color:#7a2e2e;color:#fff}
-  button.del{border-color:#7a2e2e;color:#7a2e2e}
+  header .title{display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center}
+  header .title .logobar{background:#141414;border-radius:8px;padding:8px 12px;display:inline-block;margin-right:12px}
+  header .title .logobar img{height:24px;display:block}
+  header .title .tt{font-family:"Playfair Display",Georgia,serif;font-size:21px}
+  header .title small{display:block;font-size:11px;letter-spacing:2px;color:#5c6b52;font-weight:700}
+  button{font:inherit;cursor:pointer;border:1.5px solid #141414;background:#fff;color:#141414;padding:8px 14px;border-radius:8px;font-weight:700}
+  button.primary{background:#141414;color:#fff}
+  button.claret{background:#96402f;border-color:#96402f;color:#fff}
+  button.del{border-color:#96402f;color:#96402f}
   button:disabled{opacity:.5}
   input,select,textarea{font:inherit;padding:7px 9px;border:1px solid rgba(26,26,26,.14);border-radius:8px;background:#fff}
   .muted{color:rgba(0,0,0,.55);font-size:12px}
   nav.tabs{display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;margin:16px 0}
-  nav.tabs button{border-color:rgba(26,26,26,.14);background:#fbf7ee;margin:0 6px 6px 0}
-  nav.tabs button.active{background:#1a1a1a;color:#fff;border-color:#1a1a1a}
-  .card{background:#fbf7ee;border:1px solid rgba(26,26,26,.14);border-radius:14px;padding:16px;margin-bottom:14px}
-  h2.sec{font-size:13px;letter-spacing:2px;text-transform:uppercase;color:#9c7a3c;margin:20px 0 10px}
-  table{width:100%;border-collapse:collapse;background:#fbf7ee;border:1px solid rgba(26,26,26,.14);border-radius:12px;overflow:hidden}
+  nav.tabs button{border-color:rgba(26,26,26,.14);background:#f7f6f1;margin:0 6px 6px 0}
+  nav.tabs button.active{background:#141414;color:#fff;border-color:#141414}
+  .card{background:#f7f6f1;border:1px solid rgba(26,26,26,.14);border-radius:14px;padding:16px;margin-bottom:14px}
+  h2.sec{font-size:13px;letter-spacing:2px;text-transform:uppercase;color:#5c6b52;margin:20px 0 10px}
+  table{width:100%;border-collapse:collapse;background:#f7f6f1;border:1px solid rgba(26,26,26,.14);border-radius:12px;overflow:hidden}
   th,td{padding:8px 10px;text-align:left;font-size:13px;vertical-align:top}
   th{background:#efe9db;font-weight:800}
   tbody tr{border-top:1px solid rgba(26,26,26,.14)}
@@ -36,12 +42,12 @@
   .pill{display:inline-block;font-size:11px;font-weight:800;padding:3px 9px;border-radius:20px;white-space:nowrap}
   .pill.done{background:#e7f2e9;color:#2f6d3d}
   .pill.due{background:#faf0d8;color:#8a6d1e}
-  .pill.overdue{background:#f3e2e2;color:#7a2e2e}
-  .pill.open{background:#f3e2e2;color:#7a2e2e}
+  .pill.overdue{background:#f5e0da;color:#96402f}
+  .pill.open{background:#f5e0da;color:#96402f}
   .pill.reviewed{background:#faf0d8;color:#8a6d1e}
   .pill.closed{background:#e7f2e9;color:#2f6d3d}
   .pill.expiring{background:#faf0d8;color:#8a6d1e}
-  .pill.expired{background:#f3e2e2;color:#7a2e2e}
+  .pill.expired{background:#f5e0da;color:#96402f}
   .catcard{margin-bottom:22px}
   .catcard h3{font-size:15px;margin-bottom:8px}
   .rowline{display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;-webkit-justify-content:space-between;justify-content:space-between;
@@ -58,19 +64,19 @@
   .addbar{display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-align-items:center;align-items:center}
   .addbar>*{margin:4px 6px 4px 0}
   .hidden{display:none!important}
-  #gate{position:fixed;top:0;right:0;bottom:0;left:0;background:#f6f0e4;display:-webkit-flex;display:flex;
+  #gate{position:fixed;top:0;right:0;bottom:0;left:0;background:#f0efe9;display:-webkit-flex;display:flex;
     -webkit-align-items:center;align-items:center;-webkit-justify-content:center;justify-content:center;z-index:30}
   #gate .card{max-width:360px;width:90%;text-align:center}
   #gate input{width:100%;margin:14px 0}
-  #gate .err{color:#7a2e2e;font-size:13px;min-height:18px}
+  #gate .err{color:#96402f;font-size:13px;min-height:18px}
   .detail{background:#fff;border:1px solid rgba(26,26,26,.14);border-radius:12px;padding:16px}
   .kv{display:-webkit-flex;display:flex;-webkit-justify-content:space-between;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(26,26,26,.1);font-size:13px}
   .qa{border-bottom:1px solid rgba(26,26,26,.1);padding:8px 0}
   .qa .p{font-weight:700;font-size:13px}
   .qa .v{font-size:13px;margin-top:2px}
-  .qa .v.flag{color:#7a2e2e;font-weight:800}
+  .qa .v.flag{color:#96402f;font-weight:800}
   .sigimg{max-width:280px;border:1px solid rgba(26,26,26,.14);border-radius:8px;margin-top:6px}
-  #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1a1a1a;color:#fff;padding:10px 18px;border-radius:22px;
+  #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#141414;color:#fff;padding:10px 18px;border-radius:22px;
     font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:50}
   #toast.show{opacity:1}
   #printarea{display:none}
@@ -85,7 +91,8 @@
 
 <div id="gate">
   <div class="card">
-    <h1>Checks — Admin</h1>
+    <div class="logobar" style="text-align:center;margin-bottom:16px"><img src="../assets/logo.png" alt="Black Horse Beamish" style="height:28px"></div>
+    <h1 style="font-family:'Playfair Display',Georgia,serif;text-align:center">Checks — Admin</h1>
     <p class="muted">Enter the portal password</p>
     <input id="gPw" type="password" placeholder="Password" autofocus>
     <div class="err" id="gErr"></div>
@@ -96,7 +103,7 @@
 <div id="app" class="hidden">
   <div class="wrap">
     <header>
-      <div class="title">Black Horse Checks<small>ADMIN PORTAL</small></div>
+      <div class="title"><span class="logobar"><img src="../assets/logo.png" alt="Black Horse Beamish"></span><span><span class="tt">Checks</span><small>ADMIN PORTAL</small></span></div>
       <span class="muted" id="updated"></span>
     </header>
     <nav class="tabs" id="tabs">
@@ -271,7 +278,7 @@ function openRun(r, t){
       '</div>';
     var modal = document.createElement("div");
     modal.style.cssText = "position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(0,0,0,.5);z-index:40;overflow:auto;padding:20px";
-    modal.innerHTML = '<div style="max-width:760px;margin:0 auto;background:#f6f0e4;border-radius:14px;padding:20px">'+html+'</div>';
+    modal.innerHTML = '<div style="max-width:760px;margin:0 auto;background:#f0efe9;border-radius:14px;padding:20px">'+html+'</div>';
     document.body.appendChild(modal);
     $("closeDetail").onclick = function(){ modal.remove(); };
     $("printDetail").onclick = function(){
@@ -468,7 +475,7 @@ function openAccidentDetail(a){
     '</div>';
   var modal = document.createElement("div");
   modal.style.cssText = "position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(0,0,0,.5);z-index:40;overflow:auto;padding:20px";
-  modal.innerHTML = '<div style="max-width:760px;margin:0 auto;background:#f6f0e4;border-radius:14px;padding:20px">'+html+'</div>';
+  modal.innerHTML = '<div style="max-width:760px;margin:0 auto;background:#f0efe9;border-radius:14px;padding:20px">'+html+'</div>';
   document.body.appendChild(modal);
   $("closeDetail").onclick = function(){ modal.remove(); };
   $("saveAcc").onclick = function(){

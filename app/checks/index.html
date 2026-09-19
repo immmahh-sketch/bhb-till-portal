@@ -3,14 +3,17 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-<meta name="theme-color" content="#1a1a1a" />
+<meta name="theme-color" content="#141414" />
 <title>Black Horse Checks</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
 <style>
   /* Conservative CSS on purpose — some tablets run a stock Android 5.1
      WebView: no var(), no inset, no #rgba hex, no flex gap. See shared.js. */
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;min-height:100%;font-family:-apple-system,Roboto,"Segoe UI",sans-serif;
-    background:#f6f0e4;color:#1a1a1a;-webkit-user-select:none;user-select:none}
+    background:#f0efe9;color:#141414;-webkit-user-select:none;user-select:none}
   button{font:inherit;cursor:pointer;border:0;background:none;color:inherit}
   input,textarea,select{font:inherit}
   .hidden{display:none!important}
@@ -18,34 +21,38 @@
   .screen.on{display:-webkit-flex;display:flex}
 
   #gate,#name{align-items:center;-webkit-align-items:center;justify-content:center;-webkit-justify-content:center;padding:24px}
-  .card{background:#fbf7ee;border:1px solid rgba(26,26,26,.14);border-radius:18px;padding:32px;max-width:420px;width:100%;margin:0 auto}
-  .card h1{font-size:20px;text-align:center;margin:0 0 6px}
+  .card{background:#f7f6f1;border:1px solid rgba(26,26,26,.14);border-radius:18px;padding:32px;max-width:420px;width:100%;margin:0 auto}
+  .logobar{background:#141414;border-radius:10px;padding:14px 18px;text-align:center;margin:0 0 18px}
+  .logobar img{height:30px;display:inline-block}
+  .card h1{font-family:"Playfair Display",Georgia,serif;font-size:22px;text-align:center;margin:0 0 6px}
   .card p.sub{text-align:center;color:rgba(0,0,0,.5);font-size:13px;margin:0 0 20px}
   .fld{margin-bottom:14px}
-  .fld label{display:block;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#9c7a3c;font-weight:700;margin-bottom:5px}
+  .fld label{display:block;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#5c6b52;font-weight:700;margin-bottom:5px}
   .fld input,.fld textarea,.fld select{width:100%;padding:12px;border:1px solid rgba(26,26,26,.14);border-radius:10px;background:#fff;font-size:16px}
-  .btn{width:100%;padding:15px;border-radius:12px;background:#7a2e2e;color:#fff;font-size:16px;font-weight:800}
+  .btn{width:100%;padding:15px;border-radius:12px;background:#96402f;color:#fff;font-size:16px;font-weight:800}
   .btn:disabled{background:#c9c2b4}
-  .btn.out{background:#fff;border:1.5px solid #1a1a1a;color:#1a1a1a}
-  .btn.ink{background:#1a1a1a}
-  .err{color:#7a2e2e;font-size:13px;min-height:16px;text-align:center}
+  .btn.out{background:#fff;border:1.5px solid #141414;color:#141414}
+  .btn.ink{background:#141414}
+  .err{color:#96402f;font-size:13px;min-height:16px;text-align:center}
 
-  .topbar{display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;padding:12px 14px;background:#1a1a1a;color:#fff}
+  .topbar{display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;padding:12px 14px;background:#141414;color:#fff}
   .topbar>*+*{margin-left:10px}
-  .topbar .wm{font-family:Georgia,serif;font-weight:700;font-size:16px}
+  .topbar .wm{display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center}
+  .topbar .wm img{height:22px;display:block}
+  .topbar .wm span{font-family:"Playfair Display",Georgia,serif;font-weight:700;font-size:15px;margin-left:8px}
   .topbar .who{-webkit-flex:1;flex:1;font-size:13px;color:rgba(255,255,255,.7);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .topbar button{color:#fff;border:1px solid rgba(255,255,255,.35);border-radius:8px;padding:7px 10px;font-size:12px;font-weight:700;white-space:nowrap}
 
   .body{-webkit-flex:1;flex:1;overflow-y:auto;padding:14px}
-  .accbtn{display:block;width:100%;background:#7a2e2e;color:#fff;border-radius:14px;padding:16px;text-align:left;margin-bottom:16px}
+  .accbtn{display:block;width:100%;background:#96402f;color:#fff;border-radius:14px;padding:16px;text-align:left;margin-bottom:16px}
   .accbtn b{display:block;font-size:16px}
   .accbtn span{display:block;font-size:12px;color:rgba(255,255,255,.8);margin-top:2px}
 
-  h2.cat{font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#9c7a3c;font-weight:800;margin:18px 0 8px}
+  h2.cat{font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#5c6b52;font-weight:800;margin:18px 0 8px}
   .item{background:#fff;border:1px solid rgba(26,26,26,.14);border-left:5px solid #9c9c9c;border-radius:12px;
     padding:12px 14px;margin-bottom:10px;display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center}
   .item.done{border-left-color:#2f6d3d}
-  .item.overdue{border-left-color:#7a2e2e}
+  .item.overdue{border-left-color:#96402f}
   .item .main{-webkit-flex:1;flex:1;min-width:0}
   .item .nm{font-weight:700;font-size:15px}
   .item .meta{font-size:12px;color:rgba(0,0,0,.55);margin-top:2px}
@@ -53,7 +60,7 @@
     padding:3px 8px;border-radius:20px;white-space:nowrap;margin-left:8px}
   .tag.done{background:#e7f2e9;color:#2f6d3d}
   .tag.due{background:#faf0d8;color:#8a6d1e}
-  .tag.overdue{background:#f3e2e2;color:#7a2e2e}
+  .tag.overdue{background:#f5e0da;color:#96402f}
   .empty{text-align:center;color:rgba(0,0,0,.45);padding:30px 10px;font-size:14px}
 
   /* ---- fill-in screen ---- */
@@ -65,20 +72,20 @@
   .yn button{-webkit-flex:1;flex:1;padding:12px;border-radius:10px;border:1.5px solid rgba(26,26,26,.25);font-weight:800}
   .yn button+button{margin-left:8px}
   .yn button.sel-yes{background:#2f6d3d;border-color:#2f6d3d;color:#fff}
-  .yn button.sel-no{background:#7a2e2e;border-color:#7a2e2e;color:#fff}
-  .q input[type=text],.q input[type=number],.q textarea{width:100%;padding:11px;border:1px solid rgba(26,26,26,.2);border-radius:8px;background:#fbf7ee}
+  .yn button.sel-no{background:#96402f;border-color:#96402f;color:#fff}
+  .q input[type=text],.q input[type=number],.q textarea{width:100%;padding:11px;border:1px solid rgba(26,26,26,.2);border-radius:8px;background:#f7f6f1}
   .q textarea{min-height:70px}
-  .rangehint{font-size:11px;color:#9c7a3c;margin-top:6px}
-  .flagwarn{font-size:12px;color:#7a2e2e;font-weight:700;margin-top:6px}
+  .rangehint{font-size:11px;color:#5c6b52;margin-top:6px}
+  .flagwarn{font-size:12px;color:#96402f;font-weight:700;margin-top:6px}
   .q .photoRow{display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center}
   .q .photoRow img{height:60px;border-radius:6px;margin-left:10px}
 
   .sigwrap{background:#fff;border:1px solid rgba(26,26,26,.14);border-radius:12px;padding:14px;margin-bottom:16px}
-  .sigwrap label{display:block;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#9c7a3c;font-weight:700;margin-bottom:8px}
-  canvas.sig{width:100%;height:140px;background:#fbf7ee;border:1px dashed rgba(26,26,26,.3);border-radius:8px;display:block;touch-action:none}
-  .sigclear{margin-top:8px;font-size:12px;color:#7a2e2e;font-weight:700}
+  .sigwrap label{display:block;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#5c6b52;font-weight:700;margin-bottom:8px}
+  canvas.sig{width:100%;height:140px;background:#f7f6f1;border:1px dashed rgba(26,26,26,.3);border-radius:8px;display:block;touch-action:none}
+  .sigclear{margin-top:8px;font-size:12px;color:#96402f;font-weight:700}
 
-  #toast{position:fixed;left:50%;bottom:24px;-webkit-transform:translateX(-50%);transform:translateX(-50%);background:#1a1a1a;color:#fff;
+  #toast{position:fixed;left:50%;bottom:24px;-webkit-transform:translateX(-50%);transform:translateX(-50%);background:#141414;color:#fff;
     padding:10px 18px;border-radius:22px;font-size:14px;opacity:0;-webkit-transition:opacity .2s;transition:opacity .2s;pointer-events:none;z-index:50;max-width:88%;text-align:center}
   #toast.show{opacity:1}
 </style>
@@ -87,7 +94,8 @@
 
 <section id="gate" class="screen on">
   <div class="card">
-    <h1>Black Horse Checks</h1>
+    <div class="logobar"><img src="./assets/logo.png" alt="Black Horse Beamish"></div>
+    <h1>Checks</h1>
     <p class="sub">Enter the password to continue</p>
     <div class="fld"><input id="gPw" type="password" placeholder="Password" autocomplete="off"></div>
     <div class="err" id="gErr"></div>
@@ -97,6 +105,7 @@
 
 <section id="name" class="screen">
   <div class="card">
+    <div class="logobar"><img src="./assets/logo.png" alt="Black Horse Beamish"></div>
     <h1>Who's this?</h1>
     <p class="sub">Your name is recorded against every check you complete.</p>
     <div class="fld"><label>Your name</label><input id="nmInput" type="text" placeholder="e.g. Sam" autocomplete="off"></div>
@@ -106,7 +115,7 @@
 
 <section id="home" class="screen">
   <div class="topbar">
-    <span class="wm">Black Horse Checks</span>
+    <span class="wm"><img src="./assets/logo.png" alt="Black Horse Beamish"><span>Checks</span></span>
     <span class="who" id="whoLbl"></span>
     <button id="btnChangeName">Change name</button>
   </div>
@@ -296,7 +305,7 @@ function setupSig(){
   c.width = w*ratio; c.height = h*ratio;
   sigCtx = c.getContext("2d");
   sigCtx.scale(ratio, ratio);
-  sigCtx.strokeStyle = "#1a1a1a"; sigCtx.lineWidth = 2.2; sigCtx.lineCap = "round";
+  sigCtx.strokeStyle = "#141414"; sigCtx.lineWidth = 2.2; sigCtx.lineCap = "round";
   sigHas = false;
   function pos(e){
     var r = c.getBoundingClientRect();
