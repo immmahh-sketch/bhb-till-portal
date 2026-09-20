@@ -118,7 +118,10 @@ function periodDueAt(freq, dueTimeStr, d) {
   else if (freq === "six_monthly") end = d.getMonth() < 6 ? new Date(d.getFullYear(), 5, 30) : new Date(d.getFullYear(), 11, 31);
   else end = new Date(d.getFullYear(), 11, 31);
   var parts = (dueTimeStr || "23:59:00").split(":");
-  end.setHours(+parts[0] || 23, +parts[1] || 59, 0, 0);
+  var hh = +parts[0], mm = +parts[1];
+  if (isNaN(hh)) hh = 23;
+  if (isNaN(mm)) mm = 59;
+  end.setHours(hh, mm, 0, 0);
   return end;
 }
 function periodLabel(freq, key) {
