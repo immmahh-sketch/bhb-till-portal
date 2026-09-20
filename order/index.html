@@ -75,6 +75,9 @@
   .fld label{display:block;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);font-weight:600;margin-bottom:6px}
   .fld input{width:100%;padding:13px;border:1px solid var(--line);border-radius:2px;background:#fff;font-size:16px;font-family:'EB Garamond',Georgia,serif}
   .fld .lockedval{width:100%;box-sizing:border-box;padding:13px;border:1px solid var(--line);border-radius:2px;background:#f4f4f2;font-size:16px;font-weight:600}
+  .fld textarea{width:100%;box-sizing:border-box;padding:13px;border:1px solid var(--line);border-radius:2px;background:#fff;font-size:15px;font-family:'EB Garamond',Georgia,serif;resize:vertical}
+  .allergy-fld label{color:#8a2e1f}
+  .allergy-fld textarea{border-color:#8a2e1f77}
   .checkoutbar{position:fixed;left:16px;right:16px;bottom:16px;z-index:20}
   .paybtn{width:100%;padding:18px;border:0;border-radius:2px;background:var(--ink);color:#fff;font-size:15px;
     font-weight:600;letter-spacing:2px;text-transform:uppercase;box-shadow:0 8px 24px #0004}
@@ -161,10 +164,12 @@
     <div class="fld"><label id="nameLbl">Name the room is booked under</label><input id="gName" placeholder="e.g. Sarah Jones" autocomplete="name"></div>
     <div class="fld" id="roomFld"><label id="roomLbl">Room number</label><input id="gRoom" placeholder="e.g. 12" inputmode="numeric" autocomplete="off"></div>
     <div class="fld" id="roomLockedFld" style="display:none"><label id="roomLockedLbl">Room</label><div class="lockedval" id="roomLockedVal"></div></div>
+    <div class="fld"><label>Message to the kitchen (optional)</label><textarea id="gNotes" rows="2" placeholder="Anything the kitchen should know?"></textarea></div>
+    <div class="fld allergy-fld"><label>Allergies or dietary requirements</label><textarea id="gAllergy" rows="2" placeholder="Please tell us here if you have any — otherwise leave blank"></textarea></div>
     <div class="err" id="basketErr"></div>
   </div>
   <div class="checkoutbar">
-    <button class="paybtn" id="payBtn">Pay £<span id="payTotal">0.00</span></button>
+    <button class="paybtn" id="payBtn"><span id="payVerb">Pay</span> £<span id="payTotal">0.00</span></button>
   </div>
 </section>
 
@@ -198,6 +203,18 @@
     <div id="testModalErr" style="color:#b3261e;font-size:12.5px;min-height:16px;margin-bottom:8px"></div>
     <button onclick="submitTestPassword()" style="width:100%;background:var(--ink);color:#fff;border:0;padding:13px;border-radius:2px;font-weight:600;letter-spacing:1px;text-transform:uppercase;font-size:13px;margin-bottom:8px;font-family:inherit">Unlock</button>
     <button onclick="closeTestModal()" style="background:none;border:0;color:var(--muted);font-size:13px;text-decoration:underline;width:100%;padding:6px;font-family:inherit">Cancel</button>
+  </div>
+</div>
+
+<!-- ===================== SOMETHING ELSE (off-menu) ===================== -->
+<div id="customItemModal" style="position:fixed;inset:0;background:rgba(17,17,17,.72);display:none;align-items:center;justify-content:center;z-index:100;padding:24px">
+  <div style="background:#fff;max-width:380px;width:100%;padding:26px 24px;border-radius:2px">
+    <div style="font-size:19px;font-weight:600;margin-bottom:4px">Something else?</div>
+    <p style="font-size:13.5px;color:var(--muted);margin:0 0 14px">Tell the kitchen what you'd like.</p>
+    <input id="customItemInput" type="text" placeholder="e.g. Fish finger sandwich" autocomplete="off"
+      style="width:100%;box-sizing:border-box;padding:12px;border:1px solid #ddd;border-radius:2px;font-size:15px;margin-bottom:12px;font-family:inherit">
+    <button onclick="submitCustomItem()" style="width:100%;background:var(--ink);color:#fff;border:0;padding:13px;border-radius:2px;font-weight:600;letter-spacing:1px;text-transform:uppercase;font-size:13px;margin-bottom:8px;font-family:inherit">Add to order</button>
+    <button onclick="closeCustomItemModal()" style="background:none;border:0;color:var(--muted);font-size:13px;text-decoration:underline;width:100%;padding:6px;font-family:inherit">Cancel</button>
   </div>
 </div>
 
@@ -249,7 +266,7 @@ var SECTIONS = ["Small Plates & Starters","Main Courses","From the Grill","Sides
 var DRINK_GROUPS = ["Hot beverages","Soft drinks","Wine","Bottles and Draft","Spirits and cocktails"];
 var TRAY_CHARGE = 5.00;
 var SERVICE_CHARGE_PCT = 0.10;
-var S = { menu: [], cart: {}, currentSection: null, currentDrinkGroup: null, currentWineType: null, testMode: false, channel: "room_service", lockedRoom: null /* itemId -> {item, qty} */ };
+var S = { menu: [], cart: {}, currentSection: null, currentDrinkGroup: null, currentWineType: null, testMode: false, isComp: false, channel: "room_service", lockedRoom: null /* itemId -> {item, qty} */ };
 var TEST_PASSWORD = "Test01207";
 function isOutside(){ return S.channel === "outside"; }
 function extraCharge(itemsTotal){
@@ -326,6 +343,15 @@ function renderCategories(){
     el.onclick = function(){ if(sec==="Drinks") openDrinkGroups(); else openSection(sec); };
     box.appendChild(el);
   });
+  if(S.isComp){
+    var ce = document.createElement("div"); ce.className="cattile";
+    ce.innerHTML =
+      '<div class="ctext"><div class="cname">Something else?</div>'+
+      '<div class="ccount">Ask for anything off the menu</div></div>'+
+      '<div class="carrow">›</div>';
+    ce.onclick = function(){ openCustomItemModal(); };
+    box.appendChild(ce);
+  }
 }
 function openSection(sec){
   S.currentSection = sec;
@@ -550,6 +576,22 @@ function addToCart(item, variant){
   }
   renderMenu(); renderBasketBar();
 }
+function openCustomItemModal(){
+  $("customItemInput").value = "";
+  $("customItemModal").style.display = "flex";
+  setTimeout(function(){ $("customItemInput").focus(); }, 30);
+}
+function closeCustomItemModal(){ $("customItemModal").style.display = "none"; }
+function submitCustomItem(){
+  var name = $("customItemInput").value.trim();
+  if(!name) return;
+  var id = "custom-" + Date.now() + "-" + Math.random().toString(36).slice(2,7);
+  S.cart[id] = { key:id, itemId:id, name:name, category:"food", unitPrice:0, qty:1, variant:null };
+  renderBasketBar();
+  toast("Added "+name);
+  closeCustomItemModal();
+}
+$("customItemInput").addEventListener("keydown", function(e){ if(e.key==="Enter") submitCustomItem(); });
 function adjustCartQty(key, delta){
   var row = S.cart[key];
   if(!row) return;
@@ -628,28 +670,33 @@ $("payBtn").onclick = async function(){
     var itemsTotal = cartTotal();
     var charge = extraCharge(itemsTotal);
     var subtotal = itemsTotal + charge;
+    var notes = $("gNotes").value.trim() || null;
+    var allergyNotes = $("gAllergy").value.trim() || null;
 
-    if(S.testMode){
-      var testOrder = await sb("roomservice_orders", {
+    if(S.testMode || S.isComp){
+      var noPayBody = {
+        guest_name:name, room_number:room, lines:lines, subtotal:subtotal, tray_charge:charge, channel:S.channel,
+        notes:notes, allergy_notes:allergyNotes, status:"paid", paid_at:new Date().toISOString()
+      };
+      if(S.testMode){ noPayBody.sumup_transaction_id = "TEST"; noPayBody.is_test = true; }
+      else{ noPayBody.sumup_transaction_id = "COMP"; noPayBody.is_comp = true; }
+      var noPayOrder = await sb("roomservice_orders", {
         method: "POST",
         headers: { Prefer: "return=representation" },
-        body: JSON.stringify([{
-          guest_name:name, room_number:room, lines:lines, subtotal:subtotal, tray_charge:charge, channel:S.channel,
-          status:"paid", paid_at:new Date().toISOString(), sumup_transaction_id:"TEST", is_test:true
-        }])
+        body: JSON.stringify([noPayBody])
       });
-      var to = testOrder[0];
-      await queueTestPrintJobs(to);
+      var np = noPayOrder[0];
+      await queueDirectPrintJobs(np);
       S.cart = {};
       btn.disabled = false; btn.innerHTML = oldHtml;
-      showTestThankYou(to);
+      if(S.testMode) showTestThankYou(np); else showCompThankYou(np);
       return;
     }
 
     var order = await sb("roomservice_orders", {
       method: "POST",
       headers: { Prefer: "return=representation" },
-      body: JSON.stringify([{ guest_name:name, room_number:room, lines:lines, subtotal:subtotal, tray_charge:charge, channel:S.channel, status:"pending_payment" }])
+      body: JSON.stringify([{ guest_name:name, room_number:room, lines:lines, subtotal:subtotal, tray_charge:charge, channel:S.channel, notes:notes, allergy_notes:allergyNotes, status:"pending_payment" }])
     });
     var orderId = order[0].id;
     try{ localStorage.setItem("rs_last_order", orderId); }catch(e){}
@@ -688,15 +735,26 @@ function submitTestPassword(){
 }
 $("testPassInput").addEventListener("keydown", function(e){ if(e.key==="Enter") submitTestPassword(); });
 
-async function queueTestPrintJobs(order){
+async function queueDirectPrintJobs(order){
   var lines = order.lines || [];
   if(!lines.length) return;
-  var payload = { order_no: order.order_no, guest_name: order.guest_name, room_number: order.room_number, channel: order.channel, lines: lines };
+  var payload = {
+    order_no: order.order_no, guest_name: order.guest_name, room_number: order.room_number, channel: order.channel,
+    notes: order.notes, allergy_notes: order.allergy_notes, lines: lines
+  };
   var jobs = [
     { order_id: order.id, destination:"kitchen", payload: payload },
     { order_id: order.id, destination:"bar", payload: payload }
   ];
   await sb("print_jobs", { method:"POST", headers:{Prefer:"return=minimal"}, body: JSON.stringify(jobs) });
+}
+function showCompThankYou(o){
+  show("status");
+  $("stSpin").style.display = "none";
+  $("stBack").style.display = "";
+  $("stBig").classList.add("script");
+  $("stBig").textContent = "Thank you, " + (o.guest_name||"") + "!";
+  $("stMsg").textContent = "Order #" + o.order_no + " has been sent to the kitchen.";
 }
 function showTestThankYou(o){
   show("status");
@@ -749,6 +807,7 @@ function pollOrder(orderId){
 function restart(){
   S.cart = {};
   try{ history.replaceState(null, "", location.pathname); }catch(e){}
+  $("gNotes").value = ""; $("gAllergy").value = "";
   renderBasketBar();
   show("categories");
 }
@@ -798,6 +857,7 @@ async function checkBusyNotice(){
   var lockedTable = params.get("table");
   var lockedRoom = lockedTable || params.get("room");
   S.channel = lockedTable ? "outside" : "room_service";
+  S.isComp = params.get("comp") === "1";
   applyChannelCopy();
   if(lockedRoom){
     S.lockedRoom = lockedRoom;
@@ -805,8 +865,10 @@ async function checkBusyNotice(){
     $("roomLockedFld").style.display = "";
     $("roomLockedVal").textContent = lockedRoom;
   }
+  if(S.isComp){ $("payVerb").textContent = "Place order"; }
   var orderId = params.get("order");
   if(orderId){ loadMenu(); pollOrder(orderId); return; }
+  if(S.isComp){ loadMenu(); checkBusyNotice(); return; }
   checkAvailability().then(function(available){
     if(!available) return;
     loadMenu();

@@ -66,6 +66,9 @@
   .ticket .t-line{display:flex;justify-content:space-between;gap:8px;margin-top:4px}
   .ticket .t-section{font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;margin-top:10px;color:var(--claret)}
   .ticket .t-section:first-child{margin-top:0}
+  .ticket .t-note{margin-top:10px;padding-top:8px;border-top:1px dashed #0004;font-size:11.5px;font-style:italic}
+  .ticket .t-allergy{margin-top:8px;padding:8px;border:2px solid #8a2e1f;background:#8a2e1f14;font-weight:800;
+    font-size:11.5px;text-transform:uppercase;letter-spacing:.5px;color:#8a2e1f}
   .ticket .t-signoff{border-top:1px dashed #0004;margin-top:10px;padding-top:8px;font-size:11px;color:#0009}
   .ticket .so-line{border-bottom:1px solid #0007;height:24px;margin-top:12px}
   .ticket .t-foot{border-top:1px dashed #0004;margin-top:8px;padding-top:8px;display:flex;justify-content:space-between;align-items:center}
@@ -949,6 +952,8 @@ function ticketHtml(job){
   const time = new Date(job.created_at).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"});
   const pending = job.status==="pending";
   const isOutside = p.channel==="outside";
+  const noteBlock = p.notes ? `<div class="t-note">Note: ${esc(p.notes)}</div>` : "";
+  const allergyBlock = p.allergy_notes ? `<div class="t-allergy">⚠ Allergy / dietary: ${esc(p.allergy_notes)}</div>` : "";
   return `
     <div class="ticket${pending?"":" printed"}">
       <div class="t-dest">${job.destination==="kitchen"?"Kitchen":"Bar"}</div>
@@ -957,6 +962,7 @@ function ticketHtml(job){
       <div class="t-row"><span>Order #${p.order_no??"—"}</span><span>${time}</span></div>
       <div class="t-row"><span>${esc(p.guest_name??"")}</span></div>
       <div style="margin-top:4px">${sections || '<div class="t-line muted">(no lines)</div>'}</div>
+      ${noteBlock}${allergyBlock}
       <div class="t-signoff">
         Guest sign-off — I confirm I received my full order as listed above
         <div class="so-line"></div>
@@ -989,7 +995,7 @@ function renderRoomService(){
   renderPrinters();
   renderRsCashup();
   const rows = (ST.rsOrders||[]).filter(o=>o.channel==="room_service");
-  const paid = rows.filter(r=>r.status==="paid" && !r.is_test);
+  const paid = rows.filter(r=>r.status==="paid" && !r.is_test && !r.is_comp);
   document.getElementById("rsSummary").textContent =
     rows.length + " order" + (rows.length===1?"":"s") + " · " + paid.length + " paid · £" +
     paid.reduce((s,r)=>s+Number(r.subtotal||0),0).toFixed(2) + " taken";
@@ -1000,7 +1006,7 @@ function renderRoomService(){
     const items=(o.lines||[]).map(l=>l.qty+"× "+l.name).join(", ");
     const tr=document.createElement("tr");
     let action="";
-    if(o.status==="paid" && !o.is_test) action = `<button class="del" onclick="refundOrder('${o.id}')">Refund</button>`;
+    if(o.status==="paid" && !o.is_test && !o.is_comp) action = `<button class="del" onclick="refundOrder('${o.id}')">Refund</button>`;
     else if(o.status==="refunded") action = `<span class="muted">Refunded</span>`;
     tr.innerHTML =
       `<td class="l">${o.order_no}</td>`+
@@ -1009,14 +1015,14 @@ function renderRoomService(){
       `<td class="l">${esc(o.room_number)}</td>`+
       `<td class="l rs-lines">${esc(items)}</td>`+
       `<td>£${Number(o.subtotal||0).toFixed(2)}</td>`+
-      `<td class="l"><span class="pill ${o.status}">${o.is_test?"TEST":o.status.replace(/_/g," ")}</span></td>`+
+      `<td class="l"><span class="pill ${o.status}">${o.is_test?"TEST":o.is_comp?"COMP":o.status.replace(/_/g," ")}</span></td>`+
       `<td class="l">${esc(o.sumup_transaction_id || o.sumup_checkout_id || "—")}</td>`+
       `<td class="act">${action}</td>`;
     b.appendChild(tr);
   }
 }
 function renderRsCashup(){
-  const rows = (ST.rsOrders||[]).filter(o=>o.channel==="room_service" && o.status==="paid" && !o.is_test);
+  const rows = (ST.rsOrders||[]).filter(o=>o.channel==="room_service" && o.status==="paid" && !o.is_test && !o.is_comp);
   const itemMap = {};
   let itemsTotal = 0, trayTotal = 0;
   for(const o of rows){
@@ -1148,7 +1154,7 @@ function renderOutside(){
   renderOutBusyNoticeBox();
   renderOutCashup();
   const rows = (ST.rsOrders||[]).filter(o=>o.channel==="outside");
-  const paid = rows.filter(r=>r.status==="paid" && !r.is_test);
+  const paid = rows.filter(r=>r.status==="paid" && !r.is_test && !r.is_comp);
   document.getElementById("outSummary").textContent =
     rows.length + " order" + (rows.length===1?"":"s") + " · " + paid.length + " paid · £" +
     paid.reduce((s,r)=>s+Number(r.subtotal||0),0).toFixed(2) + " taken";
@@ -1159,7 +1165,7 @@ function renderOutside(){
     const items=(o.lines||[]).map(l=>l.qty+"× "+l.name).join(", ");
     const tr=document.createElement("tr");
     let action="";
-    if(o.status==="paid" && !o.is_test) action = `<button class="del" onclick="refundOrder('${o.id}')">Refund</button>`;
+    if(o.status==="paid" && !o.is_test && !o.is_comp) action = `<button class="del" onclick="refundOrder('${o.id}')">Refund</button>`;
     else if(o.status==="refunded") action = `<span class="muted">Refunded</span>`;
     tr.innerHTML =
       `<td class="l">${o.order_no}</td>`+
@@ -1168,14 +1174,14 @@ function renderOutside(){
       `<td class="l">${esc(o.room_number)}</td>`+
       `<td class="l rs-lines">${esc(items)}</td>`+
       `<td>£${Number(o.subtotal||0).toFixed(2)}</td>`+
-      `<td class="l"><span class="pill ${o.status}">${o.is_test?"TEST":o.status.replace(/_/g," ")}</span></td>`+
+      `<td class="l"><span class="pill ${o.status}">${o.is_test?"TEST":o.is_comp?"COMP":o.status.replace(/_/g," ")}</span></td>`+
       `<td class="l">${esc(o.sumup_transaction_id || o.sumup_checkout_id || "—")}</td>`+
       `<td class="act">${action}</td>`;
     b.appendChild(tr);
   }
 }
 function renderOutCashup(){
-  const rows = (ST.rsOrders||[]).filter(o=>o.channel==="outside" && o.status==="paid" && !o.is_test);
+  const rows = (ST.rsOrders||[]).filter(o=>o.channel==="outside" && o.status==="paid" && !o.is_test && !o.is_comp);
   const itemMap = {};
   let itemsTotal = 0, chargeTotal = 0;
   for(const o of rows){
