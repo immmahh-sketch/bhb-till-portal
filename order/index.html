@@ -161,7 +161,7 @@
     <div class="subtotrow minor"><span>Items</span><span>£<span id="itemsSubtotal">0.00</span></span></div>
     <div class="subtotrow minor"><span id="chargeLabel">Tray charge</span><span>£<span id="trayCharge">0.00</span></span></div>
     <div class="subtotrow total"><span>Total</span><span>£<span id="subtotal">0.00</span></span></div>
-    <div class="fld"><label id="nameLbl">Name the room is booked under</label><input id="gName" placeholder="e.g. Sarah Jones" autocomplete="name"></div>
+    <div class="fld" id="nameFld"><label id="nameLbl">Name the room is booked under</label><input id="gName" placeholder="e.g. Sarah Jones" autocomplete="name"></div>
     <div class="fld" id="roomFld"><label id="roomLbl">Room number</label><input id="gRoom" placeholder="e.g. 12" inputmode="numeric" autocomplete="off"></div>
     <div class="fld" id="roomLockedFld" style="display:none"><label id="roomLockedLbl">Room</label><div class="lockedval" id="roomLockedVal"></div></div>
     <div class="fld"><label>Message to the kitchen (optional)</label><textarea id="gNotes" rows="2" placeholder="Anything the kitchen should know?"></textarea></div>
@@ -657,7 +657,7 @@ try{
 }catch(e){}
 
 $("payBtn").onclick = async function(){
-  var name = $("gName").value.trim(), room = S.lockedRoom || $("gRoom").value.trim();
+  var name = S.isComp ? "Bob" : $("gName").value.trim(), room = S.lockedRoom || $("gRoom").value.trim();
   $("basketErr").textContent = "";
   if(!cartLines().length) return;
   if(!name){ $("basketErr").textContent = isOutside() ? "Please enter your name." : "Please enter the name the room is booked under."; return; }
@@ -865,7 +865,7 @@ async function checkBusyNotice(){
     $("roomLockedFld").style.display = "";
     $("roomLockedVal").textContent = lockedRoom;
   }
-  if(S.isComp){ $("payVerb").textContent = "Place order"; }
+  if(S.isComp){ $("payVerb").textContent = "Place order"; $("nameFld").style.display = "none"; }
   var orderId = params.get("order");
   if(orderId){ loadMenu(); pollOrder(orderId); return; }
   if(S.isComp){ loadMenu(); checkBusyNotice(); return; }
