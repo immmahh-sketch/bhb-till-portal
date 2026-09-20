@@ -239,14 +239,17 @@ function renderToday(){
     list.forEach(function(t){
       var key = periodKey(t.frequency, now);
       var due = periodDueAt(t.frequency, t.due_time, now);
+      var graceDeadline = new Date(due.getTime() + (t.late_cutoff_hours||0)*3600000);
       var run = runFor(t, key);
       var status, label;
       if(run){
         var late = new Date(run.completed_at) > due;
         status = late ? "late" : "completed";
         label = (late ? "Completed late" : "Completed") + " · " + esc(run.completed_by) + " · " + fmtDT(run.completed_at);
-      } else if(now > due){
+      } else if(now > graceDeadline){
         status = "missed"; label = "Missed — was due " + fmtDT(due);
+      } else if(now > due){
+        status = "pending"; label = "Overdue — can still be logged until " + fmtDT(graceDeadline);
       } else {
         status = "pending"; label = "Not yet due — due " + fmtDT(due);
       }

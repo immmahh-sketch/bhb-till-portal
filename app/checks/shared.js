@@ -130,3 +130,25 @@ function periodLabel(freq, key) {
 }
 var FREQ_LABEL = { daily: "Daily", weekly: "Weekly", monthly: "Monthly", six_monthly: "6-monthly", annual: "Annual" };
 var CAT_LABEL = { guest_journey: "Guest Journey", shift: "Shift Checks", health_safety: "Health & Safety" };
+
+/* A date guaranteed to fall in the period immediately before the one containing d. */
+function previousPeriodRefDate(freq, d) {
+  d = new Date(d || new Date());
+  if (freq === "daily") d.setDate(d.getDate() - 1);
+  else if (freq === "weekly") d.setDate(d.getDate() - 7);
+  else if (freq === "monthly") d.setMonth(d.getMonth() - 1);
+  else if (freq === "six_monthly") d.setMonth(d.getMonth() - 6);
+  else d.setFullYear(d.getFullYear() - 1);
+  return d;
+}
+/* Current + previous period key/due for a template, with the previous period's
+   late-submission grace deadline (due_at + late_cutoff_hours). */
+function templatePeriods(t, now) {
+  now = now || new Date();
+  var current = { key: periodKey(t.frequency, now), due: periodDueAt(t.frequency, t.due_time, now) };
+  var prevRef = previousPeriodRefDate(t.frequency, now);
+  var prevDue = periodDueAt(t.frequency, t.due_time, prevRef);
+  var graceMs = (t.late_cutoff_hours || 0) * 3600000;
+  var previous = { key: periodKey(t.frequency, prevRef), due: prevDue, graceDeadline: new Date(prevDue.getTime() + graceMs) };
+  return { current: current, previous: previous };
+}

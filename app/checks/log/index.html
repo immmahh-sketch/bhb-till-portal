@@ -181,12 +181,28 @@ function loadAll(){
     (r[1]||[]).forEach(function(it){ (S.items[it.template_id] = S.items[it.template_id]||[]).push(it); });
     var now = new Date();
     var keys = {};
-    S.templates.forEach(function(t){ t._period = periodKey(t.frequency, now); t._due = periodDueAt(t.frequency, t.due_time, now); keys[t._period]=1; });
+    S.templates.forEach(function(t){
+      var p = templatePeriods(t, now);
+      t._periods = p;
+      keys[p.current.key]=1; keys[p.previous.key]=1;
+    });
     var inList = Object.keys(keys).join(",");
     return sb("checklist_runs?select=*&period_key=in.(" + inList + ")");
   }).then(function(runs){
     S.runsByKey = {};
     (runs||[]).forEach(function(r){ S.runsByKey[r.template_id+"|"+r.period_key] = r; });
+    var now = new Date();
+    S.templates.forEach(function(t){
+      var p = t._periods;
+      var prevRun = S.runsByKey[t.id+"|"+p.previous.key];
+      /* Still within the late-submission grace window for the last period, and it was never
+         completed: keep offering that period instead of silently replacing it with the new one. */
+      if(!prevRun && now <= p.previous.graceDeadline){
+        t._period = p.previous.key; t._due = p.previous.due; t._late = true;
+      } else {
+        t._period = p.current.key; t._due = p.current.due; t._late = false;
+      }
+    });
     renderHome();
   }).catch(function(e){
     $("homeBody").innerHTML = '<div class="empty">Couldn’t load checklists.<br><br>' + esc(e.message) +
