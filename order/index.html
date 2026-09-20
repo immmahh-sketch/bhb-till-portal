@@ -603,7 +603,16 @@ function adjustCartQty(key, delta){
 function cartLines(){ return Object.keys(S.cart).map(function(k){ return S.cart[k]; }); }
 function cartTotal(){ return cartLines().reduce(function(s,l){ return s + l.unitPrice*l.qty; }, 0); }
 function cartCount(){ return cartLines().reduce(function(s,l){ return s + l.qty; }, 0); }
+function cartStorageKey(){ return "rs_cart_v1_" + S.channel; }
+function saveCart(){ try{ localStorage.setItem(cartStorageKey(), JSON.stringify(S.cart)); }catch(e){} }
+function loadPersistedCart(){
+  try{
+    var raw = localStorage.getItem(cartStorageKey());
+    if(raw){ var parsed = JSON.parse(raw); if(parsed && typeof parsed==="object") S.cart = parsed; }
+  }catch(e){}
+}
 function renderBasketBar(){
+  saveCart();
   var n = cartCount();
   var onOrderableScreen = $("categories").classList.contains("on") || $("drinksub").classList.contains("on") || $("menu").classList.contains("on");
   $("basketBar").classList.toggle("show", n>0 && onOrderableScreen);
@@ -687,7 +696,7 @@ $("payBtn").onclick = async function(){
       });
       var np = noPayOrder[0];
       await queueDirectPrintJobs(np);
-      S.cart = {};
+      S.cart = {}; saveCart();
       btn.disabled = false; btn.innerHTML = oldHtml;
       if(S.testMode) showTestThankYou(np); else showCompThankYou(np);
       return;
@@ -710,6 +719,7 @@ $("payBtn").onclick = async function(){
     if(!res.ok || !data.hosted_checkout_url){
       throw new Error(data.error || ("Payment setup failed (" + res.status + ")"));
     }
+    S.cart = {}; saveCart();
     location.href = data.hosted_checkout_url;
   }catch(e){
     $("basketErr").textContent = "Couldn't start payment: " + e.message;
@@ -858,6 +868,8 @@ async function checkBusyNotice(){
   var lockedRoom = lockedTable || params.get("room");
   S.channel = lockedTable ? "outside" : "room_service";
   S.isComp = params.get("comp") === "1";
+  loadPersistedCart();
+  renderBasketBar();
   applyChannelCopy();
   if(lockedRoom){
     S.lockedRoom = lockedRoom;
