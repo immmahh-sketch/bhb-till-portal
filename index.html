@@ -320,16 +320,20 @@
       </div>
     </div>
 
-    <h2 class="sec" style="margin-top:30px">Virtual printers</h2>
-    <p class="muted" style="margin:0 0 12px">Shows exactly what the kitchen and bar printers would print for each paid order — until the real network printers are wired up. Updates automatically as orders come in.</p>
-    <div class="printers-grid">
-      <div>
-        <h3 class="printer-h">Kitchen</h3>
-        <div id="kitchenTickets"></div>
-      </div>
-      <div>
-        <h3 class="printer-h">Bar</h3>
-        <div id="barTickets"></div>
+    <h2 class="sec" style="margin-top:30px;cursor:pointer;user-select:none" onclick="toggleVirtualPrinters()">
+      <span id="vpChevron">▾</span> Virtual printers
+    </h2>
+    <div id="vpBody">
+      <p class="muted" style="margin:0 0 12px">Shows exactly what the kitchen and bar printers would print for each paid order — a backup view alongside the real network printers. Updates automatically as orders come in.</p>
+      <div class="printers-grid">
+        <div>
+          <h3 class="printer-h">Kitchen</h3>
+          <div id="kitchenTickets"></div>
+        </div>
+        <div>
+          <h3 class="printer-h">Bar</h3>
+          <div id="barTickets"></div>
+        </div>
       </div>
     </div>
 
@@ -997,6 +1001,14 @@ function renderPrinters(){
   document.getElementById("barTickets").innerHTML =
     bar.length ? bar.map(ticketHtml).join("") : '<p class="muted">No bar tickets yet.</p>';
 }
+function toggleVirtualPrinters(collapsed){
+  const body = document.getElementById("vpBody");
+  if(collapsed === undefined) collapsed = body.style.display !== "none";
+  body.style.display = collapsed ? "none" : "";
+  document.getElementById("vpChevron").textContent = collapsed ? "▸" : "▾";
+  try{ localStorage.setItem("vpCollapsed", collapsed ? "1" : "0"); }catch(e){}
+}
+try{ if(localStorage.getItem("vpCollapsed")==="1") toggleVirtualPrinters(true); }catch(e){}
 async function markPrinted(id){
   try{
     await sb(`print_jobs?id=eq.${id}`, {method:"PATCH", body:JSON.stringify({status:"printed", printed_at:new Date().toISOString()})});
