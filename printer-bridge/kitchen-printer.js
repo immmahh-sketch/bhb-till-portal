@@ -8,9 +8,12 @@
 // "printed" — the same status the portal's virtual-printer "Mark printed"
 // button sets, so both stay in sync.
 //
+// Kitchen tickets are plain (no logo, no guest sign-off) — those are a
+// bar-receipt-only thing, see ticket.js / print-bar-test.js.
+//
 // Run with: node kitchen-printer.js   (needs Node 18+ for built-in fetch)
 
-const net = require("net");
+const { buildTicket, printToDevice } = require("./ticket.js");
 
 const SUPABASE_URL = "https://safcrtrfdzsnftghibot.supabase.co";
 const SUPABASE_KEY = "sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU";
@@ -18,96 +21,6 @@ const SUPABASE_KEY = "sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU";
 const PRINTER_IP = "192.168.100.134";
 const PRINTER_PORT = 9100;
 const POLL_MS = 4000;
-const LINE_WIDTH = 32; // characters per line at the printer's default font/column setting
-
-function escBytes(bytes) { return Buffer.from(bytes); }
-function rule() { return "-".repeat(LINE_WIDTH) + "\n"; }
-
-function buildTicket(job) {
-  const p = job.payload || {};
-  const lines = p.lines || [];
-  const food = lines.filter((l) => l.category === "food");
-  const drink = lines.filter((l) => l.category !== "food");
-  const isOutside = p.channel === "outside";
-  const time = job.created_at
-    ? new Date(job.created_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })
-    : "";
-
-  const chunks = [];
-  const push = (s) => chunks.push(Buffer.from(s, "ascii"));
-  const line = (l) => push(`${l.qty} x ${l.name}\n`);
-
-  chunks.push(escBytes([0x1b, 0x40])); // initialize
-  chunks.push(escBytes([0x1b, 0x61, 0x01])); // center
-  chunks.push(escBytes([0x1b, 0x45, 0x01])); // bold on
-  chunks.push(escBytes([0x1d, 0x21, 0x11])); // double height + width
-  push("KITCHEN\n");
-  chunks.push(escBytes([0x1d, 0x21, 0x00])); // back to normal size
-  push(`${isOutside ? "OUTSIDE" : "ROOM SERVICE"}\n`);
-  push(`${isOutside ? "Table " : "Room "}${p.room_number ?? "-"}\n`);
-  chunks.push(escBytes([0x1b, 0x45, 0x00])); // bold off
-  push(rule());
-
-  chunks.push(escBytes([0x1b, 0x61, 0x00])); // left align
-  push(`Order #${p.order_no ?? "-"}   ${time}\n`);
-  if (p.guest_name) push(`${p.guest_name}\n`);
-  push(rule());
-
-  if (food.length) {
-    chunks.push(escBytes([0x1b, 0x45, 0x01]));
-    push("FOOD\n");
-    chunks.push(escBytes([0x1b, 0x45, 0x00]));
-    food.forEach(line);
-  }
-  if (drink.length) {
-    chunks.push(escBytes([0x1b, 0x45, 0x01]));
-    push("DRINKS\n");
-    chunks.push(escBytes([0x1b, 0x45, 0x00]));
-    drink.forEach(line);
-  }
-  if (!food.length && !drink.length) push("(no lines)\n");
-
-  if (p.notes) {
-    push(rule());
-    push(`Note: ${p.notes}\n`);
-  }
-  if (p.allergy_notes) {
-    push(rule());
-    chunks.push(escBytes([0x1b, 0x45, 0x01]));
-    push("** ALLERGY / DIETARY **\n");
-    push(`${p.allergy_notes}\n`);
-    chunks.push(escBytes([0x1b, 0x45, 0x00]));
-  }
-
-  push(rule());
-  chunks.push(escBytes([0x1b, 0x61, 0x01])); // center
-  push("Guest sign-off - received\n");
-  push("full order as above\n");
-  push("_________________________\n");
-
-  chunks.push(escBytes([0x0a, 0x0a, 0x0a, 0x0a])); // feed
-  chunks.push(escBytes([0x1d, 0x56, 0x42, 0x00])); // feed + partial cut
-
-  return Buffer.concat(chunks);
-}
-
-function printToDevice(buffer) {
-  return new Promise((resolve, reject) => {
-    const socket = net.createConnection(PRINTER_PORT, PRINTER_IP, () => {
-      socket.write(buffer, () => {
-        setTimeout(() => {
-          socket.end();
-          resolve();
-        }, 300);
-      });
-    });
-    socket.setTimeout(5000, () => {
-      socket.destroy();
-      reject(new Error("printer connection timed out"));
-    });
-    socket.on("error", reject);
-  });
-}
 
 async function rest(path, init = {}) {
   const r = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
@@ -131,7 +44,8 @@ async function pollOnce() {
   for (const job of jobs) {
     const label = `order #${job.payload?.order_no ?? "?"}`;
     try {
-      await printToDevice(buildTicket(job));
+      const ticket = buildTicket(job, { station: "KITCHEN" });
+      await printToDevice(ticket, PRINTER_IP, PRINTER_PORT);
       await rest(`print_jobs?id=eq.${job.id}`, {
         method: "PATCH",
         body: JSON.stringify({ status: "printed", printed_at: new Date().toISOString() }),

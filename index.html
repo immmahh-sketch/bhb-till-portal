@@ -69,8 +69,12 @@
   .ticket .t-note{margin-top:10px;padding-top:8px;border-top:1px dashed #0004;font-size:11.5px;font-style:italic}
   .ticket .t-allergy{margin-top:8px;padding:8px;border:2px solid #8a2e1f;background:#8a2e1f14;font-weight:800;
     font-size:11.5px;text-transform:uppercase;letter-spacing:.5px;color:#8a2e1f}
+  .ticket .t-logo{display:block;max-width:70%;margin:0 auto 8px}
   .ticket .t-signoff{border-top:1px dashed #0004;margin-top:10px;padding-top:8px;font-size:11px;color:#0009}
-  .ticket .so-line{border-bottom:1px solid #0007;height:24px;margin-top:12px}
+  .ticket .t-signoff .so-head{margin-bottom:10px;line-height:1.4}
+  .ticket .so-field{margin-top:16px}
+  .ticket .so-label{display:block;margin-bottom:4px}
+  .ticket .so-line{border-bottom:1px solid #0007;height:20px}
   .ticket .t-foot{border-top:1px dashed #0004;margin-top:8px;padding-top:8px;display:flex;justify-content:space-between;align-items:center}
   .ticket .t-status{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
   .ticket .t-status.pending{color:var(--claret)}
@@ -954,8 +958,18 @@ function ticketHtml(job){
   const isOutside = p.channel==="outside";
   const noteBlock = p.notes ? `<div class="t-note">Note: ${esc(p.notes)}</div>` : "";
   const allergyBlock = p.allergy_notes ? `<div class="t-allergy">⚠ Allergy / dietary: ${esc(p.allergy_notes)}</div>` : "";
+  const isBar = job.destination==="bar";
+  const logoBlock = isBar ? `<img class="t-logo" src="app/logo-dark.png" alt="Black Horse Beamish">` : "";
+  const signoffBlock = isBar ? `
+      <div class="t-signoff">
+        <div class="so-head">Please complete below to confirm you have received your full order</div>
+        <div class="so-field"><span class="so-label">Room Number</span><div class="so-line"></div></div>
+        <div class="so-field"><span class="so-label">Name</span><div class="so-line"></div></div>
+        <div class="so-field"><span class="so-label">Signed</span><div class="so-line"></div></div>
+      </div>` : "";
   return `
     <div class="ticket${pending?"":" printed"}">
+      ${logoBlock}
       <div class="t-dest">${job.destination==="kitchen"?"Kitchen":"Bar"}</div>
       <div class="t-bighead">${isOutside?"OUTSIDE":"ROOM SERVICE"}</div>
       <div class="t-bigroom">${isOutside?"Table":"Room"} ${esc(p.room_number??"—")}</div>
@@ -963,10 +977,7 @@ function ticketHtml(job){
       <div class="t-row"><span>${esc(p.guest_name??"")}</span></div>
       <div style="margin-top:4px">${sections || '<div class="t-line muted">(no lines)</div>'}</div>
       ${noteBlock}${allergyBlock}
-      <div class="t-signoff">
-        Guest sign-off — I confirm I received my full order as listed above
-        <div class="so-line"></div>
-      </div>
+      ${signoffBlock}
       <div class="t-foot">
         <span class="t-status ${pending?"pending":"printed"}">${pending?"Would print now":"Printed"}</span>
         ${pending ? `<button class="b-out" onclick="markPrinted('${job.id}')">Mark printed</button>` : ""}
