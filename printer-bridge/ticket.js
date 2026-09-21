@@ -18,7 +18,9 @@
 //
 // staff-copy (full priced "ROOM SERVICE"/"STAFF COPY" ticket, with guest
 // sign-off for room service) and guest-copy (VAT receipt) print at Kitchen
-// Printer 1 instead - see kitchen-printer.js.
+// Printer 1 instead - see kitchen-printer.js. Comp orders (payload.is_comp,
+// "Bob" / ?comp=1 in order/index.html) never show pricing on any ticket
+// kind, since nothing is actually being charged.
 //
 // Used by kitchen-printer.js and bar-printer.js (the live pollers) and the
 // one-off print-bar-test.js script.
@@ -100,6 +102,9 @@ function buildTicket(job, opts = {}) {
   if (!cfg) throw new Error(`unknown ticket kind "${kindKey}"`);
 
   const p = job.payload || {};
+  // Comp orders ("Bob" / ?comp=1 in order/index.html) are never paid for -
+  // no pricing anywhere on the ticket, regardless of ticket kind.
+  const showPrices = cfg.prices && !p.is_comp;
   const allLines = p.lines || [];
   const lines = cfg.category === "all" ? allLines : allLines.filter((l) =>
     cfg.category === "food" ? l.category === "food" : l.category !== "food"
@@ -158,7 +163,7 @@ function buildTicket(job, opts = {}) {
     chunks.push(escBytes([0x1b, 0x45, 0x01]));
     push(`${label}\n`);
     chunks.push(escBytes([0x1b, 0x45, 0x00]));
-    items.forEach(cfg.prices ? linePrice : lineNoPrice);
+    items.forEach(showPrices ? linePrice : lineNoPrice);
   };
   printGroup("FOOD", food);
   printGroup("DRINKS", drink);
@@ -176,7 +181,7 @@ function buildTicket(job, opts = {}) {
     push(`${p.allergy_notes || "N/A"}\n`);
   }
 
-  if (cfg.prices) {
+  if (showPrices) {
     const total = Number(p.subtotal) || 0;
     const charge = Number(p.tray_charge) || 0;
     const discountAmt = Number(p.discount_amount) || 0;

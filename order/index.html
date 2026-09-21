@@ -158,7 +158,7 @@
 
 <div class="basketbar" id="basketBar">
   <span class="n" id="basketN">0 items</span>
-  <span class="go">View order  £<span id="basketTotal">0.00</span> ›</span>
+  <span class="go">View order <span id="basketTotalWrap"> £<span id="basketTotal">0.00</span></span> ›</span>
 </div>
 
 <!-- ===================== BASKET / DETAILS ===================== -->
@@ -172,23 +172,25 @@
   </div>
   <div class="scroll">
     <div id="lines"></div>
-    <div class="fld" id="discountFld">
-      <label>Discount code (optional)</label>
-      <div id="discountEntryRow" style="display:flex;gap:8px">
-        <input id="discountInput" placeholder="e.g. SAVE10" autocomplete="off" style="text-transform:uppercase;flex:1">
-        <button id="discountApplyBtn" onclick="applyDiscountCode()" style="flex:0 0 auto;background:var(--ink);color:#fff;border:0;padding:0 18px;border-radius:2px;font-weight:600;letter-spacing:.5px;font-size:13px;font-family:inherit">Apply</button>
+    <div id="pricingBlock">
+      <div class="fld" id="discountFld">
+        <label>Discount code (optional)</label>
+        <div id="discountEntryRow" style="display:flex;gap:8px">
+          <input id="discountInput" placeholder="e.g. SAVE10" autocomplete="off" style="text-transform:uppercase;flex:1">
+          <button id="discountApplyBtn" onclick="applyDiscountCode()" style="flex:0 0 auto;background:var(--ink);color:#fff;border:0;padding:0 18px;border-radius:2px;font-weight:600;letter-spacing:.5px;font-size:13px;font-family:inherit">Apply</button>
+        </div>
+        <div class="err" id="discountErr"></div>
+        <div id="discountAppliedRow" style="display:none;margin-top:8px;padding:10px 12px;background:#f4f4f2;border-radius:2px;font-size:13.5px;align-items:center;justify-content:space-between">
+          <span id="discountAppliedLabel"></span>
+          <button onclick="removeDiscountCode()" style="background:none;border:0;color:var(--muted);font-size:12px;text-decoration:underline;font-family:inherit">Remove</button>
+        </div>
       </div>
-      <div class="err" id="discountErr"></div>
-      <div id="discountAppliedRow" style="display:none;margin-top:8px;padding:10px 12px;background:#f4f4f2;border-radius:2px;font-size:13.5px;align-items:center;justify-content:space-between">
-        <span id="discountAppliedLabel"></span>
-        <button onclick="removeDiscountCode()" style="background:none;border:0;color:var(--muted);font-size:12px;text-decoration:underline;font-family:inherit">Remove</button>
-      </div>
+      <div class="subtotrow minor"><span>Items</span><span>£<span id="itemsSubtotal">0.00</span></span></div>
+      <div class="subtotrow minor" id="bundleTotalRow" style="display:none"><span id="bundleTotalLabel">Deal savings</span><span>-£<span id="bundleTotalAmt">0.00</span></span></div>
+      <div class="subtotrow minor"><span id="chargeLabel">Tray charge</span><span>£<span id="trayCharge">0.00</span></span></div>
+      <div class="subtotrow minor" id="discountTotalRow" style="display:none"><span id="discountTotalLabel">Discount</span><span>-£<span id="discountTotalAmt">0.00</span></span></div>
+      <div class="subtotrow total"><span>Total</span><span>£<span id="subtotal">0.00</span></span></div>
     </div>
-    <div class="subtotrow minor"><span>Items</span><span>£<span id="itemsSubtotal">0.00</span></span></div>
-    <div class="subtotrow minor" id="bundleTotalRow" style="display:none"><span id="bundleTotalLabel">Deal savings</span><span>-£<span id="bundleTotalAmt">0.00</span></span></div>
-    <div class="subtotrow minor"><span id="chargeLabel">Tray charge</span><span>£<span id="trayCharge">0.00</span></span></div>
-    <div class="subtotrow minor" id="discountTotalRow" style="display:none"><span id="discountTotalLabel">Discount</span><span>-£<span id="discountTotalAmt">0.00</span></span></div>
-    <div class="subtotrow total"><span>Total</span><span>£<span id="subtotal">0.00</span></span></div>
     <div class="fld" id="nameFld"><label id="nameLbl">Name the room is booked under</label><input id="gName" placeholder="e.g. Sarah Jones" autocomplete="name"></div>
     <div class="fld" id="roomFld"><label id="roomLbl">Room number</label><input id="gRoom" placeholder="e.g. 12" inputmode="numeric" autocomplete="off"></div>
     <div class="fld" id="roomLockedFld" style="display:none"><label id="roomLockedLbl">Room</label><div class="lockedval" id="roomLockedVal"></div></div>
@@ -197,7 +199,7 @@
     <div class="err" id="basketErr"></div>
   </div>
   <div class="checkoutbar">
-    <button class="paybtn" id="payBtn"><span id="payVerb">Pay</span> £<span id="payTotal">0.00</span></button>
+    <button class="paybtn" id="payBtn"><span id="payVerb">Pay</span> <span id="payTotalWrap">£<span id="payTotal">0.00</span></span></button>
   </div>
 </section>
 
@@ -259,7 +261,7 @@
 <div id="comboModal" style="position:fixed;inset:0;background:rgba(17,17,17,.72);display:none;align-items:center;justify-content:center;z-index:100;padding:24px;overflow-y:auto">
   <div style="background:#fff;max-width:400px;width:100%;padding:26px 24px;border-radius:2px;margin:24px 0">
     <div id="comboModalTitle" style="font-size:19px;font-weight:600;margin-bottom:4px"></div>
-    <div style="font-size:13px;color:var(--muted);margin-bottom:14px">£<span id="comboModalPrice"></span></div>
+    <div id="comboModalPriceRow" style="font-size:13px;color:var(--muted);margin-bottom:14px">£<span id="comboModalPrice"></span></div>
     <div id="comboModalGroups"></div>
     <button id="comboAddBtn" onclick="addComboToCart()" disabled style="margin-top:12px;width:100%;background:var(--ink);color:#fff;border:0;padding:13px;border-radius:2px;font-weight:600;letter-spacing:.5px;font-size:14px;font-family:inherit">Add to order</button>
     <button onclick="closeComboModal()" style="margin-top:8px;background:none;border:0;color:var(--muted);font-size:13px;text-decoration:underline;width:100%;padding:6px;font-family:inherit">Cancel</button>
@@ -286,11 +288,11 @@
   </div>
 </div>
 
-<!-- ===================== SAUCE UPSELL ===================== -->
+<!-- ===================== SAUCE (included free) ===================== -->
 <div id="sauceModal" style="position:fixed;inset:0;background:rgba(17,17,17,.72);display:none;align-items:center;justify-content:center;z-index:100;padding:24px">
   <div style="background:#fff;max-width:380px;width:100%;padding:26px 24px;border-radius:2px">
-    <div style="font-size:19px;font-weight:600;margin-bottom:4px">Add a sauce for your steak?</div>
-    <p style="font-size:13.5px;color:var(--muted);margin:0 0 14px">Tap to add — you can add more than one.</p>
+    <div style="font-size:19px;font-weight:600;margin-bottom:4px">Choose a sauce</div>
+    <p style="font-size:13.5px;color:var(--muted);margin:0 0 14px">Included with your steak — tap to select.</p>
     <div id="sauceModalList"></div>
     <button onclick="closeSauceModal()" style="margin-top:16px;background:var(--ink);color:#fff;border:0;padding:13px;border-radius:2px;font-weight:600;letter-spacing:1px;text-transform:uppercase;font-size:13px;width:100%;font-family:inherit">No thanks</button>
   </div>
@@ -555,7 +557,7 @@ function buildItemEl(m){
     el.innerHTML =
       '<div class="info"><div class="nm">'+esc(m.name)+'</div>'+
       (m.description ? '<div class="dsc">'+esc(m.description)+'</div>' : '')+
-      '<div class="pr">£'+money(m.price)+'</div>'+
+      (S.isComp ? '' : '<div class="pr">£'+money(m.price)+'</div>')+
       (qtyForCombo>0 ? '<div class="picked">'+qtyForCombo+' in your order</div>' : '')+
       '</div>'+
       '<div class="stepper"><button class="choose-btn">Choose</button></div>';
@@ -566,7 +568,7 @@ function buildItemEl(m){
     el.innerHTML =
       '<div class="info"><div class="nm">'+esc(m.name)+'</div>'+
       (m.description ? '<div class="dsc">'+esc(m.description)+'</div>' : '')+
-      '<div class="pr">From £'+money(minPrice)+'</div>'+
+      (S.isComp ? '' : '<div class="pr">From £'+money(minPrice)+'</div>')+
       (qtyForItem>0 ? '<div class="picked">'+qtyForItem+' in your order</div>' : '')+
       '</div>'+
       '<div class="stepper"><button class="choose-btn">Choose</button></div>';
@@ -576,7 +578,7 @@ function buildItemEl(m){
     el.innerHTML =
       '<div class="info"><div class="nm">'+esc(m.name)+'</div>'+
       (m.description ? '<div class="dsc">'+esc(m.description)+'</div>' : '')+
-      '<div class="pr">£'+money(m.price)+'</div>'+
+      (S.isComp ? '' : '<div class="pr">£'+money(m.price)+'</div>')+
       (qtyForSteak>0 ? '<div class="picked">'+qtyForSteak+' in your order</div>' : '')+
       '</div>'+
       '<div class="stepper"><button class="choose-btn">Choose</button></div>';
@@ -586,7 +588,7 @@ function buildItemEl(m){
     el.innerHTML =
       '<div class="info"><div class="nm">'+esc(m.name)+'</div>'+
       (m.description ? '<div class="dsc">'+esc(m.description)+'</div>' : '')+
-      '<div class="pr">£'+money(m.price)+'</div></div>'+
+      (S.isComp ? '' : '<div class="pr">£'+money(m.price)+'</div>')+'</div>'+
       '<div class="stepper">'+
         (row&&row.qty>0 ? '<button class="rm">−</button><span class="qty">'+row.qty+'</span>' : '')+
         '<button class="add">+</button>'+
@@ -633,7 +635,7 @@ function openVariantPicker(item){
   var box = $("variantModalList"); box.innerHTML = "";
   item.variants.forEach(function(v){
     var el = document.createElement("div"); el.className="variant-opt";
-    el.innerHTML = '<span class="vlabel">'+esc(v.label)+'</span><span class="vprice">£'+money(v.price)+'</span>';
+    el.innerHTML = '<span class="vlabel">'+esc(v.label)+'</span>'+(S.isComp ? '' : '<span class="vprice">£'+money(v.price)+'</span>');
     el.onclick = function(){
       addToCart(_variantItem, v);
       toast("Added "+v.label+" "+_variantItem.name);
@@ -661,6 +663,7 @@ function openComboPicker(item){
   _comboSelections = {};
   $("comboModalTitle").textContent = item.name;
   $("comboModalPrice").textContent = money(item.price);
+  $("comboModalPriceRow").style.display = S.isComp ? "none" : "";
   var box = $("comboModalGroups"); box.innerHTML = "";
   item.combo_groups.forEach(function(group, gi){
     var wrap = document.createElement("div"); wrap.className = "combo-group";
@@ -669,7 +672,7 @@ function openComboPicker(item){
     group.options.forEach(function(opt){
       var price = comboOptPrice(opt);
       var el = document.createElement("div"); el.className = "combo-opt";
-      el.textContent = comboOptLabel(opt) + (price > 0 ? " (+£" + money(price) + ")" : "");
+      el.textContent = comboOptLabel(opt) + (price > 0 && !S.isComp ? " (+£" + money(price) + ")" : "");
       el.onclick = function(){
         _comboSelections[gi] = opt;
         wrap.querySelectorAll(".combo-opt").forEach(function(o){ o.classList.remove("sel"); });
@@ -781,9 +784,9 @@ function openSauceModal(){
   var box = $("sauceModalList"); box.innerHTML = "";
   sauces.forEach(function(m){
     var el = document.createElement("div"); el.className = "variant-opt";
-    el.innerHTML = '<span class="vlabel">'+esc(m.name)+'</span><span class="vprice">£'+money(m.price)+'</span>';
+    el.innerHTML = '<span class="vlabel">'+esc(m.name)+'</span>';
     el.onclick = function(){
-      addToCart(m, null);
+      addToCart(m, {label:"Included with steak", price:0});
       toast("Added "+m.name);
       closeSauceModal();
     };
@@ -883,6 +886,7 @@ function renderBasketBar(){
   $("basketBar").classList.toggle("show", n>0 && onOrderableScreen);
   $("basketN").textContent = n + " item" + (n===1?"":"s");
   $("basketTotal").textContent = money(cartTotal());
+  $("basketTotalWrap").style.display = S.isComp ? "none" : "";
 }
 $("basketBar").onclick = function(){ if(cartCount()>0) show("basket"); };
 
@@ -894,7 +898,7 @@ function renderSideBanner(){
   var box = $("sideScroll"); box.innerHTML = "";
   sides.forEach(function(m){
     var el = document.createElement("div"); el.className = "sb-item";
-    el.innerHTML = esc(m.name) + '<b>£' + money(m.price) + '</b>';
+    el.innerHTML = esc(m.name) + (S.isComp ? '' : '<b>£' + money(m.price) + '</b>');
     el.onclick = function(){ openSection("Sides"); };
     box.appendChild(el);
   });
@@ -907,13 +911,21 @@ function renderBasket(){
   if(!lines.length){ box.innerHTML = '<div class="empty">Your order is empty.</div>'; }
   lines.forEach(function(l){
     var d = document.createElement("div"); d.className="line";
-    d.innerHTML = '<div class="l"><b>'+esc(l.name)+'</b><span class="ea">£'+money(l.unitPrice)+' each</span></div>'+
+    d.innerHTML = '<div class="l"><b>'+esc(l.name)+'</b>'+(S.isComp ? '' : '<span class="ea">£'+money(l.unitPrice)+' each</span>')+'</div>'+
       '<div class="stepper"><button class="rm">−</button><span class="qty">'+l.qty+'</span><button class="add">+</button></div>'+
-      '<div class="amt">£'+money(l.unitPrice*l.qty)+'</div>';
+      (S.isComp ? '' : '<div class="amt">£'+money(l.unitPrice*l.qty)+'</div>');
     d.querySelector(".rm").onclick = function(){ adjustCartQty(l.key, -1); };
     d.querySelector(".add").onclick = function(){ adjustCartQty(l.key, 1); };
     box.appendChild(d);
   });
+  if(S.isComp){
+    $("pricingBlock").style.display = "none";
+    $("payTotalWrap").style.display = "none";
+    $("payBtn").disabled = lines.length===0;
+    return;
+  }
+  $("pricingBlock").style.display = "";
+  $("payTotalWrap").style.display = "";
   var itemsTotalRaw = cartTotal();
   var bundleResult = computeBundleSavings(lines);
   var itemsTotal = Math.max(0, Math.round((itemsTotalRaw - bundleResult.amount + Number.EPSILON)*100)/100);
@@ -1097,6 +1109,7 @@ async function queueDirectPrintJobs(order){
     notes: order.notes, allergy_notes: order.allergy_notes, subtotal: order.subtotal, tray_charge: order.tray_charge,
     discount_amount: order.discount_amount || null, discount_label: order.discount_label || null,
     bundle_amount: order.bundle_amount || null, bundle_label: order.bundle_label || null,
+    is_comp: order.is_comp || false,
     lines: lines
   };
   var jobs = [
@@ -1116,6 +1129,9 @@ function beginReceiptFlow(order, kind){
   $("stBig").classList.remove("script");
   $("stBig").textContent = "";
   $("stMsg").textContent = "";
+  // Comp orders (Bob) aren't paid for, so there's no VAT receipt to offer -
+  // skip straight to the kitchen instead of asking.
+  if(kind === "comp"){ finishReceiptChoice("none"); return; }
   openReceiptModal();
 }
 async function finishReceiptChoice(choice, email){
