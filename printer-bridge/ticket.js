@@ -1,8 +1,16 @@
 // Shared ESC/POS ticket builder + raw-socket printing for the Black Horse
 // Beamish room-service/outside-table system.
 //
-// Four ticket kinds come out of one order, printed across two stations:
-//   kitchen    -> kitchen printer: food lines only, no price, no logo, no sign-off
+// Kitchen tickets fan out to four physical printers (see kitchen-printer.js):
+//   kitchen            -> printer 1 (master/pass): every food line, always printed
+//   kitchen-starters   -> printer 2: food lines tagged station "starters" (incl. sandwiches)
+//   kitchen-mains      -> printer 3: food lines tagged "mains" (mains, grill, sides - and
+//                         the fallback for any line with no station set)
+//   kitchen-desserts   -> printer 4: food lines tagged "desserts"
+// The station tag comes from roomservice_menu_items.kitchen_station, set per
+// item in the portal's menu editor.
+//
+// Bar tickets:
 //   bar-prep   -> bar printer: drink lines only, no price, no logo, no sign-off
 //   staff-copy -> bar printer: everything, with prices, tray/service charge,
 //                 total, logo. Room service orders also get the guest
@@ -42,10 +50,13 @@ const LOGO = (() => {
 })();
 
 const KIND = {
-  kitchen: { heading: "KITCHEN", tag: null, category: "food", prices: false, logo: false, signoff: false, vat: false, allergyAlways: false },
-  "bar-prep": { heading: "BAR", tag: null, category: "drink", prices: false, logo: false, signoff: false, vat: false, allergyAlways: false },
-  "staff-copy": { heading: null, tag: "ROOM SERVICE COPY", category: "all", prices: true, logo: true, signoff: true, vat: false, allergyAlways: true },
-  "guest-copy": { heading: null, tag: "GUEST COPY", category: "all", prices: true, logo: true, signoff: false, vat: true, allergyAlways: false },
+  kitchen: { heading: "KITCHEN", tag: null, category: "food", station: null, prices: false, logo: false, signoff: false, vat: false, allergyAlways: false },
+  "kitchen-starters": { heading: "STARTERS", tag: null, category: "food", station: "starters", prices: false, logo: false, signoff: false, vat: false, allergyAlways: false },
+  "kitchen-mains": { heading: "MAINS", tag: null, category: "food", station: "mains", prices: false, logo: false, signoff: false, vat: false, allergyAlways: false },
+  "kitchen-desserts": { heading: "DESSERTS", tag: null, category: "food", station: "desserts", prices: false, logo: false, signoff: false, vat: false, allergyAlways: false },
+  "bar-prep": { heading: "BAR", tag: null, category: "drink", station: null, prices: false, logo: false, signoff: false, vat: false, allergyAlways: false },
+  "staff-copy": { heading: null, tag: "ROOM SERVICE COPY", category: "all", station: null, prices: true, logo: true, signoff: true, vat: false, allergyAlways: true },
+  "guest-copy": { heading: null, tag: "GUEST COPY", category: "all", station: null, prices: true, logo: true, signoff: false, vat: true, allergyAlways: false },
 };
 
 // £ sent as a raw byte (0xA3) prints as the wrong glyph on this printer's
@@ -92,9 +103,14 @@ function buildTicket(job, opts = {}) {
 
   const p = job.payload || {};
   const allLines = p.lines || [];
-  const lines = cfg.category === "all" ? allLines : allLines.filter((l) =>
-    cfg.category === "food" ? l.category === "food" : l.category !== "food"
-  );
+  const lines = allLines.filter((l) => {
+    if (cfg.category === "food" && l.category !== "food") return false;
+    if (cfg.category === "drink" && l.category === "food") return false;
+    // Any food line with no station set (e.g. an off-menu "something else"
+    // item) falls back to the mains printer so it's never silently dropped.
+    if (cfg.station && (l.station || "mains") !== cfg.station) return false;
+    return true;
+  });
   const isOutside = p.channel === "outside";
   const created = job.created_at ? new Date(job.created_at) : null;
   const date = created ? created.toLocaleDateString("en-GB") : "";

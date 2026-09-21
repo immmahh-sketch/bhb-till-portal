@@ -370,17 +370,21 @@
       <div><label>Price £</label><input id="rsPrice" type="number" step="0.01" min="0" style="width:90px"></div>
       <div><label>Variants (optional)</label><input id="rsVariants" type="text" placeholder="e.g. Half:3.25, Pint:6.50" style="min-width:220px"></div>
       <div><label>Cooking pref?</label><input id="rsCookingPref" type="checkbox" style="width:20px;height:20px"></div>
+      <div id="rsKitchenStationWrap"><label>Kitchen printer</label>
+        <select id="rsKitchenStation"></select>
+      </div>
       <button class="primary" onclick="rsMenuAdd()">Add item</button>
     </div>
     <p class="muted" style="margin:0 0 12px">Pick "Drinks" as the section to reveal the drink group field — that's what puts a cocktail, wine, beer or soft drink in the right place in the guest app.
       Picking "Wine" as the drink group reveals Wine type (Sparkling/White/Rosé/Red), used to group the wine list for guests.
       Use Variants for things guests choose a size for — e.g. <code>Half:3.25, Pint:6.50</code> or <code>Small:5, Medium:7, Large:9, Bottle:22</code> — leave it blank for a single-price item.
       Tick "Cooking pref?" for steaks — guests are asked rare/medium rare/medium/medium well/well done and then offered a sauce upsell (any other item in the same section becomes the sauce list).
+      "Kitchen printer" decides which of the three kitchen station printers gets this item (a master copy always prints separately, regardless of this setting) — food items only, hidden for Drinks.
       New items are available to both Room service and Outside by default — untick either in the table below if an item shouldn't appear on that channel.</p>
     <div class="tablewrap"><table class="menu-tbl" id="rsMenuTbl">
       <thead><tr>
         <th class="l">Name</th><th class="l">Description</th><th class="l">Section</th><th class="l">Drink group</th><th class="l">Wine type</th>
-        <th>Price £</th><th class="l">Variants</th><th>Cooking?</th><th>Room svc</th><th>Outside</th><th></th>
+        <th>Price £</th><th class="l">Variants</th><th>Cooking?</th><th class="l">Kitchen printer</th><th>Room svc</th><th>Outside</th><th></th>
       </tr></thead>
       <tbody id="rsMenuBody"></tbody>
     </table></div>
@@ -1277,9 +1281,15 @@ const RS_WINE_TYPE_LABEL = { Sparkling:"Sparkling", White:"White", Rose:"Rosé",
 function rsWineTypeOptions(selected){
   return RS_WINE_TYPES.map(t=>`<option value="${esc(t)}"${t===selected?" selected":""}>${esc(RS_WINE_TYPE_LABEL[t])}</option>`).join("");
 }
+const RS_KITCHEN_STATIONS = ["starters","mains","desserts"];
+const RS_KITCHEN_STATION_LABEL = { starters:"Starters (printer 2)", mains:"Mains (printer 3)", desserts:"Desserts (printer 4)" };
+function rsKitchenStationOptions(selected){
+  return RS_KITCHEN_STATIONS.map(s=>`<option value="${esc(s)}"${s===(selected||"mains")?" selected":""}>${esc(RS_KITCHEN_STATION_LABEL[s])}</option>`).join("");
+}
 function rsToggleDrinkGroupWrap(){
   const isDrink = document.getElementById("rsSection").value === "Drinks";
   document.getElementById("rsDrinkGroupWrap").style.display = isDrink ? "" : "none";
+  document.getElementById("rsKitchenStationWrap").style.display = isDrink ? "none" : "";
   rsToggleWineTypeWrap();
 }
 function rsToggleWineTypeWrap(){
@@ -1288,7 +1298,9 @@ function rsToggleWineTypeWrap(){
 }
 function rsRowToggleDrinkGroup(sel){
   const tr = sel.closest("tr");
-  tr.querySelector('[data-f="drink_group"]').style.display = sel.value==="Drinks" ? "" : "none";
+  const isDrink = sel.value==="Drinks";
+  tr.querySelector('[data-f="drink_group"]').style.display = isDrink ? "" : "none";
+  tr.querySelector('[data-f="kitchen_station"]').style.display = isDrink ? "none" : "";
   rsRowToggleWineType(tr.querySelector('[data-f="drink_group"]'));
 }
 function rsRowToggleWineType(sel){
@@ -1319,8 +1331,9 @@ function renderRsMenu(){
   document.getElementById("rsSection").innerHTML = rsSectionOptions("Main Courses");
   document.getElementById("rsDrinkGroup").innerHTML = rsDrinkGroupOptions();
   document.getElementById("rsWineType").innerHTML = rsWineTypeOptions();
+  document.getElementById("rsKitchenStation").innerHTML = rsKitchenStationOptions();
   const rows=(ST.rsMenu||[]).slice().sort((a,b)=>(a.sort_order||0)-(b.sort_order||0)||String(a.name).localeCompare(String(b.name)));
-  b.innerHTML = rows.length ? "" : '<tr><td colspan="11" class="muted">No menu items yet — add one above.</td></tr>';
+  b.innerHTML = rows.length ? "" : '<tr><td colspan="12" class="muted">No menu items yet — add one above.</td></tr>';
   for(const m of rows){
     const isDrink = m.menu_section==="Drinks";
     const isWine = isDrink && m.drink_group==="Wine";
@@ -1334,6 +1347,7 @@ function renderRsMenu(){
       <td><input type="number" step="0.01" min="0" data-f="price" value="${m.price!=null?(+m.price):0}"></td>
       <td class="l"><input type="text" data-f="variants" value="${esc(rsVariantsToText(m.variants))}" placeholder="e.g. Half:3.25, Pint:6.50" style="min-width:180px"></td>
       <td><input type="checkbox" data-f="needs_cooking_pref" ${m.needs_cooking_pref?"checked":""}></td>
+      <td class="l"><select data-f="kitchen_station" style="${isDrink?"display:none":""}">${rsKitchenStationOptions(m.kitchen_station)}</select></td>
       <td><input class="rs-avail" type="checkbox" data-f="available" ${m.available!==false?"checked":""}></td>
       <td><input class="rs-avail" type="checkbox" data-f="available_outside" ${m.available_outside!==false?"checked":""}></td>
       <td class="act">
@@ -1358,6 +1372,7 @@ function rsRowBody(get, getChecked){
     price: Number(get("price"))||0,
     variants: rsParseVariants(get("variants")),
     needs_cooking_pref: getChecked("needs_cooking_pref"),
+    kitchen_station: isDrink ? null : (get("kitchen_station") || "mains"),
     available: getChecked("available"),
     available_outside: getChecked("available_outside")
   };
@@ -1388,6 +1403,7 @@ async function rsMenuAdd(){
     category: isDrink ? "drink" : "food",
     price:Number(g("rsPrice"))||0, variants: rsParseVariants(g("rsVariants")),
     needs_cooking_pref: document.getElementById("rsCookingPref").checked,
+    kitchen_station: isDrink ? null : (g("rsKitchenStation") || "mains"),
     available:true, available_outside:true, sort_order:maxSort+1
   };
   try{

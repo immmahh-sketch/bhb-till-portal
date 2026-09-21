@@ -607,6 +607,7 @@ function addToCart(item, variant){
       itemId: item.id,
       name: variant ? item.name + " (" + variant.label + ")" : item.name,
       category: item.category,
+      station: item.kitchen_station || null,
       unitPrice: variant ? variant.price : item.price,
       qty: 1,
       variant: variant ? variant.label : null
@@ -712,7 +713,7 @@ $("payBtn").onclick = async function(){
   var btn = $("payBtn"); btn.disabled = true; var oldHtml = btn.innerHTML; btn.textContent = "Please wait…";
   try{
     var lines = cartLines().map(function(l){ return {
-      item_id: l.itemId, variant: l.variant, name: l.name, category: l.category, qty: l.qty, unit_price: l.unitPrice
+      item_id: l.itemId, variant: l.variant, name: l.name, category: l.category, station: l.station || null, qty: l.qty, unit_price: l.unitPrice
     }; });
     var itemsTotal = cartTotal();
     var charge = extraCharge(itemsTotal);
