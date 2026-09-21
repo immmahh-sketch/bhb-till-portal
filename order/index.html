@@ -189,7 +189,6 @@
   <div id="stSpin" class="spinner"></div>
   <div class="big" id="stBig">Confirming your payment…</div>
   <div class="msg" id="stMsg">This only takes a few seconds — please don't close this page.</div>
-  <button class="back" id="receiptBtn" style="display:none" onclick="openReceiptModal()">Need a receipt?</button>
   <button class="back hidden" id="stBack" style="display:none" onclick="restart()">Back to menu</button>
 </section>
 
@@ -279,13 +278,13 @@
     </div>
     <div id="receiptEmailStep" style="display:none">
       <div class="fld" style="margin-top:0"><label>Email address</label><input id="receiptEmailInput" type="email" placeholder="you@example.com" autocomplete="email"></div>
+      <label style="display:flex;align-items:flex-start;gap:8px;font-size:12.5px;color:var(--muted);margin:12px 0 4px;cursor:pointer">
+        <input type="checkbox" id="receiptMarketingOptin" style="margin-top:2px">
+        <span>Sign me up for special offers, discount codes and updates from the venue</span>
+      </label>
       <div class="err" id="receiptErr"></div>
       <button id="receiptSendBtn" onclick="submitReceiptEmail()" style="width:100%;background:var(--ink);color:#fff;border:0;padding:13px;border-radius:2px;font-weight:600;letter-spacing:.5px;font-size:14px;margin:10px 0 8px;font-family:inherit">Send receipt</button>
-      <button onclick="closeReceiptModal()" style="background:none;border:0;color:var(--muted);font-size:13px;text-decoration:underline;width:100%;padding:6px;font-family:inherit">Cancel</button>
-    </div>
-    <div id="receiptDoneStep" style="display:none">
-      <p id="receiptDoneMsg" style="font-size:15px;line-height:1.5;color:var(--ink);margin:4px 0 18px"></p>
-      <button onclick="closeReceiptModal()" style="width:100%;background:var(--ink);color:#fff;border:0;padding:13px;border-radius:2px;font-weight:600;letter-spacing:.5px;font-size:14px;font-family:inherit">Close</button>
+      <button onclick="backToReceiptChoices()" style="background:none;border:0;color:var(--muted);font-size:13px;text-decoration:underline;width:100%;padding:6px;font-family:inherit">Back</button>
     </div>
   </div>
 </div>
@@ -734,10 +733,9 @@ $("payBtn").onclick = async function(){
         body: JSON.stringify([noPayBody])
       });
       var np = noPayOrder[0];
-      await queueDirectPrintJobs(np);
       S.cart = {}; saveCart();
       btn.disabled = false; btn.innerHTML = oldHtml;
-      if(S.testMode) showTestThankYou(np); else showCompThankYou(np);
+      beginReceiptFlow(np, S.testMode ? "test" : "comp");
       return;
     }
 
@@ -787,6 +785,13 @@ $("testPassInput").addEventListener("keydown", function(e){ if(e.key==="Enter") 
 async function queueDirectPrintJobs(order){
   var lines = order.lines || [];
   if(!lines.length) return;
+  // Idempotency guard: the abandoned-order safety net (check-print-jobs,
+  // server-side) may have already queued this order's tickets if the guest
+  // took long enough choosing that it looked abandoned - never double-print.
+  try{
+    var existing = await sb("print_jobs?order_id=eq."+order.id+"&select=id&limit=1");
+    if(existing && existing.length) return;
+  }catch(e){ /* if this check fails, fall through and queue anyway */ }
   var payload = {
     order_no: order.order_no, guest_name: order.guest_name, room_number: order.room_number, channel: order.channel,
     notes: order.notes, allergy_notes: order.allergy_notes, subtotal: order.subtotal, tray_charge: order.tray_charge,
@@ -798,33 +803,46 @@ async function queueDirectPrintJobs(order){
   ];
   await sb("print_jobs", { method:"POST", headers:{Prefer:"return=minimal"}, body: JSON.stringify(jobs) });
 }
-function showCompThankYou(o){
+
+/* ---------------- need a receipt? (asked BEFORE the order reaches the kitchen) ---------------- */
+function beginReceiptFlow(order, kind){
+  S.lastOrder = order;
+  S.lastOrderKind = kind; // "test" | "comp" | "real"
   show("status");
   $("stSpin").style.display = "none";
-  $("stBack").style.display = "";
-  $("stBig").classList.add("script");
-  $("stBig").textContent = "Thank you, " + (o.guest_name||"") + "!";
-  $("stMsg").textContent = "Order #" + o.order_no + " has been sent to the kitchen.";
-  $("receiptBtn").style.display = "";
-  S.lastOrderId = o.id;
+  $("stBack").style.display = "none";
+  $("stBig").classList.remove("script");
+  $("stBig").textContent = "";
+  $("stMsg").textContent = "";
+  openReceiptModal();
 }
-function showTestThankYou(o){
-  show("status");
-  $("stSpin").style.display = "none";
-  $("stBack").style.display = "";
+async function finishReceiptChoice(choice, email){
+  closeReceiptModal();
+  try{ await queueDirectPrintJobs(S.lastOrder); }catch(e){ console.error("queue print jobs failed", e); }
+  var o = S.lastOrder;
   $("stBig").classList.add("script");
   $("stBig").textContent = "Thank you, " + (o.guest_name||"") + "!";
-  var loc = (o.channel==="outside" ? "Table " : "Room ") + o.room_number;
-  $("stMsg").textContent = "TEST order #" + o.order_no + " for " + loc + " has been sent to the virtual printers. No payment was taken.";
-  $("receiptBtn").style.display = "";
-  S.lastOrderId = o.id;
+  var msg;
+  if(S.lastOrderKind === "test"){
+    var loc = (o.channel==="outside" ? "Table " : "Room ") + o.room_number;
+    msg = "TEST order #" + o.order_no + " for " + loc + " has been sent to the virtual printers. No payment was taken.";
+  } else if(S.lastOrderKind === "comp"){
+    msg = "Order #" + o.order_no + " has been sent to the kitchen.";
+  } else {
+    var loc2 = (o.channel==="outside" ? "Table " : "Room ") + o.room_number;
+    msg = "Order #" + o.order_no + " for " + loc2 + " is on its way. It'll be with you shortly.";
+  }
+  if(choice === "email") msg += " A receipt has been sent to " + email + ".";
+  else if(choice === "print") msg += " A receipt will be printed for you at the bar.";
+  $("stMsg").textContent = msg;
+  $("stBack").style.display = "";
 }
 
 /* ---------------- post-payment status ---------------- */
 var _pollTimer = null, _pollTries = 0;
 function pollOrder(orderId){
   show("status");
-  $("stSpin").style.display=""; $("stBack").style.display="none"; $("receiptBtn").style.display="none";
+  $("stSpin").style.display=""; $("stBack").style.display="none";
   $("stBig").classList.remove("script");
   $("stBig").textContent = "Confirming your payment…";
   $("stMsg").textContent = "This only takes a few seconds — please don't close this page.";
@@ -832,18 +850,11 @@ function pollOrder(orderId){
   _pollTimer = setInterval(async function(){
     _pollTries++;
     try{
-      var rows = await sb("roomservice_orders?id=eq."+orderId+"&select=status,order_no,guest_name,room_number,channel");
+      var rows = await sb("roomservice_orders?id=eq."+orderId+"&select=*");
       var o = rows && rows[0];
       if(o && o.status === "paid"){
         clearInterval(_pollTimer);
-        $("stSpin").style.display="none";
-        $("stBig").classList.add("script");
-        $("stBig").textContent = "Thank you, " + (o.guest_name||"") + "!";
-        var loc = (o.channel==="outside" ? "Table " : "Room ") + o.room_number;
-        $("stMsg").textContent = "Order #" + o.order_no + " for " + loc + " is on its way. It'll be with you shortly.";
-        $("receiptBtn").style.display="";
-        S.lastOrderId = orderId;
-        $("stBack").style.display="";
+        beginReceiptFlow(o, "real");
       } else if(o && (o.status === "failed" || o.status === "cancelled")){
         clearInterval(_pollTimer);
         $("stSpin").style.display="none";
@@ -862,29 +873,26 @@ function pollOrder(orderId){
 }
 function restart(){
   S.cart = {};
-  S.lastOrderId = null;
-  $("receiptBtn").style.display = "none";
+  S.lastOrder = null;
+  S.lastOrderKind = null;
   try{ history.replaceState(null, "", location.pathname); }catch(e){}
   $("gNotes").value = ""; $("gAllergy").value = "";
   renderBasketBar();
   show("categories");
 }
 
-/* ---------------- need a receipt? ---------------- */
 function openReceiptModal(){
   $("receiptChoiceButtons").style.display = "";
   $("receiptEmailStep").style.display = "none";
-  $("receiptDoneStep").style.display = "none";
   $("receiptEmailInput").value = "";
+  $("receiptMarketingOptin").checked = false;
   $("receiptErr").textContent = "";
   $("receiptModal").style.display = "flex";
 }
 function closeReceiptModal(){ $("receiptModal").style.display = "none"; }
-function showReceiptDone(msg){
-  $("receiptChoiceButtons").style.display = "none";
+function backToReceiptChoices(){
   $("receiptEmailStep").style.display = "none";
-  $("receiptDoneMsg").textContent = msg;
-  $("receiptDoneStep").style.display = "";
+  $("receiptChoiceButtons").style.display = "";
 }
 async function chooseReceiptOption(choice){
   if(choice === "email"){
@@ -896,13 +904,9 @@ async function chooseReceiptOption(choice){
   try{
     var body = { receipt_choice: choice };
     if(choice === "print") body.receipt_requested_at = new Date().toISOString();
-    await sb("roomservice_orders?id=eq."+S.lastOrderId, { method:"PATCH", body: JSON.stringify(body) });
-    showReceiptDone(choice === "print"
-      ? "No problem — we'll have a receipt printed for you at the bar."
-      : "No problem, thanks!");
-  }catch(e){
-    showReceiptDone("Something went wrong — please ask a member of staff for a receipt.");
-  }
+    await sb("roomservice_orders?id=eq."+S.lastOrder.id, { method:"PATCH", body: JSON.stringify(body) });
+  }catch(e){ /* non-fatal - the order still needs to reach the kitchen either way */ }
+  await finishReceiptChoice(choice);
 }
 async function submitReceiptEmail(){
   var email = $("receiptEmailInput").value.trim();
@@ -913,11 +917,11 @@ async function submitReceiptEmail(){
     var res = await fetch(CFG.SUPABASE_URL + "/functions/v1/send-room-service-receipt", {
       method: "POST",
       headers: { "Content-Type":"application/json", Authorization:"Bearer "+CFG.SUPABASE_KEY, apikey: CFG.SUPABASE_KEY },
-      body: JSON.stringify({ order_id: S.lastOrderId, email: email })
+      body: JSON.stringify({ order_id: S.lastOrder.id, email: email, marketing_optin: $("receiptMarketingOptin").checked })
     });
     var data = await res.json().catch(function(){ return {}; });
     if(!res.ok) throw new Error(data.error || ("HTTP " + res.status));
-    showReceiptDone("Sent! Please check " + email + " for your receipt.");
+    await finishReceiptChoice("email", email);
   }catch(e){
     btn.disabled = false; btn.textContent = oldTxt;
     $("receiptErr").textContent = "Couldn't send the receipt — please ask a member of staff.";
