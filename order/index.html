@@ -560,12 +560,16 @@ function openWineType(t){
 function buildItemEl(m){
   var hasVariants = Array.isArray(m.variants) && m.variants.length>0;
   var hasCombo = Array.isArray(m.combo_groups) && m.combo_groups.length>0;
+  // Descriptions are guest-facing selling copy (service times, "includes 2
+  // sides and a sauce" pricing notes, etc) - none of it is relevant to Bob
+  // placing a kitchen-only comp order, so it's left off entirely for him.
+  var dsc = (m.description && !S.isComp) ? '<div class="dsc">'+esc(m.description)+'</div>' : '';
   var el = document.createElement("div"); el.className="item";
   if(hasCombo){
     var qtyForCombo = cartLines().filter(function(l){ return l.itemId===m.id; }).reduce(function(s,l){ return s+l.qty; }, 0);
     el.innerHTML =
       '<div class="info"><div class="nm">'+esc(m.name)+'</div>'+
-      (m.description ? '<div class="dsc">'+esc(m.description)+'</div>' : '')+
+      dsc+
       (S.isComp ? '' : '<div class="pr">£'+money(m.price)+'</div>')+
       (qtyForCombo>0 ? '<div class="picked">'+qtyForCombo+' in your order</div>' : '')+
       '</div>'+
@@ -576,7 +580,7 @@ function buildItemEl(m){
     var minPrice = Math.min.apply(null, m.variants.map(function(v){ return v.price; }));
     el.innerHTML =
       '<div class="info"><div class="nm">'+esc(m.name)+'</div>'+
-      (m.description ? '<div class="dsc">'+esc(m.description)+'</div>' : '')+
+      dsc+
       (S.isComp ? '' : '<div class="pr">From £'+money(minPrice)+'</div>')+
       (qtyForItem>0 ? '<div class="picked">'+qtyForItem+' in your order</div>' : '')+
       '</div>'+
@@ -586,7 +590,7 @@ function buildItemEl(m){
     var qtyForSteak = cartLines().filter(function(l){ return l.itemId===m.id; }).reduce(function(s,l){ return s+l.qty; }, 0);
     el.innerHTML =
       '<div class="info"><div class="nm">'+esc(m.name)+'</div>'+
-      (m.description ? '<div class="dsc">'+esc(m.description)+'</div>' : '')+
+      dsc+
       (S.isComp ? '' : '<div class="pr">£'+money(m.price)+'</div>')+
       (qtyForSteak>0 ? '<div class="picked">'+qtyForSteak+' in your order</div>' : '')+
       '</div>'+
@@ -596,7 +600,7 @@ function buildItemEl(m){
     var row = S.cart[m.id];
     el.innerHTML =
       '<div class="info"><div class="nm">'+esc(m.name)+'</div>'+
-      (m.description ? '<div class="dsc">'+esc(m.description)+'</div>' : '')+
+      dsc+
       (S.isComp ? '' : '<div class="pr">£'+money(m.price)+'</div>')+'</div>'+
       '<div class="stepper">'+
         (row&&row.qty>0 ? '<button class="rm">−</button><span class="qty">'+row.qty+'</span>' : '')+
