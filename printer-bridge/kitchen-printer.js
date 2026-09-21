@@ -6,17 +6,18 @@
 // with destination "kitchen" and status "pending", plus (separately) for
 // on-request guest receipts.
 //
-// Four physical printers, one order fans out across up to four of them:
-//   - Kitchen Printer 1 (192.168.100.10) is the hub: always gets the master
-//     food check (every food item, no price - the Head Chef/pass copy) AND
-//     the full "ROOM SERVICE" check (everything, prices, logo, guest
-//     sign-off for room service orders - see ticket.js "staff-copy"). It
-//     also prints the guest receipt whenever one's requested (guest app's
-//     "Need a receipt?" prompt, or the portal's reprint/email buttons).
-//   - Kitchen Printers 2/3/4 (192.168.100.11/.12/.20) each get only the food
-//     lines tagged for their station (roomservice_menu_items.kitchen_station,
-//     set per item in the portal's menu editor) - skipped entirely if the
-//     order has nothing for that station, to avoid printing a blank ticket.
+// Per the Head Chef: every kitchen printer gets an identical copy of the
+// full food check (every food item, no drinks/price/logo) - no splitting by
+// starter/main/dessert. The one exception is Kitchen Printer 4, which only
+// prints if the order actually has a dessert on it (checked via
+// roomservice_menu_items.kitchen_station, set per item in the portal's menu
+// editor - not otherwise used for routing any more).
+//
+// Kitchen Printer 1 additionally acts as the hub for two more things:
+//   - the full "ROOM SERVICE" check (everything, prices, logo, guest
+//     sign-off for room service orders - see ticket.js "staff-copy")
+//   - guest receipts, whenever one's requested (guest app's "Need a
+//     receipt?" prompt, or the portal's reprint/email buttons)
 //
 // Each job/order is atomically claimed (pending -> printing, or a
 // timestamp comparison for receipts) before it's actually printed, and a
@@ -35,12 +36,12 @@ const SUPABASE_KEY = "sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU";
 const PRINTER_PORT = 9100;
 const POLL_MS = 4000;
 
-const PRINTER1_IP = "192.168.100.10"; // master food check + full ROOM SERVICE check + guest receipts
-const STATIONS = [
-  { key: "starters", ip: "192.168.100.11", kind: "kitchen-starters" },
-  { key: "mains", ip: "192.168.100.12", kind: "kitchen-mains" },
-  { key: "desserts", ip: "192.168.100.20", kind: "kitchen-desserts" },
-];
+const PRINTER1_IP = "192.168.100.10"; // full food check + full ROOM SERVICE check + guest receipts
+const PRINTER2_IP = "192.168.100.11"; // full food check
+const PRINTER3_IP = "192.168.100.12"; // full food check
+const PRINTER4_IP = "192.168.100.20"; // full food check, only when the order has a dessert
+
+const FOOD_PRINTERS = [PRINTER1_IP, PRINTER2_IP, PRINTER3_IP]; // always get the identical full food check
 
 async function rest(path, init = {}) {
   const r = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
@@ -77,8 +78,8 @@ function orderAsJob(order) {
 function hasFood(payload) {
   return (payload.lines || []).some((l) => l.category === "food");
 }
-function stationHasLines(payload, station) {
-  return (payload.lines || []).some((l) => l.category === "food" && (l.station || "mains") === station.key);
+function hasDessert(payload) {
+  return (payload.lines || []).some((l) => l.category === "food" && l.station === "desserts");
 }
 
 async function printAutoTickets() {
@@ -99,19 +100,21 @@ async function printAutoTickets() {
       const payload = job.payload || {};
 
       if (hasFood(payload)) {
-        await printToDevice(buildTicket(job, { kind: "kitchen" }), PRINTER1_IP, PRINTER_PORT);
-        printed.push("master");
+        const foodTicket = buildTicket(job, { kind: "kitchen" });
+        for (const ip of FOOD_PRINTERS) {
+          await printToDevice(foodTicket, ip, PRINTER_PORT);
+        }
+        printed.push(`food check x${FOOD_PRINTERS.length}`);
+        if (hasDessert(payload)) {
+          await printToDevice(foodTicket, PRINTER4_IP, PRINTER_PORT);
+          printed.push("desserts");
+        }
       }
+
       // Full ROOM SERVICE / FOH check always prints - it covers drinks and
       // pricing too, so it's needed even for a drinks-only order.
       await printToDevice(buildTicket(job, { kind: "staff-copy" }), PRINTER1_IP, PRINTER_PORT);
       printed.push("staff-copy");
-
-      for (const station of STATIONS) {
-        if (!stationHasLines(payload, station)) continue;
-        await printToDevice(buildTicket(job, { kind: station.kind }), station.ip, PRINTER_PORT);
-        printed.push(station.key);
-      }
 
       await rest(`print_jobs?id=eq.${job.id}`, {
         method: "PATCH",
@@ -170,7 +173,7 @@ async function pollOnce() {
   }
 }
 
-console.log(`Kitchen printer bridge running — polling every ${POLL_MS / 1000}s, printer1=${PRINTER1_IP} (master+staff-copy+receipts), ${STATIONS.map((s) => `${s.key}=${s.ip}`).join(", ")}`);
+console.log(`Kitchen printer bridge running — polling every ${POLL_MS / 1000}s, printers: ${FOOD_PRINTERS.join(", ")} (full food check), ${PRINTER4_IP} (desserts only), printer1 also gets staff-copy + receipts`);
 pollOnce().catch((e) => console.error("poll error:", e.message));
 setInterval(() => {
   pollOnce().catch((e) => console.error("poll error:", e.message));

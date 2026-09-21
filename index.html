@@ -374,7 +374,7 @@
       <div><label>Price £</label><input id="rsPrice" type="number" step="0.01" min="0" style="width:90px"></div>
       <div><label>Variants (optional)</label><input id="rsVariants" type="text" placeholder="e.g. Half:3.25, Pint:6.50" style="min-width:220px"></div>
       <div><label>Cooking pref?</label><input id="rsCookingPref" type="checkbox" style="width:20px;height:20px"></div>
-      <div id="rsKitchenStationWrap"><label>Kitchen printer</label>
+      <div id="rsKitchenStationWrap"><label>Course</label>
         <select id="rsKitchenStation"></select>
       </div>
       <button class="primary" onclick="rsMenuAdd()">Add item</button>
@@ -383,12 +383,12 @@
       Picking "Wine" as the drink group reveals Wine type (Sparkling/White/Rosé/Red), used to group the wine list for guests.
       Use Variants for things guests choose a size for — e.g. <code>Half:3.25, Pint:6.50</code> or <code>Small:5, Medium:7, Large:9, Bottle:22</code> — leave it blank for a single-price item.
       Tick "Cooking pref?" for steaks — guests are asked rare/medium rare/medium/medium well/well done and then offered a sauce upsell (any other item in the same section becomes the sauce list).
-      "Kitchen printer" decides which of the three kitchen station printers gets this item (a master copy always prints separately, regardless of this setting) — food items only, hidden for Drinks.
+      "Course" only affects Desserts right now — every kitchen printer gets a full copy of the food check, except the desserts printer, which only fires when the order actually has a dessert on it — food items only, hidden for Drinks.
       New items are available to both Room service and Outside by default — untick either in the table below if an item shouldn't appear on that channel.</p>
     <div class="tablewrap"><table class="menu-tbl" id="rsMenuTbl">
       <thead><tr>
         <th class="l">Name</th><th class="l">Description</th><th class="l">Section</th><th class="l">Drink group</th><th class="l">Wine type</th>
-        <th>Price £</th><th class="l">Variants</th><th>Cooking?</th><th class="l">Kitchen printer</th><th>Room svc</th><th>Outside</th><th></th>
+        <th>Price £</th><th class="l">Variants</th><th>Cooking?</th><th class="l">Course</th><th>Room svc</th><th>Outside</th><th></th>
       </tr></thead>
       <tbody id="rsMenuBody"></tbody>
     </table></div>
@@ -1294,7 +1294,7 @@ function rsWineTypeOptions(selected){
   return RS_WINE_TYPES.map(t=>`<option value="${esc(t)}"${t===selected?" selected":""}>${esc(RS_WINE_TYPE_LABEL[t])}</option>`).join("");
 }
 const RS_KITCHEN_STATIONS = ["starters","mains","desserts"];
-const RS_KITCHEN_STATION_LABEL = { starters:"Starters (printer 2)", mains:"Mains (printer 3)", desserts:"Desserts (printer 4)" };
+const RS_KITCHEN_STATION_LABEL = { starters:"Starter", mains:"Main", desserts:"Dessert" };
 function rsKitchenStationOptions(selected){
   return RS_KITCHEN_STATIONS.map(s=>`<option value="${esc(s)}"${s===(selected||"mains")?" selected":""}>${esc(RS_KITCHEN_STATION_LABEL[s])}</option>`).join("");
 }
