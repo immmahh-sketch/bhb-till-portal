@@ -60,7 +60,11 @@ const KIND = {
 // default USA code table. ESC R 3 (UK international char set, set in
 // buildTicket) remaps '#' (0x23) to £ instead, so amounts use '#' here and
 // the printer does the substitution.
-function money(n) { return "#" + (Math.round((n + Number.EPSILON) * 100) / 100).toFixed(2); }
+function money(n) {
+  const neg = n < 0;
+  const abs = (Math.round((Math.abs(n) + Number.EPSILON) * 100) / 100).toFixed(2);
+  return (neg ? "-" : "") + "#" + abs;
+}
 function escBytes(bytes) { return Buffer.from(bytes); }
 function rule() { return "-".repeat(LINE_WIDTH) + "\n"; }
 function dottedLine(label) {
@@ -175,8 +179,12 @@ function buildTicket(job, opts = {}) {
   if (cfg.prices) {
     const total = Number(p.subtotal) || 0;
     const charge = Number(p.tray_charge) || 0;
+    const discountAmt = Number(p.discount_amount) || 0;
     push(rule());
     push(priceRow(isOutside ? "Service charge (10%)" : "Tray charge", charge));
+    if (discountAmt > 0) {
+      push(priceRow(p.discount_label || "Discount", -discountAmt));
+    }
     if (cfg.vat) {
       const net = total / (1 + VAT_RATE);
       const vat = total - net;

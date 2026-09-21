@@ -168,8 +168,21 @@
   </div>
   <div class="scroll">
     <div id="lines"></div>
+    <div class="fld" id="discountFld">
+      <label>Discount code (optional)</label>
+      <div id="discountEntryRow" style="display:flex;gap:8px">
+        <input id="discountInput" placeholder="e.g. SAVE10" autocomplete="off" style="text-transform:uppercase;flex:1">
+        <button id="discountApplyBtn" onclick="applyDiscountCode()" style="flex:0 0 auto;background:var(--ink);color:#fff;border:0;padding:0 18px;border-radius:2px;font-weight:600;letter-spacing:.5px;font-size:13px;font-family:inherit">Apply</button>
+      </div>
+      <div class="err" id="discountErr"></div>
+      <div id="discountAppliedRow" style="display:none;margin-top:8px;padding:10px 12px;background:#f4f4f2;border-radius:2px;font-size:13.5px;align-items:center;justify-content:space-between">
+        <span id="discountAppliedLabel"></span>
+        <button onclick="removeDiscountCode()" style="background:none;border:0;color:var(--muted);font-size:12px;text-decoration:underline;font-family:inherit">Remove</button>
+      </div>
+    </div>
     <div class="subtotrow minor"><span>Items</span><span>£<span id="itemsSubtotal">0.00</span></span></div>
     <div class="subtotrow minor"><span id="chargeLabel">Tray charge</span><span>£<span id="trayCharge">0.00</span></span></div>
+    <div class="subtotrow minor" id="discountTotalRow" style="display:none"><span id="discountTotalLabel">Discount</span><span>-£<span id="discountTotalAmt">0.00</span></span></div>
     <div class="subtotrow total"><span>Total</span><span>£<span id="subtotal">0.00</span></span></div>
     <div class="fld" id="nameFld"><label id="nameLbl">Name the room is booked under</label><input id="gName" placeholder="e.g. Sarah Jones" autocomplete="name"></div>
     <div class="fld" id="roomFld"><label id="roomLbl">Room number</label><input id="gRoom" placeholder="e.g. 12" inputmode="numeric" autocomplete="off"></div>
@@ -299,7 +312,7 @@ var SECTIONS = ["Small Plates & Starters","Main Courses","From the Grill","Sides
 var DRINK_GROUPS = ["Hot beverages","Soft drinks","Wine","Bottles and Draft","Spirits and cocktails"];
 var TRAY_CHARGE = 5.00;
 var SERVICE_CHARGE_PCT = 0.10;
-var S = { menu: [], cart: {}, currentSection: null, currentDrinkGroup: null, currentWineType: null, testMode: false, isComp: false, channel: "room_service", lockedRoom: null, lastOrderId: null /* itemId -> {item, qty} */ };
+var S = { menu: [], cart: {}, currentSection: null, currentDrinkGroup: null, currentWineType: null, testMode: false, isComp: false, channel: "room_service", lockedRoom: null, lastOrder: null, lastOrderKind: null, discount: null /* itemId -> {item, qty} */ };
 var TEST_PASSWORD = "Test01207";
 function isOutside(){ return S.channel === "outside"; }
 function extraCharge(itemsTotal){
@@ -689,12 +702,57 @@ function renderBasket(){
   });
   var itemsTotal = cartTotal();
   var charge = lines.length ? extraCharge(itemsTotal) : 0;
-  var grandTotal = itemsTotal + charge;
+  var discountAmt = S.discount ? Math.min(S.discount.amount, itemsTotal + charge) : 0;
+  var grandTotal = Math.max(0, itemsTotal + charge - discountAmt);
   $("itemsSubtotal").textContent = money(itemsTotal);
   $("trayCharge").textContent = money(charge);
+  if(S.discount){
+    $("discountEntryRow").style.display = "none";
+    $("discountAppliedRow").style.display = "flex";
+    $("discountAppliedLabel").textContent = S.discount.label || ("Code " + S.discount.code);
+    $("discountTotalRow").style.display = "flex";
+    $("discountTotalLabel").textContent = S.discount.label || "Discount";
+    $("discountTotalAmt").textContent = money(discountAmt);
+  } else {
+    $("discountEntryRow").style.display = "flex";
+    $("discountAppliedRow").style.display = "none";
+    $("discountTotalRow").style.display = "none";
+  }
   $("subtotal").textContent = money(grandTotal);
   $("payTotal").textContent = money(grandTotal);
   $("payBtn").disabled = lines.length===0;
+}
+async function applyDiscountCode(){
+  var code = $("discountInput").value.trim();
+  $("discountErr").textContent = "";
+  if(!code) return;
+  var btn = $("discountApplyBtn"); btn.disabled = true; var oldTxt = btn.textContent; btn.textContent = "Checking…";
+  try{
+    var itemsTotal = cartTotal();
+    var charge = extraCharge(itemsTotal);
+    var lines = cartLines().map(function(l){ return { category: l.category, station: l.station || null, qty: l.qty, unit_price: l.unitPrice }; });
+    var res = await fetch(CFG.SUPABASE_URL + "/functions/v1/apply-discount-code", {
+      method: "POST",
+      headers: { "Content-Type":"application/json", Authorization:"Bearer "+CFG.SUPABASE_KEY, apikey: CFG.SUPABASE_KEY },
+      body: JSON.stringify({ code: code, channel: S.channel, lines: lines, items_total: itemsTotal, charge: charge })
+    });
+    var data = await res.json().catch(function(){ return {}; });
+    if(!data.valid){
+      $("discountErr").textContent = data.error || "That code isn't valid.";
+    } else {
+      S.discount = { code: code.toUpperCase(), type: data.type, percent: data.percent, amount: data.amount, label: data.label };
+      $("discountInput").value = "";
+    }
+  }catch(e){
+    $("discountErr").textContent = "Couldn't check that code — please try again.";
+  }
+  btn.disabled = false; btn.textContent = oldTxt;
+  renderBasket();
+}
+function removeDiscountCode(){
+  S.discount = null;
+  $("discountErr").textContent = "";
+  renderBasket();
 }
 $("gName").addEventListener("input", function(){ try{ sessionStorage.setItem("rs_name", this.value); }catch(e){} });
 $("gRoom").addEventListener("input", function(){ try{ sessionStorage.setItem("rs_room", this.value); }catch(e){} });
@@ -716,15 +774,20 @@ $("payBtn").onclick = async function(){
     }; });
     var itemsTotal = cartTotal();
     var charge = extraCharge(itemsTotal);
-    var subtotal = itemsTotal + charge;
+    var discountAmt = S.discount ? Math.min(S.discount.amount, itemsTotal + charge) : 0;
+    var subtotal = Math.max(0, itemsTotal + charge - discountAmt);
     var notes = $("gNotes").value.trim() || null;
     var allergyNotes = $("gAllergy").value.trim() || null;
+    var discountFields = S.discount ? {
+      discount_code: S.discount.code, discount_type: S.discount.type, discount_percent: S.discount.percent,
+      discount_amount: discountAmt, discount_label: S.discount.label
+    } : {};
 
     if(S.testMode || S.isComp){
-      var noPayBody = {
+      var noPayBody = Object.assign({
         guest_name:name, room_number:room, lines:lines, subtotal:subtotal, tray_charge:charge, channel:S.channel,
         notes:notes, allergy_notes:allergyNotes, status:"paid", paid_at:new Date().toISOString()
-      };
+      }, discountFields);
       if(S.testMode){ noPayBody.sumup_transaction_id = "TEST"; noPayBody.is_test = true; }
       else{ noPayBody.sumup_transaction_id = "COMP"; noPayBody.is_comp = true; }
       var noPayOrder = await sb("roomservice_orders", {
@@ -733,16 +796,20 @@ $("payBtn").onclick = async function(){
         body: JSON.stringify([noPayBody])
       });
       var np = noPayOrder[0];
-      S.cart = {}; saveCart();
+      S.cart = {}; saveCart(); S.discount = null;
       btn.disabled = false; btn.innerHTML = oldHtml;
       beginReceiptFlow(np, S.testMode ? "test" : "comp");
       return;
     }
 
+    // subtotal/tray_charge/discount here are just for display on the
+    // pending_payment row - sumup-create-checkout recomputes everything
+    // server-side (including re-validating the discount code) as the
+    // authoritative amount actually charged.
     var order = await sb("roomservice_orders", {
       method: "POST",
       headers: { Prefer: "return=representation" },
-      body: JSON.stringify([{ guest_name:name, room_number:room, lines:lines, subtotal:subtotal, tray_charge:charge, channel:S.channel, notes:notes, allergy_notes:allergyNotes, status:"pending_payment" }])
+      body: JSON.stringify([Object.assign({ guest_name:name, room_number:room, lines:lines, subtotal:subtotal, tray_charge:charge, channel:S.channel, notes:notes, allergy_notes:allergyNotes, status:"pending_payment" }, discountFields)])
     });
     var orderId = order[0].id;
     try{ localStorage.setItem("rs_last_order", orderId); }catch(e){}
@@ -753,10 +820,15 @@ $("payBtn").onclick = async function(){
       body: JSON.stringify({ order_id: orderId, redirect_url: location.origin + location.pathname + "?order=" + orderId })
     });
     var data = await res.json().catch(function(){ return {}; });
-    if(!res.ok || !data.hosted_checkout_url){
-      throw new Error(data.error || ("Payment setup failed (" + res.status + ")"));
+    if(!res.ok){ throw new Error(data.error || ("Payment setup failed (" + res.status + ")")); }
+    S.cart = {}; saveCart(); S.discount = null;
+    if(data.free){
+      // A 100%-off code brought the total to £0 - already marked paid
+      // server-side, no card checkout needed.
+      pollOrder(orderId);
+      return;
     }
-    S.cart = {}; saveCart();
+    if(!data.hosted_checkout_url){ throw new Error(data.error || "Payment setup failed"); }
     location.href = data.hosted_checkout_url;
   }catch(e){
     $("basketErr").textContent = "Couldn't start payment: " + e.message;
@@ -795,6 +867,7 @@ async function queueDirectPrintJobs(order){
   var payload = {
     order_no: order.order_no, guest_name: order.guest_name, room_number: order.room_number, channel: order.channel,
     notes: order.notes, allergy_notes: order.allergy_notes, subtotal: order.subtotal, tray_charge: order.tray_charge,
+    discount_amount: order.discount_amount || null, discount_label: order.discount_label || null,
     lines: lines
   };
   var jobs = [
@@ -875,6 +948,7 @@ function restart(){
   S.cart = {};
   S.lastOrder = null;
   S.lastOrderKind = null;
+  S.discount = null;
   try{ history.replaceState(null, "", location.pathname); }catch(e){}
   $("gNotes").value = ""; $("gAllergy").value = "";
   renderBasketBar();

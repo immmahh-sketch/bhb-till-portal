@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Black Horse Beamish — Discount Codes</title>
+<style>
+  :root{
+    --ink:#1a1a1a; --cream:#f6f0e4; --paper:#fcfaf4; --brass:#9c7a3c;
+    --claret:#7a2e2e; --line:rgba(26,26,26,.14);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Georgia,"Times New Roman",serif;background:var(--cream);color:var(--ink)}
+  h1,h2,h3{font-weight:700;margin:0}
+  .wrap{max-width:1100px;margin:0 auto;padding:20px}
+  header{display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between;
+    border-bottom:2px solid var(--ink);padding-bottom:14px}
+  header .title{font-size:22px}
+  header .title small{display:block;font-size:12px;letter-spacing:3px;color:var(--brass);font-weight:700}
+  button{font:inherit;cursor:pointer;border:1.5px solid var(--ink);background:#fff;color:var(--ink);
+    padding:8px 14px;border-radius:8px;font-weight:700}
+  button.primary{background:var(--ink);color:#fff}
+  button.del{border-color:var(--claret);color:var(--claret)}
+  button:disabled{opacity:.5;cursor:default}
+  .muted{color:#0009;font-size:12px}
+  .hidden{display:none!important}
+
+  table{width:100%;border-collapse:collapse;background:var(--paper);border:1px solid var(--line);
+    border-radius:12px;overflow:hidden;margin-top:16px}
+  th,td{padding:8px 12px;text-align:left;font-size:13px}
+  th{background:#efe9db;font-weight:800}
+  tbody tr{border-top:1px solid var(--line)}
+  .tablewrap{overflow-x:auto}
+  code.codeval{font-family:Consolas,Menlo,monospace;font-weight:700;letter-spacing:.5px}
+
+  .add-card{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:16px;
+    display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-top:18px}
+  .add-card label{font-size:11px;color:var(--brass);font-weight:700;text-transform:uppercase;
+    letter-spacing:1px;display:block;margin-bottom:4px}
+  .add-card input,.add-card select{font:inherit;padding:7px 9px;border:1px solid var(--line);
+    border-radius:8px;background:#fff}
+  .add-card input[type=text]{min-width:140px}
+
+  #gate{position:fixed;inset:0;background:var(--cream);display:flex;align-items:center;justify-content:center;z-index:30}
+  #gate .card{background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:32px;max-width:360px;width:90%;text-align:center}
+  #gate input{font:inherit;width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;margin:14px 0}
+  #gate .err{color:var(--claret);font-size:13px;min-height:18px}
+</style>
+</head>
+<body>
+
+<div id="gate">
+  <div class="card">
+    <div style="font-size:13px;letter-spacing:3px;color:var(--brass);font-weight:700">BLACK HORSE BEAMISH</div>
+    <h2 style="margin:8px 0 0">Discount Codes</h2>
+    <input id="pw" type="password" placeholder="Password" autofocus />
+    <div class="err" id="gateErr"></div>
+    <button class="primary" style="width:100%" onclick="tryUnlock()">View</button>
+  </div>
+</div>
+
+<div class="wrap hidden" id="app">
+  <header>
+    <div class="title">Discount Codes <small>BLACK HORSE BEAMISH</small></div>
+    <div class="muted">Codes apply automatically at checkout in the room-service / outside-table ordering app.</div>
+  </header>
+
+  <h2 style="margin-top:24px;font-size:16px">Add a new code</h2>
+  <div class="add-card">
+    <div><label>Code</label>
+      <div style="display:flex;gap:6px">
+        <input id="fCode" type="text" placeholder="e.g. SAVE10" style="text-transform:uppercase">
+        <button onclick="generateCode()" title="Generate an unguessable code">Generate</button>
+      </div>
+    </div>
+    <div><label>Type</label>
+      <select id="fType" onchange="toggleFields()">
+        <option value="percent_off_drinks">% off drinks</option>
+        <option value="percent_off_food">% off food</option>
+        <option value="percent_off_bill">% off full bill</option>
+        <option value="free_service_charge">Free service charge (outside)</option>
+        <option value="free_tray_charge">Free tray charge (room service)</option>
+        <option value="free_dessert_with_main">Free dessert with a main</option>
+        <option value="free_starter_with_main">Free starter with a main</option>
+        <option value="free_kids_ice_cream">Free ice cream with kids main</option>
+      </select>
+    </div>
+    <div id="fPercentWrap"><label>Percent off</label>
+      <select id="fPercent"></select>
+    </div>
+    <div><label>Description (optional)</label><input id="fDesc" type="text" placeholder="e.g. Staff newsletter Sept 2026" style="min-width:220px"></div>
+    <div><label>Expires (optional)</label><input id="fExpires" type="date"></div>
+    <div><label>Max uses (optional)</label><input id="fMaxUses" type="number" min="1" style="width:90px"></div>
+    <button class="primary" onclick="addCode()">Add code</button>
+  </div>
+  <div class="err" id="addErr" style="color:var(--claret);font-size:13px;margin-top:6px"></div>
+
+  <h2 style="margin-top:28px;font-size:16px">Existing codes</h2>
+  <div class="tablewrap"><table id="codesTable">
+    <thead><tr><th>Code</th><th>What it does</th><th>Description</th><th>Active</th><th>Uses</th><th>Expires</th><th></th></tr></thead>
+    <tbody id="codesBody"></tbody>
+  </table></div>
+</div>
+
+<script>
+const CFG = {
+  SUPABASE_URL: "https://safcrtrfdzsnftghibot.supabase.co",
+  SUPABASE_KEY: "sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU",
+  PASSWORD: "BlackH0rse#"
+};
+const TYPE_LABEL = {
+  percent_off_drinks: p => `${p}% off drinks`,
+  percent_off_food: p => `${p}% off food`,
+  percent_off_bill: p => `${p}% off full bill`,
+  free_service_charge: () => "Free service charge",
+  free_tray_charge: () => "Free tray charge",
+  free_dessert_with_main: () => "Free dessert with a main",
+  free_starter_with_main: () => "Free starter with a main",
+  free_kids_ice_cream: () => "Free ice cream with kids main",
+};
+const PERCENT_TYPES = ["percent_off_drinks","percent_off_food","percent_off_bill"];
+
+function $(id){ return document.getElementById(id); }
+function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+function tryUnlock(){
+  if($("pw").value === CFG.PASSWORD){
+    try{ sessionStorage.setItem("bhb_discounts_ok","1"); }catch(e){}
+    showApp();
+  } else $("gateErr").textContent = "Incorrect password";
+}
+$("pw").addEventListener("keydown", function(e){ if(e.key==="Enter") tryUnlock(); });
+try{ if(sessionStorage.getItem("bhb_discounts_ok")==="1") showApp(); }catch(e){}
+
+function showApp(){
+  $("gate").classList.add("hidden");
+  $("app").classList.remove("hidden");
+  for(let p=5; p<=100; p+=5){ const o=document.createElement("option"); o.value=p; o.textContent=p+"%"; $("fPercent").appendChild(o); }
+  toggleFields();
+  load();
+}
+function toggleFields(){
+  $("fPercentWrap").style.display = PERCENT_TYPES.includes($("fType").value) ? "" : "none";
+}
+
+// discount_codes has no public RLS policy (codes must not be listable by
+// anyone with the publishable key - that would defeat "unguessable"), so
+// all admin CRUD goes through this edge function (service-role key) instead
+// of the direct REST calls the rest of the portal uses.
+async function callAdmin(action, params){
+  const r = await fetch(CFG.SUPABASE_URL + "/functions/v1/discount-codes-admin", {
+    method: "POST",
+    headers: { "Content-Type":"application/json", Authorization:"Bearer "+CFG.SUPABASE_KEY, apikey: CFG.SUPABASE_KEY },
+    body: JSON.stringify(Object.assign({ action: action }, params || {}))
+  });
+  const data = await r.json().catch(function(){ return {}; });
+  if(!r.ok) throw new Error(data.error || ("HTTP " + r.status));
+  return data;
+}
+
+function generateCode(){
+  // Unguessable: 10 chars from an alphabet without easily-confused
+  // characters (no 0/O, 1/I/L), so it's also easy to read aloud/type.
+  const alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+  let out = "";
+  const bytes = new Uint8Array(10);
+  crypto.getRandomValues(bytes);
+  for(const b of bytes) out += alphabet[b % alphabet.length];
+  $("fCode").value = out;
+}
+
+let codes = [];
+async function load(){
+  try{ codes = (await callAdmin("list")).codes || []; }catch(e){ codes = []; }
+  render();
+}
+function render(){
+  const b = $("codesBody");
+  b.innerHTML = codes.length ? "" : '<tr><td colspan="7" class="muted">No codes yet — add one above.</td></tr>';
+  for(const c of codes){
+    const label = (TYPE_LABEL[c.type] || (()=>c.type))(c.percent);
+    const tr = document.createElement("tr");
+    tr.innerHTML =
+      `<td><code class="codeval">${esc(c.code)}</code></td>` +
+      `<td>${esc(label)}</td>` +
+      `<td>${esc(c.description||"")}</td>` +
+      `<td><input type="checkbox" ${c.active?"checked":""} onchange="toggleActive('${c.id}',this.checked)"></td>` +
+      `<td>${c.times_used}${c.max_uses!=null ? " / " + c.max_uses : ""}</td>` +
+      `<td>${c.expires_at ? new Date(c.expires_at).toLocaleDateString("en-GB") : "—"}</td>` +
+      `<td><button class="del" onclick="deleteCode('${c.id}','${esc(c.code)}')">Delete</button></td>`;
+    b.appendChild(tr);
+  }
+}
+async function toggleActive(id, active){
+  try{ await callAdmin("update", {id:id, active:active}); await load(); }
+  catch(e){ alert("Couldn't update: "+e.message); }
+}
+async function deleteCode(id, code){
+  if(!confirm('Delete code "'+code+'"? This can\'t be undone.')) return;
+  try{ await callAdmin("delete", {id:id}); await load(); }
+  catch(e){ alert("Couldn't delete: "+e.message); }
+}
+async function addCode(){
+  $("addErr").textContent = "";
+  const code = $("fCode").value.trim().toUpperCase();
+  const type = $("fType").value;
+  if(!code){ $("addErr").textContent = "Enter or generate a code."; return; }
+  const body = {
+    code, type,
+    percent: PERCENT_TYPES.includes(type) ? Number($("fPercent").value) : null,
+    description: $("fDesc").value.trim() || null,
+    expires_at: $("fExpires").value ? new Date($("fExpires").value + "T23:59:59").toISOString() : null,
+    max_uses: $("fMaxUses").value ? Number($("fMaxUses").value) : null,
+  };
+  try{
+    await callAdmin("create", body);
+    $("fCode").value = ""; $("fDesc").value = ""; $("fExpires").value = ""; $("fMaxUses").value = "";
+    await load();
+  }catch(e){
+    $("addErr").textContent = "Couldn't add: " + e.message;
+  }
+}
+</script>
+</body>
+</html>
