@@ -389,6 +389,14 @@ function applyChannelCopy(){
     $("roomLockedLbl").textContent = "Room";
     $("closedHeading").textContent = "Room service is currently unavailable";
   }
+  // Bob's link (?comp=1) overrides the welcome screen only - the rest of
+  // the channel copy (headings, field labels) stays whatever room_service/
+  // outside set above, since Bob can be given either kind of link.
+  if(S.isComp){
+    document.title = "Bob — Black Horse Beamish";
+    $("welcomeTag").textContent = "Bob's Private Portal";
+    $("welcomeMsg").textContent = "This link is just for you — no one else can use it, and no payment is ever taken. Orders you place here go straight to the kitchen.";
+  }
 }
 
 function $(id){ return document.getElementById(id); }
@@ -1275,6 +1283,9 @@ async function checkAvailability(){
 /* ---------------- welcome ---------------- */
 function startOrder(){
   show("categories");
+  // Bob's link bypasses the open/closed gate entirely - staff placing a
+  // comp order shouldn't be blocked by normal service hours.
+  if(S.isComp){ loadMenu(); checkBusyNotice(); return; }
   checkAvailability().then(function(available){
     if(!available) return;
     loadMenu();
@@ -1315,7 +1326,6 @@ async function checkBusyNotice(){
   if(S.isComp){ $("payVerb").textContent = "Place order"; $("nameFld").style.display = "none"; }
   var orderId = params.get("order");
   if(orderId){ loadMenu(); pollOrder(orderId); return; }
-  if(S.isComp){ show("categories"); loadMenu(); checkBusyNotice(); return; }
   show("welcome");
 })();
 </script>
