@@ -7,10 +7,10 @@
 // 1. Automatic tickets: for each pending print_jobs row with destination
 //    "bar", prints:
 //      - bar-prep    - drinks only, plain (always)
-//      - staff-copy  - full order, prices, charge, total, logo, sign-off
-//                      (room service only - outside tables skip this, no
-//                      room-delivery sign-off needed for a table the guest
-//                      is sitting at)
+//      - staff-copy  - full order, prices, charge, total, logo (always -
+//                      staff need the full itemised list for every order).
+//                      Room service also gets the guest sign-off section on
+//                      this ticket; outside tables don't (see ticket.js).
 //    Then marks the job "printed".
 //
 // 2. Guest receipts (on request): the guest-copy VAT receipt is NOT
@@ -80,8 +80,7 @@ async function printAutoTickets() {
       });
       if (!Array.isArray(claimed) || claimed.length === 0) continue; // another poller already got it
 
-      const isOutside = job.payload?.channel === "outside";
-      const kinds = isOutside ? ["bar-prep"] : ["bar-prep", "staff-copy"];
+      const kinds = ["bar-prep", "staff-copy"];
       for (const kind of kinds) {
         const ticket = buildTicket(job, { kind });
         await printToDevice(ticket, PRINTER_IP, PRINTER_PORT);

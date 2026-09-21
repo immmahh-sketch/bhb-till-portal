@@ -5,7 +5,12 @@
 //   kitchen    -> kitchen printer: food lines only, no price, no logo, no sign-off
 //   bar-prep   -> bar printer: drink lines only, no price, no logo, no sign-off
 //   staff-copy -> bar printer: everything, with prices, tray/service charge,
-//                 total, logo, and the guest sign-off section
+//                 total, logo. Room service orders also get the guest
+//                 sign-off section (proof of delivery to the room); outside
+//                 table orders skip it (no delivery, guest's right there)
+//                 but still get the full itemised copy so staff know what
+//                 they're carrying out - tagged "STAFF COPY" instead of
+//                 "ROOM SERVICE COPY" in that case.
 //   guest-copy -> bar printer: everything, with prices, tray/service charge,
 //                 total, logo, payment method, VAT breakdown - no sign-off
 //                 (this is the guest's VAT receipt to keep)
@@ -43,7 +48,11 @@ const KIND = {
   "guest-copy": { heading: null, tag: "GUEST COPY", category: "all", prices: true, logo: true, signoff: false, vat: true, allergyAlways: false },
 };
 
-function money(n) { return "£" + (Math.round((n + Number.EPSILON) * 100) / 100).toFixed(2); }
+// £ sent as a raw byte (0xA3) prints as the wrong glyph on this printer's
+// default USA code table. ESC R 3 (UK international char set, set in
+// buildTicket) remaps '#' (0x23) to £ instead, so amounts use '#' here and
+// the printer does the substitution.
+function money(n) { return "#" + (Math.round((n + Number.EPSILON) * 100) / 100).toFixed(2); }
 function escBytes(bytes) { return Buffer.from(bytes); }
 function rule() { return "-".repeat(LINE_WIDTH) + "\n"; }
 function dottedLine(label) {
@@ -97,6 +106,7 @@ function buildTicket(job, opts = {}) {
   const linePrice = (l) => push(priceRow(`${l.qty} x ${l.name}`, (Number(l.unit_price) || 0) * (Number(l.qty) || 0)));
 
   chunks.push(escBytes([0x1b, 0x40])); // initialize
+  chunks.push(escBytes([0x1b, 0x52, 0x03])); // international char set: UK ('#' prints as £)
   chunks.push(escBytes([0x1b, 0x61, 0x01])); // center
 
   if (cfg.logo && LOGO) {
@@ -104,9 +114,10 @@ function buildTicket(job, opts = {}) {
     chunks.push(escBytes([0x0a]));
   }
 
-  if (cfg.tag) {
+  const tag = kindKey === "staff-copy" && isOutside ? "STAFF COPY" : cfg.tag;
+  if (tag) {
     chunks.push(escBytes([0x1b, 0x45, 0x01]));
-    push(`${cfg.tag}\n`);
+    push(`${tag}\n`);
     chunks.push(escBytes([0x1b, 0x45, 0x00]));
   }
 
@@ -178,7 +189,7 @@ function buildTicket(job, opts = {}) {
     }
   }
 
-  if (cfg.signoff) {
+  if (cfg.signoff && !isOutside) {
     push(rule());
     chunks.push(escBytes([0x0a, 0x0a, 0x0a])); // gap before sign-off, further down the check
     chunks.push(escBytes([0x1b, 0x61, 0x00])); // left align
