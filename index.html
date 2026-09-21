@@ -371,6 +371,10 @@
         <label>Wine type</label>
         <select id="rsWineType"></select>
       </div>
+      <div id="rsSundayGroupWrap" style="display:none">
+        <label>Sunday Lunch group</label>
+        <select id="rsSundayGroup"></select>
+      </div>
       <div><label>Price £</label><input id="rsPrice" type="number" step="0.01" min="0" style="width:90px"></div>
       <div><label>Variants (optional)</label><input id="rsVariants" type="text" placeholder="e.g. Half:3.25, Pint:6.50" style="min-width:220px"></div>
       <div><label>Cooking pref?</label><input id="rsCookingPref" type="checkbox" style="width:20px;height:20px"></div>
@@ -1280,13 +1284,17 @@ function renderOutCashup(){
 }
 
 /* ---------- Room service: menu editor ---------- */
-const RS_SECTIONS = ["Small Plates & Starters","Main Courses","From the Grill","Sides","Desserts","Drinks"];
+const RS_SECTIONS = ["Small Plates & Starters","Main Courses","From the Grill","Sides","Desserts","Sunday Lunch","Kids Food","Drinks"];
 const RS_DRINK_GROUPS = ["Hot beverages","Soft drinks","Wine","Bottles and Draft","Spirits and cocktails"];
+const RS_SUNDAY_GROUPS = ["Small Plates","Mains","Sides","Desserts","Sundaes"];
 function rsSectionOptions(selected){
   return RS_SECTIONS.map(s=>`<option value="${esc(s)}"${s===selected?" selected":""}>${esc(s)}</option>`).join("");
 }
 function rsDrinkGroupOptions(selected){
   return RS_DRINK_GROUPS.map(g=>`<option value="${esc(g)}"${g===selected?" selected":""}>${esc(g)}</option>`).join("");
+}
+function rsSundayGroupOptions(selected){
+  return RS_SUNDAY_GROUPS.map(g=>`<option value="${esc(g)}"${g===(selected||RS_SUNDAY_GROUPS[0])?" selected":""}>${esc(g)}</option>`).join("");
 }
 const RS_WINE_TYPES = ["Sparkling","White","Rose","Red"];
 const RS_WINE_TYPE_LABEL = { Sparkling:"Sparkling", White:"White", Rose:"Rosé", Red:"Red" };
@@ -1299,8 +1307,11 @@ function rsKitchenStationOptions(selected){
   return RS_KITCHEN_STATIONS.map(s=>`<option value="${esc(s)}"${s===(selected||"mains")?" selected":""}>${esc(RS_KITCHEN_STATION_LABEL[s])}</option>`).join("");
 }
 function rsToggleDrinkGroupWrap(){
-  const isDrink = document.getElementById("rsSection").value === "Drinks";
+  const section = document.getElementById("rsSection").value;
+  const isDrink = section === "Drinks";
+  const isSunday = section === "Sunday Lunch";
   document.getElementById("rsDrinkGroupWrap").style.display = isDrink ? "" : "none";
+  document.getElementById("rsSundayGroupWrap").style.display = isSunday ? "" : "none";
   document.getElementById("rsKitchenStationWrap").style.display = isDrink ? "none" : "";
   rsToggleWineTypeWrap();
 }
@@ -1343,6 +1354,7 @@ function renderRsMenu(){
   document.getElementById("rsSection").innerHTML = rsSectionOptions("Main Courses");
   document.getElementById("rsDrinkGroup").innerHTML = rsDrinkGroupOptions();
   document.getElementById("rsWineType").innerHTML = rsWineTypeOptions();
+  document.getElementById("rsSundayGroup").innerHTML = rsSundayGroupOptions();
   document.getElementById("rsKitchenStation").innerHTML = rsKitchenStationOptions();
   const rows=(ST.rsMenu||[]).slice().sort((a,b)=>(a.sort_order||0)-(b.sort_order||0)||String(a.name).localeCompare(String(b.name)));
   b.innerHTML = rows.length ? "" : '<tr><td colspan="12" class="muted">No menu items yet — add one above.</td></tr>';
@@ -1406,12 +1418,14 @@ async function rsMenuAdd(){
   if(!name){ alert("Enter a name."); return; }
   const section = g("rsSection");
   const isDrink = section === "Drinks";
+  const isSunday = section === "Sunday Lunch";
   const drinkGroup = isDrink ? g("rsDrinkGroup") : null;
   const maxSort=(ST.rsMenu||[]).reduce((m,x)=>Math.max(m,x.sort_order||0),0);
   const body={
     name, description:g("rsDesc").trim()||null,
     menu_section: section, drink_group: drinkGroup,
     wine_type: drinkGroup==="Wine" ? g("rsWineType") : null,
+    sunday_group: isSunday ? g("rsSundayGroup") : null,
     category: isDrink ? "drink" : "food",
     price:Number(g("rsPrice"))||0, variants: rsParseVariants(g("rsVariants")),
     needs_cooking_pref: document.getElementById("rsCookingPref").checked,

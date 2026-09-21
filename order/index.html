@@ -55,6 +55,10 @@
   .variant-opt:last-child{border-bottom:0}
   .variant-opt .vlabel{font-weight:600;font-size:16px}
   .variant-opt .vprice{font-weight:700}
+  .combo-group{margin-bottom:16px}
+  .combo-group .glabel{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);font-weight:600;margin-bottom:8px}
+  .combo-opt{padding:12px 14px;border:1.3px solid var(--line);border-radius:2px;margin-bottom:8px;cursor:pointer;font-size:15px}
+  .combo-opt.sel{border-color:var(--ink);background:var(--ink);color:#fff;font-weight:600}
   .basketbar{position:fixed;left:16px;right:16px;bottom:16px;background:var(--ink);color:#fff;border-radius:2px;
     padding:16px 20px;display:none;align-items:center;justify-content:space-between;font-weight:600;letter-spacing:.3px;box-shadow:0 8px 24px #0004;z-index:20}
   .basketbar.show{display:flex}
@@ -129,7 +133,7 @@
 <section id="drinksub" class="screen">
   <header class="top">
     <div class="backrow"><button onclick="show('categories')">‹ Categories</button></div>
-    <div><h1>Drinks</h1></div>
+    <div><h1 id="subGroupTitle">Drinks</h1></div>
   </header>
   <div class="scroll" id="drinkGroupList"></div>
 </section>
@@ -250,6 +254,17 @@
   </div>
 </div>
 
+<!-- ===================== BUILD YOUR OWN (combo) ===================== -->
+<div id="comboModal" style="position:fixed;inset:0;background:rgba(17,17,17,.72);display:none;align-items:center;justify-content:center;z-index:100;padding:24px;overflow-y:auto">
+  <div style="background:#fff;max-width:400px;width:100%;padding:26px 24px;border-radius:2px;margin:24px 0">
+    <div id="comboModalTitle" style="font-size:19px;font-weight:600;margin-bottom:4px"></div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:14px">£<span id="comboModalPrice"></span></div>
+    <div id="comboModalGroups"></div>
+    <button id="comboAddBtn" onclick="addComboToCart()" disabled style="margin-top:12px;width:100%;background:var(--ink);color:#fff;border:0;padding:13px;border-radius:2px;font-weight:600;letter-spacing:.5px;font-size:14px;font-family:inherit">Add to order</button>
+    <button onclick="closeComboModal()" style="margin-top:8px;background:none;border:0;color:var(--muted);font-size:13px;text-decoration:underline;width:100%;padding:6px;font-family:inherit">Cancel</button>
+  </div>
+</div>
+
 <!-- ===================== COOKING PREFERENCE ===================== -->
 <div id="cookingModal" style="position:fixed;inset:0;background:rgba(17,17,17,.72);display:none;align-items:center;justify-content:center;z-index:100;padding:24px">
   <div style="background:#fff;max-width:380px;width:100%;padding:26px 24px;border-radius:2px">
@@ -308,11 +323,21 @@ var CFG = {
   SUPABASE_URL: "https://safcrtrfdzsnftghibot.supabase.co",
   SUPABASE_KEY: "sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU"
 };
-var SECTIONS = ["Small Plates & Starters","Main Courses","From the Grill","Sides","Desserts","Drinks"];
+var SECTIONS = ["Small Plates & Starters","Main Courses","From the Grill","Sides","Desserts","Sunday Lunch","Kids Food","Drinks"];
 var DRINK_GROUPS = ["Hot beverages","Soft drinks","Wine","Bottles and Draft","Spirits and cocktails"];
+var SUNDAY_GROUPS = ["Small Plates","Mains","Sides","Desserts","Sundaes"];
 var TRAY_CHARGE = 5.00;
 var SERVICE_CHARGE_PCT = 0.10;
-var S = { menu: [], cart: {}, currentSection: null, currentDrinkGroup: null, currentWineType: null, testMode: false, isComp: false, channel: "room_service", lockedRoom: null, lastOrder: null, lastOrderKind: null, discount: null /* itemId -> {item, qty} */ };
+var S = { menu: [], cart: {}, currentSection: null, currentDrinkGroup: null, currentWineType: null, currentSundayGroup: null, testMode: false, isComp: false, channel: "room_service", lockedRoom: null, lastOrder: null, lastOrderKind: null, discount: null /* itemId -> {item, qty} */ };
+// Europe/London, matching isRoomServiceAvailableNow's day check - Sunday
+// Lunch only shows on Sundays, and every other food section is hidden on
+// Sundays (Kids Food and Drinks stay available every day).
+function isSundayNow(){
+  try{
+    var wd = new Intl.DateTimeFormat("en-GB", { timeZone:"Europe/London", weekday:"short" }).format(new Date());
+    return wd === "Sun";
+  }catch(e){ return false; }
+}
 var TEST_PASSWORD = "Test01207";
 function isOutside(){ return S.channel === "outside"; }
 function extraCharge(itemsTotal){
@@ -382,7 +407,12 @@ async function loadMenu(){
 function renderCategories(){
   var box = $("catList"); box.innerHTML = "";
   if(!S.menu.length){ box.innerHTML = '<div class="empty">Nothing on the menu right now — please call reception.</div>'; return; }
+  var sunday = isSundayNow();
   SECTIONS.forEach(function(sec){
+    // Sunday Lunch only shows on Sundays; every other food section is
+    // hidden on Sundays. Kids Food and Drinks are unaffected either way.
+    if(sec==="Sunday Lunch" && !sunday) return;
+    if(sec!=="Sunday Lunch" && sec!=="Kids Food" && sec!=="Drinks" && sunday) return;
     var items = S.menu.filter(function(m){ return m.menu_section===sec; });
     if(!items.length) return;
     var el = document.createElement("div"); el.className="cattile";
@@ -390,7 +420,7 @@ function renderCategories(){
       '<div class="ctext"><div class="cname">'+esc(sec)+'</div>'+
       '<div class="ccount">'+items.length+' item'+(items.length===1?'':'s')+'</div></div>'+
       '<div class="carrow">›</div>';
-    el.onclick = function(){ if(sec==="Drinks") openDrinkGroups(); else openSection(sec); };
+    el.onclick = function(){ if(sec==="Drinks"||sec==="Sunday Lunch") openSubGroups(sec); else openSection(sec); };
     box.appendChild(el);
   });
   if(S.isComp){
@@ -406,6 +436,7 @@ function renderCategories(){
 function openSection(sec){
   S.currentSection = sec;
   S.currentDrinkGroup = null;
+  S.currentSundayGroup = null;
   $("menuSectionTitle").textContent = sec;
   $("menuBackBtn").textContent = "‹ Categories";
   $("menuBackBtn").onclick = function(){ show("categories"); };
@@ -413,17 +444,24 @@ function openSection(sec){
   show("menu");
 }
 
-/* ---------------- drinks sub-categories ---------------- */
-function openDrinkGroups(){
-  renderDrinkGroups();
+/* ---------------- drinks / sunday lunch sub-categories ---------------- */
+// Shared "sub-group" screen: Drinks groups by drink_group (with Wine
+// drilling into wine_type first), Sunday Lunch groups by sunday_group.
+function openSubGroups(sec){
+  S.currentSection = sec;
+  $("subGroupTitle").textContent = sec;
+  renderSubGroups(sec);
   show("drinksub");
 }
-function renderDrinkGroups(){
+function renderSubGroups(sec){
   var box = $("drinkGroupList"); box.innerHTML = "";
-  var drinkItems = S.menu.filter(function(m){ return m.menu_section==="Drinks"; });
+  var isDrinks = sec === "Drinks";
+  var groupList = isDrinks ? DRINK_GROUPS : SUNDAY_GROUPS;
+  var groupField = isDrinks ? "drink_group" : "sunday_group";
+  var sectionItems = S.menu.filter(function(m){ return m.menu_section===sec; });
   var any = false;
-  DRINK_GROUPS.forEach(function(g){
-    var items = drinkItems.filter(function(m){ return m.drink_group===g; });
+  groupList.forEach(function(g){
+    var items = sectionItems.filter(function(m){ return m[groupField]===g; });
     if(!items.length) return;
     any = true;
     var el = document.createElement("div"); el.className="cattile";
@@ -431,18 +469,17 @@ function renderDrinkGroups(){
       '<div class="ctext"><div class="cname">'+esc(g)+'</div>'+
       '<div class="ccount">'+items.length+' item'+(items.length===1?'':'s')+'</div></div>'+
       '<div class="carrow">›</div>';
-    el.onclick = function(){ openDrinkGroup(g); };
+    el.onclick = function(){ if(isDrinks && g==="Wine"){ openWineTypes(); return; } openSubGroup(sec, groupField, g); };
     box.appendChild(el);
   });
   if(!any) box.innerHTML = '<div class="empty">Nothing here right now.</div>';
 }
-function openDrinkGroup(g){
-  S.currentSection = "Drinks";
-  S.currentDrinkGroup = g;
-  S.currentWineType = null;
-  if(g==="Wine"){ openWineTypes(); return; }
+function openSubGroup(sec, groupField, g){
+  S.currentSection = sec;
+  if(groupField==="drink_group"){ S.currentDrinkGroup = g; S.currentWineType = null; }
+  else { S.currentSundayGroup = g; }
   $("menuSectionTitle").textContent = g;
-  $("menuBackBtn").textContent = "‹ Drinks";
+  $("menuBackBtn").textContent = "‹ " + sec;
   $("menuBackBtn").onclick = function(){ show("drinksub"); };
   renderMenu();
   show("menu");
@@ -487,8 +524,19 @@ function openWineType(t){
 /* ---------------- menu ---------------- */
 function buildItemEl(m){
   var hasVariants = Array.isArray(m.variants) && m.variants.length>0;
+  var hasCombo = Array.isArray(m.combo_groups) && m.combo_groups.length>0;
   var el = document.createElement("div"); el.className="item";
-  if(hasVariants){
+  if(hasCombo){
+    var qtyForCombo = cartLines().filter(function(l){ return l.itemId===m.id; }).reduce(function(s,l){ return s+l.qty; }, 0);
+    el.innerHTML =
+      '<div class="info"><div class="nm">'+esc(m.name)+'</div>'+
+      (m.description ? '<div class="dsc">'+esc(m.description)+'</div>' : '')+
+      '<div class="pr">£'+money(m.price)+'</div>'+
+      (qtyForCombo>0 ? '<div class="picked">'+qtyForCombo+' in your order</div>' : '')+
+      '</div>'+
+      '<div class="stepper"><button class="choose-btn">Choose</button></div>';
+    el.querySelector(".choose-btn").onclick = function(){ openComboPicker(m); };
+  } else if(hasVariants){
     var qtyForItem = cartLines().filter(function(l){ return l.itemId===m.id; }).reduce(function(s,l){ return s+l.qty; }, 0);
     var minPrice = Math.min.apply(null, m.variants.map(function(v){ return v.price; }));
     el.innerHTML =
@@ -528,9 +576,12 @@ function buildItemEl(m){
 function renderMenu(){
   var box = $("menuList"); box.innerHTML = "";
   var items = S.menu.filter(function(m){
-    if(S.currentSection!=="Drinks") return m.menu_section===S.currentSection;
-    if(S.currentDrinkGroup==="Wine") return m.drink_group==="Wine" && m.wine_type===S.currentWineType;
-    return m.menu_section==="Drinks" && m.drink_group===S.currentDrinkGroup;
+    if(S.currentSection==="Drinks"){
+      if(S.currentDrinkGroup==="Wine") return m.drink_group==="Wine" && m.wine_type===S.currentWineType;
+      return m.menu_section==="Drinks" && m.drink_group===S.currentDrinkGroup;
+    }
+    if(S.currentSection==="Sunday Lunch") return m.menu_section==="Sunday Lunch" && m.sunday_group===S.currentSundayGroup;
+    return m.menu_section===S.currentSection;
   });
   if(!items.length){ box.innerHTML = '<div class="empty">Nothing here right now.</div>'; return; }
   if(S.currentDrinkGroup==="Bottles and Draft"){
@@ -569,6 +620,57 @@ function openVariantPicker(item){
   $("variantModal").style.display = "flex";
 }
 function closeVariantModal(){ $("variantModal").style.display = "none"; _variantItem = null; }
+
+var _comboItem = null, _comboSelections = {};
+function openComboPicker(item){
+  _comboItem = item;
+  _comboSelections = {};
+  $("comboModalTitle").textContent = item.name;
+  $("comboModalPrice").textContent = money(item.price);
+  var box = $("comboModalGroups"); box.innerHTML = "";
+  item.combo_groups.forEach(function(group, gi){
+    var wrap = document.createElement("div"); wrap.className = "combo-group";
+    var label = document.createElement("div"); label.className = "glabel"; label.textContent = group.label;
+    wrap.appendChild(label);
+    group.options.forEach(function(opt){
+      var el = document.createElement("div"); el.className = "combo-opt"; el.textContent = opt;
+      el.onclick = function(){
+        _comboSelections[gi] = opt;
+        wrap.querySelectorAll(".combo-opt").forEach(function(o){ o.classList.remove("sel"); });
+        el.classList.add("sel");
+        updateComboAddBtn(item.combo_groups.length);
+      };
+      wrap.appendChild(el);
+    });
+    box.appendChild(wrap);
+  });
+  updateComboAddBtn(item.combo_groups.length);
+  $("comboModal").style.display = "flex";
+}
+function updateComboAddBtn(groupCount){
+  $("comboAddBtn").disabled = Object.keys(_comboSelections).length < groupCount;
+}
+function closeComboModal(){ $("comboModal").style.display = "none"; _comboItem = null; _comboSelections = {}; }
+function addComboToCart(){
+  if(!_comboItem) return;
+  var choices = _comboItem.combo_groups.map(function(g, gi){ return _comboSelections[gi]; });
+  if(choices.some(function(c){ return !c; })) return;
+  var label = choices.join(", ");
+  var key = cartKey(_comboItem.id, label);
+  var row = S.cart[key];
+  if(row){ row.qty += 1; }
+  else{
+    S.cart[key] = {
+      key: key, itemId: _comboItem.id, name: _comboItem.name + " (" + label + ")",
+      category: _comboItem.category, station: _comboItem.kitchen_station || null,
+      unitPrice: _comboItem.price, qty: 1, variant: label
+    };
+  }
+  saveCart();
+  toast("Added " + _comboItem.name);
+  closeComboModal();
+  renderMenu(); renderBasketBar();
+}
 
 var COOKING_OPTIONS = ["Rare","Medium rare","Medium","Medium well","Well done"];
 var _cookingItem = null;
