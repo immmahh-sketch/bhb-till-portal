@@ -180,8 +180,12 @@ function buildTicket(job, opts = {}) {
     const total = Number(p.subtotal) || 0;
     const charge = Number(p.tray_charge) || 0;
     const discountAmt = Number(p.discount_amount) || 0;
+    const bundleAmt = Number(p.bundle_amount) || 0;
     push(rule());
     push(priceRow(isOutside ? "Service charge (10%)" : "Tray charge", charge));
+    if (bundleAmt > 0) {
+      push(priceRow(p.bundle_label || "Deal savings", -bundleAmt));
+    }
     if (discountAmt > 0) {
       push(priceRow(p.discount_label || "Discount", -discountAmt));
     }

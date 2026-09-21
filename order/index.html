@@ -185,6 +185,7 @@
       </div>
     </div>
     <div class="subtotrow minor"><span>Items</span><span>£<span id="itemsSubtotal">0.00</span></span></div>
+    <div class="subtotrow minor" id="bundleTotalRow" style="display:none"><span id="bundleTotalLabel">Deal savings</span><span>-£<span id="bundleTotalAmt">0.00</span></span></div>
     <div class="subtotrow minor"><span id="chargeLabel">Tray charge</span><span>£<span id="trayCharge">0.00</span></span></div>
     <div class="subtotrow minor" id="discountTotalRow" style="display:none"><span id="discountTotalLabel">Discount</span><span>-£<span id="discountTotalAmt">0.00</span></span></div>
     <div class="subtotrow total"><span>Total</span><span>£<span id="subtotal">0.00</span></span></div>
@@ -398,7 +399,8 @@ async function loadMenu(){
   try{
     var field = isOutside() ? "available_outside" : "available";
     var rows = await sb("roomservice_menu_items?select=*&"+field+"=eq.true&order=sort_order.asc");
-    S.menu = rows || [];
+    var sunday = isSundayNow();
+    S.menu = (rows || []).filter(function(m){ return !m.sunday_only || sunday; });
     renderCategories();
   }catch(e){
     $("catList").innerHTML = '<div class="empty">Couldn’t load the menu — check your connection and pull to refresh.</div>';
@@ -621,6 +623,16 @@ function openVariantPicker(item){
 }
 function closeVariantModal(){ $("variantModal").style.display = "none"; _variantItem = null; }
 
+// combo_groups options are either a plain string (a free choice, no price
+// change) or {label, price} (an upgrade that adds price to the item's base
+// price, e.g. a Fruit Shoot costing 50p more than Cordial).
+function comboOptLabel(opt){ return typeof opt === "object" ? opt.label : opt; }
+function comboOptPrice(opt){ return typeof opt === "object" ? (Number(opt.price) || 0) : 0; }
+function comboSelectedPrice(item){
+  var extra = 0;
+  Object.keys(_comboSelections).forEach(function(gi){ extra += comboOptPrice(_comboSelections[gi]); });
+  return item.price + extra;
+}
 var _comboItem = null, _comboSelections = {};
 function openComboPicker(item){
   _comboItem = item;
@@ -633,11 +645,14 @@ function openComboPicker(item){
     var label = document.createElement("div"); label.className = "glabel"; label.textContent = group.label;
     wrap.appendChild(label);
     group.options.forEach(function(opt){
-      var el = document.createElement("div"); el.className = "combo-opt"; el.textContent = opt;
+      var price = comboOptPrice(opt);
+      var el = document.createElement("div"); el.className = "combo-opt";
+      el.textContent = comboOptLabel(opt) + (price > 0 ? " (+£" + money(price) + ")" : "");
       el.onclick = function(){
         _comboSelections[gi] = opt;
         wrap.querySelectorAll(".combo-opt").forEach(function(o){ o.classList.remove("sel"); });
         el.classList.add("sel");
+        $("comboModalPrice").textContent = money(comboSelectedPrice(item));
         updateComboAddBtn(item.combo_groups.length);
       };
       wrap.appendChild(el);
@@ -655,7 +670,8 @@ function addComboToCart(){
   if(!_comboItem) return;
   var choices = _comboItem.combo_groups.map(function(g, gi){ return _comboSelections[gi]; });
   if(choices.some(function(c){ return !c; })) return;
-  var label = choices.join(", ");
+  var label = choices.map(comboOptLabel).join(", ");
+  var unitPrice = comboSelectedPrice(_comboItem);
   var key = cartKey(_comboItem.id, label);
   var row = S.cart[key];
   if(row){ row.qty += 1; }
@@ -663,7 +679,8 @@ function addComboToCart(){
     S.cart[key] = {
       key: key, itemId: _comboItem.id, name: _comboItem.name + " (" + label + ")",
       category: _comboItem.category, station: _comboItem.kitchen_station || null,
-      unitPrice: _comboItem.price, qty: 1, variant: label
+      unitPrice: unitPrice, qty: 1, variant: label,
+      bundleGroup: _comboItem.bundle_group || null, bundleQty: _comboItem.bundle_qty || null, bundlePrice: _comboItem.bundle_price || null
     };
   }
   saveCart();
@@ -724,7 +741,8 @@ function addToCart(item, variant){
       station: item.kitchen_station || null,
       unitPrice: variant ? variant.price : item.price,
       qty: 1,
-      variant: variant ? variant.label : null
+      variant: variant ? variant.label : null,
+      bundleGroup: item.bundle_group || null, bundleQty: item.bundle_qty || null, bundlePrice: item.bundle_price || null
     };
   }
   renderMenu(); renderBasketBar();
@@ -756,6 +774,35 @@ function adjustCartQty(key, delta){
 function cartLines(){ return Object.keys(S.cart).map(function(k){ return S.cart[k]; }); }
 function cartTotal(){ return cartLines().reduce(function(s,l){ return s + l.unitPrice*l.qty; }, 0); }
 function cartCount(){ return cartLines().reduce(function(s,l){ return s + l.qty; }, 0); }
+// Mirrors supabase/functions/_shared/bundle.ts computeBundleSavings exactly -
+// this is only a preview for the basket screen, sumup-create-checkout
+// recomputes it authoritatively for what's actually charged.
+function computeBundleSavings(lines){
+  var groups = {};
+  lines.forEach(function(l){
+    if(!l.bundleGroup || !l.bundleQty || !l.bundlePrice) return;
+    var g = groups[l.bundleGroup] || (groups[l.bundleGroup] = { qty:0, units:[], bundleQty:l.bundleQty, bundlePrice:l.bundlePrice });
+    for(var i=0;i<l.qty;i++) g.units.push({ itemId:l.itemId, unitPrice:l.unitPrice });
+    g.qty += l.qty;
+  });
+  var totalSavings = 0, labels = [];
+  Object.keys(groups).forEach(function(key){
+    var g = groups[key];
+    var bundles = Math.floor(g.qty / g.bundleQty);
+    if(bundles<=0) return;
+    var units = g.units.slice().sort(function(a,b){ return String(a.itemId).localeCompare(String(b.itemId)); });
+    var included = units.slice(0, bundles*g.bundleQty);
+    var normalValue = included.reduce(function(s,u){ return s+u.unitPrice; }, 0);
+    var dealValue = bundles*g.bundlePrice;
+    var savings = Math.max(0, normalValue - dealValue);
+    if(savings>0){
+      totalSavings += savings;
+      var priceLabel = Number.isInteger(g.bundlePrice) ? String(g.bundlePrice) : money(g.bundlePrice);
+      labels.push(g.bundleQty + " for £" + priceLabel + " deal");
+    }
+  });
+  return { amount: Math.round((totalSavings+Number.EPSILON)*100)/100, label: labels.length ? labels.join(", ") : null };
+}
 function cartStorageKey(){ return "rs_cart_v1_" + S.channel; }
 function saveCart(){ try{ localStorage.setItem(cartStorageKey(), JSON.stringify(S.cart)); }catch(e){} }
 function loadPersistedCart(){
@@ -802,11 +849,20 @@ function renderBasket(){
     d.querySelector(".add").onclick = function(){ adjustCartQty(l.key, 1); };
     box.appendChild(d);
   });
-  var itemsTotal = cartTotal();
+  var itemsTotalRaw = cartTotal();
+  var bundleResult = computeBundleSavings(lines);
+  var itemsTotal = Math.max(0, Math.round((itemsTotalRaw - bundleResult.amount + Number.EPSILON)*100)/100);
   var charge = lines.length ? extraCharge(itemsTotal) : 0;
   var discountAmt = S.discount ? Math.min(S.discount.amount, itemsTotal + charge) : 0;
   var grandTotal = Math.max(0, itemsTotal + charge - discountAmt);
-  $("itemsSubtotal").textContent = money(itemsTotal);
+  $("itemsSubtotal").textContent = money(itemsTotalRaw);
+  if(bundleResult.amount>0){
+    $("bundleTotalRow").style.display = "flex";
+    $("bundleTotalLabel").textContent = bundleResult.label || "Deal savings";
+    $("bundleTotalAmt").textContent = money(bundleResult.amount);
+  } else {
+    $("bundleTotalRow").style.display = "none";
+  }
   $("trayCharge").textContent = money(charge);
   if(S.discount){
     $("discountEntryRow").style.display = "none";
@@ -830,9 +886,11 @@ async function applyDiscountCode(){
   if(!code) return;
   var btn = $("discountApplyBtn"); btn.disabled = true; var oldTxt = btn.textContent; btn.textContent = "Checking…";
   try{
-    var itemsTotal = cartTotal();
+    var cLines = cartLines();
+    var bundleResult = computeBundleSavings(cLines);
+    var itemsTotal = Math.max(0, Math.round((cartTotal() - bundleResult.amount + Number.EPSILON)*100)/100);
     var charge = extraCharge(itemsTotal);
-    var lines = cartLines().map(function(l){ return { category: l.category, station: l.station || null, qty: l.qty, unit_price: l.unitPrice }; });
+    var lines = cLines.map(function(l){ return { category: l.category, station: l.station || null, qty: l.qty, unit_price: l.unitPrice }; });
     var res = await fetch(CFG.SUPABASE_URL + "/functions/v1/apply-discount-code", {
       method: "POST",
       headers: { "Content-Type":"application/json", Authorization:"Bearer "+CFG.SUPABASE_KEY, apikey: CFG.SUPABASE_KEY },
@@ -871,10 +929,12 @@ $("payBtn").onclick = async function(){
   if(!room){ $("basketErr").textContent = isOutside() ? "Please enter your table number." : "Please enter your room number."; return; }
   var btn = $("payBtn"); btn.disabled = true; var oldHtml = btn.innerHTML; btn.textContent = "Please wait…";
   try{
-    var lines = cartLines().map(function(l){ return {
+    var cLines = cartLines();
+    var lines = cLines.map(function(l){ return {
       item_id: l.itemId, variant: l.variant, name: l.name, category: l.category, station: l.station || null, qty: l.qty, unit_price: l.unitPrice
     }; });
-    var itemsTotal = cartTotal();
+    var bundleResult = computeBundleSavings(cLines);
+    var itemsTotal = Math.max(0, Math.round((cartTotal() - bundleResult.amount + Number.EPSILON)*100)/100);
     var charge = extraCharge(itemsTotal);
     var discountAmt = S.discount ? Math.min(S.discount.amount, itemsTotal + charge) : 0;
     var subtotal = Math.max(0, itemsTotal + charge - discountAmt);
@@ -884,12 +944,13 @@ $("payBtn").onclick = async function(){
       discount_code: S.discount.code, discount_type: S.discount.type, discount_percent: S.discount.percent,
       discount_amount: discountAmt, discount_label: S.discount.label
     } : {};
+    var bundleFields = bundleResult.amount>0 ? { bundle_amount: bundleResult.amount, bundle_label: bundleResult.label } : {};
 
     if(S.testMode || S.isComp){
       var noPayBody = Object.assign({
         guest_name:name, room_number:room, lines:lines, subtotal:subtotal, tray_charge:charge, channel:S.channel,
         notes:notes, allergy_notes:allergyNotes, status:"paid", paid_at:new Date().toISOString()
-      }, discountFields);
+      }, discountFields, bundleFields);
       if(S.testMode){ noPayBody.sumup_transaction_id = "TEST"; noPayBody.is_test = true; }
       else{ noPayBody.sumup_transaction_id = "COMP"; noPayBody.is_comp = true; }
       var noPayOrder = await sb("roomservice_orders", {
@@ -911,7 +972,7 @@ $("payBtn").onclick = async function(){
     var order = await sb("roomservice_orders", {
       method: "POST",
       headers: { Prefer: "return=representation" },
-      body: JSON.stringify([Object.assign({ guest_name:name, room_number:room, lines:lines, subtotal:subtotal, tray_charge:charge, channel:S.channel, notes:notes, allergy_notes:allergyNotes, status:"pending_payment" }, discountFields)])
+      body: JSON.stringify([Object.assign({ guest_name:name, room_number:room, lines:lines, subtotal:subtotal, tray_charge:charge, channel:S.channel, notes:notes, allergy_notes:allergyNotes, status:"pending_payment" }, discountFields, bundleFields)])
     });
     var orderId = order[0].id;
     try{ localStorage.setItem("rs_last_order", orderId); }catch(e){}
@@ -970,6 +1031,7 @@ async function queueDirectPrintJobs(order){
     order_no: order.order_no, guest_name: order.guest_name, room_number: order.room_number, channel: order.channel,
     notes: order.notes, allergy_notes: order.allergy_notes, subtotal: order.subtotal, tray_charge: order.tray_charge,
     discount_amount: order.discount_amount || null, discount_label: order.discount_label || null,
+    bundle_amount: order.bundle_amount || null, bundle_label: order.bundle_label || null,
     lines: lines
   };
   var jobs = [
