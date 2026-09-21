@@ -3,18 +3,14 @@
 // (the live poller) and the one-off bar test script.
 
 const net = require("net");
-const fs = require("fs");
-const path = require("path");
 
 const LINE_WIDTH = 32; // characters per line at the printer's default font/column setting
 
-const BAR_LOGO = (() => {
-  try {
-    return fs.readFileSync(path.join(__dirname, "assets", "bar-logo.bin"));
-  } catch (e) {
-    return null; // logo asset missing - tickets still print, just without it
-  }
-})();
+// This printer's command set has no GS v 0 (raster image) support — logos
+// are stored once in NV flash via setup-logo.js (FS q) and printed here by
+// reference with FS p 1 0 (print NV bit image #1, normal mode). See
+// manual_extract.txt for the command reference this was pulled from.
+const BAR_LOGO_PRINT_CMD = Buffer.from([0x1c, 0x70, 0x01, 0x00]);
 
 function escBytes(bytes) { return Buffer.from(bytes); }
 function rule() { return "-".repeat(LINE_WIDTH) + "\n"; }
@@ -59,8 +55,8 @@ function buildTicket(job, opts = {}) {
   chunks.push(escBytes([0x1b, 0x40])); // initialize
   chunks.push(escBytes([0x1b, 0x61, 0x01])); // center
 
-  if (includeLogo && BAR_LOGO) {
-    chunks.push(BAR_LOGO);
+  if (includeLogo) {
+    chunks.push(BAR_LOGO_PRINT_CMD);
     chunks.push(escBytes([0x0a]));
   }
 

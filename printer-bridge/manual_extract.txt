@@ -1,0 +1,486 @@
+===== PAGE 4 =====
+SRP-275III Command Manual 
+ 
+Rev. 1.01                                  BIXOLON 
+ 
+- 4 -
+2. SRP-275III Supported Commands 
+No. 
+Command 
+Function 
+No.
+Command
+Function 
+1 
+EOT 
+Transmit status 
+29 
+ESC e 
+Print and reverse feed n lines 
+2 
+HT 
+Horizontal tab 
+30 
+ESC g 0 
+Define macro (For logo) 
+3 
+LF 
+Print and line feed 
+31 
+ESC g n 
+Execute macro (For logo) 
+4 
+CR 
+Print and carriage return 
+32 
+ESC i 
+Partial cut (one point left uncut) 
+5 
+DLE 
+Set real-time command mode 
+33 
+ESC m 
+Partial cut (one point left uncut) 
+6 
+DC4 
+Generate pulse 
+34 
+ESC p 
+Generate pulse 
+7 
+ESC SP  
+Set the character right space 
+35 
+ESC r 
+Select print color 
+8 
+ESC !  
+Set print mode 
+36 
+ESC t  
+Select character code table 
+9 
+ESC % 
+Select/cancel user-defined character set 
+37 
+ESC u 
+Transmit peripheral device status 
+10 
+ESC & 
+Define user-defined character set 
+38 
+ESC v 
+Transmit paper sensor status 
+11 
+ESC *
+Specify bit image mode
+39 
+ESC {
+Turn upside-down print mode on/off
+12 
+ESC -  
+Turn underline mode on/off 
+40 
+FS ! 
+Set print mode for Kanji characters 
+13 
+ESC 2
+Select default line spacing
+41 
+FS &
+Select Kanji character mode 
+14 
+ESC 3
+Set line spacing
+42 
+FS - 
+Turn underline mode on/off for Kanji characters 
+15 
+ESC < 
+Return home 
+43 
+FS . 
+Cancel Kanji character mode 
+16 
+ESC = 
+Select peripheral device 
+44 
+FS 2 
+Specify user-defined Kanji characters 
+17 
+ESC ?
+Cancel user-defined characters
+45 
+FS p
+Print NV bit image
+18 
+ESC @
+Initialize printer
+46 
+FS q
+Define NV bit image
+19 
+ESC D
+Set horizontal tab positions
+47 
+FS S
+Set Kanji character spacing
+20 
+ESC E
+Turn emphasized mode on/off
+48 
+FS W
+Turn quadruple-size mode on/off for Kanji characters 
+21 
+ESC G
+Turn double-strike mode on/off
+49 
+FS ( L
+Feeds paper to the cutting position
+22 
+ESC J
+Print and feed paper
+50 
+FS ?
+Cancel user-defined Kanji characters
+23 
+ESC K
+Print and reverse feed
+51 
+GS ( A
+Execute test print
+24 
+ESC M
+Select character font
+52 
+GS I 
+Transmit printer ID
+25 
+ESC R  
+Specify an international character set 
+53 
+GS V 
+Select cut mode and cut paper 
+26 
+ESC U 
+Specify unidirectional print mode 
+54 
+GS a 
+Enable/disable Automatic Status Back (ASB) 
+27 
+ESC a 
+Set position alignment 
+55 
+GS r 
+Transmit status 
+28 
+ESC d
+Print and feed n lines
+ 
+ 
+
+
+===== PAGE 19 =====
+SRP-275III Command Manual 
+ 
+Rev. 1.01                                  BIXOLON 
+ 
+- 19 - 
+ 
+ESC *
+ 
+Function: 
+Specify bit image mode
+ 
+Code: 
+ASCII 
+ESC 
+*
+m
+nL
+nH
+d1...dk 
+Hex
+1B 
+2A
+m
+nL
+nH
+d1...dk 
+Decimal 
+27 
+42
+m
+nL
+nH
+d1...dk 
+ 
+Range: 
+m = 0, 1 
+0 ≤ nL ≤ 255  
+0 ≤ nH ≤ 3  
+0 ≤ d ≤ 255  
+k = nL + nH x 255 
+ 
+Default: 
+None
+ 
+Description:
+■ This command specifies the bit image for the mode m as to the number of dots specified by nL and nH. 
+   • d specifies the bit image data with 1 for printed data and 0 for not printed. 
+   • k denotes the number of horizontal dots. 
+ 
+m 
+Mode 
+Number of dots in 
+vertical direction 
+Dot density 
+In horizontal 
+Number of bytes (k) 
+0
+8-dot single-density
+8
+Single-density
+nL + nH x 256
+1
+8-dot double-density
+8
+Double-density
+nL + nH x 256
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+
+
+===== PAGE 39 =====
+SRP-275III Command Manual 
+ 
+Rev. 1.01                                  BIXOLON 
+ 
+- 39 - 
+ 
+ESC g 0
+ 
+Function: 
+Define macro 
+ 
+Code: 
+ASCII 
+ESC 
+g 
+0 
+<k> [<nH > <nL> ]k  [d1…dm]k 
+Hex 
+1B 
+67 
+00 
+<k> [<nH > <nL> ]k  [d1…dm]k 
+Decimal 
+27 
+103 
+0 
+<k> [<nH > <nL> ]k  [d1…dm]k 
+ 
+Range: 
+k ≤ 10 
+0 ≤ nL ≤ 255 
+0 ≤ nH ≤ 255 
+[(256× nH) + nL ]1 + …..+ [(256× nH) + nL ]k  <  2Mbit (256KB) 
+0 ≤ d ≤ 255 
+ 
+Default: 
+None 
+ 
+Description: 
+■ This command defines macro into NV memory such as a logo image. 
+• k denotes the total number of macro to be stored in NV memory. 
+• m=(256× nH) + nL specifies the size of macro in byte 
+ 
+Remarks: 
+■ 2M bit (256KB) of the flash is allocated for saving NV bit image. 
+■ This command is useful to define NV bit image (Logo). 
+■ The NV bit image is printed by ESC g n. 
+ 
+Differences:
+None 
+ 
+
+
+===== PAGE 40 =====
+SRP-275III Command Manual 
+ 
+Rev. 1.01                                  BIXOLON 
+ 
+- 40 - 
+ 
+ESC g n
+ 
+Function: 
+Execute macro 
+ 
+Code: 
+ASCII 
+ESC 
+g
+n
+Hex 
+1B 
+67
+n
+Decimal 
+27 
+103
+n
+ 
+Range: 
+1 ≤ n ≤ 10 
+ 
+Default: 
+None 
+ 
+Description: 
+■ This command executes macro using the value of n. 
+   • n denotes the macro index number that is automatically given to the macro in a downloading order while being 
+defined by ESC g.
+ 
+Remarks: 
+■ The NV bit image should be defined by ESC g preceding this command. When executing the macro not being 
+defined, this command is ignored.
+ 
+Differences:
+None 
+ 
+
+
+===== PAGE 54 =====
+SRP-275III Command Manual 
+ 
+Rev. 1.01                                  BIXOLON 
+ 
+- 54 - 
+ 
+FS p 
+ 
+Function: 
+Print NV bit image
+ 
+Code: 
+ASCII 
+FS 
+p
+n
+m
+Hex 
+1C 
+70
+n
+m
+Decimal 
+28 
+112
+n
+m
+ 
+Range: 
+1 ≤ n ≤ 255 
+0 ≤ m ≤ 1, 48 ≤ m ≤ 49
+ 
+Default: 
+None 
+ 
+Description: 
+This command prints NV bit image n using the mode specified by m as follows: 
+m 
+Mode
+0, 48 
+Normal
+1, 49 
+Double-width
+ 
+Remarks: 
+■ BS ^ L and BS ^ 7 can be used for printing NV bit image. 
+■ The NV bit image is defined by FS q. 
+■ n is assigned to each NV bit image to be stored in download order by FS q. 
+■ This command has no effect with NV bit image not defined in advance. 
+■ The printer does not print the NV bit image that is beyond one line of print area. 
+■ When using unidirectional print mode, there will be no vertical misali gnment between the top and bottom parts of the 
+printed pattern. 
+ 
+Differences: 
+DPI : Dots per Inch (25.4mm) 
+Mode 
+Vertical Dot Density (DPI)
+Horizontal Dot Density (DPI)
+Normal 
+72
+160
+Double-width 
+72
+80
+
+
+===== PAGE 55 =====
+SRP-275III Command Manual 
+ 
+Rev. 1.01                                  BIXOLON 
+ 
+- 55 - 
+ 
+FS q 
+ 
+Function: 
+Define NV bit image
+ 
+Code: 
+ASCII 
+FS 
+q
+n
+[xL  xH  yL yH  d1...dk]1... [xL  xH  yL yH d1...dk]n
+Hex 
+1C 
+71
+n
+[xL  xH  yL yH d1...dk]1... [xL  xH  yL yH d1...dk]n
+Decimal 
+28 
+113
+n
+[xL  xH  yL yH d1...dk]1... [xL  xH  yL yH d1...dk]n
+ 
+Range: 
+1 ≤ n ≤ 255 
+1 ≤ (xL + xH ×256) ≤ 1023 (0 ≤ xL ≤ 255, 0 ≤ xH ≤ 3) 
+1 ≤ (yL + yH ×256) ≤ 288 (0 ≤ yL ≤ 255, yH=0,1) 
+0 ≤ d ≤ 255 
+k = (xL + xH × 256) × (yL + yH × 256) × 8
+ 
+Default: 
+None 
+ 
+Description: 
+■ This command defines the NV bit image in the NV memory. 
+• n denotes the number of the NV being defined. 
+• (xL, xH) and (yL, yH) set the number of dots in the horizontal and vertical directions to [(xL + xH × 256) x 8] and 
+[(yL + yH × 256) x 8] respectively for the NV bit image. 
+ 
+Remarks: 
+■ BS ^ L and BS ^ 7 can be used for defining NV bit image. 
+■ When this command is entered, all NV bit images previously defined are removed from the NV memory. 
+■ After completion of this command, the printer executes a software reset to restore the settings as when turned on. 
+■ The NV bit image is printed by FS p. 
+■ During the execution of this command, paper feed button, ASB and real time functions will not operate. 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+
+
