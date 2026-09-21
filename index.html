@@ -12,7 +12,7 @@
   *{box-sizing:border-box}
   body{margin:0;font-family:Georgia,"Times New Roman",serif;background:var(--cream);color:var(--ink)}
   h1,h2,h3{font-weight:700;margin:0}
-  .wrap{max-width:1240px;margin:0 auto;padding:20px}
+  .wrap{max-width:1600px;margin:0 auto;padding:20px}
   header{display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between;
     border-bottom:2px solid var(--ink);padding-bottom:14px}
   header .title{font-size:22px}
@@ -98,10 +98,15 @@
   .tablewrap{overflow-x:auto}
   .neg{color:var(--claret);font-weight:700}
 
+  .menu-tbl{min-width:1500px}
   .menu-tbl td{padding:6px 8px}
   .menu-tbl input,.menu-tbl select{font:inherit;padding:5px 7px;border:1px solid var(--line);
     border-radius:6px;background:#fff;width:100%}
+  .menu-tbl input[type=text][data-f="name"]{min-width:170px}
+  .menu-tbl input[type=text][data-f="description"]{min-width:170px}
+  .menu-tbl select[data-f="menu_section"]{min-width:150px}
   .menu-tbl input[type=number]{width:88px;text-align:right}
+  .menu-tbl input[type=checkbox]{width:20px;height:20px}
   .menu-tbl input:disabled{background:#f0ede4;color:#999}
   .menu-tbl td.act{white-space:nowrap;text-align:right}
   .menu-tbl td.act button{padding:5px 10px;font-size:12px;margin-left:6px}
@@ -378,6 +383,8 @@
       <div><label>Price £</label><input id="rsPrice" type="number" step="0.01" min="0" style="width:90px"></div>
       <div><label>Variants (optional)</label><input id="rsVariants" type="text" placeholder="e.g. Half:3.25, Pint:6.50" style="min-width:220px"></div>
       <div><label>Cooking pref?</label><input id="rsCookingPref" type="checkbox" style="width:20px;height:20px"></div>
+      <div><label>Steak side?</label><input id="rsSteakSide" type="checkbox" style="width:20px;height:20px"></div>
+      <div><label>Steak sauce?</label><input id="rsSteakSauce" type="checkbox" style="width:20px;height:20px"></div>
       <div id="rsKitchenStationWrap"><label>Course</label>
         <select id="rsKitchenStation"></select>
       </div>
@@ -386,13 +393,14 @@
     <p class="muted" style="margin:0 0 12px">Pick "Drinks" as the section to reveal the drink group field — that's what puts a cocktail, wine, beer or soft drink in the right place in the guest app.
       Picking "Wine" as the drink group reveals Wine type (Sparkling/White/Rosé/Red), used to group the wine list for guests.
       Use Variants for things guests choose a size for — e.g. <code>Half:3.25, Pint:6.50</code> or <code>Small:5, Medium:7, Large:9, Bottle:22</code> — leave it blank for a single-price item.
-      Tick "Cooking pref?" for steaks — guests are asked rare/medium rare/medium/medium well/well done and then offered a sauce upsell (any other item in the same section becomes the sauce list).
+      Tick "Cooking pref?" for steaks (in From the Grill or Steak Night) — guests are asked rare/medium rare/medium/medium well/well done, then pick 2 sides, then a sauce.
+      Tick "Steak side?" on any Sides item to make it one of the free choices in a steak's "pick 2 sides" step. Tick "Steak sauce?" on any item to add it to the steak sauce list — both work across every section, so Steak Night can share the same sides/sauces as From the Grill without duplicating them.
       "Course" only affects Desserts right now — every kitchen printer gets a full copy of the food check, except the desserts printer, which only fires when the order actually has a dessert on it — food items only, hidden for Drinks.
       New items are available to both Room service and Outside by default — untick either in the table below if an item shouldn't appear on that channel.</p>
     <div class="tablewrap"><table class="menu-tbl" id="rsMenuTbl">
       <thead><tr>
         <th class="l">Name</th><th class="l">Description</th><th class="l">Section</th><th class="l">Drink group</th><th class="l">Wine type</th>
-        <th>Price £</th><th class="l">Variants</th><th>Cooking?</th><th class="l">Course</th><th>Room svc</th><th>Outside</th><th></th>
+        <th>Price £</th><th class="l">Variants</th><th>Cooking?</th><th>Steak side?</th><th>Steak sauce?</th><th class="l">Course</th><th>Room svc</th><th>Outside</th><th></th>
       </tr></thead>
       <tbody id="rsMenuBody"></tbody>
     </table></div>
@@ -1284,7 +1292,7 @@ function renderOutCashup(){
 }
 
 /* ---------- Room service: menu editor ---------- */
-const RS_SECTIONS = ["Small Plates & Starters","Main Courses","From the Grill","Sides","Desserts","Sunday Lunch","Kids Food","Drinks"];
+const RS_SECTIONS = ["Small Plates & Starters","Main Courses","From the Grill","Steak Night","Sides","Desserts","Sunday Lunch","Kids Food","Drinks"];
 const RS_DRINK_GROUPS = ["Hot beverages","Soft drinks","Wine","Bottles and Draft","Spirits and cocktails"];
 const RS_SUNDAY_GROUPS = ["Small Plates","Mains","Sides","Desserts","Sundaes"];
 function rsSectionOptions(selected){
@@ -1357,7 +1365,7 @@ function renderRsMenu(){
   document.getElementById("rsSundayGroup").innerHTML = rsSundayGroupOptions();
   document.getElementById("rsKitchenStation").innerHTML = rsKitchenStationOptions();
   const rows=(ST.rsMenu||[]).slice().sort((a,b)=>(a.sort_order||0)-(b.sort_order||0)||String(a.name).localeCompare(String(b.name)));
-  b.innerHTML = rows.length ? "" : '<tr><td colspan="12" class="muted">No menu items yet — add one above.</td></tr>';
+  b.innerHTML = rows.length ? "" : '<tr><td colspan="14" class="muted">No menu items yet — add one above.</td></tr>';
   for(const m of rows){
     const isDrink = m.menu_section==="Drinks";
     const isWine = isDrink && m.drink_group==="Wine";
@@ -1371,6 +1379,8 @@ function renderRsMenu(){
       <td><input type="number" step="0.01" min="0" data-f="price" value="${m.price!=null?(+m.price):0}"></td>
       <td class="l"><input type="text" data-f="variants" value="${esc(rsVariantsToText(m.variants))}" placeholder="e.g. Half:3.25, Pint:6.50" style="min-width:180px"></td>
       <td><input type="checkbox" data-f="needs_cooking_pref" ${m.needs_cooking_pref?"checked":""}></td>
+      <td><input type="checkbox" data-f="steak_side_eligible" ${m.steak_side_eligible?"checked":""}></td>
+      <td><input type="checkbox" data-f="steak_sauce_eligible" ${m.steak_sauce_eligible?"checked":""}></td>
       <td class="l"><select data-f="kitchen_station" style="${isDrink?"display:none":""}">${rsKitchenStationOptions(m.kitchen_station)}</select></td>
       <td><input class="rs-avail" type="checkbox" data-f="available" ${m.available!==false?"checked":""}></td>
       <td><input class="rs-avail" type="checkbox" data-f="available_outside" ${m.available_outside!==false?"checked":""}></td>
@@ -1396,6 +1406,8 @@ function rsRowBody(get, getChecked){
     price: Number(get("price"))||0,
     variants: rsParseVariants(get("variants")),
     needs_cooking_pref: getChecked("needs_cooking_pref"),
+    steak_side_eligible: getChecked("steak_side_eligible"),
+    steak_sauce_eligible: getChecked("steak_sauce_eligible"),
     kitchen_station: isDrink ? null : (get("kitchen_station") || "mains"),
     available: getChecked("available"),
     available_outside: getChecked("available_outside")
@@ -1429,6 +1441,8 @@ async function rsMenuAdd(){
     category: isDrink ? "drink" : "food",
     price:Number(g("rsPrice"))||0, variants: rsParseVariants(g("rsVariants")),
     needs_cooking_pref: document.getElementById("rsCookingPref").checked,
+    steak_side_eligible: document.getElementById("rsSteakSide").checked,
+    steak_sauce_eligible: document.getElementById("rsSteakSauce").checked,
     kitchen_station: isDrink ? null : (g("rsKitchenStation") || "mains"),
     available:true, available_outside:true, sort_order:maxSort+1
   };
@@ -1436,6 +1450,8 @@ async function rsMenuAdd(){
     await sb(`roomservice_menu_items`, {method:"POST", headers:{Prefer:"return=minimal"}, body:JSON.stringify(body)});
     ["rsName","rsDesc","rsPrice","rsVariants"].forEach(i=>document.getElementById(i).value="");
     document.getElementById("rsCookingPref").checked = false;
+    document.getElementById("rsSteakSide").checked = false;
+    document.getElementById("rsSteakSauce").checked = false;
     await reloadRsMenu(); menuStatus("Added “"+name+"”.");
   }catch(e){ alert("Add failed: "+e.message); }
 }
