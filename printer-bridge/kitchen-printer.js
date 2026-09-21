@@ -44,7 +44,7 @@ async function pollOnce() {
   for (const job of jobs) {
     const label = `order #${job.payload?.order_no ?? "?"}`;
     try {
-      const ticket = buildTicket(job, { station: "KITCHEN" });
+      const ticket = buildTicket(job, { kind: "kitchen" });
       await printToDevice(ticket, PRINTER_IP, PRINTER_PORT);
       await rest(`print_jobs?id=eq.${job.id}`, {
         method: "PATCH",
