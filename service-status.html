@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<title>Service Status — Black Horse Beamish</title>
+<style>
+  :root{
+    --ink:#1a1a1a; --cream:#f6f0e4; --paper:#fcfaf4; --brass:#9c7a3c;
+    --claret:#7a2e2e; --green:#2f6d3d; --line:rgba(26,26,26,.14);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Georgia,"Times New Roman",serif;background:var(--cream);color:var(--ink)}
+  h1,h2{font-weight:700;margin:0}
+  .wrap{max-width:620px;margin:0 auto;padding:20px 18px 60px}
+  button{font:inherit;cursor:pointer;border:1.5px solid var(--ink);background:#fff;color:var(--ink);
+    padding:9px 15px;border-radius:8px;font-weight:700}
+  button:disabled{opacity:.5;cursor:default}
+  button.primary{background:var(--ink);color:#fff}
+  button.danger{border-color:var(--claret);color:var(--claret)}
+  textarea,input[type=password]{font:inherit;width:100%;padding:10px;border:1px solid var(--line);
+    border-radius:8px;background:#fff;color:var(--ink)}
+
+  #gate{position:fixed;inset:0;background:var(--cream);display:flex;align-items:center;justify-content:center;z-index:30}
+  #gate .card{background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:32px;max-width:340px;width:90%;text-align:center}
+  #gate input{margin:14px 0}
+  #gate .err{color:var(--claret);font-size:13px;min-height:18px}
+  .hidden{display:none!important}
+
+  header.top{padding:22px 0 10px}
+  header.top .tag{font-size:12px;letter-spacing:3px;color:var(--brass);font-weight:700}
+  header.top h1{font-size:26px;margin-top:4px}
+  header.top .sub{color:#0008;font-size:13px;margin-top:4px}
+
+  .card{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin-top:18px}
+  .card h2{font-size:18px}
+  .statusrow{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;
+    padding:12px 14px;border-radius:10px;border:1.5px solid var(--line)}
+  .statusrow.open{border-color:var(--green);background:#f2f8f3}
+  .statusrow.closed{border-color:var(--claret);background:#fbf1f1}
+  .statusrow .lbl{font-weight:700}
+  .statusrow .sub{font-size:12px;color:#0008;margin-top:2px}
+  .switch{position:relative;display:inline-block;width:48px;height:27px;flex:0 0 auto}
+  .switch input{opacity:0;width:0;height:0}
+  .slider{position:absolute;cursor:pointer;inset:0;background:#ccc;border-radius:27px;transition:.15s}
+  .slider:before{content:"";position:absolute;height:21px;width:21px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.15s}
+  input:checked + .slider{background:var(--green)}
+  input:checked + .slider:before{transform:translateX(21px)}
+  input:disabled + .slider{opacity:.5;cursor:default}
+  label.opt{display:flex;align-items:center;gap:10px;font-size:14px;margin-top:12px;cursor:pointer}
+  label.opt input{width:18px;height:18px}
+
+  .busy-box{margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
+  .busy-box h3{font-size:14px;letter-spacing:.5px;text-transform:uppercase;color:var(--brass);margin-bottom:8px}
+  .busy-status{font-weight:700}
+  .busy-status.on{color:var(--claret)}
+  .busy-status.off{color:var(--green)}
+  .btnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .muted{color:#0008;font-size:12px}
+  #savedToast{position:fixed;left:50%;bottom:20px;transform:translate(-50%,0);background:var(--ink);color:#fff;
+    padding:10px 18px;border-radius:20px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s}
+  #savedToast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<div id="gate">
+  <div class="card">
+    <div style="font-size:13px;letter-spacing:3px;color:var(--brass);font-weight:700">BLACK HORSE BEAMISH</div>
+    <h2 style="margin:8px 0 0">Service Status</h2>
+    <p class="muted" style="margin:8px 0 0">You'll only need this once on this device.</p>
+    <input id="pw" type="password" placeholder="Password" autofocus />
+    <div class="err" id="gateErr"></div>
+    <button class="primary" style="width:100%" onclick="tryUnlock()">Unlock</button>
+  </div>
+</div>
+
+<div id="app" class="wrap hidden">
+  <header class="top">
+    <div class="tag">BLACK HORSE BEAMISH</div>
+    <h1>Service Status</h1>
+    <div class="sub">Toggle room service and outside table ordering, and the "kitchen busy" notice guests see. Changes apply immediately.</div>
+  </header>
+
+  <!-- ROOM SERVICE -->
+  <div class="card">
+    <h2>Room Service</h2>
+    <div class="statusrow" id="rsRow">
+      <div>
+        <div class="lbl" id="rsLbl">Available</div>
+        <div class="sub" id="rsSub"></div>
+      </div>
+      <label class="switch"><input type="checkbox" id="rsToggle" onchange="setAvail('rs', this.checked)"><span class="slider"></span></label>
+    </div>
+    <label class="opt"><input type="checkbox" id="rsAutomate" onchange="setAutomate('rs', this.checked)"> Automatically follow opening hours (12:00–20:45, 12:00–18:00 Sundays)</label>
+
+    <div class="busy-box">
+      <h3>Kitchen busy notice</h3>
+      <div class="busy-status off" id="rsBusyStatus">Off</div>
+      <div class="muted" id="rsBusyUntil"></div>
+      <textarea id="rsBusyMsg" rows="2" style="margin-top:10px" placeholder="The restaurant is currently extremely busy — please be aware your order will take longer than usual to prepare."></textarea>
+      <div class="btnrow">
+        <button onclick="setBusy('rs', 0.5)">30 min</button>
+        <button onclick="setBusy('rs', 1)">1 hr</button>
+        <button onclick="setBusy('rs', 2)">2 hrs</button>
+        <button onclick="setBusy('rs', 3)">3 hrs</button>
+        <button class="danger" onclick="clearBusy('rs')">Turn off now</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- OUTSIDE TABLES -->
+  <div class="card">
+    <h2>Outside Tables</h2>
+    <div class="statusrow" id="outRow">
+      <div>
+        <div class="lbl" id="outLbl">Available</div>
+        <div class="sub" id="outSub"></div>
+      </div>
+      <label class="switch"><input type="checkbox" id="outToggle" onchange="setAvail('out', this.checked)"><span class="slider"></span></label>
+    </div>
+    <label class="opt"><input type="checkbox" id="outAutomate" onchange="setAutomate('out', this.checked)"> Automatically follow opening hours (12:00–20:45, 12:00–18:00 Sundays)</label>
+
+    <div class="busy-box">
+      <h3>Kitchen busy notice</h3>
+      <div class="busy-status off" id="outBusyStatus">Off</div>
+      <div class="muted" id="outBusyUntil"></div>
+      <textarea id="outBusyMsg" rows="2" style="margin-top:10px" placeholder="The restaurant is currently extremely busy — please be aware your order will take longer than usual to prepare."></textarea>
+      <div class="btnrow">
+        <button onclick="setBusy('out', 0.5)">30 min</button>
+        <button onclick="setBusy('out', 1)">1 hr</button>
+        <button onclick="setBusy('out', 2)">2 hrs</button>
+        <button onclick="setBusy('out', 3)">3 hrs</button>
+        <button class="danger" onclick="clearBusy('out')">Turn off now</button>
+      </div>
+    </div>
+  </div>
+
+  <p class="muted" style="margin-top:20px;text-align:center">Updates every 20 seconds · <span id="updated"></span></p>
+</div>
+
+<div id="savedToast">Saved</div>
+
+<script>
+"use strict";
+const CFG = {
+  SUPABASE_URL: "https://safcrtrfdzsnftghibot.supabase.co",
+  SUPABASE_KEY: "sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU",
+  PASSWORD: "RedRow2026!"
+};
+const BUSY_DEFAULT_MSG = "The restaurant is currently extremely busy — please be aware your order will take longer than usual to prepare.";
+// rs = room service (table: roomservice_availability / busy_notice)
+// out = outside tables (table: outside_availability / outside_busy_notice)
+const TABLES = {
+  rs: { avail: "roomservice_availability", busy: "busy_notice" },
+  out: { avail: "outside_availability", busy: "outside_busy_notice" }
+};
+let STATE = { rsAvail:null, outAvail:null, rsBusy:null, outBusy:null };
+
+/* ---------- gate (remembers this device via localStorage) ---------- */
+function tryUnlock(){
+  if(document.getElementById("pw").value === CFG.PASSWORD){
+    try{ localStorage.setItem("bhb_service_status_ok","1"); }catch(e){}
+    showApp();
+  } else {
+    document.getElementById("gateErr").textContent = "Incorrect password";
+  }
+}
+document.getElementById("pw").addEventListener("keydown", e=>{ if(e.key==="Enter") tryUnlock(); });
+function showApp(){
+  document.getElementById("gate").classList.add("hidden");
+  document.getElementById("app").classList.remove("hidden");
+  loadAll();
+  setInterval(loadAll, 20000);
+}
+try{
+  if(localStorage.getItem("bhb_service_status_ok")==="1") showApp();
+}catch(e){}
+
+/* ---------- data ---------- */
+async function sb(path, opts){
+  const r = await fetch(CFG.SUPABASE_URL + "/rest/v1/" + path, {
+    ...opts,
+    headers:{ apikey:CFG.SUPABASE_KEY, Authorization:"Bearer "+CFG.SUPABASE_KEY,
+              "content-type":"application/json", ...(opts&&opts.headers||{}) }
+  });
+  if(!r.ok) throw new Error("HTTP "+r.status);
+  const t = await r.text();
+  return t ? JSON.parse(t) : null;
+}
+function toast(msg){
+  const t = document.getElementById("savedToast");
+  t.textContent = msg || "Saved";
+  t.classList.add("show");
+  clearTimeout(toast._h);
+  toast._h = setTimeout(()=>t.classList.remove("show"), 1600);
+}
+
+// Same opening-hours rule the guest ordering app and main portal use -
+// 12:00-20:45 every day except Sunday, 12:00-18:00 on Sundays.
+function isAvailableNow(row){
+  if(!row) return true;
+  if(!row.automate) return !!row.manual_available;
+  const now = new Date();
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone:"Europe/London", hour:"2-digit", minute:"2-digit", hour12:false, weekday:"short"
+  }).formatToParts(now);
+  const get = t => parts.find(p=>p.type===t).value;
+  const mins = parseInt(get("hour"),10)*60 + parseInt(get("minute"),10);
+  const openMin = 12*60;
+  const closeMin = get("weekday")==="Sun" ? 18*60 : (20*60+45);
+  return mins>=openMin && mins<closeMin;
+}
+function busyCeilingTonight(){
+  const n = new Date();
+  const ceiling = new Date(n.getFullYear(), n.getMonth(), n.getDate(), 23, 0, 0, 0);
+  if(n >= ceiling) ceiling.setDate(ceiling.getDate()+1);
+  return ceiling;
+}
+
+async function loadAll(){
+  try{
+    const [rsAvail, outAvail, rsBusy, outBusy] = await Promise.all([
+      sb("roomservice_availability?id=eq.1&select=*"),
+      sb("outside_availability?id=eq.1&select=*"),
+      sb("busy_notice?id=eq.1&select=*"),
+      sb("outside_busy_notice?id=eq.1&select=*")
+    ]);
+    STATE.rsAvail = (rsAvail&&rsAvail[0]) || null;
+    STATE.outAvail = (outAvail&&outAvail[0]) || null;
+    STATE.rsBusy = (rsBusy&&rsBusy[0]) || null;
+    STATE.outBusy = (outBusy&&outBusy[0]) || null;
+    renderAvail("rs"); renderAvail("out");
+    renderBusy("rs"); renderBusy("out");
+    document.getElementById("updated").textContent = "updated " + new Date().toLocaleTimeString("en-GB");
+  }catch(e){
+    document.getElementById("updated").textContent = "⚠ couldn't refresh — " + e.message;
+  }
+}
+
+/* ---------- availability ---------- */
+function renderAvail(key){
+  const row = STATE[key+"Avail"] || {automate:true, manual_available:true};
+  const automate = !!row.automate;
+  const availableNow = isAvailableNow(row);
+  const rowEl = document.getElementById(key+"Row");
+  const lbl = document.getElementById(key+"Lbl");
+  const sub = document.getElementById(key+"Sub");
+  const toggle = document.getElementById(key+"Toggle");
+  const autoBox = document.getElementById(key+"Automate");
+
+  rowEl.classList.toggle("open", availableNow);
+  rowEl.classList.toggle("closed", !availableNow);
+  lbl.textContent = availableNow ? "Available" : "Unavailable";
+  toggle.checked = automate ? availableNow : !!row.manual_available;
+  toggle.disabled = automate;
+  autoBox.checked = automate;
+  sub.textContent = automate
+    ? "Following opening hours automatically (12:00–20:45, 12:00–18:00 Sundays)."
+    : "Automation is off — this stays as set until you change it here.";
+}
+async function setAvail(key, checked){
+  try{
+    await sb(TABLES[key].avail+"?id=eq.1", {method:"PATCH", body:JSON.stringify({ manual_available:checked, updated_at:new Date().toISOString() })});
+    STATE[key+"Avail"] = (await sb(TABLES[key].avail+"?id=eq.1&select=*"))?.[0] || null;
+    renderAvail(key);
+    toast(checked ? "Marked available" : "Marked unavailable");
+  }catch(e){ alert("Couldn't update: "+e.message); renderAvail(key); }
+}
+async function setAutomate(key, checked){
+  try{
+    const body = { automate:checked, updated_at:new Date().toISOString() };
+    if(!checked) body.manual_available = isAvailableNow(STATE[key+"Avail"] || {automate:true});
+    await sb(TABLES[key].avail+"?id=eq.1", {method:"PATCH", body:JSON.stringify(body)});
+    STATE[key+"Avail"] = (await sb(TABLES[key].avail+"?id=eq.1&select=*"))?.[0] || null;
+    renderAvail(key);
+    toast("Saved");
+  }catch(e){ alert("Couldn't update automation: "+e.message); renderAvail(key); }
+}
+
+/* ---------- kitchen busy notice ---------- */
+function renderBusy(key){
+  const row = STATE[key+"Busy"];
+  const statusEl = document.getElementById(key+"BusyStatus");
+  const untilEl = document.getElementById(key+"BusyUntil");
+  const msgEl = document.getElementById(key+"BusyMsg");
+  const isOn = !!(row && row.active && row.until && new Date(row.until) > new Date());
+  statusEl.textContent = isOn ? "On" : "Off";
+  statusEl.className = "busy-status " + (isOn ? "on" : "off");
+  untilEl.textContent = isOn ? ("Until " + new Date(row.until).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})) : "";
+  if(document.activeElement !== msgEl) msgEl.value = (row && row.message) || "";
+}
+async function setBusy(key, hours){
+  const msgEl = document.getElementById(key+"BusyMsg");
+  const msg = msgEl.value.trim() || BUSY_DEFAULT_MSG;
+  const requested = new Date(Date.now() + hours*3600*1000);
+  const ceiling = busyCeilingTonight();
+  const until = requested < ceiling ? requested : ceiling;
+  try{
+    await sb(TABLES[key].busy+"?id=eq.1", {method:"PATCH", body:JSON.stringify({
+      active:true, message:msg, until: until.toISOString(), updated_at: new Date().toISOString()
+    })});
+    STATE[key+"Busy"] = (await sb(TABLES[key].busy+"?id=eq.1&select=*"))?.[0] || null;
+    renderBusy(key);
+    toast("Busy notice on");
+  }catch(e){ alert("Couldn't set the notice: "+e.message); }
+}
+async function clearBusy(key){
+  try{
+    await sb(TABLES[key].busy+"?id=eq.1", {method:"PATCH", body:JSON.stringify({ active:false, until:null, updated_at:new Date().toISOString() })});
+    STATE[key+"Busy"] = (await sb(TABLES[key].busy+"?id=eq.1&select=*"))?.[0] || null;
+    renderBusy(key);
+    toast("Busy notice off");
+  }catch(e){ alert("Couldn't clear the notice: "+e.message); }
+}
+</script>
+</body>
+</html>
