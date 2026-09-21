@@ -1,17 +1,27 @@
 // Bar printer bridge for the Black Horse Beamish room-service system.
 //
 // Runs on any machine on the same LAN as the printer (same reasoning as
-// kitchen-printer.js — browsers can't open raw TCP sockets). Polls Supabase
-// for print_jobs rows with destination "bar" and status "pending", and
-// prints THREE separate tickets per job:
-//   1. bar-prep    - drinks only, plain (same style as the kitchen ticket)
-//   2. staff-copy  - full order with prices, tray/service charge, total,
-//                    logo, and the guest sign-off section
-//   3. guest-copy  - full order with prices, tray/service charge, total,
-//                    logo, payment method and VAT breakdown - the guest's
-//                    VAT receipt to keep, no sign-off
+// kitchen-printer.js — browsers can't open raw TCP sockets). Two things run
+// on the same poll loop:
 //
-// Then marks the job "printed", same as kitchen-printer.js.
+// 1. Automatic tickets: for each pending print_jobs row with destination
+//    "bar", prints:
+//      - bar-prep    - drinks only, plain (always)
+//      - staff-copy  - full order, prices, charge, total, logo, sign-off
+//                      (room service only - outside tables skip this, no
+//                      room-delivery sign-off needed for a table the guest
+//                      is sitting at)
+//    Then marks the job "printed".
+//
+// 2. Guest receipts (on request): the guest-copy VAT receipt is NOT
+//    automatic - see the guest app's "Need a receipt?" prompt and the
+//    portal's reprint/email buttons. Whenever roomservice_orders.
+//    receipt_requested_at is newer than receipt_printed_at (or the latter
+//    is null), prints the guest-copy and stamps receipt_printed_at.
+//
+// Each job/order is atomically claimed before printing (see kitchen-printer.js
+// for why - printing several tickets involves real mechanical feed/cut time
+// that can exceed the poll interval).
 //
 // Run with: node bar-printer.js   (needs Node 18+ for built-in fetch)
 
@@ -39,14 +49,40 @@ async function rest(path, init = {}) {
   return t ? JSON.parse(t) : null;
 }
 
-async function pollOnce() {
+function orderAsJob(order) {
+  return {
+    created_at: order.created_at,
+    payload: {
+      order_no: order.order_no,
+      guest_name: order.guest_name,
+      room_number: order.room_number,
+      channel: order.channel,
+      notes: order.notes,
+      allergy_notes: order.allergy_notes,
+      subtotal: order.subtotal,
+      tray_charge: order.tray_charge,
+      lines: order.lines,
+    },
+  };
+}
+
+async function printAutoTickets() {
   const jobs = await rest(
     "print_jobs?destination=eq.bar&status=eq.pending&order=created_at.asc&select=*"
   );
   for (const job of jobs) {
     const label = `order #${job.payload?.order_no ?? "?"}`;
     try {
-      for (const kind of ["bar-prep", "staff-copy", "guest-copy"]) {
+      const claimed = await rest(`print_jobs?id=eq.${job.id}&status=eq.pending`, {
+        method: "PATCH",
+        headers: { Prefer: "return=representation" },
+        body: JSON.stringify({ status: "printing" }),
+      });
+      if (!Array.isArray(claimed) || claimed.length === 0) continue; // another poller already got it
+
+      const isOutside = job.payload?.channel === "outside";
+      const kinds = isOutside ? ["bar-prep"] : ["bar-prep", "staff-copy"];
+      for (const kind of kinds) {
         const ticket = buildTicket(job, { kind });
         await printToDevice(ticket, PRINTER_IP, PRINTER_PORT);
       }
@@ -54,10 +90,55 @@ async function pollOnce() {
         method: "PATCH",
         body: JSON.stringify({ status: "printed", printed_at: new Date().toISOString() }),
       });
-      console.log(`[${new Date().toLocaleTimeString()}] printed ${label} (bar-prep + staff-copy + guest-copy)`);
+      console.log(`[${new Date().toLocaleTimeString()}] printed ${label} (${kinds.join(" + ")})`);
     } catch (e) {
       console.error(`[${new Date().toLocaleTimeString()}] FAILED to print ${label}: ${e.message}`);
+      await rest(`print_jobs?id=eq.${job.id}&status=eq.printing`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "pending" }),
+      }).catch(() => {});
     }
+  }
+}
+
+async function printRequestedReceipts() {
+  const orders = await rest(
+    "roomservice_orders?select=*&receipt_requested_at=not.is.null&order=receipt_requested_at.asc"
+  );
+  for (const order of orders) {
+    const needsPrint = !order.receipt_printed_at || order.receipt_printed_at < order.receipt_requested_at;
+    if (!needsPrint) continue;
+    const label = `order #${order.order_no}`;
+    try {
+      // Atomic-ish claim: only proceed if still not printed-up-to-date by the time we PATCH.
+      const claimed = await rest(
+        `roomservice_orders?id=eq.${order.id}&or=(receipt_printed_at.is.null,receipt_printed_at.lt.${order.receipt_requested_at})`,
+        {
+          method: "PATCH",
+          headers: { Prefer: "return=representation" },
+          body: JSON.stringify({ receipt_printed_at: new Date().toISOString() }),
+        }
+      );
+      if (!Array.isArray(claimed) || claimed.length === 0) continue;
+
+      const ticket = buildTicket(orderAsJob(order), { kind: "guest-copy" });
+      await printToDevice(ticket, PRINTER_IP, PRINTER_PORT);
+      console.log(`[${new Date().toLocaleTimeString()}] printed guest-copy for ${label} (requested)`);
+    } catch (e) {
+      console.error(`[${new Date().toLocaleTimeString()}] FAILED to print requested receipt for ${label}: ${e.message}`);
+    }
+  }
+}
+
+let busy = false;
+async function pollOnce() {
+  if (busy) return;
+  busy = true;
+  try {
+    await printAutoTickets();
+    await printRequestedReceipts();
+  } finally {
+    busy = false;
   }
 }
 

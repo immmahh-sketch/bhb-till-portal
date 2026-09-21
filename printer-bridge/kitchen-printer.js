@@ -11,6 +11,12 @@
 // Kitchen tickets are plain (no logo, no guest sign-off) — those are a
 // bar-receipt-only thing, see ticket.js / print-bar-test.js.
 //
+// Each job is atomically claimed (pending -> printing) before it's actually
+// printed, and a poll never overlaps a still-running one — printing several
+// tickets involves real mechanical feed/cut time that can exceed the poll
+// interval, and without this a job could get grabbed twice and printed
+// twice (this happened once - see git history).
+//
 // Run with: node kitchen-printer.js   (needs Node 18+ for built-in fetch)
 
 const { buildTicket, printToDevice } = require("./ticket.js");
@@ -37,23 +43,41 @@ async function rest(path, init = {}) {
   return t ? JSON.parse(t) : null;
 }
 
+let busy = false;
 async function pollOnce() {
-  const jobs = await rest(
-    "print_jobs?destination=eq.kitchen&status=eq.pending&order=created_at.asc&select=*"
-  );
-  for (const job of jobs) {
-    const label = `order #${job.payload?.order_no ?? "?"}`;
-    try {
-      const ticket = buildTicket(job, { kind: "kitchen" });
-      await printToDevice(ticket, PRINTER_IP, PRINTER_PORT);
-      await rest(`print_jobs?id=eq.${job.id}`, {
-        method: "PATCH",
-        body: JSON.stringify({ status: "printed", printed_at: new Date().toISOString() }),
-      });
-      console.log(`[${new Date().toLocaleTimeString()}] printed ${label}`);
-    } catch (e) {
-      console.error(`[${new Date().toLocaleTimeString()}] FAILED to print ${label}: ${e.message}`);
+  if (busy) return;
+  busy = true;
+  try {
+    const jobs = await rest(
+      "print_jobs?destination=eq.kitchen&status=eq.pending&order=created_at.asc&select=*"
+    );
+    for (const job of jobs) {
+      const label = `order #${job.payload?.order_no ?? "?"}`;
+      try {
+        const claimed = await rest(`print_jobs?id=eq.${job.id}&status=eq.pending`, {
+          method: "PATCH",
+          headers: { Prefer: "return=representation" },
+          body: JSON.stringify({ status: "printing" }),
+        });
+        if (!Array.isArray(claimed) || claimed.length === 0) continue; // another poller already got it
+
+        const ticket = buildTicket(job, { kind: "kitchen" });
+        await printToDevice(ticket, PRINTER_IP, PRINTER_PORT);
+        await rest(`print_jobs?id=eq.${job.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({ status: "printed", printed_at: new Date().toISOString() }),
+        });
+        console.log(`[${new Date().toLocaleTimeString()}] printed ${label}`);
+      } catch (e) {
+        console.error(`[${new Date().toLocaleTimeString()}] FAILED to print ${label}: ${e.message}`);
+        await rest(`print_jobs?id=eq.${job.id}&status=eq.printing`, {
+          method: "PATCH",
+          body: JSON.stringify({ status: "pending" }),
+        }).catch(() => {});
+      }
     }
+  } finally {
+    busy = false;
   }
 }
 

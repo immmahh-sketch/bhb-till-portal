@@ -37,10 +37,10 @@ const LOGO = (() => {
 })();
 
 const KIND = {
-  kitchen: { tag: null, category: "food", prices: false, logo: false, signoff: false, vat: false },
-  "bar-prep": { tag: null, category: "drink", prices: false, logo: false, signoff: false, vat: false },
-  "staff-copy": { tag: "ROOM SERVICE COPY", category: "all", prices: true, logo: true, signoff: true, vat: false },
-  "guest-copy": { tag: "GUEST COPY", category: "all", prices: true, logo: true, signoff: false, vat: true },
+  kitchen: { heading: "KITCHEN", tag: null, category: "food", prices: false, logo: false, signoff: false, vat: false, allergyAlways: false },
+  "bar-prep": { heading: "BAR", tag: null, category: "drink", prices: false, logo: false, signoff: false, vat: false, allergyAlways: false },
+  "staff-copy": { heading: null, tag: "ROOM SERVICE COPY", category: "all", prices: true, logo: true, signoff: true, vat: false, allergyAlways: true },
+  "guest-copy": { heading: null, tag: "GUEST COPY", category: "all", prices: true, logo: true, signoff: false, vat: true, allergyAlways: false },
 };
 
 function money(n) { return "£" + (Math.round((n + Number.EPSILON) * 100) / 100).toFixed(2); }
@@ -87,9 +87,9 @@ function buildTicket(job, opts = {}) {
     cfg.category === "food" ? l.category === "food" : l.category !== "food"
   );
   const isOutside = p.channel === "outside";
-  const time = job.created_at
-    ? new Date(job.created_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })
-    : "";
+  const created = job.created_at ? new Date(job.created_at) : null;
+  const date = created ? created.toLocaleDateString("en-GB") : "";
+  const time = created ? created.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : "";
 
   const chunks = [];
   const push = (s) => chunks.push(Buffer.from(s, "ascii"));
@@ -111,6 +111,11 @@ function buildTicket(job, opts = {}) {
   }
 
   chunks.push(escBytes([0x1b, 0x45, 0x01])); // bold on
+  if (cfg.heading) {
+    chunks.push(escBytes([0x1d, 0x21, 0x11])); // double height + width
+    push(`${cfg.heading}\n`);
+    chunks.push(escBytes([0x1d, 0x21, 0x00])); // back to normal size
+  }
   chunks.push(escBytes([0x1d, 0x21, 0x11])); // double height + width
   push(`${isOutside ? "OUTSIDE" : "ROOM SERVICE"}\n`);
   chunks.push(escBytes([0x1d, 0x21, 0x00])); // back to normal size
@@ -119,7 +124,7 @@ function buildTicket(job, opts = {}) {
   push(rule());
 
   chunks.push(escBytes([0x1b, 0x61, 0x00])); // left align
-  push(`Order #${p.order_no ?? "-"}   ${time}\n`);
+  push(`Order #${p.order_no ?? "-"}   ${date} ${time}\n`);
   if (p.guest_name) push(`${p.guest_name}\n`);
   push(rule());
 
@@ -140,12 +145,12 @@ function buildTicket(job, opts = {}) {
     push(rule());
     push(`Note: ${p.notes}\n`);
   }
-  if (p.allergy_notes) {
+  if (p.allergy_notes || cfg.allergyAlways) {
     push(rule());
     chunks.push(escBytes([0x1b, 0x45, 0x01]));
-    push("** ALLERGY / DIETARY **\n");
-    push(`${p.allergy_notes}\n`);
+    push("ALLERGY / DIETARY\n");
     chunks.push(escBytes([0x1b, 0x45, 0x00]));
+    push(`${p.allergy_notes || "N/A"}\n`);
   }
 
   if (cfg.prices) {
