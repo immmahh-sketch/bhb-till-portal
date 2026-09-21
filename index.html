@@ -1019,6 +1019,9 @@ function renderRoomService(){
     let action="";
     if(o.status==="paid" && !o.is_test && !o.is_comp) action = `<button class="del" onclick="refundOrder('${o.id}')">Refund</button>`;
     else if(o.status==="refunded") action = `<span class="muted">Refunded</span>`;
+    if(o.status==="paid" || o.status==="refunded"){
+      action += ` <button onclick="reprintReceipt('${o.id}')">Reprint</button> <button onclick="emailReceipt('${o.id}')">Email</button>`;
+    }
     tr.innerHTML =
       `<td class="l">${o.order_no}</td>`+
       `<td class="l">${d.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}</td>`+
@@ -1031,6 +1034,33 @@ function renderRoomService(){
       `<td class="act">${action}</td>`;
     b.appendChild(tr);
   }
+}
+async function reprintReceipt(id){
+  const o = (ST.rsOrders||[]).find(x=>x.id===id);
+  if(!o) return;
+  if(!confirm("Print a guest receipt for order #"+o.order_no+" at the bar printer?")) return;
+  try{
+    await sb(`roomservice_orders?id=eq.${id}`, {method:"PATCH", body:JSON.stringify({ receipt_requested_at:new Date().toISOString() })});
+    alert("Receipt queued — it'll print at the bar within a few seconds.");
+  }catch(e){ alert("Couldn't queue the receipt: "+e.message); }
+}
+async function emailReceipt(id){
+  const o = (ST.rsOrders||[]).find(x=>x.id===id);
+  if(!o) return;
+  const email = prompt("Email address to send the receipt to:", o.receipt_email || "");
+  if(!email) return;
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ alert("That doesn't look like a valid email address."); return; }
+  try{
+    const res = await fetch(CFG.SUPABASE_URL + "/functions/v1/send-room-service-receipt", {
+      method:"POST",
+      headers: { "Content-Type":"application/json", Authorization:"Bearer "+CFG.SUPABASE_KEY, apikey: CFG.SUPABASE_KEY },
+      body: JSON.stringify({ order_id:id, email:email })
+    });
+    const data = await res.json().catch(()=>({}));
+    if(!res.ok) throw new Error(data.error || ("HTTP "+res.status));
+    alert("Receipt sent to "+email+".");
+    await load();
+  }catch(e){ alert("Couldn't send the receipt: "+e.message); }
 }
 function renderRsCashup(){
   const rows = (ST.rsOrders||[]).filter(o=>o.channel==="room_service" && o.status==="paid" && !o.is_test && !o.is_comp);
@@ -1178,6 +1208,9 @@ function renderOutside(){
     let action="";
     if(o.status==="paid" && !o.is_test && !o.is_comp) action = `<button class="del" onclick="refundOrder('${o.id}')">Refund</button>`;
     else if(o.status==="refunded") action = `<span class="muted">Refunded</span>`;
+    if(o.status==="paid" || o.status==="refunded"){
+      action += ` <button onclick="reprintReceipt('${o.id}')">Reprint</button> <button onclick="emailReceipt('${o.id}')">Email</button>`;
+    }
     tr.innerHTML =
       `<td class="l">${o.order_no}</td>`+
       `<td class="l">${d.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}</td>`+

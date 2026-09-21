@@ -189,6 +189,7 @@
   <div id="stSpin" class="spinner"></div>
   <div class="big" id="stBig">Confirming your payment…</div>
   <div class="msg" id="stMsg">This only takes a few seconds — please don't close this page.</div>
+  <button class="back" id="receiptBtn" style="display:none" onclick="openReceiptModal()">Need a receipt?</button>
   <button class="back hidden" id="stBack" style="display:none" onclick="restart()">Back to menu</button>
 </section>
 
@@ -266,6 +267,29 @@
   </div>
 </div>
 
+<!-- ===================== NEED A RECEIPT? ===================== -->
+<div id="receiptModal" style="position:fixed;inset:0;background:rgba(17,17,17,.72);display:none;align-items:center;justify-content:center;z-index:110;padding:24px">
+  <div style="background:#fff;max-width:360px;width:100%;padding:26px 24px;border-radius:2px">
+    <div style="font-size:19px;font-weight:600;margin-bottom:4px">Need a receipt?</div>
+    <p style="font-size:13.5px;color:var(--muted);margin:0 0 16px">Choose how you'd like yours.</p>
+    <div id="receiptChoiceButtons">
+      <button onclick="chooseReceiptOption('email')" style="width:100%;background:var(--ink);color:#fff;border:0;padding:13px;border-radius:2px;font-weight:600;letter-spacing:.5px;font-size:14px;margin-bottom:8px;font-family:inherit">Email it to me</button>
+      <button onclick="chooseReceiptOption('print')" style="width:100%;background:#fff;color:var(--ink);border:1px solid var(--line);padding:13px;border-radius:2px;font-weight:600;letter-spacing:.5px;font-size:14px;margin-bottom:8px;font-family:inherit">Print one for me at the bar</button>
+      <button onclick="chooseReceiptOption('none')" style="background:none;border:0;color:var(--muted);font-size:13px;text-decoration:underline;width:100%;padding:6px;font-family:inherit">No thanks</button>
+    </div>
+    <div id="receiptEmailStep" style="display:none">
+      <div class="fld" style="margin-top:0"><label>Email address</label><input id="receiptEmailInput" type="email" placeholder="you@example.com" autocomplete="email"></div>
+      <div class="err" id="receiptErr"></div>
+      <button id="receiptSendBtn" onclick="submitReceiptEmail()" style="width:100%;background:var(--ink);color:#fff;border:0;padding:13px;border-radius:2px;font-weight:600;letter-spacing:.5px;font-size:14px;margin:10px 0 8px;font-family:inherit">Send receipt</button>
+      <button onclick="closeReceiptModal()" style="background:none;border:0;color:var(--muted);font-size:13px;text-decoration:underline;width:100%;padding:6px;font-family:inherit">Cancel</button>
+    </div>
+    <div id="receiptDoneStep" style="display:none">
+      <p id="receiptDoneMsg" style="font-size:15px;line-height:1.5;color:var(--ink);margin:4px 0 18px"></p>
+      <button onclick="closeReceiptModal()" style="width:100%;background:var(--ink);color:#fff;border:0;padding:13px;border-radius:2px;font-weight:600;letter-spacing:.5px;font-size:14px;font-family:inherit">Close</button>
+    </div>
+  </div>
+</div>
+
 <script>
 "use strict";
 var CFG = {
@@ -276,7 +300,7 @@ var SECTIONS = ["Small Plates & Starters","Main Courses","From the Grill","Sides
 var DRINK_GROUPS = ["Hot beverages","Soft drinks","Wine","Bottles and Draft","Spirits and cocktails"];
 var TRAY_CHARGE = 5.00;
 var SERVICE_CHARGE_PCT = 0.10;
-var S = { menu: [], cart: {}, currentSection: null, currentDrinkGroup: null, currentWineType: null, testMode: false, isComp: false, channel: "room_service", lockedRoom: null /* itemId -> {item, qty} */ };
+var S = { menu: [], cart: {}, currentSection: null, currentDrinkGroup: null, currentWineType: null, testMode: false, isComp: false, channel: "room_service", lockedRoom: null, lastOrderId: null /* itemId -> {item, qty} */ };
 var TEST_PASSWORD = "Test01207";
 function isOutside(){ return S.channel === "outside"; }
 function extraCharge(itemsTotal){
@@ -780,6 +804,8 @@ function showCompThankYou(o){
   $("stBig").classList.add("script");
   $("stBig").textContent = "Thank you, " + (o.guest_name||"") + "!";
   $("stMsg").textContent = "Order #" + o.order_no + " has been sent to the kitchen.";
+  $("receiptBtn").style.display = "";
+  S.lastOrderId = o.id;
 }
 function showTestThankYou(o){
   show("status");
@@ -789,13 +815,15 @@ function showTestThankYou(o){
   $("stBig").textContent = "Thank you, " + (o.guest_name||"") + "!";
   var loc = (o.channel==="outside" ? "Table " : "Room ") + o.room_number;
   $("stMsg").textContent = "TEST order #" + o.order_no + " for " + loc + " has been sent to the virtual printers. No payment was taken.";
+  $("receiptBtn").style.display = "";
+  S.lastOrderId = o.id;
 }
 
 /* ---------------- post-payment status ---------------- */
 var _pollTimer = null, _pollTries = 0;
 function pollOrder(orderId){
   show("status");
-  $("stSpin").style.display=""; $("stBack").style.display="none";
+  $("stSpin").style.display=""; $("stBack").style.display="none"; $("receiptBtn").style.display="none";
   $("stBig").classList.remove("script");
   $("stBig").textContent = "Confirming your payment…";
   $("stMsg").textContent = "This only takes a few seconds — please don't close this page.";
@@ -812,6 +840,8 @@ function pollOrder(orderId){
         $("stBig").textContent = "Thank you, " + (o.guest_name||"") + "!";
         var loc = (o.channel==="outside" ? "Table " : "Room ") + o.room_number;
         $("stMsg").textContent = "Order #" + o.order_no + " for " + loc + " is on its way. It'll be with you shortly.";
+        $("receiptBtn").style.display="";
+        S.lastOrderId = orderId;
         $("stBack").style.display="";
       } else if(o && (o.status === "failed" || o.status === "cancelled")){
         clearInterval(_pollTimer);
@@ -831,10 +861,66 @@ function pollOrder(orderId){
 }
 function restart(){
   S.cart = {};
+  S.lastOrderId = null;
+  $("receiptBtn").style.display = "none";
   try{ history.replaceState(null, "", location.pathname); }catch(e){}
   $("gNotes").value = ""; $("gAllergy").value = "";
   renderBasketBar();
   show("categories");
+}
+
+/* ---------------- need a receipt? ---------------- */
+function openReceiptModal(){
+  $("receiptChoiceButtons").style.display = "";
+  $("receiptEmailStep").style.display = "none";
+  $("receiptDoneStep").style.display = "none";
+  $("receiptEmailInput").value = "";
+  $("receiptErr").textContent = "";
+  $("receiptModal").style.display = "flex";
+}
+function closeReceiptModal(){ $("receiptModal").style.display = "none"; }
+function showReceiptDone(msg){
+  $("receiptChoiceButtons").style.display = "none";
+  $("receiptEmailStep").style.display = "none";
+  $("receiptDoneMsg").textContent = msg;
+  $("receiptDoneStep").style.display = "";
+}
+async function chooseReceiptOption(choice){
+  if(choice === "email"){
+    $("receiptChoiceButtons").style.display = "none";
+    $("receiptEmailStep").style.display = "";
+    setTimeout(function(){ $("receiptEmailInput").focus(); }, 30);
+    return;
+  }
+  try{
+    var body = { receipt_choice: choice };
+    if(choice === "print") body.receipt_requested_at = new Date().toISOString();
+    await sb("roomservice_orders?id=eq."+S.lastOrderId, { method:"PATCH", body: JSON.stringify(body) });
+    showReceiptDone(choice === "print"
+      ? "No problem — we'll have a receipt printed for you at the bar."
+      : "No problem, thanks!");
+  }catch(e){
+    showReceiptDone("Something went wrong — please ask a member of staff for a receipt.");
+  }
+}
+async function submitReceiptEmail(){
+  var email = $("receiptEmailInput").value.trim();
+  $("receiptErr").textContent = "";
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ $("receiptErr").textContent = "Please enter a valid email address."; return; }
+  var btn = $("receiptSendBtn"); btn.disabled = true; var oldTxt = btn.textContent; btn.textContent = "Sending…";
+  try{
+    var res = await fetch(CFG.SUPABASE_URL + "/functions/v1/send-room-service-receipt", {
+      method: "POST",
+      headers: { "Content-Type":"application/json", Authorization:"Bearer "+CFG.SUPABASE_KEY, apikey: CFG.SUPABASE_KEY },
+      body: JSON.stringify({ order_id: S.lastOrderId, email: email })
+    });
+    var data = await res.json().catch(function(){ return {}; });
+    if(!res.ok) throw new Error(data.error || ("HTTP " + res.status));
+    showReceiptDone("Sent! Please check " + email + " for your receipt.");
+  }catch(e){
+    btn.disabled = false; btn.textContent = oldTxt;
+    $("receiptErr").textContent = "Couldn't send the receipt — please ask a member of staff.";
+  }
 }
 
 /* ---------------- room service availability ---------------- */
