@@ -88,15 +88,16 @@
   .empty{padding:60px 20px;text-align:center;color:var(--muted);font-style:italic}
 
   /* status screens */
-  #status, #closed{align-items:center;justify-content:center;text-align:center;padding:30px;background:var(--ink);color:#fff}
-  #status img, #closed img{height:40px;margin-bottom:26px;opacity:.95}
-  #status .big, #closed .big{font-size:22px;font-weight:600;margin-bottom:12px;line-height:1.3}
-  #status .big.script{font-family:'Kristi',cursive;font-size:38px;font-weight:400;line-height:1.1}
-  #status .msg, #closed .msg{color:#ffffffb0;font-size:15px;max-width:320px;font-style:italic}
+  #status, #closed, #welcome{align-items:center;justify-content:center;text-align:center;padding:30px;background:var(--ink);color:#fff}
+  #status img, #closed img, #welcome img{height:40px;margin-bottom:26px;opacity:.95}
+  #status .big, #closed .big, #welcome .big{font-size:22px;font-weight:600;margin-bottom:12px;line-height:1.3}
+  #status .big.script, #welcome .big.script{font-family:'Kristi',cursive;font-size:38px;font-weight:400;line-height:1.1}
+  #status .msg, #closed .msg, #welcome .msg{color:#ffffffb0;font-size:15px;max-width:320px;font-style:italic}
   .spinner{width:38px;height:38px;border-radius:50%;border:3px solid #ffffff33;border-top-color:#fff;
     animation:spin .8s linear infinite;margin-bottom:24px}
   @keyframes spin{to{transform:rotate(360deg)}}
-  #status .back{margin-top:28px;background:#fff;color:var(--ink);border:0;padding:13px 28px;border-radius:2px;font-weight:600;letter-spacing:1px;text-transform:uppercase;font-size:13px}
+  #status .back, #welcome .back{margin-top:28px;background:#fff;color:var(--ink);border:0;padding:13px 28px;border-radius:2px;font-weight:600;letter-spacing:1px;text-transform:uppercase;font-size:13px}
+  #welcome .welcome-tag{font-size:12px;letter-spacing:3px;text-transform:uppercase;color:#ffffff90;margin-bottom:10px}
   .err{color:#7a1f1f;font-size:13px;margin-top:8px;min-height:16px;font-style:italic}
   .toast{position:fixed;left:50%;bottom:100px;transform:translateX(-50%);background:var(--ink);color:#fff;
     padding:10px 18px;border-radius:2px;font-size:13.5px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:50}
@@ -106,8 +107,17 @@
 <body>
 <div id="testBanner">TEST MODE — no payment will be taken</div>
 
+<!-- ===================== WELCOME ===================== -->
+<section id="welcome" class="screen on">
+  <img src="../app/logo-light.png" alt="">
+  <div class="welcome-tag" id="welcomeTag">Room Service</div>
+  <div class="big script">Welcome</div>
+  <div class="msg" id="welcomeMsg">Order delicious food and drinks straight to your room.</div>
+  <button class="back" onclick="startOrder()">Start your order</button>
+</section>
+
 <!-- ===================== CATEGORIES ===================== -->
-<section id="categories" class="screen on">
+<section id="categories" class="screen">
   <header class="top">
     <img src="../app/logo-light.png" alt="">
     <div><h1 id="catHeading">Room Service</h1><div class="sub" id="catSub">Choose a category to get started</div></div>
@@ -276,6 +286,8 @@ function extraCharge(itemsTotal){
 function applyChannelCopy(){
   if(isOutside()){
     document.title = "Outside — Black Horse Beamish";
+    $("welcomeTag").textContent = "Outside Ordering";
+    $("welcomeMsg").textContent = "Order delicious food and drinks straight to your table.";
     $("catHeading").textContent = "Order To Your Table";
     $("catSub").textContent = "Choose a category to get started";
     $("chargeLabel").textContent = "Service charge (10%)";
@@ -285,6 +297,8 @@ function applyChannelCopy(){
     $("closedHeading").textContent = "Outside table service is currently unavailable";
   } else {
     document.title = "Room Service — Black Horse Beamish";
+    $("welcomeTag").textContent = "Room Service";
+    $("welcomeMsg").textContent = "Order delicious food and drinks straight to your room.";
     $("catHeading").textContent = "Room Service";
     $("catSub").textContent = "Choose a category to get started";
     $("chargeLabel").textContent = "Tray charge";
@@ -300,7 +314,7 @@ function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g, function(c){ ret
 function money(n){ return (Math.round((n+Number.EPSILON)*100)/100).toFixed(2); }
 function toast(m){ var t=$("toast"); t.textContent=m; t.classList.add("show"); clearTimeout(toast._t); toast._t=setTimeout(function(){t.classList.remove("show");},2400); }
 function show(name){
-  ["categories","drinksub","winetype","menu","basket","status","closed"].forEach(function(n){ $(n).classList.toggle("on", n===name); });
+  ["welcome","categories","drinksub","winetype","menu","basket","status","closed"].forEach(function(n){ $(n).classList.toggle("on", n===name); });
   if(name==="basket") renderBasket();
   renderBasketBar();
 }
@@ -848,6 +862,16 @@ async function checkAvailability(){
   return true;
 }
 
+/* ---------------- welcome ---------------- */
+function startOrder(){
+  show("categories");
+  checkAvailability().then(function(available){
+    if(!available) return;
+    loadMenu();
+    checkBusyNotice();
+  });
+}
+
 /* ---------------- busy notice ---------------- */
 function dismissBusyModal(){ $("busyModal").style.display = "none"; }
 async function checkBusyNotice(){
@@ -881,12 +905,8 @@ async function checkBusyNotice(){
   if(S.isComp){ $("payVerb").textContent = "Place order"; $("nameFld").style.display = "none"; }
   var orderId = params.get("order");
   if(orderId){ loadMenu(); pollOrder(orderId); return; }
-  if(S.isComp){ loadMenu(); checkBusyNotice(); return; }
-  checkAvailability().then(function(available){
-    if(!available) return;
-    loadMenu();
-    checkBusyNotice();
-  });
+  if(S.isComp){ show("categories"); loadMenu(); checkBusyNotice(); return; }
+  show("welcome");
 })();
 </script>
 </body>
