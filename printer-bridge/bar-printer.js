@@ -111,8 +111,9 @@ async function printRequestedReceipts() {
     const label = `order #${order.order_no}`;
     try {
       // Atomic-ish claim: only proceed if still not printed-up-to-date by the time we PATCH.
+      const requestedAt = encodeURIComponent(order.receipt_requested_at);
       const claimed = await rest(
-        `roomservice_orders?id=eq.${order.id}&or=(receipt_printed_at.is.null,receipt_printed_at.lt.${order.receipt_requested_at})`,
+        `roomservice_orders?id=eq.${order.id}&or=(receipt_printed_at.is.null,receipt_printed_at.lt.${requestedAt})`,
         {
           method: "PATCH",
           headers: { Prefer: "return=representation" },
