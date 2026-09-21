@@ -30,6 +30,26 @@ this script only touches `destination = 'kitchen'` jobs. Point a second copy
 at the bar printer's IP (and filter on `destination=eq.bar`) once there's a
 physical bar printer to wire up.
 
+## Bar tickets: logo + guest sign-off
+
+Only bar tickets get the Black Horse Beamish logo at the top and a
+Room Number / Name / Signed sign-off section at the bottom (kitchen tickets
+stay plain) — see `ticket.js`'s `buildTicket(job, opts)`. Until there's a
+dedicated bar printer, `print-bar-test.js` sends a sample bar-formatted
+ticket straight to the one printer we have, without touching the live
+`print_jobs` queue.
+
+The logo itself is pre-rendered to raw ESC/POS bytes at
+`assets/bar-logo-escstar.bin` — regenerate it with
+`python3 generate-logo-assets.py` if `app/logo-dark.png` ever changes. It
+uses the older `ESC *` bit-image command rather than the more common
+`GS v 0` (unsupported on this printer) or Bixolon's own NV bit image
+commands `FS q`/`FS p` (supported, but produced corrupted output on this
+unit for reasons that didn't match the documented byte layout) — see
+`generate-logo-assets.py`'s docstring and `manual_extract.txt` for the full
+story. Keep the logo narrow (180 dots here) — wider was confirmed working
+data-wise but visibly overflowed the receipt.
+
 ## If the printer's IP changes
 
 Bixolon SRP-275III: hold the Feed button while powering on to print a

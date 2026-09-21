@@ -3,14 +3,25 @@
 // (the live poller) and the one-off bar test script.
 
 const net = require("net");
+const fs = require("fs");
+const path = require("path");
 
 const LINE_WIDTH = 32; // characters per line at the printer's default font/column setting
 
-// This printer's command set has no GS v 0 (raster image) support — logos
-// are stored once in NV flash via setup-logo.js (FS q) and printed here by
-// reference with FS p 1 0 (print NV bit image #1, normal mode). See
-// manual_extract.txt for the command reference this was pulled from.
-const BAR_LOGO_PRINT_CMD = Buffer.from([0x1c, 0x70, 0x01, 0x00]);
+// This printer's command set has no GS v 0 (raster image) support, and its
+// FS q/FS p NV bit image commands produced corrupted output on this unit
+// (byte layout didn't match the documented spec closely enough to trust) —
+// see manual_extract.txt for the command reference. ESC * (classic 8-dot
+// band bit image mode) worked reliably instead, so the logo is pre-rendered
+// as a ready-to-send ESC * byte sequence (see generate-logo-assets.py) and
+// just inlined into each bar ticket.
+const BAR_LOGO = (() => {
+  try {
+    return fs.readFileSync(path.join(__dirname, "assets", "bar-logo-escstar.bin"));
+  } catch (e) {
+    return null; // logo asset missing - tickets still print, just without it
+  }
+})();
 
 function escBytes(bytes) { return Buffer.from(bytes); }
 function rule() { return "-".repeat(LINE_WIDTH) + "\n"; }
@@ -55,8 +66,8 @@ function buildTicket(job, opts = {}) {
   chunks.push(escBytes([0x1b, 0x40])); // initialize
   chunks.push(escBytes([0x1b, 0x61, 0x01])); // center
 
-  if (includeLogo) {
-    chunks.push(BAR_LOGO_PRINT_CMD);
+  if (includeLogo && BAR_LOGO) {
+    chunks.push(BAR_LOGO);
     chunks.push(escBytes([0x0a]));
   }
 
