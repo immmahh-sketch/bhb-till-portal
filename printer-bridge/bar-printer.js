@@ -1,13 +1,13 @@
 // Bar printer bridge for the Black Horse Beamish room-service system.
 //
 // Runs on any machine on the same LAN as the bar printer (same reasoning as
-// kitchen-printer.js — browsers can't open raw TCP sockets). Only prints the
-// drinks-only "bar-prep" ticket for each pending print_jobs row with
-// destination "bar" - the full priced/logo'd ROOM SERVICE check and guest
-// receipts now print at Kitchen Printer 1 instead (see kitchen-printer.js).
-//
-// Skips printing entirely if the order has no drink lines (no point sending
-// a blank ticket), but still marks the job "printed" either way.
+// kitchen-printer.js — browsers can't open raw TCP sockets). For each
+// pending print_jobs row with destination "bar", prints one "bar-check"
+// ticket: the FULL order, food and drinks together, no price - so bar staff
+// can see whether food is also on the order and hold off making the drinks
+// until it's nearly ready, instead of a drinks-only ticket that hid that.
+// The full priced/logo'd ROOM SERVICE check and guest receipts print at
+// Kitchen Printer 1 instead (see kitchen-printer.js).
 //
 // The bar printer is currently wired straight into the till, not the
 // network - this bridge targets the Bixolon (192.168.100.134) as a stand-in
@@ -47,8 +47,8 @@ async function rest(path, init = {}) {
   return t ? JSON.parse(t) : null;
 }
 
-function hasDrinks(payload) {
-  return (payload.lines || []).some((l) => l.category !== "food");
+function hasLines(payload) {
+  return (payload.lines || []).length > 0;
 }
 
 let busy = false;
@@ -69,8 +69,8 @@ async function pollOnce() {
         });
         if (!Array.isArray(claimed) || claimed.length === 0) continue; // another poller already got it
 
-        if (hasDrinks(job.payload || {})) {
-          await printToDevice(buildTicket(job, { kind: "bar-prep" }), PRINTER_IP, PRINTER_PORT);
+        if (hasLines(job.payload || {})) {
+          await printToDevice(buildTicket(job, { kind: "bar-check" }), PRINTER_IP, PRINTER_PORT);
         }
         await rest(`print_jobs?id=eq.${job.id}`, {
           method: "PATCH",

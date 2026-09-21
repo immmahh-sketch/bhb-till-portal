@@ -1,5 +1,5 @@
-// One-off manual test: prints all three bar-station tickets (bar-prep,
-// staff-copy, guest-copy) for a sample order, without touching the live
+// One-off manual test: prints bar-check, staff-copy and guest-copy for a
+// sample order, without touching the live
 // print_jobs queue or the kitchen/bar bridges. Useful for iterating on the
 // ticket layout without needing a real order through the app each time.
 //
@@ -37,7 +37,7 @@ const sampleJob = {
 };
 
 (async () => {
-  for (const kind of ["bar-prep", "staff-copy", "guest-copy"]) {
+  for (const kind of ["bar-check", "staff-copy", "guest-copy"]) {
     const ticket = buildTicket(sampleJob, { kind });
     await printToDevice(ticket, PRINTER_IP, PRINTER_PORT);
     console.log(`Sent ${kind}.`);

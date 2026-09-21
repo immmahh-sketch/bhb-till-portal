@@ -10,18 +10,15 @@
 //              kitchen_station (set per item in the portal's menu editor) to
 //              tell whether a line is a dessert.
 //
-// Bar tickets:
-//   bar-prep   -> bar printer: drink lines only, no price, no logo, no sign-off
-//   staff-copy -> bar printer: everything, with prices, tray/service charge,
-//                 total, logo. Room service orders also get the guest
-//                 sign-off section (proof of delivery to the room); outside
-//                 table orders skip it (no delivery, guest's right there)
-//                 but still get the full itemised copy so staff know what
-//                 they're carrying out - tagged "STAFF COPY" instead of
-//                 "ROOM SERVICE COPY" in that case.
-//   guest-copy -> bar printer: everything, with prices, tray/service charge,
-//                 total, logo, payment method, VAT breakdown - no sign-off
-//                 (this is the guest's VAT receipt to keep)
+// Bar printer ticket (see bar-printer.js):
+//   bar-check -> the FULL order, food and drinks together, no price/logo/
+//                sign-off - headed "BAR" instead of "KITCHEN". Bar staff
+//                need to see if food is on the order too, so they don't
+//                make the drinks until the food's nearly ready.
+//
+// staff-copy (full priced "ROOM SERVICE"/"STAFF COPY" ticket, with guest
+// sign-off for room service) and guest-copy (VAT receipt) print at Kitchen
+// Printer 1 instead - see kitchen-printer.js.
 //
 // Used by kitchen-printer.js and bar-printer.js (the live pollers) and the
 // one-off print-bar-test.js script.
@@ -51,7 +48,7 @@ const LOGO = (() => {
 
 const KIND = {
   kitchen: { heading: "KITCHEN", tag: null, category: "food", prices: false, logo: false, signoff: false, vat: false, allergyAlways: false },
-  "bar-prep": { heading: "BAR", tag: null, category: "drink", prices: false, logo: false, signoff: false, vat: false, allergyAlways: false },
+  "bar-check": { heading: "BAR", tag: null, category: "all", prices: false, logo: false, signoff: false, vat: false, allergyAlways: false },
   "staff-copy": { heading: null, tag: "ROOM SERVICE COPY", category: "all", prices: true, logo: true, signoff: true, vat: false, allergyAlways: true },
   "guest-copy": { heading: null, tag: "GUEST COPY", category: "all", prices: true, logo: true, signoff: false, vat: true, allergyAlways: false },
 };
@@ -147,7 +144,10 @@ function buildTicket(job, opts = {}) {
   push(rule());
 
   chunks.push(escBytes([0x1b, 0x61, 0x00])); // left align
-  push(`Order #${p.order_no ?? "-"}   ${date} ${time}\n`);
+  // "#" (0x23) is remapped to £ by the UK international char set above (see
+  // money()), so it can't be used literally anywhere else on the ticket -
+  // "Order No." instead of "Order #".
+  push(`Order No. ${p.order_no ?? "-"}   ${date} ${time}\n`);
   if (p.guest_name) push(`${p.guest_name}\n`);
   push(rule());
 
