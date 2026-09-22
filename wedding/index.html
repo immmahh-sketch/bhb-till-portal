@@ -625,12 +625,48 @@ function viewHome(){
     '</div>';
   }
 
+  h += installHint();
+
   h += '<div class="card"><span class="label">Looking after you</span>' +
     '<h3 style="margin:6px 0 10px">' + esc(d.event.coordinator || "Our events team") + '</h3>' +
     '<p style="margin:0"><a href="tel:01207232569">01207 232 569</a><br>' +
     '<a href="mailto:events@blackhorsebeamish.co.uk">events@blackhorsebeamish.co.uk</a></p></div>';
 
   return h;
+}
+
+/* The app is normally embedded in the Squarespace page at /wedding-app.
+   A home-screen shortcut taken from there would save the Squarespace page,
+   with its icon and its name — not this app. The direct address is also
+   first-party, so Safari lets it remember a login between visits, which it
+   won't reliably do inside a cross-site frame.
+
+   So when we're framed, offer the way out. Dismissed once, stays dismissed. */
+var APP_URL = "https://app.blackhorsebeamish.co.uk/wedding/";
+
+function isFramed(){
+  try { return window.top !== window.self; } catch (e) { return true; }
+}
+
+function installHint(){
+  if (!isFramed()) return "";
+  try { if (localStorage.getItem("bhb_wedding_hint") === "off") return ""; } catch (e) {}
+  return '<div class="card" id="installHint" style="border-color:var(--celadon);background:var(--sage-10)">' +
+    '<span class="label">Keep it to hand</span>' +
+    '<h3 style="margin:6px 0 8px">Add your wedding to your home screen</h3>' +
+    '<p class="muted" style="margin:0 0 14px;font-size:.9375rem">' +
+    'Open the full-screen version, then choose <strong>Share &rarr; Add to Home Screen</strong>. ' +
+    'It saves like an app, and you\'ll stay signed in.</p>' +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+      '<a class="btn btn--primary" href="' + APP_URL + '" target="_top">Open full screen</a>' +
+      '<button class="btn" onclick="dismissHint()">Not now</button>' +
+    '</div></div>';
+}
+
+function dismissHint(){
+  try { localStorage.setItem("bhb_wedding_hint", "off"); } catch (e) {}
+  var el = $("installHint");
+  if (el) el.remove();
 }
 
 function go(v){
