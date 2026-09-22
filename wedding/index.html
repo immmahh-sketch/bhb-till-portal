@@ -1,0 +1,1388 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#4E5F4F">
+<meta name="robots" content="noindex,nofollow">
+<title>Your Wedding — Black Horse Beamish</title>
+
+<!--
+  Black Horse Beamish — Bride & Groom App (couple-facing)
+
+  Deployed to bhb-till-portal/wedding/index.html -> GitHub Pages at
+  app.blackhorsebeamish.co.uk/wedding/, and iframed by the Squarespace page
+  at blackhorsebeamish.co.uk/bridal-app, which is where couples are sent.
+  Plain static HTML, no build step, same as order/index.html.
+
+  That Squarespace page is deliberately NOT password-protected — couples
+  don't have the staff password, and this app has its own login. The back
+  office lives separately at /bridal-app-config.
+
+  Login: event reference (EVNT002071) + wedding date as ddmmyyyy.
+  All data goes through the wedding-login / wedding-api edge functions —
+  the wedding_* tables have RLS on with no public policies, so the
+  publishable key below can't read anyone's data on its own.
+
+  Branding from blackhorsebeamish.co.uk — see docs/03-brand.md.
+-->
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,400;0,500;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<!--
+  Orpheus Pro is the venue's heading face but ships from a DOMAIN-LOCKED
+  Adobe Fonts kit. Add app.blackhorsebeamish.co.uk to the kit in the Adobe
+  account and this will render exactly as the website does; until then the
+  Cormorant Garamond fallback below takes over, which is close enough that
+  nobody notices unless the two are side by side.
+-->
+<link rel="stylesheet" href="https://use.typekit.net/nzu1hbj.css" onerror="this.remove()">
+
+<style>
+:root{
+  --sage:#4E5F4F; --bone:#F7F7F7; --celadon:#C1C8B4; --mist:#E7E7E7;
+  --white:#fff; --ink:#262626;
+  --sage-70:#7B887C; --sage-10:#EDEFED;
+  --attention:#B08D57; --attention-bg:#F7F0E4;
+  --alert:#8C4A3F; --alert-bg:#F6EAE8;
+  --display:orpheus-pro,"Cormorant Garamond",Georgia,serif;
+  --body:Raleway,"Helvetica Neue",Arial,sans-serif;
+  --track-wide:.17em; --track-label:.2em;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bone); color:var(--sage);
+  font-family:var(--body); font-size:16px; line-height:1.6; letter-spacing:.02em;
+  -webkit-font-smoothing:antialiased;
+  padding-bottom:env(safe-area-inset-bottom);
+}
+h1,h2,h3{font-family:var(--display);font-weight:400;letter-spacing:.06em;text-transform:uppercase;line-height:1.2;margin:0}
+h1{font-size:2rem} h2{font-size:1.375rem} h3{font-size:1.0625rem;letter-spacing:.04em}
+a{color:inherit}
+.label{font-size:.6875rem;font-weight:500;letter-spacing:var(--track-label);text-transform:uppercase;color:var(--sage-70)}
+.num{font-variant-numeric:tabular-nums;letter-spacing:0;font-weight:500}
+.muted{color:var(--sage-70)}
+.center{text-align:center}
+.wrap{max-width:820px;margin:0 auto;padding:0 20px}
+.hide{display:none!important}
+
+/* ---- buttons: hairline rectangles, square corners, as on the website ---- */
+.btn{
+  display:inline-block;background:transparent;color:var(--sage);
+  border:1px solid currentColor;border-radius:0;padding:13px 26px;
+  font:500 .8125rem/1 var(--body);letter-spacing:var(--track-wide);
+  text-transform:uppercase;text-decoration:none;cursor:pointer;
+  transition:background .16s,color .16s;
+}
+.btn:hover{background:var(--sage);color:var(--bone)}
+.btn--primary{background:var(--sage);color:var(--bone)}
+.btn--primary:hover{background:#5D6D5E}
+.btn--sm{padding:8px 14px;font-size:.6875rem}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn:disabled:hover{background:transparent;color:var(--sage)}
+
+/* ---- inputs ---- */
+input,select,textarea{
+  width:100%;background:var(--bone);color:var(--sage);
+  border:1px solid var(--mist);border-radius:0;padding:11px 13px;
+  font-family:var(--body);font-size:1rem;letter-spacing:.02em;
+}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--sage)}
+textarea{min-height:70px;resize:vertical}
+.field{margin-bottom:14px}
+.field .label{display:block;margin-bottom:5px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:560px){.row{grid-template-columns:1fr}}
+
+/* ---- cards ---- */
+.card{background:var(--white);border:1px solid var(--mist);padding:22px;margin-bottom:16px}
+.card--flush{padding:0}
+
+/* ---- pills ---- */
+.pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:3px 11px;
+  font-size:.6875rem;font-weight:500;letter-spacing:var(--track-label);text-transform:uppercase}
+.pill--ok{background:var(--sage-10);color:var(--sage)}
+.pill--due{background:var(--attention-bg);color:var(--attention)}
+.pill--late{background:var(--alert-bg);color:var(--alert)}
+.pill--prov{background:var(--mist);color:var(--sage-70)}
+
+/* ---- header ---- */
+header.app{background:var(--sage);color:var(--bone);padding:18px 0 0}
+header.app .wrap{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.brand{font-family:var(--display);font-size:1.125rem;letter-spacing:.14em;text-transform:uppercase}
+nav.tabs{display:flex;gap:2px;overflow-x:auto;margin-top:14px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+nav.tabs::-webkit-scrollbar{display:none}
+nav.tabs button{
+  flex:0 0 auto;background:transparent;border:0;border-bottom:2px solid transparent;
+  color:var(--celadon);padding:10px 14px;cursor:pointer;
+  font:500 .6875rem/1 var(--body);letter-spacing:var(--track-label);text-transform:uppercase;
+}
+nav.tabs button[aria-current="page"]{color:var(--bone);border-bottom-color:var(--celadon)}
+main{padding:26px 0 60px}
+
+/* ---- hero ---- */
+.hero{text-align:center;padding:10px 0 26px}
+.hero .names{font-family:var(--display);font-size:2.25rem;letter-spacing:.05em;text-transform:uppercase;line-height:1.15}
+.hero .date{margin-top:6px;font-size:.8125rem;letter-spacing:var(--track-wide);text-transform:uppercase;color:var(--sage-70)}
+.countdown{margin-top:20px}
+.countdown .n{font-family:var(--display);font-size:3.5rem;line-height:1;display:block}
+@media(max-width:560px){.hero .names{font-size:1.625rem}.countdown .n{font-size:2.75rem}}
+
+/* ---- balance strip ---- */
+.balance{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--mist);border:1px solid var(--mist)}
+.balance div{background:var(--white);padding:16px 12px;text-align:center}
+.balance .v{font-size:1.25rem;margin-top:3px}
+.balance .v.out{color:var(--attention)}
+.balance .v.clear{color:var(--sage)}
+
+/* ---- lists & tables ---- */
+table{width:100%;border-collapse:collapse}
+th{font-size:.6875rem;font-weight:500;letter-spacing:var(--track-label);text-transform:uppercase;
+  color:var(--sage-70);text-align:left;padding:10px 14px;border-bottom:1px solid var(--mist)}
+td{padding:12px 14px;border-bottom:1px solid var(--mist);vertical-align:top}
+td.money,th.money{text-align:right;font-variant-numeric:tabular-nums}
+tr:last-child td{border-bottom:0}
+@media(max-width:560px){th,td{padding:10px 12px;font-size:.9375rem}}
+
+/* ---- timeline ---- */
+.ms{display:flex;gap:16px;padding:16px 0;border-bottom:1px solid var(--mist)}
+.ms:last-child{border-bottom:0}
+.ms .dot{flex:0 0 12px;height:12px;border-radius:999px;border:1px solid var(--sage);margin-top:6px}
+.ms.done .dot{background:var(--sage)}
+.ms.now .dot{background:var(--attention);border-color:var(--attention);box-shadow:0 0 0 4px var(--attention-bg)}
+.ms.done .body{opacity:.6}
+.ms .when{font-size:.6875rem;letter-spacing:var(--track-label);text-transform:uppercase;color:var(--sage-70)}
+.ms h3{margin:3px 0 6px}
+.ms ul{margin:8px 0 0;padding-left:18px}
+.ms li{margin-bottom:4px}
+
+/* ---- checklist ---- */
+.check{display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:1px solid var(--mist)}
+.check:last-child{border-bottom:0}
+.check input{width:18px;height:18px;flex:0 0 18px;margin-top:2px;accent-color:#4E5F4F}
+.check label{flex:1;cursor:pointer}
+.check.done label{opacity:.5;text-decoration:line-through}
+.progress{height:3px;background:var(--mist);margin:10px 0 18px}
+.progress i{display:block;height:100%;background:var(--sage)}
+
+/* ---- misc ---- */
+.stack>*+*{margin-top:14px}
+.split{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.notice{padding:13px 16px;font-size:.9375rem;border:1px solid}
+.notice--due{background:var(--attention-bg);border-color:var(--attention);color:#7a5f36}
+.notice--late{background:var(--alert-bg);border-color:var(--alert);color:var(--alert)}
+.notice--ok{background:var(--sage-10);border-color:var(--celadon)}
+.sheet{white-space:pre-wrap;font-size:.9375rem;line-height:1.75}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.chip{background:var(--sage-10);border:1px solid var(--celadon);padding:5px 11px;font-size:.75rem;
+  letter-spacing:.08em;text-transform:uppercase}
+.empty{padding:34px 20px;text-align:center;color:var(--sage-70)}
+footer.app{border-top:1px solid var(--mist);padding:26px 0;text-align:center;font-size:.75rem;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--sage-70)}
+.spin{display:inline-block;width:16px;height:16px;border:2px solid var(--mist);
+  border-top-color:var(--sage);border-radius:50%;animation:s .7s linear infinite;vertical-align:-3px}
+@keyframes s{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.spin{animation:none}}
+
+/* ---- login ---- */
+.login{max-width:400px;margin:0 auto;padding:56px 20px}
+.login .lede{text-align:center;margin-bottom:30px}
+.login .lede h1{margin-bottom:10px}
+.err{background:var(--alert-bg);border:1px solid var(--alert);color:var(--alert);
+  padding:11px 14px;font-size:.875rem;margin-bottom:14px}
+</style>
+</head>
+<body>
+
+<!-- ============================ LOGIN ============================ -->
+<section id="login" class="login">
+  <div class="lede">
+    <h1>Your Wedding</h1>
+    <p class="muted">Black Horse Beamish · Red Row Estate</p>
+  </div>
+  <form id="loginForm" class="card">
+    <div id="loginErr" class="err hide"></div>
+    <div class="field">
+      <span class="label">Your wedding reference</span>
+      <input id="eventId" autocomplete="username" autocapitalize="characters"
+             spellcheck="false" placeholder="EVNT000000" required>
+      <p class="muted" style="font-size:.8125rem;margin:6px 0 0">
+        It starts with EVNT and is on your booking emails.
+      </p>
+    </div>
+    <div class="field">
+      <span class="label">Your wedding date</span>
+      <input id="weddingDate" inputmode="numeric" autocomplete="current-password"
+             placeholder="DDMMYYYY" maxlength="10" required>
+      <p class="muted" style="font-size:.8125rem;margin:6px 0 0">
+        Eight digits, day first — a wedding on 24 October 2026 is 24102026.
+      </p>
+    </div>
+    <button id="loginBtn" class="btn btn--primary" style="width:100%" type="submit">Log in</button>
+  </form>
+  <p class="center muted" style="font-size:.8125rem;margin-top:22px">
+    Can't get in? Call us on <a href="tel:01207232569">01207 232 569</a><br>
+    or email <a href="mailto:events@blackhorsebeamish.co.uk">events@blackhorsebeamish.co.uk</a>
+  </p>
+</section>
+
+<!-- ============================ APP ============================ -->
+<div id="app" class="hide">
+  <header class="app">
+    <div class="wrap">
+      <span class="brand">Black Horse Beamish</span>
+      <button id="logout" class="btn btn--sm" style="color:var(--celadon)">Log out</button>
+    </div>
+    <div class="wrap">
+      <nav class="tabs" id="tabs">
+        <button data-view="home" aria-current="page">Your wedding</button>
+        <button data-view="details">Details</button>
+        <button data-view="pay">Amounts to pay</button>
+        <button data-view="journey">Wedding journey</button>
+        <button data-view="guests">Guest list</button>
+        <button data-view="suppliers">Suppliers</button>
+        <button data-view="budget">Budget</button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div id="globalErr" class="notice notice--late hide" style="margin-bottom:18px"></div>
+    <div id="views"></div>
+  </main>
+
+  <footer class="app">
+    Red Row Estate · Beamish · Co. Durham · DH9 0RW<br>
+    <a href="tel:01207232569">01207 232 569</a> ·
+    <a href="mailto:events@blackhorsebeamish.co.uk">events@blackhorsebeamish.co.uk</a>
+  </footer>
+</div>
+
+<script>
+"use strict";
+
+var CFG = {
+  SUPABASE_URL: "https://safcrtrfdzsnftghibot.supabase.co",
+  SUPABASE_KEY: "sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU",
+  SESSION_KEY: "bhb_wedding_session"
+};
+
+var S = { token: null, data: null, view: "home", guests: [], suppliers: [], budget: [], tables: [] };
+
+/* ---------- helpers ---------- */
+function $(id){ return document.getElementById(id); }
+function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g, function(c){
+  return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
+function money(n){ n = Number(n)||0; return "£" + n.toLocaleString("en-GB",{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function round2(n){ return Math.round((Number(n)+Number.EPSILON)*100)/100; }
+
+/* Guestline sends naive Europe/London wall-clock times with no timezone.
+   Read the characters, never parse them into a Date — a 15:15 wedding
+   breakfast must not become 16:15 in BST. */
+function hhmm(iso){ return String(iso||"").slice(11,16); }
+function ymd(iso){ return String(iso||"").slice(0,10); }
+
+function ukDate(iso, opts){
+  var d = ymd(iso).split("-");
+  if (d.length !== 3) return "";
+  var dt = new Date(Date.UTC(+d[0], +d[1]-1, +d[2]));
+  return new Intl.DateTimeFormat("en-GB", Object.assign(
+    { day:"numeric", month:"long", year:"numeric", timeZone:"UTC" }, opts||{})).format(dt);
+}
+function ukDateShort(iso){ return ukDate(iso, {day:"numeric",month:"short",year:"numeric"}); }
+function weekday(iso){ return ukDate(iso, {weekday:"long", day:undefined, month:undefined, year:undefined}); }
+
+function daysBetween(fromIso, toIso){
+  var a = ymd(fromIso).split("-"), b = ymd(toIso).split("-");
+  if (a.length!==3 || b.length!==3) return 0;
+  var da = Date.UTC(+a[0],+a[1]-1,+a[2]), db = Date.UTC(+b[0],+b[1]-1,+b[2]);
+  return Math.round((db-da)/86400000);
+}
+function todayIso(){
+  return new Intl.DateTimeFormat("en-CA",{timeZone:"Europe/London"}).format(new Date());
+}
+/** Shift an ISO date by whole months / days, staying on calendar dates. */
+function shift(iso, months, days){
+  var p = ymd(iso).split("-");
+  var d = new Date(Date.UTC(+p[0], +p[1]-1, +p[2]));
+  if (months) d.setUTCMonth(d.getUTCMonth() + months);
+  if (days) d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0,10);
+}
+
+/* ---------- api ---------- */
+async function callFn(name, body){
+  var r = await fetch(CFG.SUPABASE_URL + "/functions/v1/" + name, {
+    method: "POST",
+    headers: { "Content-Type":"application/json",
+               Authorization: "Bearer " + CFG.SUPABASE_KEY, apikey: CFG.SUPABASE_KEY },
+    body: JSON.stringify(body)
+  });
+  var data = await r.json().catch(function(){ return {}; });
+  if (!r.ok) {
+    var e = new Error(data.error || ("Request failed (" + r.status + ")"));
+    e.code = data.code; e.status = r.status; e.payload = data;
+    throw e;
+  }
+  return data;
+}
+
+async function api(action, payload){
+  try {
+    return await callFn("wedding-api", { token: S.token, action: action, payload: payload||{} });
+  } catch (e) {
+    if (e.code === "AUTH") { signOut(); }
+    throw e;
+  }
+}
+
+function showError(msg){
+  var el = $("globalErr");
+  el.textContent = msg;
+  el.classList.remove("hide");
+  window.scrollTo({ top:0, behavior:"smooth" });
+}
+function clearError(){ $("globalErr").classList.add("hide"); }
+
+/* ---------- session ---------- */
+function signOut(){
+  try { localStorage.removeItem(CFG.SESSION_KEY); } catch(e){}
+  S.token = null; S.data = null;
+  $("app").classList.add("hide");
+  $("login").classList.remove("hide");
+}
+
+$("logout").onclick = function(){ signOut(); };
+
+$("loginForm").onsubmit = async function(ev){
+  ev.preventDefault();
+  var btn = $("loginBtn"), err = $("loginErr");
+  err.classList.add("hide");
+  btn.disabled = true; btn.innerHTML = '<span class="spin"></span>';
+  try {
+    var res = await callFn("wedding-login", {
+      event_id: $("eventId").value,
+      password: $("weddingDate").value
+    });
+    S.token = res.token;
+    try { localStorage.setItem(CFG.SESSION_KEY, res.token); } catch(e){}
+    await start();
+  } catch (e) {
+    err.textContent = e.message;
+    err.classList.remove("hide");
+  } finally {
+    btn.disabled = false; btn.textContent = "Log in";
+  }
+};
+
+/* ---------- journey content ----------
+   Mirrors the printed "Your Wedding Journey" planner (V5), with every
+   milestone anchored to the couple's real wedding date rather than a
+   phrase, and payment milestones checked against what Guestline actually
+   shows as received. See docs/05-wedding-journey.md. */
+var MILESTONES = [
+  { key:"first_steps", title:"First steps", offset:null, at:"booking",
+    items:["Reserve your chosen wedding date with us","Confirm your registrar is available"] },
+  { key:"ten_days", title:"Within the first 10 days", offset:null, at:"booking",
+    items:["Pay your deposit and sign the terms & conditions","Check and return your signed contract"] },
+  { key:"begins", title:"Your journey begins", offset:null, at:"booking", meeting:true,
+    items:["Book your initial meeting with our team","Start working through your wedding checklist"] },
+  { key:"m9", title:"9 months to go", months:-9, pct:25, meeting:true,
+    items:["Book in your 9-month meeting"] },
+  { key:"m6", title:"6 months to go", months:-6, pct:50, meeting:true,
+    items:["Book in your 6-month meeting","Start your guest list, table plans and menu choices"] },
+  { key:"m3", title:"3 months to go", months:-3, pct:75, items:[] },
+  { key:"w6", title:"6 weeks to go", days:-42, meeting:true,
+    items:["Final details meeting — lock in menu choices, dietary requirements, guest numbers and table plans"] },
+  { key:"m1", title:"1 month to go", months:-1, pct:100,
+    items:["Pay your final balance","Kick back, relax and enjoy the final countdown"] },
+  { key:"w1", title:"1 week to go", days:-7, meeting:true,
+    items:["Drop off everything you need for setting up","Meet the wedding manager who'll look after you on the day"] },
+  { key:"day", title:"Your wedding day", days:0, items:[] }
+];
+
+var CHECKLIST = [
+  ["The big picture", ["Set a budget","Decide on your bridal party","Choose a theme and colour scheme",
+    "Make a guest list","Arrange the hen and stag dos"]],
+  ["Suppliers", ["Hire a photographer and videographer","Hire a band or DJ","Choose your flowers",
+    "Choose your cake","Hair and make-up trial"]],
+  ["What you'll wear", ["Go wedding dress shopping","Buy the dress","Choose bridesmaids' dresses",
+    "Hire suits","Dress fitting","Break in your wedding shoes","Buy wedding rings"]],
+  ["The day itself", ["Choose your ceremony music","Choose your readings","Write and practise your vows",
+    "Arrange decorations","Finalise the seating plan","Choose guest favours"]],
+  ["Guests and gifts", ["Send out invitations","Pick gifts for the wedding party","Assemble gift bags"]],
+  ["Money", ["Pay final balances with the venue and your suppliers"]]
+];
+
+var SUPPLIER_CATEGORIES = ["Photographer","Videographer","Band or DJ","Florist","Cake","Hair & make-up",
+  "Dress","Suits","Transport","Decorations","Favours","Stationery","Entertainment","Celebrant","Other"];
+
+/* ---------- milestone dates & payment status ---------- */
+function milestoneDate(m, weddingDate, createdAt){
+  if (m.at === "booking") return ymd(createdAt || weddingDate);
+  if (typeof m.months === "number") return shift(weddingDate, m.months, 0);
+  if (typeof m.days === "number") return shift(weddingDate, 0, m.days);
+  return ymd(weddingDate);
+}
+
+/** Payment schedule rows, with each checked against what's actually been paid. */
+function schedule(){
+  var b = S.data.balance, wd = S.data.wedding.wedding_date, today = todayIso();
+  return MILESTONES.filter(function(m){ return m.pct; }).map(function(m){
+    var due = milestoneDate(m, wd, S.data.wedding.created_at);
+    var target = round2(b.total * m.pct / 100);
+    var met = b.paid + 0.005 >= target;
+    var overdue = !met && daysBetween(today, due) < 0;
+    return { key:m.key, title:m.title, pct:m.pct, due:due, target:target, met:met, overdue:overdue };
+  });
+}
+
+function nextDue(){
+  var rows = schedule().filter(function(r){ return !r.met; });
+  return rows.length ? rows[0] : null;
+}
+
+/* ---------- boot ---------- */
+async function start(){
+  $("login").classList.add("hide");
+  $("app").classList.remove("hide");
+  $("views").innerHTML = '<div class="empty"><span class="spin"></span></div>';
+  try {
+    S.data = await api("dashboard");
+    clearError();
+    render();
+  } catch (e) {
+    if (e.code === "AUTH") return;
+    $("views").innerHTML = '<div class="card"><h2>We can\'t load your wedding</h2>' +
+      '<p>' + esc(e.message) + '</p>' +
+      '<p class="muted">If this keeps happening, please call us on 01207 232 569.</p>' +
+      '<button class="btn" onclick="start()">Try again</button></div>';
+  }
+}
+
+$("tabs").addEventListener("click", function(ev){
+  var b = ev.target.closest("button[data-view]");
+  if (!b) return;
+  S.view = b.dataset.view;
+  [].forEach.call($("tabs").children, function(x){
+    if (x.dataset.view === S.view) x.setAttribute("aria-current","page");
+    else x.removeAttribute("aria-current");
+  });
+  clearError();
+  render();
+  window.scrollTo({top:0});
+});
+
+function render(){
+  var v = $("views");
+  switch (S.view) {
+    case "home":      v.innerHTML = viewHome(); break;
+    case "details":   v.innerHTML = viewDetails(); break;
+    case "pay":       v.innerHTML = viewPay(); bindPay(); break;
+    case "journey":   v.innerHTML = viewJourney(); break;
+    case "guests":    v.innerHTML = '<div class="empty"><span class="spin"></span></div>'; loadGuests(); break;
+    case "suppliers": v.innerHTML = '<div class="empty"><span class="spin"></span></div>'; loadSuppliers(); break;
+    case "budget":    v.innerHTML = '<div class="empty"><span class="spin"></span></div>'; loadBudget(); break;
+  }
+}
+
+/* ============================ HOME ============================ */
+function statusPill(status){
+  var s = String(status||"").toLowerCase();
+  var cls = s === "confirmed" ? "pill--ok" : (s === "cancelled" ? "pill--late" : "pill--prov");
+  return '<span class="pill ' + cls + '">' + esc(status||"—") + '</span>';
+}
+
+function viewHome(){
+  var d = S.data, w = d.wedding, b = d.balance;
+  var days = daysBetween(todayIso(), w.wedding_date);
+  var nd = nextDue();
+
+  var countdown;
+  if (days > 1)       countdown = '<span class="n num">' + days + '</span><span class="label">days to go</span>';
+  else if (days === 1) countdown = '<span class="n num">1</span><span class="label">day to go</span>';
+  else if (days === 0) countdown = '<span class="n">Today</span><span class="label">your wedding day</span>';
+  else                 countdown = '<span class="n num">' + Math.abs(days) + '</span><span class="label">days married</span>';
+
+  var h = '<section class="hero">' +
+    '<div class="names">' + esc(w.salutation) + '</div>' +
+    '<div class="date">' + esc(weekday(w.wedding_date)) + ' ' + esc(ukDate(w.wedding_date)) + '</div>' +
+    '<div class="countdown">' + countdown + '</div>' +
+    '<div style="margin-top:14px">' + statusPill(d.event.status) + '</div>' +
+  '</section>';
+
+  /* Balance. A fully paid wedding gets a sentence, not a row of zeroes. */
+  if (b.fullyPaid) {
+    h += '<div class="notice notice--ok" style="margin-bottom:16px">' +
+      '<strong>That\'s everything paid.</strong> Nothing more to sort — we\'ll see you on ' +
+      esc(ukDateShort(w.wedding_date)) + '.</div>';
+  } else {
+    h += '<div class="balance" style="margin-bottom:16px">' +
+      '<div><span class="label">Total</span><div class="v num">' + money(b.total) + '</div></div>' +
+      '<div><span class="label">Paid</span><div class="v num">' + money(b.paid) + '</div></div>' +
+      '<div><span class="label">Still to pay</span><div class="v num out">' + money(b.outstanding) + '</div></div>' +
+    '</div>';
+
+    if (nd) {
+      h += '<div class="notice ' + (nd.overdue ? "notice--late" : "notice--due") + '" style="margin-bottom:16px">' +
+        (nd.overdue
+          ? '<strong>' + money(nd.target) + '</strong> (' + nd.pct + '% of your total) was due by ' + esc(ukDateShort(nd.due)) + '.'
+          : '<strong>' + money(nd.target) + '</strong> (' + nd.pct + '% of your total) is due by ' + esc(ukDateShort(nd.due)) + '.') +
+        ' <a href="#" onclick="go(\'pay\');return false"><strong>Make a payment</strong></a></div>';
+    }
+  }
+
+  /* Any app payments the venue hasn't posted to their system yet. Saying so
+     plainly is what stops a couple thinking their money vanished. */
+  if (b.appPaid > 0) {
+    h += '<div class="notice notice--ok" style="margin-bottom:16px">' +
+      money(b.appPaid) + ' paid in this app is included above and is being applied to your account by our events team.</div>';
+  }
+
+  /* The day */
+  h += '<div class="card"><h2 style="margin-bottom:14px">Your day</h2>';
+  if (d.functions.length) {
+    h += '<table>';
+    d.functions.forEach(function(f){
+      h += '<tr><td style="white-space:nowrap"><span class="num">' + esc(hhmm(f.start)) + '</span>' +
+        '<span class="muted"> – ' + esc(hhmm(f.end)) + '</span></td>' +
+        '<td><strong>' + esc(f.name) + '</strong>' +
+        (String(f.status).toLowerCase() !== "confirmed"
+          ? ' <span class="pill pill--prov">' + esc(f.status) + '</span>' : '') +
+        '</td>' +
+        '<td class="money num">' + esc(f.numberOfGuests) + ' guests</td></tr>';
+    });
+    h += '</table>';
+  } else {
+    h += '<p class="muted">Your timings will appear here once they\'re booked in.</p>';
+  }
+  h += '</div>';
+
+  /* Next milestone */
+  var upcoming = journeyRows().filter(function(r){ return r.state !== "done"; })[0];
+  if (upcoming) {
+    h += '<div class="card"><span class="label">Next on your journey</span>' +
+      '<h3 style="margin:6px 0 4px">' + esc(upcoming.m.title) + '</h3>' +
+      '<p class="muted" style="margin:0 0 10px">' + esc(ukDateShort(upcoming.date)) + '</p>' +
+      (upcoming.m.items.length ? '<ul style="margin:0;padding-left:18px">' +
+        upcoming.m.items.map(function(i){ return '<li>' + esc(i) + '</li>'; }).join("") + '</ul>' : '') +
+      '<p style="margin:14px 0 0"><a href="#" onclick="go(\'journey\');return false" class="btn btn--sm">See your journey</a></p>' +
+    '</div>';
+  }
+
+  h += '<div class="card"><span class="label">Looking after you</span>' +
+    '<h3 style="margin:6px 0 10px">' + esc(d.event.coordinator || "Our events team") + '</h3>' +
+    '<p style="margin:0"><a href="tel:01207232569">01207 232 569</a><br>' +
+    '<a href="mailto:events@blackhorsebeamish.co.uk">events@blackhorsebeamish.co.uk</a></p></div>';
+
+  return h;
+}
+
+function go(v){
+  S.view = v;
+  [].forEach.call($("tabs").children, function(x){
+    if (x.dataset.view === v) x.setAttribute("aria-current","page"); else x.removeAttribute("aria-current");
+  });
+  render(); window.scrollTo({top:0});
+}
+
+/* ============================ DETAILS ============================ */
+function viewDetails(){
+  var d = S.data, w = d.wedding;
+  var h = '<h1 style="margin-bottom:18px">Your details</h1>';
+
+  h += '<div class="card"><table>' +
+    '<tr><th>Couple</th><td>' + esc(w.partner1_name) + ' &amp; ' + esc(w.partner2_name) + '</td></tr>' +
+    '<tr><th>Date</th><td>' + esc(weekday(w.wedding_date)) + ' ' + esc(ukDate(w.wedding_date)) + '</td></tr>' +
+    '<tr><th>Status</th><td>' + statusPill(d.event.status) + '</td></tr>' +
+    '<tr><th>Guests</th><td class="num">' + esc(d.event.guests) + '</td></tr>' +
+    '<tr><th>Your reference</th><td class="num">' + esc(w.event_id) + '</td></tr>' +
+    (w.booking_refs && w.booking_refs.length
+      ? '<tr><th>Booking references</th><td class="num">' + w.booking_refs.map(esc).join("<br>") + '</td></tr>' : '') +
+    '<tr><th>Venue</th><td>Red Row Estate, Beamish,<br>Co. Durham DH9 0RW</td></tr>' +
+  '</table></div>';
+
+  h += '<div class="card"><h2 style="margin-bottom:6px">Your timings</h2>' +
+    '<p class="muted" style="margin:0 0 14px;font-size:.9375rem">As they stand in our diary.</p><table>';
+  d.functions.forEach(function(f){
+    h += '<tr><td><strong>' + esc(f.name) + '</strong><br>' +
+      '<span class="muted num">' + esc(hhmm(f.start)) + ' – ' + esc(hhmm(f.end)) + '</span></td>' +
+      '<td class="money">' + esc(f.numberOfGuests) + ' guests<br>' +
+      '<span class="pill ' + (String(f.status).toLowerCase()==="confirmed" ? "pill--ok" : "pill--prov") + '">' +
+      esc(f.status) + '</span></td></tr>';
+  });
+  h += '</table></div>';
+
+  if (d.event.whatsIncluded) {
+    h += '<div class="card"><h2 style="margin-bottom:12px">What\'s included</h2>' +
+      '<div class="sheet">' + esc(d.event.whatsIncluded) + '</div></div>';
+  }
+
+  /* The function sheet — the same running order the couple is given on
+     paper. The coordinator can switch it off per wedding. */
+  if (d.event.functionSheet) {
+    h += '<div class="card"><h2 style="margin-bottom:6px">Your function sheet</h2>' +
+      '<p class="muted" style="margin:0 0 14px;font-size:.9375rem">' +
+      'The plan for your day, exactly as our team has it. If anything here isn\'t right, tell us and we\'ll update it.</p>' +
+      '<div class="sheet">' + esc(d.event.functionSheet) + '</div></div>';
+  }
+
+  h += '<div class="card center"><h3 style="margin-bottom:8px">Something not right?</h3>' +
+    '<p class="muted" style="margin:0 0 14px">Let us know and we\'ll put it straight — everything here comes from our booking system.</p>' +
+    '<a class="btn" href="mailto:events@blackhorsebeamish.co.uk?subject=' +
+    encodeURIComponent("Wedding " + w.event_id + " — " + w.salutation) +
+    '&body=' + encodeURIComponent("Hello,\n\nThere's something we'd like to check on our booking (" + w.event_id + "):\n\n") +
+    '">Email our team</a></div>';
+
+  return h;
+}
+
+/* ============================ AMOUNTS TO PAY ============================ */
+function viewPay(){
+  var d = S.data, b = d.balance, bill = d.bill;
+  var h = '<h1 style="margin-bottom:18px">Amounts to pay</h1>';
+
+  if (b.fullyPaid) {
+    h += '<div class="notice notice--ok" style="margin-bottom:16px">' +
+      '<strong>Fully paid.</strong> Thank you — there\'s nothing left to pay.</div>';
+  } else {
+    h += '<div class="balance" style="margin-bottom:16px">' +
+      '<div><span class="label">Total</span><div class="v num">' + money(b.total) + '</div></div>' +
+      '<div><span class="label">Paid</span><div class="v num">' + money(b.paid) + '</div></div>' +
+      '<div><span class="label">Still to pay</span><div class="v num out">' + money(b.outstanding) + '</div></div>' +
+    '</div>';
+
+    /* ---- Make a payment: any amount, up to the outstanding balance ---- */
+    var nd = nextDue();
+    h += '<div class="card"><h2 style="margin-bottom:6px">Make a payment</h2>' +
+      '<p class="muted" style="margin:0 0 16px;font-size:.9375rem">' +
+      'Pay whatever suits you — the full balance, the next instalment, or any amount in between.</p>' +
+      '<div class="chips">' +
+        (nd && round2(nd.target - b.paid) > 0 && round2(nd.target - b.paid) < b.outstanding
+          ? '<button class="chip" type="button" data-amt="' + round2(nd.target - b.paid) + '">Next instalment ' + money(nd.target - b.paid) + '</button>' : '') +
+        '<button class="chip" type="button" data-amt="' + b.outstanding + '">Pay in full ' + money(b.outstanding) + '</button>' +
+      '</div>' +
+      '<div class="field"><span class="label">Amount</span>' +
+      '<input id="payAmt" inputmode="decimal" placeholder="0.00"></div>' +
+      '<div id="payErr" class="err hide"></div>' +
+      '<button id="payBtn" class="btn btn--primary" style="width:100%">Pay by card</button>' +
+      '<p class="muted center" style="font-size:.8125rem;margin:12px 0 0">' +
+      'You\'ll be taken to our secure card payment page. We never see or store your card details.</p>' +
+    '</div>';
+  }
+
+  /* ---- Payment schedule against the journey ---- */
+  h += '<div class="card"><h2 style="margin-bottom:6px">Your payment schedule</h2>' +
+    '<p class="muted" style="margin:0 0 14px;font-size:.9375rem">' +
+    'Checked against what we\'ve received.</p><table><thead><tr>' +
+    '<th>When</th><th>Due by</th><th class="money">Paid by then</th><th></th></tr></thead><tbody>';
+  schedule().forEach(function(r){
+    h += '<tr><td>' + esc(r.title) + '<br><span class="muted">' + r.pct + '% of total</span></td>' +
+      '<td class="num">' + esc(ukDateShort(r.due)) + '</td>' +
+      '<td class="money num">' + money(r.target) + '</td>' +
+      '<td class="money">' + (r.met
+        ? '<span class="pill pill--ok">Met</span>'
+        : (r.overdue ? '<span class="pill pill--late">Overdue</span>' : '<span class="pill pill--due">Due</span>')) +
+      '</td></tr>';
+  });
+  h += '</tbody></table></div>';
+
+  /* ---- What makes up the total ---- */
+  h += '<div class="card"><h2 style="margin-bottom:14px">What makes up your total</h2><table>';
+  (bill.functions||[]).slice().sort(function(a,c){ return String(a.start).localeCompare(String(c.start)); })
+    .forEach(function(f){
+      h += '<tr><td><strong>' + esc(f.name) + '</strong><br>' +
+        '<span class="muted num">' + esc(ukDateShort(f.start)) + ', ' + esc(hhmm(f.start)) + '</span></td>' +
+        '<td class="money num">' + money(f.totalRevenue) + '</td></tr>';
+    });
+  h += '<tr><td><strong>Total</strong></td><td class="money num"><strong>' + money(b.total) + '</strong></td></tr>';
+  h += '</table></div>';
+
+  /* ---- What's been paid: Guestline deposits + app payments, together ---- */
+  var ledger = [];
+  (bill.deposits||[]).forEach(function(dep){
+    ledger.push({ when: dep.depositDate, what: tidyDeposit(dep.description), amount: -Number(dep.amount), via: null });
+  });
+  (d.payments||[]).forEach(function(p){
+    ledger.push({ when: p.paid_at || p.created_at, what: "Card payment in this app",
+                  amount: Number(p.amount), via: p.reconciled ? null : "Being applied to your account" });
+  });
+  ledger.sort(function(a,c){ return String(a.when).localeCompare(String(c.when)); });
+
+  h += '<div class="card"><h2 style="margin-bottom:14px">What you\'ve paid</h2>';
+  if (ledger.length) {
+    h += '<table>';
+    ledger.forEach(function(x){
+      h += '<tr><td>' + esc(x.what) +
+        (x.via ? '<br><span class="muted" style="font-size:.8125rem">' + esc(x.via) + '</span>' : '') + '</td>' +
+        '<td class="num muted" style="white-space:nowrap">' + esc(ukDateShort(x.when)) + '</td>' +
+        '<td class="money num">' + money(x.amount) + '</td></tr>';
+    });
+    h += '<tr><td colspan="2"><strong>Paid to date</strong></td>' +
+      '<td class="money num"><strong>' + money(b.paid) + '</strong></td></tr></table>';
+  } else {
+    h += '<p class="muted">Nothing received yet.</p>';
+  }
+  h += '</div>';
+
+  return h;
+}
+
+/* Guestline deposit descriptions read "Deposit 27/08/2026 VISA" — the date
+   is already in its own column and PCI_LYNX/PCI_WEB mean nothing to a couple. */
+function tidyDeposit(desc){
+  var s = String(desc||"");
+  var method = /visa|mastercard|pci_web|pci_lynx|card/i.test(s) ? "Card payment"
+             : /bacs|transfer/i.test(s) ? "Bank transfer"
+             : /cash/i.test(s) ? "Cash" : "Payment received";
+  return method;
+}
+
+function bindPay(){
+  var amt = $("payAmt"), btn = $("payBtn"), err = $("payErr");
+  if (!btn) return;
+
+  [].forEach.call(document.querySelectorAll(".chip[data-amt]"), function(c){
+    c.onclick = function(){ amt.value = Number(c.dataset.amt).toFixed(2); amt.focus(); };
+  });
+
+  btn.onclick = async function(){
+    err.classList.add("hide");
+    var value = round2(parseFloat(String(amt.value).replace(/[^0-9.]/g,"")));
+    if (!isFinite(value) || value <= 0) {
+      err.textContent = "Please enter an amount."; err.classList.remove("hide"); return;
+    }
+    if (value > S.data.balance.outstanding + 0.005) {
+      err.textContent = "That's more than your outstanding balance of " + money(S.data.balance.outstanding) + ".";
+      err.classList.remove("hide"); return;
+    }
+    btn.disabled = true; btn.innerHTML = '<span class="spin"></span>';
+    try {
+      var res = await callFn("sumup-create-wedding-checkout", {
+        token: S.token,
+        amount: value,
+        redirect_url: location.origin + location.pathname + "?paid=1"
+      });
+      location.href = res.hosted_checkout_url;
+    } catch (e) {
+      err.textContent = e.message;
+      err.classList.remove("hide");
+      btn.disabled = false; btn.textContent = "Pay by card";
+    }
+  };
+}
+
+/* ============================ JOURNEY ============================ */
+function progressOf(kind, key){
+  var row = (S.data.progress||[]).filter(function(p){ return p.kind===kind && p.item_key===key; })[0];
+  return row && row.completed_at ? true : false;
+}
+
+function journeyRows(){
+  var w = S.data.wedding, today = todayIso();
+  var rows = MILESTONES.map(function(m){
+    var date = milestoneDate(m, w.wedding_date, w.created_at);
+    return { m:m, date:date, past: daysBetween(today, date) < 0 };
+  });
+  /* A wedding booked eight months out never had a "9 months to go", so
+     that milestone is dropped rather than shown as permanently missed. */
+  var booked = ymd(w.created_at || w.wedding_date);
+  rows = rows.filter(function(r){
+    if (r.m.at === "booking" || r.m.key === "day") return true;
+    return daysBetween(booked, r.date) >= 0;
+  });
+  var firstOpen = true;
+  return rows.map(function(r){
+    var done = progressOf("milestone", r.m.key) || (r.m.pct && paymentMet(r.m.key));
+    var state;
+    if (done) state = "done";
+    else if (firstOpen) { state = "now"; firstOpen = false; }
+    else state = "todo";
+    r.state = state;
+    return r;
+  });
+}
+
+function paymentMet(key){
+  var row = schedule().filter(function(s){ return s.key === key; })[0];
+  return row ? row.met : false;
+}
+
+function viewJourney(){
+  var w = S.data.wedding;
+  var h = '<h1 style="margin-bottom:6px">Your wedding journey</h1>' +
+    '<p class="muted" style="margin:0 0 20px">' +
+    'However daunting the journey may seem — we are here to help every step of the way.</p>';
+
+  h += '<div class="card card--flush" style="padding:6px 22px">';
+  journeyRows().forEach(function(r){
+    var m = r.m;
+    var sched = m.pct ? schedule().filter(function(s){ return s.key===m.key; })[0] : null;
+    h += '<div class="ms ' + r.state + '"><div class="dot"></div><div class="body" style="flex:1">' +
+      '<div class="when">' + esc(ukDateShort(r.date)) + (r.state==="now" ? ' · next up' : '') + '</div>' +
+      '<h3>' + esc(m.title) + '</h3>';
+
+    if (sched) {
+      h += '<p style="margin:0 0 6px">' +
+        '<strong class="num">' + money(sched.target) + '</strong> ' +
+        '<span class="muted">(' + sched.pct + '% of your total) due by ' + esc(ukDateShort(sched.due)) + '</span> ' +
+        (sched.met ? '<span class="pill pill--ok">Met</span>'
+          : (sched.overdue ? '<span class="pill pill--late">Overdue</span>' : '<span class="pill pill--due">Due</span>')) +
+        '</p>';
+      if (!sched.met) {
+        h += '<p style="margin:4px 0 0"><a href="#" onclick="go(\'pay\');return false" class="btn btn--sm">Make a payment</a></p>';
+      }
+    }
+
+    if (m.items.length) {
+      h += '<ul>' + m.items.map(function(i){ return '<li>' + esc(i) + '</li>'; }).join("") + '</ul>';
+    }
+    if (m.meeting) {
+      h += '<p style="margin:12px 0 0">' +
+        '<a class="btn btn--sm" href="mailto:events@blackhorsebeamish.co.uk?subject=' +
+        encodeURIComponent("Booking a meeting — " + w.event_id + " — " + w.salutation) +
+        '&body=' + encodeURIComponent("Hello,\n\nWe'd like to book our " + m.title.toLowerCase() +
+          " meeting for our wedding on " + ukDate(w.wedding_date) + " (" + w.event_id + ").\n\n") +
+        '">Book this meeting</a> ' +
+        '<span class="muted" style="font-size:.8125rem">or call 01207 232 569</span></p>';
+    }
+    if (!m.pct) {
+      h += '<p style="margin:10px 0 0"><label class="check" style="border:0;padding:0">' +
+        '<input type="checkbox" ' + (progressOf("milestone", m.key) ? "checked" : "") +
+        ' onchange="toggleMilestone(\'' + m.key + '\',this.checked)">' +
+        '<span style="font-size:.875rem" class="muted">Mark as done</span></label></p>';
+    }
+    h += '</div></div>';
+  });
+  h += '</div>';
+
+  /* ---- Checklist ---- */
+  var all = [], doneCount = 0;
+  CHECKLIST.forEach(function(g){ g[1].forEach(function(i){ all.push(i); }); });
+  all.forEach(function(i){ if (progressOf("checklist", i)) doneCount++; });
+  var custom = (S.data.progress||[]).filter(function(p){ return p.kind==="checklist" && p.custom_label; });
+  custom.forEach(function(c){ if (c.completed_at) doneCount++; });
+  var total = all.length + custom.length;
+
+  h += '<div class="card"><div class="split"><h2>Your wedding checklist</h2>' +
+    '<span class="label num">' + doneCount + ' of ' + total + ' done</span></div>' +
+    '<div class="progress"><i style="width:' + (total ? Math.round(doneCount/total*100) : 0) + '%"></i></div>';
+
+  CHECKLIST.forEach(function(g){
+    h += '<h3 style="margin:18px 0 4px;font-size:.8125rem;letter-spacing:.14em">' + esc(g[0]) + '</h3>';
+    g[1].forEach(function(item){
+      var done = progressOf("checklist", item);
+      h += '<label class="check' + (done ? " done" : "") + '">' +
+        '<input type="checkbox" ' + (done ? "checked" : "") +
+        ' onchange="toggleCheck(' + JSON.stringify(item).replace(/"/g,"&quot;") + ',this.checked)">' +
+        '<span>' + esc(item) + '</span></label>';
+    });
+  });
+
+  if (custom.length) {
+    h += '<h3 style="margin:18px 0 4px;font-size:.8125rem;letter-spacing:.14em">Your own</h3>';
+    custom.forEach(function(c){
+      var key = JSON.stringify(c.item_key).replace(/"/g,"&quot;");
+      var lbl = JSON.stringify(c.custom_label).replace(/"/g,"&quot;");
+      // The Remove button sits OUTSIDE the <label> — inside it, a click
+      // would also toggle the tickbox on its way past.
+      h += '<div class="check' + (c.completed_at ? " done" : "") + '">' +
+        '<input type="checkbox" id="cc_' + esc(c.item_key) + '" ' + (c.completed_at ? "checked" : "") +
+        ' onchange="toggleCheck(' + key + ',this.checked,' + lbl + ')">' +
+        '<label for="cc_' + esc(c.item_key) + '">' + esc(c.custom_label) + '</label>' +
+        '<button class="btn btn--sm" style="border:0;padding:0 6px" ' +
+        'onclick="removeCustom(' + key + ');return false">Remove</button></div>';
+    });
+  }
+
+  h += '<div style="display:flex;gap:8px;margin-top:18px">' +
+    '<input id="newCheck" placeholder="Add something of your own">' +
+    '<button class="btn" onclick="addCustom()">Add</button></div>';
+  h += '</div>';
+
+  return h;
+}
+
+async function toggleMilestone(key, done){
+  try { await api("progress.toggle", { kind:"milestone", item_key:key, done:done });
+        var p = S.data.progress.filter(function(x){ return x.kind==="milestone"&&x.item_key===key; })[0];
+        if (p) p.completed_at = done ? new Date().toISOString() : null;
+        else S.data.progress.push({kind:"milestone",item_key:key,completed_at: done?new Date().toISOString():null});
+        render(); }
+  catch (e) { showError(e.message); }
+}
+
+async function toggleCheck(key, done, label){
+  try {
+    await api("progress.toggle", { kind:"checklist", item_key:key, done:done, custom_label: label||null });
+    var p = S.data.progress.filter(function(x){ return x.kind==="checklist"&&x.item_key===key; })[0];
+    if (p) p.completed_at = done ? new Date().toISOString() : null;
+    else S.data.progress.push({kind:"checklist",item_key:key,custom_label:label||null,
+                               completed_at: done?new Date().toISOString():null});
+    render();
+  } catch (e) { showError(e.message); }
+}
+
+async function addCustom(){
+  var el = $("newCheck"), label = String(el.value||"").trim();
+  if (!label) return;
+  var key = "custom:" + Date.now();
+  try {
+    await api("progress.toggle", { kind:"checklist", item_key:key, done:false, custom_label:label });
+    S.data.progress.push({ kind:"checklist", item_key:key, custom_label:label, completed_at:null });
+    render();
+  } catch (e) { showError(e.message); }
+}
+
+async function removeCustom(key){
+  try { await api("progress.removeCustom", { item_key:key });
+        S.data.progress = S.data.progress.filter(function(x){ return x.item_key !== key; });
+        render(); }
+  catch (e) { showError(e.message); }
+}
+
+/* ============================ GUEST LIST ============================ */
+async function loadGuests(){
+  try {
+    S.guests = await api("guests.list");
+    S.tables = await api("tables.list");
+    $("views").innerHTML = viewGuests();
+  } catch (e) { showError(e.message); $("views").innerHTML = ""; }
+}
+
+function viewGuests(){
+  var d = S.data;
+  var g = S.guests;
+  var attending = g.filter(function(x){ return x.rsvp === "attending"; });
+  var day = attending.filter(function(x){ return x.invited_to !== "evening"; }).length;
+  var evening = attending.filter(function(x){ return x.invited_to !== "day"; }).length;
+  var adults = attending.filter(function(x){ return x.age_group === "adult"; }).length;
+  var children = attending.filter(function(x){ return x.age_group === "child"; }).length;
+  var infants = attending.filter(function(x){ return x.age_group === "infant"; }).length;
+
+  /* What the venue has in the diary, so the couple can see the gap. */
+  var venueDay = 0, venueEve = 0;
+  d.functions.forEach(function(f){
+    if (/evening|reception/i.test(f.name)) venueEve = Math.max(venueEve, f.numberOfGuests);
+    else venueDay = Math.max(venueDay, f.numberOfGuests);
+  });
+
+  var h = '<h1 style="margin-bottom:6px">Guest list</h1>' +
+    '<p class="muted" style="margin:0 0 18px">Only you and our events team can see this.</p>';
+
+  h += '<div class="balance" style="margin-bottom:8px">' +
+    '<div><span class="label">Attending</span><div class="v num">' + attending.length + '</div></div>' +
+    '<div><span class="label">Day</span><div class="v num">' + day + (venueDay ? '<span class="muted" style="font-size:.875rem"> / ' + venueDay + '</span>' : '') + '</div></div>' +
+    '<div><span class="label">Evening</span><div class="v num">' + evening + (venueEve ? '<span class="muted" style="font-size:.875rem"> / ' + venueEve + '</span>' : '') + '</div></div>' +
+  '</div>';
+
+  h += '<p class="muted center" style="font-size:.8125rem;margin:0 0 16px">' +
+    adults + ' adults · ' + children + ' children · ' + infants + ' infants attending' +
+    (venueDay ? ' — we have ' + venueDay + ' day guests in the diary' : '') + '</p>';
+
+  h += '<div class="card"><h2 style="margin-bottom:14px">Add a guest</h2>' + guestForm(null) + '</div>';
+
+  h += '<div class="card card--flush">';
+  if (!g.length) {
+    h += '<div class="empty">No guests yet. Add your first above.</div>';
+  } else {
+    h += '<table><thead><tr><th>Guest</th><th>Invited to</th><th>RSVP</th><th></th></tr></thead><tbody>';
+    g.forEach(function(x){
+      h += '<tr id="g_' + x.id + '"><td><strong>' + esc(x.first_name + " " + (x.surname||"")) + '</strong>' +
+        (x.age_group !== "adult" ? ' <span class="pill pill--prov">' + esc(x.age_group) + '</span>' : '') +
+        (x.household ? '<br><span class="muted" style="font-size:.8125rem">' + esc(x.household) + '</span>' : '') +
+        (x.dietary ? '<br><span class="muted" style="font-size:.8125rem">Dietary: ' + esc(x.dietary) + '</span>' : '') +
+        (x.accessibility ? '<br><span class="muted" style="font-size:.8125rem">Access: ' + esc(x.accessibility) + '</span>' : '') +
+        '</td>' +
+        '<td>' + esc(x.invited_to === "both" ? "Day & evening" : (x.invited_to === "day" ? "Day" : "Evening")) + '</td>' +
+        '<td>' + rsvpPill(x.rsvp) + '</td>' +
+        '<td class="money"><button class="btn btn--sm" onclick="editGuest(\'' + x.id + '\')">Edit</button></td></tr>';
+    });
+    h += '</tbody></table>';
+  }
+  h += '</div>';
+
+  if (g.length) {
+    h += '<div class="center"><button class="btn" onclick="exportGuests()">Download as CSV</button></div>';
+  }
+  return h;
+}
+
+function rsvpPill(r){
+  if (r === "attending") return '<span class="pill pill--ok">Attending</span>';
+  if (r === "declined")  return '<span class="pill pill--late">Declined</span>';
+  if (r === "invited")   return '<span class="pill pill--due">Invited</span>';
+  return '<span class="pill pill--prov">No reply</span>';
+}
+
+function guestForm(x){
+  x = x || {};
+  var p = "gf_" + (x.id || "new");
+  return '<div id="' + p + '">' +
+    '<div class="row"><div class="field"><span class="label">First name</span>' +
+      '<input id="' + p + '_first" value="' + esc(x.first_name||"") + '"></div>' +
+      '<div class="field"><span class="label">Surname</span>' +
+      '<input id="' + p + '_last" value="' + esc(x.surname||"") + '"></div></div>' +
+    '<div class="row"><div class="field"><span class="label">Household (optional)</span>' +
+      '<input id="' + p + '_house" placeholder="The Wilsons" value="' + esc(x.household||"") + '"></div>' +
+      '<div class="field"><span class="label">Email (optional)</span>' +
+      '<input id="' + p + '_email" value="' + esc(x.email||"") + '"></div></div>' +
+    '<div class="field"><span class="label">Address (optional)</span>' +
+      '<textarea id="' + p + '_addr">' + esc(x.address||"") + '</textarea></div>' +
+    '<div class="row"><div class="field"><span class="label">Invited to</span>' +
+      '<select id="' + p + '_invite">' +
+        opt("day","Day",x.invited_to) + opt("evening","Evening only",x.invited_to) +
+        opt("both","Day & evening",x.invited_to) + '</select></div>' +
+      '<div class="field"><span class="label">Age group</span>' +
+      '<select id="' + p + '_age">' +
+        opt("adult","Adult",x.age_group) + opt("child","Child",x.age_group) +
+        opt("infant","Infant",x.age_group) + '</select></div></div>' +
+    '<div class="field"><span class="label">RSVP</span><select id="' + p + '_rsvp">' +
+      opt("no_reply","No reply yet",x.rsvp) + opt("invited","Invited",x.rsvp) +
+      opt("attending","Attending",x.rsvp) + opt("declined","Declined",x.rsvp) + '</select></div>' +
+    '<div class="row"><div class="field"><span class="label">Dietary requirements</span>' +
+      '<input id="' + p + '_diet" value="' + esc(x.dietary||"") + '"></div>' +
+      '<div class="field"><span class="label">Accessibility needs</span>' +
+      '<input id="' + p + '_access" value="' + esc(x.accessibility||"") + '"></div></div>' +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+      '<button class="btn btn--primary" onclick="saveGuest(\'' + (x.id||"") + '\')">' +
+        (x.id ? "Save changes" : "Add guest") + '</button>' +
+      (x.id ? '<button class="btn" onclick="loadGuests()">Cancel</button>' +
+              '<button class="btn" style="color:var(--alert)" onclick="deleteGuest(\'' + x.id + '\')">Remove</button>' : '') +
+    '</div></div>';
+}
+
+function opt(v, label, current){
+  return '<option value="' + v + '"' + (current === v ? " selected" : "") + '>' + esc(label) + '</option>';
+}
+
+function editGuest(id){
+  var x = S.guests.filter(function(g){ return g.id === id; })[0];
+  if (!x) return;
+  var tr = $("g_" + id);
+  tr.innerHTML = '<td colspan="4">' + guestForm(x) + '</td>';
+}
+
+async function saveGuest(id){
+  var p = "gf_" + (id || "new");
+  var row = {
+    id: id || undefined,
+    first_name: $(p+"_first").value.trim(),
+    surname: $(p+"_last").value.trim(),
+    household: $(p+"_house").value.trim(),
+    email: $(p+"_email").value.trim(),
+    address: $(p+"_addr").value.trim(),
+    invited_to: $(p+"_invite").value,
+    age_group: $(p+"_age").value,
+    rsvp: $(p+"_rsvp").value,
+    dietary: $(p+"_diet").value.trim(),
+    accessibility: $(p+"_access").value.trim()
+  };
+  if (!row.first_name) { showError("A first name is needed."); return; }
+  try { await api("guests.save", row); await loadGuests(); clearError(); }
+  catch (e) { showError(e.message); }
+}
+
+async function deleteGuest(id){
+  if (!confirm("Remove this guest from your list?")) return;
+  try { await api("guests.delete", { id:id }); await loadGuests(); }
+  catch (e) { showError(e.message); }
+}
+
+function exportGuests(){
+  var cols = ["first_name","surname","household","email","address","invited_to","age_group","rsvp","dietary","accessibility"];
+  var head = ["First name","Surname","Household","Email","Address","Invited to","Age group","RSVP","Dietary","Accessibility"];
+  csv("guest-list", head, S.guests.map(function(g){ return cols.map(function(c){ return g[c]; }); }));
+}
+
+function csv(name, head, rows){
+  var q = function(v){ return '"' + String(v==null?"":v).replace(/"/g,'""') + '"'; };
+  var body = [head.map(q).join(",")].concat(rows.map(function(r){ return r.map(q).join(","); })).join("\r\n");
+  var blob = new Blob(["﻿" + body], { type:"text/csv;charset=utf-8" });
+  var a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = name + "-" + S.data.wedding.event_id + ".csv";
+  a.click();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); }, 1000);
+}
+
+/* ============================ SUPPLIERS ============================ */
+async function loadSuppliers(){
+  try { S.suppliers = await api("suppliers.list"); $("views").innerHTML = viewSuppliers(); }
+  catch (e) { showError(e.message); $("views").innerHTML = ""; }
+}
+
+function viewSuppliers(){
+  var s = S.suppliers;
+  var h = '<h1 style="margin-bottom:6px">Suppliers</h1>' +
+    '<p class="muted" style="margin:0 0 18px">' +
+    'Arrival times matter most — they become the schedule our team works from on the day.</p>';
+
+  h += '<div class="card"><h2 style="margin-bottom:14px">Add a supplier</h2>' + supplierForm(null) + '</div>';
+
+  h += '<div class="card card--flush">';
+  if (!s.length) {
+    h += '<div class="empty">No suppliers yet.</div>';
+  } else {
+    h += '<table><thead><tr><th>Arrives</th><th>Supplier</th><th class="money">Cost</th><th></th></tr></thead><tbody>';
+    s.forEach(function(x){
+      h += '<tr id="s_' + x.id + '">' +
+        '<td class="num" style="white-space:nowrap">' + esc(x.arrival_time ? String(x.arrival_time).slice(0,5) : "—") + '</td>' +
+        '<td><strong>' + esc(x.name) + '</strong><br><span class="muted" style="font-size:.8125rem">' + esc(x.category) +
+        (x.contact_name ? ' · ' + esc(x.contact_name) : '') +
+        (x.phone ? '<br><a href="tel:' + esc(x.phone) + '">' + esc(x.phone) + '</a>' : '') + '</span></td>' +
+        '<td class="money num">' + (x.cost != null ? money(x.cost) : "—") +
+        (x.is_paid ? '<br><span class="pill pill--ok">Paid</span>' : '') + '</td>' +
+        '<td class="money"><button class="btn btn--sm" onclick="editSupplier(\'' + x.id + '\')">Edit</button></td></tr>';
+    });
+    h += '</tbody></table>';
+  }
+  h += '</div>';
+
+  if (s.length) {
+    h += '<div class="center"><button class="btn" onclick="exportSuppliers()">Download day schedule</button></div>';
+  }
+  return h;
+}
+
+function supplierForm(x){
+  x = x || {};
+  var p = "sf_" + (x.id || "new");
+  return '<div id="' + p + '">' +
+    '<div class="row"><div class="field"><span class="label">Supplier name</span>' +
+      '<input id="' + p + '_name" value="' + esc(x.name||"") + '"></div>' +
+      '<div class="field"><span class="label">Category</span><select id="' + p + '_cat">' +
+      SUPPLIER_CATEGORIES.map(function(c){ return opt(c,c,x.category); }).join("") + '</select></div></div>' +
+    '<div class="row"><div class="field"><span class="label">Contact name</span>' +
+      '<input id="' + p + '_contact" value="' + esc(x.contact_name||"") + '"></div>' +
+      '<div class="field"><span class="label">Phone</span>' +
+      '<input id="' + p + '_phone" value="' + esc(x.phone||"") + '"></div></div>' +
+    '<div class="row"><div class="field"><span class="label">Email</span>' +
+      '<input id="' + p + '_email" value="' + esc(x.email||"") + '"></div>' +
+      '<div class="field"><span class="label">Arriving at</span>' +
+      '<input id="' + p + '_time" type="time" value="' + esc(x.arrival_time ? String(x.arrival_time).slice(0,5) : "") + '"></div></div>' +
+    '<div class="row"><div class="field"><span class="label">Cost</span>' +
+      '<input id="' + p + '_cost" inputmode="decimal" value="' + (x.cost != null ? esc(x.cost) : "") + '"></div>' +
+      '<div class="field"><span class="label">Paid?</span><select id="' + p + '_paid">' +
+      '<option value="no"' + (x.is_paid ? "" : " selected") + '>Not yet</option>' +
+      '<option value="yes"' + (x.is_paid ? " selected" : "") + '>Paid in full</option></select></div></div>' +
+    '<div class="field"><span class="label">Notes</span><textarea id="' + p + '_notes">' + esc(x.notes||"") + '</textarea></div>' +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+      '<button class="btn btn--primary" onclick="saveSupplier(\'' + (x.id||"") + '\')">' +
+      (x.id ? "Save changes" : "Add supplier") + '</button>' +
+      (x.id ? '<button class="btn" onclick="loadSuppliers()">Cancel</button>' +
+              '<button class="btn" style="color:var(--alert)" onclick="deleteSupplier(\'' + x.id + '\')">Remove</button>' : '') +
+    '</div></div>';
+}
+
+function editSupplier(id){
+  var x = S.suppliers.filter(function(s){ return s.id === id; })[0];
+  if (!x) return;
+  $("s_" + id).innerHTML = '<td colspan="4">' + supplierForm(x) + '</td>';
+}
+
+async function saveSupplier(id){
+  var p = "sf_" + (id || "new");
+  var cost = String($(p+"_cost").value).replace(/[^0-9.]/g,"");
+  var row = {
+    id: id || undefined,
+    name: $(p+"_name").value.trim(),
+    category: $(p+"_cat").value,
+    contact_name: $(p+"_contact").value.trim(),
+    phone: $(p+"_phone").value.trim(),
+    email: $(p+"_email").value.trim(),
+    arrival_time: $(p+"_time").value || null,
+    cost: cost === "" ? null : round2(cost),
+    is_paid: $(p+"_paid").value === "yes",
+    notes: $(p+"_notes").value.trim()
+  };
+  if (!row.name) { showError("A supplier name is needed."); return; }
+  try { await api("suppliers.save", row); await loadSuppliers(); clearError(); }
+  catch (e) { showError(e.message); }
+}
+
+async function deleteSupplier(id){
+  if (!confirm("Remove this supplier?")) return;
+  try { await api("suppliers.delete", { id:id }); await loadSuppliers(); }
+  catch (e) { showError(e.message); }
+}
+
+function exportSuppliers(){
+  var rows = S.suppliers.slice().sort(function(a,b){
+    return String(a.arrival_time||"99").localeCompare(String(b.arrival_time||"99"));
+  }).map(function(s){
+    return [s.arrival_time ? String(s.arrival_time).slice(0,5) : "", s.name, s.category,
+            s.contact_name, s.phone, s.email, s.notes];
+  });
+  csv("supplier-schedule", ["Arrives","Supplier","Category","Contact","Phone","Email","Notes"], rows);
+}
+
+/* ============================ BUDGET ============================ */
+async function loadBudget(){
+  try { S.budget = await api("budget.list"); $("views").innerHTML = viewBudget(); }
+  catch (e) { showError(e.message); $("views").innerHTML = ""; }
+}
+
+function viewBudget(){
+  var b = S.budget, w = S.data.wedding;
+  var budgeted = b.reduce(function(s,x){ return s + Number(x.budgeted||0); }, 0);
+  var spent = b.reduce(function(s,x){ return s + Number(x.spent||0); }, 0);
+  var total = w.total_budget != null ? Number(w.total_budget) : null;
+  var hasVenue = b.some(function(x){ return x.is_venue_cost; });
+
+  var h = '<h1 style="margin-bottom:18px">Budget</h1>';
+
+  h += '<div class="card"><div class="row"><div class="field">' +
+    '<span class="label">Your overall budget</span>' +
+    '<input id="totalBudget" inputmode="decimal" value="' + (total != null ? esc(total) : "") + '" placeholder="Not set">' +
+    '</div><div class="field" style="display:flex;align-items:flex-end">' +
+    '<button class="btn" style="width:100%" onclick="saveTotal()">Save</button></div></div>';
+
+  if (total != null) {
+    var left = round2(total - spent);
+    h += '<div class="balance" style="margin-top:4px">' +
+      '<div><span class="label">Budget</span><div class="v num">' + money(total) + '</div></div>' +
+      '<div><span class="label">Spent</span><div class="v num">' + money(spent) + '</div></div>' +
+      '<div><span class="label">' + (left < 0 ? "Over by" : "Left") + '</span>' +
+      '<div class="v num ' + (left < 0 ? "out" : "clear") + '">' + money(Math.abs(left)) + '</div></div>' +
+    '</div>';
+    if (left < 0) {
+      h += '<div class="notice notice--late" style="margin-top:12px">You\'re ' + money(Math.abs(left)) +
+        ' over the budget you set. Worth a look — or just move the number.</div>';
+    }
+  } else {
+    h += '<p class="muted" style="margin:0">Set a number above and we\'ll track it against what you spend.</p>';
+  }
+  h += '</div>';
+
+  if (!hasVenue) {
+    h += '<div class="notice notice--ok" style="margin-bottom:16px">' +
+      'Add your Black Horse costs automatically, straight from your booking — no typing. ' +
+      '<button class="btn btn--sm" onclick="syncVenue()">Add venue costs</button></div>';
+  }
+
+  h += '<div class="card"><h2 style="margin-bottom:14px">Add a cost</h2>' + budgetForm(null) + '</div>';
+
+  h += '<div class="card card--flush">';
+  if (!b.length) {
+    h += '<div class="empty">Nothing here yet.</div>';
+  } else {
+    h += '<table><thead><tr><th>What</th><th class="money">Budgeted</th><th class="money">Spent</th><th></th></tr></thead><tbody>';
+    b.forEach(function(x){
+      h += '<tr id="b_' + x.id + '"><td><strong>' + esc(x.description) + '</strong>' +
+        (x.is_venue_cost ? ' <span class="pill pill--ok">From your booking</span>' : '') +
+        '<br><span class="muted" style="font-size:.8125rem">' + esc(x.category) + '</span></td>' +
+        '<td class="money num">' + money(x.budgeted) + '</td>' +
+        '<td class="money num">' + money(x.spent) + (x.is_paid ? '<br><span class="pill pill--ok">Paid</span>' : '') + '</td>' +
+        '<td class="money">' + (x.is_venue_cost ? '' :
+          '<button class="btn btn--sm" onclick="editBudget(\'' + x.id + '\')">Edit</button>') + '</td></tr>';
+    });
+    h += '<tr><td><strong>Total</strong></td><td class="money num"><strong>' + money(budgeted) + '</strong></td>' +
+      '<td class="money num"><strong>' + money(spent) + '</strong></td><td></td></tr>';
+    h += '</tbody></table>';
+  }
+  h += '</div>';
+
+  if (b.length) h += '<div class="center"><button class="btn" onclick="exportBudget()">Download as CSV</button></div>';
+  return h;
+}
+
+function budgetForm(x){
+  x = x || {};
+  var p = "bf_" + (x.id || "new");
+  return '<div id="' + p + '">' +
+    '<div class="field"><span class="label">What is it?</span>' +
+      '<input id="' + p + '_desc" value="' + esc(x.description||"") + '"></div>' +
+    '<div class="row"><div class="field"><span class="label">Category</span>' +
+      '<input id="' + p + '_cat" value="' + esc(x.category||"") + '" placeholder="Flowers, Dress, Music…"></div>' +
+      '<div class="field"><span class="label">Paid?</span><select id="' + p + '_paid">' +
+      '<option value="no"' + (x.is_paid ? "" : " selected") + '>Not yet</option>' +
+      '<option value="yes"' + (x.is_paid ? " selected" : "") + '>Paid</option></select></div></div>' +
+    '<div class="row"><div class="field"><span class="label">Budgeted</span>' +
+      '<input id="' + p + '_bud" inputmode="decimal" value="' + esc(x.budgeted!=null?x.budgeted:"") + '"></div>' +
+      '<div class="field"><span class="label">Spent so far</span>' +
+      '<input id="' + p + '_spent" inputmode="decimal" value="' + esc(x.spent!=null?x.spent:"") + '"></div></div>' +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+      '<button class="btn btn--primary" onclick="saveBudget(\'' + (x.id||"") + '\')">' +
+      (x.id ? "Save changes" : "Add cost") + '</button>' +
+      (x.id ? '<button class="btn" onclick="loadBudget()">Cancel</button>' +
+              '<button class="btn" style="color:var(--alert)" onclick="deleteBudget(\'' + x.id + '\')">Remove</button>' : '') +
+    '</div></div>';
+}
+
+function editBudget(id){
+  var x = S.budget.filter(function(b){ return b.id === id; })[0];
+  if (!x) return;
+  $("b_" + id).innerHTML = '<td colspan="4">' + budgetForm(x) + '</td>';
+}
+
+function num(v){ var s = String(v).replace(/[^0-9.]/g,""); return s === "" ? 0 : round2(s); }
+
+async function saveBudget(id){
+  var p = "bf_" + (id || "new");
+  var row = {
+    id: id || undefined,
+    description: $(p+"_desc").value.trim(),
+    category: $(p+"_cat").value.trim() || "Other",
+    budgeted: num($(p+"_bud").value),
+    spent: num($(p+"_spent").value),
+    is_paid: $(p+"_paid").value === "yes"
+  };
+  if (!row.description) { showError("Give it a name so you know what it is."); return; }
+  try { await api("budget.save", row); await loadBudget(); clearError(); }
+  catch (e) { showError(e.message); }
+}
+
+async function deleteBudget(id){
+  if (!confirm("Remove this cost?")) return;
+  try { await api("budget.delete", { id:id }); await loadBudget(); }
+  catch (e) { showError(e.message); }
+}
+
+async function saveTotal(){
+  var v = String($("totalBudget").value).replace(/[^0-9.]/g,"");
+  try {
+    await api("budget.setTotal", { total: v === "" ? null : round2(v) });
+    S.data.wedding.total_budget = v === "" ? null : round2(v);
+    await loadBudget(); clearError();
+  } catch (e) { showError(e.message); }
+}
+
+async function syncVenue(){
+  try { await api("budget.syncVenue"); await loadBudget(); clearError(); }
+  catch (e) { showError(e.message); }
+}
+
+function exportBudget(){
+  csv("budget", ["What","Category","Budgeted","Spent","Paid"], S.budget.map(function(b){
+    return [b.description, b.category, b.budgeted, b.spent, b.is_paid ? "Yes" : "No"];
+  }));
+}
+
+/* ---------- start ---------- */
+(function(){
+  try { S.token = localStorage.getItem(CFG.SESSION_KEY); } catch(e){}
+
+  /* Coming back from SumUp. The webhook is what actually records the
+     payment, so a moment's grace avoids showing a stale balance — and if
+     it's still not through, the ledger says so rather than pretending. */
+  if (/[?&]paid=1/.test(location.search)) {
+    history.replaceState(null, "", location.pathname);
+    if (S.token) {
+      $("login").classList.add("hide");
+      $("app").classList.remove("hide");
+      $("views").innerHTML = '<div class="empty"><span class="spin"></span>' +
+        '<p style="margin-top:14px">Confirming your payment…</p></div>';
+      setTimeout(function(){ S.view = "pay"; start().then(function(){ go("pay"); }); }, 2500);
+      return;
+    }
+  }
+
+  if (S.token) start();
+  else { $("login").classList.remove("hide"); }
+})();
+</script>
+</body>
+</html>

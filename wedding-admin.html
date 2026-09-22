@@ -1,0 +1,763 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Wedding Admin — Black Horse Beamish</title>
+
+<!--
+  Black Horse Beamish — Bride & Groom App, back-office portal.
+
+  Deployed to bhb-till-portal/wedding-admin.html -> GitHub Pages at
+  app.blackhorsebeamish.co.uk/wedding-admin.html, and iframed by the
+  password-protected Squarespace page at
+  blackhorsebeamish.co.uk/bridal-app-config.
+  Same arrangement as /till-reports -> index.html.
+
+  Staff only. Couples never see this page — they go to
+  blackhorsebeamish.co.uk/bridal-app and log in with their event reference
+  and wedding date.
+
+  Everything goes through the wedding-admin edge function, which holds the
+  service role. The password below is checked here for the UI and again
+  server-side on every call, so a reader of this source still can't do
+  anything without it.
+-->
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;500;700&family=Cormorant+Garamond:wght@400;600&display=swap" rel="stylesheet">
+
+<style>
+:root{
+  --sage:#4E5F4F; --bone:#F7F7F7; --celadon:#C1C8B4; --mist:#E7E7E7; --white:#fff;
+  --sage-70:#7B887C; --sage-10:#EDEFED;
+  --attention:#B08D57; --attention-bg:#F7F0E4; --alert:#8C4A3F; --alert-bg:#F6EAE8;
+  --display:orpheus-pro,"Cormorant Garamond",Georgia,serif;
+  --body:Raleway,"Helvetica Neue",Arial,sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bone);color:var(--sage);font-family:var(--body);font-size:15px;line-height:1.55}
+h1,h2,h3{font-family:var(--display);font-weight:400;letter-spacing:.06em;text-transform:uppercase;margin:0}
+h1{font-size:1.75rem} h2{font-size:1.25rem} h3{font-size:1rem}
+a{color:inherit}
+.wrap{max-width:1080px;margin:0 auto;padding:0 20px}
+.hide{display:none!important}
+.label{font-size:.6875rem;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:var(--sage-70)}
+.num{font-variant-numeric:tabular-nums}
+.muted{color:var(--sage-70)}
+.center{text-align:center}
+
+header{background:var(--sage);color:var(--bone);padding:16px 0}
+header .wrap{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.brand{font-family:var(--display);font-size:1.0625rem;letter-spacing:.14em;text-transform:uppercase}
+nav{display:flex;gap:2px;margin-top:12px;flex-wrap:wrap}
+nav button{background:transparent;border:0;border-bottom:2px solid transparent;color:var(--celadon);
+  padding:9px 14px;cursor:pointer;font:500 .6875rem/1 var(--body);letter-spacing:.2em;text-transform:uppercase}
+nav button[aria-current="page"]{color:var(--bone);border-bottom-color:var(--celadon)}
+main{padding:26px 0 70px}
+
+.btn{display:inline-block;background:transparent;color:var(--sage);border:1px solid currentColor;
+  border-radius:0;padding:11px 22px;font:500 .75rem/1 var(--body);letter-spacing:.17em;
+  text-transform:uppercase;text-decoration:none;cursor:pointer;transition:background .16s,color .16s}
+.btn:hover{background:var(--sage);color:var(--bone)}
+.btn--primary{background:var(--sage);color:var(--bone)}
+.btn--sm{padding:7px 12px;font-size:.6875rem}
+.btn--danger{color:var(--alert)}
+.btn--danger:hover{background:var(--alert);color:var(--bone)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+
+input,select,textarea{width:100%;background:var(--bone);color:var(--sage);border:1px solid var(--mist);
+  border-radius:0;padding:10px 12px;font-family:var(--body);font-size:.9375rem}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--sage)}
+textarea{min-height:80px;resize:vertical}
+.field{margin-bottom:13px}
+.field .label{display:block;margin-bottom:4px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.row3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+@media(max-width:700px){.row,.row3{grid-template-columns:1fr}}
+
+.card{background:var(--white);border:1px solid var(--mist);padding:20px;margin-bottom:16px}
+.card--flush{padding:0}
+table{width:100%;border-collapse:collapse}
+th{font-size:.6875rem;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:var(--sage-70);
+  text-align:left;padding:10px 14px;border-bottom:1px solid var(--mist)}
+td{padding:12px 14px;border-bottom:1px solid var(--mist);vertical-align:top}
+td.money,th.money{text-align:right;font-variant-numeric:tabular-nums}
+tr:last-child td{border-bottom:0}
+tbody tr:hover{background:var(--sage-10)}
+
+.pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:3px 10px;
+  font-size:.6875rem;font-weight:500;letter-spacing:.18em;text-transform:uppercase}
+.pill--ok{background:var(--sage-10);color:var(--sage)}
+.pill--due{background:var(--attention-bg);color:var(--attention)}
+.pill--late{background:var(--alert-bg);color:var(--alert)}
+.pill--prov{background:var(--mist);color:var(--sage-70)}
+
+.notice{padding:13px 16px;font-size:.9375rem;border:1px solid;margin-bottom:16px}
+.notice--due{background:var(--attention-bg);border-color:var(--attention);color:#7a5f36}
+.notice--late{background:var(--alert-bg);border-color:var(--alert);color:var(--alert)}
+.notice--ok{background:var(--sage-10);border-color:var(--celadon)}
+.err{background:var(--alert-bg);border:1px solid var(--alert);color:var(--alert);padding:11px 14px;
+  font-size:.875rem;margin-bottom:14px}
+.split{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.empty{padding:34px 20px;text-align:center;color:var(--sage-70)}
+.sheet{white-space:pre-wrap;font-size:.875rem;line-height:1.7;background:var(--bone);
+  border:1px solid var(--mist);padding:14px;max-height:340px;overflow:auto}
+.stat{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--mist);border:1px solid var(--mist)}
+.stat div{background:var(--white);padding:14px 12px;text-align:center}
+.stat .v{font-size:1.1875rem;font-variant-numeric:tabular-nums;margin-top:3px}
+@media(max-width:700px){.stat{grid-template-columns:repeat(2,1fr)}}
+.spin{display:inline-block;width:15px;height:15px;border:2px solid var(--mist);border-top-color:var(--sage);
+  border-radius:50%;animation:s .7s linear infinite;vertical-align:-3px}
+@keyframes s{to{transform:rotate(360deg)}}
+code{font-family:ui-monospace,"SF Mono",monospace;font-size:.875em;background:var(--sage-10);padding:1px 5px}
+.login{max-width:360px;margin:70px auto;padding:0 20px}
+</style>
+</head>
+<body>
+
+<section id="gate" class="login">
+  <div class="center" style="margin-bottom:24px">
+    <h1>Wedding Admin</h1>
+    <p class="muted">Black Horse Beamish</p>
+  </div>
+  <form id="gateForm" class="card">
+    <div id="gateErr" class="err hide"></div>
+    <div class="field"><span class="label">Password</span>
+      <input id="pw" type="password" autocomplete="current-password" required></div>
+    <button class="btn btn--primary" style="width:100%" type="submit">Enter</button>
+  </form>
+</section>
+
+<div id="app" class="hide">
+  <header>
+    <div class="wrap">
+      <span class="brand">Wedding Admin</span>
+      <button class="btn btn--sm" style="color:var(--celadon)" onclick="lock()">Lock</button>
+    </div>
+    <div class="wrap">
+      <nav id="nav">
+        <button data-view="weddings" aria-current="page">Weddings</button>
+        <button data-view="reconcile">Payments to post <span id="recBadge"></span></button>
+        <button data-view="add">Add a wedding</button>
+      </nav>
+    </div>
+  </header>
+  <main class="wrap">
+    <div id="err" class="err hide"></div>
+    <div id="views"></div>
+  </main>
+</div>
+
+<script>
+"use strict";
+
+var CFG = {
+  SUPABASE_URL: "https://safcrtrfdzsnftghibot.supabase.co",
+  SUPABASE_KEY: "sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU",
+  PASSWORD: "BlackH0rse#",
+  KEY: "bhb_wedding_admin"
+};
+
+var S = { pw:null, view:"weddings", list:[], pending:[], current:null, preview:null };
+
+function $(id){ return document.getElementById(id); }
+function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){
+  return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
+function money(n){ return "£" + (Number(n)||0).toLocaleString("en-GB",{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function ymd(iso){ return String(iso||"").slice(0,10); }
+function hhmm(iso){ return String(iso||"").slice(11,16); }
+function ukDate(iso){
+  var p = ymd(iso).split("-"); if (p.length!==3) return "";
+  return new Intl.DateTimeFormat("en-GB",{day:"numeric",month:"short",year:"numeric",timeZone:"UTC"})
+    .format(new Date(Date.UTC(+p[0],+p[1]-1,+p[2])));
+}
+function ddmmyyyy(iso){ var p = ymd(iso).split("-"); return p.length===3 ? p[2]+p[1]+p[0] : ""; }
+function daysToGo(iso){
+  var t = new Intl.DateTimeFormat("en-CA",{timeZone:"Europe/London"}).format(new Date()).split("-");
+  var p = ymd(iso).split("-");
+  return Math.round((Date.UTC(+p[0],+p[1]-1,+p[2]) - Date.UTC(+t[0],+t[1]-1,+t[2]))/86400000);
+}
+
+async function call(action, payload){
+  var r = await fetch(CFG.SUPABASE_URL + "/functions/v1/wedding-admin", {
+    method:"POST",
+    headers:{ "Content-Type":"application/json",
+              Authorization:"Bearer "+CFG.SUPABASE_KEY, apikey:CFG.SUPABASE_KEY },
+    body: JSON.stringify({ password:S.pw, action:action, payload:payload||{} })
+  });
+  var data = await r.json().catch(function(){ return {}; });
+  if (!r.ok) throw new Error(data.error || ("Request failed ("+r.status+")"));
+  return data;
+}
+
+function showErr(m){ var e=$("err"); e.textContent=m; e.classList.remove("hide"); window.scrollTo({top:0}); }
+function clearErr(){ $("err").classList.add("hide"); }
+
+/* ---------- gate ---------- */
+function lock(){
+  try { sessionStorage.removeItem(CFG.KEY); } catch(e){}
+  S.pw = null; $("app").classList.add("hide"); $("gate").classList.remove("hide");
+}
+
+$("gateForm").onsubmit = function(ev){
+  ev.preventDefault();
+  if ($("pw").value !== CFG.PASSWORD) {
+    $("gateErr").textContent = "That password isn't right.";
+    $("gateErr").classList.remove("hide");
+    return;
+  }
+  S.pw = $("pw").value;
+  try { sessionStorage.setItem(CFG.KEY, S.pw); } catch(e){}
+  $("gate").classList.add("hide"); $("app").classList.remove("hide");
+  boot();
+};
+
+$("nav").addEventListener("click", function(ev){
+  var b = ev.target.closest("button[data-view]"); if (!b) return;
+  S.view = b.dataset.view; S.current = null;
+  [].forEach.call($("nav").children, function(x){
+    if (x.dataset.view === S.view) x.setAttribute("aria-current","page"); else x.removeAttribute("aria-current");
+  });
+  clearErr(); render(); window.scrollTo({top:0});
+});
+
+async function boot(){ await refreshPending(); render(); }
+
+async function refreshPending(){
+  try {
+    S.pending = await call("payments.pending");
+    var badge = $("recBadge");
+    badge.innerHTML = S.pending.length
+      ? ' <span class="pill pill--late" style="letter-spacing:.1em">' + S.pending.length + '</span>' : "";
+  } catch (e) { /* the badge is a nicety; a failure here shouldn't block the page */ }
+}
+
+function render(){
+  var v = $("views");
+  if (S.current) { v.innerHTML = '<div class="empty"><span class="spin"></span></div>'; loadWedding(S.current); return; }
+  switch (S.view) {
+    case "weddings":  v.innerHTML = '<div class="empty"><span class="spin"></span></div>'; loadList(); break;
+    case "reconcile": v.innerHTML = viewReconcile(); break;
+    case "add":       v.innerHTML = viewAdd(); break;
+  }
+}
+
+/* ============================ WEDDINGS LIST ============================ */
+async function loadList(){
+  try { S.list = await call("list"); $("views").innerHTML = viewList(); }
+  catch (e) { showErr(e.message); $("views").innerHTML = ""; }
+}
+
+function viewList(){
+  var upcoming = S.list.filter(function(w){ return daysToGo(w.wedding_date) >= 0 && w.status !== "cancelled"; });
+  var past = S.list.filter(function(w){ return daysToGo(w.wedding_date) < 0 || w.status === "cancelled"; });
+
+  var h = '<div class="split" style="margin-bottom:18px"><h1>Weddings</h1>' +
+    '<span class="label">' + upcoming.length + ' upcoming</span></div>';
+
+  if (!S.list.length) {
+    h += '<div class="card empty">No weddings set up yet.<br><br>' +
+      '<button class="btn btn--primary" onclick="goto(\'add\')">Add your first</button></div>';
+    return h;
+  }
+
+  h += '<div class="card card--flush"><table><thead><tr>' +
+    '<th>Couple</th><th>Date</th><th>Reference</th><th>Login</th><th></th>' +
+    '</tr></thead><tbody>';
+  upcoming.forEach(function(w){ h += listRow(w); });
+  h += '</tbody></table></div>';
+
+  if (past.length) {
+    h += '<h2 style="margin:26px 0 12px">Past &amp; cancelled</h2>' +
+      '<div class="card card--flush"><table><tbody>';
+    past.forEach(function(w){ h += listRow(w, true); });
+    h += '</tbody></table></div>';
+  }
+  return h;
+}
+
+function listRow(w, dim){
+  var d = daysToGo(w.wedding_date);
+  var un = w.unreconciled || { count:0, total:0 };
+  return '<tr' + (dim ? ' class="muted"' : '') + '>' +
+    '<td><strong>' + esc(w.salutation) + '</strong>' +
+    (un.count ? ' <span class="pill pill--late">' + money(un.total) + ' to post</span>' : '') +
+    '<br><span class="muted" style="font-size:.8125rem">' + esc(w.primary_email) + '</span></td>' +
+    '<td class="num">' + esc(ukDate(w.wedding_date)) + '<br>' +
+      '<span class="muted" style="font-size:.8125rem">' +
+      (d > 0 ? d + " days to go" : (d === 0 ? "Today" : Math.abs(d) + " days ago")) + '</span></td>' +
+    '<td class="num"><code>' + esc(w.event_id) + '</code></td>' +
+    '<td class="num muted" style="font-size:.8125rem">' + esc(ddmmyyyy(w.wedding_date)) + '</td>' +
+    '<td class="money"><button class="btn btn--sm" onclick="open_(\'' + w.id + '\')">Open</button></td></tr>';
+}
+
+function goto(v){
+  S.view = v; S.current = null;
+  [].forEach.call($("nav").children, function(x){
+    if (x.dataset.view === v) x.setAttribute("aria-current","page"); else x.removeAttribute("aria-current");
+  });
+  render();
+}
+
+function open_(id){ S.current = id; clearErr(); render(); window.scrollTo({top:0}); }
+
+/* ============================ ONE WEDDING ============================ */
+async function loadWedding(id){
+  try { S.detail = await call("get", { id:id }); $("views").innerHTML = viewWedding(); }
+  catch (e) { showErr(e.message); S.current = null; $("views").innerHTML = ""; }
+}
+
+function viewWedding(){
+  var d = S.detail, w = d.wedding, b = d.balance;
+  var h = '<button class="btn btn--sm" onclick="S.current=null;render()">&larr; All weddings</button>';
+
+  h += '<div class="split" style="margin:16px 0 4px"><h1>' + esc(w.salutation) + '</h1>' +
+    '<span class="label">' + esc(ukDate(w.wedding_date)) + '</span></div>';
+  h += '<p class="muted" style="margin:0 0 18px">' +
+    (d.event ? esc(d.event.name) : '<span style="color:var(--alert)">Couldn\'t reach Guestline — showing stored details only.</span>') + '</p>';
+
+  /* ---- what the couple types to log in ---- */
+  h += '<div class="notice notice--ok"><strong>Their login:</strong> ' +
+    'reference <code>' + esc(w.event_id) + '</code> and date <code>' + esc(ddmmyyyy(w.wedding_date)) + '</code>. ' +
+    '<a href="mailto:' + esc(w.primary_email) + '?subject=' +
+    encodeURIComponent("Your wedding app — Black Horse Beamish") + '&body=' +
+    encodeURIComponent(
+      "Hello " + w.salutation + ",\n\n" +
+      "Your wedding app is ready. Everything about your big day in one place — what's booked, what's left to pay, " +
+      "your wedding journey, and space for your guest list, suppliers and budget.\n\n" +
+      "Log in here: https://www.blackhorsebeamish.co.uk/bridal-app\n\n" +
+      "Your reference: " + w.event_id + "\n" +
+      "Your password: " + ddmmyyyy(w.wedding_date) + " (your wedding date, day first)\n\n" +
+      "Any questions at all, just give us a ring on 01207 232 569.\n\n" +
+      "Best wishes,\nThe events team\nBlack Horse Beamish"
+    ) + '">Send them the welcome email</a>' +
+    (w.last_login_at ? ' · <span class="muted">Last logged in ' + esc(ukDate(w.last_login_at)) + '</span>'
+                     : ' · <span class="muted">Never logged in</span>') +
+  '</div>';
+
+  if (b) {
+    h += '<div class="stat" style="margin-bottom:16px">' +
+      '<div><span class="label">Total</span><div class="v">' + money(b.total) + '</div></div>' +
+      '<div><span class="label">In Guestline</span><div class="v">' + money(b.guestlinePaid) + '</div></div>' +
+      '<div><span class="label">In app, unposted</span><div class="v" style="color:' +
+        (b.appPaid > 0 ? "var(--alert)" : "inherit") + '">' + money(b.appPaid) + '</div></div>' +
+      '<div><span class="label">Outstanding</span><div class="v">' + money(b.outstanding) + '</div></div>' +
+    '</div>';
+    if (b.appPaid > 0) {
+      h += '<div class="notice notice--late"><strong>' + money(b.appPaid) +
+        '</strong> has been paid in the app and is not yet in Guestline. Post it in Rezlynx, then mark it reconciled below.</div>';
+    }
+  }
+
+  /* ---- functions ---- */
+  if (d.functions && d.functions.length) {
+    h += '<div class="card"><h2 style="margin-bottom:12px">Functions</h2><table>';
+    d.functions.forEach(function(f){
+      h += '<tr><td><strong>' + esc(f.name) + '</strong><br><span class="muted num">' +
+        esc(hhmm(f.start)) + ' – ' + esc(hhmm(f.end)) + '</span></td>' +
+        '<td class="num">' + esc(f.bookingReference) + '</td>' +
+        '<td class="money">' + esc(f.numberOfGuests) + ' guests<br>' +
+        '<span class="pill ' + (String(f.status).toLowerCase()==="confirmed"?"pill--ok":"pill--prov") + '">' +
+        esc(f.status) + '</span></td></tr>';
+    });
+    h += '</table>' +
+      '<p style="margin:14px 0 0"><button class="btn btn--sm" onclick="resync()">Re-read from Guestline</button></p></div>';
+  }
+
+  /* ---- payments ---- */
+  h += '<div class="card"><div class="split" style="margin-bottom:12px"><h2>Payments</h2>' +
+    '<button class="btn btn--sm" onclick="toggleManual()">Record a payment</button></div>';
+
+  h += '<div id="manual" class="hide" style="border:1px solid var(--mist);padding:14px;margin-bottom:14px">' +
+    '<p class="muted" style="margin:0 0 12px;font-size:.875rem">' +
+    'For payments taken outside the app (BACS, card in person). These are marked as already posted, ' +
+    'because if you took it in Rezlynx it is already in Guestline — the app must not count it twice.</p>' +
+    '<div class="row3"><div class="field"><span class="label">Amount</span>' +
+      '<input id="mAmt" inputmode="decimal"></div>' +
+    '<div class="field"><span class="label">Method</span><select id="mMethod">' +
+      '<option value="bacs">BACS</option><option value="card_in_person">Card in person</option>' +
+      '<option value="cash">Cash</option><option value="other">Other</option></select></div>' +
+    '<div class="field"><span class="label">Reference</span><input id="mRef"></div></div>' +
+    '<button class="btn btn--primary btn--sm" onclick="addManual()">Record it</button></div>';
+
+  if (!d.payments.length) {
+    h += '<p class="muted">Nothing recorded in the app yet. Guestline deposits are shown above.</p>';
+  } else {
+    h += '<table><thead><tr><th>When</th><th>Amount</th><th>Reference</th><th>Posted?</th><th></th></tr></thead><tbody>';
+    d.payments.forEach(function(p){
+      h += '<tr><td class="num">' + esc(ukDate(p.paid_at || p.created_at)) + '<br>' +
+        '<span class="muted" style="font-size:.8125rem">' + esc(p.method) + '</span></td>' +
+        '<td class="num"><strong>' + money(p.amount) + '</strong>' +
+        (p.status !== "succeeded" ? '<br><span class="pill pill--prov">' + esc(p.status) + '</span>' : '') + '</td>' +
+        '<td class="num" style="font-size:.8125rem"><code>' + esc(p.payment_reference||"—") + '</code>' +
+        (p.sumup_transaction_id ? '<br><span class="muted">txn ' + esc(p.sumup_transaction_id) + '</span>' : '') + '</td>' +
+        '<td>' + (p.reconciled
+          ? '<span class="pill pill--ok">Posted</span>' +
+            (p.reconciled_by ? '<br><span class="muted" style="font-size:.75rem">' + esc(p.reconciled_by) + '</span>' : '')
+          : (p.status === "succeeded" ? '<span class="pill pill--late">Needs posting</span>' : '—')) + '</td>' +
+        '<td class="money">' +
+          (p.status === "succeeded" && !p.reconciled
+            ? '<button class="btn btn--sm" onclick="reconcile(\'' + p.id + '\')">Mark posted</button>' : '') +
+          (p.reconciled ? '<button class="btn btn--sm" onclick="unreconcile(\'' + p.id + '\')">Undo</button>' : '') +
+          (p.method === "sumup" && p.status === "succeeded"
+            ? '<br><button class="btn btn--sm" style="border:0;padding:4px 0" onclick="resend(\'' + p.id + '\')">Resend emails</button>' : '') +
+        '</td></tr>';
+    });
+    h += '</tbody></table>';
+  }
+  h += '</div>';
+
+  /* ---- Guestline deposits, for matching against ---- */
+  if (d.bill && d.bill.deposits && d.bill.deposits.length) {
+    h += '<div class="card"><h2 style="margin-bottom:6px">Deposits in Guestline</h2>' +
+      '<p class="muted" style="margin:0 0 12px;font-size:.875rem">What Rezlynx is reporting. Match app payments against these.</p><table>';
+    d.bill.deposits.forEach(function(dep){
+      h += '<tr><td>' + esc(dep.description) + '</td>' +
+        '<td class="num muted">' + esc(ukDate(dep.depositDate)) + '</td>' +
+        '<td class="money num">' + money(-dep.amount) + '</td></tr>';
+    });
+    h += '</table></div>';
+  }
+
+  /* ---- couple details ---- */
+  h += '<div class="card"><h2 style="margin-bottom:14px">Couple details</h2>' +
+    '<div class="row"><div class="field"><span class="label">Partner 1</span>' +
+      '<input id="e_p1" value="' + esc(w.partner1_name) + '"></div>' +
+      '<div class="field"><span class="label">Partner 2</span>' +
+      '<input id="e_p2" value="' + esc(w.partner2_name) + '"></div></div>' +
+    '<div class="field"><span class="label">How to address them</span>' +
+      '<input id="e_sal" value="' + esc(w.salutation) + '"></div>' +
+    '<div class="row"><div class="field"><span class="label">Primary email (receipts go here)</span>' +
+      '<input id="e_em1" value="' + esc(w.primary_email) + '"></div>' +
+      '<div class="field"><span class="label">Second email</span>' +
+      '<input id="e_em2" value="' + esc(w.secondary_email||"") + '"></div></div>' +
+    '<div class="row"><div class="field"><span class="label">Mobile</span>' +
+      '<input id="e_mob" value="' + esc(w.mobile||"") + '"></div>' +
+      '<div class="field"><span class="label">Status</span><select id="e_status">' +
+        ['active','draft','completed','cancelled'].map(function(s){
+          return '<option value="'+s+'"'+(w.status===s?' selected':'')+'>'+s+'</option>'; }).join("") +
+      '</select></div></div>' +
+    '<div class="field"><span class="label">What\'s included (shown to the couple)</span>' +
+      '<textarea id="e_inc">' + esc(w.whats_included||"") + '</textarea></div>' +
+    '<div class="field"><label style="display:flex;gap:8px;align-items:center;cursor:pointer">' +
+      '<input type="checkbox" id="e_sheet" style="width:17px;height:17px" ' + (w.show_function_sheet ? "checked" : "") + '>' +
+      '<span>Show the function sheet to the couple</span></label>' +
+      '<p class="muted" style="font-size:.8125rem;margin:5px 0 0">' +
+      'The Guestline notes below, shown under Your Details — the same running order they get on paper. ' +
+      'Untick if this wedding\'s notes aren\'t ready to share.</p></div>' +
+    '<div class="field"><span class="label">Internal notes (never shown to the couple)</span>' +
+      '<textarea id="e_int">' + esc(w.internal_notes||"") + '</textarea></div>' +
+    '<button class="btn btn--primary" onclick="saveWedding()">Save details</button>' +
+  '</div>';
+
+  /* ---- the function sheet as Guestline holds it ---- */
+  if (d.event && d.event.notes) {
+    h += '<div class="card"><h2 style="margin-bottom:6px">Function sheet, from Guestline</h2>' +
+      '<p class="muted" style="margin:0 0 12px;font-size:.875rem">' +
+      'Read-only here — edit it in Rezlynx. ' + (w.show_function_sheet
+        ? 'The couple can see this.' : '<strong>Currently hidden from the couple.</strong>') + '</p>' +
+      '<div class="sheet">' + esc(d.event.notes) + '</div></div>';
+  }
+
+  /* ---- what the couple has built ---- */
+  h += '<div class="card"><div class="split" style="margin-bottom:12px"><h2>Their guest list</h2>' +
+    '<span class="label">' + d.guests.length + ' on the list</span></div>';
+  if (!d.guests.length) {
+    h += '<p class="muted">They haven\'t started their guest list yet.</p>';
+  } else {
+    var att = d.guests.filter(function(g){ return g.rsvp === "attending"; });
+    var diet = d.guests.filter(function(g){ return g.dietary; });
+    var acc = d.guests.filter(function(g){ return g.accessibility; });
+    h += '<div class="stat" style="margin-bottom:14px">' +
+      '<div><span class="label">Attending</span><div class="v">' + att.length + '</div></div>' +
+      '<div><span class="label">Adults</span><div class="v">' + att.filter(function(g){return g.age_group==="adult";}).length + '</div></div>' +
+      '<div><span class="label">Children</span><div class="v">' + att.filter(function(g){return g.age_group==="child";}).length + '</div></div>' +
+      '<div><span class="label">Evening</span><div class="v">' + att.filter(function(g){return g.invited_to!=="day";}).length + '</div></div>' +
+    '</div>';
+    if (diet.length) {
+      h += '<h3 style="margin:14px 0 6px;font-size:.8125rem;letter-spacing:.14em">Dietary requirements</h3><table>';
+      diet.forEach(function(g){ h += '<tr><td>' + esc(g.first_name+" "+(g.surname||"")) + '</td><td>' + esc(g.dietary) + '</td></tr>'; });
+      h += '</table>';
+    }
+    if (acc.length) {
+      h += '<h3 style="margin:14px 0 6px;font-size:.8125rem;letter-spacing:.14em">Accessibility needs</h3><table>';
+      acc.forEach(function(g){ h += '<tr><td>' + esc(g.first_name+" "+(g.surname||"")) + '</td><td>' + esc(g.accessibility) + '</td></tr>'; });
+      h += '</table>';
+    }
+    h += '<p style="margin:14px 0 0"><button class="btn btn--sm" onclick="exportGuests()">Download full list</button></p>';
+  }
+  h += '</div>';
+
+  h += '<div class="card"><div class="split" style="margin-bottom:12px"><h2>Their suppliers</h2>' +
+    '<span class="label">' + d.suppliers.length + '</span></div>';
+  if (!d.suppliers.length) {
+    h += '<p class="muted">No suppliers added yet.</p>';
+  } else {
+    h += '<table><thead><tr><th>Arrives</th><th>Supplier</th><th>Contact</th></tr></thead><tbody>';
+    d.suppliers.forEach(function(s){
+      h += '<tr><td class="num">' + esc(s.arrival_time ? String(s.arrival_time).slice(0,5) : "—") + '</td>' +
+        '<td><strong>' + esc(s.name) + '</strong><br><span class="muted" style="font-size:.8125rem">' + esc(s.category) + '</span></td>' +
+        '<td>' + esc(s.contact_name||"") + (s.phone ? '<br>' + esc(s.phone) : '') + '</td></tr>';
+    });
+    h += '</tbody></table>' +
+      '<p style="margin:14px 0 0"><button class="btn btn--sm" onclick="exportSuppliers()">Download day schedule</button></p>';
+  }
+  h += '</div>';
+
+  h += '<div class="card"><h3 style="margin-bottom:8px;color:var(--alert)">Danger zone</h3>' +
+    '<p class="muted" style="margin:0 0 12px;font-size:.875rem">' +
+    'Deleting removes the account and everything the couple has built — guest list, suppliers, budget, payment records. ' +
+    'This is what satisfies a "delete my data" request, and it cannot be undone.</p>' +
+    '<button class="btn btn--danger btn--sm" onclick="deleteWedding()">Delete this wedding</button></div>';
+
+  return h;
+}
+
+function toggleManual(){ $("manual").classList.toggle("hide"); }
+
+async function saveWedding(){
+  try {
+    await call("update", {
+      id: S.detail.wedding.id,
+      partner1_name: $("e_p1").value.trim(),
+      partner2_name: $("e_p2").value.trim(),
+      salutation: $("e_sal").value.trim(),
+      primary_email: $("e_em1").value.trim(),
+      secondary_email: $("e_em2").value.trim(),
+      mobile: $("e_mob").value.trim(),
+      status: $("e_status").value,
+      whats_included: $("e_inc").value.trim(),
+      show_function_sheet: $("e_sheet").checked,
+      internal_notes: $("e_int").value.trim()
+    });
+    clearErr(); await loadWedding(S.current);
+  } catch (e) { showErr(e.message); }
+}
+
+async function resync(){
+  try { await call("resync", { id:S.current }); await loadWedding(S.current); clearErr(); }
+  catch (e) { showErr(e.message); }
+}
+
+async function reconcile(id){
+  var by = prompt("Posted to Rezlynx by whom?", "");
+  if (by === null) return;
+  try { await call("payments.reconcile", { id:id, by: by || "events team" });
+        await refreshPending(); await loadWedding(S.current); clearErr(); }
+  catch (e) { showErr(e.message); }
+}
+
+async function unreconcile(id){
+  if (!confirm("Mark this as NOT posted? The app will start counting it against their balance again.")) return;
+  try { await call("payments.unreconcile", { id:id }); await refreshPending(); await loadWedding(S.current); }
+  catch (e) { showErr(e.message); }
+}
+
+async function resend(id){
+  try { var r = await call("payments.resendEmails", { id:id });
+        alert("Receipt: " + (r.receipt||"—") + "\nAlert: " + (r.alert||"—")); }
+  catch (e) { showErr(e.message); }
+}
+
+async function addManual(){
+  var amt = String($("mAmt").value).replace(/[^0-9.]/g,"");
+  if (!amt || Number(amt) <= 0) { showErr("Enter an amount."); return; }
+  try {
+    await call("payments.manual", {
+      wedding_id: S.current, amount: Number(amt),
+      method: $("mMethod").value, reference: $("mRef").value.trim()
+    });
+    await loadWedding(S.current); clearErr();
+  } catch (e) { showErr(e.message); }
+}
+
+async function deleteWedding(){
+  var w = S.detail.wedding;
+  if (prompt('Type the reference "' + w.event_id + '" to confirm deletion.') !== w.event_id) return;
+  try { await call("delete", { id:w.id }); S.current = null; await refreshPending(); goto("weddings"); }
+  catch (e) { showErr(e.message); }
+}
+
+/* ============================ RECONCILE QUEUE ============================ */
+function viewReconcile(){
+  var h = '<h1 style="margin-bottom:6px">Payments to post</h1>' +
+    '<p class="muted" style="margin:0 0 18px">' +
+    'Card payments taken in the app. They don\'t reach Guestline on their own — post each one in Rezlynx, ' +
+    'then mark it here so the app stops counting it separately.</p>';
+
+  if (!S.pending.length) {
+    h += '<div class="card empty">Nothing waiting. Everything\'s posted.</div>';
+    return h;
+  }
+
+  var total = S.pending.reduce(function(s,p){ return s + Number(p.amount); }, 0);
+  h += '<div class="notice notice--due"><strong>' + money(total) + '</strong> across ' +
+    S.pending.length + ' payment' + (S.pending.length===1?"":"s") + ' waiting to be posted.</div>';
+
+  h += '<div class="card card--flush"><table><thead><tr>' +
+    '<th>Paid</th><th>Couple</th><th>Reference</th><th class="money">Amount</th><th></th>' +
+    '</tr></thead><tbody>';
+  S.pending.forEach(function(p){
+    var w = p.wedding || {};
+    h += '<tr><td class="num">' + esc(ukDate(p.paid_at)) + '</td>' +
+      '<td><strong>' + esc(w.salutation||"—") + '</strong><br>' +
+      '<span class="muted" style="font-size:.8125rem">wedding ' + esc(ukDate(w.wedding_date)) + '</span></td>' +
+      '<td class="num" style="font-size:.8125rem"><code>' + esc(w.event_id||"—") + '</code><br>' +
+      '<span class="muted">' + esc(p.payment_reference||"") + '</span></td>' +
+      '<td class="money num"><strong>' + money(p.amount) + '</strong></td>' +
+      '<td class="money"><button class="btn btn--sm" onclick="reconcileFromQueue(\'' + p.id + '\')">Mark posted</button>' +
+      '<br><button class="btn btn--sm" style="border:0;padding:4px 0" onclick="open_(\'' + p.wedding_id + '\')">Open wedding</button></td></tr>';
+  });
+  h += '</tbody></table></div>';
+  return h;
+}
+
+async function reconcileFromQueue(id){
+  var by = prompt("Posted to Rezlynx by whom?", "");
+  if (by === null) return;
+  try { await call("payments.reconcile", { id:id, by: by || "events team" });
+        await refreshPending(); render(); clearErr(); }
+  catch (e) { showErr(e.message); }
+}
+
+/* ============================ ADD A WEDDING ============================ */
+function viewAdd(){
+  var h = '<h1 style="margin-bottom:6px">Add a wedding</h1>' +
+    '<p class="muted" style="margin:0 0 18px">' +
+    'Paste the couple\'s Guestline event portal link. Everything else comes from it.</p>';
+
+  h += '<div class="card"><div class="field"><span class="label">Guestline event link</span>' +
+    '<input id="glLink" placeholder="https://event.eu.guestline.app/e/..."></div>' +
+    '<button class="btn btn--primary" id="previewBtn" onclick="doPreview()">Look it up</button></div>';
+
+  h += '<div id="previewBox"></div>';
+  return h;
+}
+
+async function doPreview(){
+  var link = $("glLink").value.trim();
+  if (!link) return;
+  var btn = $("previewBtn");
+  btn.disabled = true; btn.innerHTML = '<span class="spin"></span>';
+  try {
+    S.preview = await call("preview", { link: link });
+    clearErr();
+    $("previewBox").innerHTML = previewHtml();
+  } catch (e) {
+    showErr(e.message);
+    $("previewBox").innerHTML = "";
+  } finally {
+    btn.disabled = false; btn.textContent = "Look it up";
+  }
+}
+
+function previewHtml(){
+  var p = S.preview, ev = p.event;
+
+  if (p.alreadyExists) {
+    return '<div class="notice notice--late">This event is already set up as <strong>' +
+      esc(p.alreadyExists.salutation) + '</strong> (' + esc(p.alreadyExists.event_id) + '). ' +
+      '<button class="btn btn--sm" onclick="open_(\'' + p.alreadyExists.id + '\')">Open it</button></div>';
+  }
+
+  /* The event name has no consistent format across events, so it is shown
+     for the coordinator to read rather than parsed into two names. */
+  var h = '<div class="card"><h2 style="margin-bottom:12px">Is this the right wedding?</h2>' +
+    '<table>' +
+    '<tr><th>Event</th><td><strong>' + esc(ev.name) + '</strong></td></tr>' +
+    '<tr><th>Date</th><td>' + esc(ukDate(ev.startDate)) + '</td></tr>' +
+    '<tr><th>Reference</th><td><code>' + esc(ev.eventId) + '</code></td></tr>' +
+    '<tr><th>Status</th><td>' + esc(ev.eventStatusDescription) + '</td></tr>' +
+    '<tr><th>Guests</th><td class="num">' + esc(ev.guests) + '</td></tr>' +
+    '<tr><th>Total</th><td class="num">' + money(ev.totalCost) + '</td></tr>' +
+    '<tr><th>Outstanding</th><td class="num">' + money(p.balance.outstanding) + '</td></tr>' +
+    '<tr><th>Coordinator</th><td>' + esc(ev.coordinatorName||"—") + '</td></tr>' +
+    '<tr><th>Booking refs</th><td class="num">' + p.bookingRefs.map(esc).join(", ") + '</td></tr>' +
+    '</table></div>';
+
+  h += '<div class="notice notice--ok">Their login will be reference <code>' + esc(ev.eventId) +
+    '</code> with password <code>' + esc(ddmmyyyy(ev.startDate)) + '</code>.</div>';
+
+  h += '<div class="card"><h2 style="margin-bottom:6px">Who are they?</h2>' +
+    '<p class="muted" style="margin:0 0 14px;font-size:.875rem">' +
+    'Guestline doesn\'t store these separately, so pop them in here — this is how the app greets them ' +
+    'and where their receipts go.</p>' +
+    '<div class="row"><div class="field"><span class="label">Partner 1</span><input id="n_p1"></div>' +
+    '<div class="field"><span class="label">Partner 2</span><input id="n_p2"></div></div>' +
+    '<div class="field"><span class="label">How to address them</span>' +
+      '<input id="n_sal" placeholder="Leave blank and we\'ll use their first names"></div>' +
+    '<div class="row"><div class="field"><span class="label">Primary email *</span><input id="n_em1" type="email"></div>' +
+    '<div class="field"><span class="label">Second email</span><input id="n_em2" type="email"></div></div>' +
+    '<div class="field"><span class="label">Mobile</span><input id="n_mob"></div>' +
+    '<button class="btn btn--primary" id="createBtn" onclick="doCreate()">Create their account</button></div>';
+
+  return h;
+}
+
+async function doCreate(){
+  var btn = $("createBtn");
+  var p1 = $("n_p1").value.trim(), p2 = $("n_p2").value.trim(), em = $("n_em1").value.trim();
+  if (!p1 || !p2 || !em) { showErr("Both names and a primary email are needed — the receipts have to go somewhere."); return; }
+  btn.disabled = true; btn.innerHTML = '<span class="spin"></span>';
+  try {
+    var res = await call("create", {
+      link: $("glLink").value.trim(),
+      partner1_name: p1, partner2_name: p2,
+      salutation: $("n_sal").value.trim(),
+      primary_email: em,
+      secondary_email: $("n_em2").value.trim(),
+      mobile: $("n_mob").value.trim()
+    });
+    clearErr();
+    S.preview = null;
+    open_(res.wedding.id);
+  } catch (e) {
+    showErr(e.message);
+    btn.disabled = false; btn.textContent = "Create their account";
+  }
+}
+
+/* ---------- exports ---------- */
+function csv(name, head, rows){
+  var q = function(v){ return '"' + String(v==null?"":v).replace(/"/g,'""') + '"'; };
+  var body = [head.map(q).join(",")].concat(rows.map(function(r){ return r.map(q).join(","); })).join("\r\n");
+  var blob = new Blob(["﻿"+body], { type:"text/csv;charset=utf-8" });
+  var a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = name + "-" + S.detail.wedding.event_id + ".csv";
+  a.click();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); }, 1000);
+}
+
+function exportGuests(){
+  csv("guest-list",
+    ["First name","Surname","Household","Email","Address","Invited to","Age group","RSVP","Dietary","Accessibility"],
+    S.detail.guests.map(function(g){
+      return [g.first_name,g.surname,g.household,g.email,g.address,g.invited_to,g.age_group,g.rsvp,g.dietary,g.accessibility];
+    }));
+}
+
+function exportSuppliers(){
+  csv("supplier-schedule", ["Arrives","Supplier","Category","Contact","Phone","Email","Notes"],
+    S.detail.suppliers.slice().sort(function(a,b){
+      return String(a.arrival_time||"99").localeCompare(String(b.arrival_time||"99"));
+    }).map(function(s){
+      return [s.arrival_time?String(s.arrival_time).slice(0,5):"", s.name, s.category, s.contact_name, s.phone, s.email, s.notes];
+    }));
+}
+
+/* ---------- start ---------- */
+(function(){
+  var saved = null;
+  try { saved = sessionStorage.getItem(CFG.KEY); } catch(e){}
+  if (saved === CFG.PASSWORD) {
+    S.pw = saved;
+    $("gate").classList.add("hide"); $("app").classList.remove("hide");
+    boot();
+  }
+})();
+</script>
+</body>
+</html>
