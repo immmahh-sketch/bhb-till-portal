@@ -246,9 +246,6 @@ footer.app{border-top:1px solid var(--mist);padding:26px 0;text-align:center;fon
       <span class="label">Your wedding date</span>
       <input id="weddingDate" inputmode="numeric" autocomplete="current-password"
              placeholder="DDMMYYYY" maxlength="10" required>
-      <p class="muted" style="font-size:.8125rem;margin:6px 0 0">
-        Eight digits, day first — a wedding on 24 October 2026 is 24102026.
-      </p>
     </div>
     <button id="loginBtn" class="btn btn--primary" style="width:100%" type="submit">Log in</button>
   </form>
@@ -298,7 +295,12 @@ footer.app{border-top:1px solid var(--mist);padding:26px 0;text-align:center;fon
 var CFG = {
   SUPABASE_URL: "https://safcrtrfdzsnftghibot.supabase.co",
   SUPABASE_KEY: "sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU",
-  SESSION_KEY: "bhb_wedding_session"
+  SESSION_KEY: "bhb_wedding_session",
+  // Their reference and date, kept so they don't retype them every visit.
+  // Separate from the session token: the token expires after 30 days, and
+  // Safari may drop it inside the Squarespace frame — these survive that
+  // and mean the next visit is one tap.
+  REMEMBER_KEY: "bhb_wedding_login"
 };
 
 var S = { token: null, data: null, view: "home", guests: [], suppliers: [], budget: [], tables: [], menu: [] };
@@ -399,10 +401,26 @@ function clearError(){ $("globalErr").classList.add("hide"); }
 
 /* ---------- session ---------- */
 function signOut(){
+  // The session goes; their reference and date stay, so logging back in is
+  // one tap rather than digging through old emails again.
   try { localStorage.removeItem(CFG.SESSION_KEY); } catch(e){}
   S.token = null; S.data = null;
   $("app").classList.add("hide");
   $("login").classList.remove("hide");
+  prefillLogin();
+}
+
+/** Put their details back in the boxes on a return visit. */
+function prefillLogin(){
+  var saved = null;
+  try { saved = JSON.parse(localStorage.getItem(CFG.REMEMBER_KEY) || "null"); } catch(e){}
+  if (!saved) return;
+  if (saved.event_id) $("eventId").value = saved.event_id;
+  if (saved.date) $("weddingDate").value = saved.date;
+  if (saved.event_id && saved.date) {
+    // Everything's already filled in, so put them on the button.
+    setTimeout(function(){ try { $("loginBtn").focus(); } catch(e){} }, 60);
+  }
 }
 
 $("logout").onclick = function(){ signOut(); };
@@ -418,7 +436,13 @@ $("loginForm").onsubmit = async function(ev){
       password: $("weddingDate").value
     });
     S.token = res.token;
-    try { localStorage.setItem(CFG.SESSION_KEY, res.token); } catch(e){}
+    try {
+      localStorage.setItem(CFG.SESSION_KEY, res.token);
+      localStorage.setItem(CFG.REMEMBER_KEY, JSON.stringify({
+        event_id: $("eventId").value.trim().toUpperCase(),
+        date: $("weddingDate").value.trim()
+      }));
+    } catch(e){}
     await start();
   } catch (e) {
     err.textContent = e.message;
@@ -2098,7 +2122,7 @@ function exportBudget(){
   }
 
   if (S.token) start();
-  else { $("login").classList.remove("hide"); }
+  else { $("login").classList.remove("hide"); prefillLogin(); }
 })();
 </script>
 </body>
