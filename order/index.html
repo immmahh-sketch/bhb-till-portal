@@ -122,6 +122,34 @@
   <button class="back" onclick="tryStaffUnlock()" style="margin-top:8px;background:#fff;color:var(--ink);border:0;padding:13px 28px;border-radius:2px;font-weight:600;letter-spacing:1px;text-transform:uppercase;font-size:13px">Unlock</button>
 </section>
 
+<!-- ===================== GUEST EMAIL VERIFICATION (room service / outside only) ===================== -->
+<section id="emailGate" class="screen" style="align-items:center;justify-content:center;text-align:center;padding:30px;background:var(--ink);color:#fff">
+  <div id="emailGateStep1" style="width:100%;max-width:320px">
+    <div class="welcome-tag" style="font-size:12px;letter-spacing:3px;text-transform:uppercase;color:#ffffff90;margin-bottom:10px">Before we start</div>
+    <div class="big script" style="font-family:'Kristi',cursive;font-size:38px;font-weight:400;line-height:1.1">Your email</div>
+    <div class="msg" style="color:#ffffffb0;font-size:15px;font-style:italic;margin:10px 0 22px">We'll use this to confirm your order and, if you'd like, send you a receipt.</div>
+    <input id="emailGateInput" type="email" placeholder="you@example.com" autocomplete="email"
+      style="width:100%;box-sizing:border-box;padding:13px;border:1px solid #ffffff40;border-radius:2px;background:transparent;color:#fff;font-size:15px;text-align:center;font-family:inherit">
+    <label style="display:flex;align-items:flex-start;gap:8px;font-size:12.5px;color:#ffffffb0;margin:16px 0 4px;cursor:pointer;text-align:left">
+      <input type="checkbox" id="emailGateMarketingOptin" style="margin-top:2px">
+      <span>Sign me up for special offers, discount codes and updates from the venue</span>
+    </label>
+    <div id="emailGateErr" style="color:#ff9a9a;font-size:13px;min-height:20px;margin-top:8px"></div>
+    <button class="back" id="emailGateContinueBtn" onclick="submitEmailGate()" style="margin-top:8px;background:#fff;color:var(--ink);border:0;padding:13px 28px;border-radius:2px;font-weight:600;letter-spacing:1px;text-transform:uppercase;font-size:13px;width:100%">Continue</button>
+  </div>
+  <div id="emailGateStep2" style="width:100%;max-width:320px;display:none">
+    <div class="welcome-tag" style="font-size:12px;letter-spacing:3px;text-transform:uppercase;color:#ffffff90;margin-bottom:10px">Check your email</div>
+    <div class="big script" style="font-family:'Kristi',cursive;font-size:38px;font-weight:400;line-height:1.1">Enter the code</div>
+    <div class="msg" id="emailGateCodeMsg" style="color:#ffffffb0;font-size:15px;font-style:italic;margin:10px 0 22px">We've sent a 6-digit code to your email.</div>
+    <input id="emailGateCodeInput" type="text" inputmode="numeric" maxlength="6" placeholder="6-digit code" autocomplete="one-time-code"
+      style="width:100%;box-sizing:border-box;padding:13px;border:1px solid #ffffff40;border-radius:2px;background:transparent;color:#fff;font-size:20px;letter-spacing:6px;text-align:center;font-family:inherit">
+    <div id="emailGateCodeErr" style="color:#ff9a9a;font-size:13px;min-height:20px;margin-top:8px"></div>
+    <button class="back" onclick="submitEmailGateCode()" style="margin-top:8px;background:#fff;color:var(--ink);border:0;padding:13px 28px;border-radius:2px;font-weight:600;letter-spacing:1px;text-transform:uppercase;font-size:13px;width:100%">Verify</button>
+    <button id="emailGateSkipBtn" onclick="skipEmailGate()" style="display:none;margin-top:10px;background:none;border:0;color:#ffffffb0;font-size:13px;text-decoration:underline;width:100%;padding:6px;font-family:inherit">Continue without verifying</button>
+    <button onclick="backToEmailGateStep1()" style="margin-top:2px;background:none;border:0;color:#ffffffb0;font-size:13px;text-decoration:underline;width:100%;padding:6px;font-family:inherit">Use a different email</button>
+  </div>
+</section>
+
 <!-- ===================== WELCOME ===================== -->
 <section id="welcome" class="screen on">
   <img src="../app/logo-light.png" alt="">
@@ -352,7 +380,7 @@ var DRINK_GROUPS = ["Hot beverages","Soft drinks","Wine","Bottles and Draft","Sp
 var SUNDAY_GROUPS = ["Small Plates","Mains","Sides","Desserts","Sundaes"];
 var TRAY_CHARGE = 5.00;
 var SERVICE_CHARGE_PCT = 0.10;
-var S = { menu: [], cart: {}, currentSection: null, currentDrinkGroup: null, currentWineType: null, currentSundayGroup: null, testMode: false, isComp: false, channel: "room_service", lockedRoom: null, lastOrder: null, lastOrderKind: null, discount: null /* itemId -> {item, qty} */ };
+var S = { menu: [], cart: {}, currentSection: null, currentDrinkGroup: null, currentWineType: null, currentSundayGroup: null, testMode: false, isComp: false, channel: "room_service", lockedRoom: null, lastOrder: null, lastOrderKind: null, discount: null /* itemId -> {item, qty} */, guestEmail: null, guestEmailVerified: false, guestMarketingOptin: false };
 // Europe/London, matching isRoomServiceAvailableNow's day check - Sunday
 // Lunch only shows on Sundays, and every other food section is hidden on
 // Sundays (Kids Food and Drinks stay available every day).
@@ -448,7 +476,7 @@ function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g, function(c){ ret
 function money(n){ return (Math.round((n+Number.EPSILON)*100)/100).toFixed(2); }
 function toast(m){ var t=$("toast"); t.textContent=m; t.classList.add("show"); clearTimeout(toast._t); toast._t=setTimeout(function(){t.classList.remove("show");},2400); }
 function show(name){
-  ["staffGate","welcome","categories","drinksub","winetype","menu","basket","status","closed"].forEach(function(n){ $(n).classList.toggle("on", n===name); });
+  ["staffGate","emailGate","welcome","categories","drinksub","winetype","menu","basket","status","closed"].forEach(function(n){ $(n).classList.toggle("on", n===name); });
   if(name==="basket") renderBasket();
   renderBasketBar();
 }
@@ -1271,8 +1299,10 @@ function restart(){
 function openReceiptModal(){
   $("receiptChoiceButtons").style.display = "";
   $("receiptEmailStep").style.display = "none";
-  $("receiptEmailInput").value = "";
-  $("receiptMarketingOptin").checked = false;
+  // Pre-fill with the address they verified (or typed and skipped) at the
+  // start of the order, if there was one - saves retyping it here.
+  $("receiptEmailInput").value = S.guestEmail || "";
+  $("receiptMarketingOptin").checked = !!S.guestMarketingOptin;
   $("receiptErr").textContent = "";
   $("receiptModal").style.display = "flex";
 }
@@ -1358,22 +1388,145 @@ async function checkStaffFoodAvailability(){
 
 /* ---------------- welcome ---------------- */
 function startOrder(){
-  show("categories");
   // Bob's link bypasses the open/closed gate entirely - staff placing a
-  // comp order shouldn't be blocked by normal service hours.
-  if(S.isComp){ loadMenu(); checkBusyNotice(); return; }
+  // comp order shouldn't be blocked by normal service hours. Staff Food has
+  // its own password gate already and no email field at all. Neither channel
+  // gets the guest email-verification step below.
+  if(S.isComp){ show("categories"); loadMenu(); checkBusyNotice(); return; }
   if(isStaffFood()){
+    show("categories");
     checkStaffFoodAvailability().then(function(available){
       if(!available) return;
       loadMenu();
     });
     return;
   }
+  if(needsEmailGate()){ openEmailGate(); return; }
+  enterOrdering();
+}
+function enterOrdering(){
+  show("categories");
   checkAvailability().then(function(available){
     if(!available) return;
     loadMenu();
     checkBusyNotice();
   });
+}
+
+/* ---------------- guest email verification (room service / outside only) ---------------- */
+// Verified guests skip straight through on their next visit (see
+// loadPersistedGuestEmail); everyone else sees this once per device, before
+// the categories screen. request-email-code / verify-email-code do the
+// actual work - this is just the UI around them.
+var EMAIL_CODE_SKIP_AFTER = 2; // failed attempts before "continue without verifying" appears
+var _emailGateAttempts = 0;
+function needsEmailGate(){
+  return !S.isComp && !isStaffFood() && !(S.guestEmail && S.guestEmailVerified);
+}
+function loadPersistedGuestEmail(){
+  try{
+    var raw = localStorage.getItem("bhb_guest_email_v1");
+    if(!raw) return;
+    var d = JSON.parse(raw);
+    if(d && d.email && d.verified){
+      S.guestEmail = d.email;
+      S.guestEmailVerified = true;
+      S.guestMarketingOptin = !!d.marketingOptin;
+    }
+  }catch(e){}
+}
+function persistGuestEmail(){
+  try{
+    localStorage.setItem("bhb_guest_email_v1", JSON.stringify({
+      email: S.guestEmail, verified: S.guestEmailVerified, marketingOptin: S.guestMarketingOptin
+    }));
+  }catch(e){}
+}
+function openEmailGate(){
+  $("emailGateStep1").style.display = "";
+  $("emailGateStep2").style.display = "none";
+  $("emailGateInput").value = S.guestEmail || "";
+  $("emailGateMarketingOptin").checked = !!S.guestMarketingOptin;
+  $("emailGateErr").textContent = "";
+  $("emailGateContinueBtn").disabled = false;
+  $("emailGateContinueBtn").textContent = "Continue";
+  show("emailGate");
+  setTimeout(function(){ $("emailGateInput").focus(); }, 30);
+}
+async function submitEmailGate(){
+  var email = $("emailGateInput").value.trim().toLowerCase();
+  $("emailGateErr").textContent = "";
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ $("emailGateErr").textContent = "Please enter a valid email address."; return; }
+  var btn = $("emailGateContinueBtn"); btn.disabled = true; btn.textContent = "Please wait…";
+  try{
+    var res = await fetch(CFG.SUPABASE_URL + "/functions/v1/request-email-code", {
+      method: "POST",
+      headers: { "Content-Type":"application/json", Authorization:"Bearer "+CFG.SUPABASE_KEY, apikey: CFG.SUPABASE_KEY },
+      body: JSON.stringify({ email: email, marketing_opt_in: $("emailGateMarketingOptin").checked })
+    });
+    var data = await res.json().catch(function(){ return {}; });
+    if(!res.ok) throw new Error(data.error || ("HTTP " + res.status));
+    S.guestEmail = email;
+    S.guestMarketingOptin = $("emailGateMarketingOptin").checked;
+    if(data.known && data.verified){
+      S.guestEmailVerified = true;
+      persistGuestEmail();
+      enterOrdering();
+      return;
+    }
+    _emailGateAttempts = 0;
+    $("emailGateCodeMsg").textContent = "We've sent a 6-digit code to " + email + ".";
+    $("emailGateCodeInput").value = "";
+    $("emailGateCodeErr").textContent = "";
+    $("emailGateSkipBtn").style.display = "none";
+    $("emailGateStep1").style.display = "none";
+    $("emailGateStep2").style.display = "";
+    setTimeout(function(){ $("emailGateCodeInput").focus(); }, 30);
+  }catch(e){
+    $("emailGateErr").textContent = e.message || "Couldn't send a code — please try again or ask a member of staff.";
+  }finally{
+    btn.disabled = false; btn.textContent = "Continue";
+  }
+}
+function backToEmailGateStep1(){
+  $("emailGateStep2").style.display = "none";
+  $("emailGateStep1").style.display = "";
+  $("emailGateErr").textContent = "";
+  setTimeout(function(){ $("emailGateInput").focus(); }, 30);
+}
+async function submitEmailGateCode(){
+  var code = $("emailGateCodeInput").value.trim();
+  $("emailGateCodeErr").textContent = "";
+  if(!/^\d{6}$/.test(code)){ $("emailGateCodeErr").textContent = "Enter the 6-digit code from the email."; return; }
+  try{
+    var res = await fetch(CFG.SUPABASE_URL + "/functions/v1/verify-email-code", {
+      method: "POST",
+      headers: { "Content-Type":"application/json", Authorization:"Bearer "+CFG.SUPABASE_KEY, apikey: CFG.SUPABASE_KEY },
+      body: JSON.stringify({ email: S.guestEmail, code: code })
+    });
+    var data = await res.json().catch(function(){ return {}; });
+    if(!res.ok){
+      $("emailGateCodeErr").textContent = data.error || "That code wasn't right. Please try again.";
+      _emailGateAttempts++;
+      if(_emailGateAttempts >= EMAIL_CODE_SKIP_AFTER) $("emailGateSkipBtn").style.display = "";
+      return;
+    }
+    if(data.verified){
+      S.guestEmailVerified = true;
+      persistGuestEmail();
+      enterOrdering();
+      return;
+    }
+    _emailGateAttempts++;
+    $("emailGateCodeErr").textContent = "That code wasn't right. Please try again.";
+    if(_emailGateAttempts >= EMAIL_CODE_SKIP_AFTER) $("emailGateSkipBtn").style.display = "";
+  }catch(e){
+    $("emailGateCodeErr").textContent = "Couldn't verify that code — please try again.";
+  }
+}
+function skipEmailGate(){
+  S.guestEmailVerified = false; // remembered for prefill, but not verified - not persisted
+  enterOrdering();
 }
 
 /* ---------------- busy notice ---------------- */
@@ -1398,6 +1551,7 @@ async function checkBusyNotice(){
   var isStaffLink = params.get("staff") === "1";
   S.channel = isStaffLink ? "staff_food" : (lockedTable ? "outside" : "room_service");
   S.isComp = params.get("comp") === "1";
+  loadPersistedGuestEmail();
   loadPersistedCart();
   renderBasketBar();
   applyChannelCopy();

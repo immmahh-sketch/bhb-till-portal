@@ -1165,14 +1165,26 @@ function previewHtml(){
   h += '<div class="notice notice--ok">Their login will be reference <code>' + esc(ev.eventId) +
     '</code> with password <code>' + esc(ddmmyyyy(ev.startDate)) + '</code>.</div>';
 
+  var firstNames = sug
+    ? sug.partner1.split(" ")[0] + " & " + sug.partner2.split(" ")[0]
+    : "";
+
   h += '<div class="card"><h2 style="margin-bottom:6px">Who are they?</h2>' +
     '<p class="muted" style="margin:0 0 14px;font-size:.875rem">' +
-    'Guestline doesn\'t store these separately, so pop them in here — this is how the app greets them ' +
-    'and where their receipts go.</p>' +
-    '<div class="row"><div class="field"><span class="label">Partner 1</span><input id="n_p1"></div>' +
-    '<div class="field"><span class="label">Partner 2</span><input id="n_p2"></div></div>' +
+    (sug
+      ? 'We have read these off the event name &mdash; <strong>please check them</strong>, ' +
+        'then add an email address. The event link carries no contact details at all, so that ' +
+        'part has to come from you.'
+      : 'The event name could not be read as two names, so pop them in here. This is how the ' +
+        'app greets them and where their receipts go.') +
+    '</p>' +
+    '<div class="row"><div class="field"><span class="label">Partner 1</span>' +
+      '<input id="n_p1" value="' + esc(sug ? sug.partner1 : "") + '"></div>' +
+    '<div class="field"><span class="label">Partner 2</span>' +
+      '<input id="n_p2" value="' + esc(sug ? sug.partner2 : "") + '"></div></div>' +
     '<div class="field"><span class="label">How to address them</span>' +
-      '<input id="n_sal" placeholder="Leave blank and we\'ll use their first names"></div>' +
+      '<input id="n_sal" value="' + esc(firstNames) + '" ' +
+      'placeholder="Leave blank and we\'ll use their first names"></div>' +
     '<div class="row"><div class="field"><span class="label">Primary email *</span><input id="n_em1" type="email"></div>' +
     '<div class="field"><span class="label">Second email</span><input id="n_em2" type="email"></div></div>' +
     '<div class="field"><span class="label">Mobile</span><input id="n_mob"></div>' +

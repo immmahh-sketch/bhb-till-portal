@@ -528,7 +528,7 @@
   <!-- MAILING LIST -->
   <section id="tab-mailing" class="hidden">
     <h2 class="sec">Mailing list</h2>
-    <p class="muted" style="margin:0 0 6px">Every row here opted in explicitly — the "Sign me up for special offers, discount codes and updates from the venue" checkbox on the guest receipt-email screen. Nobody is on this list without having ticked that themselves.</p>
+    <p class="muted" style="margin:0 0 6px">Every row here opted in explicitly — the "Sign me up for special offers, discount codes and updates from the venue" checkbox, shown on both the guest receipt-email screen and the email step at the start of a room-service/outside order. Nobody is on this list without having ticked that themselves.</p>
     <p class="muted" style="margin:0 0 16px;padding:10px 12px;background:#fdf6e8;border:1px solid var(--brass);border-radius:8px">
       <b>Before sending anything to this list:</b> UK marketing email law needs a working unsubscribe link in every send, and the opt-in point (the receipt-email checkbox) should really link to a privacy notice explaining what this list is used for. Neither exists yet — worth sorting before the first real campaign, not after.
     </p>
@@ -541,7 +541,7 @@
     </div>
     <div class="tablewrap"><table class="menu-tbl" id="mailingTbl">
       <thead><tr>
-        <th class="l">Email</th><th class="l">Source</th><th class="l">Opted in</th><th></th>
+        <th class="l">Email</th><th class="l">Verified</th><th class="l">Last seen</th><th></th>
       </tr></thead>
       <tbody id="mailingBody"></tbody>
     </table></div>
@@ -1612,10 +1612,10 @@ function renderMailingList(){
   b.innerHTML = rows.length ? "" : '<tr><td colspan="4" class="muted">No sign-ups yet.</td></tr>';
   for(const r of rows){
     const tr = document.createElement("tr");
-    const d = new Date(r.opted_in_at);
+    const d = new Date(r.last_seen_at);
     tr.innerHTML =
       `<td class="l">${esc(r.email)}</td>`+
-      `<td class="l">${esc(r.source||"—")}</td>`+
+      `<td class="l">${r.verified_at ? "Yes" : "No"}</td>`+
       `<td class="l">${d.toLocaleDateString("en-GB")} ${d.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}</td>`+
       `<td class="act"><button class="del" onclick="deleteMailingSignup('${r.id}')">Remove</button></td>`;
     b.appendChild(tr);
@@ -1632,8 +1632,8 @@ async function deleteMailingSignup(id){
 function downloadMailingListCsv(){
   const rows = ST.mailingList || [];
   const csvEsc = v => '"' + String(v??"").replace(/"/g,'""') + '"';
-  const header = ["Email","Source","Opted in"].join(",");
-  const lines = rows.map(r => [csvEsc(r.email), csvEsc(r.source||""), csvEsc(new Date(r.opted_in_at).toISOString())].join(","));
+  const header = ["Email","Verified","Last seen"].join(",");
+  const lines = rows.map(r => [csvEsc(r.email), csvEsc(r.verified_at ? "Yes" : "No"), csvEsc(new Date(r.last_seen_at).toISOString())].join(","));
   const csv = [header].concat(lines).join("\r\n");
   const blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
   const url = URL.createObjectURL(blob);
