@@ -247,12 +247,25 @@ footer.app{border-top:1px solid var(--mist);padding:26px 0;text-align:center;fon
 .cal .cal-frame iframe{width:100%!important;height:100%!important;border:0;display:block}
 @media(max-width:560px){.cal .cal-frame{height:780px}}
 
-/* ---- modal ---- */
+/* ---- dialogs ---- */
+/* The top padding clears the notch: in standalone the status bar sits over
+   the page, and a dialog pinned to inset:0 puts its title under the clock. */
 .modal{position:fixed;inset:0;background:rgba(38,38,38,.55);z-index:50;display:flex;
-  align-items:flex-start;justify-content:center;padding:24px 16px;overflow:auto}
+  align-items:flex-start;justify-content:center;overflow:auto;
+  padding:calc(24px + env(safe-area-inset-top,0px)) 16px
+          calc(24px + env(safe-area-inset-bottom,0px))}
 .modal .inner{background:var(--white);border:1px solid var(--mist);max-width:680px;width:100%;
   padding:24px;margin:auto}
-@media(max-width:560px){.modal{padding:0}.modal .inner{min-height:100%;border:0}}
+@media(max-width:560px){
+  .modal{padding:calc(12px + env(safe-area-inset-top,0px)) 0
+                calc(12px + env(safe-area-inset-bottom,0px))}
+  .modal .inner{border:0}
+}
+
+/* The embedded variant: in the flow, beside whatever was tapped. */
+.panel{margin:0 0 16px}
+.panel .inner{background:var(--white);border:1px solid var(--sage);
+  border-left-width:3px;padding:22px 18px}
 
 /* ---- table plan ---- */
 .plan{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}
@@ -391,6 +404,7 @@ footer.app{border-top:1px solid var(--mist);padding:26px 0;text-align:center;fon
         <button data-view="details">Details</button>
         <button data-view="pay">Amounts to pay</button>
         <button data-view="journey">Wedding journey</button>
+        <button data-view="checklist">Checklist</button>
         <button data-view="guests">Guest list</button>
         <button data-view="meals">Meals &amp; allergies</button>
         <button data-view="tables">Table plan</button>
@@ -556,18 +570,55 @@ function bookMeeting(key, title){
   setTimeout(function(){ box.scrollIntoView({ behavior:"smooth", block:"start" }); }, 80);
 }
 
-/* ---------- modal ---------- */
+/* ---------- dialogs ----------
+   A centred overlay when the app has the window to itself.
+
+   Embedded in the Squarespace page it can't be: the iframe is 1600px tall,
+   so position:fixed inside it is measured against all 1600px rather than the
+   844px of phone actually on screen. A dialog opened after any scrolling
+   lands hundreds of pixels above the view — measured at 770px out — and the
+   couple sees a blank white panel.
+
+   Scrolling it into view doesn't help either: a tall iframe never scrolls,
+   the page around it does, and we can't reach that from in here. So when
+   framed the dialog opens in the page flow right beside whatever was
+   tapped, where they're already looking and no scrolling is needed. */
+
+var lastTap = null;
+document.addEventListener("click", function(ev){ lastTap = ev.target; }, true);
+
 function showModal(html){
-  var m = $("modal");
-  if (!m) {
-    m = document.createElement("div");
-    m.id = "modal"; m.className = "modal";
-    m.addEventListener("click", function(ev){ if (ev.target === m) closeModal(); });
-    document.body.appendChild(m);
+  closeModal();
+
+  if (isFramed()) {
+    var anchor = null;
+    try {
+      anchor = lastTap && lastTap.closest ? lastTap.closest(".card, .tbl, tr, .plan") : null;
+    } catch (e) {}
+    var panel = document.createElement("div");
+    panel.id = "modal";
+    panel.className = "panel";
+    panel.innerHTML = '<div class="inner">' + html + '</div>';
+
+    if (anchor && anchor.parentNode) {
+      // A <tr> can't have a div after it, so go up to the table.
+      var after = anchor.tagName === "TR" ? (anchor.closest("table") || anchor) : anchor;
+      after.parentNode.insertBefore(panel, after.nextSibling);
+    } else {
+      var v = $("views");
+      if (v) v.insertBefore(panel, v.firstChild); else document.body.appendChild(panel);
+    }
+    return;
   }
+
+  var m = document.createElement("div");
+  m.id = "modal"; m.className = "modal";
+  m.addEventListener("click", function(ev){ if (ev.target === m) closeModal(); });
   m.innerHTML = '<div class="inner">' + html + '</div>';
+  document.body.appendChild(m);
   document.body.style.overflow = "hidden";
 }
+
 function closeModal(){
   var m = $("modal");
   if (m) m.remove();
@@ -846,6 +897,7 @@ function render(){
     case "details":   v.innerHTML = viewDetails(); break;
     case "pay":       v.innerHTML = viewPay(); bindPay(); break;
     case "journey":   v.innerHTML = viewJourney(); break;
+    case "checklist": v.innerHTML = viewChecklist(); break;
     case "guests":    v.innerHTML = '<div class="empty"><span class="spin"></span></div>'; loadGuests(); break;
     case "meals":     v.innerHTML = '<div class="empty"><span class="spin"></span></div>'; loadMeals(); break;
     case "tables":    v.innerHTML = '<div class="empty"><span class="spin"></span></div>'; loadTables(); break;
@@ -1318,49 +1370,16 @@ function viewJourney(){
   });
   h += '</div>';
 
-  /* ---- Checklist ---- */
-  var all = [], doneCount = 0;
-  CHECKLIST.forEach(function(g){ g[1].forEach(function(i){ all.push(i); }); });
-  all.forEach(function(i){ if (progressOf("checklist", i)) doneCount++; });
-  var custom = (S.data.progress||[]).filter(function(p){ return p.kind==="checklist" && p.custom_label; });
-  custom.forEach(function(c){ if (c.completed_at) doneCount++; });
-  var total = all.length + custom.length;
-
-  h += '<div class="card"><div class="split"><h2>Your wedding checklist</h2>' +
-    '<span class="label num">' + doneCount + ' of ' + total + ' done</span></div>' +
-    '<div class="progress"><i style="width:' + (total ? Math.round(doneCount/total*100) : 0) + '%"></i></div>';
-
-  CHECKLIST.forEach(function(g){
-    h += '<h3 style="margin:18px 0 4px;font-size:.8125rem;letter-spacing:.14em">' + esc(g[0]) + '</h3>';
-    g[1].forEach(function(item){
-      var done = progressOf("checklist", item);
-      h += '<label class="check' + (done ? " done" : "") + '">' +
-        '<input type="checkbox" ' + (done ? "checked" : "") +
-        ' onchange="toggleCheck(' + JSON.stringify(item).replace(/"/g,"&quot;") + ',this.checked)">' +
-        '<span>' + esc(item) + '</span></label>';
-    });
-  });
-
-  if (custom.length) {
-    h += '<h3 style="margin:18px 0 4px;font-size:.8125rem;letter-spacing:.14em">Your own</h3>';
-    custom.forEach(function(c){
-      var key = JSON.stringify(c.item_key).replace(/"/g,"&quot;");
-      var lbl = JSON.stringify(c.custom_label).replace(/"/g,"&quot;");
-      // The Remove button sits OUTSIDE the <label> — inside it, a click
-      // would also toggle the tickbox on its way past.
-      h += '<div class="check' + (c.completed_at ? " done" : "") + '">' +
-        '<input type="checkbox" id="cc_' + esc(c.item_key) + '" ' + (c.completed_at ? "checked" : "") +
-        ' onchange="toggleCheck(' + key + ',this.checked,' + lbl + ')">' +
-        '<label for="cc_' + esc(c.item_key) + '">' + esc(c.custom_label) + '</label>' +
-        '<button class="btn btn--sm" style="border:0;padding:0 6px" ' +
-        'onclick="removeCustom(' + key + ');return false">Remove</button></div>';
-    });
-  }
-
-  h += '<div style="display:flex;gap:8px;margin-top:18px">' +
-    '<input id="newCheck" placeholder="Add something of your own">' +
-    '<button class="btn" onclick="addCustom()">Add</button></div>';
-  h += '</div>';
+  /* The checklist has a page of its own — it's long, and it's something
+     they'll dip into again and again rather than read once. */
+  var doneNow = 0, totalNow = 0;
+  checklistItems().forEach(function(i){ totalNow++; if (progressOf("checklist", i.key)) doneNow++; });
+  h += '<div class="card"><div class="split" style="margin-bottom:10px">' +
+    '<h2>Your checklist</h2><span class="label num">' + doneNow + ' of ' + totalNow + ' done</span></div>' +
+    '<div class="progress"><i style="width:' + (totalNow ? Math.round(doneNow/totalNow*100) : 0) + '%"></i></div>' +
+    '<p class="muted" style="margin:0 0 14px;font-size:.9375rem">' +
+    'Everything to tick off between now and the day.</p>' +
+    '<button class="btn btn--sm" onclick="go(&quot;checklist&quot;)">Open your checklist</button></div>';
 
   return h;
 }
@@ -1401,6 +1420,84 @@ async function removeCustom(key){
         S.data.progress = S.data.progress.filter(function(x){ return x.item_key !== key; });
         render(); }
   catch (e) { showError(e.message); }
+}
+
+
+/* ============================ CHECKLIST ============================ */
+
+/** One flat list of every checklist item, template plus the couple's own. */
+function checklistItems(){
+  var out = [];
+  CHECKLIST.forEach(function(g){
+    g[1].forEach(function(label){ out.push({ group: g[0], key: label, label: label, custom: false }); });
+  });
+  (S.data.progress || []).forEach(function(p){
+    if (p.kind === "checklist" && p.custom_label) {
+      out.push({ group: "Your own", key: p.item_key, label: p.custom_label, custom: true });
+    }
+  });
+  return out;
+}
+
+function viewChecklist(){
+  var items = checklistItems();
+  var done = items.filter(function(i){ return progressOf("checklist", i.key); }).length;
+  var pct = items.length ? Math.round(done / items.length * 100) : 0;
+
+  var h = '<h1 style="margin-bottom:6px">Your checklist</h1>' +
+    '<p class="muted" style="margin:0 0 16px">' +
+    'Everything to tick off between now and the day. Nothing here is compulsory — ' +
+    'it&rsquo;s a prompt, not a test.</p>';
+
+  h += '<div class="card"><div class="split" style="margin-bottom:10px">' +
+    '<span class="label">Progress</span>' +
+    '<span class="label num">' + done + ' of ' + items.length + ' done</span></div>' +
+    '<div class="progress" style="margin:0"><i style="width:' + pct + '%"></i></div>' +
+    (done === items.length && items.length
+      ? '<p style="margin:14px 0 0">That&rsquo;s the lot. Nothing left but the day itself.</p>'
+      : '') +
+  '</div>';
+
+  /* Grouped, because a wall of thirty tickboxes is nobody's idea of help. */
+  var groups = [];
+  items.forEach(function(i){
+    var g = groups.filter(function(x){ return x.name === i.group; })[0];
+    if (!g) { g = { name: i.group, items: [] }; groups.push(g); }
+    g.items.push(i);
+  });
+
+  groups.forEach(function(g){
+    var gDone = g.items.filter(function(i){ return progressOf("checklist", i.key); }).length;
+    h += '<div class="card"><div class="split" style="margin-bottom:8px">' +
+      '<h2>' + esc(g.name) + '</h2>' +
+      '<span class="label num">' + gDone + '/' + g.items.length + '</span></div>';
+    g.items.forEach(function(i){
+      var isDone = progressOf("checklist", i.key);
+      var key = JSON.stringify(i.key).replace(/"/g, "&quot;");
+      var lbl = JSON.stringify(i.label).replace(/"/g, "&quot;");
+      if (i.custom) {
+        h += '<div class="check' + (isDone ? " done" : "") + '">' +
+          '<input type="checkbox" id="ck_' + esc(i.key) + '" ' + (isDone ? "checked" : "") +
+          ' onchange="toggleCheck(' + key + ',this.checked,' + lbl + ')">' +
+          '<label for="ck_' + esc(i.key) + '">' + esc(i.label) + '</label>' +
+          '<button class="btn btn--sm" style="border:0;padding:0 6px" ' +
+          'onclick="removeCustom(' + key + ');return false">Remove</button></div>';
+      } else {
+        h += '<label class="check' + (isDone ? " done" : "") + '">' +
+          '<input type="checkbox" ' + (isDone ? "checked" : "") +
+          ' onchange="toggleCheck(' + key + ',this.checked)">' +
+          '<span>' + esc(i.label) + '</span></label>';
+      }
+    });
+    h += '</div>';
+  });
+
+  h += '<div class="card"><h2 style="margin-bottom:10px">Add your own</h2>' +
+    '<div style="display:flex;gap:8px">' +
+    '<input id="newCheck" placeholder="Something of your own">' +
+    '<button class="btn" onclick="addCustom()">Add</button></div></div>';
+
+  return h;
 }
 
 /* ============================ GUEST LIST ============================ */
