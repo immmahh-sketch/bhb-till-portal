@@ -251,6 +251,18 @@ tr:last-child td{border-bottom:0}
 .check input{width:18px;height:18px;flex:0 0 18px;margin-top:2px;accent-color:#4E5F4F}
 .check label{flex:1;cursor:pointer}
 .check.done label{opacity:.5;text-decoration:line-through}
+/* The meeting nudge. Fixed is safe here: it covers the whole frame on
+   purpose, and it is shown before any scrolling has happened. */
+.nudge{position:fixed;inset:0;background:rgba(38,38,38,.45);z-index:60;
+  display:flex;align-items:center;justify-content:center;padding:20px}
+.nudge-card{background:var(--bone);max-width:400px;width:100%;padding:24px 22px;
+  border-top:3px solid var(--celadon);box-shadow:0 18px 40px rgba(38,38,38,.24)}
+.nudge-card h3{margin:6px 0 8px;font-family:var(--display);font-size:1.3rem}
+.nudge-card p{margin:0 0 18px;font-size:.9375rem;line-height:1.55}
+.nudge-acts{display:flex;gap:10px;flex-wrap:wrap}
+.nudge-acts .btn{flex:1 1 auto;text-align:center}
+.nudge--inline{position:static;background:none;display:block;padding:0;margin:0 0 18px}
+.nudge--inline .nudge-card{max-width:none;box-shadow:none;border:1px solid var(--mist);border-top:3px solid var(--celadon)}
 .progress{height:3px;background:var(--mist);margin:10px 0 18px}
 .progress i{display:block;height:100%;background:var(--sage)}
 
@@ -889,6 +901,47 @@ function schedule(){
   });
 }
 
+/* ---------- meetings ----------
+   The journey has a handful of meetings built into it. This works out which
+   one is nearest, so the app can nudge them rather than waiting to be asked.
+
+   A meeting that has already come and gone without being ticked off still
+   counts: missing one is more of a reason to get it booked, not less. */
+var MEETING_WINDOW_DAYS = 14;
+
+function meetingRows(){
+  var w = S.data.wedding, today = todayIso();
+  return MILESTONES.filter(function(m){ return m.meeting; }).map(function(m){
+    var date = milestoneDate(m, w.wedding_date, w.created_at);
+    return {
+      key: m.key, title: m.title, items: m.items, date: date,
+      days: daysBetween(today, date),
+      done: progressOf("milestone", m.key)
+    };
+  });
+}
+
+/** The meeting to nag about, or null if nothing is close enough to matter. */
+function meetingDue(){
+  var rows = meetingRows().filter(function(r){
+    return !r.done && r.days <= MEETING_WINDOW_DAYS;
+  });
+  /* A meeting that has slipped past comes first — the most recent one,
+     not the oldest. Otherwise it is whichever is coming up soonest. */
+  var late = rows.filter(function(r){ return r.days < 0; })
+                 .sort(function(a, b){ return b.days - a.days; });
+  if (late.length) return late[0];
+  return rows.filter(function(r){ return r.days >= 0; })
+             .sort(function(a, b){ return a.days - b.days; })[0] || null;
+}
+
+function meetingWhen(r){
+  if (r.days < 0)  return "was due " + ukDateShort(r.date);
+  if (r.days === 0) return "due today";
+  if (r.days === 1) return "due tomorrow";
+  return "due in " + r.days + " days, on " + ukDateShort(r.date);
+}
+
 function nextDue(){
   var rows = schedule().filter(function(r){ return !r.met; });
   return rows.length ? rows[0] : null;
@@ -904,6 +957,7 @@ async function start(){
     clearError();
     buildMenu();
     render();
+    maybeNudgeMeeting();
   } catch (e) {
     if (e.code === "AUTH") return;
     $("views").innerHTML = '<div class="card"><h2>We can\'t load your wedding</h2>' +
@@ -918,9 +972,10 @@ async function start(){
 var VIEWS = [
   ["home", "Your wedding"],
   ["details", "Details"],
-  ["pay", "Amounts to pay"],
+  ["pay", "Your payments"],
   ["journey", "Wedding journey"],
   ["checklist", "Checklist"],
+  ["meeting", "Book a wedding meeting"],
   ["guests", "Guest list"],
   ["meals", "Meals & allergies"],
   ["tables", "Table plan"],
@@ -980,6 +1035,7 @@ function render(){
     case "pay":       v.innerHTML = viewPay(); bindPay(); break;
     case "journey":   v.innerHTML = viewJourney(); break;
     case "checklist": v.innerHTML = viewChecklist(); break;
+    case "meeting":   v.innerHTML = viewMeeting(); openMeetingCalendar(); break;
     case "guests":    v.innerHTML = '<div class="empty"><span class="spin"></span></div>'; loadGuests(); break;
     case "meals":     v.innerHTML = '<div class="empty"><span class="spin"></span></div>'; loadMeals(); break;
     case "tables":    v.innerHTML = '<div class="empty"><span class="spin"></span></div>'; loadTables(); break;
@@ -1061,6 +1117,15 @@ function viewHome(){
     h += '<p class="muted">Your timings will appear here once they\'re booked in.</p>';
   }
   h += '</div>';
+
+  /* A meeting coming up is worth saying plainly, above everything else on
+     the page that can wait. */
+  var mtg = meetingDue();
+  if (mtg) {
+    h += '<div class="notice ' + (mtg.days < 0 ? "notice--late" : "notice--due") + '" style="margin-bottom:16px">' +
+      '<strong>' + esc(mtg.title) + '</strong> — your meeting ' + esc(meetingWhen(mtg)) + '. ' +
+      '<a href="#" onclick="go(&quot;meeting&quot;);return false"><strong>Book a time</strong></a></div>';
+  }
 
   /* Next milestone */
   var upcoming = journeyRows().filter(function(r){ return r.state !== "done"; })[0];
@@ -1203,7 +1268,7 @@ function viewDetails(){
 /* ============================ AMOUNTS TO PAY ============================ */
 function viewPay(){
   var d = S.data, b = d.balance, bill = d.bill;
-  var h = '<h1 style="margin-bottom:18px">Amounts to pay</h1>';
+  var h = '<h1 style="margin-bottom:18px">Your payments</h1>';
 
   if (b.fullyPaid) {
     h += '<div class="notice notice--ok" style="margin-bottom:16px">' +
@@ -1364,6 +1429,154 @@ function bindPay(){
   };
 }
 
+/* ---------- the nudge ----------
+   A meeting inside the next fortnight is the one thing in this app that
+   stops being useful if it is left alone, so the app asks rather than
+   waiting to be found. Asked once, then left alone for a few days —
+   an app that nags on every single visit gets closed. */
+var MEETING_NUDGE_KEY = "bhb_wedding_meeting_nudge";
+var MEETING_NUDGE_QUIET_DAYS = 3;
+
+function nudgeSnoozed(key){
+  try {
+    var raw = localStorage.getItem(MEETING_NUDGE_KEY);
+    if (!raw) return false;
+    var v = JSON.parse(raw);
+    return v && v.key === key && Number(v.until) > Date.now();
+  } catch (e) { return false; }
+}
+
+function snoozeNudge(key){
+  try {
+    localStorage.setItem(MEETING_NUDGE_KEY, JSON.stringify({
+      key: key, until: Date.now() + MEETING_NUDGE_QUIET_DAYS * 86400000
+    }));
+  } catch (e) { /* private browsing, or inside the frame — it just asks again */ }
+}
+
+function maybeNudgeMeeting(){
+  var due = meetingDue();
+  if (!due || nudgeSnoozed(due.key)) return;
+  showMeetingNudge(due);
+}
+
+function showMeetingNudge(due){
+  var card =
+    '<div class="nudge-card">' +
+      '<span class="label">' + (due.days < 0 ? "A meeting to catch up on" : "Time to book a meeting") + '</span>' +
+      '<h3>' + esc(due.title) + '</h3>' +
+      '<p>Your ' + esc(due.title.toLowerCase()) + ' meeting ' + esc(meetingWhen(due)) + '. ' +
+        'Shall we find you a time?</p>' +
+      '<div class="nudge-acts">' +
+        '<button class="btn btn--primary" id="nudgeGo">Book a meeting</button>' +
+        '<button class="btn" id="nudgeLater">Not just now</button>' +
+      '</div>' +
+    '</div>';
+
+  var el = document.createElement("div");
+  el.id = "meetingNudge";
+
+  /* Standing on its own the app can dim the page behind this. Inside the
+     Squarespace frame it cannot: position:fixed there is measured against
+     the whole 1600px iframe, not the phone-sized part of it on screen, so
+     the card would sit somewhere off the top of the view. In the frame it
+     goes at the head of the page instead, where they are already looking. */
+  if (isFramed()) {
+    el.className = "nudge nudge--inline";
+    el.innerHTML = card;
+    var v = $("views");
+    v.insertBefore(el, v.firstChild);
+    window.scrollTo({ top: 0 });
+  } else {
+    el.className = "nudge";
+    el.innerHTML = card;
+    document.body.appendChild(el);
+  }
+
+  function close(){ snoozeNudge(due.key); var n = $("meetingNudge"); if (n) n.remove(); }
+  $("nudgeLater").onclick = close;
+  $("nudgeGo").onclick = function(){ close(); go("meeting"); };
+}
+
+/* ============================ BOOK A MEETING ============================ */
+function viewMeeting(){
+  var rows = meetingRows(), due = meetingDue();
+
+  var h = '<h1 style="margin-bottom:6px">Book a wedding meeting</h1>' +
+    '<p class="muted" style="margin:0 0 18px">' +
+    'Pick a time that suits you and we will do the rest. Every meeting can be ' +
+    'here at the Black Horse or over the phone — just say which when you book.</p>';
+
+  if (due) {
+    h += '<div class="notice ' + (due.days < 0 ? "notice--late" : "notice--due") + '" style="margin-bottom:18px">' +
+      '<strong>' + esc(due.title) + '</strong> — ' + esc(meetingWhen(due)) + '. ' +
+      'Choose a time below and it is sorted.</div>';
+  }
+
+  /* Where they are up to, so they can see which meeting this one is. */
+  h += '<div class="card"><span class="label">Your meetings</span><table class="stack" style="margin-top:8px">';
+  rows.forEach(function(r){
+    var state = r.done
+      ? '<span class="pill pill--ok">Done</span>'
+      : (r.days < 0 ? '<span class="pill pill--late">Was due</span>'
+                    : (r.days <= MEETING_WINDOW_DAYS ? '<span class="pill pill--due">Due now</span>'
+                                                     : '<span class="pill pill--prov">To come</span>'));
+    h += '<tr><td data-label="Meeting"><strong>' + esc(r.title) + '</strong>' +
+      (r.items.length ? '<br><span class="muted" style="font-size:.8125rem">' + esc(r.items[0]) + '</span>' : '') +
+      '</td>' +
+      '<td class="num" data-label="When" style="white-space:nowrap">' + esc(ukDateShort(r.date)) + '</td>' +
+      '<td data-label="Status">' + state + '</td></tr>';
+  });
+  h += '</table><p class="muted" style="font-size:.8125rem;margin:12px 0 0">' +
+    'Tick a meeting off on your <a href="#" onclick="go(&quot;journey&quot;);return false">wedding journey</a> ' +
+    'once it has happened.</p></div>';
+
+  h += '<div class="card card--flush" style="padding:0;overflow:hidden">' +
+    '<div class="cal open" id="cal_meeting" style="margin:0">' +
+      '<div class="cal-frame" id="calFrame_meeting"></div>' +
+    '</div></div>';
+
+  h += '<p class="center muted" style="font-size:.8125rem;margin:16px 0 0">' +
+    'Would rather talk it through? Ring us on <a href="tel:01207232569">01207 232 569</a>.</p>';
+
+  return h;
+}
+
+/* The page always has the calendar open — that is the whole point of it. */
+function openMeetingCalendar(){
+  var parent = $("calFrame_meeting");
+  if (!parent) return;
+  var w = S.data.wedding, due = meetingDue();
+  var label = due ? due.title : "Wedding meeting";
+
+  function open(){
+    if (!window.Calendly) {
+      parent.innerHTML = '<p class="empty">We cannot load the booking calendar just now. ' +
+        'Please give us a ring on <a href="tel:01207232569">01207 232 569</a>.</p>';
+      return;
+    }
+    window.Calendly.initInlineWidget({
+      url: CALENDLY_URL + "?hide_gdpr_banner=1&primary_color=4E5F4F",
+      parentElement: parent,
+      prefill: {
+        name: w.salutation,
+        email: w.primary_email,
+        customAnswers: { a1: label + " — " + w.event_id + " — " + ukDate(w.wedding_date) }
+      }
+    });
+  }
+
+  if (window.Calendly) open();
+  else {
+    parent.innerHTML = '<div class="empty"><span class="spin"></span></div>';
+    var tries = 0;
+    var t = setInterval(function(){
+      if (window.Calendly) { clearInterval(t); parent.innerHTML = ""; open(); }
+      else if (++tries > 40) { clearInterval(t); open(); }
+    }, 200);
+  }
+}
+
 /* ============================ JOURNEY ============================ */
 function progressOf(kind, key){
   var row = (S.data.progress||[]).filter(function(p){ return p.kind===kind && p.item_key===key; })[0];
@@ -1411,6 +1624,40 @@ function viewJourney(){
   h += '<div class="welcome" style="text-align:left;margin-bottom:18px">' +
     '<details><summary>A word from ' + esc(GM.name) + ', our ' + esc(GM.role.toLowerCase()) + '</summary>' +
     gmLetterHtml("To " + w.salutation + ",") + '</details></div>';
+
+  /* What the next year or two actually looks like. Couples arrive with no
+     idea how much of this is on them and how much is on us, and the honest
+     answer — that the meetings do most of the work — is reassuring. */
+  h += '<div class="card"><h2 style="margin:0 0 10px">What to expect</h2>' +
+    '<p style="margin:0 0 12px">From today until you walk back down the aisle, your ' +
+      'wedding is planned in stages. Each one below has a date of its own, worked out ' +
+      'from your wedding day, so nothing lands on you all at once.</p>' +
+    '<p style="margin:0 0 12px"><strong>Most of it happens in a meeting with us.</strong> ' +
+      'There are four along the way, and between them they cover almost everything ' +
+      'you need to decide:</p>' +
+    '<ul style="margin:0 0 14px;padding-left:18px">' +
+      '<li><strong>Your first meeting</strong>, soon after booking — we walk the rooms, ' +
+        'talk through the shape of your day and answer the questions you have not thought of yet.</li>' +
+      '<li><strong>Nine months to go</strong> — how the day will run, your ceremony, ' +
+        'and the suppliers you still need.</li>' +
+      '<li><strong>Six months to go</strong> — food and drink, your guest list ' +
+        'and the first shape of a table plan.</li>' +
+      '<li><strong>Six weeks to go, the final details meeting</strong> — the big one. ' +
+        'Final numbers, menu choices, allergies, timings and the table plan, all signed off.</li>' +
+    '</ul>' +
+    '<p style="margin:0 0 12px">A week before the day you drop off anything that needs setting ' +
+      'up and meet the wedding manager who will look after you. After that, it is ours to run.</p>' +
+    '<p style="margin:0 0 12px"><strong>Payments follow the same stages</strong> — a share of ' +
+      'your total by each one, rather than a bill at the end. The app shows you what is ' +
+      'due and when, and you can pay any amount whenever suits.</p>' +
+    '<p style="margin:0 0 16px"><strong>Your part between meetings</strong> is the list further ' +
+      'down each stage, and the checklist for everything outside the venue — the dress, ' +
+      'the photographer, the rings.</p>' +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+      '<button class="btn btn--sm btn--primary" onclick="go(&quot;meeting&quot;)">Book a meeting</button>' +
+      '<button class="btn btn--sm" onclick="go(&quot;checklist&quot;)">Open your checklist</button>' +
+    '</div>' +
+  '</div>';
 
   h += '<div class="card card--flush" style="padding:6px 22px">';
   journeyRows().forEach(function(r){

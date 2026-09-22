@@ -195,6 +195,92 @@ async function call(action, payload){
   return data;
 }
 
+/* ---------- the couple's invitation email ----------
+   Preview and send both come from one builder on the server, so what is
+   checked here is exactly what is sent. Sending reports back what Brevo
+   did with it rather than just claiming success. */
+async function callWelcome(action, extra){
+  var body = { password:S.pw, action:action,
+               id: (S.detail && S.detail.wedding) ? S.detail.wedding.id : null };
+  for (var k in (extra||{})) body[k] = extra[k];
+  var r = await fetch(CFG.SUPABASE_URL + "/functions/v1/send-couple-welcome", {
+    method:"POST",
+    headers:{ "Content-Type":"application/json",
+              Authorization:"Bearer "+CFG.SUPABASE_KEY, apikey:CFG.SUPABASE_KEY },
+    body: JSON.stringify(body)
+  });
+  var data = await r.json().catch(function(){ return {}; });
+  if (!r.ok) throw new Error(data.error || ("Request failed ("+r.status+")"));
+  return data;
+}
+
+function welcomeBusy(msg){
+  var box = $("welcomeBox");
+  if (box) box.innerHTML = '<p class="muted" style="margin:12px 0 0">' + esc(msg) + '</p>';
+}
+
+function closeWelcomePreview(){ var b = $("welcomeBox"); if (b) b.innerHTML = ""; }
+
+async function previewWelcome(){
+  welcomeBusy("Building the preview…");
+  try {
+    var d = await callWelcome("preview");
+    /* srcdoc, not innerHTML: it is a whole email document, and it must not
+       inherit this page's styles or leak its own into it. */
+    $("welcomeBox").innerHTML =
+      '<div style="margin-top:12px">' +
+        '<p class="muted" style="margin:0 0 8px;font-size:.8125rem">' +
+          '<strong>To</strong> ' + esc((d.to||[]).join(", ") || "nobody — add an email address first") +
+          ' &middot; <strong>From</strong> ' + esc(d.from) +
+          ' &middot; <strong>Replies go to</strong> ' + esc(d.replyTo) + '<br>' +
+          '<strong>Subject</strong> ' + esc(d.subject) +
+        '</p>' +
+        '<iframe title="Email preview" style="width:100%;height:620px;border:1px solid var(--mist);background:#fff" ' +
+          'srcdoc="' + esc(d.html) + '"></iframe>' +
+        '<p style="margin:8px 0 0">' +
+          '<button class="btn btn--sm" onclick="closeWelcomePreview()">Close preview</button></p>' +
+      '</div>';
+  } catch (e) { welcomeBusy(""); showErr(e.message); }
+}
+
+async function sendWelcome(){
+  var w = (S.detail && S.detail.wedding) || {};
+  var who = [w.primary_email, w.secondary_email].filter(Boolean).join(" and ");
+  if (!who) { showErr("There's no email address on this wedding yet — add one first."); return; }
+  var again = w.welcome_sent_at
+    ? "\n\nThey were already sent this on " + ukDate(w.welcome_sent_at) + "."
+    : "";
+  if (!confirm("Send " + (w.salutation || "the couple") + " their app details?"
+             + "\n\nTo: " + who + again)) return;
+
+  welcomeBusy("Sending, then checking it went…");
+  try {
+    var d = await callWelcome("send");
+    var state = (d.delivery && d.delivery.state) || "accepted";
+    var line, cls;
+    if (state === "delivered") {
+      line = "Sent and delivered to " + d.to.join(", ") + ".";  cls = "notice--ok";
+    } else if (state === "sent") {
+      line = "Sent to " + d.to.join(", ") + " and accepted for delivery.";  cls = "notice--ok";
+    } else if (state === "failed") {
+      line = "It was sent but came back as " + (d.delivery.event || "a failure") +
+             (d.delivery.reason ? " — " + d.delivery.reason : "") +
+             ". Check the address and try again.";  cls = "notice--late";
+    } else {
+      line = "Handed to Brevo for " + d.to.join(", ") + ". Delivery hadn't been confirmed " +
+             "within a few seconds, which is normal — check Brevo if it doesn't arrive.";  cls = "notice--due";
+    }
+    $("welcomeBox").innerHTML = '<div class="notice ' + cls + '" style="margin:12px 0 0">' +
+      esc(line) + (d.message_id ? '<br><span class="muted" style="font-size:.75rem">Brevo id ' +
+        esc(d.message_id) + '</span>' : '') + '</div>';
+    /* Keep the "last sent" line honest without a full reload. */
+    if (S.detail && S.detail.wedding) {
+      S.detail.wedding.welcome_sent_at = d.sent_at;
+      S.detail.wedding.welcome_sent_to = d.to.join(", ");
+    }
+  } catch (e) { welcomeBusy(""); showErr(e.message); }
+}
+
 function showErr(m){ var e=$("err"); e.textContent=m; e.classList.remove("hide"); window.scrollTo({top:0}); }
 function clearErr(){ $("err").classList.add("hide"); }
 
@@ -580,23 +666,21 @@ function viewWedding(){
   h += '<p class="muted" style="margin:0 0 18px">' +
     (d.event ? esc(d.event.name) : '<span style="color:var(--alert)">Couldn\'t reach Guestline — showing stored details only.</span>') + '</p>';
 
-  /* ---- what the couple types to log in ---- */
+  /* ---- what the couple types to log in, and the email that tells them ---- */
   h += '<div class="notice notice--ok"><strong>Their login:</strong> ' +
-    'reference <code>' + esc(w.event_id) + '</code> and date <code>' + esc(ddmmyyyy(w.wedding_date)) + '</code>. ' +
-    '<a href="mailto:' + esc(w.primary_email) + '?subject=' +
-    encodeURIComponent("Your wedding app — Black Horse Beamish") + '&body=' +
-    encodeURIComponent(
-      "Hello " + w.salutation + ",\n\n" +
-      "Your wedding app is ready. Everything about your big day in one place — what's booked, what's left to pay, " +
-      "your wedding journey, and space for your guest list, suppliers and budget.\n\n" +
-      "Log in here: https://www.blackhorsebeamish.co.uk/wedding-app\n\n" +
-      "Your reference: " + w.event_id + "\n" +
-      "Your password: " + ddmmyyyy(w.wedding_date) + " (your wedding date, day first)\n\n" +
-      "Any questions at all, just give us a ring on 01207 232 569.\n\n" +
-      "Best wishes,\nThe events team\nBlack Horse Beamish"
-    ) + '">Send them the welcome email</a>' +
-    (w.last_login_at ? ' · <span class="muted">Last logged in ' + esc(ukDate(w.last_login_at)) + '</span>'
-                     : ' · <span class="muted">Never logged in</span>') +
+    'reference <code>' + esc(w.event_id) + '</code> and date <code>' + esc(ddmmyyyy(w.wedding_date)) + '</code>.' +
+    '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">' +
+      '<button class="btn btn--sm" onclick="previewWelcome()">Preview invitation email</button>' +
+      '<button class="btn btn--sm btn--primary" onclick="sendWelcome()">Send invitation email</button>' +
+    '</div>' +
+    '<p class="muted" style="margin:10px 0 0;font-size:.8125rem">' +
+      (w.welcome_sent_at
+        ? 'Last sent ' + esc(ukDate(w.welcome_sent_at)) + ' to ' + esc(w.welcome_sent_to || w.primary_email)
+        : 'Not sent yet.') +
+      ' &middot; ' +
+      (w.last_login_at ? 'Last logged in ' + esc(ukDate(w.last_login_at)) : 'Never logged in') +
+    '</p>' +
+    '<div id="welcomeBox"></div>' +
   '</div>';
 
   if (b) {
