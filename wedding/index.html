@@ -263,6 +263,18 @@ tr:last-child td{border-bottom:0}
 .nudge-acts .btn{flex:1 1 auto;text-align:center}
 .nudge--inline{position:static;background:none;display:block;padding:0;margin:0 0 18px}
 .nudge--inline .nudge-card{max-width:none;box-shadow:none;border:1px solid var(--mist);border-top:3px solid var(--celadon)}
+/* ---- first-run walkthrough ---- */
+.steps{display:flex;gap:6px;justify-content:center;margin:0 0 18px}
+.steps i{display:block;width:26px;height:2px;background:var(--mist)}
+.steps i.on{background:var(--sage)}
+.howto{margin:0 0 4px;padding:0;list-style:none;counter-reset:s}
+.howto li{counter-increment:s;position:relative;padding:0 0 14px 34px;font-size:.9375rem;line-height:1.55}
+.howto li:before{content:counter(s);position:absolute;left:0;top:0;width:22px;height:22px;
+  border:1px solid var(--celadon);border-radius:50%;text-align:center;
+  font:500 .6875rem/22px var(--body);color:var(--sage)}
+.howto strong{white-space:nowrap}
+.done-mark{display:inline-block;width:20px;height:20px;border-radius:50%;background:var(--sage);
+  color:var(--bone);text-align:center;line-height:20px;font-size:.75rem;margin-right:8px}
 .progress{height:3px;background:var(--mist);margin:10px 0 18px}
 .progress i{display:block;height:100%;background:var(--sage)}
 
@@ -383,6 +395,30 @@ footer.app{border-top:1px solid var(--mist);padding:26px 0;text-align:center;fon
 <body>
 
 <!-- ============================ LOGIN ============================ -->
+<!--
+  First visit, before anyone types anything.
+
+  Most couples arrive on the Squarespace page, where this is an iframe:
+  there is no home-screen icon to be had from there, and Safari treats
+  anything it stores as third-party and wipes it. So the first thing the
+  app does is walk them out of the frame and onto their home screen,
+  where it behaves like an app and can remember them.
+
+  It is a walkthrough, not a wall &mdash; every step can be skipped, because
+  on a laptop there is no home screen to add anything to.
+-->
+<section id="onboard" class="login hide">
+  <div class="lede">
+    <h1>Your Wedding</h1>
+    <p class="muted">Black Horse Beamish &middot; Red Row Estate</p>
+    <div class="orn"><i></i></div>
+  </div>
+  <div class="card" id="onboardCard"></div>
+  <p class="center" style="margin:16px 0 0">
+    <a href="#" id="onboardSkip" class="muted" style="font-size:.875rem">Skip this and just log in</a>
+  </p>
+</section>
+
 <section id="login" class="login">
   <div class="lede">
     <h1>Your Wedding</h1>
@@ -490,7 +526,7 @@ var CFG = {
   REMEMBER_KEY: "bhb_wedding_login"
 };
 
-var S = { token: null, data: null, view: "home", guests: [], suppliers: [], budget: [], tables: [], menu: [] };
+var S = { onboardStep: 1, token: null, data: null, view: "home", guests: [], suppliers: [], budget: [], tables: [], menu: [] };
 
 /* ---------- helpers ---------- */
 function $(id){ return document.getElementById(id); }
@@ -688,10 +724,7 @@ function signOut(){
   try { localStorage.removeItem(CFG.SESSION_KEY); } catch(e){}
   S.token = null; S.data = null;
   $("app").classList.add("hide");
-  $("login").classList.remove("hide");
-  renderWelcome();
-  renderFramedNote();
-  prefillLogin();
+  showLogin();
 }
 
 function togglePw(){
@@ -731,7 +764,9 @@ async function rememberOnDevice(username, password, salutation){
    why they keep typing it in. */
 function renderFramedNote(){
   var el = $("framedNote");
-  if (!el || !isFramed()) return;
+  if (!el) return;
+  if (renderStandaloneNote()) return;
+  if (!isFramed()) return;
   el.innerHTML = '<p class="center muted" style="font-size:.8125rem;margin:14px 0 0">' +
     'Having to type this in every time?<br>' +
     '<a href="' + APP_URL + '" target="_top"><strong>Open the full-screen version</strong></a> ' +
@@ -1182,6 +1217,172 @@ function closeWelcome(){
 
 function isFramed(){
   try { return window.top !== window.self; } catch (e) { return true; }
+}
+
+/* ---------- first run ----------
+   Three things the app can actually tell about where it is running, and
+   every one is a plain browser check rather than a guess:
+
+     isFramed()       \u2014 it is inside the Squarespace page
+     isStandalone()   \u2014 it was opened from the home screen
+     devicePlatform() \u2014 which set of instructions to show
+
+   isStandalone() is what confirms they finished: iOS sets
+   navigator.standalone on a home-screen app, and everything else reports
+   display-mode: standalone. That is the check behind the tick. */
+var ONBOARD_KEY = "bhb_wedding_onboard";
+
+function isStandalone(){
+  try {
+    if (window.navigator.standalone === true) return true;               // iOS
+    return window.matchMedia("(display-mode: standalone)").matches ||
+           window.matchMedia("(display-mode: fullscreen)").matches;      // everything else
+  } catch (e) { return false; }
+}
+
+function devicePlatform(){
+  var ua = navigator.userAgent || "";
+  // iPadOS reports itself as a Mac, so the touch count is what gives it away.
+  if (/iPad|iPhone|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)) return "ios";
+  if (/Android/i.test(ua)) return "android";
+  return "desktop";
+}
+
+function onboardDone(){
+  try { return localStorage.getItem(ONBOARD_KEY) === "done"; } catch (e) { return false; }
+}
+function markOnboardDone(){
+  try { localStorage.setItem(ONBOARD_KEY, "done"); } catch (e) {}
+}
+
+/* Chrome hands over a real install prompt, but only if we keep hold of
+   this event when it fires. */
+var deferredInstall = null;
+window.addEventListener("beforeinstallprompt", function(ev){
+  ev.preventDefault();
+  deferredInstall = ev;
+  if (S.onboardStep === 2 && !$("onboard").classList.contains("hide")) renderOnboard();
+});
+
+function showLogin(){
+  $("onboard").classList.add("hide");
+  $("login").classList.remove("hide");
+  renderWelcome(); renderFramedNote(); prefillLogin();
+  window.scrollTo({ top: 0 });
+}
+
+/* Where to start them: in the frame there is nothing to install yet, so
+   step one is getting out of it. Already full screen, step two. Already
+   on the home screen, there is nothing left to do. */
+function startOnboarding(){
+  if (isStandalone() || onboardDone()) { showLogin(); return; }
+  S.onboardStep = isFramed() ? 1 : 2;
+  $("login").classList.add("hide");
+  $("onboard").classList.remove("hide");
+  renderOnboard();
+  $("onboardSkip").onclick = function(ev){ ev.preventDefault(); skipOnboarding(); };
+}
+
+function onboardStep(n){ S.onboardStep = n; renderOnboard(); window.scrollTo({ top: 0 }); }
+
+function renderOnboard(){
+  var step = S.onboardStep, p = devicePlatform();
+  var h = '<div class="steps">' +
+    [1,2,3].map(function(n){ return '<i class="' + (n <= step ? "on" : "") + '"></i>'; }).join("") +
+    '</div>';
+
+  if (step === 1) {
+    h += '<h2 style="margin:0 0 10px;text-align:center">Welcome</h2>' +
+      '<p style="margin:0 0 14px">This is your wedding app \u2014 everything about your day ' +
+        'with us in one place, and yours to open whenever you like.</p>' +
+      '<p style="margin:0 0 18px">It takes half a minute to set up properly, and then it ' +
+        'sits on your phone like any other app. Shall we?</p>' +
+      '<button class="btn btn--primary" style="width:100%" onclick="leaveFrame()">Get started</button>' +
+      '<p class="muted" style="font-size:.8125rem;margin:12px 0 0;text-align:center">' +
+        'This opens the app full screen, away from our website.</p>';
+  }
+
+  else if (step === 2) {
+    h += '<h2 style="margin:0 0 10px;text-align:center">Add it to your home screen</h2>';
+
+    if (p === "ios") {
+      h += '<p style="margin:0 0 16px">In Safari, tap the share button \u2014 the square ' +
+        'with an arrow coming out of the top of it.</p>' +
+        '<ol class="howto">' +
+          '<li>Tap <strong>Share</strong></li>' +
+          '<li>Scroll down and tap <strong>Add to Home Screen</strong></li>' +
+          '<li>Tap <strong>Add</strong> in the top corner</li>' +
+        '</ol>';
+    } else if (p === "android") {
+      if (deferredInstall) {
+        h += '<p style="margin:0 0 16px">One tap and it is done.</p>' +
+          '<button class="btn btn--primary" style="width:100%;margin-bottom:14px" ' +
+            'onclick="installNow()">Add to home screen</button>' +
+          '<p class="muted" style="font-size:.8125rem;margin:0">If nothing happens, open the ' +
+            'menu and choose <strong>Install app</strong> or <strong>Add to Home screen</strong>.</p>';
+      } else {
+        h += '<p style="margin:0 0 16px">In Chrome, open the menu at the top right.</p>' +
+          '<ol class="howto">' +
+            '<li>Tap the <strong>menu</strong> button</li>' +
+            '<li>Tap <strong>Install app</strong>, or <strong>Add to Home screen</strong></li>' +
+            '<li>Tap <strong>Install</strong> to confirm</li>' +
+          '</ol>';
+      }
+    } else {
+      h += '<p style="margin:0 0 16px">You are on a computer, so there is no home screen to add ' +
+        'this to \u2014 and you do not need one. Carry on and log in here.</p>' +
+        (deferredInstall
+          ? '<button class="btn" style="width:100%;margin-bottom:14px" onclick="installNow()">' +
+            'Install it anyway</button>'
+          : '');
+    }
+
+    h += '<button class="btn' + (p === "desktop" ? " btn--primary" : "") +
+      '" style="width:100%;margin-top:10px" onclick="onboardStep(3)">' +
+      (p === "desktop" ? "Carry on to log in" : "I have added it") + '</button>';
+  }
+
+  else {
+    h += '<h2 style="margin:0 0 10px;text-align:center">Open it from your home screen</h2>' +
+      '<p style="margin:0 0 14px">Close this tab and tap the <strong>Your Wedding</strong> ' +
+        'icon that has just appeared on your phone.</p>' +
+      '<p style="margin:0 0 18px">Opened that way it runs full screen with no address bar, ' +
+        'and it can remember you, so you are not typing your reference in every time.</p>' +
+      '<p class="muted" style="font-size:.875rem;margin:0 0 16px">When it opens from the icon ' +
+        'you will see a tick here, and then you can log in.</p>' +
+      '<button class="btn" style="width:100%" onclick="skipOnboarding()">Log in here instead</button>';
+  }
+
+  $("onboardCard").innerHTML = h;
+}
+
+function leaveFrame(){
+  // Deliberately not marked as done: the full-screen copy is the same app
+  // on the same origin, and it should pick straight up at step two.
+  try { window.open(APP_URL, "_top"); }
+  catch (e) { window.location.href = APP_URL; }
+}
+
+async function installNow(){
+  if (!deferredInstall) { onboardStep(3); return; }
+  try {
+    deferredInstall.prompt();
+    var choice = await deferredInstall.userChoice;
+    deferredInstall = null;
+    onboardStep(choice && choice.outcome === "accepted" ? 3 : 2);
+  } catch (e) { onboardStep(3); }
+}
+
+function skipOnboarding(){ markOnboardDone(); showLogin(); }
+
+/* The tick they were promised on step three: shown above the login only
+   when the app really is running from the home screen. */
+function renderStandaloneNote(){
+  var el = $("framedNote");
+  if (!el || !isStandalone()) return false;
+  el.innerHTML = '<p class="center" style="font-size:.875rem;margin:14px 0 0;color:var(--sage)">' +
+    '<span class="done-mark">&#10003;</span>You&rsquo;re all set \u2014 this is your app now.</p>';
+  return true;
 }
 
 function installHint(){
@@ -3178,7 +3379,7 @@ function exportBudget(){
   }
 
   if (S.token) start();
-  else { $("login").classList.remove("hide"); renderWelcome(); renderFramedNote(); prefillLogin(); }
+  else startOnboarding();
 })();
 </script>
 </body>
