@@ -1817,8 +1817,11 @@ function viewMeals(){
 
   var h = '<h1 style="margin-bottom:6px">Meals &amp; allergies</h1>' +
     '<p class="muted" style="margin:0 0 18px">' +
-    'Everyone sitting down to your wedding breakfast. Guests who reply through their ' +
-    'invitation choose here themselves — you just check it over.</p>';
+    (S.data.allowMenuChoices === true
+      ? 'Everyone sitting down to your wedding breakfast. Guests who reply through their ' +
+        'invitation choose here themselves — you just check it over.'
+      : 'Everyone sitting down to your wedding breakfast, and anything they\'ve told us ' +
+        'about allergies or dietary needs.') + '</p>';
 
   h += '<div class="balance" style="margin-bottom:16px">' +
     '<div><span class="label">Eating</span><div class="v num">' + sitting.length + '</div></div>' +
@@ -1827,21 +1830,34 @@ function viewMeals(){
       allergies.length + '</div></div>' +
   '</div>';
 
-  if (missing.length) {
+  if (missing.length && S.data.allowMenuChoices === true) {
     h += '<div class="notice notice--due" style="margin-bottom:16px">' +
       '<strong>' + missing.length + (missing.length === 1 ? ' guest hasn\'t' : ' guests haven\'t') +
       ' chosen a main course yet.</strong> You can pick for them below if you already know.</div>';
   }
 
-  /* ---- the menu the couple offers ---- */
-  h += '<div class="card"><div class="split" style="margin-bottom:6px"><h2>Your menu</h2>' +
-    '<button class="btn btn--sm" onclick="addMenuOption()">Add a dish</button></div>' +
-    '<p class="muted" style="margin:0 0 14px;font-size:.9375rem">' +
-    'What your guests choose from when they reply. Agree this with us at your menu tasting first.</p>';
+  /* ---- the menu, read-only ----
+     Agreed with the venue and written by them, so it's shown here rather
+     than edited. A couple changing a dish in the app wouldn't reach the
+     kitchen, which is worse than not being able to change it at all. */
+  var allowChoices = S.data.allowMenuChoices === true;
 
-  if (!S.menu.length) {
-    h += '<div class="empty" style="padding:22px 0">No dishes yet. Add them and your guests can start choosing.</div>';
+  h += '<div class="card"><h2 style="margin-bottom:6px">Your menu</h2>';
+
+  if (!allowChoices) {
+    h += '<p class="muted" style="margin:0 0 6px;font-size:.9375rem">' +
+      'Your menu isn\'t open for guests to choose from yet. We\'ll still collect ' +
+      'allergies and dietary requirements from everyone who replies.</p>' +
+      '<p class="muted" style="margin:0;font-size:.8125rem">' +
+      'Once you\'ve settled your menu with us, we\'ll switch choices on and the ' +
+      'dishes will appear here.</p>';
+  } else if (!S.menu.length) {
+    h += '<p class="muted" style="margin:0;font-size:.9375rem">' +
+      'Your dishes will appear here once we\'ve added them.</p>';
   } else {
+    h += '<p class="muted" style="margin:0 0 14px;font-size:.9375rem">' +
+      'What your guests choose from when they reply. Anything you\'d like changed, ' +
+      'just tell us and we\'ll sort it.</p>';
     COURSES.forEach(function(c){
       var opts = S.menu.filter(function(m){ return m.course === c[0]; });
       if (!opts.length) return;
@@ -1850,9 +1866,6 @@ function viewMeals(){
         h += '<tr><td><strong>' + esc(o.label) + '</strong>' +
           (o.is_child ? ' <span class="pill pill--prov">Children</span>' : '') +
           (o.description ? '<br><span class="muted" style="font-size:.8125rem">' + esc(o.description) + '</span>' : '') +
-          '</td><td class="money">' +
-          '<button class="btn btn--sm" onclick="addMenuOption(\'' + o.id + '\')">Edit</button> ' +
-          '<button class="btn btn--sm" style="border:0" onclick="deleteMenuOption(\'' + o.id + '\')">Remove</button>' +
           '</td></tr>';
       });
       h += '</table>';
@@ -1961,42 +1974,8 @@ async function confirmAllMeals(){
   } catch (e) { showError(e.message); }
 }
 
-function addMenuOption(id){
-  var o = S.menu.filter(function(m){ return m.id === id; })[0] || {};
-  showModal('<div class="split" style="margin-bottom:14px"><h2>' + (id ? "Edit dish" : "Add a dish") + '</h2>' +
-    '<button class="btn btn--sm" onclick="closeModal()">Close</button></div>' +
-    '<div class="field"><span class="label">Course</span><select id="mo_course">' +
-      COURSES.map(function(c){ return opt(c[0], c[1], o.course); }).join("") + '</select></div>' +
-    '<div class="field"><span class="label">Dish</span>' +
-      '<input id="mo_label" value="' + esc(o.label||"") + '" placeholder="Roast sirloin of beef"></div>' +
-    '<div class="field"><span class="label">Description (optional)</span>' +
-      '<textarea id="mo_desc" placeholder="With Yorkshire pudding and roasted roots">' + esc(o.description||"") + '</textarea></div>' +
-    '<label class="check" style="border:0;padding:0 0 14px"><input type="checkbox" id="mo_child" ' +
-      (o.is_child ? "checked" : "") + '><span>This is a children\'s dish</span></label>' +
-    '<button class="btn btn--primary" onclick="saveMenuOption(\'' + (id||"") + '\')">Save</button>');
-}
-
-async function saveMenuOption(id){
-  var label = $("mo_label").value.trim();
-  if (!label) { showError("Give the dish a name."); return; }
-  try {
-    await api("menu.save", {
-      id: id || undefined,
-      course: $("mo_course").value,
-      label: label,
-      description: $("mo_desc").value.trim(),
-      is_child: $("mo_child").checked,
-      sort_order: S.menu.length
-    });
-    closeModal(); await loadMeals(); clearError();
-  } catch (e) { showError(e.message); }
-}
-
-async function deleteMenuOption(id){
-  if (!confirm("Remove this dish from your menu? Guests who already chose it keep their choice.")) return;
-  try { await api("menu.delete", { id:id }); await loadMeals(); }
-  catch (e) { showError(e.message); }
-}
+/* Dishes are added and edited in the back office, not here — see the note
+   on the menu card above. */
 
 /* ============================ TABLE PLAN ============================ */
 async function loadTables(){

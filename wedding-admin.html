@@ -563,7 +563,11 @@ function open_(id){ S.current = id; clearErr(); render(); window.scrollTo({top:0
 
 /* ============================ ONE WEDDING ============================ */
 async function loadWedding(id){
-  try { S.detail = await call("get", { id:id }); $("views").innerHTML = viewWedding(); }
+  try {
+    S.detail = await call("get", { id:id });
+    S.detail.menu = await call("menu.list", { wedding_id:id });
+    $("views").innerHTML = viewWedding();
+  }
   catch (e) { showErr(e.message); S.current = null; $("views").innerHTML = ""; }
 }
 
@@ -700,6 +704,12 @@ function viewWedding(){
     '<div class="field"><span class="label">What\'s included (shown to the couple)</span>' +
       '<textarea id="e_inc">' + esc(w.whats_included||"") + '</textarea></div>' +
     '<div class="field"><label style="display:flex;gap:8px;align-items:center;cursor:pointer">' +
+      '<input type="checkbox" id="e_menu" style="width:17px;height:17px" ' + (w.allow_menu_choices ? "checked" : "") + '>' +
+      '<span>Let guests choose their meal when they RSVP</span></label>' +
+      '<p class="muted" style="font-size:.8125rem;margin:5px 0 0">' +
+      'Off, and guests are asked for dietary requirements and allergies only. ' +
+      'On, they pick from the menu below, so put the dishes in first.</p></div>' +
+    '<div class="field"><label style="display:flex;gap:8px;align-items:center;cursor:pointer">' +
       '<input type="checkbox" id="e_sheet" style="width:17px;height:17px" ' + (w.show_function_sheet ? "checked" : "") + '>' +
       '<span>Show the function sheet to the couple</span></label>' +
       '<p class="muted" style="font-size:.8125rem;margin:5px 0 0">' +
@@ -718,6 +728,42 @@ function viewWedding(){
         ? 'The couple can see this.' : '<strong>Currently hidden from the couple.</strong>') + '</p>' +
       '<div class="sheet">' + esc(d.event.notes) + '</div></div>';
   }
+
+  /* ---- the menu guests choose from ---- */
+  h += '<div class="card"><div class="split" style="margin-bottom:6px"><h2>Menu choices</h2>' +
+    '<span class="label num">' + (S.detail.menu || []).length + ' dishes</span></div>' +
+    '<p class="muted" style="margin:0 0 14px;font-size:.875rem">' +
+    'What guests pick from when they reply. The couple can see this but cannot change it. ' +
+    (w.allow_menu_choices ? '' :
+      '<strong>Choices are switched off</strong>, so guests are asked about dietary needs only.') +
+    '</p>' +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">' +
+      '<button class="btn btn--sm" onclick="addDish()">Add a dish</button>' +
+      '<button class="btn btn--sm" onclick="importMenu()">Import from the portal</button>' +
+    '</div>';
+
+  if (!(S.detail.menu || []).length) {
+    h += '<p class="muted" style="margin:0">Nothing yet. ' +
+      '<strong>Import from the portal</strong> pulls the starters, mains and desserts ' +
+      'already booked against this event in Rezlynx.</p>';
+  } else {
+    COURSES.forEach(function(c){
+      var opts = S.detail.menu.filter(function(m){ return m.course === c[0]; });
+      if (!opts.length) return;
+      h += '<h3 style="margin:14px 0 6px;font-size:.8125rem;letter-spacing:.14em">' + esc(c[1]) + '</h3><table>';
+      opts.forEach(function(o){
+        h += '<tr><td>' + esc(o.label) +
+          (o.is_child ? ' <span class="pill pill--prov">Children</span>' : '') +
+          (o.description ? '<br><span class="muted" style="font-size:.8125rem">' + esc(o.description) + '</span>' : '') +
+          '</td><td class="money">' +
+          '<button class="btn btn--sm" onclick="addDish(&quot;' + o.id + '&quot;)">Edit</button> ' +
+          '<button class="btn btn--sm" style="border:0" onclick="deleteDish(&quot;' + o.id + '&quot;)">Remove</button>' +
+          '</td></tr>';
+      });
+      h += '</table>';
+    });
+  }
+  h += '</div>';
 
   /* ---- what the couple has built ---- */
   h += '<div class="card"><div class="split" style="margin-bottom:12px"><h2>Their guest list</h2>' +
@@ -775,6 +821,76 @@ function viewWedding(){
 
 function toggleManual(){ $("manual").classList.toggle("hide"); }
 
+/* ---------- menu ---------- */
+var COURSES = [["starter","To start"],["main","Main course"],["dessert","Pudding"]];
+
+function addDish(id){
+  var o = (S.detail.menu || []).filter(function(m){ return m.id === id; })[0] || {};
+  closeDish();
+  var box = $("views");
+  var panel = document.createElement("div");
+  panel.className = "card";
+  panel.id = "dishForm";
+  panel.style.borderColor = "var(--sage)";
+  panel.innerHTML = '<div class="split" style="margin-bottom:12px"><h2>' +
+      (id ? "Edit dish" : "Add a dish") + '</h2>' +
+      '<button class="btn btn--sm" onclick="closeDish()">Cancel</button></div>' +
+    '<div class="row"><div class="field"><span class="label">Course</span><select id="d_course">' +
+      COURSES.map(function(c){
+        return '<option value="' + c[0] + '"' + (o.course === c[0] ? " selected" : "") + '>' + c[1] + '</option>';
+      }).join("") + '</select></div>' +
+      '<div class="field"><span class="label">Menu</span><select id="d_child">' +
+      '<option value="no"' + (o.is_child ? "" : " selected") + '>Main menu</option>' +
+      '<option value="yes"' + (o.is_child ? " selected" : "") + '>Children&rsquo;s menu</option>' +
+      '</select></div></div>' +
+    '<div class="field"><span class="label">Dish</span>' +
+      '<input id="d_label" value="' + esc(o.label || "") + '" placeholder="Featherblade of beef"></div>' +
+    '<div class="field"><span class="label">Description (optional)</span>' +
+      '<textarea id="d_desc">' + esc(o.description || "") + '</textarea></div>' +
+    '<button class="btn btn--primary" onclick="saveDish(&quot;' + (id || "") + '&quot;)">Save</button>';
+  box.insertBefore(panel, box.firstChild);
+  panel.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function closeDish(){ var e = $("dishForm"); if (e) e.remove(); }
+
+async function saveDish(id){
+  var label = $("d_label").value.trim();
+  if (!label) { showErr("Give the dish a name."); return; }
+  try {
+    await call("menu.save", {
+      id: id || undefined, wedding_id: S.current,
+      course: $("d_course").value, label: label,
+      description: $("d_desc").value.trim(),
+      is_child: $("d_child").value === "yes",
+      sort_order: (S.detail.menu || []).length
+    });
+    closeDish(); await loadWedding(S.current); clearErr();
+  } catch (e) { showErr(e.message); }
+}
+
+async function deleteDish(id){
+  if (!confirm("Remove this dish? Guests who already chose it keep their choice.")) return;
+  try { await call("menu.delete", { id: id, wedding_id: S.current }); await loadWedding(S.current); }
+  catch (e) { showErr(e.message); }
+}
+
+/* Pulls the starters, mains and desserts already booked against this event
+   in the portal, so the menu isn't typed out a second time. */
+async function importMenu(){
+  if (!confirm("Import the dishes booked against this event in the portal?")) return;
+  try {
+    var r = await call("menu.importFromPortal", { id: S.current });
+    await loadWedding(S.current);
+    if (r.message) { showErr(r.message); return; }
+    clearErr();
+    alert("Imported " + r.imported + " dish" + (r.imported === 1 ? "" : "es") +
+      (r.skipped ? "\n" + r.skipped + " were already on the menu." : "") +
+      "\n\nWorth reading through: the portal lists section headings as items too, " +
+      "so delete anything that isn't actually a dish.");
+  } catch (e) { showErr(e.message); }
+}
+
 async function saveWedding(){
   try {
     await call("update", {
@@ -788,6 +904,7 @@ async function saveWedding(){
       status: $("e_status").value,
       whats_included: $("e_inc").value.trim(),
       show_function_sheet: $("e_sheet").checked,
+      allow_menu_choices: $("e_menu").checked,
       internal_notes: $("e_int").value.trim()
     });
     clearErr(); await loadWedding(S.current);

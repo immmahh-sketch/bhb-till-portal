@@ -258,18 +258,25 @@ function render(){
     '</div>';
 
   if (S.attending === true) {
+    // Dishes only when the venue has opened choices for this wedding.
+    // Otherwise we ask about allergies and dietary needs alone — which we
+    // want either way, and arguably want more when nobody has picked a dish.
     if (d.menu.length) {
       h += '<div style="margin-top:26px">' + menuBlock("starter","To start") +
            menuBlock("main","Main course") + menuBlock("dessert","Pudding") + '</div>';
     }
-    h += '<div class="field" style="margin-top:22px">' +
+    h += (d.menu.length ? '' :
+        '<p class="muted center" style="margin:22px 0 4px;font-size:.9375rem">' +
+        'The couple are still settling their menu. In the meantime, do tell us ' +
+        'anything the kitchen needs to know.</p>') +
+      '<div class="field" style="margin-top:' + (d.menu.length ? '22px' : '10px') + '">' +
         '<span class="label">Any allergies we should know about?</span>' +
         '<input id="allergies" placeholder="Nuts, shellfish…" value="' + esc(g.allergies||"") + '">' +
         '<p class="muted" style="font-size:.8125rem;margin:6px 0 0">' +
         'This goes straight to the kitchen. Please tell us even if you\'ve mentioned it before.</p></div>' +
       '<div class="field">' +
-        '<span class="label">Anything else about your meal?</span>' +
-        '<input id="dietary" placeholder="Vegetarian, no pork…" value="' + esc(g.dietary||"") + '"></div>';
+        '<span class="label">Any dietary requirements?</span>' +
+        '<input id="dietary" placeholder="Vegetarian, vegan, no pork…" value="' + esc(g.dietary||"") + '"></div>';
   }
 
   if (S.attending !== null) {
