@@ -1003,11 +1003,40 @@ function viewPay(){
       '<div><span class="label">Still to pay</span><div class="v num out">' + money(b.outstanding) + '</div></div>' +
     '</div>';
 
-    /* ---- Make a payment: any amount, up to the outstanding balance ---- */
+    /* ---- A live pay link from the venue comes first ----
+       A Guestline pay link posts straight onto their account, so there's
+       nothing for anyone to reconcile afterwards. When one is waiting it
+       is almost always the amount actually being asked for, so it leads,
+       and paying something else is offered underneath. */
+    var links = (d.paylinks || []).filter(function(p){ return p.amount > 0; });
+    links.forEach(function(p){
+      var due = p.dueDate ? ukDateShort(p.dueDate) : null;
+      var overdue = p.dueDate && daysBetween(todayIso(), p.dueDate) < 0;
+      h += '<div class="card" style="border-color:var(--sage)">' +
+        '<span class="label">' + (overdue ? 'Requested by the venue' : 'Ready for you to pay') + '</span>' +
+        '<h2 style="margin:6px 0 4px">' + money(p.amount) + '</h2>' +
+        (due
+          ? '<p class="' + (overdue ? '' : 'muted') + '" style="margin:0 0 16px;font-size:.9375rem' +
+            (overdue ? ';color:var(--alert)' : '') + '">' +
+            (overdue ? 'Was due by ' : 'Due by ') + esc(due) + '</p>'
+          : '<p class="muted" style="margin:0 0 16px;font-size:.9375rem">Requested by the venue</p>') +
+        (p.description ? '<p style="margin:0 0 14px">' + esc(p.description) + '</p>' : '') +
+        '<a class="btn btn--primary" style="width:100%;text-align:center" href="' + esc(p.uri) + '" ' +
+        'target="_blank" rel="noopener">Pay ' + money(p.amount) + ' now</a>' +
+        '<p class="muted center" style="font-size:.8125rem;margin:12px 0 0">' +
+        'Goes straight onto your account, so it shows here as soon as it clears.</p>' +
+      '</div>';
+    });
+
+    /* ---- Anything else goes through card payment ---- */
     var nd = nextDue();
-    h += '<div class="card"><h2 style="margin-bottom:6px">Make a payment</h2>' +
+    h += '<div class="card"><h2 style="margin-bottom:6px">' +
+      (links.length ? 'Pay a different amount' : 'Make a payment') + '</h2>' +
       '<p class="muted" style="margin:0 0 16px;font-size:.9375rem">' +
-      'Pay whatever suits you — the full balance, the next instalment, or any amount in between.</p>' +
+      (links.length
+        ? 'Rather pay something else? Put in any amount up to your balance and pay by card.'
+        : 'Pay whatever suits you — the full balance, the next instalment, or any amount in between.') +
+      '</p>' +
       '<div class="chips">' +
         (nd && round2(nd.target - b.paid) > 0 && round2(nd.target - b.paid) < b.outstanding
           ? '<button class="chip" type="button" data-amt="' + round2(nd.target - b.paid) + '">Next instalment ' + money(nd.target - b.paid) + '</button>' : '') +
