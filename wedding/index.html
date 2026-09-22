@@ -347,6 +347,8 @@ footer.app{border-top:1px solid var(--mist);padding:26px 0;text-align:center;fon
 .pool button.grp{border-color:var(--celadon);background:var(--sage-10)}
 .pool button.grp b{font-weight:500}
 .pool button .n{color:var(--sage-70);font-size:.8125rem}
+.seatmove{background:none;border:0;padding:0;font:inherit;color:inherit;cursor:pointer;text-align:left}
+.seatmove:hover{text-decoration:underline}
 
 .spin{display:inline-block;width:16px;height:16px;border:2px solid var(--mist);
   border-top-color:var(--sage);border-radius:50%;animation:s .7s linear infinite;vertical-align:-3px}
@@ -3009,6 +3011,33 @@ function splitHouseholds(guests){
   });
 }
 
+/* Tables carrying more people than they have seats. Allowed while the plan
+   is being worked out — you cannot rearrange a table without putting
+   someone down before you have picked up the person they replace — but
+   never something to hand the kitchen. */
+function seatedOn(tableId, sitting){
+  return sitting.filter(function(g){ return g.table_id === tableId; }).length;
+}
+
+function overSeated(sitting){
+  return S.tables.map(function(t){
+    var n = seatedOn(t.id, sitting);
+    return { table:t, on:n, over: n - Number(t.capacity || 0) };
+  }).filter(function(x){ return x.over > 0; });
+}
+
+/** True if the couple said to carry on anyway. */
+function confirmOverSeated(sitting, what){
+  var over = overSeated(sitting);
+  if (!over.length) return true;
+  return confirm(
+    over.map(function(x){
+      return x.table.name + " has " + x.on + " on it and seats " + x.table.capacity +
+             " \u2014 " + x.over + " too many.";
+    }).join("\n") +
+    "\n\n" + what + " anyway?");
+}
+
 function tableName(id){
   var t = S.tables.filter(function(x){ return x.id === id; })[0];
   return t ? t.name : "a table";
@@ -3035,6 +3064,18 @@ function viewTables(){
   if (seats && seats < sitting.length) {
     h += '<div class="notice notice--due" style="margin-bottom:16px">' +
       'You have ' + sitting.length + ' guests but only ' + seats + ' seats. Add a table or make some bigger.</div>';
+  }
+
+  var over = overSeated(sitting);
+  if (over.length) {
+    h += '<div class="notice notice--late" style="margin-bottom:16px">' +
+      '<strong>More people than seats.</strong><br>' +
+      over.map(function(x){
+        return esc(x.table.name) + ' has ' + x.on + ' on it and seats ' +
+               esc(x.table.capacity) + '.';
+      }).join('<br>') +
+      '<br><span style="font-size:.875rem">Fine while you are moving people about \u2014 ' +
+      'we will ask before anything goes to the kitchen.</span></div>';
   }
 
   h += '<div class="card"><h2 style="margin-bottom:12px">Your tables</h2>' +
@@ -3102,17 +3143,24 @@ function viewTables(){
   S.tables.forEach(function(t){
     var on = sitting.filter(function(g){ return g.table_id === t.id; });
     var full = on.length >= Number(t.capacity);
+    var spare = on.length - Number(t.capacity);
     h += '<div class="tbl' + (full ? " full" : "") + '">' +
       '<div class="split"><h3>' + esc(t.name) + '</h3>' +
-      '<span class="label num">' + on.length + '/' + esc(t.capacity) + '</span></div>' +
+      '<span class="label num"' + (spare > 0 ? ' style="color:var(--alert)"' : '') + '>' +
+        on.length + '/' + esc(t.capacity) +
+        (spare > 0 ? ' &middot; ' + spare + ' over' : '') + '</span></div>' +
       '<span class="muted" style="font-size:.8125rem">' +
         (t.shape === "top" ? "Top table" : (t.shape === "long" ? "Long table" : "Round table")) +
         (t.shape !== "top" && Number(t.capacity) >= ROUND_MAX ? ' &middot; a tight fit' : '') + '</span>';
     if (on.length) {
       h += '<ol>' + on.map(function(g){
-        return '<li>' + esc(g.first_name + " " + (g.surname||"")) +
-          (g.allergies ? ' <span style="color:var(--alert)" title="Allergy">•</span>' : '') +
-          '<button class="seatx" title="Take them off this table" onclick="unseatGuest(\'' + g.id + '\')">×</button></li>';
+        // The name itself is the way to move someone. Unseating and then
+        // finding them again in the pool is two steps for one decision.
+        return '<li><button class="seatmove" title="Move them to another table" ' +
+          'onclick="seatGuest(\'' + g.id + '\')">' +
+          esc(g.first_name + " " + (g.surname||"")) + '</button>' +
+          (g.allergies ? ' <span style="color:var(--alert)" title="Allergy">&bull;</span>' : '') +
+          '<button class="seatx" title="Take them off this table" onclick="unseatGuest(\'' + g.id + '\')">&times;</button></li>';
       }).join("") + '</ol>';
     } else {
       h += '<p class="muted" style="margin:10px 0 0;font-size:.875rem">Empty</p>';
@@ -3125,8 +3173,13 @@ function viewTables(){
   h += '</div>';
 
   h += '<div class="center" style="margin-top:20px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">' +
+    (unseated.length
+      ? '<button class="btn" onclick="autoSeat()">Seat everyone for me</button>' : '') +
     '<button class="btn btn--primary" onclick="foodSheets()">Food sheets for the kitchen</button>' +
-    '<button class="btn" onclick="exportPlan()">Download the plan</button></div>';
+    '<button class="btn" onclick="exportPlan()">Download the plan</button>' +
+    (sitting.length > unseated.length
+      ? '<button class="btn" style="border:0" onclick="clearSeating()">Start the plan again</button>' : '') +
+    '</div>';
   return h;
 }
 
@@ -3227,12 +3280,15 @@ function seatGuest(guestId){
   h += '<div class="pool">';
   S.tables.forEach(function(t){
     var n = sitting.filter(function(x){ return x.table_id === t.id; }).length;
-    var full = n >= Number(t.capacity);
-    h += '<button ' + (full ? "disabled" : "") +
-      (familyTables[t.id] ? ' class="grp"' : '') +
+    // A full table is offered, not barred: you often need to put someone
+    // down before picking up the person they are swapping with.
+    var over = (n + (g.table_id === t.id ? 0 : 1)) - Number(t.capacity);
+    h += '<button' + (familyTables[t.id] ? ' class="grp"' : '') +
       ' onclick="assign(\'' + guestId + '\',\'' + t.id + '\')">' +
       esc(t.name) + ' <span class="n">' + n + '/' + esc(t.capacity) + '</span>' +
-      (familyTables[t.id] ? ' <span class="n">&mdash; their family</span>' : '') + '</button>';
+      (familyTables[t.id] ? ' <span class="n">&mdash; their family</span>' : '') +
+      (over > 0 ? ' <span style="color:var(--alert)">&mdash; ' + over + ' over</span>' : '') +
+      '</button>';
   });
   h += '</div>';
   showModal(h);
@@ -3261,22 +3317,131 @@ function seatHousehold(key){
     // Anyone already at this table does not need a second seat at it.
     var on = sitting.filter(function(x){ return x.table_id === t.id; });
     var moving = members.filter(function(g){ return g.table_id !== t.id; }).length;
-    var room = Number(t.capacity) - on.length;
-    var fits = moving <= room;
-    if (fits) anyRoom = true;
-    h += '<button ' + (fits ? "" : "disabled") +
-      ' onclick="assignMany(' + JSON.stringify(ids).replace(/"/g, "&quot;") +
+    var over = (on.length + moving) - Number(t.capacity);
+    if (over <= 0) anyRoom = true;
+    h += '<button onclick="assignMany(' + JSON.stringify(ids).replace(/"/g, "&quot;") +
       ',\'' + t.id + '\')">' +
-      esc(t.name) + ' <span class="n">' + on.length + '/' + esc(t.capacity) + '</span></button>';
+      esc(t.name) + ' <span class="n">' + on.length + '/' + esc(t.capacity) + '</span>' +
+      (over > 0 ? ' <span style="color:var(--alert)">&mdash; ' + over + ' over</span>' : '') +
+      '</button>';
   });
   h += '</div>';
 
   if (!anyRoom) {
     h += '<div class="notice notice--due" style="margin:12px 0 0">' +
-      'No table has ' + members.length + ' seats free. Make one bigger, add another, ' +
-      'or seat them one at a time from the list.</div>';
+      'No table has ' + members.length + ' seats free. You can still put them ' +
+      'anywhere and move people off afterwards \u2014 we will remind you before ' +
+      'the sheets go to the kitchen.</div>';
   }
   showModal(h);
+}
+
+/* ---------- seating everyone at once ----------
+   Households first and largest first, because a family of six has far
+   fewer places it can go than one person does. Everything after that is
+   first come, first served.
+
+   A top table is not touched: who sits on it is the one seating decision
+   nobody wants made for them.
+
+   Nothing is final \u2014 every name on the plan can be tapped and moved
+   afterwards, which is the point of doing it this way rather than asking
+   the couple to fill sixteen tables by hand. */
+async function autoSeat(){
+  var sitting = S.guests.filter(function(x){
+    return x.rsvp === "attending" && x.invited_to !== "evening";
+  });
+  var unseated = sitting.filter(function(g){ return !g.table_id; });
+  if (!unseated.length) { showError("Everyone already has a seat."); return; }
+
+  var tables = S.tables.filter(function(t){ return t.shape !== "top"; });
+  if (!tables.length) {
+    showError("There are no tables to seat anyone at, other than the top table \u2014 " +
+      "and we leave that one to you.");
+    return;
+  }
+
+  var free = {};
+  tables.forEach(function(t){
+    free[t.id] = Number(t.capacity || 0) - seatedOn(t.id, sitting);
+  });
+
+  var plan = {};                      // table id -> guest ids
+  var tooBig = [];                    // households no table can hold
+  function place(members){
+    for (var i = 0; i < tables.length; i++) {
+      var t = tables[i];
+      if (free[t.id] >= members.length) {
+        if (!plan[t.id]) plan[t.id] = [];
+        members.forEach(function(g){ plan[t.id].push(g.id); });
+        free[t.id] -= members.length;
+        return true;
+      }
+    }
+    return false;
+  }
+
+  var groups = householdsOf(unseated);
+  var inGroup = {};
+  groups.forEach(function(hh){ hh.members.forEach(function(g){ inGroup[g.id] = true; }); });
+
+  groups.forEach(function(hh){ if (!place(hh.members)) tooBig.push(hh); });
+
+  var singles = unseated.filter(function(g){ return !inGroup[g.id]; });
+  var standing = [];
+  singles.forEach(function(g){ if (!place([g])) standing.push(g); });
+
+  var seating = 0;
+  Object.keys(plan).forEach(function(k){ seating += plan[k].length; });
+  if (!seating) {
+    showError("There is no room left on any table. Add one, or make a few bigger.");
+    return;
+  }
+
+  var note = "Seat " + seating + " guest" + (seating === 1 ? "" : "s") + " across " +
+    Object.keys(plan).length + " table" + (Object.keys(plan).length === 1 ? "" : "s") +
+    ", keeping households together?";
+  if (S.tables.some(function(t){ return t.shape === "top"; })) {
+    note += "\n\nYour top table is left alone.";
+  }
+  if (tooBig.length) {
+    note += "\n\n" + tooBig.map(function(hh){
+      return hh.label + " (" + hh.members.length + ") will not fit on one table, " +
+             "so they are left for you to place.";
+    }).join("\n");
+  }
+  if (standing.length) {
+    note += "\n\n" + standing.length + " will be left standing \u2014 there are not " +
+            "enough seats for everyone.";
+  }
+  note += "\n\nYou can move anyone afterwards.";
+  if (!confirm(note)) return;
+
+  try {
+    showModal('<div class="empty"><span class="spin"></span>' +
+      '<p style="margin-top:14px">Seating everyone\u2026</p></div>');
+    var ids = Object.keys(plan);
+    for (var i = 0; i < ids.length; i++) {
+      await api("tables.assignMany", { guest_ids: plan[ids[i]], table_id: ids[i] });
+    }
+    closeModal(); await loadTables(); clearError();
+  } catch (e) { closeModal(); showError(e.message); await loadTables(); }
+}
+
+async function clearSeating(){
+  var sitting = S.guests.filter(function(x){
+    return x.rsvp === "attending" && x.invited_to !== "evening" && x.table_id;
+  });
+  if (!sitting.length) return;
+  if (!confirm("Take all " + sitting.length + " guests off their tables and start again?\n\n" +
+               "The tables themselves stay as they are.")) return;
+  try {
+    showModal('<div class="empty"><span class="spin"></span></div>');
+    await api("tables.assignMany", {
+      guest_ids: sitting.map(function(g){ return g.id; }), table_id: null,
+    });
+    closeModal(); await loadTables(); clearError();
+  } catch (e) { closeModal(); showError(e.message); }
 }
 
 async function assignMany(ids, tableId){
@@ -3299,6 +3464,10 @@ async function unseatGuest(guestId){
 
 /* ---------- food sheets ---------- */
 async function foodSheets(){
+  var sitting = S.guests.filter(function(x){
+    return x.rsvp === "attending" && x.invited_to !== "evening";
+  });
+  if (!confirmOverSeated(sitting, "Send these sheets to the kitchen")) return;
   try {
     var d = await api("foodsheet");
     var win = window.open("", "_blank");
@@ -3414,6 +3583,11 @@ function foodSheetHtml(d){
 }
 
 function exportPlan(){
+  var check = S.guests.filter(function(x){
+    return x.rsvp === "attending" && x.invited_to !== "evening";
+  });
+  if (!confirmOverSeated(check, "Download the plan")) return;
+
   var byId = {};
   S.tables.forEach(function(t){ byId[t.id] = t.name; });
   var rows = S.guests.filter(function(g){
