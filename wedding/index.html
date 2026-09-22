@@ -2258,8 +2258,17 @@ var IMPORT_FIELDS = [
   { key:"phone", label:"Phone", match:["phone","mobile","telephone","tel","contact number"] },
   { key:"address", label:"Address", match:["address","postal address","home address"] },
   { key:"household", label:"Household", match:["household","group","party","family group","table group"] },
-  { key:"invited_to", label:"Invited to", match:["invited to","invite","invited","day or evening","attending"] },
-  { key:"age_group", label:"Age group", match:["age group","age","adult or child","type"] },
+  /* "Day / evening" normalises to "day evening" — the slash is stripped
+     with the rest of the punctuation. That is what a real guest list from
+     a spreadsheet actually says, and it was not in this list, so every
+     guest silently came in as a day guest. */
+  { key:"invited_to", label:"Invited to",
+    match:["invited to","invite","invited","invited for","invitation",
+           "day evening","day or evening","day and evening","day evening both",
+           "daytime or evening","day evening guest","guest type","which part",
+           "attending"] },
+  { key:"age_group", label:"Age group",
+    match:["age group","age","adult or child","adult child","adult or children","type"] },
   { key:"dietary", label:"Dietary", match:["dietary","dietary requirements","diet","requirements"] },
   { key:"allergies", label:"Allergies", match:["allergies","allergy","allergens"] },
   { key:"notes", label:"Notes", match:["notes","note","comments"] }
@@ -2309,10 +2318,14 @@ function mapColumns(headings){
       if (field.match.indexOf(n) > -1) { map[field.key] = idx; return; }
     }
   });
-  // A single "name" column is common; split it on the last space.
+  // A single "name" column is common; it is split into first and surname.
   if (map.first_name === undefined) {
     headings.forEach(function(h, idx){
-      if (map.first_name === undefined && normaliseHeading(h) === "name") map.__wholeName = idx;
+      if (map.__wholeName !== undefined) return;
+      var n = normaliseHeading(h);
+      if (n === "name" || n === "full name" || n === "guest" || n === "guest name") {
+        map.__wholeName = idx;
+      }
     });
   }
   return map;
@@ -2357,8 +2370,8 @@ function rowsFromText(text){
 
     var first = get("first_name"), surname = get("surname");
     if (map.__wholeName !== undefined) {
-      var whole = String(cells[map.__wholeName] || "").trim();
-      var bits = whole.split(/\s+/);
+      var whole = String(cells[map.__wholeName] || "").replace(/\s+/g, " ").trim();
+      var bits = whole.split(" ");
       first = bits.shift() || "";
       surname = bits.join(" ");
     }
@@ -2460,6 +2473,18 @@ function previewImport(){
 
   var found = IMPORT_FIELDS.filter(function(f){ return parsed.map[f.key] !== undefined; })
     .map(function(f){ return f.label; });
+  // A single "Name" column is recognised too — leaving it off this line made
+  // a working import look like a broken one.
+  if (parsed.map.__wholeName !== undefined) found.unshift("Name");
+
+  // Say plainly what was not understood, rather than letting it default in
+  // silence. Getting day and evening the wrong way round is how a guest
+  // turns up six hours early.
+  var missed = (parsed.headings || []).filter(function(hd, i){
+    if (!String(hd).trim()) return false;
+    for (var k in parsed.map) if (parsed.map[k] === i) return false;
+    return true;
+  });
 
   var h = '<div class="orn" style="margin:20px 0 16px"><i></i></div>' +
     '<div class="split" style="margin-bottom:10px"><h3>' + parsed.rows.length +
@@ -2468,6 +2493,15 @@ function previewImport(){
   if (found.length) {
     h += '<p class="muted" style="margin:0 0 6px;font-size:.8125rem">Columns we recognised: ' +
       esc(found.join(", ")) + '</p>';
+  }
+  if (missed.length) {
+    h += '<div class="notice notice--due" style="margin:10px 0;font-size:.875rem">' +
+      'We could not tell what ' +
+      missed.map(function(x){ return '<strong>' + esc(x) + '</strong>'; }).join(" and ") +
+      (missed.length === 1 ? ' is' : ' are') + ', so ' +
+      (missed.length === 1 ? 'that column has' : 'those columns have') +
+      ' been left out. Rename ' + (missed.length === 1 ? 'it' : 'them') +
+      ' to match the template, or add the details once your guests are in.</div>';
   }
   if (dupes) {
     h += '<div class="notice notice--due" style="margin:10px 0"><strong>' + dupes +
