@@ -120,12 +120,14 @@ textarea{min-height:70px;resize:vertical}
 .pill--prov{background:var(--mist);color:var(--sage-70)}
 
 /* ---- header ---- */
-header.app{background:var(--sage);color:var(--bone);padding:18px 0 0}
-header.app .wrap{display:flex;align-items:center;justify-content:space-between;gap:12px}
-.brand{font-family:var(--display);font-size:1.125rem;letter-spacing:.14em;
-  text-transform:uppercase;white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis}
-header.app .btn{white-space:nowrap;flex:0 0 auto}
-nav.tabs{display:flex;gap:2px;overflow-x:auto;margin-top:14px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+/* Flush to the top now the wordmark has gone, so honour the notch —
+   in standalone the status bar sits over the page and would otherwise
+   land on the tabs. */
+header.app{background:var(--sage);color:var(--bone);padding:0;
+  padding-top:env(safe-area-inset-top,0px);position:sticky;top:0;z-index:20}
+/* .brand kept for the login screen's own use; the app header no longer has one. */
+.brand{font-family:var(--display);font-size:1.125rem;letter-spacing:.14em;text-transform:uppercase}
+nav.tabs{display:flex;gap:2px;overflow-x:auto;margin-top:0;-webkit-overflow-scrolling:touch;scrollbar-width:none}
 nav.tabs::-webkit-scrollbar{display:none}
 nav.tabs button{
   flex:0 0 auto;background:transparent;border:0;border-bottom:2px solid transparent;
@@ -147,7 +149,6 @@ main{padding:26px 0 60px}
    timings are the two places where a long value used to run off the edge. */
 @media(max-width:430px){
   .wrap{padding:0 14px}
-  header.app{padding:14px 0 0}
   .brand{font-size:.9375rem;letter-spacing:.1em}
   nav.tabs button{padding:10px 11px;letter-spacing:.14em}
   .balance div{padding:13px 6px}
@@ -356,11 +357,13 @@ footer.app{border-top:1px solid var(--mist);padding:26px 0;text-align:center;fon
 
 <!-- ============================ APP ============================ -->
 <div id="app" class="hide">
+  <!--
+    Just the tabs. The venue wordmark used to sit above them, but it was the
+    same words in the same serif as the website's own header, which made the
+    app read as another page of the site. Log out has moved to the footer,
+    the way an app does it.
+  -->
   <header class="app">
-    <div class="wrap">
-      <span class="brand">Black Horse Beamish</span>
-      <button id="logout" class="btn btn--sm" style="color:var(--celadon)">Log out</button>
-    </div>
     <div class="wrap">
       <nav class="tabs" id="tabs">
         <button data-view="home" aria-current="page">Your wedding</button>
@@ -385,6 +388,9 @@ footer.app{border-top:1px solid var(--mist);padding:26px 0;text-align:center;fon
     Red Row Estate · Beamish · Co. Durham · DH9 0RW<br>
     <a href="tel:01207232569">01207 232 569</a> ·
     <a href="mailto:events@blackhorsebeamish.co.uk">events@blackhorsebeamish.co.uk</a>
+    <div style="margin-top:18px">
+      <button id="logout" class="btn btn--sm">Log out</button>
+    </div>
   </footer>
 </div>
 
