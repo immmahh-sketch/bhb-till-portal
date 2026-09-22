@@ -195,6 +195,7 @@
     <button data-tab="roomservice">Room Service</button>
     <button data-tab="outside">Outside Tables</button>
     <button data-tab="staff">Staff Food</button>
+    <button data-tab="mailing">Mailing List</button>
     <a class="tablink" href="discounts.html" target="_blank" rel="noopener">Discount Codes ↗</a>
   </nav>
 
@@ -524,6 +525,28 @@
     </table></div>
   </section>
 
+  <!-- MAILING LIST -->
+  <section id="tab-mailing" class="hidden">
+    <h2 class="sec">Mailing list</h2>
+    <p class="muted" style="margin:0 0 6px">Every row here opted in explicitly — the "Sign me up for special offers, discount codes and updates from the venue" checkbox on the guest receipt-email screen. Nobody is on this list without having ticked that themselves.</p>
+    <p class="muted" style="margin:0 0 16px;padding:10px 12px;background:#fdf6e8;border:1px solid var(--brass);border-radius:8px">
+      <b>Before sending anything to this list:</b> UK marketing email law needs a working unsubscribe link in every send, and the opt-in point (the receipt-email checkbox) should really link to a privacy notice explaining what this list is used for. Neither exists yet — worth sorting before the first real campaign, not after.
+    </p>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin:0 0 10px;flex-wrap:wrap;gap:10px">
+      <p class="muted" style="margin:0" id="mailingSummary">Loading…</p>
+      <div style="display:flex;gap:8px">
+        <button onclick="loadMailingList()">Refresh</button>
+        <button class="primary" onclick="downloadMailingListCsv()">Download CSV</button>
+      </div>
+    </div>
+    <div class="tablewrap"><table class="menu-tbl" id="mailingTbl">
+      <thead><tr>
+        <th class="l">Email</th><th class="l">Source</th><th class="l">Opted in</th><th></th>
+      </tr></thead>
+      <tbody id="mailingBody"></tbody>
+    </table></div>
+  </section>
+
   <p class="muted" style="margin-top:24px">
     Nett = gross ÷ (1 + VAT rate) using each till’s own rate. Trading day 05:00 → 05:00. Auto-refreshes every 20 s.
   </p>
@@ -576,9 +599,10 @@ function showApp(){
 function setTab(t){
   ST.tab = t;
   document.querySelectorAll("#tabs button").forEach(b=>b.classList.toggle("active", b.dataset.tab===t));
-  ["overview","receipts","team","refunds","menu","roomservice","outside","staff"].forEach(x=>
+  ["overview","receipts","team","refunds","menu","roomservice","outside","staff","mailing"].forEach(x=>
     document.getElementById("tab-"+x).classList.toggle("hidden", x!==t));
   renderAll();
+  if(t==="mailing") loadMailingList();
 }
 
 /* ---------- data ---------- */
@@ -1555,6 +1579,69 @@ async function staffMenuDelete(id){
     await sb(`roomservice_menu_items?id=eq.${id}`, {method:"DELETE"});
     await reloadStaffMenu(); menuStatus("Deleted “"+nm+"”.");
   }catch(e){ alert("Delete failed: "+e.message); }
+}
+
+/* ---------- Mailing list ---------- */
+// marketing_signups has no public RLS policy (it's a list of customer
+// emails) - read/delete go through the mailing-list-admin edge function
+// with the service-role key, same pattern as discount-codes-admin.
+async function callMailingAdmin(action, params){
+  const res = await fetch(CFG.SUPABASE_URL + "/functions/v1/mailing-list-admin", {
+    method: "POST",
+    headers: { "Content-Type":"application/json", Authorization:"Bearer "+CFG.SUPABASE_KEY, apikey: CFG.SUPABASE_KEY },
+    body: JSON.stringify({ action, ...params })
+  });
+  const data = await res.json().catch(()=>({}));
+  if(!res.ok || data.error) throw new Error(data.error || ("HTTP "+res.status));
+  return data;
+}
+async function loadMailingList(){
+  document.getElementById("mailingSummary").textContent = "Loading…";
+  try{
+    const data = await callMailingAdmin("list");
+    ST.mailingList = data.signups || [];
+    renderMailingList();
+  }catch(e){
+    document.getElementById("mailingSummary").textContent = "⚠ couldn't load — "+e.message;
+  }
+}
+function renderMailingList(){
+  const rows = ST.mailingList || [];
+  document.getElementById("mailingSummary").textContent = rows.length + " signup" + (rows.length===1?"":"s");
+  const b = document.getElementById("mailingBody");
+  b.innerHTML = rows.length ? "" : '<tr><td colspan="4" class="muted">No sign-ups yet.</td></tr>';
+  for(const r of rows){
+    const tr = document.createElement("tr");
+    const d = new Date(r.opted_in_at);
+    tr.innerHTML =
+      `<td class="l">${esc(r.email)}</td>`+
+      `<td class="l">${esc(r.source||"—")}</td>`+
+      `<td class="l">${d.toLocaleDateString("en-GB")} ${d.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}</td>`+
+      `<td class="act"><button class="del" onclick="deleteMailingSignup('${r.id}')">Remove</button></td>`;
+    b.appendChild(tr);
+  }
+}
+async function deleteMailingSignup(id){
+  const r = (ST.mailingList||[]).find(x=>x.id===id);
+  if(!confirm("Remove "+(r?r.email:"this address")+" from the mailing list? This can't be undone.")) return;
+  try{
+    await callMailingAdmin("delete", {id});
+    await loadMailingList();
+  }catch(e){ alert("Couldn't remove: "+e.message); }
+}
+function downloadMailingListCsv(){
+  const rows = ST.mailingList || [];
+  const csvEsc = v => '"' + String(v??"").replace(/"/g,'""') + '"';
+  const header = ["Email","Source","Opted in"].join(",");
+  const lines = rows.map(r => [csvEsc(r.email), csvEsc(r.source||""), csvEsc(new Date(r.opted_in_at).toISOString())].join(","));
+  const csv = [header].concat(lines).join("\r\n");
+  const blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "mailing-list-"+new Date().toISOString().slice(0,10)+".csv";
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 /* ---------- Room service: menu editor ---------- */
