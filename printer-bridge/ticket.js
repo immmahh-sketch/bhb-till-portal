@@ -143,9 +143,9 @@ function buildTicket(job, opts = {}) {
     chunks.push(escBytes([0x1d, 0x21, 0x00])); // back to normal size
   }
   chunks.push(escBytes([0x1d, 0x21, 0x11])); // double height + width
-  push(`${isStaffFood ? "ASTON & CARBARN" : isOutside ? "OUTSIDE" : "ROOM SERVICE"}\n`);
+  push(`${isStaffFood ? "STAFF FOOD" : isOutside ? "OUTSIDE" : "ROOM SERVICE"}\n`);
   chunks.push(escBytes([0x1d, 0x21, 0x00])); // back to normal size
-  push(isStaffFood ? "Collect 12:30pm\n" : `${isOutside ? "Table " : "Room "}${p.room_number ?? "-"}\n`);
+  push(isStaffFood ? "COLLECTING AT 12:30PM\n" : `${isOutside ? "Table " : "Room "}${p.room_number ?? "-"}\n`);
   chunks.push(escBytes([0x1b, 0x45, 0x00])); // bold off
   push(rule());
 
