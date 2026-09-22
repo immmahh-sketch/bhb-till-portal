@@ -2510,6 +2510,11 @@ async function previewInvite(guestId){
       'Subject line: <strong>' + esc(res.subject) + '</strong>' +
       (res.guest && res.guest.name ? '<br>Shown as it will reach ' + esc(res.guest.name) + '.' : '') +
       '</p>' + frame +
+      (res.arrivalSource
+        ? '<div class="notice notice--due" style="margin:12px 0 0;font-size:.8125rem">' +
+          'The arrival time above was read from your function notes — ' +
+          '&ldquo;' + esc(res.arrivalSource) + '&rdquo;. Please check it is right.</div>'
+        : '') +
       '<p class="muted" style="margin:12px 0 0;font-size:.8125rem">' +
       'Each guest gets their own reply link, so we know exactly who has answered.</p>');
     var f = $("previewFrame");
@@ -2549,9 +2554,52 @@ async function saveInviteWording(){
   } catch (e) { showError(e.message); }
 }
 
-async function sendInvites(guestId){
+/* Sending is the one thing in this app that cannot be taken back. The times
+   and rooms in the invitation are read out of the venue's function notes,
+   which are free text written by a person — so the couple is asked to look
+   before it goes, and cannot get past this without saying they have. */
+function sendInvites(guestId){
   var many = !guestId;
-  if (many && !confirm("Send the invitation to everyone who hasn't had one yet?")) return;
+  var who;
+  if (many) {
+    var n = (S.guests || []).filter(function(x){
+      return x.email && !x.invite_sent_at;
+    }).length;
+    who = n + (n === 1 ? " guest who has" : " guests who have") + " not been invited yet";
+  } else {
+    var g = (S.guests || []).filter(function(x){ return x.id === guestId; })[0];
+    who = g ? (g.first_name + " " + (g.surname || "")).trim() : "this guest";
+  }
+
+  showModal(
+    '<h2 style="margin:0 0 10px">Before this goes out</h2>' +
+    '<p style="margin:0 0 14px">You are about to invite <strong>' + esc(who) + '</strong>.</p>' +
+    '<div class="notice notice--due" style="margin:0 0 16px">' +
+      'Times and rooms in this email are pulled automatically from your ' +
+      'function notes. Mistakes can happen!' +
+    '</div>' +
+    '<label class="check" style="display:flex;gap:10px;align-items:flex-start;cursor:pointer;margin:0 0 18px">' +
+      '<input type="checkbox" id="sendConfirm" style="width:18px;height:18px;flex:0 0 auto;margin-top:2px">' +
+      '<span style="font-size:.9375rem;line-height:1.5">I have checked the content of the ' +
+        'email and confirmed it is correct.</span>' +
+    '</label>' +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+      '<button class="btn btn--primary" id="sendGo" disabled>Send the invitation' +
+        (many ? 's' : '') + '</button>' +
+      '<button class="btn" onclick="closeModal()">Not yet</button>' +
+      '<button class="btn" onclick="closeModal();previewInvite()">Look again first</button>' +
+    '</div>');
+
+  var tick = $("sendConfirm"), go = $("sendGo");
+  tick.onchange = function(){ go.disabled = !tick.checked; };
+  go.onclick = function(){
+    if (!tick.checked) return;
+    closeModal();
+    reallySendInvites(guestId);
+  };
+}
+
+async function reallySendInvites(guestId){
   try {
     showModal('<div class="empty"><span class="spin"></span>' +
       '<p style="margin-top:14px">Sending…</p></div>');
