@@ -157,6 +157,8 @@ header.app{background:var(--sage);color:var(--bone);padding:0;
 .menu button:last-child{border-bottom:0}
 .menu button:hover{background:rgba(247,247,247,.07);color:var(--bone)}
 .menu button[aria-current="page"]{color:var(--bone);box-shadow:inset 3px 0 0 var(--celadon)}
+.menu .menu-out{border-top:1px solid rgba(247,247,247,.22);color:rgba(247,247,247,.62)}
+.menu .menu-out:hover{color:var(--bone)}
 .menu-scrim{display:none;position:absolute;left:0;right:0;top:100%;height:100vh;z-index:39}
 .menu-scrim.open{display:block}
 main.wrap{padding-top:38px;padding-bottom:64px}
@@ -796,7 +798,7 @@ function prefillLogin(){
   }
 }
 
-$("logout").onclick = function(){ signOut(); };
+$("logout").onclick = function(){ askSignOut(); };
 
 $("loginForm").onsubmit = async function(ev){
   ev.preventDefault();
@@ -944,22 +946,39 @@ function schedule(){
    counts: missing one is more of a reason to get it booked, not less. */
 var MEETING_WINDOW_DAYS = 14;
 
+/* A meeting more than a month past its date is not overdue, it is gone.
+   Chasing a couple about a nine-month meeting when the wedding is six weeks
+   away helps nobody, and an app that keeps flagging something you can no
+   longer do is an app you stop believing. */
+var MEETING_STALE_DAYS = 31;
+
 function meetingRows(){
   var w = S.data.wedding, today = todayIso();
   return MILESTONES.filter(function(m){ return m.meeting; }).map(function(m){
     var date = milestoneDate(m, w.wedding_date, w.created_at);
+    var days = daysBetween(today, date);
+    var done = progressOf("milestone", m.key);
     return {
-      key: m.key, title: m.title, items: m.items, date: date,
-      days: daysBetween(today, date),
-      done: progressOf("milestone", m.key)
+      key: m.key, title: m.title, items: m.items, date: date, days: days, done: done,
+      stale: !done && days < -MEETING_STALE_DAYS
     };
   });
+}
+
+/* Plenty of these meetings happen on the phone, or on a visit, or because
+   someone caught us in the bar. The app cannot know that, so it asks. */
+async function confirmMeetingHeld(key){
+  await toggleMilestone(key, true);
+}
+
+async function unconfirmMeetingHeld(key){
+  await toggleMilestone(key, false);
 }
 
 /** The meeting to nag about, or null if nothing is close enough to matter. */
 function meetingDue(){
   var rows = meetingRows().filter(function(r){
-    return !r.done && r.days <= MEETING_WINDOW_DAYS;
+    return !r.done && !r.stale && r.days <= MEETING_WINDOW_DAYS;
   });
   /* A meeting that has slipped past comes first — the most recent one,
      not the oldest. Otherwise it is whichever is coming up soonest. */
@@ -1024,7 +1043,10 @@ function buildMenu(){
   m.innerHTML = VIEWS.map(function(v){
     return '<button data-view="' + v[0] + '"' +
       (S.view === v[0] ? ' aria-current="page"' : '') + '>' + esc(v[1]) + '</button>';
-  }).join("");
+  }).join("") +
+  // Last in the list and set apart, because it is the one thing in here
+  // that undoes something rather than going somewhere.
+  '<button data-action="logout" class="menu-out">Log out</button>';
   var label = VIEWS.filter(function(v){ return v[0] === S.view; })[0];
   var w = $("whereAmI");
   if (w && label) w.textContent = label[1];
@@ -1057,10 +1079,47 @@ function closeMenu(){
 document.addEventListener("keydown", function(ev){ if (ev.key === "Escape") closeMenu(); });
 
 $("menu").addEventListener("click", function(ev){
+  var out = ev.target.closest('button[data-action="logout"]');
+  if (out) { closeMenu(); askSignOut(); return; }
   var b = ev.target.closest("button[data-view]");
   if (!b) return;
   go(b.dataset.view);
 });
+
+/* Logging out is easy to hit by accident on a phone, and getting back in
+   means finding the reference again. So it asks. */
+function askSignOut(){
+  var el = document.createElement("div");
+  el.id = "signOutAsk";
+  var card =
+    '<div class="nudge-card">' +
+      '<h3 style="margin:0 0 8px">Log out?</h3>' +
+      '<p>You will need your wedding reference and date to get back in.</p>' +
+      '<div class="nudge-acts">' +
+        '<button class="btn btn--primary" id="outYes">Log out</button>' +
+        '<button class="btn" id="outNo">Stay logged in</button>' +
+      '</div>' +
+    '</div>';
+
+  // Same reasoning as the meeting nudge: inside the Squarespace frame a
+  // fixed overlay is measured against the whole 1600px iframe, so it would
+  // open somewhere off the top of the view.
+  if (isFramed()) {
+    el.className = "nudge nudge--inline";
+    el.innerHTML = card;
+    var v = $("views");
+    v.insertBefore(el, v.firstChild);
+    window.scrollTo({ top: 0 });
+  } else {
+    el.className = "nudge";
+    el.innerHTML = card;
+    document.body.appendChild(el);
+  }
+
+  function close(){ var n = $("signOutAsk"); if (n) n.remove(); }
+  $("outNo").onclick = close;
+  $("outYes").onclick = function(){ close(); signOut(); };
+}
 
 function render(){
   var v = $("views");
@@ -1715,22 +1774,32 @@ function viewMeeting(){
   }
 
   /* Where they are up to, so they can see which meeting this one is. */
-  h += '<div class="card"><span class="label">Your meetings</span><table class="stack" style="margin-top:8px">';
+  h += '<div class="card"><span class="label">Your meetings</span>' +
+    '<p class="muted" style="font-size:.8125rem;margin:6px 0 0">' +
+    'Had one of these over the phone, or on a visit? Tick it off here and we ' +
+    'will stop asking.</p>' +
+    '<table class="stack" style="margin-top:10px">';
   rows.forEach(function(r){
-    var state = r.done
-      ? '<span class="pill pill--ok">Done</span>'
-      : (r.days < 0 ? '<span class="pill pill--late">Was due</span>'
-                    : (r.days <= MEETING_WINDOW_DAYS ? '<span class="pill pill--due">Due now</span>'
-                                                     : '<span class="pill pill--prov">To come</span>'));
+    var state;
+    if (r.done)        state = '<span class="pill pill--ok">Had it</span>';
+    else if (r.stale)  state = '<span class="pill pill--prov">Not needed now</span>';
+    else if (r.days < 0) state = '<span class="pill pill--late">Was due</span>';
+    else if (r.days <= MEETING_WINDOW_DAYS) state = '<span class="pill pill--due">Due now</span>';
+    else               state = '<span class="pill pill--prov">To come</span>';
+
+    var act = r.done
+      ? '<button class="btn btn--sm" onclick="unconfirmMeetingHeld(&quot;' + r.key + '&quot;)">Not yet</button>'
+      : '<button class="btn btn--sm" onclick="confirmMeetingHeld(&quot;' + r.key + '&quot;)">' +
+        'Already had it</button>';
+
     h += '<tr><td data-label="Meeting"><strong>' + esc(r.title) + '</strong>' +
       (r.items.length ? '<br><span class="muted" style="font-size:.8125rem">' + esc(r.items[0]) + '</span>' : '') +
       '</td>' +
       '<td class="num" data-label="When" style="white-space:nowrap">' + esc(ukDateShort(r.date)) + '</td>' +
-      '<td data-label="Status">' + state + '</td></tr>';
+      '<td data-label="Status">' + state + '</td>' +
+      '<td data-label="">' + act + '</td></tr>';
   });
-  h += '</table><p class="muted" style="font-size:.8125rem;margin:12px 0 0">' +
-    'Tick a meeting off on your <a href="#" onclick="go(&quot;journey&quot;);return false">wedding journey</a> ' +
-    'once it has happened.</p></div>';
+  h += '</table></div>';
 
   h += '<div class="card card--flush" style="padding:0;overflow:hidden">' +
     '<div class="cal open" id="cal_meeting" style="margin:0">' +
