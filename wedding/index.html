@@ -2255,7 +2255,6 @@ var IMPORT_FIELDS = [
   { key:"surname", label:"Surname",
     match:["surname","last name","lastname","last","family name","family"] },
   { key:"email", label:"Email", match:["email","e-mail","email address"] },
-  { key:"phone", label:"Phone", match:["phone","mobile","telephone","tel","contact number"] },
   { key:"address", label:"Address", match:["address","postal address","home address"] },
   { key:"household", label:"Household", match:["household","group","party","family group","table group"] },
   /* "Day / evening" normalises to "day evening" — the slash is stripped
@@ -2380,7 +2379,7 @@ function rowsFromText(text){
 
     out.push({
       first_name: first, surname: surname,
-      email: get("email"), phone: get("phone"), address: get("address"),
+      email: get("email"), address: get("address"),
       household: get("household"),
       invited_to: tidyInvite(get("invited_to")),
       age_group: tidyAge(get("age_group")),
@@ -2390,15 +2389,21 @@ function rowsFromText(text){
   return { rows: out, map: map, headings: headings };
 }
 
+/* One column per thing the venue actually uses, and no more. A template
+   asking for a phone number nobody looks at is a template people fill in
+   badly, or give up on.
+
+   Name is one column, not two: that is how a guest list arrives from a
+   spreadsheet, and the importer splits it. Dietary and Allergies stay
+   apart — an allergy is a safety matter and goes to the kitchen in red,
+   a preference does not. */
 function downloadTemplate(){
   csv("guest-list-template",
-    ["First name","Surname","Email","Phone","Address","Household",
-     "Invited to","Age group","Dietary","Allergies","Notes"],
-    [["Jane","Wilson","jane@example.com","07700 900123","1 The Green, Beamish","The Wilsons",
-      "Day","Adult","Vegetarian","","Sitting with her sister"],
-     ["Tom","Wilson","","","1 The Green, Beamish","The Wilsons","Day","Adult","","Nuts",""],
-     ["Ruby","Wilson","","","1 The Green, Beamish","The Wilsons","Day","Child","","",""],
-     ["Alex","Doyle","","","","","Evening","Adult","","",""]]);
+    ["Name","Email","Day / evening","Age group","Dietary","Allergies","Notes"],
+    [["Jane Wilson","jane@example.com","Day","Adult","Vegetarian","","Sitting with her sister"],
+     ["Tom Wilson","tom@example.com","Day","Adult","","Nuts",""],
+     ["Ruby Wilson","","Day","Child","","",""],
+     ["Alex Doyle","alex@example.com","Evening","Adult","","",""]]);
 }
 
 function openImport(){
@@ -2407,9 +2412,9 @@ function openImport(){
     '<button class="btn btn--sm" onclick="closeModal()">Close</button></div>' +
 
     '<p class="muted" style="margin:0 0 16px;font-size:.9375rem">' +
-    'Already have your list in a spreadsheet? Copy the cells and paste them below &mdash; ' +
-    'that is usually quickest. Starting from scratch? Download the template, fill it in, ' +
-    'and upload it here.</p>' +
+    'Starting from scratch? <strong>Download the template</strong> &mdash; it has exactly ' +
+    'the columns we need and nothing else. Already have your list in a spreadsheet? ' +
+    'Paste the cells below instead; we will read whatever headings you already use.</p>' +
 
     '<div class="field"><span class="label">Paste from a spreadsheet</span>' +
     '<textarea id="impPaste" style="min-height:120px;font-family:var(--mono, monospace);font-size:.875rem" ' +
