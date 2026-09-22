@@ -9,6 +9,11 @@
 // The full priced/logo'd ROOM SERVICE check and guest receipts print at
 // Kitchen Printer 1 instead (see kitchen-printer.js).
 //
+// Skipped entirely if the order has no drinks on it (food-only order) -
+// same idea as kitchen-printer.js skipping the food check on a drinks-only
+// order (see hasFood there). The job is still marked "printed" either way
+// so it doesn't sit pending and trip the watchdog.
+//
 // The bar printer is currently wired straight into the till, not the
 // network - this bridge targets the Bixolon (192.168.100.134) as a stand-in
 // until a network port is found behind the bar for it. Until then, jobs will
@@ -47,8 +52,8 @@ async function rest(path, init = {}) {
   return t ? JSON.parse(t) : null;
 }
 
-function hasLines(payload) {
-  return (payload.lines || []).length > 0;
+function hasDrinks(payload) {
+  return (payload.lines || []).some((l) => l.category !== "food");
 }
 
 let busy = false;
@@ -69,7 +74,7 @@ async function pollOnce() {
         });
         if (!Array.isArray(claimed) || claimed.length === 0) continue; // another poller already got it
 
-        if (hasLines(job.payload || {})) {
+        if (hasDrinks(job.payload || {})) {
           await printToDevice(buildTicket(job, { kind: "bar-check" }), PRINTER_IP, PRINTER_PORT);
         }
         await rest(`print_jobs?id=eq.${job.id}`, {
