@@ -785,6 +785,14 @@ function viewWedding(){
         ['active','draft','completed','cancelled'].map(function(s){
           return '<option value="'+s+'"'+(w.status===s?' selected':'')+'>'+s+'</option>'; }).join("") +
       '</select></div></div>' +
+    '<div class="row">' +
+      roomField("e_ceremony", "Ceremony room (on day invitations)", w.ceremony_room) +
+      roomField("e_evening", "Evening reception room (on evening invitations)", w.evening_room) +
+    '</div>' +
+    '<p class="muted" style="font-size:.8125rem;margin:-8px 0 16px">' +
+      'These name the room a guest is told to arrive at. Rezlynx calls most rooms ' +
+      '&quot;Function&quot;, so set them here \u2014 left blank, the invitation gives the ' +
+      'time and leaves the room out rather than guessing.</p>' +
     '<div class="field"><span class="label">What\'s included (shown to the couple)</span>' +
       '<textarea id="e_inc">' + esc(w.whats_included||"") + '</textarea></div>' +
     '<div class="field"><label style="display:flex;gap:8px;align-items:center;cursor:pointer">' +
@@ -975,6 +983,22 @@ async function importMenu(){
   } catch (e) { showErr(e.message); }
 }
 
+/* The two rooms guests get sent to. A list, because there are two of them
+   and typing "George Ridley Sweet" onto ninety invitations is a bad day —
+   but free text as well, because the venue will add a space eventually. */
+var INVITE_ROOMS = ["Orchard Marquee", "George Ridley Suite"];
+
+function roomField(id, label, value){
+  var v = value || "";
+  var known = INVITE_ROOMS.indexOf(v) > -1;
+  return '<div class="field"><span class="label">' + esc(label) + '</span>' +
+    '<input id="' + id + '" list="' + id + '_list" value="' + esc(v) + '" ' +
+      'placeholder="Not set">' +
+    '<datalist id="' + id + '_list">' +
+      INVITE_ROOMS.map(function(r){ return '<option value="' + esc(r) + '">'; }).join("") +
+    '</datalist></div>';
+}
+
 async function saveWedding(){
   try {
     await call("update", {
@@ -989,6 +1013,8 @@ async function saveWedding(){
       whats_included: $("e_inc").value.trim(),
       show_function_sheet: $("e_sheet").checked,
       allow_menu_choices: $("e_menu").checked,
+      ceremony_room: $("e_ceremony").value.trim(),
+      evening_room: $("e_evening").value.trim(),
       internal_notes: $("e_int").value.trim()
     });
     clearErr(); await loadWedding(S.current);
