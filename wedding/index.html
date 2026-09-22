@@ -60,7 +60,9 @@
 }
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
 body{
+  max-width:100%; overflow-x:hidden;
   background:var(--bone); color:var(--sage);
   font-family:var(--body); font-size:16px; line-height:1.6; letter-spacing:.02em;
   -webkit-font-smoothing:antialiased;
@@ -73,7 +75,8 @@ a{color:inherit}
 .num{font-variant-numeric:tabular-nums;letter-spacing:0;font-weight:500}
 .muted{color:var(--sage-70)}
 .center{text-align:center}
-.wrap{max-width:820px;margin:0 auto;padding:0 20px}
+.wrap{max-width:820px;margin:0 auto;padding:0 20px;width:100%}
+table{table-layout:auto;word-break:break-word}
 .hide{display:none!important}
 
 /* ---- buttons: hairline rectangles, square corners, as on the website ---- */
@@ -119,7 +122,9 @@ textarea{min-height:70px;resize:vertical}
 /* ---- header ---- */
 header.app{background:var(--sage);color:var(--bone);padding:18px 0 0}
 header.app .wrap{display:flex;align-items:center;justify-content:space-between;gap:12px}
-.brand{font-family:var(--display);font-size:1.125rem;letter-spacing:.14em;text-transform:uppercase}
+.brand{font-family:var(--display);font-size:1.125rem;letter-spacing:.14em;
+  text-transform:uppercase;white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis}
+header.app .btn{white-space:nowrap;flex:0 0 auto}
 nav.tabs{display:flex;gap:2px;overflow-x:auto;margin-top:14px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
 nav.tabs::-webkit-scrollbar{display:none}
 nav.tabs button{
@@ -138,10 +143,42 @@ main{padding:26px 0 60px}
 .countdown .n{font-family:var(--display);font-size:3.5rem;line-height:1;display:block}
 @media(max-width:560px){.hero .names{font-size:1.625rem}.countdown .n{font-size:2.75rem}}
 
+/* Phones. Sized against a 375px screen — the balance figures and the day's
+   timings are the two places where a long value used to run off the edge. */
+@media(max-width:430px){
+  .wrap{padding:0 14px}
+  header.app{padding:14px 0 0}
+  .brand{font-size:.9375rem;letter-spacing:.1em}
+  nav.tabs button{padding:10px 11px;letter-spacing:.14em}
+  .balance div{padding:13px 6px}
+  .balance .v{font-size:1.0625rem}
+  .balance .label{font-size:.625rem;letter-spacing:.1em}
+  .card{padding:18px 16px}
+  th,td{padding:10px 8px}
+  h1{font-size:1.5rem} h2{font-size:1.1875rem}
+  .btn{padding:12px 18px;letter-spacing:.12em}
+}
+
+/* Very small phones (SE and similar). Let the balance figures shrink rather
+   than clip, and stop the tabs eating the whole screen. */
+@media(max-width:360px){
+  .wrap{padding:0 11px}
+  .balance .v{font-size:.9375rem}
+  .balance .label{font-size:.5625rem;letter-spacing:.06em}
+  .balance div{padding:11px 4px}
+  nav.tabs button{padding:9px 9px;font-size:.625rem;letter-spacing:.1em}
+  .hero .names{font-size:1.4375rem}
+}
+
 /* ---- balance strip ---- */
-.balance{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--mist);border:1px solid var(--mist)}
-.balance div{background:var(--white);padding:16px 12px;text-align:center}
-.balance .v{font-size:1.25rem;margin-top:3px}
+/* minmax(0,1fr), not 1fr: grid tracks size to min-content by default, so a
+   figure like £4,698.50 widens the whole row past the screen and clips the
+   last column. This is what hid "Still to pay" on a phone. */
+.balance{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;
+  background:var(--mist);border:1px solid var(--mist)}
+.balance div{background:var(--white);padding:16px 10px;text-align:center;min-width:0}
+.balance .v{font-size:1.25rem;margin-top:3px;white-space:nowrap}
+.balance .label{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .balance .v.out{color:var(--attention)}
 .balance .v.clear{color:var(--sage)}
 
@@ -279,46 +316,8 @@ footer.app{border-top:1px solid var(--mist);padding:26px 0;text-align:center;fon
     </div>
     <button id="loginBtn" class="btn btn--primary" style="width:100%" type="submit">Log in</button>
   </form>
-  <!--
-    Paul Riley's welcome, reproduced from the Wedding Journal V5. His words,
-    not ours — if the venue wants it reworded, that's theirs to change.
-  -->
-  <div class="welcome">
-    <blockquote>
-      “By celebrating your wedding day here at the Black Horse Beamish,
-      you become part of our family. However daunting the journey may seem —
-      we are here to help every step of the way.”
-    </blockquote>
-    <div class="sig">Paul Riley · General Manager</div>
-
-    <details>
-      <summary>Read Paul's full welcome</summary>
-      <div class="letter">
-        <p>To the Happy Couple,</p>
-        <p>I am truly honoured that you have chosen us to create what we hope will be
-        one of the best days of your lives.</p>
-        <p>By celebrating your wedding day here at the Black Horse Beamish, you become
-        part of our family. We are proud to have so many people who visit us again and
-        again to reminisce about the fantastic times they have had in our beautiful
-        venue, and to be reminded of those famous words that joined them both for the
-        rest of their lives.</p>
-        <p>Soon, it will be your special day. By the time your guests are sat, eagerly
-        awaiting the heartfelt promises you will make to each other, my promise to you
-        is that my team and I will do all we can to ensure that each year, your
-        anniversary is filled with happy memories of a magical day.</p>
-        <p>Our journey together begins today. To help you find your way through what
-        can seem like an overwhelming road ahead, we have put this together for you.
-        We hope you find it useful, and we hope it helps you capture memories of your
-        wedding journey to be remembered forever.</p>
-        <p>Please never forget, however daunting the journey may seem — we are here to
-        help every step of the way.</p>
-        <p>Thank you once more for choosing us for your special day. We can't wait to
-        see your dream wedding become a reality.</p>
-        <p>Best wishes to both of you.</p>
-        <p class="sig" style="text-align:left;margin-top:14px">Paul Riley · General Manager</p>
-      </div>
-    </details>
-  </div>
+  <!-- Filled by renderWelcome() so the letter lives in one place only. -->
+  <div class="welcome" id="loginWelcome"></div>
 
   <div class="orn"><i></i></div>
 
@@ -480,7 +479,18 @@ function signOut(){
   S.token = null; S.data = null;
   $("app").classList.add("hide");
   $("login").classList.remove("hide");
+  renderWelcome();
   prefillLogin();
+}
+
+/** Paul's welcome under the login form. */
+function renderWelcome(){
+  var el = $("loginWelcome");
+  if (!el) return;
+  el.innerHTML =
+    '<blockquote>&ldquo;' + esc(gmPromise()) + '&rdquo;</blockquote>' +
+    '<div class="sig">' + esc(GM.name) + ' &middot; ' + esc(GM.role) + '</div>' +
+    '<details><summary>Read Paul&rsquo;s full welcome</summary>' + gmLetterHtml() + '</details>';
 }
 
 /** Put their details back in the boxes on a return visit. */
@@ -524,6 +534,50 @@ $("loginForm").onsubmit = async function(ev){
     btn.disabled = false; btn.textContent = "Log in";
   }
 };
+
+/* ---------- the General Manager's welcome ----------
+   Paul Riley's letter from the Wedding Journal, rewritten for the app —
+   same voice and the same promises, but talking about this rather than a
+   printed planner. Written once here and used on the login screen, on the
+   home screen and at the top of the wedding journey, so there's only ever
+   one copy to change. */
+var GM = { name: "Paul Riley", role: "General Manager" };
+
+/** The two lines that carry the whole letter. */
+function gmPromise(){
+  return "By celebrating your wedding day here at the Black Horse Beamish, you " +
+         "become part of our family. However daunting the journey may seem, we are " +
+         "here to help every step of the way.";
+}
+
+/** The full letter. `greeting` lets us use the couple's names once they're in. */
+function gmLetterHtml(greeting){
+  var paras = [
+    greeting || "To the happy couple,",
+    "I am truly honoured that you have chosen us to create what we hope will be one " +
+      "of the best days of your lives.",
+    "By celebrating your wedding day here at the Black Horse Beamish, you become part " +
+      "of our family. So many couples come back to us year after year to reminisce " +
+      "about the day they had here, and to be reminded of the words that joined them " +
+      "for the rest of their lives.",
+    "Soon it will be your turn. By the time your guests are sat, eagerly awaiting the " +
+      "promises you'll make to each other, my promise to you is that my team and I " +
+      "will have done everything we can to make it a day you'll want to remember on " +
+      "every anniversary that follows.",
+    "Our journey together begins today. This app is here to help you find your way " +
+      "through what can seem like an overwhelming road ahead — what's booked, what's " +
+      "left to pay, and everyone helping you pull it together, all in one place and " +
+      "always up to date.",
+    "Please never forget, however daunting the journey may seem: we are here to help " +
+      "every step of the way.",
+    "Thank you once more for choosing us. We can't wait to see your dream wedding " +
+      "become a reality."
+  ];
+  return '<div class="letter">' +
+    paras.map(function(p){ return '<p>' + esc(p) + '</p>'; }).join("") +
+    '<p class="sig" style="text-align:left;margin-top:14px">' +
+    esc(GM.name) + ' · ' + esc(GM.role) + '</p></div>';
+}
 
 /* ---------- journey content ----------
    Mirrors the printed "Your Wedding Journey" planner (V5), with every
@@ -663,6 +717,8 @@ function viewHome(){
     '<div style="margin-top:14px">' + statusPill(d.event.status) + '</div>' +
   '</section>';
 
+  h += gmWelcomeCard();
+
   /* Balance. A fully paid wedding gets a sentence, not a row of zeroes. */
   if (b.fullyPaid) {
     h += '<div class="notice notice--ok" style="margin-bottom:16px">' +
@@ -740,6 +796,28 @@ function viewHome(){
 
    So when we're framed, offer the way out. Dismissed once, stays dismissed. */
 var APP_URL = "https://app.blackhorsebeamish.co.uk/wedding/";
+
+/* Paul's welcome on the home screen, addressed to them by name. Shown until
+   they close it — after that it still lives at the top of their journey,
+   which is where a letter about the journey belongs anyway. */
+function gmWelcomeCard(){
+  try { if (localStorage.getItem("bhb_wedding_welcome") === "read") return ""; } catch (e) {}
+  var w = S.data.wedding;
+  return '<div class="welcome" id="gmCard" style="margin:0 0 16px;text-align:left">' +
+    '<div class="orn" style="margin:0 0 16px"><i></i></div>' +
+    '<h2 style="text-align:center;margin-bottom:4px">Welcome, ' + esc(w.salutation) + '</h2>' +
+    '<p class="sig" style="text-align:center;margin:0 0 16px">A word from ' + esc(GM.name) + '</p>' +
+    gmLetterHtml("To " + w.salutation + ",") +
+    '<div class="center" style="margin-top:18px">' +
+      '<button class="btn btn--sm" onclick="closeWelcome()">Thank you, Paul</button></div>' +
+  '</div>';
+}
+
+function closeWelcome(){
+  try { localStorage.setItem("bhb_wedding_welcome", "read"); } catch (e) {}
+  var el = $("gmCard");
+  if (el) el.remove();
+}
 
 function isFramed(){
   try { return window.top !== window.self; } catch (e) { return true; }
@@ -999,8 +1077,14 @@ function paymentMet(key){
 function viewJourney(){
   var w = S.data.wedding;
   var h = '<h1 style="margin-bottom:6px">Your wedding journey</h1>' +
-    '<p class="muted" style="margin:0 0 20px">' +
+    '<p class="muted" style="margin:0 0 18px">' +
     'However daunting the journey may seem — we are here to help every step of the way.</p>';
+
+  /* Paul's letter opens the journey, and stays here for good once the
+     welcome on the home screen has been read and closed. */
+  h += '<div class="welcome" style="text-align:left;margin-bottom:18px">' +
+    '<details><summary>A word from ' + esc(GM.name) + ', our ' + esc(GM.role.toLowerCase()) + '</summary>' +
+    gmLetterHtml("To " + w.salutation + ",") + '</details></div>';
 
   h += '<div class="card card--flush" style="padding:6px 22px">';
   journeyRows().forEach(function(r){
@@ -2195,7 +2279,7 @@ function exportBudget(){
   }
 
   if (S.token) start();
-  else { $("login").classList.remove("hide"); prefillLogin(); }
+  else { $("login").classList.remove("hide"); renderWelcome(); prefillLogin(); }
 })();
 </script>
 </body>
