@@ -57,6 +57,22 @@
   .busy-status.off{color:var(--green)}
   .btnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
   .muted{color:#0008;font-size:12px}
+  a.toplink{display:inline-flex;align-items:center;gap:4px;margin-top:12px;font-size:13px;color:var(--brass);
+    text-decoration:none;font-weight:700}
+  input[type=date]{font:inherit;padding:9px 10px;border:1px solid var(--line);border-radius:8px;
+    background:#fff;color:var(--ink);width:100%}
+  .cashup-sub{margin-top:22px}
+  .cashup-sub:first-of-type{margin-top:14px}
+  .cashup-sub h3{font-size:14px;letter-spacing:.5px;text-transform:uppercase;color:var(--brass);margin-bottom:2px}
+  table.cashup{width:100%;border-collapse:collapse;margin-top:8px;font-size:14px}
+  table.cashup th{text-align:left;font-size:11px;letter-spacing:.5px;text-transform:uppercase;color:#0007;
+    padding:0 0 6px;border-bottom:1px solid var(--line);font-weight:700}
+  table.cashup th.num, table.cashup td.num{text-align:right}
+  table.cashup td{padding:7px 0;border-bottom:1px solid var(--line)}
+  table.cashup tr.total td{font-weight:700;border-top:1.5px solid var(--ink);border-bottom:none;padding-top:8px}
+  .sumup-line{display:flex;justify-content:space-between;align-items:baseline;margin-top:12px;
+    padding-top:10px;border-top:1px dashed var(--line);font-weight:700}
+  .sumup-line .n{color:var(--green)}
   #savedToast{position:fixed;left:50%;bottom:20px;transform:translate(-50%,0);background:var(--ink);color:#fff;
     padding:10px 18px;border-radius:20px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s}
   #savedToast.show{opacity:1}
@@ -80,6 +96,7 @@
     <div class="tag">BLACK HORSE BEAMISH</div>
     <h1>Service Status</h1>
     <div class="sub">Toggle room service and outside table ordering, and the "kitchen busy" notice guests see. Changes apply immediately.</div>
+    <a class="toplink" href="index.html" target="_blank" rel="noopener">Full back-end portal ↗</a>
   </header>
 
   <!-- ROOM SERVICE -->
@@ -136,6 +153,31 @@
     </div>
   </div>
 
+  <!-- CASH UP -->
+  <div class="card">
+    <h2>Cash Up</h2>
+    <p class="muted" style="margin-top:4px">Trading day runs 05:00 → 05:00. Ring the items below through the till, then check the total against what SumUp actually took.</p>
+    <input type="date" id="cashupDay">
+
+    <div class="cashup-sub">
+      <h3>Room Service</h3>
+      <table class="cashup"><thead><tr><th>Item</th><th class="num">Qty</th><th class="num">£</th></tr></thead>
+        <tbody id="rsCashupBody"></tbody></table>
+      <div class="sumup-line"><span>Taken via SumUp</span><span class="n" id="rsSumupTaken">£0.00</span></div>
+    </div>
+
+    <div class="cashup-sub">
+      <h3>Outside Tables</h3>
+      <table class="cashup"><thead><tr><th>Item</th><th class="num">Qty</th><th class="num">£</th></tr></thead>
+        <tbody id="outCashupBody"></tbody></table>
+      <div class="sumup-line"><span>Taken via SumUp</span><span class="n" id="outSumupTaken">£0.00</span></div>
+    </div>
+
+    <div class="sumup-line" style="border-top-style:solid;font-size:16px">
+      <span>Total taken via SumUp</span><span class="n" id="allSumupTaken">£0.00</span>
+    </div>
+  </div>
+
   <p class="muted" style="margin-top:20px;text-align:center">Updates every 20 seconds · <span id="updated"></span></p>
 </div>
 
@@ -149,6 +191,7 @@ const CFG = {
   PASSWORD: "RedRow2026!"
 };
 const BUSY_DEFAULT_MSG = "The restaurant is currently extremely busy — please be aware your order will take longer than usual to prepare.";
+const DAY_START_HOUR = 5; // trading day boundary, matches the main portal
 // rs = room service (table: roomservice_availability / busy_notice)
 // out = outside tables (table: outside_availability / outside_busy_notice)
 const TABLES = {
@@ -170,8 +213,14 @@ document.getElementById("pw").addEventListener("keydown", e=>{ if(e.key==="Enter
 function showApp(){
   document.getElementById("gate").classList.add("hidden");
   document.getElementById("app").classList.remove("hidden");
+  const d = new Date();
+  if(d.getHours() < DAY_START_HOUR) d.setDate(d.getDate()-1);
+  const dayInput = document.getElementById("cashupDay");
+  dayInput.value = d.toISOString().slice(0,10);
+  dayInput.addEventListener("change", loadCashup);
   loadAll();
-  setInterval(loadAll, 20000);
+  loadCashup();
+  setInterval(()=>{ loadAll(); loadCashup(); }, 20000);
 }
 try{
   if(localStorage.getItem("bhb_service_status_ok")==="1") showApp();
@@ -312,6 +361,68 @@ async function clearBusy(key){
     renderBusy(key);
     toast("Busy notice off");
   }catch(e){ alert("Couldn't clear the notice: "+e.message); }
+}
+
+/* ---------- cash up ---------- */
+function dayWindow(){
+  const [y,m,d] = document.getElementById("cashupDay").value.split("-").map(Number);
+  const start = new Date(y, m-1, d, DAY_START_HOUR, 0, 0);
+  return { start, end: new Date(start.getTime() + 24*3600*1000) };
+}
+// Paid, real (not test/comp) orders only - same filter the main portal's
+// cash-up and "taken" figures use.
+function realPaid(orders, channel){
+  return (orders||[]).filter(o => o.channel===channel && o.status==="paid" && !o.is_test && !o.is_comp);
+}
+function renderCashupTable(bodyId, sumupId, orders){
+  const itemMap = {};
+  let itemsTotal = 0, chargeTotal = 0, sumupTaken = 0;
+  const chargeLabel = bodyId==="outCashupBody" ? "Service charge" : "Tray charge";
+  for(const o of orders){
+    chargeTotal += Number(o.tray_charge||0);
+    sumupTaken += Number(o.subtotal||0); // what SumUp actually charged - net of any discount/bundle deal
+    for(const l of (o.lines||[])){
+      const row = itemMap[l.name] || (itemMap[l.name] = {name:l.name, qty:0, total:0});
+      const lineTotal = (Number(l.unit_price)||0) * (Number(l.qty)||0);
+      row.qty += Number(l.qty)||0;
+      row.total += lineTotal;
+      itemsTotal += lineTotal;
+    }
+  }
+  const items = Object.values(itemMap).sort((a,b)=>a.name.localeCompare(b.name));
+  const b = document.getElementById(bodyId);
+  b.innerHTML = "";
+  if(!items.length){
+    b.innerHTML = '<tr><td colspan="3" class="muted">No paid orders for this day.</td></tr>';
+  } else {
+    for(const it of items){
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td>${esc(it.name)}</td><td class="num">${it.qty}</td><td class="num">£${it.total.toFixed(2)}</td>`;
+      b.appendChild(tr);
+    }
+    if(chargeTotal>0){
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td><i>${chargeLabel}</i></td><td class="num">${orders.length}</td><td class="num">£${chargeTotal.toFixed(2)}</td>`;
+      b.appendChild(tr);
+    }
+    const total = document.createElement("tr"); total.className = "total";
+    total.innerHTML = `<td>To ring through</td><td></td><td class="num">£${(itemsTotal+chargeTotal).toFixed(2)}</td>`;
+    b.appendChild(total);
+  }
+  document.getElementById(sumupId).textContent = "£"+sumupTaken.toFixed(2);
+  return sumupTaken;
+}
+function esc(s){ return String(s??"").replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+async function loadCashup(){
+  try{
+    const {start,end} = dayWindow();
+    const orders = await sb(`roomservice_orders?select=*&created_at=gte.${start.toISOString()}&created_at=lt.${end.toISOString()}`);
+    const rsTaken = renderCashupTable("rsCashupBody", "rsSumupTaken", realPaid(orders, "room_service"));
+    const outTaken = renderCashupTable("outCashupBody", "outSumupTaken", realPaid(orders, "outside"));
+    document.getElementById("allSumupTaken").textContent = "£"+(rsTaken+outTaken).toFixed(2);
+  }catch(e){
+    document.getElementById("rsCashupBody").innerHTML = '<tr><td colspan="3" class="muted">Couldn\'t load — '+esc(e.message)+'</td></tr>';
+  }
 }
 </script>
 </body>
