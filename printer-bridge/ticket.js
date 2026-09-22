@@ -110,6 +110,7 @@ function buildTicket(job, opts = {}) {
     cfg.category === "food" ? l.category === "food" : l.category !== "food"
   );
   const isOutside = p.channel === "outside";
+  const isStaffFood = p.channel === "staff_food";
   const created = job.created_at ? new Date(job.created_at) : null;
   const date = created ? created.toLocaleDateString("en-GB") : "";
   const time = created ? created.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : "";
@@ -128,7 +129,7 @@ function buildTicket(job, opts = {}) {
     chunks.push(escBytes([0x0a]));
   }
 
-  const tag = kindKey === "staff-copy" && isOutside ? "STAFF COPY" : cfg.tag;
+  const tag = kindKey === "staff-copy" && (isOutside || isStaffFood) ? "STAFF COPY" : cfg.tag;
   if (tag) {
     chunks.push(escBytes([0x1b, 0x45, 0x01]));
     push(`${tag}\n`);
@@ -142,9 +143,9 @@ function buildTicket(job, opts = {}) {
     chunks.push(escBytes([0x1d, 0x21, 0x00])); // back to normal size
   }
   chunks.push(escBytes([0x1d, 0x21, 0x11])); // double height + width
-  push(`${isOutside ? "OUTSIDE" : "ROOM SERVICE"}\n`);
+  push(`${isStaffFood ? "ASTON & CARBARN" : isOutside ? "OUTSIDE" : "ROOM SERVICE"}\n`);
   chunks.push(escBytes([0x1d, 0x21, 0x00])); // back to normal size
-  push(`${isOutside ? "Table " : "Room "}${p.room_number ?? "-"}\n`);
+  push(isStaffFood ? "Collect 12:30pm\n" : `${isOutside ? "Table " : "Room "}${p.room_number ?? "-"}\n`);
   chunks.push(escBytes([0x1b, 0x45, 0x00])); // bold off
   push(rule());
 
@@ -214,7 +215,7 @@ function buildTicket(job, opts = {}) {
     }
   }
 
-  if (cfg.signoff && !isOutside) {
+  if (cfg.signoff && !isOutside && !isStaffFood) {
     push(rule());
     chunks.push(escBytes([0x0a, 0x0a, 0x0a])); // gap before sign-off, further down the check
     chunks.push(escBytes([0x1b, 0x61, 0x00])); // left align

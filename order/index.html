@@ -111,6 +111,17 @@
 <body>
 <div id="testBanner">TEST MODE — no payment will be taken</div>
 
+<!-- ===================== STAFF FOOD PASSWORD GATE ===================== -->
+<section id="staffGate" class="screen" style="align-items:center;justify-content:center;text-align:center;padding:30px;background:var(--ink);color:#fff">
+  <div class="welcome-tag" style="font-size:12px;letter-spacing:3px;text-transform:uppercase;color:#ffffff90;margin-bottom:10px">STAFF FOOD</div>
+  <div class="big script" style="font-family:'Kristi',cursive;font-size:38px;font-weight:400;line-height:1.1">Staff only</div>
+  <div class="msg" style="color:#ffffffb0;font-size:15px;max-width:320px;font-style:italic;margin:10px 0 22px">Enter the staff password to order. You'll only need this once on this device.</div>
+  <input id="staffGatePw" type="password" placeholder="Password" autocomplete="off"
+    style="width:100%;max-width:280px;box-sizing:border-box;padding:13px;border:1px solid #ffffff40;border-radius:2px;background:transparent;color:#fff;font-size:15px;text-align:center;font-family:inherit">
+  <div id="staffGateErr" style="color:#ff9a9a;font-size:13px;min-height:20px;margin-top:8px"></div>
+  <button class="back" onclick="tryStaffUnlock()" style="margin-top:8px;background:#fff;color:var(--ink);border:0;padding:13px 28px;border-radius:2px;font-weight:600;letter-spacing:1px;text-transform:uppercase;font-size:13px">Unlock</button>
+</section>
+
 <!-- ===================== WELCOME ===================== -->
 <section id="welcome" class="screen on">
   <img src="../app/logo-light.png" alt="">
@@ -187,7 +198,7 @@
       </div>
       <div class="subtotrow minor"><span>Items</span><span>£<span id="itemsSubtotal">0.00</span></span></div>
       <div class="subtotrow minor" id="bundleTotalRow" style="display:none"><span id="bundleTotalLabel">Deal savings</span><span>-£<span id="bundleTotalAmt">0.00</span></span></div>
-      <div class="subtotrow minor"><span id="chargeLabel">Tray charge</span><span>£<span id="trayCharge">0.00</span></span></div>
+      <div class="subtotrow minor" id="chargeRow"><span id="chargeLabel">Tray charge</span><span>£<span id="trayCharge">0.00</span></span></div>
       <div class="subtotrow minor" id="discountTotalRow" style="display:none"><span id="discountTotalLabel">Discount</span><span>-£<span id="discountTotalAmt">0.00</span></span></div>
       <div class="subtotrow total"><span>Total</span><span>£<span id="subtotal">0.00</span></span></div>
     </div>
@@ -360,10 +371,33 @@ function isFridayNow(){
   }catch(e){ return false; }
 }
 var TEST_PASSWORD = "Test01207";
+var STAFF_PASSWORD = "AstonCarbarn26!"; // shared staff password - change here to rotate it
+function tryStaffUnlock(){
+  if($("staffGatePw").value === STAFF_PASSWORD){
+    try{ localStorage.setItem("bhb_staff_food_ok","1"); }catch(e){}
+    show("welcome");
+  } else {
+    $("staffGateErr").textContent = "Incorrect password";
+  }
+}
+$("staffGatePw").addEventListener("keydown", function(e){ if(e.key==="Enter") tryStaffUnlock(); });
 function isOutside(){ return S.channel === "outside"; }
+function isStaffFood(){ return S.channel === "staff_food"; }
 function extraCharge(itemsTotal){
-  if(!itemsTotal) return 0;
+  if(!itemsTotal || isStaffFood()) return 0; // staff food: no tray/service charge, collection not delivery
   return isOutside() ? Math.round((itemsTotal*SERVICE_CHARGE_PCT + Number.EPSILON)*100)/100 : TRAY_CHARGE;
+}
+// Staff Food only orders 06:00-11:00 (Europe/London), collection 12:30 -
+// hard client-side gate; sumup-create-checkout enforces the same window
+// server-side so a stale tab or wrong device clock can't still pay.
+function isStaffFoodWindowNow(){
+  try{
+    var parts = new Intl.DateTimeFormat("en-GB", { timeZone:"Europe/London", hour:"2-digit", minute:"2-digit", hour12:false }).formatToParts(new Date());
+    var h = parseInt(parts.find(function(p){return p.type==="hour";}).value, 10);
+    var m = parseInt(parts.find(function(p){return p.type==="minute";}).value, 10);
+    var total = h*60+m;
+    return total >= 6*60 && total < 11*60;
+  }catch(e){ return true; }
 }
 function applyChannelCopy(){
   if(isOutside()){
@@ -398,6 +432,15 @@ function applyChannelCopy(){
     $("welcomeMsg").textContent = "This link is just for you — no one else can use it, and no payment is ever taken. Orders you place here go straight to the kitchen.";
     $("catHeading").textContent = "Bob's House";
   }
+  if(isStaffFood()){
+    document.title = "Aston & Carbarn Staff Food";
+    $("welcomeTag").textContent = "Staff Food";
+    $("welcomeMsg").textContent = "Order by 11am, collection at 12:30pm.";
+    $("catHeading").textContent = "Aston & Carbarn";
+    $("catSub").textContent = "Order by 11am — collection 12:30pm";
+    $("nameLbl").textContent = "Your name";
+    $("closedHeading").textContent = "Staff Food ordering is currently unavailable";
+  }
 }
 
 function $(id){ return document.getElementById(id); }
@@ -405,7 +448,7 @@ function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g, function(c){ ret
 function money(n){ return (Math.round((n+Number.EPSILON)*100)/100).toFixed(2); }
 function toast(m){ var t=$("toast"); t.textContent=m; t.classList.add("show"); clearTimeout(toast._t); toast._t=setTimeout(function(){t.classList.remove("show");},2400); }
 function show(name){
-  ["welcome","categories","drinksub","winetype","menu","basket","status","closed"].forEach(function(n){ $(n).classList.toggle("on", n===name); });
+  ["staffGate","welcome","categories","drinksub","winetype","menu","basket","status","closed"].forEach(function(n){ $(n).classList.toggle("on", n===name); });
   if(name==="basket") renderBasket();
   renderBasketBar();
 }
@@ -426,8 +469,9 @@ async function sb(path, opts){
 /* ---------------- categories ---------------- */
 async function loadMenu(){
   try{
+    var scope = isStaffFood() ? "staff" : "main";
     var field = isOutside() ? "available_outside" : "available";
-    var rows = await sb("roomservice_menu_items?select=*&"+field+"=eq.true&order=sort_order.asc");
+    var rows = await sb("roomservice_menu_items?select=*&menu_scope=eq."+scope+"&"+field+"=eq.true&order=sort_order.asc");
     var sunday = isSundayNow();
     S.menu = (rows || []).filter(function(m){ return !m.sunday_only || sunday; });
     renderCategories();
@@ -954,6 +998,7 @@ function renderBasket(){
     $("bundleTotalRow").style.display = "none";
   }
   $("trayCharge").textContent = money(charge);
+  $("chargeRow").style.display = isStaffFood() ? "none" : "flex";
   if(S.discount){
     $("discountEntryRow").style.display = "none";
     $("discountAppliedRow").style.display = "flex";
@@ -1012,11 +1057,16 @@ try{
 }catch(e){}
 
 $("payBtn").onclick = async function(){
-  var name = S.isComp ? "Bob" : $("gName").value.trim(), room = S.lockedRoom || $("gRoom").value.trim();
+  var name = S.isComp ? "Bob" : $("gName").value.trim();
+  var room = isStaffFood() ? "-" : (S.lockedRoom || $("gRoom").value.trim());
   $("basketErr").textContent = "";
   if(!cartLines().length) return;
-  if(!name){ $("basketErr").textContent = isOutside() ? "Please enter your name." : "Please enter the name the room is booked under."; return; }
-  if(!room){ $("basketErr").textContent = isOutside() ? "Please enter your table number." : "Please enter your room number."; return; }
+  // Client-side check for immediate feedback - sumup-create-checkout enforces
+  // the same window server-side, which is the one that actually matters
+  // (a tab left open past 11am, or a wrong device clock, must not still pay).
+  if(isStaffFood() && !isStaffFoodWindowNow()){ $("basketErr").textContent = "Staff Food ordering is only open 06:00–11:00. Please try again tomorrow."; return; }
+  if(!name){ $("basketErr").textContent = isStaffFood() ? "Please enter your name." : (isOutside() ? "Please enter your name." : "Please enter the name the room is booked under."); return; }
+  if(!room && !isStaffFood()){ $("basketErr").textContent = isOutside() ? "Please enter your table number." : "Please enter your room number."; return; }
   var btn = $("payBtn"); btn.disabled = true; var oldHtml = btn.innerHTML; btn.textContent = "Please wait…";
   try{
     var cLines = cartLines();
@@ -1143,9 +1193,14 @@ function beginReceiptFlow(order, kind){
   $("stBig").textContent = "";
   $("stMsg").textContent = "";
   // Comp orders (Bob) aren't paid for, so there's no VAT receipt to offer -
-  // skip straight to the kitchen instead of asking.
-  if(kind === "comp"){ finishReceiptChoice("none"); return; }
+  // skip straight to the kitchen instead of asking. Staff Food has no email
+  // field at all, so there's nothing to offer a receipt to either.
+  if(kind === "comp" || order.channel === "staff_food"){ finishReceiptChoice("none"); return; }
   openReceiptModal();
+}
+function orderLocation(o){
+  if(o.channel==="staff_food") return "";
+  return (o.channel==="outside" ? "Table " : "Room ") + o.room_number;
 }
 async function finishReceiptChoice(choice, email){
   closeReceiptModal();
@@ -1154,14 +1209,14 @@ async function finishReceiptChoice(choice, email){
   $("stBig").classList.add("script");
   $("stBig").textContent = "Thank you, " + (o.guest_name||"") + "!";
   var msg;
-  if(S.lastOrderKind === "test"){
-    var loc = (o.channel==="outside" ? "Table " : "Room ") + o.room_number;
-    msg = "TEST order #" + o.order_no + " for " + loc + " has been sent to the virtual printers. No payment was taken.";
+  if(o.channel === "staff_food"){
+    msg = "Order #" + o.order_no + (S.lastOrderKind==="test" ? " (TEST, no payment taken)" : "") + " is being prepared — collect from Aston & Carbarn at 12:30pm.";
+  } else if(S.lastOrderKind === "test"){
+    msg = "TEST order #" + o.order_no + " for " + orderLocation(o) + " has been sent to the virtual printers. No payment was taken.";
   } else if(S.lastOrderKind === "comp"){
     msg = "Order #" + o.order_no + " has been sent to the kitchen.";
   } else {
-    var loc2 = (o.channel==="outside" ? "Table " : "Room ") + o.room_number;
-    msg = "Order #" + o.order_no + " for " + loc2 + " is on its way. It'll be with you shortly.";
+    msg = "Order #" + o.order_no + " for " + orderLocation(o) + " is on its way. It'll be with you shortly.";
   }
   if(choice === "email") msg += " A receipt has been sent to " + email + ".";
   else if(choice === "print") msg += " A receipt will be printed for you at the bar.";
@@ -1284,6 +1339,22 @@ async function checkAvailability(){
   }catch(e){ /* fail open — never block ordering on this */ }
   return true;
 }
+// Staff Food has its own fixed 06:00-11:00 window (isStaffFoodWindowNow)
+// separate from the guest 12:00-20:45 hours - "automate" here just means
+// "follow that window", "off" means the kitchen has manually forced it
+// open or closed regardless of the window (e.g. can't cover it that day).
+function isStaffFoodAvailableNow(row){
+  if(!row || row.automate) return isStaffFoodWindowNow();
+  return !!row.manual_available;
+}
+async function checkStaffFoodAvailability(){
+  try{
+    var rows = await sb("staff_food_availability?id=eq.1&select=automate,manual_available");
+    var row = rows && rows[0];
+    if(!isStaffFoodAvailableNow(row)){ show("closed"); return false; }
+  }catch(e){ /* fail open — never block ordering on this */ }
+  return true;
+}
 
 /* ---------------- welcome ---------------- */
 function startOrder(){
@@ -1291,6 +1362,13 @@ function startOrder(){
   // Bob's link bypasses the open/closed gate entirely - staff placing a
   // comp order shouldn't be blocked by normal service hours.
   if(S.isComp){ loadMenu(); checkBusyNotice(); return; }
+  if(isStaffFood()){
+    checkStaffFoodAvailability().then(function(available){
+      if(!available) return;
+      loadMenu();
+    });
+    return;
+  }
   checkAvailability().then(function(available){
     if(!available) return;
     loadMenu();
@@ -1317,20 +1395,34 @@ async function checkBusyNotice(){
   var params = new URLSearchParams(location.search);
   var lockedTable = params.get("table");
   var lockedRoom = lockedTable || params.get("room");
-  S.channel = lockedTable ? "outside" : "room_service";
+  var isStaffLink = params.get("staff") === "1";
+  S.channel = isStaffLink ? "staff_food" : (lockedTable ? "outside" : "room_service");
   S.isComp = params.get("comp") === "1";
   loadPersistedCart();
   renderBasketBar();
   applyChannelCopy();
-  if(lockedRoom){
+  if(lockedRoom && !isStaffLink){
     S.lockedRoom = lockedRoom;
     $("roomFld").style.display = "none";
     $("roomLockedFld").style.display = "";
     $("roomLockedVal").textContent = lockedRoom;
   }
   if(S.isComp){ $("payVerb").textContent = "Place order"; $("nameFld").style.display = "none"; }
+  if(isStaffLink){
+    // Collection, not delivery - just a name, no room/table field at all.
+    $("roomFld").style.display = "none";
+    $("roomLockedFld").style.display = "none";
+  }
   var orderId = params.get("order");
   if(orderId){ loadMenu(); pollOrder(orderId); return; }
+  if(isStaffLink){
+    try{
+      if(localStorage.getItem("bhb_staff_food_ok") === "1"){ show("welcome"); return; }
+    }catch(e){}
+    show("staffGate");
+    setTimeout(function(){ $("staffGatePw").focus(); }, 30);
+    return;
+  }
   show("welcome");
 })();
 </script>

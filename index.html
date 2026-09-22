@@ -553,7 +553,7 @@ async function load(){
       sb(`till_voids?select=*&ts=gte.${start.toISOString()}&ts=lt.${end.toISOString()}&order=ts.desc`),
       sb(`till_menu_items?select=*`),
       sb(`roomservice_orders?select=*&created_at=gte.${start.toISOString()}&created_at=lt.${end.toISOString()}&order=created_at.desc`).catch(()=>[]),
-      sb(`roomservice_menu_items?select=*&order=sort_order.asc`).catch(()=>[]),
+      sb(`roomservice_menu_items?select=*&menu_scope=eq.main&order=sort_order.asc`).catch(()=>[]),
       sb(`busy_notice?id=eq.1&select=*`).catch(()=>[]),
       sb(`roomservice_availability?id=eq.1&select=*`).catch(()=>[]),
       sb(`print_jobs?select=*&order=created_at.desc&limit=40`).catch(()=>[]),
@@ -1395,7 +1395,7 @@ function renderRsMenu(){
     b.appendChild(tr);
   }
 }
-async function reloadRsMenu(){ ST.rsMenu = await sb(`roomservice_menu_items?select=*&order=sort_order.asc`) || []; renderRsMenu(); }
+async function reloadRsMenu(){ ST.rsMenu = await sb(`roomservice_menu_items?select=*&menu_scope=eq.main&order=sort_order.asc`) || []; renderRsMenu(); }
 function rsRowBody(get, getChecked){
   const section = get("menu_section");
   const isDrink = section === "Drinks";
