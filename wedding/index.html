@@ -343,6 +343,10 @@ footer.app{border-top:1px solid var(--mist);padding:26px 0;text-align:center;fon
   font-family:var(--body);font-size:.875rem;color:var(--sage)}
 .pool button:hover{border-color:var(--sage)}
 .pool button[disabled]{opacity:.4;cursor:not-allowed}
+/* A household reads as one thing, because that is how it is seated. */
+.pool button.grp{border-color:var(--celadon);background:var(--sage-10)}
+.pool button.grp b{font-weight:500}
+.pool button .n{color:var(--sage-70);font-size:.8125rem}
 
 .spin{display:inline-block;width:16px;height:16px;border:2px solid var(--mist);
   border-top-color:var(--sage);border-radius:50%;animation:s .7s linear infinite;vertical-align:-3px}
@@ -2396,14 +2400,15 @@ function rowsFromText(text){
    Name is one column, not two: that is how a guest list arrives from a
    spreadsheet, and the importer splits it. Dietary and Allergies stay
    apart — an allergy is a safety matter and goes to the kitchen in red,
-   a preference does not. */
+   a preference does not. Household is here because it now does something:
+   the table plan seats a household together and flags one that is split. */
 function downloadTemplate(){
   csv("guest-list-template",
-    ["Name","Email","Day / evening","Age group","Dietary","Allergies","Notes"],
-    [["Jane Wilson","jane@example.com","Day","Adult","Vegetarian","","Sitting with her sister"],
-     ["Tom Wilson","tom@example.com","Day","Adult","","Nuts",""],
-     ["Ruby Wilson","","Day","Child","","",""],
-     ["Alex Doyle","alex@example.com","Evening","Adult","","",""]]);
+    ["Name","Email","Day / evening","Age group","Household","Dietary","Allergies","Notes"],
+    [["Jane Wilson","jane@example.com","Day","Adult","The Wilsons","Vegetarian","","Sitting with her sister"],
+     ["Tom Wilson","tom@example.com","Day","Adult","The Wilsons","","Nuts",""],
+     ["Ruby Wilson","","Day","Child","The Wilsons","","",""],
+     ["Alex Doyle","alex@example.com","Evening","Adult","","","",""]]);
 }
 
 function openImport(){
@@ -2970,6 +2975,45 @@ async function loadTables(){
   } catch (e) { showError(e.message); $("views").innerHTML = ""; }
 }
 
+/* ---------- households ----------
+   A household is free text the couple typed — "The Wilsons", "Wilsons",
+   "the wilsons" are all the same family, so match on a squashed key and
+   show whichever spelling they used first. */
+function householdKey(v){
+  return String(v || "").toLowerCase().replace(/^the\s+/, "").replace(/\s+/g, " ").trim();
+}
+
+/** Households among these guests, largest first. Singletons are not a group. */
+function householdsOf(guests){
+  var by = {};
+  guests.forEach(function(g){
+    var k = householdKey(g.household);
+    if (!k) return;
+    if (!by[k]) by[k] = { key:k, label:String(g.household).trim(), members:[] };
+    by[k].members.push(g);
+  });
+  return Object.keys(by).map(function(k){ return by[k]; })
+    .filter(function(h){ return h.members.length > 1; })
+    .sort(function(a,b){ return b.members.length - a.members.length; });
+}
+
+/** Households sitting at more than one table — the thing to warn about. */
+function splitHouseholds(guests){
+  return householdsOf(guests).filter(function(h){
+    var seen = {}, n = 0;
+    h.members.forEach(function(g){
+      if (!g.table_id) return;
+      if (!seen[g.table_id]) { seen[g.table_id] = true; n++; }
+    });
+    return n > 1;
+  });
+}
+
+function tableName(id){
+  var t = S.tables.filter(function(x){ return x.id === id; })[0];
+  return t ? t.name : "a table";
+}
+
 function viewTables(){
   var sitting = S.guests.filter(function(g){
     return g.rsvp === "attending" && g.invited_to !== "evening";
@@ -3013,14 +3057,45 @@ function viewTables(){
     h += '<p class="muted" style="margin:0">Everyone has a seat. ' +
       (sitting.length ? 'Lovely bit of admin, that.' : '') + '</p>';
   } else {
-    h += '<p class="muted" style="margin:0 0 12px;font-size:.875rem">Tap a guest, then choose their table.</p>' +
-      '<div class="pool">' + unseated.map(function(g){
+    var groups = householdsOf(unseated);
+    var grouped = {};
+    groups.forEach(function(hh){
+      hh.members.forEach(function(g){ grouped[g.id] = true; });
+    });
+    var singles = unseated.filter(function(g){ return !grouped[g.id]; });
+
+    h += '<p class="muted" style="margin:0 0 12px;font-size:.875rem">' +
+      'Tap a guest, then choose their table. ' +
+      (groups.length ? 'Households sit down together in one go.' : '') + '</p>' +
+      '<div class="pool">' +
+      groups.map(function(hh){
+        return '<button class="grp" onclick="seatHousehold(&quot;' + esc(hh.key) + '&quot;)">' +
+          '<b>' + esc(hh.label) + '</b> <span class="n">' + hh.members.length + '</span>' +
+          (hh.members.some(function(g){ return g.allergies; })
+            ? ' <span style="color:var(--alert)">&bull;</span>' : '') + '</button>';
+      }).join("") +
+      singles.map(function(g){
         return '<button onclick="seatGuest(\'' + g.id + '\')">' +
           esc(g.first_name + " " + (g.surname||"")) +
-          (g.allergies ? ' <span style="color:var(--alert)">•</span>' : '') + '</button>';
+          (g.allergies ? ' <span style="color:var(--alert)">&bull;</span>' : '') + '</button>';
       }).join("") + '</div>';
   }
   h += '</div>';
+
+  /* A family split across two tables is almost always a slip rather than a
+     decision, so say so — but say it, do not undo it. */
+  var split = splitHouseholds(sitting);
+  if (split.length) {
+    h += '<div class="notice notice--due" style="margin-bottom:16px">' +
+      split.map(function(hh){
+        var where = {};
+        hh.members.forEach(function(g){ if (g.table_id) where[tableName(g.table_id)] = true; });
+        return '<div style="margin-bottom:6px"><strong>' + esc(hh.label) + '</strong> are split ' +
+          'across ' + esc(Object.keys(where).join(" and ")) + '. ' +
+          '<a href="#" onclick="seatHousehold(&quot;' + esc(hh.key) + '&quot;);return false">' +
+          'Sit them together</a></div>';
+      }).join("") + '</div>';
+  }
 
   /* ---- the tables ---- */
   h += '<div class="plan">';
@@ -3127,17 +3202,88 @@ function seatGuest(guestId){
   var sitting = S.guests.filter(function(x){
     return x.rsvp === "attending" && x.invited_to !== "evening";
   });
+
+  // Where the rest of their household is already sitting, if anywhere.
+  var key = householdKey(g.household);
+  var familyTables = {};
+  if (key) {
+    sitting.forEach(function(x){
+      if (x.id !== g.id && x.table_id && householdKey(x.household) === key) {
+        familyTables[x.table_id] = true;
+      }
+    });
+  }
+
   var h = '<div class="split" style="margin-bottom:14px">' +
     '<h2>Where shall ' + esc(g.first_name) + ' sit?</h2>' +
-    '<button class="btn btn--sm" onclick="closeModal()">Close</button></div><div class="pool">';
+    '<button class="btn btn--sm" onclick="closeModal()">Close</button></div>';
+
+  if (Object.keys(familyTables).length) {
+    h += '<p class="muted" style="margin:0 0 12px;font-size:.875rem">' +
+      esc(g.household) + ' are already on ' +
+      esc(Object.keys(familyTables).map(tableName).join(" and ")) + '.</p>';
+  }
+
+  h += '<div class="pool">';
   S.tables.forEach(function(t){
     var n = sitting.filter(function(x){ return x.table_id === t.id; }).length;
     var full = n >= Number(t.capacity);
-    h += '<button ' + (full ? "disabled" : "") + ' onclick="assign(\'' + guestId + '\',\'' + t.id + '\')">' +
-      esc(t.name) + ' <span class="muted">' + n + '/' + esc(t.capacity) + '</span></button>';
+    h += '<button ' + (full ? "disabled" : "") +
+      (familyTables[t.id] ? ' class="grp"' : '') +
+      ' onclick="assign(\'' + guestId + '\',\'' + t.id + '\')">' +
+      esc(t.name) + ' <span class="n">' + n + '/' + esc(t.capacity) + '</span>' +
+      (familyTables[t.id] ? ' <span class="n">&mdash; their family</span>' : '') + '</button>';
   });
   h += '</div>';
   showModal(h);
+}
+
+/* ---------- seating a whole household ---------- */
+function seatHousehold(key){
+  var sitting = S.guests.filter(function(x){
+    return x.rsvp === "attending" && x.invited_to !== "evening";
+  });
+  var members = sitting.filter(function(g){ return householdKey(g.household) === key; });
+  if (!members.length) { showError("Nobody in that household needs a seat."); return; }
+
+  var label = members[0].household;
+  var ids = members.map(function(g){ return g.id; });
+
+  var h = '<div class="split" style="margin-bottom:6px">' +
+    '<h2>Where shall ' + esc(label) + ' sit?</h2>' +
+    '<button class="btn btn--sm" onclick="closeModal()">Close</button></div>' +
+    '<p class="muted" style="margin:0 0 12px;font-size:.875rem">' +
+      esc(members.map(function(g){ return g.first_name; }).join(", ")) +
+      ' &mdash; ' + members.length + ' seats together.</p><div class="pool">';
+
+  var anyRoom = false;
+  S.tables.forEach(function(t){
+    // Anyone already at this table does not need a second seat at it.
+    var on = sitting.filter(function(x){ return x.table_id === t.id; });
+    var moving = members.filter(function(g){ return g.table_id !== t.id; }).length;
+    var room = Number(t.capacity) - on.length;
+    var fits = moving <= room;
+    if (fits) anyRoom = true;
+    h += '<button ' + (fits ? "" : "disabled") +
+      ' onclick="assignMany(' + JSON.stringify(ids).replace(/"/g, "&quot;") +
+      ',\'' + t.id + '\')">' +
+      esc(t.name) + ' <span class="n">' + on.length + '/' + esc(t.capacity) + '</span></button>';
+  });
+  h += '</div>';
+
+  if (!anyRoom) {
+    h += '<div class="notice notice--due" style="margin:12px 0 0">' +
+      'No table has ' + members.length + ' seats free. Make one bigger, add another, ' +
+      'or seat them one at a time from the list.</div>';
+  }
+  showModal(h);
+}
+
+async function assignMany(ids, tableId){
+  try {
+    await api("tables.assignMany", { guest_ids:ids, table_id:tableId });
+    closeModal(); await loadTables(); clearError();
+  } catch (e) { closeModal(); showError(e.message); }
 }
 
 async function assign(guestId, tableId){
