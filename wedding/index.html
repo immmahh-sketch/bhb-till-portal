@@ -1486,6 +1486,35 @@ function go(v){
 }
 
 /* ============================ DETAILS ============================ */
+/* One number for guests is wrong on almost every wedding here: the
+   daytime and the evening are different bookings with different numbers,
+   and the event-level figure agrees with neither. Read them off the
+   functions, which are what is actually booked, and show both when both
+   exist — without adding them together, because an evening number
+   usually already includes the day guests who stay on. */
+function guestNumbers(){
+  var fns = (S.data.functions || []);
+  var isEvening = function(f){ return /evening|party|disco/i.test(f.name); };
+  var most = function(list){
+    return list.reduce(function(m, f){ return Math.max(m, Number(f.numberOfGuests) || 0); }, 0);
+  };
+  return {
+    day: most(fns.filter(function(f){ return !isEvening(f); })),
+    evening: most(fns.filter(isEvening)),
+    stated: Number(S.data.event && S.data.event.guests) || 0
+  };
+}
+
+function guestNumbersHtml(){
+  var g = guestNumbers();
+  if (g.day && g.evening) {
+    return '<span class="num">' + g.day + '</span> during the day<br>' +
+           '<span class="num">' + g.evening + '</span> in the evening';
+  }
+  if (g.day || g.evening) return '<span class="num">' + (g.day || g.evening) + '</span>';
+  return '<span class="num">' + esc(g.stated) + '</span>';
+}
+
 function viewDetails(){
   var d = S.data, w = d.wedding;
   var h = '<h1 style="margin-bottom:18px">Your details</h1>';
@@ -1494,7 +1523,7 @@ function viewDetails(){
     '<tr><th>Couple</th><td>' + esc(w.partner1_name) + ' &amp; ' + esc(w.partner2_name) + '</td></tr>' +
     '<tr><th>Date</th><td>' + esc(weekday(w.wedding_date)) + ' ' + esc(ukDate(w.wedding_date)) + '</td></tr>' +
     '<tr><th>Status</th><td>' + statusPill(d.event.status) + '</td></tr>' +
-    '<tr><th>Guests</th><td class="num">' + esc(d.event.guests) + '</td></tr>' +
+    '<tr><th>Guests</th><td>' + guestNumbersHtml() + '</td></tr>' +
     '<tr><th>Your reference</th><td class="num">' + esc(w.event_id) + '</td></tr>' +
     (w.booking_refs && w.booking_refs.length
       ? '<tr><th>Booking references</th><td class="num">' + w.booking_refs.map(esc).join("<br>") + '</td></tr>' : '') +
