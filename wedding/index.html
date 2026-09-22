@@ -80,7 +80,8 @@ a{color:inherit}
 .muted{color:var(--sage-70)}
 .center{text-align:center}
 .wrap{max-width:820px;margin:0 auto;padding:0 20px;width:100%}
-table{table-layout:auto;word-break:break-word}
+table{table-layout:auto}
+td,th{overflow-wrap:break-word}
 .hide{display:none!important}
 
 /* ---- buttons: hairline rectangles, square corners, as on the website ---- */
@@ -88,7 +89,7 @@ table{table-layout:auto;word-break:break-word}
   display:inline-block;background:transparent;color:var(--sage);
   border:1px solid currentColor;border-radius:0;padding:13px 26px;
   font:500 .8125rem/1 var(--body);letter-spacing:var(--track-wide);
-  text-transform:uppercase;text-decoration:none;cursor:pointer;
+  text-transform:uppercase;text-decoration:none;cursor:pointer;white-space:nowrap;
   transition:background .16s,color .16s;
 }
 .btn:hover{background:var(--sage);color:var(--bone)}
@@ -117,7 +118,8 @@ textarea{min-height:70px;resize:vertical}
 
 /* ---- pills ---- */
 .pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:3px 11px;
-  font-size:.6875rem;font-weight:500;letter-spacing:var(--track-label);text-transform:uppercase}
+  font-size:.6875rem;font-weight:500;letter-spacing:var(--track-label);text-transform:uppercase;
+  white-space:nowrap}
 .pill--ok{background:var(--sage-10);color:var(--sage)}
 .pill--due{background:var(--attention-bg);color:var(--attention)}
 .pill--late{background:var(--alert-bg);color:var(--alert)}
@@ -196,6 +198,24 @@ th{font-size:.6875rem;font-weight:500;letter-spacing:var(--track-label);text-tra
 td{padding:12px 14px;border-bottom:1px solid var(--mist);vertical-align:top}
 td.money,th.money{text-align:right;font-variant-numeric:tabular-nums}
 tr:last-child td{border-bottom:0}
+
+/* Tables with more columns than a phone can carry. Below 620px each row
+   becomes a block and the cells stack, with the header repeated as a label
+   on each cell so nothing loses its meaning. */
+@media(max-width:620px){
+  table.stack thead{display:none}
+  table.stack, table.stack tbody, table.stack tr, table.stack td{display:block;width:100%}
+  table.stack tr{padding:14px 0;border-bottom:1px solid var(--mist)}
+  table.stack tr:last-child{border-bottom:0}
+  table.stack td{border:0;padding:3px 0;text-align:left!important}
+  table.stack td:first-child{padding-top:0}
+  table.stack td[data-label]:before{
+    content:attr(data-label);display:block;
+    font-size:.625rem;font-weight:500;letter-spacing:var(--track-label);
+    text-transform:uppercase;color:var(--sage-70);margin-bottom:2px;
+  }
+  table.stack td.money{font-variant-numeric:tabular-nums}
+}
 @media(max-width:560px){th,td{padding:10px 12px;font-size:.9375rem}}
 
 /* ---- timeline ---- */
@@ -1184,12 +1204,12 @@ function viewPay(){
   /* ---- Payment schedule against the journey ---- */
   h += '<div class="card"><h2 style="margin-bottom:6px">Your payment schedule</h2>' +
     '<p class="muted" style="margin:0 0 14px;font-size:.9375rem">' +
-    'Checked against what we\'ve received.</p><table><thead><tr>' +
+    'Checked against what we\'ve received.</p><table class="stack"><thead><tr>' +
     '<th>When</th><th>Due by</th><th class="money">Paid by then</th><th></th></tr></thead><tbody>';
   schedule().forEach(function(r){
-    h += '<tr><td>' + esc(r.title) + '<br><span class="muted">' + r.pct + '% of total</span></td>' +
-      '<td class="num">' + esc(ukDateShort(r.due)) + '</td>' +
-      '<td class="money num">' + money(r.target) + '</td>' +
+    h += '<tr><td data-label="When">' + esc(r.title) + '<br><span class="muted">' + r.pct + '% of total</span></td>' +
+      '<td class="num" data-label="Due by">' + esc(ukDateShort(r.due)) + '</td>' +
+      '<td class="money num" data-label="Paid by then">' + money(r.target) + '</td>' +
       '<td class="money">' + (r.met
         ? '<span class="pill pill--ok">Met</span>'
         : (r.overdue ? '<span class="pill pill--late">Overdue</span>' : '<span class="pill pill--due">Due</span>')) +
@@ -1584,9 +1604,9 @@ function viewGuests(){
   if (!g.length) {
     h += '<div class="empty">No guests yet. Add your first above.</div>';
   } else {
-    h += '<table><thead><tr><th>Guest</th><th>Invited to</th><th>Invite</th><th>RSVP</th><th></th></tr></thead><tbody>';
+    h += '<table class="stack"><thead><tr><th>Guest</th><th>Invited to</th><th>Invite</th><th>RSVP</th><th></th></tr></thead><tbody>';
     g.forEach(function(x){
-      h += '<tr id="g_' + x.id + '"><td><strong>' + esc(x.first_name + " " + (x.surname||"")) + '</strong>' +
+      h += '<tr id="g_' + x.id + '"><td data-label="Guest"><strong>' + esc(x.first_name + " " + (x.surname||"")) + '</strong>' +
         (x.age_group !== "adult" ? ' <span class="pill pill--prov">' + esc(x.age_group) + '</span>' : '') +
         (x.household ? '<br><span class="muted" style="font-size:.8125rem">' + esc(x.household) + '</span>' : '') +
         (x.email ? '<br><span class="muted" style="font-size:.8125rem">' + esc(x.email) + '</span>' : '') +
@@ -1594,13 +1614,13 @@ function viewGuests(){
         (x.dietary ? '<br><span class="muted" style="font-size:.8125rem">Dietary: ' + esc(x.dietary) + '</span>' : '') +
         (x.accessibility ? '<br><span class="muted" style="font-size:.8125rem">Access: ' + esc(x.accessibility) + '</span>' : '') +
         '</td>' +
-        '<td>' + esc(x.invited_to === "both" ? "Day & evening" : (x.invited_to === "day" ? "Day" : "Evening")) + '</td>' +
-        '<td>' + (x.invite_sent_at
+        '<td data-label="Invited to">' + esc(x.invited_to === "both" ? "Day & evening" : (x.invited_to === "day" ? "Day" : "Evening")) + '</td>' +
+        '<td data-label="Invite">' + (x.invite_sent_at
           ? '<span class="pill pill--ok">Sent</span><br><span class="muted" style="font-size:.75rem">' + esc(ukDateShort(x.invite_sent_at)) + '</span>'
           : (x.email
             ? '<button class="btn btn--sm" onclick="sendInvites(\'' + x.id + '\')">Send</button>'
             : '<span class="muted" style="font-size:.8125rem">No email</span>')) + '</td>' +
-        '<td>' + rsvpPill(x.rsvp) +
+        '<td data-label="RSVP">' + rsvpPill(x.rsvp) +
           (x.rsvp_method === "manual" ? '<br><span class="muted" style="font-size:.75rem">by hand</span>' : '') +
           (x.rsvp === "no_reply" || x.rsvp === "invited"
             ? '<br><button class="btn btn--sm" style="border:0;padding:4px 0" onclick="manualRsvp(\'' + x.id + '\')">RSVP received</button>'
@@ -1879,17 +1899,17 @@ function viewMeals(){
   if (!sitting.length) {
     h += '<div class="empty">Nobody has said yes to the wedding breakfast yet.</div>';
   } else {
-    h += '<table><thead><tr><th>Guest</th><th>Their choices</th><th>Allergies</th><th></th></tr></thead><tbody>';
+    h += '<table class="stack"><thead><tr><th>Guest</th><th>Their choices</th><th>Allergies</th><th></th></tr></thead><tbody>';
     sitting.forEach(function(g){
       h += '<tr id="m_' + g.id + '">' +
-        '<td><strong>' + esc(g.first_name + " " + (g.surname||"")) + '</strong>' +
+        '<td data-label="Guest"><strong>' + esc(g.first_name + " " + (g.surname||"")) + '</strong>' +
           (g.age_group !== "adult" ? ' <span class="pill pill--prov">' + esc(g.age_group) + '</span>' : '') +
           (g.dietary ? '<br><span class="muted" style="font-size:.8125rem">' + esc(g.dietary) + '</span>' : '') +
         '</td>' +
-        '<td>' + (g.main_choice || g.starter_choice || g.dessert_choice
+        '<td data-label="Their choices">' + (g.main_choice || g.starter_choice || g.dessert_choice
           ? [g.starter_choice, g.main_choice, g.dessert_choice].filter(Boolean).map(esc).join('<br>')
           : '<span class="muted">Not chosen yet</span>') + '</td>' +
-        '<td>' + (g.allergies
+        '<td data-label="Allergies">' + (g.allergies
           ? '<strong style="color:var(--alert)">' + esc(g.allergies) + '</strong>'
           : '<span class="muted">None</span>') + '</td>' +
         '<td class="money">' +
@@ -2291,14 +2311,14 @@ function viewSuppliers(){
   if (!s.length) {
     h += '<div class="empty">No suppliers yet.</div>';
   } else {
-    h += '<table><thead><tr><th>Arrives</th><th>Supplier</th><th class="money">Cost</th><th></th></tr></thead><tbody>';
+    h += '<table class="stack"><thead><tr><th>Arrives</th><th>Supplier</th><th class="money">Cost</th><th></th></tr></thead><tbody>';
     s.forEach(function(x){
       h += '<tr id="s_' + x.id + '">' +
-        '<td class="num" style="white-space:nowrap">' + esc(x.arrival_time ? String(x.arrival_time).slice(0,5) : "—") + '</td>' +
-        '<td><strong>' + esc(x.name) + '</strong><br><span class="muted" style="font-size:.8125rem">' + esc(x.category) +
+        '<td class="num" data-label="Arrives" style="white-space:nowrap">' + esc(x.arrival_time ? String(x.arrival_time).slice(0,5) : "—") + '</td>' +
+        '<td data-label="Supplier"><strong>' + esc(x.name) + '</strong><br><span class="muted" style="font-size:.8125rem">' + esc(x.category) +
         (x.contact_name ? ' · ' + esc(x.contact_name) : '') +
         (x.phone ? '<br><a href="tel:' + esc(x.phone) + '">' + esc(x.phone) + '</a>' : '') + '</span></td>' +
-        '<td class="money num">' + (x.cost != null ? money(x.cost) : "—") +
+        '<td class="money num" data-label="Cost">' + (x.cost != null ? money(x.cost) : "—") +
         (x.is_paid ? '<br><span class="pill pill--ok">Paid</span>' : '') + '</td>' +
         '<td class="money"><button class="btn btn--sm" onclick="editSupplier(\'' + x.id + '\')">Edit</button></td></tr>';
     });
