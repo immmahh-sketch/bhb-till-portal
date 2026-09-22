@@ -194,6 +194,7 @@
     <button data-tab="menu">Menu</button>
     <button data-tab="roomservice">Room Service</button>
     <button data-tab="outside">Outside Tables</button>
+    <button data-tab="staff">Staff Food</button>
     <a class="tablink" href="discounts.html" target="_blank" rel="noopener">Discount Codes ↗</a>
   </nav>
 
@@ -463,6 +464,66 @@
     </table></div>
   </section>
 
+  <!-- STAFF FOOD -->
+  <section id="tab-staff" class="hidden">
+    <h2 class="sec">Aston &amp; Carbarn Staff Food availability</h2>
+    <p class="muted" style="margin:0 0 10px">Ordering only ever runs 06:00–11:00 (collection 12:30pm) regardless of this toggle — use it to close the app entirely on a day the kitchen can't cover it.</p>
+    <div class="dz" id="staffAvailBox" style="border-color:var(--brass);background:#fdf6e8">
+      <div>
+        <b id="staffAvailStatus">Available</b>
+        <div class="muted" id="staffAvailInfo" style="margin-top:4px"></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end">
+        <label class="muted"><input type="checkbox" id="staffAvailToggle" onchange="setStaffAvailable(this.checked)"> Staff Food available</label>
+        <label class="muted"><input type="checkbox" id="staffAutomateToggle" onchange="setStaffAutomate(this.checked)"> Automatically follow the 06:00–11:00 window</label>
+      </div>
+    </div>
+
+    <p class="muted" style="margin:30px 0 0">Kitchen and bar tickets for staff orders print through the same physical printers as room service, headed "ASTON &amp; CARBARN" — see the Virtual printers panel on the Room Service tab.</p>
+
+    <h2 class="sec" style="margin-top:30px">Cash up — selected day</h2>
+    <p class="muted" style="margin:0 0 10px" id="staffCashupSummary"></p>
+    <div class="tablewrap"><table id="staffCashupTable">
+      <thead><tr><th class="l">Item</th><th>Qty</th><th>Total</th></tr></thead>
+      <tbody id="staffCashupBody"></tbody>
+    </table></div>
+    <p class="muted" style="margin:8px 0 0">Excludes test orders and anything not marked paid.</p>
+
+    <h2 class="sec" style="margin-top:30px">Orders — selected day</h2>
+    <p class="muted" style="margin:0 0 12px" id="staffSummary"></p>
+    <div class="tablewrap"><table id="staffOrdersTable">
+      <thead><tr>
+        <th class="l">#</th><th class="l">Time</th><th class="l">Name</th>
+        <th class="l">Items</th><th>Total</th><th class="l">Status</th><th class="l">Reference</th><th></th>
+      </tr></thead>
+      <tbody id="staffOrdersBody"></tbody>
+    </table></div>
+
+    <h2 class="sec" style="margin-top:34px">Staff Food menu</h2>
+    <p class="muted" style="margin:0 0 12px">Its own menu at its own prices — completely separate from the main room-service/outside menu, free to diverge. Untick "Available" to hide an item without deleting it.</p>
+    <div class="menu-add">
+      <div><label>Name</label><input id="staffName" type="text" placeholder="e.g. Club Sandwich"></div>
+      <div><label>Description</label><input id="staffDesc" type="text" placeholder="optional" style="min-width:200px"></div>
+      <div><label>Section</label>
+        <select id="staffSection"></select>
+      </div>
+      <div id="staffDrinkGroupWrap" style="display:none">
+        <label>Drink group</label>
+        <select id="staffDrinkGroup"></select>
+      </div>
+      <div><label>Price £</label><input id="staffPrice" type="number" step="0.01" min="0" style="width:90px"></div>
+      <div><label>Variants (optional)</label><input id="staffVariants" type="text" placeholder="e.g. Regular:2.10, Decaf:2.10" style="min-width:220px"></div>
+      <button class="primary" onclick="staffMenuAdd()">Add item</button>
+    </div>
+    <div class="tablewrap"><table class="menu-tbl" id="staffMenuTbl">
+      <thead><tr>
+        <th class="l">Name</th><th class="l">Description</th><th class="l">Section</th><th class="l">Drink group</th>
+        <th>Price £</th><th class="l">Variants</th><th>Available</th><th></th>
+      </tr></thead>
+      <tbody id="staffMenuBody"></tbody>
+    </table></div>
+  </section>
+
   <p class="muted" style="margin-top:24px">
     Nett = gross ÷ (1 + VAT rate) using each till’s own rate. Trading day 05:00 → 05:00. Auto-refreshes every 20 s.
   </p>
@@ -515,7 +576,7 @@ function showApp(){
 function setTab(t){
   ST.tab = t;
   document.querySelectorAll("#tabs button").forEach(b=>b.classList.toggle("active", b.dataset.tab===t));
-  ["overview","receipts","team","refunds","menu","roomservice","outside"].forEach(x=>
+  ["overview","receipts","team","refunds","menu","roomservice","outside","staff"].forEach(x=>
     document.getElementById("tab-"+x).classList.toggle("hidden", x!==t));
   renderAll();
 }
@@ -547,7 +608,7 @@ async function load(){
   if(_busy) return; _busy=true;
   try{
     const {start,end}=dayWindow();
-    const [sales,sessions,voids,menu,rsOrders,rsMenu,notice,rsAvail,printJobs,outNotice,outAvail] = await Promise.all([
+    const [sales,sessions,voids,menu,rsOrders,rsMenu,notice,rsAvail,printJobs,outNotice,outAvail,staffMenu,staffAvail] = await Promise.all([
       sb(`till_sales?select=*&ts=gte.${start.toISOString()}&ts=lt.${end.toISOString()}&order=ts.desc`),
       sb(`till_sessions?select=*`),
       sb(`till_voids?select=*&ts=gte.${start.toISOString()}&ts=lt.${end.toISOString()}&order=ts.desc`),
@@ -558,10 +619,13 @@ async function load(){
       sb(`roomservice_availability?id=eq.1&select=*`).catch(()=>[]),
       sb(`print_jobs?select=*&order=created_at.desc&limit=40`).catch(()=>[]),
       sb(`outside_busy_notice?id=eq.1&select=*`).catch(()=>[]),
-      sb(`outside_availability?id=eq.1&select=*`).catch(()=>[])
+      sb(`outside_availability?id=eq.1&select=*`).catch(()=>[]),
+      sb(`roomservice_menu_items?select=*&menu_scope=eq.staff&order=sort_order.asc`).catch(()=>[]),
+      sb(`staff_food_availability?id=eq.1&select=*`).catch(()=>[])
     ]);
     ST.sales=sales; ST.sessions=sessions; ST.voids=voids; ST.menu=menu||[];
     ST.rsOrders=rsOrders||[]; ST.rsMenu=rsMenu||[]; ST.busyNotice=(notice&&notice[0])||null;
+    ST.staffMenu=staffMenu||[]; ST.staffAvailability=(staffAvail&&staffAvail[0])||null;
     ST.rsAvailability=(rsAvail&&rsAvail[0])||null; ST.printJobs=printJobs||[];
     ST.outBusyNotice=(outNotice&&outNotice[0])||null; ST.outAvailability=(outAvail&&outAvail[0])||null;
     ST.sessById={}; sessions.forEach(s=>ST.sessById[s.id]=s);
@@ -585,7 +649,7 @@ function vatOf(sale){
 function renderAll(){
   document.querySelectorAll("[id^=tab-]").forEach(()=>{});
   renderOverview(); renderReceiptsFilterOptions(); renderReceipts(); renderTeam(); renderRefunds(); renderMenu();
-  renderDangerZone(); renderRoomService(); renderRsMenu(); renderOutside();
+  renderDangerZone(); renderRoomService(); renderRsMenu(); renderOutside(); renderStaff(); renderStaffMenu();
   document.querySelectorAll("#tab-team .sec").forEach(h=>h.textContent =
     "Team performance — " + document.getElementById("day").value);
 }
@@ -1136,8 +1200,8 @@ async function refundOrder(id){
   const o = (ST.rsOrders||[]).find(x=>x.id===id);
   if(!o) return;
   const ref = o.sumup_transaction_id || o.sumup_checkout_id || "(no reference on file)";
-  const loc = o.channel==="outside" ? "Table "+o.room_number : "Room "+o.room_number;
-  const kind = o.channel==="outside" ? "Outside table order" : "Room service order";
+  const loc = o.channel==="staff_food" ? "" : (o.channel==="outside" ? "Table "+o.room_number : "Room "+o.room_number);
+  const kind = o.channel==="staff_food" ? "Staff Food order" : (o.channel==="outside" ? "Outside table order" : "Room service order");
   const ok = confirm(
     kind+" #"+o.order_no+" — "+o.guest_name+", "+loc+"\n"+
     "Amount: £"+Number(o.subtotal||0).toFixed(2)+"\n"+
@@ -1293,6 +1357,204 @@ function renderOutCashup(){
   const total = document.createElement("tr");
   total.innerHTML = `<td class="l"><b>Total</b></td><td></td><td><b>£${grandTotal.toFixed(2)}</b></td>`;
   b.appendChild(total);
+}
+
+/* ---------- Staff Food: availability, orders, cash up ---------- */
+function isStaffFoodWindowNow(){
+  const parts = new Intl.DateTimeFormat("en-GB", { timeZone:"Europe/London", hour:"2-digit", minute:"2-digit", hour12:false }).formatToParts(new Date());
+  const h = parseInt(parts.find(p=>p.type==="hour").value,10), m = parseInt(parts.find(p=>p.type==="minute").value,10);
+  const mins = h*60+m;
+  return mins>=6*60 && mins<11*60;
+}
+function isStaffFoodAvailableNow(row){
+  if(!row || row.automate) return isStaffFoodWindowNow();
+  return !!row.manual_available;
+}
+function renderStaffAvailabilityBox(){
+  const row = ST.staffAvailability || {automate:true, manual_available:true};
+  const automate = !!row.automate;
+  const availableNow = isStaffFoodAvailableNow(row);
+  document.getElementById("staffAvailStatus").textContent = availableNow ? "Available" : "Unavailable";
+  document.getElementById("staffAvailStatus").className = availableNow ? "" : "neg";
+  document.getElementById("staffAutomateToggle").checked = automate;
+  const toggle = document.getElementById("staffAvailToggle");
+  toggle.checked = automate ? availableNow : !!row.manual_available;
+  toggle.disabled = automate;
+  document.getElementById("staffAvailInfo").textContent = automate
+    ? "Following the 06:00–11:00 window automatically."
+    : "Automation is off — this stays as set until you change it.";
+}
+async function setStaffAvailable(checked){
+  try{
+    await sb(`staff_food_availability?id=eq.1`, {method:"PATCH", body:JSON.stringify({ manual_available:checked, updated_at:new Date().toISOString() })});
+    ST.staffAvailability = (await sb(`staff_food_availability?id=eq.1&select=*`))?.[0] || null;
+    renderStaffAvailabilityBox();
+  }catch(e){ alert("Couldn't update availability: "+e.message); renderStaffAvailabilityBox(); }
+}
+async function setStaffAutomate(checked){
+  try{
+    const body = { automate:checked, updated_at:new Date().toISOString() };
+    if(!checked) body.manual_available = isStaffFoodAvailableNow(ST.staffAvailability || {automate:true});
+    await sb(`staff_food_availability?id=eq.1`, {method:"PATCH", body:JSON.stringify(body)});
+    ST.staffAvailability = (await sb(`staff_food_availability?id=eq.1&select=*`))?.[0] || null;
+    renderStaffAvailabilityBox();
+  }catch(e){ alert("Couldn't update automation: "+e.message); renderStaffAvailabilityBox(); }
+}
+function renderStaff(){
+  renderStaffAvailabilityBox();
+  renderStaffCashup();
+  const rows = (ST.rsOrders||[]).filter(o=>o.channel==="staff_food");
+  const paid = rows.filter(r=>r.status==="paid" && !r.is_test && !r.is_comp);
+  document.getElementById("staffSummary").textContent =
+    rows.length + " order" + (rows.length===1?"":"s") + " · " + paid.length + " paid · £" +
+    paid.reduce((s,r)=>s+Number(r.subtotal||0),0).toFixed(2) + " taken";
+  const b=document.getElementById("staffOrdersBody");
+  b.innerHTML = rows.length ? "" : '<tr><td colspan="8" class="muted">No Staff Food orders for this day.</td></tr>';
+  for(const o of rows){
+    const d=new Date(o.created_at);
+    const items=(o.lines||[]).map(l=>l.qty+"× "+l.name).join(", ");
+    const tr=document.createElement("tr");
+    let action="";
+    if(o.status==="paid" && !o.is_test && !o.is_comp) action = `<button class="del" onclick="refundOrder('${o.id}')">Refund</button>`;
+    else if(o.status==="refunded") action = `<span class="muted">Refunded</span>`;
+    if(o.status==="paid" || o.status==="refunded"){
+      action += ` <button onclick="reprintReceipt('${o.id}')">Reprint</button>`;
+    }
+    tr.innerHTML =
+      `<td class="l">${o.order_no}</td>`+
+      `<td class="l">${d.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}</td>`+
+      `<td class="l">${esc(o.guest_name)}</td>`+
+      `<td class="l rs-lines">${esc(items)}</td>`+
+      `<td>£${Number(o.subtotal||0).toFixed(2)}</td>`+
+      `<td class="l"><span class="pill ${o.status}">${o.is_test?"TEST":o.is_comp?"COMP":o.status.replace(/_/g," ")}</span></td>`+
+      `<td class="l">${esc(o.sumup_transaction_id || o.sumup_checkout_id || "—")}</td>`+
+      `<td class="act">${action}</td>`;
+    b.appendChild(tr);
+  }
+}
+function renderStaffCashup(){
+  const rows = (ST.rsOrders||[]).filter(o=>o.channel==="staff_food" && o.status==="paid" && !o.is_test && !o.is_comp);
+  const itemMap = {};
+  let itemsTotal = 0;
+  for(const o of rows){
+    for(const l of (o.lines||[])){
+      const row = itemMap[l.name] || (itemMap[l.name] = {name:l.name, qty:0, total:0});
+      const lineTotal = (Number(l.unit_price)||0) * (Number(l.qty)||0);
+      row.qty += Number(l.qty)||0;
+      row.total += lineTotal;
+      itemsTotal += lineTotal;
+    }
+  }
+  const items = Object.values(itemMap).sort((a,b)=>a.name.localeCompare(b.name));
+  document.getElementById("staffCashupSummary").textContent =
+    rows.length + " transaction" + (rows.length===1?"":"s") + " · £" + itemsTotal.toFixed(2) + " to ring through";
+  const b = document.getElementById("staffCashupBody");
+  if(!items.length){
+    b.innerHTML = '<tr><td colspan="3" class="muted">No paid Staff Food orders for this day.</td></tr>';
+    return;
+  }
+  b.innerHTML = "";
+  for(const it of items){
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td class="l">${esc(it.name)}</td><td>${it.qty}</td><td>£${it.total.toFixed(2)}</td>`;
+    b.appendChild(tr);
+  }
+  const total = document.createElement("tr");
+  total.innerHTML = `<td class="l"><b>Total</b></td><td></td><td><b>£${itemsTotal.toFixed(2)}</b></td>`;
+  b.appendChild(total);
+}
+
+/* ---------- Staff Food: menu editor ---------- */
+function staffSectionOptions(selected){
+  return RS_SECTIONS.map(s=>`<option value="${esc(s)}"${s===selected?" selected":""}>${esc(s)}</option>`).join("");
+}
+function staffDrinkGroupOptions(selected){
+  return RS_DRINK_GROUPS.map(g=>`<option value="${esc(g)}"${g===selected?" selected":""}>${esc(g)}</option>`).join("");
+}
+function staffRowToggleDrinkGroup(sel){
+  const tr = sel.closest("tr");
+  tr.querySelector('[data-f="drink_group"]').style.display = sel.value==="Drinks" ? "" : "none";
+}
+function renderStaffMenu(){
+  document.getElementById("staffSection").innerHTML = staffSectionOptions("Main Courses");
+  document.getElementById("staffDrinkGroup").innerHTML = staffDrinkGroupOptions();
+  const b=document.getElementById("staffMenuBody");
+  const rows=(ST.staffMenu||[]).slice().sort((a,b)=>(a.sort_order||0)-(b.sort_order||0)||String(a.name).localeCompare(String(b.name)));
+  b.innerHTML = rows.length ? "" : '<tr><td colspan="8" class="muted">No Staff Food items yet — add one above.</td></tr>';
+  for(const m of rows){
+    const isDrink = m.menu_section==="Drinks";
+    const tr=document.createElement("tr");
+    tr.innerHTML=`
+      <td class="l"><input type="text" data-f="name" value="${esc(m.name)}"></td>
+      <td class="l"><input type="text" data-f="description" value="${esc(m.description||"")}"></td>
+      <td class="l"><select data-f="menu_section" onchange="staffRowToggleDrinkGroup(this)">${staffSectionOptions(m.menu_section)}</select></td>
+      <td class="l"><select data-f="drink_group" style="${isDrink?"":"display:none"}">${staffDrinkGroupOptions(m.drink_group)}</select></td>
+      <td><input type="number" step="0.01" min="0" data-f="price" value="${m.price!=null?(+m.price):0}"></td>
+      <td class="l"><input type="text" data-f="variants" value="${esc(rsVariantsToText(m.variants))}" placeholder="e.g. Regular:2.10, Decaf:2.10" style="min-width:180px"></td>
+      <td><input class="rs-avail" type="checkbox" data-f="available" ${m.available!==false?"checked":""}></td>
+      <td class="act">
+        <button onclick="staffMenuSave('${m.id}',this)">Save</button>
+        <button class="del" onclick="staffMenuDelete('${m.id}')">Delete</button>
+      </td>`;
+    b.appendChild(tr);
+  }
+}
+async function reloadStaffMenu(){ ST.staffMenu = await sb(`roomservice_menu_items?select=*&menu_scope=eq.staff&order=sort_order.asc`) || []; renderStaffMenu(); }
+function staffRowBody(get, getChecked){
+  const section = get("menu_section");
+  const isDrink = section === "Drinks";
+  return {
+    name: get("name").trim(),
+    description: get("description").trim() || null,
+    menu_section: section,
+    drink_group: isDrink ? get("drink_group") : null,
+    category: isDrink ? "drink" : "food",
+    price: Number(get("price"))||0,
+    variants: rsParseVariants(get("variants")),
+    kitchen_station: isDrink ? null : "mains",
+    available: getChecked("available"),
+    available_outside: getChecked("available")
+  };
+}
+async function staffMenuSave(id, btn){
+  const tr=btn.closest("tr");
+  const body=staffRowBody(f=>tr.querySelector(`[data-f=${f}]`).value, f=>tr.querySelector(`[data-f=${f}]`).checked);
+  if(!body.name){ alert("Name can’t be blank."); return; }
+  btn.disabled=true; btn.textContent="Saving…";
+  try{
+    await sb(`roomservice_menu_items?id=eq.${id}`, {method:"PATCH", body:JSON.stringify({...body, updated_at:new Date().toISOString()})});
+    await reloadStaffMenu(); menuStatus("Saved “"+body.name+"”.");
+  }catch(e){ alert("Save failed: "+e.message); }
+  btn.disabled=false; btn.textContent="Save";
+}
+async function staffMenuAdd(){
+  const g=id=>document.getElementById(id).value;
+  const name=document.getElementById("staffName").value.trim();
+  if(!name){ alert("Enter a name."); return; }
+  const section = g("staffSection");
+  const isDrink = section === "Drinks";
+  const maxSort=(ST.staffMenu||[]).reduce((m,x)=>Math.max(m,x.sort_order||0),0);
+  const body={
+    name, description:document.getElementById("staffDesc").value.trim()||null,
+    menu_section: section, drink_group: isDrink ? g("staffDrinkGroup") : null,
+    category: isDrink ? "drink" : "food",
+    price:Number(g("staffPrice"))||0, variants: rsParseVariants(g("staffVariants")),
+    kitchen_station: isDrink ? null : "mains",
+    menu_scope: "staff", available:true, available_outside:true, sort_order:maxSort+1
+  };
+  try{
+    await sb(`roomservice_menu_items`, {method:"POST", headers:{Prefer:"return=minimal"}, body:JSON.stringify(body)});
+    ["staffName","staffDesc","staffPrice","staffVariants"].forEach(i=>document.getElementById(i).value="");
+    await reloadStaffMenu(); menuStatus("Added “"+name+"”.");
+  }catch(e){ alert("Add failed: "+e.message); }
+}
+async function staffMenuDelete(id){
+  const m=(ST.staffMenu||[]).find(x=>x.id===id); const nm=m?m.name:"this item";
+  if(!confirm("Delete “"+nm+"” from the Staff Food menu?")) return;
+  try{
+    await sb(`roomservice_menu_items?id=eq.${id}`, {method:"DELETE"});
+    await reloadStaffMenu(); menuStatus("Deleted “"+nm+"”.");
+  }catch(e){ alert("Delete failed: "+e.message); }
 }
 
 /* ---------- Room service: menu editor ---------- */
