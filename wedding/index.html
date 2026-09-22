@@ -47,6 +47,10 @@
 -->
 <link rel="stylesheet" href="https://use.typekit.net/nzu1hbj.css" onerror="this.remove()">
 
+<!-- The venue's existing Calendly, opened in place rather than sending them away. -->
+<link rel="stylesheet" href="https://assets.calendly.com/assets/external/widget.css">
+<script src="https://assets.calendly.com/assets/external/widget.js" async></script>
+
 <style>
 :root{
   --sage:#4E5F4F; --bone:#F7F7F7; --celadon:#C1C8B4; --mist:#E7E7E7;
@@ -228,6 +232,21 @@ tr:last-child td{border-bottom:0}
 .empty{padding:34px 20px;text-align:center;color:var(--sage-70)}
 footer.app{border-top:1px solid var(--mist);padding:26px 0;text-align:center;font-size:.75rem;
   letter-spacing:.1em;text-transform:uppercase;color:var(--sage-70)}
+/* ---- Calendly ----
+   Rendered in the page flow rather than as a fixed overlay on purpose: the
+   app is embedded in a tall iframe on /wedding-app, and a position:fixed
+   panel there is placed against the iframe's full height, not the bit of
+   it you can actually see. In-flow always lands where they're looking. */
+.cal{display:none;margin-top:14px;border:1px solid var(--mist);background:var(--white)}
+.cal.open{display:block}
+.cal .cal-head{display:flex;justify-content:space-between;align-items:center;
+  padding:10px 14px;border-bottom:1px solid var(--mist)}
+/* An explicit height, not min-height: Calendly sizes its iframe to 100% of
+   the parent, so an auto-height parent collapses it to a sliver. */
+.cal .cal-frame{height:700px}
+.cal .cal-frame iframe{width:100%!important;height:100%!important;border:0;display:block}
+@media(max-width:560px){.cal .cal-frame{height:780px}}
+
 /* ---- modal ---- */
 .modal{position:fixed;inset:0;background:rgba(38,38,38,.55);z-index:50;display:flex;
   align-items:flex-start;justify-content:center;padding:24px 16px;overflow:auto}
@@ -477,6 +496,64 @@ async function api(action, payload){
     if (e.code === "AUTH") { signOut(); }
     throw e;
   }
+}
+
+/* ---------- booking a meeting ---------- */
+var CALENDLY_URL = "https://calendly.com/bookaviewing/new-meeting";
+
+/* Open the venue's Calendly in place, with the couple's details already
+   filled in so they aren't retyping what the app knows. */
+function bookMeeting(key, title){
+  var box = $("cal_" + key);
+  if (!box) return;
+
+  if (box.classList.contains("open")) { box.classList.remove("open"); box.innerHTML = ""; return; }
+
+  // Only one open at a time - two Calendly frames on one page is a mess.
+  [].forEach.call(document.querySelectorAll(".cal.open"), function(el){
+    el.classList.remove("open"); el.innerHTML = "";
+  });
+
+  var w = S.data.wedding;
+  box.innerHTML = '<div class="cal-head"><span class="label">' + esc(title) + '</span>' +
+    '<button class="btn btn--sm" style="border:0" onclick="bookMeeting(' +
+      JSON.stringify(key).replace(/"/g, "&quot;") + ',' +
+      JSON.stringify(title).replace(/"/g, "&quot;") + ')">Close</button></div>' +
+    '<div class="cal-frame" id="calFrame_' + esc(key) + '"></div>';
+  box.classList.add("open");
+
+  var parent = $("calFrame_" + key);
+
+  function open(){
+    if (!window.Calendly) {
+      parent.innerHTML = '<p class="empty">We cannot load the booking calendar just now. ' +
+        'Please give us a ring on <a href="tel:01207232569">01207 232 569</a>.</p>';
+      return;
+    }
+    window.Calendly.initInlineWidget({
+      url: CALENDLY_URL + "?hide_gdpr_banner=1&primary_color=4E5F4F",
+      parentElement: parent,
+      prefill: {
+        name: w.salutation,
+        email: w.primary_email,
+        // So whoever takes the booking knows which wedding and which meeting.
+        customAnswers: { a1: title + " — " + w.event_id + " — " + ukDate(w.wedding_date) }
+      }
+    });
+  }
+
+  // widget.js is loaded async, so it may not be ready on a fast tap.
+  if (window.Calendly) open();
+  else {
+    parent.innerHTML = '<div class="empty"><span class="spin"></span></div>';
+    var tries = 0;
+    var t = setInterval(function(){
+      if (window.Calendly) { clearInterval(t); parent.innerHTML = ""; open(); }
+      else if (++tries > 40) { clearInterval(t); open(); }   // gives up after ~8s and shows the fallback
+    }, 200);
+  }
+
+  setTimeout(function(){ box.scrollIntoView({ behavior:"smooth", block:"start" }); }, 80);
 }
 
 /* ---------- modal ---------- */
@@ -1225,12 +1302,11 @@ function viewJourney(){
     }
     if (m.meeting) {
       h += '<p style="margin:12px 0 0">' +
-        '<a class="btn btn--sm" href="mailto:events@blackhorsebeamish.co.uk?subject=' +
-        encodeURIComponent("Booking a meeting — " + w.event_id + " — " + w.salutation) +
-        '&body=' + encodeURIComponent("Hello,\n\nWe'd like to book our " + m.title.toLowerCase() +
-          " meeting for our wedding on " + ukDate(w.wedding_date) + " (" + w.event_id + ").\n\n") +
-        '">Book this meeting</a> ' +
-        '<span class="muted" style="font-size:.8125rem">or call 01207 232 569</span></p>';
+        '<button class="btn btn--sm" onclick="bookMeeting(' +
+          JSON.stringify(m.key).replace(/"/g, "&quot;") + ',' +
+          JSON.stringify(m.title).replace(/"/g, "&quot;") + ')">Book this meeting</button> ' +
+        '<span class="muted" style="font-size:.8125rem">or call 01207 232 569</span></p>' +
+        '<div class="cal" id="cal_' + esc(m.key) + '"></div>';
     }
     if (!m.pct) {
       h += '<p style="margin:10px 0 0"><label class="check" style="border:0;padding:0">' +
