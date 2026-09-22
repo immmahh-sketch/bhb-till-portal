@@ -897,8 +897,13 @@ var MILESTONES = [
     items:["Final details meeting — lock in menu choices, dietary requirements, guest numbers and table plans"] },
   { key:"m1", title:"1 month to go", months:-1, pct:100,
     items:["Pay your final balance","Kick back, relax and enjoy the final countdown"] },
-  { key:"w1", title:"1 week to go", days:-7, meeting:true,
-    items:["Drop off everything you need for setting up","Meet the wedding manager who'll look after you on the day"] },
+  /* The key stays "w1" although this is now the night before: it is what
+     any progress already ticked off is stored against, and renaming it
+     would quietly untick it for every couple. fixedTime marks a meeting
+     that is already arranged rather than one to book. */
+  { key:"w1", title:"The night before", days:-1, fixedTime:"6pm",
+    items:["Drop off everything you need for setting up",
+           "Meet the wedding manager who will run your day"] },
   { key:"day", title:"Your wedding day", days:0, items:[] }
 ];
 
@@ -954,13 +959,15 @@ var MEETING_STALE_DAYS = 31;
 
 function meetingRows(){
   var w = S.data.wedding, today = todayIso();
-  return MILESTONES.filter(function(m){ return m.meeting; }).map(function(m){
+  return MILESTONES.filter(function(m){ return m.meeting || m.fixedTime; }).map(function(m){
     var date = milestoneDate(m, w.wedding_date, w.created_at);
     var days = daysBetween(today, date);
     var done = progressOf("milestone", m.key);
     return {
       key: m.key, title: m.title, items: m.items, date: date, days: days, done: done,
-      stale: !done && days < -MEETING_STALE_DAYS
+      // Already arranged, so there is nothing to book and nothing to chase.
+      fixedTime: m.fixedTime || null,
+      stale: !done && !m.fixedTime && days < -MEETING_STALE_DAYS
     };
   });
 }
@@ -978,7 +985,7 @@ async function unconfirmMeetingHeld(key){
 /** The meeting to nag about, or null if nothing is close enough to matter. */
 function meetingDue(){
   var rows = meetingRows().filter(function(r){
-    return !r.done && !r.stale && r.days <= MEETING_WINDOW_DAYS;
+    return !r.done && !r.stale && !r.fixedTime && r.days <= MEETING_WINDOW_DAYS;
   });
   /* A meeting that has slipped past comes first — the most recent one,
      not the oldest. Otherwise it is whichever is coming up soonest. */
@@ -1781,19 +1788,25 @@ function viewMeeting(){
     '<table class="stack" style="margin-top:10px">';
   rows.forEach(function(r){
     var state;
-    if (r.done)        state = '<span class="pill pill--ok">Had it</span>';
-    else if (r.stale)  state = '<span class="pill pill--prov">Not needed now</span>';
+    if (r.done)          state = '<span class="pill pill--ok">Had it</span>';
+    else if (r.fixedTime) state = '<span class="pill pill--ok">' + esc(r.fixedTime) + '</span>';
+    else if (r.stale)    state = '<span class="pill pill--prov">Not needed now</span>';
     else if (r.days < 0) state = '<span class="pill pill--late">Was due</span>';
     else if (r.days <= MEETING_WINDOW_DAYS) state = '<span class="pill pill--due">Due now</span>';
-    else               state = '<span class="pill pill--prov">To come</span>';
+    else                 state = '<span class="pill pill--prov">To come</span>';
 
     var act = r.done
       ? '<button class="btn btn--sm" onclick="unconfirmMeetingHeld(&quot;' + r.key + '&quot;)">Not yet</button>'
-      : '<button class="btn btn--sm" onclick="confirmMeetingHeld(&quot;' + r.key + '&quot;)">' +
-        'Already had it</button>';
+      : (r.fixedTime
+          ? '<span class="muted" style="font-size:.8125rem">Already arranged</span>'
+          : '<button class="btn btn--sm" onclick="confirmMeetingHeld(&quot;' + r.key + '&quot;)">' +
+            'Already had it</button>');
 
     h += '<tr><td data-label="Meeting"><strong>' + esc(r.title) + '</strong>' +
-      (r.items.length ? '<br><span class="muted" style="font-size:.8125rem">' + esc(r.items[0]) + '</span>' : '') +
+      (r.fixedTime
+        ? '<br><span class="muted" style="font-size:.8125rem">Set for ' + esc(r.fixedTime) +
+          ' \u2014 ring us if that does not suit</span>'
+        : (r.items.length ? '<br><span class="muted" style="font-size:.8125rem">' + esc(r.items[0]) + '</span>' : '')) +
       '</td>' +
       '<td class="num" data-label="When" style="white-space:nowrap">' + esc(ukDateShort(r.date)) + '</td>' +
       '<td data-label="Status">' + state + '</td>' +
@@ -1915,8 +1928,10 @@ function viewJourney(){
       '<li><strong>Six weeks to go, the final details meeting</strong> — the big one. ' +
         'Final numbers, menu choices, allergies, timings and the table plan, all signed off.</li>' +
     '</ul>' +
-    '<p style="margin:0 0 12px">A week before the day you drop off anything that needs setting ' +
-      'up and meet the wedding manager who will look after you. After that, it is ours to run.</p>' +
+    '<p style="margin:0 0 12px"><strong>The night before</strong>, at 6pm, you drop off ' +
+      'anything that needs setting up and meet the wedding manager who will run your day. ' +
+      'Six o\'clock suits most people \u2014 if it does not suit you, ring us and we will find ' +
+      'a time that does. After that, it is ours to run.</p>' +
     '<p style="margin:0 0 12px"><strong>Payments follow the same stages</strong> — a share of ' +
       'your total by each one, rather than a bill at the end. The app shows you what is ' +
       'due and when, and you can pay any amount whenever suits.</p>' +
@@ -1952,7 +1967,11 @@ function viewJourney(){
     if (m.items.length) {
       h += '<ul>' + m.items.map(function(i){ return '<li>' + esc(i) + '</li>'; }).join("") + '</ul>';
     }
-    if (m.meeting) {
+    if (m.fixedTime) {
+      h += '<p class="muted" style="margin:12px 0 0;font-size:.875rem">' +
+        'Usually <strong>' + esc(m.fixedTime) + '</strong>. If that does not suit, ring us on ' +
+        '<a href="tel:01207232569">01207 232 569</a> and we will find a time that does.</p>';
+    } else if (m.meeting) {
       h += '<p style="margin:12px 0 0">' +
         '<button class="btn btn--sm" onclick="bookMeeting(' +
           JSON.stringify(m.key).replace(/"/g, "&quot;") + ',' +
