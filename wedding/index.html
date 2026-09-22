@@ -287,6 +287,14 @@ footer.app{border-top:1px solid var(--mist);padding:26px 0;text-align:center;fon
 .welcome .letter p:last-child{margin-bottom:0}
 .err{background:var(--alert-bg);border:1px solid var(--alert);color:var(--alert);
   padding:11px 14px;font-size:.875rem;margin-bottom:14px}
+
+/* A date behind dots is easy to fat-finger, so let them check it. */
+.pw{position:relative}
+.pw input{padding-right:62px}
+.pw-toggle{position:absolute;right:1px;top:1px;bottom:1px;border:0;background:transparent;
+  padding:0 12px;cursor:pointer;color:var(--sage-70);font:500 .625rem/1 var(--body);
+  letter-spacing:.14em;text-transform:uppercase}
+.pw-toggle:hover{color:var(--sage)}
 </style>
 </head>
 <body>
@@ -299,23 +307,42 @@ footer.app{border-top:1px solid var(--mist);padding:26px 0;text-align:center;fon
     <div class="orn"><i></i></div>
     <p class="welcome-line">Our journey together begins today.</p>
   </div>
-  <form id="loginForm" class="card">
+  <!--
+    A real credential form, on purpose.
+
+    The reference is the username and the wedding date is the password, so
+    both carry `name` and `autocomplete` attributes and the date is a genuine
+    type="password". Browsers and password managers will not offer to save a
+    login unless they can see a password field, which is why remembering it
+    ourselves in localStorage was never going to be enough: inside the
+    Squarespace frame this is third-party storage, and Safari clears it.
+    Handing it to the device's own keychain survives that.
+  -->
+  <form id="loginForm" class="card" method="post" action="#">
     <div id="loginErr" class="err hide"></div>
     <div class="field">
       <span class="label">Your wedding reference</span>
-      <input id="eventId" autocomplete="username" autocapitalize="characters"
-             spellcheck="false" placeholder="EVNT000000" required>
+      <input id="eventId" name="username" type="text" autocomplete="username"
+             autocapitalize="characters" autocorrect="off" spellcheck="false"
+             placeholder="EVNT000000" required>
       <p class="muted" style="font-size:.8125rem;margin:6px 0 0">
         It starts with EVNT and is on your booking emails.
       </p>
     </div>
     <div class="field">
       <span class="label">Your wedding date</span>
-      <input id="weddingDate" inputmode="numeric" autocomplete="current-password"
-             placeholder="DDMMYYYY" maxlength="10" required>
+      <div class="pw">
+        <input id="weddingDate" name="password" type="password"
+               autocomplete="current-password" inputmode="numeric"
+               placeholder="DDMMYYYY" maxlength="10" required>
+        <button type="button" id="pwToggle" class="pw-toggle"
+                aria-label="Show the date you typed" onclick="togglePw()">Show</button>
+      </div>
     </div>
     <button id="loginBtn" class="btn btn--primary" style="width:100%" type="submit">Log in</button>
   </form>
+  <div id="framedNote"></div>
+
   <!-- Filled by renderWelcome() so the letter lives in one place only. -->
   <div class="welcome" id="loginWelcome"></div>
 
@@ -480,7 +507,52 @@ function signOut(){
   $("app").classList.add("hide");
   $("login").classList.remove("hide");
   renderWelcome();
+  renderFramedNote();
   prefillLogin();
+}
+
+function togglePw(){
+  var f = $("weddingDate"), b = $("pwToggle");
+  if (!f || !b) return;
+  var show = f.type === "password";
+  f.type = show ? "text" : "password";
+  b.textContent = show ? "Hide" : "Show";
+  b.setAttribute("aria-label", show ? "Hide the date you typed" : "Show the date you typed");
+}
+
+/**
+ * Ask the device to remember the login.
+ *
+ * The form is a proper username/password pair, which is what lets Safari,
+ * Chrome and any password manager offer to save it. But because we submit
+ * over fetch rather than navigating away, some browsers never see a
+ * "successful submission" to trigger that prompt. The Credential Management
+ * API is the supported way to say so out loud; Chrome and Edge honour it,
+ * Safari ignores it and falls back to its own heuristics on the password
+ * field - which is exactly why that field has to be a real one.
+ */
+async function rememberOnDevice(username, password, salutation){
+  try {
+    if (!window.PasswordCredential || !navigator.credentials) return;
+    await navigator.credentials.store(new window.PasswordCredential({
+      id: username,
+      password: password,
+      name: salutation || "Your Wedding - Black Horse Beamish"
+    }));
+  } catch (e) { /* declined, unsupported or insecure context - never fatal */ }
+}
+
+/* Inside the Squarespace frame this page is third-party, so Safari may
+   refuse to keep anything between visits - including a saved password.
+   Say so plainly and offer the way out, rather than letting them wonder
+   why they keep typing it in. */
+function renderFramedNote(){
+  var el = $("framedNote");
+  if (!el || !isFramed()) return;
+  el.innerHTML = '<p class="center muted" style="font-size:.8125rem;margin:14px 0 0">' +
+    'Having to type this in every time?<br>' +
+    '<a href="' + APP_URL + '" target="_top"><strong>Open the full-screen version</strong></a> ' +
+    'and your phone can remember it for you.</p>';
 }
 
 /** Paul's welcome under the login form. */
@@ -519,13 +591,18 @@ $("loginForm").onsubmit = async function(ev){
       password: $("weddingDate").value
     });
     S.token = res.token;
+    var ref = $("eventId").value.trim().toUpperCase();
+    var date = $("weddingDate").value.trim();
+
+    // Belt: our own copy, for where storage survives.
     try {
       localStorage.setItem(CFG.SESSION_KEY, res.token);
-      localStorage.setItem(CFG.REMEMBER_KEY, JSON.stringify({
-        event_id: $("eventId").value.trim().toUpperCase(),
-        date: $("weddingDate").value.trim()
-      }));
+      localStorage.setItem(CFG.REMEMBER_KEY, JSON.stringify({ event_id: ref, date: date }));
     } catch(e){}
+
+    // Braces: the device's own keychain, which survives the frame.
+    await rememberOnDevice(ref, date, res.wedding && res.wedding.salutation);
+
     await start();
   } catch (e) {
     err.textContent = e.message;
@@ -2279,7 +2356,7 @@ function exportBudget(){
   }
 
   if (S.token) start();
-  else { $("login").classList.remove("hide"); renderWelcome(); prefillLogin(); }
+  else { $("login").classList.remove("hide"); renderWelcome(); renderFramedNote(); prefillLogin(); }
 })();
 </script>
 </body>
