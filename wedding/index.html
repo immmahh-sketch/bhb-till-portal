@@ -181,6 +181,28 @@ tr:last-child td{border-bottom:0}
 .empty{padding:34px 20px;text-align:center;color:var(--sage-70)}
 footer.app{border-top:1px solid var(--mist);padding:26px 0;text-align:center;font-size:.75rem;
   letter-spacing:.1em;text-transform:uppercase;color:var(--sage-70)}
+/* ---- modal ---- */
+.modal{position:fixed;inset:0;background:rgba(38,38,38,.55);z-index:50;display:flex;
+  align-items:flex-start;justify-content:center;padding:24px 16px;overflow:auto}
+.modal .inner{background:var(--white);border:1px solid var(--mist);max-width:680px;width:100%;
+  padding:24px;margin:auto}
+@media(max-width:560px){.modal{padding:0}.modal .inner{min-height:100%;border:0}}
+
+/* ---- table plan ---- */
+.plan{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}
+.tbl{background:var(--white);border:1px solid var(--mist);padding:16px}
+.tbl.full{border-color:var(--celadon)}
+.tbl h3{font-size:.9375rem;margin-bottom:2px}
+.tbl ol{margin:10px 0 0;padding-left:20px;font-size:.9375rem}
+.tbl ol li{padding:2px 0}
+.tbl .seatx{border:0;background:none;color:var(--sage-70);cursor:pointer;font-size:.8125rem;padding:0 4px}
+.tbl .seatx:hover{color:var(--alert)}
+.pool{display:flex;flex-wrap:wrap;gap:6px}
+.pool button{background:var(--white);border:1px solid var(--mist);padding:7px 11px;cursor:pointer;
+  font-family:var(--body);font-size:.875rem;color:var(--sage)}
+.pool button:hover{border-color:var(--sage)}
+.pool button[disabled]{opacity:.4;cursor:not-allowed}
+
 .spin{display:inline-block;width:16px;height:16px;border:2px solid var(--mist);
   border-top-color:var(--sage);border-radius:50%;animation:s .7s linear infinite;vertical-align:-3px}
 @keyframes s{to{transform:rotate(360deg)}}
@@ -242,6 +264,8 @@ footer.app{border-top:1px solid var(--mist);padding:26px 0;text-align:center;fon
         <button data-view="pay">Amounts to pay</button>
         <button data-view="journey">Wedding journey</button>
         <button data-view="guests">Guest list</button>
+        <button data-view="meals">Meals &amp; allergies</button>
+        <button data-view="tables">Table plan</button>
         <button data-view="suppliers">Suppliers</button>
         <button data-view="budget">Budget</button>
       </nav>
@@ -269,7 +293,7 @@ var CFG = {
   SESSION_KEY: "bhb_wedding_session"
 };
 
-var S = { token: null, data: null, view: "home", guests: [], suppliers: [], budget: [], tables: [] };
+var S = { token: null, data: null, view: "home", guests: [], suppliers: [], budget: [], tables: [], menu: [] };
 
 /* ---------- helpers ---------- */
 function $(id){ return document.getElementById(id); }
@@ -337,6 +361,25 @@ async function api(action, payload){
     throw e;
   }
 }
+
+/* ---------- modal ---------- */
+function showModal(html){
+  var m = $("modal");
+  if (!m) {
+    m = document.createElement("div");
+    m.id = "modal"; m.className = "modal";
+    m.addEventListener("click", function(ev){ if (ev.target === m) closeModal(); });
+    document.body.appendChild(m);
+  }
+  m.innerHTML = '<div class="inner">' + html + '</div>';
+  document.body.style.overflow = "hidden";
+}
+function closeModal(){
+  var m = $("modal");
+  if (m) m.remove();
+  document.body.style.overflow = "";
+}
+document.addEventListener("keydown", function(ev){ if (ev.key === "Escape") closeModal(); });
 
 function showError(msg){
   var el = $("globalErr");
@@ -483,6 +526,8 @@ function render(){
     case "pay":       v.innerHTML = viewPay(); bindPay(); break;
     case "journey":   v.innerHTML = viewJourney(); break;
     case "guests":    v.innerHTML = '<div class="empty"><span class="spin"></span></div>'; loadGuests(); break;
+    case "meals":     v.innerHTML = '<div class="empty"><span class="spin"></span></div>'; loadMeals(); break;
+    case "tables":    v.innerHTML = '<div class="empty"><span class="spin"></span></div>'; loadTables(); break;
     case "suppliers": v.innerHTML = '<div class="empty"><span class="spin"></span></div>'; loadSuppliers(); break;
     case "budget":    v.innerHTML = '<div class="empty"><span class="spin"></span></div>'; loadBudget(); break;
   }
@@ -982,22 +1027,72 @@ function viewGuests(){
     adults + ' adults · ' + children + ' children · ' + infants + ' infants attending' +
     (venueDay ? ' — we have ' + venueDay + ' day guests in the diary' : '') + '</p>';
 
+  /* ---- Invitations ---- */
+  var withEmail = g.filter(function(x){ return x.email; });
+  var invited = g.filter(function(x){ return x.invite_sent_at; });
+  var waiting = invited.filter(function(x){ return x.rsvp === "no_reply" || x.rsvp === "invited"; });
+  var noEmail = g.filter(function(x){ return !x.email; });
+
+  h += '<div class="card"><div class="split" style="margin-bottom:12px">' +
+    '<h2>Invitations</h2>' +
+    (g.length ? '<span class="label num">' + invited.length + ' of ' + g.length + ' sent</span>' : '') + '</div>';
+
+  if (!g.length) {
+    h += '<p class="muted" style="margin:0">Add your guests below, then invite them from here.</p>';
+  } else {
+    h += '<p class="muted" style="margin:0 0 14px;font-size:.9375rem">' +
+      'We\'ll email each guest their own invitation with a link to reply. ' +
+      'Their answer lands straight back here.</p>';
+
+    h += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">' +
+      '<button class="btn btn--sm" onclick="previewInvite()">Preview the invitation</button>' +
+      '<button class="btn btn--sm" onclick="editInviteWording()">Edit the wording</button>' +
+      (withEmail.length > invited.length
+        ? '<button class="btn btn--sm btn--primary" onclick="sendInvites()">Send to the ' +
+          withEmail.filter(function(x){ return !x.invite_sent_at; }).length + ' not yet invited</button>'
+        : '') +
+      '</div>';
+
+    if (noEmail.length) {
+      h += '<p class="muted" style="font-size:.8125rem;margin:12px 0 0">' +
+        noEmail.length + (noEmail.length === 1 ? ' guest has' : ' guests have') +
+        ' no email address, so we can\'t invite them from here. Add one, or tick their reply off by hand below.</p>';
+    }
+    if (waiting.length) {
+      h += '<p class="muted" style="font-size:.8125rem;margin:8px 0 0">' +
+        'Still waiting to hear from ' + waiting.length + '.</p>';
+    }
+  }
+  h += '</div>';
+
   h += '<div class="card"><h2 style="margin-bottom:14px">Add a guest</h2>' + guestForm(null) + '</div>';
 
   h += '<div class="card card--flush">';
   if (!g.length) {
     h += '<div class="empty">No guests yet. Add your first above.</div>';
   } else {
-    h += '<table><thead><tr><th>Guest</th><th>Invited to</th><th>RSVP</th><th></th></tr></thead><tbody>';
+    h += '<table><thead><tr><th>Guest</th><th>Invited to</th><th>Invite</th><th>RSVP</th><th></th></tr></thead><tbody>';
     g.forEach(function(x){
       h += '<tr id="g_' + x.id + '"><td><strong>' + esc(x.first_name + " " + (x.surname||"")) + '</strong>' +
         (x.age_group !== "adult" ? ' <span class="pill pill--prov">' + esc(x.age_group) + '</span>' : '') +
         (x.household ? '<br><span class="muted" style="font-size:.8125rem">' + esc(x.household) + '</span>' : '') +
+        (x.email ? '<br><span class="muted" style="font-size:.8125rem">' + esc(x.email) + '</span>' : '') +
+        (x.allergies ? '<br><span style="font-size:.8125rem;color:var(--alert)">Allergy: ' + esc(x.allergies) + '</span>' : '') +
         (x.dietary ? '<br><span class="muted" style="font-size:.8125rem">Dietary: ' + esc(x.dietary) + '</span>' : '') +
         (x.accessibility ? '<br><span class="muted" style="font-size:.8125rem">Access: ' + esc(x.accessibility) + '</span>' : '') +
         '</td>' +
         '<td>' + esc(x.invited_to === "both" ? "Day & evening" : (x.invited_to === "day" ? "Day" : "Evening")) + '</td>' +
-        '<td>' + rsvpPill(x.rsvp) + '</td>' +
+        '<td>' + (x.invite_sent_at
+          ? '<span class="pill pill--ok">Sent</span><br><span class="muted" style="font-size:.75rem">' + esc(ukDateShort(x.invite_sent_at)) + '</span>'
+          : (x.email
+            ? '<button class="btn btn--sm" onclick="sendInvites(\'' + x.id + '\')">Send</button>'
+            : '<span class="muted" style="font-size:.8125rem">No email</span>')) + '</td>' +
+        '<td>' + rsvpPill(x.rsvp) +
+          (x.rsvp_method === "manual" ? '<br><span class="muted" style="font-size:.75rem">by hand</span>' : '') +
+          (x.rsvp === "no_reply" || x.rsvp === "invited"
+            ? '<br><button class="btn btn--sm" style="border:0;padding:4px 0" onclick="manualRsvp(\'' + x.id + '\')">RSVP received</button>'
+            : '') +
+        '</td>' +
         '<td class="money"><button class="btn btn--sm" onclick="editGuest(\'' + x.id + '\')">Edit</button></td></tr>';
     });
     h += '</tbody></table>';
@@ -1008,6 +1103,84 @@ function viewGuests(){
     h += '<div class="center"><button class="btn" onclick="exportGuests()">Download as CSV</button></div>';
   }
   return h;
+}
+
+/* ---------- invitations ---------- */
+async function previewInvite(guestId){
+  try {
+    showModal('<div class="empty"><span class="spin"></span></div>');
+    var res = await callFn("send-guest-invite", { token:S.token, action:"preview", guest_id: guestId || null });
+    var frame = '<iframe id="previewFrame" style="width:100%;height:62vh;border:1px solid var(--mist);background:#fff" ' +
+      'title="Invitation preview"></iframe>';
+    showModal('<div class="split" style="margin-bottom:12px"><h2>Invitation preview</h2>' +
+      '<button class="btn btn--sm" onclick="closeModal()">Close</button></div>' +
+      '<p class="muted" style="margin:0 0 12px;font-size:.875rem">' +
+      'Subject line: <strong>' + esc(res.subject) + '</strong>' +
+      (res.guest && res.guest.name ? '<br>Shown as it will reach ' + esc(res.guest.name) + '.' : '') +
+      '</p>' + frame +
+      '<p class="muted" style="margin:12px 0 0;font-size:.8125rem">' +
+      'Each guest gets their own reply link, so we know exactly who has answered.</p>');
+    var f = $("previewFrame");
+    f.srcdoc = res.html;
+  } catch (e) { closeModal(); showError(e.message); }
+}
+
+function editInviteWording(){
+  var w = S.data.wedding;
+  showModal('<div class="split" style="margin-bottom:14px"><h2>Your invitation</h2>' +
+    '<button class="btn btn--sm" onclick="closeModal()">Close</button></div>' +
+    '<p class="muted" style="margin:0 0 16px;font-size:.875rem">' +
+    'Your names, the date and your timings come from your booking. These bits are yours to write.</p>' +
+    '<div class="field"><span class="label">A note to your guests</span>' +
+      '<textarea id="iv_msg" placeholder="We can\'t wait to celebrate with you…">' + esc(w.invite_message||"") + '</textarea></div>' +
+    '<div class="row"><div class="field"><span class="label">Dress code</span>' +
+      '<input id="iv_dress" placeholder="Lounge suits" value="' + esc(w.invite_dress_code||"") + '"></div>' +
+      '<div class="field"><span class="label">Reply by</span>' +
+      '<input id="iv_by" type="date" value="' + esc(w.invite_rsvp_by||"") + '"></div></div>' +
+    '<div class="field"><span class="label">Anything else</span>' +
+      '<textarea id="iv_extra" placeholder="Parking, taxis, gifts…">' + esc(w.invite_extra_info||"") + '</textarea></div>' +
+    '<div style="display:flex;gap:8px"><button class="btn btn--primary" onclick="saveInviteWording()">Save</button>' +
+    '<button class="btn" onclick="closeModal();previewInvite()">Save &amp; preview</button></div>');
+}
+
+async function saveInviteWording(){
+  try {
+    var payload = {
+      invite_message: $("iv_msg").value.trim(),
+      invite_dress_code: $("iv_dress").value.trim(),
+      invite_rsvp_by: $("iv_by").value || null,
+      invite_extra_info: $("iv_extra").value.trim()
+    };
+    await api("invite.settings", payload);
+    Object.keys(payload).forEach(function(k){ S.data.wedding[k] = payload[k]; });
+    closeModal(); clearError();
+  } catch (e) { showError(e.message); }
+}
+
+async function sendInvites(guestId){
+  var many = !guestId;
+  if (many && !confirm("Send the invitation to everyone who hasn't had one yet?")) return;
+  try {
+    showModal('<div class="empty"><span class="spin"></span>' +
+      '<p style="margin-top:14px">Sending…</p></div>');
+    var res = await callFn("send-guest-invite", { token:S.token, action:"send", guest_id: guestId || null });
+    closeModal();
+    if (res.message) { showError(res.message); }
+    else if (res.failed) {
+      showError("Sent " + res.sent + ", but " + res.failed + " didn't go through. Check those email addresses and try again.");
+    } else { clearError(); }
+    await loadGuests();
+  } catch (e) { closeModal(); showError(e.message); }
+}
+
+async function manualRsvp(id){
+  var g = S.guests.filter(function(x){ return x.id === id; })[0];
+  var who = g ? g.first_name : "this guest";
+  var yes = confirm("Is " + who + " coming?\n\nOK for yes, Cancel for no.");
+  try {
+    await api("guests.markRsvp", { id:id, attending: yes });
+    await loadGuests(); clearError();
+  } catch (e) { showError(e.message); }
 }
 
 function rsvpPill(r){
@@ -1106,6 +1279,506 @@ function csv(name, head, rows){
   a.download = name + "-" + S.data.wedding.event_id + ".csv";
   a.click();
   setTimeout(function(){ URL.revokeObjectURL(a.href); }, 1000);
+}
+
+/* ============================ MEALS & ALLERGIES ============================ */
+async function loadMeals(){
+  try {
+    S.guests = await api("guests.list");
+    S.menu = await api("menu.list");
+    $("views").innerHTML = viewMeals();
+  } catch (e) { showError(e.message); $("views").innerHTML = ""; }
+}
+
+var COURSES = [["starter","To start"],["main","Main course"],["dessert","Pudding"]];
+
+function viewMeals(){
+  /* Only guests who are actually sitting down to eat. Evening guests
+     aren't at the wedding breakfast, so putting them on this page would
+     just inflate the numbers the kitchen cooks to. */
+  var sitting = S.guests.filter(function(g){
+    return g.rsvp === "attending" && g.invited_to !== "evening";
+  });
+  var confirmed = sitting.filter(function(g){ return g.meal_confirmed; });
+  var missing = sitting.filter(function(g){ return !g.main_choice; });
+  var allergies = sitting.filter(function(g){ return g.allergies; });
+
+  var h = '<h1 style="margin-bottom:6px">Meals &amp; allergies</h1>' +
+    '<p class="muted" style="margin:0 0 18px">' +
+    'Everyone sitting down to your wedding breakfast. Guests who reply through their ' +
+    'invitation choose here themselves — you just check it over.</p>';
+
+  h += '<div class="balance" style="margin-bottom:16px">' +
+    '<div><span class="label">Eating</span><div class="v num">' + sitting.length + '</div></div>' +
+    '<div><span class="label">Confirmed</span><div class="v num">' + confirmed.length + '</div></div>' +
+    '<div><span class="label">Allergies</span><div class="v num' + (allergies.length ? ' out' : '') + '">' +
+      allergies.length + '</div></div>' +
+  '</div>';
+
+  if (missing.length) {
+    h += '<div class="notice notice--due" style="margin-bottom:16px">' +
+      '<strong>' + missing.length + (missing.length === 1 ? ' guest hasn\'t' : ' guests haven\'t') +
+      ' chosen a main course yet.</strong> You can pick for them below if you already know.</div>';
+  }
+
+  /* ---- the menu the couple offers ---- */
+  h += '<div class="card"><div class="split" style="margin-bottom:6px"><h2>Your menu</h2>' +
+    '<button class="btn btn--sm" onclick="addMenuOption()">Add a dish</button></div>' +
+    '<p class="muted" style="margin:0 0 14px;font-size:.9375rem">' +
+    'What your guests choose from when they reply. Agree this with us at your menu tasting first.</p>';
+
+  if (!S.menu.length) {
+    h += '<div class="empty" style="padding:22px 0">No dishes yet. Add them and your guests can start choosing.</div>';
+  } else {
+    COURSES.forEach(function(c){
+      var opts = S.menu.filter(function(m){ return m.course === c[0]; });
+      if (!opts.length) return;
+      h += '<h3 style="margin:16px 0 6px;font-size:.8125rem;letter-spacing:.14em">' + esc(c[1]) + '</h3><table>';
+      opts.forEach(function(o){
+        h += '<tr><td><strong>' + esc(o.label) + '</strong>' +
+          (o.is_child ? ' <span class="pill pill--prov">Children</span>' : '') +
+          (o.description ? '<br><span class="muted" style="font-size:.8125rem">' + esc(o.description) + '</span>' : '') +
+          '</td><td class="money">' +
+          '<button class="btn btn--sm" onclick="addMenuOption(\'' + o.id + '\')">Edit</button> ' +
+          '<button class="btn btn--sm" style="border:0" onclick="deleteMenuOption(\'' + o.id + '\')">Remove</button>' +
+          '</td></tr>';
+      });
+      h += '</table>';
+    });
+  }
+  h += '</div>';
+
+  /* ---- guest by guest ---- */
+  h += '<div class="card card--flush">';
+  if (!sitting.length) {
+    h += '<div class="empty">Nobody has said yes to the wedding breakfast yet.</div>';
+  } else {
+    h += '<table><thead><tr><th>Guest</th><th>Their choices</th><th>Allergies</th><th></th></tr></thead><tbody>';
+    sitting.forEach(function(g){
+      h += '<tr id="m_' + g.id + '">' +
+        '<td><strong>' + esc(g.first_name + " " + (g.surname||"")) + '</strong>' +
+          (g.age_group !== "adult" ? ' <span class="pill pill--prov">' + esc(g.age_group) + '</span>' : '') +
+          (g.dietary ? '<br><span class="muted" style="font-size:.8125rem">' + esc(g.dietary) + '</span>' : '') +
+        '</td>' +
+        '<td>' + (g.main_choice || g.starter_choice || g.dessert_choice
+          ? [g.starter_choice, g.main_choice, g.dessert_choice].filter(Boolean).map(esc).join('<br>')
+          : '<span class="muted">Not chosen yet</span>') + '</td>' +
+        '<td>' + (g.allergies
+          ? '<strong style="color:var(--alert)">' + esc(g.allergies) + '</strong>'
+          : '<span class="muted">None</span>') + '</td>' +
+        '<td class="money">' +
+          (g.meal_confirmed ? '<span class="pill pill--ok">Confirmed</span><br>' : '') +
+          '<button class="btn btn--sm" onclick="editMeal(\'' + g.id + '\')">' +
+          (g.meal_confirmed ? 'Change' : 'Set') + '</button></td></tr>';
+    });
+    h += '</tbody></table>';
+  }
+  h += '</div>';
+
+  if (sitting.length) {
+    h += '<div class="center" style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">' +
+      '<button class="btn" onclick="confirmAllMeals()">Confirm everyone with a choice</button>' +
+      '<button class="btn" onclick="go(\'tables\')">Go to your table plan</button></div>';
+  }
+  return h;
+}
+
+function editMeal(id){
+  var g = S.guests.filter(function(x){ return x.id === id; })[0];
+  if (!g) return;
+  var p = "mf_" + id;
+
+  function courseSelect(course, label){
+    var opts = S.menu.filter(function(m){
+      if (m.course !== course) return false;
+      // Offer a child the children's dishes where the couple has built them.
+      var hasChild = S.menu.some(function(x){ return x.course === course && x.is_child; });
+      if (!hasChild) return true;
+      return g.age_group === "child" ? m.is_child : !m.is_child;
+    });
+    if (!opts.length) return "";
+    var current = g[course + "_choice"] || "";
+    return '<div class="field"><span class="label">' + esc(label) + '</span>' +
+      '<select id="' + p + '_' + course + '"><option value="">Not chosen</option>' +
+      opts.map(function(o){
+        return '<option value="' + esc(o.label) + '"' + (current === o.label ? " selected" : "") + '>' +
+          esc(o.label) + '</option>';
+      }).join("") + '</select></div>';
+  }
+
+  var courses = COURSES.map(function(c){ return courseSelect(c[0], c[1]); }).join("");
+
+  $("m_" + id).innerHTML = '<td colspan="4">' +
+    '<h3 style="margin-bottom:12px">' + esc(g.first_name + " " + (g.surname||"")) + '</h3>' +
+    (courses || '<p class="muted">Add some dishes to your menu first and they\'ll appear here.</p>') +
+    '<div class="row"><div class="field"><span class="label">Allergies</span>' +
+      '<input id="' + p + '_allergies" value="' + esc(g.allergies||"") + '" placeholder="Nuts, shellfish…"></div>' +
+      '<div class="field"><span class="label">Other dietary needs</span>' +
+      '<input id="' + p + '_dietary" value="' + esc(g.dietary||"") + '" placeholder="Vegetarian…"></div></div>' +
+    '<label class="check" style="border:0;padding:0 0 14px"><input type="checkbox" id="' + p + '_confirmed" ' +
+      (g.meal_confirmed ? "checked" : "") + '><span>These choices are confirmed</span></label>' +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+      '<button class="btn btn--primary" onclick="saveMeal(\'' + id + '\')">Save</button>' +
+      '<button class="btn" onclick="loadMeals()">Cancel</button></div></td>';
+}
+
+async function saveMeal(id){
+  var p = "mf_" + id;
+  var row = { id:id, meal_confirmed: $(p+"_confirmed").checked,
+              allergies: $(p+"_allergies").value.trim(),
+              dietary: $(p+"_dietary").value.trim() };
+  COURSES.forEach(function(c){
+    var el = $(p + "_" + c[0]);
+    if (el) row[c[0] + "_choice"] = el.value || null;
+  });
+  try { await api("guests.save", row); await loadMeals(); clearError(); }
+  catch (e) { showError(e.message); }
+}
+
+async function confirmAllMeals(){
+  var todo = S.guests.filter(function(g){
+    return g.rsvp === "attending" && g.invited_to !== "evening" && g.main_choice && !g.meal_confirmed;
+  });
+  if (!todo.length) { showError("Everyone with a choice is already confirmed."); return; }
+  if (!confirm("Confirm " + todo.length + " guest" + (todo.length===1?"":"s") + " who have chosen a main course?")) return;
+  try {
+    for (var i = 0; i < todo.length; i++) {
+      await api("guests.save", { id: todo[i].id, meal_confirmed: true });
+    }
+    await loadMeals(); clearError();
+  } catch (e) { showError(e.message); }
+}
+
+function addMenuOption(id){
+  var o = S.menu.filter(function(m){ return m.id === id; })[0] || {};
+  showModal('<div class="split" style="margin-bottom:14px"><h2>' + (id ? "Edit dish" : "Add a dish") + '</h2>' +
+    '<button class="btn btn--sm" onclick="closeModal()">Close</button></div>' +
+    '<div class="field"><span class="label">Course</span><select id="mo_course">' +
+      COURSES.map(function(c){ return opt(c[0], c[1], o.course); }).join("") + '</select></div>' +
+    '<div class="field"><span class="label">Dish</span>' +
+      '<input id="mo_label" value="' + esc(o.label||"") + '" placeholder="Roast sirloin of beef"></div>' +
+    '<div class="field"><span class="label">Description (optional)</span>' +
+      '<textarea id="mo_desc" placeholder="With Yorkshire pudding and roasted roots">' + esc(o.description||"") + '</textarea></div>' +
+    '<label class="check" style="border:0;padding:0 0 14px"><input type="checkbox" id="mo_child" ' +
+      (o.is_child ? "checked" : "") + '><span>This is a children\'s dish</span></label>' +
+    '<button class="btn btn--primary" onclick="saveMenuOption(\'' + (id||"") + '\')">Save</button>');
+}
+
+async function saveMenuOption(id){
+  var label = $("mo_label").value.trim();
+  if (!label) { showError("Give the dish a name."); return; }
+  try {
+    await api("menu.save", {
+      id: id || undefined,
+      course: $("mo_course").value,
+      label: label,
+      description: $("mo_desc").value.trim(),
+      is_child: $("mo_child").checked,
+      sort_order: S.menu.length
+    });
+    closeModal(); await loadMeals(); clearError();
+  } catch (e) { showError(e.message); }
+}
+
+async function deleteMenuOption(id){
+  if (!confirm("Remove this dish from your menu? Guests who already chose it keep their choice.")) return;
+  try { await api("menu.delete", { id:id }); await loadMeals(); }
+  catch (e) { showError(e.message); }
+}
+
+/* ============================ TABLE PLAN ============================ */
+async function loadTables(){
+  try {
+    S.tables = await api("tables.list");
+    S.guests = await api("guests.list");
+    $("views").innerHTML = viewTables();
+  } catch (e) { showError(e.message); $("views").innerHTML = ""; }
+}
+
+function viewTables(){
+  var sitting = S.guests.filter(function(g){
+    return g.rsvp === "attending" && g.invited_to !== "evening";
+  });
+  var unseated = sitting.filter(function(g){ return !g.table_id; });
+  var seats = S.tables.reduce(function(s,t){ return s + Number(t.capacity||0); }, 0);
+
+  var h = '<h1 style="margin-bottom:6px">Table plan</h1>' +
+    '<p class="muted" style="margin:0 0 18px">' +
+    'Set your tables, then tap a name to sit them down. When you\'re happy, send the kitchen their sheets.</p>';
+
+  h += '<div class="balance" style="margin-bottom:16px">' +
+    '<div><span class="label">To seat</span><div class="v num">' + sitting.length + '</div></div>' +
+    '<div><span class="label">Seats set</span><div class="v num">' + seats + '</div></div>' +
+    '<div><span class="label">Still standing</span><div class="v num' + (unseated.length ? ' out' : '') + '">' +
+      unseated.length + '</div></div>' +
+  '</div>';
+
+  if (seats && seats < sitting.length) {
+    h += '<div class="notice notice--due" style="margin-bottom:16px">' +
+      'You have ' + sitting.length + ' guests but only ' + seats + ' seats. Add a table or make some bigger.</div>';
+  }
+
+  h += '<div class="card"><h2 style="margin-bottom:12px">Your tables</h2>' +
+    '<div class="row3" style="display:grid;grid-template-columns:1fr 1fr auto;gap:12px;align-items:end">' +
+    '<div class="field" style="margin:0"><span class="label">How many tables?</span>' +
+      '<input id="tblCount" inputmode="numeric" value="' + (S.tables.length || "") + '" placeholder="8"></div>' +
+    '<div class="field" style="margin:0"><span class="label">Seats on each</span>' +
+      '<input id="tblCap" inputmode="numeric" value="' + (S.tables.length ? S.tables[0].capacity : 8) + '"></div>' +
+    '<button class="btn" onclick="setupTables()">Set up</button></div>' +
+    '<p class="muted" style="font-size:.8125rem;margin:12px 0 0">' +
+    'You can rename any table and change its size afterwards — a top table of six alongside rounds of ten is fine.</p></div>';
+
+  if (!S.tables.length) return h;
+
+  /* ---- who still needs a seat ---- */
+  h += '<div class="card"><div class="split" style="margin-bottom:10px"><h2>Still to seat</h2>' +
+    '<span class="label num">' + unseated.length + '</span></div>';
+  if (!unseated.length) {
+    h += '<p class="muted" style="margin:0">Everyone has a seat. ' +
+      (sitting.length ? 'Lovely bit of admin, that.' : '') + '</p>';
+  } else {
+    h += '<p class="muted" style="margin:0 0 12px;font-size:.875rem">Tap a guest, then choose their table.</p>' +
+      '<div class="pool">' + unseated.map(function(g){
+        return '<button onclick="seatGuest(\'' + g.id + '\')">' +
+          esc(g.first_name + " " + (g.surname||"")) +
+          (g.allergies ? ' <span style="color:var(--alert)">•</span>' : '') + '</button>';
+      }).join("") + '</div>';
+  }
+  h += '</div>';
+
+  /* ---- the tables ---- */
+  h += '<div class="plan">';
+  S.tables.forEach(function(t){
+    var on = sitting.filter(function(g){ return g.table_id === t.id; });
+    var full = on.length >= Number(t.capacity);
+    h += '<div class="tbl' + (full ? " full" : "") + '">' +
+      '<div class="split"><h3>' + esc(t.name) + '</h3>' +
+      '<span class="label num">' + on.length + '/' + esc(t.capacity) + '</span></div>' +
+      '<span class="muted" style="font-size:.8125rem">' +
+        (t.shape === "top" ? "Top table" : (t.shape === "long" ? "Long table" : "Round table")) + '</span>';
+    if (on.length) {
+      h += '<ol>' + on.map(function(g){
+        return '<li>' + esc(g.first_name + " " + (g.surname||"")) +
+          (g.allergies ? ' <span style="color:var(--alert)" title="Allergy">•</span>' : '') +
+          '<button class="seatx" title="Take them off this table" onclick="unseatGuest(\'' + g.id + '\')">×</button></li>';
+      }).join("") + '</ol>';
+    } else {
+      h += '<p class="muted" style="margin:10px 0 0;font-size:.875rem">Empty</p>';
+    }
+    h += '<div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap">' +
+      '<button class="btn btn--sm" onclick="editTable(\'' + t.id + '\')">Edit</button>' +
+      '<button class="btn btn--sm" style="border:0" onclick="deleteTable(\'' + t.id + '\')">Remove</button>' +
+      '</div></div>';
+  });
+  h += '</div>';
+
+  h += '<div class="center" style="margin-top:20px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">' +
+    '<button class="btn btn--primary" onclick="foodSheets()">Food sheets for the kitchen</button>' +
+    '<button class="btn" onclick="exportPlan()">Download the plan</button></div>';
+  return h;
+}
+
+async function setupTables(){
+  var count = parseInt($("tblCount").value, 10) || 0;
+  var cap = parseInt($("tblCap").value, 10) || 8;
+  if (count < 1) { showError("How many tables would you like?"); return; }
+  if (count < S.tables.length) {
+    showError("To have fewer tables, remove the ones you don't want below — that way nobody loses their seat by accident.");
+    return;
+  }
+  try { await api("tables.setup", { count:count, capacity:cap }); await loadTables(); clearError(); }
+  catch (e) { showError(e.message); }
+}
+
+function editTable(id){
+  var t = S.tables.filter(function(x){ return x.id === id; })[0];
+  if (!t) return;
+  showModal('<div class="split" style="margin-bottom:14px"><h2>' + esc(t.name) + '</h2>' +
+    '<button class="btn btn--sm" onclick="closeModal()">Close</button></div>' +
+    '<div class="row"><div class="field"><span class="label">Name</span>' +
+      '<input id="tf_name" value="' + esc(t.name) + '"></div>' +
+      '<div class="field"><span class="label">Seats</span>' +
+      '<input id="tf_cap" inputmode="numeric" value="' + esc(t.capacity) + '"></div></div>' +
+    '<div class="field"><span class="label">Shape</span><select id="tf_shape">' +
+      opt("round","Round",t.shape) + opt("long","Long",t.shape) + opt("top","Top table",t.shape) +
+      '</select></div>' +
+    '<button class="btn btn--primary" onclick="saveTable(\'' + id + '\')">Save</button>');
+}
+
+async function saveTable(id){
+  try {
+    await api("tables.save", { id:id, name:$("tf_name").value.trim() || "Table",
+      capacity: parseInt($("tf_cap").value,10) || 8, shape: $("tf_shape").value });
+    closeModal(); await loadTables(); clearError();
+  } catch (e) { showError(e.message); }
+}
+
+async function deleteTable(id){
+  var on = S.guests.filter(function(g){ return g.table_id === id; });
+  var msg = on.length
+    ? "Remove this table? The " + on.length + " guest" + (on.length===1?"":"s") +
+      " sitting there go back to 'still to seat' — nobody is deleted."
+    : "Remove this table?";
+  if (!confirm(msg)) return;
+  try { await api("tables.delete", { id:id }); await loadTables(); }
+  catch (e) { showError(e.message); }
+}
+
+function seatGuest(guestId){
+  var g = S.guests.filter(function(x){ return x.id === guestId; })[0];
+  var sitting = S.guests.filter(function(x){
+    return x.rsvp === "attending" && x.invited_to !== "evening";
+  });
+  var h = '<div class="split" style="margin-bottom:14px">' +
+    '<h2>Where shall ' + esc(g.first_name) + ' sit?</h2>' +
+    '<button class="btn btn--sm" onclick="closeModal()">Close</button></div><div class="pool">';
+  S.tables.forEach(function(t){
+    var n = sitting.filter(function(x){ return x.table_id === t.id; }).length;
+    var full = n >= Number(t.capacity);
+    h += '<button ' + (full ? "disabled" : "") + ' onclick="assign(\'' + guestId + '\',\'' + t.id + '\')">' +
+      esc(t.name) + ' <span class="muted">' + n + '/' + esc(t.capacity) + '</span></button>';
+  });
+  h += '</div>';
+  showModal(h);
+}
+
+async function assign(guestId, tableId){
+  try { await api("tables.assign", { guest_id:guestId, table_id:tableId });
+        closeModal(); await loadTables(); clearError(); }
+  catch (e) { closeModal(); showError(e.message); }
+}
+
+async function unseatGuest(guestId){
+  try { await api("tables.assign", { guest_id:guestId, table_id:null }); await loadTables(); }
+  catch (e) { showError(e.message); }
+}
+
+/* ---------- food sheets ---------- */
+async function foodSheets(){
+  try {
+    var d = await api("foodsheet");
+    var win = window.open("", "_blank");
+    if (!win) { showError("Your browser blocked the new window. Allow pop-ups for this page and try again."); return; }
+    win.document.write(foodSheetHtml(d));
+    win.document.close();
+  } catch (e) { showError(e.message); }
+}
+
+function foodSheetHtml(d){
+  var w = d.wedding;
+  var byTable = {};
+  d.guests.forEach(function(g){
+    var k = g.table_id || "__none";
+    (byTable[k] = byTable[k] || []).push(g);
+  });
+
+  function courseSummary(list, heading){
+    if (!list.length) return "";
+    return '<div class="sumcol"><h4>' + esc(heading) + '</h4><table>' + list.map(function(x){
+      return '<tr><td>' + esc(x.label) + '</td><td class="n">' + x.count + '</td></tr>';
+    }).join("") + '</table></div>';
+  }
+
+  var sheets = d.tables.map(function(t){
+    var on = (byTable[t.id] || []);
+    if (!on.length) return "";
+    return '<section class="sheet"><header><h2>' + esc(t.name) + '</h2>' +
+      '<span>' + on.length + ' cover' + (on.length===1?"":"s") + ' · ' +
+      esc(w.salutation) + ' · ' + esc(ukDate(w.wedding_date)) + '</span></header>' +
+      '<table class="grid"><thead><tr><th>Guest</th><th>Starter</th><th>Main</th><th>Pudding</th><th>Notes</th></tr></thead><tbody>' +
+      on.map(function(g){
+        var notes = [];
+        if (g.allergies) notes.push('<strong class="alg">ALLERGY: ' + esc(g.allergies) + '</strong>');
+        if (g.dietary) notes.push(esc(g.dietary));
+        if (g.age_group !== "adult") notes.push(esc(g.age_group.toUpperCase()));
+        return '<tr' + (g.allergies ? ' class="hasalg"' : '') + '>' +
+          '<td>' + esc(g.first_name + " " + (g.surname||"")) + '</td>' +
+          '<td>' + esc(g.starter_choice || "—") + '</td>' +
+          '<td>' + esc(g.main_choice || "—") + '</td>' +
+          '<td>' + esc(g.dessert_choice || "—") + '</td>' +
+          '<td>' + (notes.join("<br>") || "") + '</td></tr>';
+      }).join("") + '</tbody></table></section>';
+  }).join("");
+
+  var loose = byTable["__none"] || [];
+  if (loose.length) {
+    sheets += '<section class="sheet"><header><h2>Not yet seated</h2>' +
+      '<span>' + loose.length + ' guest' + (loose.length===1?"":"s") + '</span></header>' +
+      '<table class="grid"><tbody>' + loose.map(function(g){
+        return '<tr><td>' + esc(g.first_name + " " + (g.surname||"")) + '</td>' +
+          '<td>' + esc(g.main_choice || "—") + '</td>' +
+          '<td>' + (g.allergies ? '<strong class="alg">ALLERGY: ' + esc(g.allergies) + '</strong>' : '') + '</td></tr>';
+      }).join("") + '</tbody></table></section>';
+  }
+
+  return '<!doctype html><html lang="en-GB"><head><meta charset="utf-8">' +
+    '<title>Food sheets — ' + esc(w.salutation) + ' — ' + esc(ukDate(w.wedding_date)) + '</title><style>' +
+    '@page{size:A4;margin:14mm}' +
+    'body{font:12pt/1.45 "Helvetica Neue",Arial,sans-serif;color:#111;margin:0}' +
+    'h1{font:400 20pt/1.2 Georgia,serif;margin:0 0 2mm;letter-spacing:.5pt}' +
+    'h2{font:400 15pt/1.2 Georgia,serif;margin:0}' +
+    'h4{font:600 9pt/1.2 sans-serif;letter-spacing:1pt;text-transform:uppercase;margin:0 0 2mm;color:#555}' +
+    '.top{border-bottom:2px solid #111;padding-bottom:4mm;margin-bottom:5mm}' +
+    '.top .meta{font-size:10pt;color:#444}' +
+    '.summary{display:flex;gap:10mm;flex-wrap:wrap;margin-bottom:6mm;page-break-after:always}' +
+    '.sumcol{min-width:55mm}' +
+    '.sumcol table{width:100%;border-collapse:collapse}' +
+    '.sumcol td{padding:1mm 0;border-bottom:1px solid #ddd;font-size:11pt}' +
+    '.sumcol td.n{text-align:right;font-weight:700;width:12mm}' +
+    '.warn{border:1.5pt solid #000;padding:3mm;margin-bottom:5mm;font-size:11pt}' +
+    '.sheet{page-break-after:always;padding-top:2mm}' +
+    '.sheet:last-child{page-break-after:auto}' +
+    '.sheet header{display:flex;justify-content:space-between;align-items:baseline;' +
+      'border-bottom:1.5pt solid #111;padding-bottom:2mm;margin-bottom:4mm}' +
+    '.sheet header span{font-size:9.5pt;color:#444}' +
+    'table.grid{width:100%;border-collapse:collapse}' +
+    'table.grid th{text-align:left;font-size:8.5pt;letter-spacing:.8pt;text-transform:uppercase;' +
+      'color:#555;border-bottom:1px solid #999;padding:2mm 3mm 2mm 0}' +
+    'table.grid td{padding:2.5mm 3mm 2.5mm 0;border-bottom:1px solid #ddd;vertical-align:top;font-size:11pt}' +
+    'tr.hasalg td{background:#f4ecea}' +
+    '.alg{color:#8C4A3F}' +
+    '@media screen{body{background:#eee;padding:20px}' +
+      '.sheet,.top,.summary{background:#fff;padding:14mm;margin:0 auto 14px;max-width:210mm;box-sizing:border-box}' +
+      '.noprint{max-width:210mm;margin:0 auto 14px;text-align:right}}' +
+    '@media print{.noprint{display:none}}' +
+    '</style></head><body>' +
+    '<div class="noprint"><button onclick="window.print()" style="padding:10px 18px;font:500 12px/1 sans-serif;' +
+      'letter-spacing:2px;text-transform:uppercase;background:#4E5F4F;color:#fff;border:0;cursor:pointer">' +
+      'Print / save as PDF</button></div>' +
+    '<div class="top"><h1>' + esc(w.salutation) + '</h1>' +
+      '<div class="meta">' + esc(ukDate(w.wedding_date)) + ' · Wedding breakfast · ' +
+      d.guests.length + ' covers · Ref ' + esc(w.event_id) + '</div></div>' +
+    (d.allergyCount || d.unconfirmed || d.unseated
+      ? '<div class="warn">' +
+        (d.allergyCount ? '<strong>' + d.allergyCount + ' guest' + (d.allergyCount===1?"":"s") +
+          ' with allergies</strong> — highlighted on the table sheets. ' : '') +
+        (d.unconfirmed ? d.unconfirmed + ' not yet confirmed by the couple. ' : '') +
+        (d.unseated ? d.unseated + ' not yet seated. ' : '') +
+        '</div>'
+      : '') +
+    '<div class="summary">' +
+      courseSummary(d.totals.starter, "Starters") +
+      courseSummary(d.totals.main, "Mains") +
+      courseSummary(d.totals.dessert, "Puddings") +
+      '<div class="sumcol"><h4>Covers</h4><table>' +
+        '<tr><td>Adults</td><td class="n">' + d.totals.adults + '</td></tr>' +
+        '<tr><td>Children</td><td class="n">' + d.totals.children + '</td></tr>' +
+        '<tr><td>Infants</td><td class="n">' + d.totals.infants + '</td></tr>' +
+        '<tr><td><strong>Total</strong></td><td class="n">' + d.guests.length + '</td></tr>' +
+      '</table></div>' +
+    '</div>' + sheets + '</body></html>';
+}
+
+function exportPlan(){
+  var byId = {};
+  S.tables.forEach(function(t){ byId[t.id] = t.name; });
+  var rows = S.guests.filter(function(g){
+    return g.rsvp === "attending" && g.invited_to !== "evening";
+  }).map(function(g){
+    return [byId[g.table_id] || "Not seated", g.first_name + " " + (g.surname||""),
+            g.starter_choice, g.main_choice, g.dessert_choice, g.allergies, g.dietary, g.age_group];
+  }).sort(function(a,b){ return String(a[0]).localeCompare(String(b[0])); });
+  csv("table-plan", ["Table","Guest","Starter","Main","Pudding","Allergies","Dietary","Age group"], rows);
 }
 
 /* ============================ SUPPLIERS ============================ */

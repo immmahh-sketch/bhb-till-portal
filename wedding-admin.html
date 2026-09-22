@@ -138,7 +138,9 @@ code{font-family:ui-monospace,"SF Mono",monospace;font-size:.875em;background:va
     </div>
     <div class="wrap">
       <nav id="nav">
-        <button data-view="weddings" aria-current="page">Weddings</button>
+        <button data-view="overview" aria-current="page">Overview</button>
+        <button data-view="weddings">Weddings</button>
+        <button data-view="outstanding">Outstanding</button>
         <button data-view="reconcile">Payments to post <span id="recBadge"></span></button>
         <button data-view="add">Add a wedding</button>
       </nav>
@@ -160,7 +162,8 @@ var CFG = {
   KEY: "bhb_wedding_admin"
 };
 
-var S = { pw:null, view:"weddings", list:[], pending:[], current:null, preview:null };
+var S = { pw:null, view:"overview", list:[], pending:[], current:null, preview:null,
+          outstanding:null, forecast:null };
 
 function $(id){ return document.getElementById(id); }
 function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){
@@ -238,10 +241,265 @@ function render(){
   var v = $("views");
   if (S.current) { v.innerHTML = '<div class="empty"><span class="spin"></span></div>'; loadWedding(S.current); return; }
   switch (S.view) {
-    case "weddings":  v.innerHTML = '<div class="empty"><span class="spin"></span></div>'; loadList(); break;
-    case "reconcile": v.innerHTML = viewReconcile(); break;
-    case "add":       v.innerHTML = viewAdd(); break;
+    case "overview":    v.innerHTML = '<div class="empty"><span class="spin"></span>' +
+                          '<p style="margin-top:14px">Reading the forward book from Guestline…</p></div>';
+                        loadForecast(); break;
+    case "weddings":    v.innerHTML = '<div class="empty"><span class="spin"></span></div>'; loadList(); break;
+    case "outstanding": v.innerHTML = '<div class="empty"><span class="spin"></span>' +
+                          '<p style="margin-top:14px">Checking every couple\'s balance…</p></div>';
+                        loadOutstanding(); break;
+    case "reconcile":   v.innerHTML = viewReconcile(); break;
+    case "add":         v.innerHTML = viewAdd(); break;
   }
+}
+
+/* ============================ OVERVIEW / FORWARD BOOK ============================ */
+var MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+async function loadForecast(){
+  try { S.forecast = await call("report.forecast"); $("views").innerHTML = viewOverview(); }
+  catch (e) { showErr(e.message); $("views").innerHTML = ""; }
+}
+
+function viewOverview(){
+  var f = S.forecast;
+  var years = f.years;
+  var peak = Math.max(1, Math.max.apply(null, years.map(function(y){ return y.weddings; })));
+
+  var h = '<div class="split" style="margin-bottom:6px"><h1>Overview</h1>' +
+    '<span class="label">' + f.totalRegistered + ' wedding' + (f.totalRegistered===1?"":"s") + ' in the app</span></div>' +
+    '<p class="muted" style="margin:0 0 20px">' +
+    'Everything below counts couples registered in this app, with numbers read live from Guestline. ' +
+    'A wedding in the diary but not yet set up here won\'t appear.</p>';
+
+  if (!f.totalRegistered) {
+    h += '<div class="card empty">No weddings registered yet.<br><br>' +
+      '<button class="btn btn--primary" onclick="goto(\'add\')">Add the first</button></div>';
+    return h;
+  }
+
+  /* ---- five-year headline ---- */
+  var total5 = years.reduce(function(s,y){ return s + y.weddings; }, 0);
+  var guests5 = years.reduce(function(s,y){ return s + y.guests; }, 0);
+  var value5 = years.reduce(function(s,y){ return s + y.value; }, 0);
+
+  h += '<div class="stat" style="margin-bottom:18px">' +
+    '<div><span class="label">Weddings, next 5 years</span><div class="v">' + total5 + '</div></div>' +
+    '<div><span class="label">Guests</span><div class="v">' + guests5.toLocaleString("en-GB") + '</div></div>' +
+    '<div><span class="label">Value</span><div class="v">' + money(value5) + '</div></div>' +
+    '<div><span class="label">Avg. guests</span><div class="v">' +
+      (total5 ? Math.round(guests5/total5) : 0) + '</div></div>' +
+  '</div>';
+
+  if (f.beyond) {
+    h += '<div class="notice notice--ok">' + f.beyond + ' further wedding' + (f.beyond===1?" is":"s are") +
+      ' booked beyond ' + years[years.length-1].year + ', so they sit outside the five years above.</div>';
+  }
+
+  /* ---- year by year, with a simple bar so the shape is readable ---- */
+  h += '<div class="card"><h2 style="margin-bottom:14px">By year</h2>' +
+    '<table><thead><tr><th>Year</th><th>Weddings</th><th class="money">Guests</th>' +
+    '<th class="money">Value</th><th style="width:34%"></th></tr></thead><tbody>';
+  years.forEach(function(y){
+    var pct = Math.round(y.weddings / peak * 100);
+    h += '<tr><td><strong>' + y.year + '</strong></td>' +
+      '<td class="num"><strong>' + y.weddings + '</strong></td>' +
+      '<td class="money num">' + (y.guests || "—") + '</td>' +
+      '<td class="money num">' + (y.value ? money(y.value) : "—") + '</td>' +
+      '<td><div style="background:var(--mist);height:10px">' +
+        '<div style="background:var(--sage);height:10px;width:' + pct + '%"></div></div></td></tr>';
+  });
+  h += '</tbody></table></div>';
+
+  /* ---- month grid: where the gaps are ---- */
+  h += '<div class="card"><h2 style="margin-bottom:6px">By month</h2>' +
+    '<p class="muted" style="margin:0 0 14px;font-size:.875rem">' +
+    'Weddings per month. Blank months are the ones worth selling into.</p>' +
+    '<table><thead><tr><th>Year</th>' +
+    MONTHS.map(function(m){ return '<th class="money">' + m + '</th>'; }).join("") +
+    '<th class="money">Total</th></tr></thead><tbody>';
+  years.forEach(function(y){
+    h += '<tr><td><strong>' + y.year + '</strong></td>' +
+      y.months.map(function(m){
+        return '<td class="money num"' +
+          (m.weddings ? ' style="background:var(--sage-10);font-weight:600"' : ' class="money num muted"') + '>' +
+          (m.weddings || "·") + '</td>';
+      }).join("") +
+      '<td class="money num"><strong>' + (y.weddings || "·") + '</strong></td></tr>';
+  });
+  h += '</tbody></table></div>';
+
+  /* ---- what's next ---- */
+  var todayIso = new Intl.DateTimeFormat("en-CA",{timeZone:"Europe/London"}).format(new Date());
+  var upcoming = f.weddings.filter(function(x){ return x.wedding_date >= todayIso; }).slice(0, 8);
+  if (upcoming.length) {
+    h += '<div class="card"><h2 style="margin-bottom:12px">Coming up</h2><table>';
+    upcoming.forEach(function(x){
+      h += '<tr><td><strong>' + esc(x.salutation) + '</strong><br>' +
+        '<span class="muted" style="font-size:.8125rem"><code>' + esc(x.event_id) + '</code></span></td>' +
+        '<td class="num">' + esc(ukDate(x.wedding_date)) + '<br>' +
+        '<span class="muted" style="font-size:.8125rem">' + daysToGo(x.wedding_date) + ' days</span></td>' +
+        '<td class="money num">' + (x.guests != null ? x.guests + ' guests' : '—') + '</td>' +
+        '<td class="money"><button class="btn btn--sm" onclick="open_(\'' + x.id + '\')">Open</button></td></tr>';
+    });
+    h += '</table></div>';
+  }
+
+  h += '<div class="center"><button class="btn" onclick="exportForecast()">Download the forward book</button></div>';
+  return h;
+}
+
+function exportForecast(){
+  var rows = S.forecast.weddings.map(function(x){
+    return [x.wedding_date, x.salutation, x.event_id, x.guests, x.value, x.status];
+  });
+  csvRaw("forward-book", ["Date","Couple","Reference","Guests","Value","Status"], rows);
+}
+
+/* ============================ OUTSTANDING PAYMENTS ============================ */
+async function loadOutstanding(){
+  try { S.outstanding = await call("report.outstanding"); $("views").innerHTML = viewOutstanding(); }
+  catch (e) { showErr(e.message); $("views").innerHTML = ""; }
+}
+
+function viewOutstanding(){
+  var all = S.outstanding || [];
+  var errors = all.filter(function(r){ return r.error; });
+  var live = all.filter(function(r){ return !r.error; });
+
+  /* Behind schedule first — that's the chase list. Then everyone else who
+     still owes, so the full picture is there without two reports. */
+  var behind = live.filter(function(r){ return r.behind; })
+                   .sort(function(a,b){ return b.shortfall - a.shortfall; });
+  var owing = live.filter(function(r){ return !r.behind && r.outstanding > 0.005 && !r.past; })
+                  .sort(function(a,b){ return a.daysToGo - b.daysToGo; });
+  var pastDue = live.filter(function(r){ return r.past && r.outstanding > 0.005; });
+  var clear = live.filter(function(r){ return r.outstanding <= 0.005; });
+
+  var chaseTotal = behind.reduce(function(s,r){ return s + r.shortfall; }, 0);
+  var owedTotal = live.reduce(function(s,r){ return s + r.outstanding; }, 0);
+
+  var h = '<div class="split" style="margin-bottom:6px"><h1>Outstanding payments</h1>' +
+    '<button class="btn btn--sm" onclick="loadOutstanding()">Refresh</button></div>' +
+    '<p class="muted" style="margin:0 0 18px">' +
+    'Balances read live from Guestline, plus any app payment not yet posted to Rezlynx. ' +
+    'The schedule is 25% at nine months, 50% at six, 75% at three, and the full balance a month before.</p>';
+
+  h += '<div class="stat" style="margin-bottom:18px">' +
+    '<div><span class="label">To chase now</span><div class="v" style="color:' +
+      (chaseTotal > 0 ? "var(--alert)" : "inherit") + '">' + money(chaseTotal) + '</div></div>' +
+    '<div><span class="label">Couples behind</span><div class="v">' + behind.length + '</div></div>' +
+    '<div><span class="label">Total still owed</span><div class="v">' + money(owedTotal) + '</div></div>' +
+    '<div><span class="label">Fully paid</span><div class="v">' + clear.length + '</div></div>' +
+  '</div>';
+
+  if (errors.length) {
+    h += '<div class="notice notice--late"><strong>' + errors.length + ' wedding' +
+      (errors.length===1?"":"s") + ' couldn\'t be read from Guestline</strong> — ' +
+      errors.map(function(r){ return esc(r.salutation); }).join(", ") +
+      '. Their balance isn\'t included in the totals above.</div>';
+  }
+
+  if (pastDue.length) {
+    h += '<div class="notice notice--late"><strong>' + pastDue.length + ' past wedding' +
+      (pastDue.length===1?"":"s") + ' still showing a balance.</strong> ' +
+      'Usually means a final payment was never posted in Rezlynx.</div>';
+  }
+
+  h += chaseTable("Behind the payment schedule", behind, true,
+    "Nobody is behind. Genuinely worth a moment.");
+
+  if (owing.length) {
+    h += chaseTable("On track, balance still to come", owing, false, "");
+  }
+  if (pastDue.length) {
+    h += chaseTable("Past weddings with a balance", pastDue, true, "");
+  }
+
+  if (behind.length) {
+    h += '<div class="center"><button class="btn" onclick="exportChase()">Download the chase list</button></div>';
+  }
+  return h;
+}
+
+function chaseTable(heading, rows, showShortfall, emptyMsg){
+  var h = '<div class="card"><div class="split" style="margin-bottom:12px"><h2>' + esc(heading) + '</h2>' +
+    '<span class="label num">' + rows.length + '</span></div>';
+  if (!rows.length) {
+    h += '<p class="muted" style="margin:0">' + esc(emptyMsg) + '</p></div>';
+    return h;
+  }
+  h += '<table><thead><tr><th>Couple</th><th>Wedding</th><th>Stage</th>' +
+    '<th class="money">Paid</th><th class="money">' +
+    (showShortfall ? "Behind by" : "Outstanding") + '</th><th></th></tr></thead><tbody>';
+  rows.forEach(function(r){
+    h += '<tr><td><strong>' + esc(r.salutation) + '</strong><br>' +
+      '<span class="muted" style="font-size:.8125rem">' +
+        '<a href="mailto:' + esc(r.primary_email) + '?subject=' +
+        encodeURIComponent("Your wedding balance — " + r.salutation) + '&body=' +
+        encodeURIComponent(
+          "Hello " + r.salutation + ",\n\n" +
+          "We hope you're well and that the planning is going smoothly.\n\n" +
+          "A quick note about your wedding balance. Of your total of £" + r.total.toFixed(2) +
+          ", we've received £" + r.paid.toFixed(2) + ", leaving £" + r.outstanding.toFixed(2) + " to pay.\n\n" +
+          (r.shortfall > 0
+            ? "At this stage we'd normally have received £" + r.dueNow.toFixed(2) +
+              ", so there's £" + r.shortfall.toFixed(2) + " to catch up.\n\n"
+            : "") +
+          "You can pay any amount at any time in your wedding app:\n" +
+          "https://www.blackhorsebeamish.co.uk/wedding-app\n\n" +
+          "Your reference is " + r.event_id + " and your password is your wedding date.\n\n" +
+          "Any questions at all, just give us a ring on 01207 232 569.\n\n" +
+          "Best wishes,\nThe events team\nBlack Horse Beamish"
+        ) + '">' + esc(r.primary_email) + '</a>' +
+        (r.mobile ? '<br>' + esc(r.mobile) : '') +
+        (r.last_login_at ? '' : '<br><span class="pill pill--prov">Never logged in</span>') +
+      '</span></td>' +
+      '<td class="num">' + esc(ukDate(r.wedding_date)) + '<br>' +
+      '<span class="muted" style="font-size:.8125rem">' +
+        (r.daysToGo >= 0 ? r.daysToGo + " days to go" : Math.abs(r.daysToGo) + " days ago") + '</span></td>' +
+      '<td>' + esc(r.stage) + '<br><span class="muted" style="font-size:.8125rem">' +
+        money(r.dueNow) + ' due by now</span></td>' +
+      '<td class="money num">' + money(r.paid) + '<br>' +
+        '<span class="muted" style="font-size:.8125rem">of ' + money(r.total) + '</span>' +
+        (r.unreconciled ? '<br><span class="pill pill--late">' + money(r.unreconciled) + ' unposted</span>' : '') +
+      '</td>' +
+      '<td class="money num"><strong style="' + (showShortfall ? 'color:var(--alert)' : '') + '">' +
+        money(showShortfall ? r.shortfall : r.outstanding) + '</strong></td>' +
+      '<td class="money"><button class="btn btn--sm" onclick="open_(\'' + r.id + '\')">Open</button></td></tr>';
+  });
+  return h + '</tbody></table></div>';
+}
+
+function exportChase(){
+  var rows = (S.outstanding||[]).filter(function(r){ return r.behind; })
+    .sort(function(a,b){ return b.shortfall - a.shortfall; })
+    .map(function(r){
+      return [r.salutation, r.event_id, r.wedding_date, r.daysToGo, r.stage,
+              r.total, r.paid, r.dueNow, r.shortfall, r.outstanding,
+              r.primary_email, r.mobile || "", r.last_login_at ? "Yes" : "No"];
+    });
+  csvRaw("payments-to-chase",
+    ["Couple","Reference","Wedding date","Days to go","Stage","Total","Paid",
+     "Due by now","Behind by","Outstanding","Email","Mobile","Has logged in"], rows);
+}
+
+function daysToGo(iso){
+  var t = new Intl.DateTimeFormat("en-CA",{timeZone:"Europe/London"}).format(new Date()).split("-");
+  var p = String(iso||"").slice(0,10).split("-");
+  return Math.round((Date.UTC(+p[0],+p[1]-1,+p[2]) - Date.UTC(+t[0],+t[1]-1,+t[2]))/86400000);
+}
+
+/* A CSV download that doesn't depend on a wedding being open. */
+function csvRaw(name, head, rows){
+  var q = function(v){ return '"' + String(v==null?"":v).replace(/"/g,'""') + '"'; };
+  var body = [head.map(q).join(",")].concat(rows.map(function(r){ return r.map(q).join(","); })).join("\r\n");
+  var blob = new Blob(["﻿"+body], { type:"text/csv;charset=utf-8" });
+  var a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = name + "-" + new Intl.DateTimeFormat("en-CA",{timeZone:"Europe/London"}).format(new Date()) + ".csv";
+  a.click();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); }, 1000);
 }
 
 /* ============================ WEDDINGS LIST ============================ */
