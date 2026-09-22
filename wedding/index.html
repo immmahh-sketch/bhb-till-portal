@@ -131,17 +131,34 @@ textarea{min-height:70px;resize:vertical}
    land on the tabs. */
 header.app{background:var(--sage);color:var(--bone);padding:0;
   padding-top:max(env(safe-area-inset-top,0px), 8px);
-  position:sticky;top:0;z-index:20}
+  position:sticky;top:0;z-index:40}
 /* .brand kept for the login screen's own use; the app header no longer has one. */
 .brand{font-family:var(--display);font-size:1.125rem;letter-spacing:.14em;text-transform:uppercase}
-nav.tabs{display:flex;gap:2px;overflow-x:auto;margin-top:0;-webkit-overflow-scrolling:touch;scrollbar-width:none}
-nav.tabs::-webkit-scrollbar{display:none}
-nav.tabs button{
-  flex:0 0 auto;background:transparent;border:0;border-bottom:2px solid transparent;
-  color:var(--celadon);padding:10px 14px;cursor:pointer;
-  font:500 .6875rem/1 var(--body);letter-spacing:var(--track-label);text-transform:uppercase;
-}
-nav.tabs button[aria-current="page"]{color:var(--bone);border-bottom-color:var(--celadon)}
+.hdr{display:flex;align-items:center;gap:10px;padding:10px 0}
+.burger{background:none;border:0;padding:9px 8px;margin-left:-8px;cursor:pointer;
+  display:flex;flex-direction:column;justify-content:center;gap:5px;flex:0 0 auto}
+.burger span{display:block;width:22px;height:2px;background:var(--celadon);transition:transform .18s,opacity .18s}
+.burger[aria-expanded="true"] span:nth-child(1){transform:translateY(7px) rotate(45deg)}
+.burger[aria-expanded="true"] span:nth-child(2){opacity:0}
+.burger[aria-expanded="true"] span:nth-child(3){transform:translateY(-7px) rotate(-45deg)}
+.hdr .where{font-family:var(--display);font-size:1rem;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--bone);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* Anchored under the header rather than floating over the page: inside the
+   Squarespace frame a fixed overlay is measured against the whole 1600px
+   iframe, not the part on screen. */
+.menu{display:none;position:absolute;left:0;right:0;top:100%;background:var(--sage);
+  border-top:1px solid rgba(247,247,247,.16);box-shadow:0 10px 24px rgba(38,38,38,.18);z-index:40}
+.menu.open{display:block}
+.menu button{display:block;width:100%;text-align:left;background:none;border:0;
+  border-bottom:1px solid rgba(247,247,247,.1);color:var(--celadon);cursor:pointer;
+  padding:15px 20px;font:500 .75rem/1 var(--body);letter-spacing:var(--track-label);
+  text-transform:uppercase}
+.menu button:last-child{border-bottom:0}
+.menu button:hover{background:rgba(247,247,247,.07);color:var(--bone)}
+.menu button[aria-current="page"]{color:var(--bone);box-shadow:inset 3px 0 0 var(--celadon)}
+.menu-scrim{display:none;position:absolute;left:0;right:0;top:100%;height:100vh;z-index:39}
+.menu-scrim.open{display:block}
 main.wrap{padding-top:38px;padding-bottom:64px}
 
 /* ---- hero ---- */
@@ -158,7 +175,6 @@ main.wrap{padding-top:38px;padding-bottom:64px}
   .wrap{padding:0 14px}
   main.wrap{padding-top:32px;padding-bottom:56px}
   .brand{font-size:.9375rem;letter-spacing:.1em}
-  nav.tabs button{padding:10px 11px;letter-spacing:.14em}
   .balance div{padding:13px 6px}
   .balance .v{font-size:1.0625rem}
   .balance .label{font-size:.625rem;letter-spacing:.1em}
@@ -175,7 +191,6 @@ main.wrap{padding-top:38px;padding-bottom:64px}
   .balance .v{font-size:.9375rem}
   .balance .label{font-size:.5625rem;letter-spacing:.06em}
   .balance div{padding:11px 4px}
-  nav.tabs button{padding:9px 9px;font-size:.625rem;letter-spacing:.1em}
   .hero .names{font-size:1.4375rem}
 }
 
@@ -418,21 +433,20 @@ footer.app{border-top:1px solid var(--mist);padding:26px 0;text-align:center;fon
     app read as another page of the site. Log out has moved to the footer,
     the way an app does it.
   -->
+  <!--
+    One menu, always in the same place. The tab strip that was here scrolled
+    sideways, so on a phone you saw "OURNEY" and had to swipe to find
+    anything — a nav you have to hunt through isn't a nav.
+  -->
   <header class="app">
-    <div class="wrap">
-      <nav class="tabs" id="tabs">
-        <button data-view="home" aria-current="page">Your wedding</button>
-        <button data-view="details">Details</button>
-        <button data-view="pay">Amounts to pay</button>
-        <button data-view="journey">Wedding journey</button>
-        <button data-view="checklist">Checklist</button>
-        <button data-view="guests">Guest list</button>
-        <button data-view="meals">Meals &amp; allergies</button>
-        <button data-view="tables">Table plan</button>
-        <button data-view="suppliers">Suppliers</button>
-        <button data-view="budget">Budget</button>
-      </nav>
+    <div class="wrap hdr">
+      <button id="burger" class="burger" aria-label="Menu" aria-expanded="false"
+              aria-controls="menu" onclick="toggleMenu()">
+        <span></span><span></span><span></span>
+      </button>
+      <span class="where" id="whereAmI">Your wedding</span>
     </div>
+    <nav class="menu" id="menu" aria-label="Sections"></nav>
   </header>
 
   <main class="wrap">
@@ -888,6 +902,7 @@ async function start(){
   try {
     S.data = await api("dashboard");
     clearError();
+    buildMenu();
     render();
   } catch (e) {
     if (e.code === "AUTH") return;
@@ -898,17 +913,63 @@ async function start(){
   }
 }
 
-$("tabs").addEventListener("click", function(ev){
+/* Every section, in one list — the menu and the "you are here" label both
+   read from it, so they can't drift apart. */
+var VIEWS = [
+  ["home", "Your wedding"],
+  ["details", "Details"],
+  ["pay", "Amounts to pay"],
+  ["journey", "Wedding journey"],
+  ["checklist", "Checklist"],
+  ["guests", "Guest list"],
+  ["meals", "Meals & allergies"],
+  ["tables", "Table plan"],
+  ["suppliers", "Suppliers"],
+  ["budget", "Budget"]
+];
+
+function buildMenu(){
+  var m = $("menu");
+  if (!m) return;
+  m.innerHTML = VIEWS.map(function(v){
+    return '<button data-view="' + v[0] + '"' +
+      (S.view === v[0] ? ' aria-current="page"' : '') + '>' + esc(v[1]) + '</button>';
+  }).join("");
+  var label = VIEWS.filter(function(v){ return v[0] === S.view; })[0];
+  var w = $("whereAmI");
+  if (w && label) w.textContent = label[1];
+}
+
+function toggleMenu(){
+  var m = $("menu"), b = $("burger");
+  if (!m) return;
+  var open = m.classList.toggle("open");
+  b.setAttribute("aria-expanded", open ? "true" : "false");
+  var scrim = $("menuScrim");
+  if (open) {
+    if (!scrim) {
+      scrim = document.createElement("div");
+      scrim.id = "menuScrim"; scrim.className = "menu-scrim";
+      scrim.addEventListener("click", closeMenu);
+      $("menu").parentNode.appendChild(scrim);
+    }
+    scrim.classList.add("open");
+  } else if (scrim) { scrim.classList.remove("open"); }
+}
+
+function closeMenu(){
+  var m = $("menu"), b = $("burger"), scrim = $("menuScrim");
+  if (m) m.classList.remove("open");
+  if (b) b.setAttribute("aria-expanded", "false");
+  if (scrim) scrim.classList.remove("open");
+}
+
+document.addEventListener("keydown", function(ev){ if (ev.key === "Escape") closeMenu(); });
+
+$("menu").addEventListener("click", function(ev){
   var b = ev.target.closest("button[data-view]");
   if (!b) return;
-  S.view = b.dataset.view;
-  [].forEach.call($("tabs").children, function(x){
-    if (x.dataset.view === S.view) x.setAttribute("aria-current","page");
-    else x.removeAttribute("aria-current");
-  });
-  clearError();
-  render();
-  window.scrollTo({top:0});
+  go(b.dataset.view);
 });
 
 function render(){
@@ -1081,10 +1142,11 @@ function dismissHint(){
 
 function go(v){
   S.view = v;
-  [].forEach.call($("tabs").children, function(x){
-    if (x.dataset.view === v) x.setAttribute("aria-current","page"); else x.removeAttribute("aria-current");
-  });
-  render(); window.scrollTo({top:0});
+  closeMenu();
+  buildMenu();
+  clearError();
+  render();
+  window.scrollTo({ top: 0 });
 }
 
 /* ============================ DETAILS ============================ */
@@ -1598,7 +1660,9 @@ function viewGuests(){
   }
   h += '</div>';
 
-  h += '<div class="card"><h2 style="margin-bottom:14px">Add a guest</h2>' + guestForm(null) + '</div>';
+  h += '<div class="card"><div class="split" style="margin-bottom:14px"><h2>Add a guest</h2>' +
+    '<button class="btn btn--sm" onclick="openImport()">Add several at once</button></div>' +
+    guestForm(null) + '</div>';
 
   h += '<div class="card card--flush">';
   if (!g.length) {
@@ -1636,6 +1700,284 @@ function viewGuests(){
     h += '<div class="center"><button class="btn" onclick="exportGuests()">Download as CSV</button></div>';
   }
   return h;
+}
+
+
+/* ============================ BULK GUEST IMPORT ============================
+
+   Two ways in, because couples arrive with their list in two different
+   states. Most already have it in a spreadsheet, in which case pasting the
+   cells straight across is the shortest path — no file, no download, no
+   column order to obey. Starting from nothing, there's a template to fill in
+   and upload.
+
+   Nothing is saved until they have seen exactly what will be created. The
+   importer reads whatever headings it finds rather than demanding the
+   template, since a list that already exists will never match it. */
+
+var IMPORT_FIELDS = [
+  { key:"first_name", label:"First name",
+    match:["first name","firstname","first","forename","given name","given"] },
+  { key:"surname", label:"Surname",
+    match:["surname","last name","lastname","last","family name","family"] },
+  { key:"email", label:"Email", match:["email","e-mail","email address"] },
+  { key:"phone", label:"Phone", match:["phone","mobile","telephone","tel","contact number"] },
+  { key:"address", label:"Address", match:["address","postal address","home address"] },
+  { key:"household", label:"Household", match:["household","group","party","family group","table group"] },
+  { key:"invited_to", label:"Invited to", match:["invited to","invite","invited","day or evening","attending"] },
+  { key:"age_group", label:"Age group", match:["age group","age","adult or child","type"] },
+  { key:"dietary", label:"Dietary", match:["dietary","dietary requirements","diet","requirements"] },
+  { key:"allergies", label:"Allergies", match:["allergies","allergy","allergens"] },
+  { key:"notes", label:"Notes", match:["notes","note","comments"] }
+];
+
+/** Proper CSV: quoted fields, embedded commas, doubled quotes, CRLF. */
+function parseDelimited(text, delim){
+  var rows = [], row = [], field = "", inQuotes = false, i = 0;
+  text = String(text).replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  while (i < text.length) {
+    var c = text[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (text[i+1] === '"') { field += '"'; i += 2; continue; }
+        inQuotes = false; i++; continue;
+      }
+      field += c; i++; continue;
+    }
+    if (c === '"') { inQuotes = true; i++; continue; }
+    if (c === delim) { row.push(field); field = ""; i++; continue; }
+    if (c === "\n") { row.push(field); rows.push(row); row = []; field = ""; i++; continue; }
+    field += c; i++;
+  }
+  if (field.length || row.length) { row.push(field); rows.push(row); }
+  return rows.filter(function(r){ return r.some(function(c){ return String(c).trim() !== ""; }); });
+}
+
+/** Tab for a spreadsheet paste, comma for a CSV — whichever the first line has more of. */
+function sniffDelimiter(text){
+  var line = String(text).split(/\r?\n/)[0] || "";
+  return (line.split("\t").length > line.split(",").length) ? "\t" : ",";
+}
+
+function normaliseHeading(h){
+  return String(h || "").toLowerCase().replace(/[_\-]+/g, " ").replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim();
+}
+
+/** Work out which column is which, from whatever headings are there. */
+function mapColumns(headings){
+  var map = {};
+  headings.forEach(function(h, idx){
+    var n = normaliseHeading(h);
+    if (!n) return;
+    for (var f = 0; f < IMPORT_FIELDS.length; f++) {
+      var field = IMPORT_FIELDS[f];
+      if (map[field.key] !== undefined) continue;
+      if (field.match.indexOf(n) > -1) { map[field.key] = idx; return; }
+    }
+  });
+  // A single "name" column is common; split it on the last space.
+  if (map.first_name === undefined) {
+    headings.forEach(function(h, idx){
+      if (map.first_name === undefined && normaliseHeading(h) === "name") map.__wholeName = idx;
+    });
+  }
+  return map;
+}
+
+function tidyInvite(v){
+  var t = String(v || "").toLowerCase();
+  if (/both|all day|day and evening|day & evening/.test(t)) return "both";
+  if (/evening|night|reception only/.test(t)) return "evening";
+  return "day";
+}
+function tidyAge(v){
+  var t = String(v || "").toLowerCase();
+  if (/infant|baby|babies/.test(t)) return "infant";
+  if (/child|kid|junior/.test(t)) return "child";
+  return "adult";
+}
+
+function rowsFromText(text){
+  var delim = sniffDelimiter(text);
+  var grid = parseDelimited(text, delim);
+  if (!grid.length) return { rows: [], map: {}, headings: [] };
+
+  var headings = grid[0].map(function(c){ return String(c).trim(); });
+  var map = mapColumns(headings);
+
+  // No recognisable headings at all: assume the first row is already a guest
+  // and the columns are first name, surname, email.
+  var startAt = 1;
+  if (map.first_name === undefined && map.__wholeName === undefined) {
+    map = { first_name: 0, surname: 1, email: 2 };
+    startAt = 0;
+  }
+
+  var out = [];
+  for (var i = startAt; i < grid.length; i++) {
+    var cells = grid[i];
+    var get = function(k){
+      var idx = map[k];
+      return idx === undefined ? "" : String(cells[idx] === undefined ? "" : cells[idx]).trim();
+    };
+
+    var first = get("first_name"), surname = get("surname");
+    if (map.__wholeName !== undefined) {
+      var whole = String(cells[map.__wholeName] || "").trim();
+      var bits = whole.split(/\s+/);
+      first = bits.shift() || "";
+      surname = bits.join(" ");
+    }
+    if (!first && !surname) continue;
+    if (!first) { first = surname; surname = ""; }
+
+    out.push({
+      first_name: first, surname: surname,
+      email: get("email"), phone: get("phone"), address: get("address"),
+      household: get("household"),
+      invited_to: tidyInvite(get("invited_to")),
+      age_group: tidyAge(get("age_group")),
+      dietary: get("dietary"), allergies: get("allergies"), notes: get("notes")
+    });
+  }
+  return { rows: out, map: map, headings: headings };
+}
+
+function downloadTemplate(){
+  csv("guest-list-template",
+    ["First name","Surname","Email","Phone","Address","Household",
+     "Invited to","Age group","Dietary","Allergies","Notes"],
+    [["Jane","Wilson","jane@example.com","07700 900123","1 The Green, Beamish","The Wilsons",
+      "Day","Adult","Vegetarian","","Sitting with her sister"],
+     ["Tom","Wilson","","","1 The Green, Beamish","The Wilsons","Day","Adult","","Nuts",""],
+     ["Ruby","Wilson","","","1 The Green, Beamish","The Wilsons","Day","Child","","",""],
+     ["Alex","Doyle","","","","","Evening","Adult","","",""]]);
+}
+
+function openImport(){
+  showModal(
+    '<div class="split" style="margin-bottom:14px"><h2>Add several guests at once</h2>' +
+    '<button class="btn btn--sm" onclick="closeModal()">Close</button></div>' +
+
+    '<p class="muted" style="margin:0 0 16px;font-size:.9375rem">' +
+    'Already have your list in a spreadsheet? Copy the cells and paste them below &mdash; ' +
+    'that is usually quickest. Starting from scratch? Download the template, fill it in, ' +
+    'and upload it here.</p>' +
+
+    '<div class="field"><span class="label">Paste from a spreadsheet</span>' +
+    '<textarea id="impPaste" style="min-height:120px;font-family:var(--mono, monospace);font-size:.875rem" ' +
+    'placeholder="Paste your rows here, including the heading row"></textarea></div>' +
+
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">' +
+      '<button class="btn btn--sm btn--primary" onclick="previewImport()">See what we found</button>' +
+      '<button class="btn btn--sm" onclick="downloadTemplate()">Download the template</button>' +
+      '<label class="btn btn--sm" style="cursor:pointer;margin:0">Upload a file' +
+        '<input type="file" id="impFile" accept=".csv,.tsv,.txt,text/csv" ' +
+        'style="display:none" onchange="importFromFile(this)"></label>' +
+    '</div>' +
+
+    '<p class="muted" style="font-size:.8125rem;margin:0">' +
+    'We read whatever headings your sheet already uses, so it does not have to match ' +
+    'the template. Nothing is added until you have seen it.</p>' +
+
+    '<div id="impPreview"></div>'
+  );
+}
+
+function importFromFile(input){
+  var file = input.files && input.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(){
+    var ta = $("impPaste");
+    if (ta) ta.value = String(reader.result || "");
+    previewImport();
+  };
+  reader.onerror = function(){ showError("We could not read that file. Try pasting the rows instead."); };
+  reader.readAsText(file);
+}
+
+function previewImport(){
+  var text = ($("impPaste") || {}).value || "";
+  var box = $("impPreview");
+  if (!String(text).trim()) {
+    box.innerHTML = '<div class="err" style="margin-top:14px">Paste your rows in, or upload a file.</div>';
+    return;
+  }
+
+  var parsed = rowsFromText(text);
+  S.importRows = parsed.rows;
+
+  if (!parsed.rows.length) {
+    box.innerHTML = '<div class="err" style="margin-top:14px">' +
+      'We could not find any guests in that. Check there is a name in the first column.</div>';
+    return;
+  }
+
+  // Anyone already on the list, by name — so a second paste doesn't double
+  // everyone up.
+  var existing = {};
+  (S.guests || []).forEach(function(g){
+    existing[(g.first_name + " " + (g.surname || "")).trim().toLowerCase()] = true;
+  });
+  var dupes = parsed.rows.filter(function(r){
+    return existing[(r.first_name + " " + (r.surname || "")).trim().toLowerCase()];
+  }).length;
+
+  var found = IMPORT_FIELDS.filter(function(f){ return parsed.map[f.key] !== undefined; })
+    .map(function(f){ return f.label; });
+
+  var h = '<div class="orn" style="margin:20px 0 16px"><i></i></div>' +
+    '<div class="split" style="margin-bottom:10px"><h3>' + parsed.rows.length +
+      ' guest' + (parsed.rows.length === 1 ? "" : "s") + ' found</h3></div>';
+
+  if (found.length) {
+    h += '<p class="muted" style="margin:0 0 6px;font-size:.8125rem">Columns we recognised: ' +
+      esc(found.join(", ")) + '</p>';
+  }
+  if (dupes) {
+    h += '<div class="notice notice--due" style="margin:10px 0"><strong>' + dupes +
+      '</strong> of these are already on your list by name. Importing will add them again.</div>';
+  }
+
+  h += '<div class="card card--flush" style="max-height:320px;overflow:auto;margin:12px 0">' +
+    '<table class="stack"><thead><tr><th>Guest</th><th>Invited to</th><th>Notes</th></tr></thead><tbody>';
+  parsed.rows.slice(0, 40).forEach(function(r){
+    h += '<tr><td data-label="Guest"><strong>' + esc((r.first_name + " " + r.surname).trim()) + '</strong>' +
+      (r.age_group !== "adult" ? ' <span class="pill pill--prov">' + esc(r.age_group) + '</span>' : '') +
+      (r.email ? '<br><span class="muted" style="font-size:.8125rem">' + esc(r.email) + '</span>' : '') +
+      '</td>' +
+      '<td data-label="Invited to">' + esc(r.invited_to === "both" ? "Day & evening" :
+        (r.invited_to === "day" ? "Day" : "Evening")) + '</td>' +
+      '<td data-label="Notes">' +
+        (r.allergies ? '<span style="color:var(--alert)">' + esc(r.allergies) + '</span> ' : '') +
+        esc(r.dietary || "") + '</td></tr>';
+  });
+  h += '</tbody></table></div>';
+
+  if (parsed.rows.length > 40) {
+    h += '<p class="muted" style="font-size:.8125rem;margin:0 0 12px">Showing the first 40.</p>';
+  }
+
+  h += '<button class="btn btn--primary" style="width:100%" onclick="confirmImport()">' +
+    'Add ' + parsed.rows.length + ' guest' + (parsed.rows.length === 1 ? "" : "s") + ' to my list</button>';
+
+  box.innerHTML = h;
+}
+
+async function confirmImport(){
+  var rows = S.importRows || [];
+  if (!rows.length) return;
+  try {
+    var res = await api("guests.bulk", { rows: rows });
+    closeModal();
+    S.importRows = null;
+    await loadGuests();
+    clearError();
+    if (res.skipped) {
+      showError("Added " + res.imported + ". " + res.skipped + " had no name and were left out.");
+    }
+  } catch (e) { showError(e.message); }
 }
 
 /* ---------- invitations ---------- */
@@ -2035,10 +2377,11 @@ function viewTables(){
     '<div class="field" style="margin:0"><span class="label">How many tables?</span>' +
       '<input id="tblCount" inputmode="numeric" value="' + (S.tables.length || "") + '" placeholder="8"></div>' +
     '<div class="field" style="margin:0"><span class="label">Seats on each</span>' +
-      '<input id="tblCap" inputmode="numeric" value="' + (S.tables.length ? S.tables[0].capacity : 8) + '"></div>' +
+      '<input id="tblCap" inputmode="numeric" value="' + (S.tables.length ? S.tables[0].capacity : 10) + '"></div>' +
     '<button class="btn" onclick="setupTables()">Set up</button></div>' +
     '<p class="muted" style="font-size:.8125rem;margin:12px 0 0">' +
-    'You can rename any table and change its size afterwards — a top table of six alongside rounds of ten is fine.</p></div>';
+    'Our round tables seat ten, or eleven at a squeeze. A top table can be any size at all, ' +
+    'so set that one up separately. You can rename any table and change its size afterwards.</p></div>';
 
   if (!S.tables.length) return h;
 
@@ -2067,7 +2410,8 @@ function viewTables(){
       '<div class="split"><h3>' + esc(t.name) + '</h3>' +
       '<span class="label num">' + on.length + '/' + esc(t.capacity) + '</span></div>' +
       '<span class="muted" style="font-size:.8125rem">' +
-        (t.shape === "top" ? "Top table" : (t.shape === "long" ? "Long table" : "Round table")) + '</span>';
+        (t.shape === "top" ? "Top table" : (t.shape === "long" ? "Long table" : "Round table")) +
+        (t.shape !== "top" && Number(t.capacity) >= ROUND_MAX ? ' &middot; a tight fit' : '') + '</span>';
     if (on.length) {
       h += '<ol>' + on.map(function(g){
         return '<li>' + esc(g.first_name + " " + (g.surname||"")) +
@@ -2090,10 +2434,19 @@ function viewTables(){
   return h;
 }
 
+var ROUND_DEFAULT = 10, ROUND_MAX = 11;
+
 async function setupTables(){
   var count = parseInt($("tblCount").value, 10) || 0;
-  var cap = parseInt($("tblCap").value, 10) || 8;
+  var cap = parseInt($("tblCap").value, 10) || ROUND_DEFAULT;
   if (count < 1) { showError("How many tables would you like?"); return; }
+  if (cap > ROUND_MAX) {
+    showError("Our round tables seat " + ROUND_DEFAULT + ", or " + ROUND_MAX +
+      " at a squeeze. For a bigger one, add it on its own and set it as a top table.");
+    return;
+  }
+  if (cap === ROUND_MAX &&
+      !confirm("Eleven to a round table is doable, but it will be tight. Carry on?")) return;
   if (count < S.tables.length) {
     showError("To have fewer tables, remove the ones you don't want below — that way nobody loses their seat by accident.");
     return;
@@ -2111,6 +2464,9 @@ function editTable(id){
       '<input id="tf_name" value="' + esc(t.name) + '"></div>' +
       '<div class="field"><span class="label">Seats</span>' +
       '<input id="tf_cap" inputmode="numeric" value="' + esc(t.capacity) + '"></div></div>' +
+    '<p class="muted" style="font-size:.8125rem;margin:-6px 0 14px">' +
+    'A round seats ' + ROUND_DEFAULT + ', or ' + ROUND_MAX + ' at a squeeze. ' +
+    'A top table can be whatever size you need.</p>' +
     '<div class="field"><span class="label">Shape</span><select id="tf_shape">' +
       opt("round","Round",t.shape) + opt("long","Long",t.shape) + opt("top","Top table",t.shape) +
       '</select></div>' +
@@ -2118,9 +2474,18 @@ function editTable(id){
 }
 
 async function saveTable(id){
+  var cap = parseInt($("tf_cap").value, 10) || ROUND_DEFAULT;
+  var shape = $("tf_shape").value;
+  if (shape !== "top" && cap > ROUND_MAX) {
+    showError("A round table seats " + ROUND_DEFAULT + ", or " + ROUND_MAX +
+      " at a squeeze. Set it as a top table if it needs to be bigger.");
+    return;
+  }
+  if (shape !== "top" && cap === ROUND_MAX &&
+      !confirm("Eleven round one table is doable, but it will be tight. Carry on?")) return;
   try {
     await api("tables.save", { id:id, name:$("tf_name").value.trim() || "Table",
-      capacity: parseInt($("tf_cap").value,10) || 8, shape: $("tf_shape").value });
+      capacity: cap, shape: shape });
     closeModal(); await loadTables(); clearError();
   } catch (e) { showError(e.message); }
 }
