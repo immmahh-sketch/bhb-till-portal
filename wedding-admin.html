@@ -445,7 +445,9 @@ function adaptTables(root){
           td.setAttribute("data-label", labels[i] || "");
         }
         var txt = (td.textContent || "").replace(/\s+/g, " ").trim();
-        if (!txt || txt === "\u2014" || txt === "-") td.classList.add("is-empty");
+        if (!txt || txt === "\u2014" || txt === "-" || txt === "\u00b7") {
+          td.classList.add("is-empty");
+        }
       });
     });
 
@@ -558,8 +560,8 @@ function viewOverview(){
   years.forEach(function(y){
     h += '<tr><td><strong>' + y.year + '</strong></td>' +
       y.months.map(function(m){
-        return '<td class="money num"' +
-          (m.weddings ? ' style="background:var(--sage-10);font-weight:600"' : ' class="money num muted"') + '>' +
+        return '<td class="money num' + (m.weddings ? '' : ' muted') + '"' +
+          (m.weddings ? ' style="background:var(--sage-10);font-weight:600"' : '') + '>' +
           (m.weddings || "·") + '</td>';
       }).join("") +
       '<td class="money num"><strong>' + (y.weddings || "·") + '</strong></td></tr>';
@@ -570,7 +572,9 @@ function viewOverview(){
   var todayIso = new Intl.DateTimeFormat("en-CA",{timeZone:"Europe/London"}).format(new Date());
   var upcoming = f.weddings.filter(function(x){ return x.wedding_date >= todayIso; }).slice(0, 8);
   if (upcoming.length) {
-    h += '<div class="card"><h2 style="margin-bottom:12px">Coming up</h2><table>';
+    h += '<div class="card"><h2 style="margin-bottom:12px">Coming up</h2>' +
+      '<table><thead><tr><th>Couple</th><th>Date</th>' +
+      '<th class="money">Guests</th><th class="money"></th></tr></thead><tbody>';
     upcoming.forEach(function(x){
       h += '<tr><td><strong>' + esc(x.salutation) + '</strong><br>' +
         '<span class="muted" style="font-size:.8125rem"><code>' + esc(x.event_id) + '</code></span></td>' +
@@ -584,7 +588,7 @@ function viewOverview(){
             : (x.guests != null ? x.guests + ' guests' : '—')) + '</td>' +
         '<td class="money"><button class="btn btn--sm" onclick="open_(\'' + x.id + '\')">Open</button></td></tr>';
     });
-    h += '</table></div>';
+    h += '</tbody></table></div>';
   }
 
   h += '<div class="center"><button class="btn" onclick="exportForecast()">Download the forward book</button></div>';
