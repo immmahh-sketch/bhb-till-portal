@@ -417,6 +417,26 @@ footer.app{border-top:1px solid var(--mist);padding:26px 0;text-align:center;fon
 .qrwrap{text-align:center;padding:6px 0 2px}
 .qrwrap svg{max-width:220px;width:100%;height:auto;border:1px solid var(--mist)}
 
+/* ---- one folder per person who sent something ---- */
+.folders{display:flex;gap:8px;overflow-x:auto;padding:14px 0 4px;margin:0 -2px;
+  -webkit-overflow-scrolling:touch;scrollbar-width:thin}
+.folder{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:4px;
+  width:82px;padding:6px 4px 8px;background:transparent;border:1px solid transparent;
+  cursor:pointer;color:var(--sage)}
+.folder img,.folder .all{width:54px;height:54px;object-fit:cover;display:block;
+  border:1px solid var(--mist);background:var(--sage-10)}
+.folder .all{display:flex;align-items:center;justify-content:center;
+  font-family:var(--display);font-size:.9375rem;letter-spacing:.04em;color:var(--sage-70)}
+.folder .fname{font-size:.6875rem;line-height:1.3;text-align:center;max-width:100%;
+  overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;
+  -webkit-box-orient:vertical}
+.folder .fn{font-size:.625rem;color:var(--sage-70);font-variant-numeric:tabular-nums}
+.folder.on{border-color:var(--sage)}
+.folder.on img,.folder.on .all{border-color:var(--sage);box-shadow:0 0 0 2px var(--sage)}
+.folder.on .fname{font-weight:600}
+.linkish{background:none;border:0;padding:0;font:inherit;color:var(--sage);
+  text-decoration:underline;cursor:pointer}
+
 .pgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:14px}
 @media(min-width:640px){.pgrid{grid-template-columns:repeat(5,1fr)}}
 .ptile{position:relative;padding-top:100%;background:var(--sage-10);border:1px solid var(--mist);
@@ -4139,7 +4159,8 @@ function exportPlan(){
 var ALBUM_URL = "https://app.blackhorsebeamish.co.uk/wedding/album.html";
 var KEEP_DAYS = 90;
 
-var A = { photos:[], sel:{}, token:null, wall:true, message:null, enabled:true, stop:false };
+var A = { photos:[], sel:{}, token:null, wall:true, message:null, enabled:true,
+          marketing:false, folder:null, stop:false };
 
 async function loadAlbum(){
   try {
@@ -4148,8 +4169,10 @@ async function loadAlbum(){
     A.wall = d.album_wall !== false;
     A.message = d.album_message || "";
     A.enabled = d.album_enabled !== false;
+    A.marketing = d.album_marketing_ok === true;
     A.photos = d.photos || [];
     A.sel = {};
+    A.folder = null;
     $("views").innerHTML = viewAlbum();
     drawQr();
   } catch (e) { showError(e.message); $("views").innerHTML = ""; }
@@ -4157,6 +4180,87 @@ async function loadAlbum(){
 
 function albumLink(){ return ALBUM_URL + "?a=" + A.token; }
 function selectedIds(){ return A.photos.filter(function(p){ return A.sel[p.id]; }).map(function(p){ return p.id; }); }
+
+/* ---------- who took what ----------
+   Forty photographs from six people in one long pile is a pile. Grouped by
+   the phone they came from, it is six sets of pictures, and the couple can
+   go and look at what Amelia took.
+
+   Grouped by phone rather than by name, because a name is typed: two people
+   both signing themselves "Dad" really are two people, and one person
+   coming back a week later from the same phone really is one. Where two
+   folders end up with the same name they are numbered, so the couple is
+   never looking at two identical labels. */
+function photoFolders(){
+  var by = {}, order = [];
+  A.photos.forEach(function(p){
+    var name = (p.uploader || "").trim();
+    var id = p.uploader_key ? "k:" + p.uploader_key
+           : (name ? "n:" + name.toLowerCase() : "anon");
+    if (!by[id]) { by[id] = { id:id, name:name, photos:[] }; order.push(id); }
+    if (!by[id].name && name) by[id].name = name;
+    by[id].photos.push(p);
+  });
+
+  var out = order.map(function(id){ return by[id]; })
+    .sort(function(a, b){ return b.photos.length - a.photos.length; });
+
+  var seen = {};
+  out.forEach(function(f){
+    f.label = f.name || "Added without a name";
+    var k = f.label.toLowerCase();
+    seen[k] = (seen[k] || 0) + 1;
+    if (seen[k] > 1) f.label += " (" + seen[k] + ")";
+  });
+  return out;
+}
+
+/** The photographs on screen: one folder's, or everybody's. */
+function shownPhotos(){
+  if (!A.folder) return A.photos;
+  var f = photoFolders().filter(function(x){ return x.id === A.folder; })[0];
+  return f ? f.photos : A.photos;
+}
+
+function openFolder(id){
+  A.folder = (id === A.folder) ? null : (id || null);
+  // Choosing is per view: what "choose all" means depends on what is on
+  // screen, so the selection does not quietly outlive the folder.
+  A.sel = {};
+  var g = $("pgrid"), t = $("folders"), c = $("shownCount");
+  if (g) g.innerHTML = photoTiles();
+  if (t) t.innerHTML = folderChips();
+  if (c) c.innerHTML = shownCountHtml();
+  updateSelCount();
+}
+
+function folderChips(){
+  var folders = photoFolders();
+  if (folders.length < 2) return "";
+
+  var chip = function(id, label, n, cover){
+    var on = (A.folder || "") === id;
+    return '<button class="folder' + (on ? " on" : "") + '"' +
+      ' onclick="openFolder(' + JSON.stringify(id).replace(/"/g, "&quot;") + ')">' +
+      (cover ? '<img src="' + esc(cover) + '" alt="">' : '<span class="all">All</span>') +
+      '<span class="fname">' + esc(label) + '</span>' +
+      '<span class="fn">' + n + '</span></button>';
+  };
+
+  return chip("", "Everyone", A.photos.length, null) +
+    folders.map(function(f){
+      return chip(f.id, f.label, f.photos.length, f.photos[0] && f.photos[0].thumb);
+    }).join("");
+}
+
+function shownCountHtml(){
+  var n = shownPhotos().length;
+  if (!A.folder) return "Tap to choose. The magnifier opens one full size.";
+  var f = photoFolders().filter(function(x){ return x.id === A.folder; })[0];
+  return '<strong>' + esc(f ? f.label : "") + '</strong> &middot; ' +
+    (n === 1 ? "one photograph" : n + " photographs") +
+    ' &middot; <button class="linkish" onclick="openFolder(\'\')">show everyone</button>';
+}
 
 function viewAlbum(){
   var w = S.data.wedding;
@@ -4215,6 +4319,23 @@ function viewAlbum(){
       '<textarea id="albumMsg" maxlength="400" rows="3" ' +
         'placeholder="Optional — shown on the upload page and in the email">' +
         esc(A.message) + '</textarea></div>' +
+
+    /* Gate two of three. Nothing of ours is ever used without the person who
+       took it agreeing as well, and without one of our team looking at it
+       first. Off unless the couple turns it on, and while it is off their
+       guests are never even asked. */
+    '<label class="opt" style="display:flex;gap:12px;align-items:flex-start;padding:13px 14px;' +
+      'border:1px solid var(--mist);cursor:pointer;margin:0 0 14px">' +
+      '<input type="checkbox" id="albumMarketing"' + (A.marketing ? " checked" : "") +
+        ' style="width:18px;height:18px;flex:0 0 18px;margin:3px 0 0;accent-color:#4E5F4F">' +
+      '<span><strong>Let us ask your guests about using their photographs</strong>' +
+      '<span class="muted" style="display:block;font-size:.875rem;margin-top:2px">' +
+      'Turn this on and each guest gets their own tick box when they upload. ' +
+      'We would only ever use a photograph where the person who took it said yes, ' +
+      'and one of our team has looked at it first. Never one with a child in it. ' +
+      'Leave it off and we will not ask them at all.</span></span>' +
+    '</label>' +
+
     '<button class="btn btn--primary" onclick="saveAlbumSettings(this)">Save</button>' +
   '</div>';
 
@@ -4230,8 +4351,9 @@ function viewAlbum(){
     return h;
   }
 
-  h += '<p class="muted" style="margin:0;font-size:.9375rem">Tap to choose. ' +
-    'The magnifier opens one full size.</p>' +
+  h += '<div class="folders" id="folders">' + folderChips() + '</div>' +
+    '<p class="muted" id="shownCount" style="margin:0;font-size:.9375rem">' +
+      shownCountHtml() + '</p>' +
     '<div class="pgrid" id="pgrid">' + photoTiles() + '</div>' +
     '<div class="ptools">' +
       '<span class="grow muted" id="selCount">None chosen</span>' +
@@ -4260,7 +4382,7 @@ function viewAlbum(){
 }
 
 function photoTiles(){
-  return A.photos.map(function(p){
+  return shownPhotos().map(function(p){
     return '<div class="ptile" data-id="' + esc(p.id) + '"' +
       (A.sel[p.id] ? ' data-sel="1"' : "") + (p.hidden ? ' data-hidden="1"' : "") +
       ' onclick="togglePhoto(this, event)">' +
@@ -4301,8 +4423,10 @@ function togglePhoto(el, ev){
   updateSelCount();
 }
 
+/* Everything on screen, which inside a folder means everything that person
+   took — the quickest way to save one guest's photographs in one go. */
 function selectAllPhotos(){
-  A.photos.forEach(function(p){ A.sel[p.id] = true; });
+  shownPhotos().forEach(function(p){ A.sel[p.id] = true; });
   $("pgrid").innerHTML = photoTiles();
   updateSelCount();
 }
@@ -4440,10 +4564,12 @@ async function saveAlbumSettings(btn){
   try {
     await api("photos.settings", {
       album_wall: $("albumWall").checked,
-      album_message: $("albumMsg").value
+      album_message: $("albumMsg").value,
+      album_marketing_ok: $("albumMarketing").checked
     });
     A.wall = $("albumWall").checked;
     A.message = $("albumMsg").value;
+    A.marketing = $("albumMarketing").checked;
     btn.textContent = "Saved";
     setTimeout(function(){ btn.textContent = was; btn.disabled = false; }, 1400);
   } catch (e) { showError(e.message); btn.disabled = false; }

@@ -115,6 +115,16 @@ a{color:inherit}
 @keyframes sp{to{transform:rotate(360deg)}}
 .empty{padding:60px 0;text-align:center}
 
+/* ---- may we use them? ---- */
+.consent{display:flex;gap:12px;align-items:flex-start;padding:13px 14px;margin:0 0 18px;
+  border:1px solid var(--mist);background:var(--bone);cursor:pointer}
+.consent input{width:20px;height:20px;flex:0 0 20px;margin:1px 0 0;accent-color:#4E5F4F}
+.consent .ask{display:block;font-size:.9375rem;line-height:1.5}
+.consent .note{display:block;font-size:.8125rem;color:var(--sage-70);margin-top:5px}
+.consent:hover{border-color:var(--celadon)}
+.linkish{background:none;border:0;padding:0;font:inherit;color:var(--sage);
+  text-decoration:underline;cursor:pointer}
+
 /* The one thing on the page that matters, sized for a thumb. */
 .addwrap{text-align:center;padding:6px 0 2px}
 .addwrap input[type=file]{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
@@ -198,6 +208,34 @@ function rememberName(v){
   catch (e) {}
 }
 
+/* Which phone this is.
+   Two jobs. It keeps one person's photographs together in the couple's
+   album, so they can look through what Amelia took rather than one long
+   pile. And it is the only thread back to somebody who has no login, which
+   is what lets them return and withdraw what they agreed to — the law asks
+   that taking it back be as easy as giving it, and this is the whole of
+   that mechanism. Random, stored on their own phone, and meaningless to
+   anybody else. */
+function uploaderKey(){
+  try {
+    var k = localStorage.getItem("bhb_album_key");
+    if (k && /^[0-9a-f]{32}$/i.test(k)) return k;
+    var b = new Uint8Array(16);
+    (window.crypto || window.msCrypto).getRandomValues(b);
+    k = Array.prototype.map.call(b, function(x){
+      return ("0" + x.toString(16)).slice(-2); }).join("");
+    localStorage.setItem("bhb_album_key", k);
+    return k;
+  } catch (e) {
+    // No storage — still group this visit's uploads, just not future ones.
+    if (!S.fallbackKey) {
+      S.fallbackKey = String(Date.now()).padStart(16, "0").slice(0, 16) +
+                      Math.random().toString(16).slice(2, 18).padEnd(16, "0");
+    }
+    return S.fallbackKey;
+  }
+}
+
 /* ---------- making a photograph smaller ---------- */
 
 /* Decoded with the orientation the camera recorded, so photographs taken
@@ -257,7 +295,7 @@ function render(){
 
   if (w.message) h += '<div class="card"><div class="sheet">' + esc(w.message) + '</div></div>';
 
-  h += '<div id="msg"></div>';
+  h += '<div id="msg"></div><div id="mine">' + mineBox() + '</div>';
 
   if (d.full) {
     h += '<div class="notice notice--due center">This album is full. Give us a ring on ' +
@@ -274,6 +312,7 @@ function render(){
         '<input id="who" type="text" autocomplete="name" maxlength="80" placeholder="Optional" value="' +
           esc(savedName()) + '">' +
       '</div>' +
+      consentBox() +
       '<div class="addwrap">' +
         '<input id="pick" type="file" accept="image/*" multiple>' +
         '<button class="btn btn--primary btn--block" id="add">Choose photographs</button>' +
@@ -297,7 +336,8 @@ function render(){
 
   h += '<p class="muted center" style="font-size:.8125rem;margin:22px 0 0">' +
     'The album is private to this wedding. Only ' + esc(w.partner1_name) + ' and ' +
-    esc(w.partner2_name) + ' can download from it, and it stays open for three months.</p>';
+    esc(w.partner2_name) + ' can download from it, and it stays open for three months. ' +
+    'We won’t use your photographs for anything ourselves unless you tell us we may.</p>';
 
   $("main").innerHTML = h;
   $("loading").classList.add("hide");
@@ -313,6 +353,51 @@ function render(){
 function countLine(n){
   if (!n) return "Nothing here yet — be the first.";
   return n === 1 ? "One photograph so far." : n + " photographs so far.";
+}
+
+/* Whether we may use their photographs ourselves.
+   Off unless touched, worded by the server so what is stored is what was
+   put to them, and shown at all only when the couple has agreed to be
+   asked. It sits under the upload button rather than over it: nobody
+   should have to read a permissions question before they can share a
+   photograph of their friends. */
+function consentBox(){
+  var c = S.data.consent;
+  if (!c) return "";
+  return '<label class="consent" for="mkt">' +
+    '<input type="checkbox" id="mkt">' +
+    '<span><span class="ask">' + esc(c.text) + '</span>' +
+    '<span class="note">' + esc(c.note) + '</span></span></label>';
+}
+
+/* Somebody coming back to a wedding they have already added to. */
+function mineBox(){
+  var m = S.data.mine;
+  if (!m || !S.data.consent) return "";
+  var n = m.count === 1 ? "your photograph" : "your " + m.count + " photographs";
+
+  if (m.consented) {
+    return '<div class="notice notice--ok" style="margin-top:16px">' +
+      'You said we may use ' + n + ' in our own marketing. ' +
+      '<button class="linkish" onclick="setConsent(false)">Change your mind</button></div>';
+  }
+  return '<div class="notice notice--ok" style="margin-top:16px">' +
+    'We will not use ' + n + ' for anything ourselves. ' +
+    '<button class="linkish" onclick="setConsent(true)">You may use them</button></div>';
+}
+
+async function setConsent(agree){
+  try {
+    await call("consent", { uploader_key: uploaderKey(), agree: agree });
+    S.data.mine.consented = agree ? S.data.mine.count : 0;
+    var el = $("mine");
+    if (el) el.innerHTML = mineBox();
+    say(agree
+      ? "Thank you — we may now use your photographs. You can change this whenever you like."
+      : "Done. We will not use your photographs for anything ourselves.");
+  } catch (e) {
+    say(esc(e.message || "That didn’t save. Please try again."), "err");
+  }
 }
 
 function tiles(photos){
@@ -385,10 +470,26 @@ async function upload(fileList){
 
     if (!saved.length) throw new Error("Those wouldn’t send — it may be the signal. Please try again.");
 
-    var out = await call("confirm", { uploader: name || null, photos: saved });
+    var mkt = $("mkt");
+    var out = await call("confirm", {
+      uploader: name || null,
+      uploader_key: uploaderKey(),
+      marketing_consent: !!(mkt && mkt.checked),
+      photos: saved
+    });
     S.mine += saved.length;
     S.data.count = out.count;
     S.data.photos = out.photos;
+
+    // So a second visit knows what this phone has already sent and agreed to.
+    S.data.mine = {
+      count: (S.data.mine ? S.data.mine.count : 0) + saved.length,
+      consented: (mkt && mkt.checked)
+        ? (S.data.mine ? S.data.mine.consented : 0) + saved.length
+        : (S.data.mine ? S.data.mine.consented : 0)
+    };
+    var mineEl = $("mine");
+    if (mineEl) mineEl.innerHTML = mineBox();
 
     $("prog").classList.add("hide");
     var wall = $("wall");
@@ -440,7 +541,7 @@ async function put(url, blob){
   }
   S.token = m[1];
   try {
-    S.data = await call("album");
+    S.data = await call("album", { uploader_key: uploaderKey() });
     render();
   } catch (e) {
     fail(e.message || "We couldn’t open this album.");

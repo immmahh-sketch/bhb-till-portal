@@ -223,11 +223,17 @@ code{font-family:ui-monospace,"SF Mono",monospace;font-size:.875em;background:va
 .linkrow{border:1px solid var(--mist);background:var(--bone);padding:10px 12px}
 .linkrow code{background:transparent;padding:0;overflow-wrap:anywhere;font-size:.8125rem}
 .agrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px}
-.atile{margin:0;cursor:pointer;border:1px solid var(--mist);background:var(--bone)}
+.atile{margin:0;border:1px solid var(--mist);background:var(--bone);position:relative}
 .atile img{display:block;width:100%;aspect-ratio:1;object-fit:cover}
-.atile:hover{border-color:var(--alert)}
 .atile figcaption{padding:5px 7px;font-size:.6875rem;color:var(--sage-70);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.atile--offered{border-color:var(--attention)}
+.atile--cleared{border-color:var(--sage);box-shadow:inset 0 0 0 1px var(--sage)}
+.amark{position:absolute;top:4px;left:4px;padding:2px 6px;font-size:.5625rem;
+  letter-spacing:.1em;text-transform:uppercase;background:var(--attention);color:#fff}
+.atile--cleared .amark{background:var(--sage)}
+.aacts{display:flex;gap:4px;padding:0 5px 6px}
+.aacts .btn{flex:1;padding:5px 4px;font-size:.5625rem;letter-spacing:.08em}
 </style>
 </head>
 <body>
@@ -955,21 +961,76 @@ async function loadAlbumPhotos(){
   try {
     var out = await call("photos.list", { id: S.detail.wedding.id });
     S.albumPhotos = out.photos || [];
+    S.albumCoupleOk = out.couple_ok === true;
     if (!S.albumPhotos.length) { box.innerHTML = '<p class="muted">Nothing added yet.</p>'; return; }
+
     var mb = (out.bytes / 1048576).toFixed(1);
+    var yes = S.albumPhotos.filter(function(p){ return p.consented; }).length;
+    var done = S.albumPhotos.filter(function(p){ return p.cleared; }).length;
+
     box.innerHTML =
-      '<p class="muted" style="margin:0 0 8px;font-size:.875rem">' +
+      '<p class="muted" style="margin:0 0 4px;font-size:.875rem">' +
         S.albumPhotos.length + ' photograph' + (S.albumPhotos.length === 1 ? "" : "s") +
-        ', ' + mb + ' MB. Click one to remove it.</p>' +
-      '<div class="agrid">' + S.albumPhotos.map(function(p){
-        return '<figure class="atile" onclick="removeAlbumPhoto(' + JSON.stringify(p.id) + ')">' +
-          '<img loading="lazy" src="' + esc(p.thumb) + '" alt="">' +
-          '<figcaption>' + esc(p.uploader || "—") +
-            (p.hidden ? ' &middot; hidden' : '') + '</figcaption></figure>';
-      }).join("") + '</div>';
+        ', ' + mb + ' MB.</p>' +
+      '<p class="muted" style="margin:0 0 10px;font-size:.8125rem">' +
+        (S.albumCoupleOk
+          ? 'The couple has agreed to us asking. <strong>' + yes + '</strong> guest' +
+            (yes === 1 ? ' has' : 's have') + ' said we may use theirs; <strong>' + done +
+            '</strong> cleared for use.'
+          : 'The couple has <strong>not</strong> agreed to us asking their guests, so nothing ' +
+            'here can be used.') + '</p>' +
+      '<div class="agrid">' + S.albumPhotos.map(albumTile).join("") + '</div>';
   } catch (e) {
     box.innerHTML = '<p class="err">' + esc(e.message) + '</p>';
   }
+}
+
+function albumTile(p){
+  var state = p.cleared ? "cleared" : (p.consented ? "offered" : "private");
+  var mark = p.cleared ? "Cleared" : (p.consented ? "May use" : "");
+  return '<figure class="atile atile--' + state + '" data-id="' + esc(p.id) + '">' +
+    '<img loading="lazy" src="' + esc(p.thumb) + '" alt="">' +
+    (mark ? '<span class="amark">' + mark + '</span>' : '') +
+    '<figcaption>' + esc(p.uploader || "—") +
+      (p.hidden ? ' &middot; hidden' : '') + '</figcaption>' +
+    '<div class="aacts">' +
+      (p.consented && S.albumCoupleOk
+        ? '<button class="btn btn--sm" onclick="clearPhoto(\'' + esc(p.id) + '\',' +
+          (p.cleared ? 'false' : 'true') + ')">' + (p.cleared ? 'Un-clear' : 'Clear') + '</button>'
+        : '') +
+      '<button class="btn btn--sm" onclick="removeAlbumPhoto(\'' + esc(p.id) + '\')">Delete</button>' +
+    '</div></figure>';
+}
+
+/* Gate three, asked out loud.
+   Neither of the other two gates can speak for the people in the picture, so
+   this is where somebody actually looks — and the two things worth looking
+   for are said rather than assumed. */
+function clearPhoto(id, on){
+  var p = (S.albumPhotos || []).filter(function(x){ return x.id === id; })[0];
+  if (!p) return;
+
+  if (!on) {
+    call("photos.clear", { id: S.detail.wedding.id, photo_id: id, cleared: false })
+      .then(loadAlbumPhotos).catch(function(e){ alert(e.message); });
+    return;
+  }
+
+  var ok = window.confirm(
+    "Clear this photograph for our own marketing?\n\n" +
+    (p.uploader ? p.uploader + " took it and " : "Whoever took it ") +
+    "has agreed we may use it, and the couple has agreed to us asking.\n\n" +
+    "Before you say yes, look at it and check:\n" +
+    "  • there is no child in it who can be recognised\n" +
+    "  • nobody is in it who would not expect to be\n\n" +
+    "Only you can judge those two, and the guest who ticked the box could not.");
+  if (!ok) return;
+
+  var by = window.prompt("Your name, for the record:", "") || "";
+  call("photos.clear", {
+    id: S.detail.wedding.id, photo_id: id, cleared: true,
+    confirm_checked: true, by: by.trim()
+  }).then(loadAlbumPhotos).catch(function(e){ alert(e.message); });
 }
 
 function removeAlbumPhoto(id){
