@@ -1,0 +1,451 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#4E5F4F">
+<meta name="robots" content="noindex,nofollow">
+<title>Share your photographs — Black Horse Beamish</title>
+
+<!--
+  The guest-facing photo album.
+
+  Reached from the album email as album.html?a=<32-hex token>. One token
+  per wedding, not per guest: people forward these, couples share a phone,
+  and a good half of the photographs at a wedding are taken by somebody who
+  was never on the guest list. A per-guest link would fall apart the first
+  time it reached a family group chat, which is exactly when it starts
+  working.
+
+  Assume a phone, held one-handed, on marquee 4G, by somebody who has had a
+  drink. One button. No account. Nothing to install.
+
+  Photographs are scaled down here, before anything is sent — a modern
+  phone camera makes a 6MB file the couple will never print at that size,
+  and the upload has to finish while they are still holding the phone. A
+  small thumbnail goes up alongside it so that a couple opening an album of
+  four hundred photographs loads twelve megabytes, not six hundred.
+-->
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;500;700&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://use.typekit.net/nzu1hbj.css" onerror="this.remove()">
+
+<style>
+:root{
+  --sage:#4E5F4F; --bone:#F7F7F7; --celadon:#C1C8B4; --mist:#E7E7E7;
+  --white:#fff; --sage-70:#7B887C; --sage-10:#EDEFED;
+  --attention:#B08D57; --attention-bg:#F7F0E4;
+  --alert:#8C4A3F; --alert-bg:#F6EAE8;
+  --display:orpheus-pro,"Cormorant Garamond",Georgia,serif;
+  --body:Raleway,"Helvetica Neue",Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bone);color:var(--sage);font-family:var(--body);
+  font-size:16px;line-height:1.6;letter-spacing:.02em;-webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:560px;margin:0 auto;padding:0 20px 64px}
+.hide{display:none!important}
+h1,h2{font-family:var(--display);font-weight:400;letter-spacing:.05em;text-transform:uppercase;line-height:1.2;margin:0}
+h1{font-size:2.125rem}
+h2{font-size:1.25rem}
+.label{font-size:.6875rem;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:var(--sage-70)}
+.muted{color:var(--sage-70)}
+.center{text-align:center}
+
+header{background:var(--sage);color:var(--bone);padding:22px 20px;text-align:center}
+header .brand{font-family:var(--display);font-size:1.0625rem;letter-spacing:.16em;text-transform:uppercase}
+header .sub{font-size:.625rem;letter-spacing:.2em;text-transform:uppercase;color:var(--celadon);margin-top:4px}
+
+.hero{text-align:center;padding:38px 0 8px}
+.hero .lede{font-family:var(--display);font-size:1.0625rem;margin:0 0 14px;letter-spacing:.02em}
+.hero .names{font-family:var(--display);font-size:2.375rem;letter-spacing:.04em;text-transform:uppercase;line-height:1.15}
+.hero .amp{font-family:var(--display);font-style:italic;font-size:1.25rem;color:var(--sage-70);margin:4px 0}
+.hero .date{margin-top:20px;padding-top:20px;border-top:1px solid var(--mist);
+  font-family:var(--display);font-size:1.125rem;letter-spacing:.04em}
+@media(max-width:480px){.hero .names{font-size:1.75rem}h1{font-size:1.625rem}}
+
+.card{background:var(--white);border:1px solid var(--mist);padding:24px;margin-bottom:16px}
+.btn{display:inline-block;background:transparent;color:var(--sage);border:1px solid currentColor;
+  border-radius:0;padding:15px 30px;font:500 .8125rem/1 var(--body);letter-spacing:.17em;
+  text-transform:uppercase;cursor:pointer;transition:background .16s,color .16s;text-decoration:none}
+.btn:hover{background:var(--sage);color:var(--bone)}
+.btn--primary{background:var(--sage);color:var(--bone)}
+.btn--primary:hover{background:#5D6D5E}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn--block{display:block;width:100%;text-align:center}
+
+.field{margin-bottom:18px}
+.field .label{display:block;margin-bottom:6px}
+input{
+  width:100%;background:var(--bone);color:var(--sage);border:1px solid var(--mist);
+  border-radius:0;padding:12px 14px;font-family:var(--body);font-size:1rem;letter-spacing:.02em;
+}
+input:focus{outline:none;border-color:var(--sage)}
+
+.notice{padding:14px 16px;font-size:.9375rem;border:1px solid;margin-bottom:16px}
+.notice--ok{background:var(--sage-10);border-color:var(--celadon)}
+.notice--due{background:var(--attention-bg);border-color:var(--attention);color:#7a5f36}
+.err{background:var(--alert-bg);border:1px solid var(--alert);color:var(--alert);
+  padding:12px 15px;font-size:.9375rem;margin-bottom:16px}
+.sheet{white-space:pre-wrap;font-family:var(--display);font-size:1.0625rem;line-height:1.7;
+  font-style:italic;text-align:center}
+footer{border-top:1px solid var(--mist);padding:26px 20px;text-align:center;
+  font-size:.6875rem;letter-spacing:.14em;text-transform:uppercase;color:var(--sage-70)}
+a{color:inherit}
+
+/* ---- the wall ---- */
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:16px}
+@media(min-width:520px){.grid{grid-template-columns:repeat(4,1fr)}}
+.tile{position:relative;padding-top:100%;background:var(--sage-10);border:1px solid var(--mist);overflow:hidden}
+.tile img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.tile .who{position:absolute;left:0;right:0;bottom:0;padding:14px 6px 4px;
+  font-size:.625rem;letter-spacing:.06em;color:#fff;text-align:center;
+  background:linear-gradient(transparent,rgba(0,0,0,.55));
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ---- progress ---- */
+.bar{height:3px;background:var(--mist);margin:14px 0 8px;overflow:hidden}
+.bar span{display:block;height:100%;background:var(--sage);width:0;transition:width .25s}
+.spin{display:inline-block;width:20px;height:20px;border:2px solid var(--mist);
+  border-top-color:var(--sage);border-radius:50%;animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.empty{padding:60px 0;text-align:center}
+
+/* The one thing on the page that matters, sized for a thumb. */
+.addwrap{text-align:center;padding:6px 0 2px}
+.addwrap input[type=file]{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.count{font-family:var(--display);font-size:1.0625rem;letter-spacing:.03em}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">Black Horse Beamish</div>
+  <div class="sub">Red Row Estate</div>
+</header>
+
+<div class="wrap">
+  <div id="loading" class="empty"><span class="spin"></span></div>
+  <div id="fail" class="hide" style="padding-top:40px">
+    <div class="err" id="failMsg"></div>
+    <p class="muted center">Black Horse Beamish &middot; 01207 232 569</p>
+  </div>
+  <main id="main" class="hide"></main>
+</div>
+
+<footer>Black Horse Beamish &middot; Red Row Estate &middot; Beamish</footer>
+
+<script>
+"use strict";
+
+var CFG = {
+  SUPABASE_URL: "https://safcrtrfdzsnftghibot.supabase.co",
+  SUPABASE_KEY: "sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU"
+};
+
+/* A phone camera shoots far more than anybody needs from a photo album.
+   2560 on the long edge still prints beautifully at A4 and uploads in a
+   couple of seconds on a bad signal; the original would not. */
+var MAX_EDGE = 2560;
+var MAX_Q = 0.85;
+var THUMB_EDGE = 400;
+var THUMB_Q = 0.72;
+var MAX_AT_ONCE = 30;
+
+var S = { token:null, data:null, busy:false, mine:0 };
+
+function $(id){ return document.getElementById(id); }
+function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){
+  return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
+function ukDate(iso){
+  var p = String(iso||"").slice(0,10).split("-"); if (p.length!==3) return "";
+  return new Intl.DateTimeFormat("en-GB",{weekday:"long",day:"numeric",month:"long",
+    year:"numeric",timeZone:"UTC"}).format(new Date(Date.UTC(+p[0],+p[1]-1,+p[2])));
+}
+
+async function call(action, payload){
+  var r = await fetch(CFG.SUPABASE_URL + "/functions/v1/wedding-photos", {
+    method:"POST",
+    headers:{ "Content-Type":"application/json",
+              Authorization:"Bearer "+CFG.SUPABASE_KEY, apikey:CFG.SUPABASE_KEY },
+    body: JSON.stringify({ token:S.token, action:action, payload:payload||{} })
+  });
+  var data = await r.json().catch(function(){ return {}; });
+  if (!r.ok) throw new Error(data.error || "Something went wrong. Please try again.");
+  return data;
+}
+
+function fail(msg){
+  $("loading").classList.add("hide");
+  $("main").classList.add("hide");
+  $("failMsg").textContent = msg;
+  $("fail").classList.remove("hide");
+}
+
+/* ---------- remembering who they are ---------- */
+/* Asked once, kept on their own phone. Nobody is made to say who they are,
+   but almost everybody does, and it is the difference between an album and
+   a pile of photographs. */
+function savedName(){
+  try { return localStorage.getItem("bhb_album_name") || ""; } catch (e) { return ""; }
+}
+function rememberName(v){
+  try { v ? localStorage.setItem("bhb_album_name", v) : localStorage.removeItem("bhb_album_name"); }
+  catch (e) {}
+}
+
+/* ---------- making a photograph smaller ---------- */
+
+/* Decoded with the orientation the camera recorded, so photographs taken
+   sideways do not arrive sideways. */
+function decode(file){
+  if (window.createImageBitmap) {
+    return createImageBitmap(file, { imageOrientation: "from-image" }).catch(viaImg);
+  }
+  return viaImg();
+
+  function viaImg(){
+    return new Promise(function(res, rej){
+      var url = URL.createObjectURL(file);
+      var img = new Image();
+      img.onload = function(){ URL.revokeObjectURL(url); res(img); };
+      img.onerror = function(){ URL.revokeObjectURL(url); rej(new Error("not an image")); };
+      img.src = url;
+    });
+  }
+}
+
+function scaleTo(bmp, edge, quality){
+  var w = bmp.width, h = bmp.height;
+  var f = Math.min(1, edge / Math.max(w, h));
+  var cw = Math.max(1, Math.round(w * f)), ch = Math.max(1, Math.round(h * f));
+  var c = document.createElement("canvas");
+  c.width = cw; c.height = ch;
+  var ctx = c.getContext("2d");
+  ctx.drawImage(bmp, 0, 0, cw, ch);
+  return new Promise(function(res){
+    c.toBlob(function(b){ res({ blob:b, width:cw, height:ch }); }, "image/jpeg", quality);
+  });
+}
+
+/* HEIC comes out of an iPhone and almost nothing else reads it. Drawing it
+   to a canvas and writing JPEG back out is the whole conversion — Safari
+   decodes it, everyone else can open what comes out. */
+async function prepare(file){
+  var bmp = await decode(file);
+  var full = await scaleTo(bmp, MAX_EDGE, MAX_Q);
+  var thumb = await scaleTo(bmp, THUMB_EDGE, THUMB_Q);
+  if (bmp.close) bmp.close();
+  return { full:full, thumb:thumb };
+}
+
+/* ---------- the page ---------- */
+function render(){
+  var d = S.data, w = d.wedding;
+
+  var h = '<section class="hero">' +
+    '<div class="lede">Photographs from the wedding of</div>' +
+    '<div class="names">' + esc(w.partner1_name) + '</div>' +
+    '<div class="amp">&amp;</div>' +
+    '<div class="names">' + esc(w.partner2_name) + '</div>' +
+    '<div class="date">' + esc(ukDate(w.wedding_date)) + '</div>' +
+  '</section>';
+
+  if (w.message) h += '<div class="card"><div class="sheet">' + esc(w.message) + '</div></div>';
+
+  h += '<div id="msg"></div>';
+
+  if (d.full) {
+    h += '<div class="notice notice--due center">This album is full. Give us a ring on ' +
+         '01207 232 569 and we\'ll make room.</div>';
+  } else {
+    h += '<div class="card">' +
+      '<h2 style="margin-bottom:6px">Add your photographs</h2>' +
+      '<p class="muted" style="margin:0 0 18px;font-size:.9375rem">' +
+        'Pick as many as you like — up to ' + MAX_AT_ONCE + ' at a time. ' +
+        'They go straight to ' + esc(w.partner1_name) + ' and ' + esc(w.partner2_name) + ', ' +
+        'and nowhere else.</p>' +
+      '<div class="field">' +
+        '<label class="label" for="who">Your name <span style="text-transform:none;letter-spacing:0">(so they know who to thank)</span></label>' +
+        '<input id="who" type="text" autocomplete="name" maxlength="80" placeholder="Optional" value="' +
+          esc(savedName()) + '">' +
+      '</div>' +
+      '<div class="addwrap">' +
+        '<input id="pick" type="file" accept="image/*" multiple>' +
+        '<button class="btn btn--primary btn--block" id="add">Choose photographs</button>' +
+      '</div>' +
+      '<div id="prog" class="hide"><div class="bar"><span id="barIn"></span></div>' +
+        '<p class="muted center" id="progText" style="margin:0;font-size:.875rem"></p></div>' +
+    '</div>';
+  }
+
+  if (d.wedding.wall) {
+    h += '<div class="card">' +
+      '<h2 style="margin-bottom:4px">Everyone\'s photographs</h2>' +
+      '<p class="muted" id="wallCount" style="margin:0;font-size:.9375rem">' +
+        countLine(d.count) + '</p>' +
+      '<div class="grid" id="wall">' + tiles(d.photos) + '</div>' +
+    '</div>';
+  } else {
+    h += '<div class="card center">' +
+      '<p class="muted" id="wallCount" style="margin:0">' + countLine(d.count) + '</p></div>';
+  }
+
+  h += '<p class="muted center" style="font-size:.8125rem;margin:22px 0 0">' +
+    'The album is private to this wedding. Only ' + esc(w.partner1_name) + ' and ' +
+    esc(w.partner2_name) + ' can download from it, and it stays open for three months.</p>';
+
+  $("main").innerHTML = h;
+  $("loading").classList.add("hide");
+  $("main").classList.remove("hide");
+
+  var add = $("add"), pick = $("pick");
+  if (add) {
+    add.addEventListener("click", function(){ pick.click(); });
+    pick.addEventListener("change", function(){ upload(pick.files); });
+  }
+}
+
+function countLine(n){
+  if (!n) return "Nothing here yet — be the first.";
+  return n === 1 ? "One photograph so far." : n + " photographs so far.";
+}
+
+function tiles(photos){
+  if (!photos || !photos.length) return "";
+  return photos.map(function(p){
+    return '<div class="tile"><img loading="lazy" src="' + esc(p.thumb) + '" alt="">' +
+      (p.uploader ? '<span class="who">' + esc(p.uploader) + '</span>' : '') + '</div>';
+  }).join("");
+}
+
+function say(html, cls){
+  var m = $("msg");
+  if (m) m.innerHTML = '<div class="' + (cls || "notice notice--ok") + '">' + html + '</div>';
+}
+
+/* ---------- uploading ---------- */
+function progress(done, total, note){
+  $("prog").classList.remove("hide");
+  $("barIn").style.width = Math.round(done / total * 100) + "%";
+  $("progText").textContent = note || ("Sending " + done + " of " + total + "…");
+}
+
+async function upload(fileList){
+  if (S.busy) return;
+  var files = Array.prototype.slice.call(fileList || []);
+  if (!files.length) return;
+
+  var name = ($("who").value || "").trim().slice(0, 80);
+  rememberName(name);
+
+  if (files.length > MAX_AT_ONCE) {
+    say("That’s " + files.length + " photographs. Send the first " + MAX_AT_ONCE +
+        " now, then choose the rest — it keeps the upload from stalling.", "notice notice--due");
+    files = files.slice(0, MAX_AT_ONCE);
+  }
+
+  S.busy = true;
+  $("add").disabled = true;
+  $("pick").value = "";
+
+  try {
+    // Scale everything first. It is the slow part and it happens on the
+    // phone, so there is nothing to undo if they change their mind.
+    var ready = [], skipped = 0;
+    for (var i = 0; i < files.length; i++) {
+      progress(i, files.length, "Getting " + (i + 1) + " of " + files.length + " ready…");
+      try { ready.push(await prepare(files[i])); }
+      catch (e) { skipped++; }
+    }
+    if (!ready.length) throw new Error("None of those look like photographs. Try choosing them again.");
+
+    var signed = await call("sign", {
+      files: ready.map(function(r){ return { type:"image/jpeg", bytes:r.full.blob.size }; })
+    });
+
+    var saved = [], failed = 0;
+    for (var k = 0; k < signed.files.length; k++) {
+      progress(k, signed.files.length);
+      var slot = signed.files[k], r = ready[k];
+      try {
+        await put(slot.url, r.full.blob);
+        await put(slot.thumb_url, r.thumb.blob);
+        saved.push({
+          path: slot.path, thumb_path: slot.thumb_path, content_type: "image/jpeg",
+          bytes: r.full.blob.size, width: r.full.width, height: r.full.height
+        });
+      } catch (e) { failed++; }
+    }
+    progress(signed.files.length, signed.files.length, "Nearly there…");
+
+    if (!saved.length) throw new Error("Those wouldn’t send — it may be the signal. Please try again.");
+
+    var out = await call("confirm", { uploader: name || null, photos: saved });
+    S.mine += saved.length;
+    S.data.count = out.count;
+    S.data.photos = out.photos;
+
+    $("prog").classList.add("hide");
+    var wall = $("wall");
+    if (wall) wall.innerHTML = tiles(out.photos);
+    var wc = $("wallCount");
+    if (wc) wc.textContent = countLine(out.count);
+
+    var trouble = skipped + failed;
+    say("<strong>Thank you.</strong> " +
+        (saved.length === 1 ? "Your photograph is" : "Your " + saved.length + " photographs are") +
+        " with " + esc(S.data.wedding.partner1_name) + " and " +
+        esc(S.data.wedding.partner2_name) + "." +
+        (trouble ? " " + trouble + " wouldn’t go — try those again in a moment." : "") +
+        " Add more whenever you like.");
+  } catch (e) {
+    say(esc(e.message || "Something went wrong. Please try again."), "err");
+    $("prog").classList.add("hide");
+  } finally {
+    S.busy = false;
+    var a = $("add");
+    if (a) { a.disabled = false; a.textContent = "Add more photographs"; }
+  }
+}
+
+/* One PUT, retried once. A phone in a field drops a request now and then
+   and losing somebody's photograph to a single blip would be a shame. */
+async function put(url, blob){
+  for (var attempt = 0; attempt < 2; attempt++) {
+    try {
+      var r = await fetch(url, {
+        method: "PUT",
+        headers: { "Content-Type": "image/jpeg", "x-upsert": "true" },
+        body: blob
+      });
+      if (r.ok) return;
+      if (attempt) throw new Error("upload " + r.status);
+    } catch (e) {
+      if (attempt) throw e;
+    }
+  }
+}
+
+/* ---------- start ---------- */
+(async function(){
+  var m = /[?&]a=([0-9a-fA-F]{32})/.exec(location.search);
+  if (!m) {
+    fail("This album link doesn’t look right. Please open it from the email we sent you.");
+    return;
+  }
+  S.token = m[1];
+  try {
+    S.data = await call("album");
+    render();
+  } catch (e) {
+    fail(e.message || "We couldn’t open this album.");
+  }
+})();
+</script>
+</body>
+</html>
