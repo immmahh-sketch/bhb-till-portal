@@ -398,6 +398,46 @@ footer.app{border-top:1px solid var(--mist);padding:26px 0;text-align:center;fon
   padding:0 12px;cursor:pointer;color:var(--sage-70);font:500 .625rem/1 var(--body);
   letter-spacing:.14em;text-transform:uppercase}
 .pw-toggle:hover{color:var(--sage)}
+
+/* ---- photo album ---- */
+.linkbox{display:flex;gap:0;border:1px solid var(--mist);background:var(--bone);margin:0 0 12px}
+.linkbox code{flex:1;min-width:0;padding:12px 14px;font:.8125rem/1.5 var(--body);
+  color:var(--sage);overflow-wrap:anywhere}
+.qrwrap{text-align:center;padding:6px 0 2px}
+.qrwrap svg{max-width:220px;width:100%;height:auto;border:1px solid var(--mist)}
+
+.pgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:14px}
+@media(min-width:640px){.pgrid{grid-template-columns:repeat(5,1fr)}}
+.ptile{position:relative;padding-top:100%;background:var(--sage-10);border:1px solid var(--mist);
+  overflow:hidden;cursor:pointer}
+.ptile img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;
+  transition:opacity .15s}
+.ptile[data-sel="1"]{border-color:var(--sage);box-shadow:inset 0 0 0 3px var(--sage)}
+.ptile[data-sel="1"] img{opacity:.72}
+.ptile .tick{position:absolute;top:6px;left:6px;width:22px;height:22px;border-radius:50%;
+  border:1px solid rgba(255,255,255,.9);background:rgba(0,0,0,.28);color:#fff;
+  font-size:.75rem;line-height:20px;text-align:center}
+.ptile[data-sel="1"] .tick{background:var(--sage);border-color:var(--sage)}
+.ptile .zoom{position:absolute;bottom:0;right:0;width:34px;height:34px;border:0;cursor:pointer;
+  background:rgba(0,0,0,.3);color:#fff;font-size:.875rem;line-height:34px;text-align:center;padding:0}
+.ptile .zoom:hover{background:rgba(0,0,0,.55)}
+.ptile .who{position:absolute;left:0;right:34px;bottom:0;padding:14px 6px 5px;
+  font-size:.625rem;letter-spacing:.05em;color:#fff;
+  background:linear-gradient(transparent,rgba(0,0,0,.55));
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ptile[data-hidden="1"] img{opacity:.35}
+
+.ptools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;
+  padding:12px 0 2px;border-top:1px solid var(--mist);margin-top:14px}
+.ptools .grow{flex:1;min-width:120px}
+
+.lb{position:fixed;inset:0;background:rgba(32,38,32,.92);z-index:80;
+  display:flex;align-items:center;justify-content:center;padding:16px}
+.lb img{max-width:100%;max-height:82vh;display:block}
+.lb .lbbar{position:absolute;left:0;right:0;bottom:0;padding:14px 16px;text-align:center;
+  color:var(--bone);font-size:.8125rem;letter-spacing:.06em}
+.lb .lbx{position:absolute;top:10px;right:12px;background:transparent;border:0;color:var(--bone);
+  font-size:1.5rem;line-height:1;cursor:pointer;padding:8px 12px}
 </style>
 </head>
 <body>
@@ -567,6 +607,13 @@ function daysBetween(fromIso, toIso){
 }
 function todayIso(){
   return new Intl.DateTimeFormat("en-CA",{timeZone:"Europe/London"}).format(new Date());
+}
+function addDaysIso(iso, n){
+  var p = ymd(iso).split("-");
+  if (p.length!==3) return iso;
+  var d = new Date(Date.UTC(+p[0],+p[1]-1,+p[2]));
+  d.setUTCDate(d.getUTCDate()+n);
+  return d.toISOString().slice(0,10);
 }
 /** Shift an ISO date by whole months / days, staying on calendar dates. */
 function shift(iso, months, days){
@@ -1044,6 +1091,7 @@ var VIEWS = [
   ["guests", "Guest list"],
   ["meals", "Meals & allergies"],
   ["tables", "Table plan"],
+  ["album", "Photo album"],
   ["suppliers", "Suppliers"],
   ["budget", "Budget"]
 ];
@@ -1132,6 +1180,38 @@ function askSignOut(){
   $("outYes").onclick = function(){ close(); signOut(); };
 }
 
+/* The same pattern, for anything else that cannot be undone. Inline when
+   framed, for the reason above. */
+function askConfirm(title, body, yesLabel, onYes){
+  var el = document.createElement("div");
+  el.id = "askConfirm";
+  var card =
+    '<div class="nudge-card">' +
+      '<h3 style="margin:0 0 8px">' + esc(title) + '</h3>' +
+      '<p>' + esc(body) + '</p>' +
+      '<div class="nudge-acts">' +
+        '<button class="btn btn--primary" id="askYes">' + esc(yesLabel) + '</button>' +
+        '<button class="btn" id="askNo">Cancel</button>' +
+      '</div>' +
+    '</div>';
+
+  if (isFramed()) {
+    el.className = "nudge nudge--inline";
+    el.innerHTML = card;
+    var v = $("views");
+    v.insertBefore(el, v.firstChild);
+    window.scrollTo({ top: 0 });
+  } else {
+    el.className = "nudge";
+    el.innerHTML = card;
+    document.body.appendChild(el);
+  }
+
+  function close(){ var n = $("askConfirm"); if (n) n.remove(); }
+  $("askNo").onclick = close;
+  $("askYes").onclick = function(){ close(); onYes(); };
+}
+
 function render(){
   var v = $("views");
   switch (S.view) {
@@ -1144,6 +1224,7 @@ function render(){
     case "guests":    v.innerHTML = '<div class="empty"><span class="spin"></span></div>'; loadGuests(); break;
     case "meals":     v.innerHTML = '<div class="empty"><span class="spin"></span></div>'; loadMeals(); break;
     case "tables":    v.innerHTML = '<div class="empty"><span class="spin"></span></div>'; loadTables(); break;
+    case "album":     v.innerHTML = '<div class="empty"><span class="spin"></span></div>'; loadAlbum(); break;
     case "suppliers": v.innerHTML = '<div class="empty"><span class="spin"></span></div>'; loadSuppliers(); break;
     case "budget":    v.innerHTML = '<div class="empty"><span class="spin"></span></div>'; loadBudget(); break;
   }
@@ -3653,6 +3734,726 @@ function exportPlan(){
             g.starter_choice, g.main_choice, g.dessert_choice, g.allergies, g.dietary, g.age_group];
   }).sort(function(a,b){ return String(a[0]).localeCompare(String(b[0])); });
   csv("table-plan", ["Table","Guest","Starter","Main","Pudding","Allergies","Dietary","Age group"], rows);
+}
+
+/* A QR code, small enough to live inside the app.
+
+   Byte mode, error correction level M, versions 1 to 10 — which covers
+   anything up to 216 characters and so any album link we will ever print.
+   Returns a square array of 0/1 rows.
+
+   Nothing here is clever; it is the specification, in order: encode the
+   text, add Reed-Solomon correction, interleave the blocks, lay them into
+   the grid, then try all eight masks and keep the one the standard says
+   reads best. */
+(function (root) {
+  "use strict";
+
+  // v1..v10
+  var TOTAL   = [26, 44, 70, 100, 134, 172, 196, 242, 292, 346];
+  var ECC_PER = [10, 16, 26, 18, 24, 16, 18, 22, 22, 26];   // per block, level M
+  var BLOCKS  = [1, 1, 1, 2, 2, 4, 4, 4, 5, 5];             // level M
+  var ALIGN = [
+    [], [6, 18], [6, 22], [6, 26], [6, 30], [6, 34],
+    [6, 22, 38], [6, 24, 42], [6, 26, 46], [6, 28, 50]
+  ];
+
+  // ---- GF(256) ------------------------------------------------------
+  var EXP = new Uint8Array(512), LOG = new Uint8Array(256);
+  (function () {
+    var x = 1;
+    for (var i = 0; i < 255; i++) {
+      EXP[i] = x; LOG[x] = i;
+      x <<= 1;
+      if (x & 0x100) x ^= 0x11d;
+    }
+    for (var j = 255; j < 512; j++) EXP[j] = EXP[j - 255];
+  })();
+
+  function mul(a, b) { return a && b ? EXP[LOG[a] + LOG[b]] : 0; }
+
+  function generator(n) {
+    var g = [1];
+    for (var i = 0; i < n; i++) {
+      var next = new Array(g.length + 1).fill(0);
+      for (var j = 0; j < g.length; j++) {
+        next[j] ^= g[j];
+        next[j + 1] ^= mul(g[j], EXP[i]);
+      }
+      g = next;
+    }
+    return g;
+  }
+
+  function ecc(data, n) {
+    var g = generator(n);
+    var rem = new Array(n).fill(0);
+    for (var i = 0; i < data.length; i++) {
+      var factor = data[i] ^ rem[0];
+      rem.shift(); rem.push(0);
+      for (var j = 0; j < n; j++) rem[j] ^= mul(g[j + 1], factor);
+    }
+    return rem;
+  }
+
+  // ---- bit stream ---------------------------------------------------
+  function encode(bytes, version) {
+    var dataWords = TOTAL[version - 1] - ECC_PER[version - 1] * BLOCKS[version - 1];
+    var bits = [];
+    var push = function (value, len) {
+      for (var i = len - 1; i >= 0; i--) bits.push((value >> i) & 1);
+    };
+
+    push(4, 4);                                   // byte mode
+    push(bytes.length, version < 10 ? 8 : 16);    // character count
+    for (var i = 0; i < bytes.length; i++) push(bytes[i], 8);
+
+    var capacity = dataWords * 8;
+    push(0, Math.min(4, capacity - bits.length)); // terminator
+    while (bits.length % 8) bits.push(0);
+
+    var words = [];
+    for (var b = 0; b < bits.length; b += 8) {
+      var v = 0;
+      for (var k = 0; k < 8; k++) v = (v << 1) | bits[b + k];
+      words.push(v);
+    }
+    // The two pad bytes the standard names, alternating to the end.
+    var pad = [0xec, 0x11], p = 0;
+    while (words.length < dataWords) words.push(pad[p++ % 2]);
+    return words;
+  }
+
+  /* Split into blocks, correct each, then interleave — the standard's way
+     of making sure a coffee ring takes a little from every block rather
+     than all of one. */
+  function interleave(words, version) {
+    var n = BLOCKS[version - 1], eccLen = ECC_PER[version - 1];
+    var short = Math.floor(words.length / n), longCount = words.length % n;
+
+    var dataBlocks = [], eccBlocks = [], at = 0;
+    for (var i = 0; i < n; i++) {
+      var len = short + (i >= n - longCount ? 1 : 0);
+      var block = words.slice(at, at + len);
+      at += len;
+      dataBlocks.push(block);
+      eccBlocks.push(ecc(block, eccLen));
+    }
+
+    var out = [], c;
+    for (c = 0; c < short + 1; c++) {
+      for (var d = 0; d < n; d++) if (c < dataBlocks[d].length) out.push(dataBlocks[d][c]);
+    }
+    for (c = 0; c < eccLen; c++) {
+      for (var e = 0; e < n; e++) out.push(eccBlocks[e][c]);
+    }
+    return out;
+  }
+
+  // ---- the grid -----------------------------------------------------
+  function blank(size) {
+    var m = [], r;
+    for (r = 0; r < size; r++) m.push(new Array(size).fill(null));
+    return m;
+  }
+
+  function place(m, r, c, v) { m[r][c] = v; }
+
+  function finder(m, r, c) {
+    for (var i = -1; i <= 7; i++) {
+      for (var j = -1; j <= 7; j++) {
+        var rr = r + i, cc = c + j;
+        if (rr < 0 || cc < 0 || rr >= m.length || cc >= m.length) continue;
+        var on = (i >= 0 && i <= 6 && (j === 0 || j === 6)) ||
+                 (j >= 0 && j <= 6 && (i === 0 || i === 6)) ||
+                 (i >= 2 && i <= 4 && j >= 2 && j <= 4);
+        place(m, rr, cc, on ? 1 : 0);
+      }
+    }
+  }
+
+  function alignment(m, version) {
+    var centres = ALIGN[version - 1], size = m.length;
+    for (var a = 0; a < centres.length; a++) {
+      for (var b = 0; b < centres.length; b++) {
+        var r = centres[a], c = centres[b];
+        // Not where the finders already are.
+        if ((r <= 8 && c <= 8) || (r <= 8 && c >= size - 9) || (r >= size - 9 && c <= 8)) continue;
+        for (var i = -2; i <= 2; i++) {
+          for (var j = -2; j <= 2; j++) {
+            var on = Math.max(Math.abs(i), Math.abs(j)) !== 1;
+            place(m, r + i, c + j, on ? 1 : 0);
+          }
+        }
+      }
+    }
+  }
+
+  function reserve(m, version) {
+    var size = m.length, i;
+    finder(m, 0, 0);
+    finder(m, 0, size - 7);
+    finder(m, size - 7, 0);
+    for (i = 8; i < size - 8; i++) {                  // timing
+      var on = i % 2 === 0 ? 1 : 0;
+      place(m, 6, i, on); place(m, i, 6, on);
+    }
+    alignment(m, version);
+    place(m, size - 8, 8, 1);                         // the always-dark module
+
+    // Format information: written later, held out of the data run now.
+    for (i = 0; i <= 8; i++) {
+      if (m[8][i] === null) place(m, 8, i, 0);
+      if (m[i][8] === null) place(m, i, 8, 0);
+    }
+    for (i = 0; i < 8; i++) {
+      if (m[8][size - 1 - i] === null) place(m, 8, size - 1 - i, 0);
+      if (m[size - 1 - i][8] === null) place(m, size - 1 - i, 8, 0);
+    }
+    if (version >= 7) {
+      for (i = 0; i < 6; i++) {
+        for (var j = 0; j < 3; j++) {
+          place(m, size - 11 + j, i, 0);
+          place(m, i, size - 11 + j, 0);
+        }
+      }
+    }
+  }
+
+  /* Which squares hold data: everything reserve() did not touch. Kept as a
+     separate grid because masking must leave the function patterns alone. */
+  function freeMap(m) {
+    var free = [];
+    for (var r = 0; r < m.length; r++) free.push(m[r].map(function (v) { return v === null; }));
+    return free;
+  }
+
+  function layout(m, free, words) {
+    var size = m.length, bit = 0, up = true;
+    var total = words.length * 8;
+    for (var right = size - 1; right > 0; right -= 2) {
+      if (right === 6) right = 5;                      // skip the timing column
+      for (var step = 0; step < size; step++) {
+        var r = up ? size - 1 - step : step;
+        for (var k = 0; k < 2; k++) {
+          var c = right - k;
+          if (!free[r][c]) continue;
+          var v = 0;
+          if (bit < total) v = (words[bit >> 3] >> (7 - (bit & 7))) & 1;
+          m[r][c] = v;
+          bit++;
+        }
+      }
+      up = !up;
+    }
+  }
+
+  var MASKS = [
+    function (r, c) { return (r + c) % 2 === 0; },
+    function (r) { return r % 2 === 0; },
+    function (r, c) { return c % 3 === 0; },
+    function (r, c) { return (r + c) % 3 === 0; },
+    function (r, c) { return (Math.floor(r / 2) + Math.floor(c / 3)) % 2 === 0; },
+    function (r, c) { return ((r * c) % 2 + (r * c) % 3) === 0; },
+    function (r, c) { return ((r * c) % 2 + (r * c) % 3) % 2 === 0; },
+    function (r, c) { return ((r + c) % 2 + (r * c) % 3) % 2 === 0; }
+  ];
+
+  function formatBits(maskIndex) {
+    // Level M is 0b00; five bits of data, ten of BCH, XORed with the mask
+    // the standard specifies so an all-zero format is never all-zero.
+    var data = (0 << 3) | maskIndex;
+    var v = data << 10;
+    for (var i = 4; i >= 0; i--) if (v & (1 << (i + 10))) v ^= 0x537 << i;
+    return ((data << 10) | v) ^ 0x5412;
+  }
+
+  function versionBits(version) {
+    var v = version << 12;
+    for (var i = 5; i >= 0; i--) if (v & (1 << (i + 12))) v ^= 0x1f25 << i;
+    return (version << 12) | v;
+  }
+
+  /* Written twice, so a damaged corner does not take the whole code with
+     it. The first copy wraps the top-left finder; the second runs along
+     the top-right and up the bottom-left. */
+  function writeFormat(m, maskIndex) {
+    var size = m.length, bits = formatBits(maskIndex), i;
+
+    for (i = 0; i <= 5; i++) m[i][8] = (bits >> i) & 1;
+    m[7][8] = (bits >> 6) & 1;
+    m[8][8] = (bits >> 7) & 1;
+    m[8][7] = (bits >> 8) & 1;
+    for (i = 9; i <= 14; i++) m[8][14 - i] = (bits >> i) & 1;
+
+    for (i = 0; i <= 7; i++) m[8][size - 1 - i] = (bits >> i) & 1;
+    for (i = 8; i <= 14; i++) m[size - 15 + i][8] = (bits >> i) & 1;
+    m[size - 8][8] = 1;
+  }
+
+  function writeVersion(m, version) {
+    if (version < 7) return;
+    var size = m.length, bits = versionBits(version);
+    for (var i = 0; i < 18; i++) {
+      var b = (bits >> i) & 1;
+      m[Math.floor(i / 3)][size - 11 + (i % 3)] = b;
+      m[size - 11 + (i % 3)][Math.floor(i / 3)] = b;
+    }
+  }
+
+  // The four penalty rules, which between them punish anything that looks
+  // like a finder pattern or an unreadable expanse of one colour.
+  function penalty(m) {
+    var size = m.length, score = 0, r, c, run, i;
+
+    for (r = 0; r < size; r++) {
+      for (var pass = 0; pass < 2; pass++) {
+        run = 1;
+        for (c = 1; c < size; c++) {
+          var a = pass ? m[c][r] : m[r][c];
+          var b = pass ? m[c - 1][r] : m[r][c - 1];
+          if (a === b) { run++; } else { if (run >= 5) score += run - 2; run = 1; }
+        }
+        if (run >= 5) score += run - 2;
+      }
+    }
+
+    for (r = 0; r < size - 1; r++) {
+      for (c = 0; c < size - 1; c++) {
+        var s = m[r][c] + m[r][c + 1] + m[r + 1][c] + m[r + 1][c + 1];
+        if (s === 0 || s === 4) score += 3;
+      }
+    }
+
+    var P1 = [1, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0];
+    var P2 = [0, 0, 0, 0, 1, 0, 1, 1, 1, 0, 1];
+    for (r = 0; r < size; r++) {
+      for (c = 0; c <= size - 11; c++) {
+        var okRow1 = true, okRow2 = true, okCol1 = true, okCol2 = true;
+        for (i = 0; i < 11; i++) {
+          if (m[r][c + i] !== P1[i]) okRow1 = false;
+          if (m[r][c + i] !== P2[i]) okRow2 = false;
+          if (m[c + i][r] !== P1[i]) okCol1 = false;
+          if (m[c + i][r] !== P2[i]) okCol2 = false;
+        }
+        if (okRow1) score += 40;
+        if (okRow2) score += 40;
+        if (okCol1) score += 40;
+        if (okCol2) score += 40;
+      }
+    }
+
+    var dark = 0;
+    for (r = 0; r < size; r++) for (c = 0; c < size; c++) dark += m[r][c];
+    var pct = dark * 100 / (size * size);
+    score += Math.floor(Math.abs(pct - 50) / 5) * 10;
+    return score;
+  }
+
+  function copy(m) { return m.map(function (row) { return row.slice(); }); }
+
+  function qr(text) {
+    var bytes = Array.from(new TextEncoder().encode(String(text)));
+
+    var version = 0;
+    for (var v = 1; v <= 10; v++) {
+      var dataWords = TOTAL[v - 1] - ECC_PER[v - 1] * BLOCKS[v - 1];
+      var header = 4 + (v < 10 ? 8 : 16);
+      if (bytes.length * 8 + header <= dataWords * 8) { version = v; break; }
+    }
+    if (!version) throw new Error("too long for a version 10 code");
+
+    var words = interleave(encode(bytes, version), version);
+    var size = version * 4 + 17;
+
+    var base = blank(size);
+    reserve(base, version);
+    var free = freeMap(base);
+    layout(base, free, words);
+
+    var best = null, bestScore = Infinity;
+    for (var k = 0; k < 8; k++) {
+      var m = copy(base);
+      for (var r = 0; r < size; r++) {
+        for (var c = 0; c < size; c++) {
+          if (free[r][c] && MASKS[k](r, c)) m[r][c] ^= 1;
+        }
+      }
+      writeFormat(m, k);
+      writeVersion(m, version);
+      var s = penalty(m);
+      if (s < bestScore) { bestScore = s; best = m; }
+    }
+    return best;
+  }
+
+  /* An SVG, because it prints on a table card at any size and needs no
+     canvas. Four modules of quiet zone, as the standard asks. */
+  function qrSvg(text, px) {
+    var m = qr(text), n = m.length, pad = 4, total = n + pad * 2;
+    var d = "";
+    for (var r = 0; r < n; r++) {
+      for (var c = 0; c < n; c++) {
+        if (m[r][c]) d += "M" + (c + pad) + " " + (r + pad) + "h1v1h-1z";
+      }
+    }
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + total + " " + total +
+      '" width="' + px + '" height="' + px + '" shape-rendering="crispEdges" role="img" ' +
+      'aria-label="QR code linking to the photo album">' +
+      '<rect width="' + total + '" height="' + total + '" fill="#fff"/>' +
+      '<path d="' + d + '" fill="#4E5F4F"/></svg>';
+  }
+
+  root.qrMatrix = qr;
+  root.qrSvg = qrSvg;
+})(window);
+
+/* ============================ PHOTO ALBUM ============================
+   One link per wedding, sent to every guest two days before and again on
+   the morning. Here the couple gets the same link to share themselves, a
+   QR code to put on the tables, and everything that came back.
+
+   The grid shows thumbnails only. Full-size links are minted one batch at
+   a time when they actually download, so opening this page costs a few
+   megabytes rather than a few hundred.
+   ==================================================================== */
+
+var ALBUM_URL = "https://app.blackhorsebeamish.co.uk/wedding/album.html";
+var KEEP_DAYS = 90;
+
+var A = { photos:[], sel:{}, token:null, wall:true, message:null, enabled:true, stop:false };
+
+async function loadAlbum(){
+  try {
+    var d = await api("photos.list");
+    A.token = d.album_token;
+    A.wall = d.album_wall !== false;
+    A.message = d.album_message || "";
+    A.enabled = d.album_enabled !== false;
+    A.photos = d.photos || [];
+    A.sel = {};
+    $("views").innerHTML = viewAlbum();
+    drawQr();
+  } catch (e) { showError(e.message); $("views").innerHTML = ""; }
+}
+
+function albumLink(){ return ALBUM_URL + "?a=" + A.token; }
+function selectedIds(){ return A.photos.filter(function(p){ return A.sel[p.id]; }).map(function(p){ return p.id; }); }
+
+function viewAlbum(){
+  var w = S.data.wedding;
+  var days = daysBetween(todayIso(), w.wedding_date);
+  var n = A.photos.length;
+
+  var h = '<h1 style="margin-bottom:8px">Photo album</h1>' +
+    '<p class="muted" style="margin:0 0 20px">Everything your guests photographed, in one place. ' +
+    'Pick the ones you want and download them.</p>';
+
+  /* When the link goes out, said plainly, because the commonest question
+     about this is "do I have to send it?" and the answer is no. */
+  if (!A.enabled) {
+    h += '<div class="notice notice--due"><strong>This album has closed.</strong> ' +
+      'If you still need something from it, ring us on 01207 232 569.</div>';
+  } else if (days > 2) {
+    h += '<div class="notice notice--ok">We’ll email this link to every guest ' +
+      '<strong>two days before your wedding</strong>, and again <strong>on the morning</strong>. ' +
+      'You don’t need to do anything — but you’re welcome to share it sooner.</div>';
+  } else if (days >= 0) {
+    h += '<div class="notice notice--ok">Your guests have the link. Photographs will start ' +
+      'appearing here as they add them.</div>';
+  } else {
+    h += '<div class="notice notice--ok">The album stays open until ' +
+      esc(ukDate(addDaysIso(w.wedding_date, KEEP_DAYS))) +
+      '. We’ll remind you a fortnight before, so nothing is lost.</div>';
+  }
+
+  // ---- the link ------------------------------------------------------
+  h += '<div class="card"><h2 style="margin-bottom:6px">Your album link</h2>' +
+    '<p class="muted" style="margin:0 0 14px;font-size:.9375rem">' +
+      'Anyone with this link can add photographs. Only you can download them.</p>' +
+    '<div class="linkbox"><code id="albumUrl">' + esc(albumLink()) + '</code></div>' +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px">' +
+      '<button class="btn" onclick="copyAlbumLink(this)">Copy link</button>' +
+      (navigator.share ? '<button class="btn" onclick="shareAlbumLink()">Share</button>' : '') +
+    '</div>' +
+    '<div class="qrwrap"><div id="qr"></div>' +
+      '<p class="muted" style="margin:12px 0 10px;font-size:.875rem">' +
+        'Print this for your tables — guests can scan it with a phone camera.</p>' +
+      '<button class="btn btn--sm" onclick="downloadQr()">Download the QR code</button>' +
+    '</div></div>';
+
+  // ---- what guests see -----------------------------------------------
+  h += '<div class="card"><h2 style="margin-bottom:14px">What your guests see</h2>' +
+    '<label class="opt" style="display:flex;gap:12px;align-items:flex-start;padding:13px 14px;' +
+      'border:1px solid var(--mist);cursor:pointer;margin-bottom:14px">' +
+      '<input type="checkbox" id="albumWall"' + (A.wall ? " checked" : "") +
+        ' style="width:18px;height:18px;flex:0 0 18px;margin:3px 0 0;accent-color:#4E5F4F">' +
+      '<span><strong>Let guests see everyone’s photographs</strong>' +
+      '<span class="muted" style="display:block;font-size:.875rem;margin-top:2px">' +
+      'Most couples leave this on — seeing the wall fill up is what makes people add theirs. ' +
+      'Turn it off and guests can still upload, they just won’t see anyone else’s.</span></span>' +
+    '</label>' +
+    '<div class="field"><label class="label" for="albumMsg">A note to your guests</label>' +
+      '<textarea id="albumMsg" maxlength="400" rows="3" ' +
+        'placeholder="Optional — shown on the upload page and in the email">' +
+        esc(A.message) + '</textarea></div>' +
+    '<button class="btn btn--primary" onclick="saveAlbumSettings(this)">Save</button>' +
+  '</div>';
+
+  // ---- the photographs -----------------------------------------------
+  h += '<div class="card"><h2 style="margin-bottom:6px">' +
+    (n ? (n === 1 ? "One photograph" : n + " photographs") : "Photographs") + '</h2>';
+
+  if (!n) {
+    h += '<p class="muted" style="margin:0">' +
+      (days > 0
+        ? 'Nothing yet. Your guests get the link two days before the wedding.'
+        : 'Nothing yet — they’ll appear here as your guests add them.') + '</p></div>';
+    return h;
+  }
+
+  h += '<p class="muted" style="margin:0;font-size:.9375rem">Tap to choose. ' +
+    'The magnifier opens one full size.</p>' +
+    '<div class="pgrid" id="pgrid">' + photoTiles() + '</div>' +
+    '<div class="ptools">' +
+      '<span class="grow muted" id="selCount">None chosen</span>' +
+      '<button class="btn btn--sm" onclick="selectAllPhotos()">Choose all</button>' +
+      '<button class="btn btn--sm" onclick="clearPhotoSel()">Clear</button>' +
+    '</div>' +
+    '<div class="ptools" style="border:0;padding-top:4px">' +
+      '<button class="btn btn--primary grow" id="dlBtn" onclick="downloadPhotos()">Download chosen</button>' +
+      '<button class="btn btn--sm" onclick="hidePhotos()">Hide</button>' +
+      '<button class="btn btn--sm" onclick="deletePhotos()">Delete</button>' +
+    '</div>' +
+    '<div id="dlProg" class="hide"><div class="bar" style="height:3px;background:var(--mist);' +
+      'margin:12px 0 6px;overflow:hidden"><span id="dlBar" style="display:block;height:100%;' +
+      'background:var(--sage);width:0;transition:width .2s"></span></div>' +
+      '<p class="muted center" id="dlText" style="margin:0;font-size:.875rem"></p></div>' +
+    '<p class="muted" style="margin:16px 0 0;font-size:.8125rem">' +
+      'Downloading saves one file at a time. On a phone that can be slow going — ' +
+      'a laptop handles a few hundred without complaint.</p>' +
+  '</div>';
+
+  return h;
+}
+
+function photoTiles(){
+  return A.photos.map(function(p){
+    return '<div class="ptile" data-id="' + esc(p.id) + '"' +
+      (A.sel[p.id] ? ' data-sel="1"' : "") + (p.hidden ? ' data-hidden="1"' : "") +
+      ' onclick="togglePhoto(this)">' +
+      '<img loading="lazy" src="' + esc(p.thumb) + '" alt="">' +
+      '<span class="tick">' + (A.sel[p.id] ? "&#10003;" : "") + '</span>' +
+      (p.uploader ? '<span class="who">' + esc(p.uploader) + (p.hidden ? " · hidden" : "") + '</span>'
+                  : (p.hidden ? '<span class="who">hidden</span>' : '')) +
+      '<button class="zoom" title="View full size" ' +
+        'onclick="event.stopPropagation();openPhoto(' + JSON.stringify(p.id) + ')">&#9906;</button>' +
+    '</div>';
+  }).join("");
+}
+
+function togglePhoto(el){
+  var id = el.dataset.id;
+  A.sel[id] = !A.sel[id];
+  el.dataset.sel = A.sel[id] ? "1" : "";
+  el.querySelector(".tick").innerHTML = A.sel[id] ? "&#10003;" : "";
+  updateSelCount();
+}
+
+function selectAllPhotos(){
+  A.photos.forEach(function(p){ A.sel[p.id] = true; });
+  $("pgrid").innerHTML = photoTiles();
+  updateSelCount();
+}
+
+function clearPhotoSel(){
+  A.sel = {};
+  $("pgrid").innerHTML = photoTiles();
+  updateSelCount();
+}
+
+function updateSelCount(){
+  var n = selectedIds().length, el = $("selCount");
+  if (el) el.textContent = n ? (n === 1 ? "One chosen" : n + " chosen") : "None chosen";
+}
+
+/* ---------- one photograph, full size ---------- */
+async function openPhoto(id){
+  var p = A.photos.filter(function(x){ return x.id === id; })[0];
+  if (!p) return;
+  var box = document.createElement("div");
+  box.className = "lb";
+  box.innerHTML = '<button class="lbx" onclick="closeLightbox()">&times;</button>' +
+    '<img src="' + esc(p.thumb) + '" alt="">' +
+    '<div class="lbbar">' + esc(p.uploader || "") + '</div>';
+  box.addEventListener("click", function(ev){ if (ev.target === box) closeLightbox(); });
+  box.id = "lightbox";
+  document.body.appendChild(box);
+  document.body.style.overflow = "hidden";
+
+  // Swap the thumbnail for the real thing once it is signed, so the box
+  // opens instantly and sharpens a moment later.
+  try {
+    var out = await api("photos.download", { ids: [id] });
+    var f = (out.files || [])[0];
+    var img = box.querySelector("img");
+    if (f && img) img.src = f.url;
+  } catch (e) {}
+}
+
+function closeLightbox(){
+  var b = $("lightbox");
+  if (b) b.remove();
+  document.body.style.overflow = "";
+}
+
+/* ---------- downloading ---------- */
+/* One at a time, through a blob, so the file lands with a sensible name
+   instead of opening in a tab. Two hundred photographs is a few minutes,
+   which is why there is a progress line and a way to stop. */
+async function downloadPhotos(){
+  var ids = selectedIds();
+  if (!ids.length) { showError("Choose the photographs you want first — tap any of them."); return; }
+
+  var btn = $("dlBtn");
+  if (A.stop === "running") { A.stop = true; return; }
+
+  A.stop = "running";
+  btn.textContent = "Stop";
+  $("dlProg").classList.remove("hide");
+
+  var done = 0, failed = 0;
+  try {
+    // Signed links expire in an hour, so fetch them in batches rather than
+    // all at once for a very large album.
+    for (var start = 0; start < ids.length; start += 50) {
+      if (A.stop === true) break;
+      var out = await api("photos.download", { ids: ids.slice(start, start + 50) });
+      for (var i = 0; i < out.files.length; i++) {
+        if (A.stop === true) break;
+        var f = out.files[i];
+        $("dlBar").style.width = Math.round(done / ids.length * 100) + "%";
+        $("dlText").textContent = "Saving " + (done + 1) + " of " + ids.length + "…";
+        try { await saveOne(f.url, f.name); done++; }
+        catch (e) { failed++; }
+      }
+    }
+  } catch (e) {
+    showError(e.message);
+  } finally {
+    A.stop = false;
+    btn.textContent = "Download chosen";
+    $("dlBar").style.width = "100%";
+    $("dlText").textContent = done + " saved" +
+      (failed ? ", " + failed + " wouldn’t download — try those again" : "") +
+      ". Look in your Downloads folder.";
+  }
+}
+
+async function saveOne(url, name){
+  var r = await fetch(url);
+  if (!r.ok) throw new Error("download " + r.status);
+  var blob = await r.blob();
+  var href = URL.createObjectURL(blob);
+  var a = document.createElement("a");
+  a.href = href; a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  // Give the browser a moment to take the blob before it is thrown away.
+  setTimeout(function(){ URL.revokeObjectURL(href); }, 4000);
+}
+
+/* ---------- curating ---------- */
+async function hidePhotos(){
+  var ids = selectedIds();
+  if (!ids.length) { showError("Choose the photographs you want to hide first."); return; }
+  // Hidden comes off the wall the guests see; it stays here for you.
+  var allHidden = A.photos.filter(function(p){ return A.sel[p.id]; })
+                          .every(function(p){ return p.hidden; });
+  try {
+    await api("photos.update", { ids: ids, hidden: !allHidden });
+    await loadAlbum();
+  } catch (e) { showError(e.message); }
+}
+
+function deletePhotos(){
+  var ids = selectedIds();
+  if (!ids.length) { showError("Choose the photographs you want to delete first."); return; }
+  // There is no undo on this one, and it is somebody else's photograph.
+  askConfirm(
+    ids.length === 1 ? "Delete this photograph?" : "Delete these " + ids.length + " photographs?",
+    "They will be gone for good — for you and for whoever took them. " +
+    "If you only want them off the wall, hide them instead.",
+    "Delete",
+    async function(){
+      try { await api("photos.delete", { ids: ids }); await loadAlbum(); }
+      catch (e) { showError(e.message); }
+    }
+  );
+}
+
+async function saveAlbumSettings(btn){
+  btn.disabled = true;
+  var was = btn.textContent;
+  try {
+    await api("photos.settings", {
+      album_wall: $("albumWall").checked,
+      album_message: $("albumMsg").value
+    });
+    A.wall = $("albumWall").checked;
+    A.message = $("albumMsg").value;
+    btn.textContent = "Saved";
+    setTimeout(function(){ btn.textContent = was; btn.disabled = false; }, 1400);
+  } catch (e) { showError(e.message); btn.disabled = false; }
+}
+
+/* ---------- the link itself ---------- */
+function copyAlbumLink(btn){
+  var was = btn.textContent;
+  var done = function(){ btn.textContent = "Copied"; setTimeout(function(){ btn.textContent = was; }, 1400); };
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(albumLink()).then(done, fallback);
+  } else { fallback(); }
+
+  function fallback(){
+    // Older iOS, and anywhere the clipboard is refused: select it instead
+    // so one tap on "copy" in their own menu finishes the job.
+    var r = document.createRange();
+    r.selectNodeContents($("albumUrl"));
+    var s = window.getSelection();
+    s.removeAllRanges(); s.addRange(r);
+    btn.textContent = "Copy it now";
+  }
+}
+
+function shareAlbumLink(){
+  var w = S.data.wedding;
+  navigator.share({
+    title: "Photographs from " + w.salutation + "'s wedding",
+    text: "Add your photographs from our wedding day — they come straight to us.",
+    url: albumLink()
+  }).catch(function(){});
+}
+
+function drawQr(){
+  var el = $("qr");
+  if (!el) return;
+  try { el.innerHTML = qrSvg(albumLink(), 220); }
+  catch (e) { el.innerHTML = '<p class="muted" style="font-size:.875rem">' +
+    'The QR code couldn’t be drawn — the link above still works.</p>'; }
+}
+
+function downloadQr(){
+  var w = S.data.wedding;
+  var svg = qrSvg(albumLink(), 1000);
+  var blob = new Blob([svg], { type: "image/svg+xml" });
+  var href = URL.createObjectURL(blob);
+  var a = document.createElement("a");
+  a.href = href;
+  a.download = "Photo album QR - " + w.salutation.replace(/[^\w &-]/g, "") + ".svg";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function(){ URL.revokeObjectURL(href); }, 4000);
 }
 
 /* ============================ SUPPLIERS ============================ */
