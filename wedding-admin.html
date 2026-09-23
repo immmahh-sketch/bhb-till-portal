@@ -214,6 +214,16 @@ tbody tr:hover{background:var(--sage-10)}
 @keyframes s{to{transform:rotate(360deg)}}
 code{font-family:ui-monospace,"SF Mono",monospace;font-size:.875em;background:var(--sage-10);padding:1px 5px}
 .login{max-width:360px;margin:70px auto;padding:0 20px}
+
+/* ---- photo album ---- */
+.linkrow{border:1px solid var(--mist);background:var(--bone);padding:10px 12px}
+.linkrow code{background:transparent;padding:0;overflow-wrap:anywhere;font-size:.8125rem}
+.agrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px}
+.atile{margin:0;cursor:pointer;border:1px solid var(--mist);background:var(--bone)}
+.atile img{display:block;width:100%;aspect-ratio:1;object-fit:cover}
+.atile:hover{border-color:var(--alert)}
+.atile figcaption{padding:5px 7px;font-size:.6875rem;color:var(--sage-70);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 </style>
 </head>
 <body>
@@ -578,7 +588,7 @@ function render(){
 var MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
 async function loadForecast(){
-  try { S.forecast = await call("report.forecast"); $("views").innerHTML = viewOverview(); }
+  try { S.forecast = await call("report.forecast"); $("views").innerHTML = viewOverview(); showAlbumBeat(); }
   catch (e) { showErr(e.message); $("views").innerHTML = ""; }
 }
 
@@ -673,7 +683,19 @@ function viewOverview(){
     h += '</tbody></table></div>';
   }
 
-  h += '<div class="center"><button class="btn" onclick="exportForecast()">Download the forward book</button></div>';
+  h += '<div class="center" style="margin-bottom:16px">' +
+    '<button class="btn" onclick="exportForecast()">Download the forward book</button></div>';
+
+  /* The album emails go out on their own at eight each morning. This is
+     only here for the morning they don't. */
+  h += '<div class="card"><h2 style="margin-bottom:6px">Photo album emails</h2>' +
+    '<p class="muted" style="margin:0 0 12px;font-size:.875rem">' +
+    'Every guest is emailed the photo album link two days before their wedding and again on the ' +
+    'morning, automatically at 8am. Run it by hand only if something has gone wrong, or if a ' +
+    'wedding was added the day before. Nobody is emailed the same thing twice.</p>' +
+    '<p class="muted" id="albumBeat" style="margin:0 0 12px;font-size:.8125rem">Checking…</p>' +
+    '<button class="btn btn--sm" onclick="runAlbumEmails(this)">Run today’s album emails</button>' +
+  '</div>';
   return h;
 }
 
@@ -904,6 +926,98 @@ async function loadWedding(id){
     $("views").innerHTML = viewWedding();
   }
   catch (e) { showErr(e.message); S.current = null; $("views").innerHTML = ""; }
+}
+
+/* ---------- the photo album ---------- */
+var ALBUM_URL = "https://app.blackhorsebeamish.co.uk/wedding/album.html";
+
+function albumLinkFor(w){ return ALBUM_URL + "?a=" + w.album_token; }
+
+async function loadAlbumPhotos(){
+  var box = document.getElementById("albumPhotos");
+  box.innerHTML = '<p class="muted">Loading…</p>';
+  try {
+    var out = await call("photos.list", { id: S.detail.wedding.id });
+    S.albumPhotos = out.photos || [];
+    if (!S.albumPhotos.length) { box.innerHTML = '<p class="muted">Nothing added yet.</p>'; return; }
+    var mb = (out.bytes / 1048576).toFixed(1);
+    box.innerHTML =
+      '<p class="muted" style="margin:0 0 8px;font-size:.875rem">' +
+        S.albumPhotos.length + ' photograph' + (S.albumPhotos.length === 1 ? "" : "s") +
+        ', ' + mb + ' MB. Click one to remove it.</p>' +
+      '<div class="agrid">' + S.albumPhotos.map(function(p){
+        return '<figure class="atile" onclick="removeAlbumPhoto(' + JSON.stringify(p.id) + ')">' +
+          '<img loading="lazy" src="' + esc(p.thumb) + '" alt="">' +
+          '<figcaption>' + esc(p.uploader || "—") +
+            (p.hidden ? ' &middot; hidden' : '') + '</figcaption></figure>';
+      }).join("") + '</div>';
+  } catch (e) {
+    box.innerHTML = '<p class="err">' + esc(e.message) + '</p>';
+  }
+}
+
+function removeAlbumPhoto(id){
+  var p = (S.albumPhotos || []).filter(function(x){ return x.id === id; })[0];
+  if (!p) return;
+  // Somebody else's photograph, and there is no undo, so say whose.
+  if (!window.confirm("Delete this photograph" +
+      (p.uploader ? " from " + p.uploader : "") + "? It cannot be undone.")) return;
+  call("photos.delete", { id: S.detail.wedding.id, ids: [id] })
+    .then(loadAlbumPhotos)
+    .catch(function(e){ alert(e.message); });
+}
+
+/* A job nobody watches is a job that quietly stops. This one only matters
+   on two mornings per wedding, so the overview says when it last ran and
+   goes amber if that was not recently. */
+async function showAlbumBeat(){
+  var el = document.getElementById("albumBeat");
+  if (!el) return;
+  try {
+    var r = await fetch(CFG.SUPABASE_URL + "/functions/v1/wedding-photos", {
+      method:"POST",
+      headers:{ "Content-Type":"application/json",
+                Authorization:"Bearer "+CFG.SUPABASE_KEY, apikey:CFG.SUPABASE_KEY },
+      body: JSON.stringify({ action:"diag", password:S.pw })
+    });
+    var d = await r.json();
+    if (!d.lastRunAt) {
+      el.innerHTML = '<strong style="color:var(--alert)">It has never run.</strong> ' +
+        'It is scheduled for 8am daily — if this still says so tomorrow, tell whoever looks after the app.';
+      return;
+    }
+    var when = new Date(d.lastRunAt);
+    var hours = (Date.now() - when.getTime()) / 3600000;
+    el.innerHTML = 'Last run ' + esc(ukDate(d.lastRunAt)) + ' at ' +
+      esc(String(when.getHours()).padStart(2,"0") + ":" + String(when.getMinutes()).padStart(2,"0")) +
+      ' — ' + esc(d.lastRunSummary || "nothing due") + '.' +
+      (hours > 30 ? ' <strong style="color:var(--alert)">That is more than a day ago.</strong>' : '');
+  } catch (e) {
+    el.textContent = "Couldn't check when it last ran.";
+  }
+}
+
+/* The same job pg_cron runs at eight each morning. Here for the morning it
+   does not — a failed run, or a wedding added the day before. */
+async function runAlbumEmails(btn){
+  if (!window.confirm("Send the album email to every guest whose wedding is in two days " +
+      "or today, and take down any album that is out of time?\n\nGuests who have already " +
+      "had that email will not get it twice.")) return;
+  btn.disabled = true;
+  var was = btn.textContent;
+  btn.textContent = "Running…";
+  try {
+    var out = await call("album.run", {});
+    var ran = out.ran || [];
+    var sent = ran.reduce(function(s, r){ return s + (r.sent || 0); }, 0);
+    alert(ran.length
+      ? sent + " email" + (sent === 1 ? "" : "s") + " sent across " + ran.length + " wedding" +
+        (ran.length === 1 ? "" : "s") + ".\n\n" +
+        ran.map(function(r){ return r.event_id + " — " + r.stage + ": " + (r.sent || 0); }).join("\n")
+      : "Nothing was due today.");
+  } catch (e) { alert(e.message); }
+  btn.textContent = was;
+  btn.disabled = false;
 }
 
 function viewWedding(){
@@ -1153,6 +1267,25 @@ function viewWedding(){
       '<p style="margin:14px 0 0"><button class="btn btn--sm" onclick="exportSuppliers()">Download day schedule</button></p>';
   }
   h += '</div>';
+
+  /* ---- the photo album ----
+     The upload link is public by design — that is what makes it work — so
+     the team needs to be able to take something down without waiting for
+     the couple to see it first. */
+  h += '<div class="card"><div class="split" style="margin-bottom:6px"><h2>Photo album</h2>' +
+    '<span class="label">' + (w.album_enabled === false ? "Closed" : "Open") + '</span></div>' +
+    '<p class="muted" style="margin:0 0 12px;font-size:.875rem">' +
+      'Sent to every guest two days before the wedding and again on the morning. ' +
+      (w.album_wall === false
+        ? 'Guests cannot see each other’s photographs on this one.'
+        : 'Guests can see each other’s photographs.') + '</p>' +
+    '<div class="linkrow"><code>' + esc(albumLinkFor(w)) + '</code></div>' +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">' +
+      '<a class="btn btn--sm" target="_blank" rel="noopener" href="' + esc(albumLinkFor(w)) + '">Open as a guest</a>' +
+      '<button class="btn btn--sm" onclick="loadAlbumPhotos()">Show what they’ve added</button>' +
+    '</div>' +
+    '<div id="albumPhotos" style="margin-top:14px"></div>' +
+  '</div>';
 
   h += '<div class="card"><h3 style="margin-bottom:8px;color:var(--alert)">Danger zone</h3>' +
     '<p class="muted" style="margin:0 0 12px;font-size:.875rem">' +

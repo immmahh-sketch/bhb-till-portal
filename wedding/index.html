@@ -426,6 +426,8 @@ footer.app{border-top:1px solid var(--mist);padding:26px 0;text-align:center;fon
   background:linear-gradient(transparent,rgba(0,0,0,.55));
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ptile[data-hidden="1"] img{opacity:.35}
+.ptile .flag{position:absolute;top:6px;right:6px;padding:2px 7px;background:var(--sage);
+  color:var(--bone);font-size:.5625rem;letter-spacing:.14em;text-transform:uppercase}
 
 .ptools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;
   padding:12px 0 2px;border-top:1px solid var(--mist);margin-top:14px}
@@ -4244,8 +4246,10 @@ function photoTiles(){
       ' onclick="togglePhoto(this)">' +
       '<img loading="lazy" src="' + esc(p.thumb) + '" alt="">' +
       '<span class="tick">' + (A.sel[p.id] ? "&#10003;" : "") + '</span>' +
-      (p.uploader ? '<span class="who">' + esc(p.uploader) + (p.hidden ? " · hidden" : "") + '</span>'
-                  : (p.hidden ? '<span class="who">hidden</span>' : '')) +
+      // Its own badge rather than a suffix on the name, which a long name
+      // pushes straight off the end of the tile.
+      (p.hidden ? '<span class="flag">Hidden</span>' : '') +
+      (p.uploader ? '<span class="who">' + esc(p.uploader) + '</span>' : '') +
       '<button class="zoom" title="View full size" ' +
         'onclick="event.stopPropagation();openPhoto(' + JSON.stringify(p.id) + ')">&#9906;</button>' +
     '</div>';
