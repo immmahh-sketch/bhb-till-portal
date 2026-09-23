@@ -2,8 +2,19 @@
 <html lang="en-GB">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
+
+<!-- Saved to a phone's home screen this runs full screen, like the couple's
+     app. Its own manifest and name, so the two do not sit on a home screen
+     looking identical. -->
+<link rel="manifest" href="/wedding/admin.webmanifest">
+<meta name="theme-color" content="#4E5F4F">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Wedding Admin">
+<link rel="apple-touch-icon" href="/wedding/icons/icon-180.png">
+<link rel="icon" href="/wedding/icons/favicon-32.png" sizes="32x32">
 <title>Wedding Admin — Black Horse Beamish</title>
 
 <!--
@@ -48,14 +59,15 @@ a{color:inherit}
 .muted{color:var(--sage-70)}
 .center{text-align:center}
 
-header{background:var(--sage);color:var(--bone);padding:16px 0}
+header{background:var(--sage);color:var(--bone);padding:16px 0;
+  padding-top:max(env(safe-area-inset-top,0px), 16px)}
 header .wrap{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .brand{font-family:var(--display);font-size:1.0625rem;letter-spacing:.14em;text-transform:uppercase}
 nav{display:flex;gap:2px;margin-top:12px;flex-wrap:wrap}
 nav button{background:transparent;border:0;border-bottom:2px solid transparent;color:var(--celadon);
   padding:9px 14px;cursor:pointer;font:500 .6875rem/1 var(--body);letter-spacing:.2em;text-transform:uppercase}
 nav button[aria-current="page"]{color:var(--bone);border-bottom-color:var(--celadon)}
-main{padding:26px 0 70px}
+main{padding:26px 0 70px;padding-bottom:max(env(safe-area-inset-bottom,0px), 70px)}
 
 .btn{display:inline-block;background:transparent;color:var(--sage);border:1px solid currentColor;
   border-radius:0;padding:11px 22px;font:500 .75rem/1 var(--body);letter-spacing:.17em;
@@ -108,6 +120,48 @@ tbody tr:hover{background:var(--sage-10)}
 .stat div{background:var(--white);padding:14px 12px;text-align:center}
 .stat .v{font-size:1.1875rem;font-variant-numeric:tabular-nums;margin-top:3px}
 @media(max-width:700px){.stat{grid-template-columns:repeat(2,1fr)}}
+
+/* ---- on a phone ----
+   The back end is a desk tool that people now open on the floor, mid-wedding,
+   to check a balance or a guest number. Nothing here is a phone-first
+   redesign; it is making the desk tool legible one-handed. */
+@media(max-width:760px){
+  body{font-size:15px}
+  .wrap{padding:0 14px}
+  h1{font-size:1.375rem}
+  h2{font-size:1.125rem}
+  main{padding-top:18px}
+
+  /* The section nav scrolls sideways rather than wrapping to three rows. */
+  nav{flex-wrap:nowrap;overflow-x:auto;margin:10px -14px 0;padding:0 14px;
+    scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  nav::-webkit-scrollbar{display:none}
+  nav button{white-space:nowrap;padding:9px 11px;letter-spacing:.14em}
+
+  header .wrap{gap:8px}
+  .brand{font-size:.9375rem;letter-spacing:.1em}
+
+  .card{padding:14px}
+  .stat div{padding:11px 8px}
+  .stat .v{font-size:1.0625rem}
+
+  /* A wide table scrolls inside its own box instead of stretching the page
+     and taking every other column off the side of the screen with it. */
+  .tw{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -14px;padding:0 14px}
+  .tw > table{min-width:520px}
+  .card--flush .tw{margin:0;padding:0}
+  th,td{padding:9px 10px}
+
+  .btn{padding:10px 16px}
+  .btn--sm{padding:7px 10px}
+  .split{align-items:flex-start}
+  .sheet{max-height:240px}
+  .login{margin:36px auto}
+}
+@media(max-width:420px){
+  .stat{grid-template-columns:1fr 1fr}
+  .btn{letter-spacing:.12em}
+}
 .spin{display:inline-block;width:15px;height:15px;border:2px solid var(--mist);border-top-color:var(--sage);
   border-radius:50%;animation:s .7s linear infinite;vertical-align:-3px}
 @keyframes s{to{transform:rotate(360deg)}}
@@ -177,6 +231,25 @@ function ukDate(iso){
     .format(new Date(Date.UTC(+p[0],+p[1]-1,+p[2])));
 }
 function ddmmyyyy(iso){ var p = ymd(iso).split("-"); return p.length===3 ? p[2]+p[1]+p[0] : ""; }
+
+/* Daytime and evening are different bookings with different numbers, and the
+   event-level figure matches neither. Read them off the functions, and never
+   add them up — an evening number usually already includes the day guests. */
+function guestSplit(functions){
+  var isEve = function(f){ return /evening|party|disco/i.test(f.name); };
+  var most = function(list){
+    return list.reduce(function(m,f){ return Math.max(m, Number(f.numberOfGuests)||0); }, 0);
+  };
+  var fns = functions || [];
+  return { day: most(fns.filter(function(f){ return !isEve(f); })), evening: most(fns.filter(isEve)) };
+}
+
+function guestSplitText(functions, fallback){
+  var g = guestSplit(functions);
+  if (g.day && g.evening) return g.day + " day \u00b7 " + g.evening + " evening";
+  if (g.day || g.evening) return String(g.day || g.evening);
+  return fallback != null ? String(fallback) : "\u2014";
+}
 function daysToGo(iso){
   var t = new Intl.DateTimeFormat("en-CA",{timeZone:"Europe/London"}).format(new Date()).split("-");
   var p = ymd(iso).split("-");
@@ -323,6 +396,33 @@ async function refreshPending(){
   } catch (e) { /* the badge is a nicety; a failure here shouldn't block the page */ }
 }
 
+/* Every table gets a scroller around it, rather than each of the thirty-odd
+   tables in this file having to remember. Called after anything renders. */
+function wrapTables(root){
+  var el = root || document;
+  [].forEach.call(el.querySelectorAll("table"), function(t){
+    if (t.parentNode && t.parentNode.classList &&
+        t.parentNode.classList.contains("tw")) return;
+    var w = document.createElement("div");
+    w.className = "tw";
+    t.parentNode.insertBefore(w, t);
+    w.appendChild(t);
+  });
+}
+
+/* innerHTML is set in a couple of dozen places; patching the setter once is
+   far safer than finding every one of them. */
+(function(){
+  var views = null;
+  var observer = new MutationObserver(function(){ wrapTables(views); });
+  document.addEventListener("DOMContentLoaded", function(){
+    views = document.getElementById("views");
+    if (!views) return;
+    wrapTables(views);
+    observer.observe(views, { childList: true, subtree: true });
+  });
+})();
+
 function render(){
   var v = $("views");
   if (S.current) { v.innerHTML = '<div class="empty"><span class="spin"></span></div>'; loadWedding(S.current); return; }
@@ -425,7 +525,12 @@ function viewOverview(){
         '<span class="muted" style="font-size:.8125rem"><code>' + esc(x.event_id) + '</code></span></td>' +
         '<td class="num">' + esc(ukDate(x.wedding_date)) + '<br>' +
         '<span class="muted" style="font-size:.8125rem">' + daysToGo(x.wedding_date) + ' days</span></td>' +
-        '<td class="money num">' + (x.guests != null ? x.guests + ' guests' : '—') + '</td>' +
+        '<td class="money num">' +
+          (x.guestsDay || x.guestsEvening
+            ? (x.guestsDay ? x.guestsDay + ' day' : '') +
+              (x.guestsDay && x.guestsEvening ? '<br>' : '') +
+              (x.guestsEvening ? x.guestsEvening + ' evening' : '')
+            : (x.guests != null ? x.guests + ' guests' : '—')) + '</td>' +
         '<td class="money"><button class="btn btn--sm" onclick="open_(\'' + x.id + '\')">Open</button></td></tr>';
     });
     h += '</table></div>';
@@ -437,9 +542,11 @@ function viewOverview(){
 
 function exportForecast(){
   var rows = S.forecast.weddings.map(function(x){
-    return [x.wedding_date, x.salutation, x.event_id, x.guests, x.value, x.status];
+    return [x.wedding_date, x.salutation, x.event_id,
+            x.guestsDay || "", x.guestsEvening || "", x.value, x.status];
   });
-  csvRaw("forward-book", ["Date","Couple","Reference","Guests","Value","Status"], rows);
+  csvRaw("forward-book",
+    ["Date","Couple","Reference","Daytime guests","Evening guests","Value","Status"], rows);
 }
 
 /* ============================ OUTSTANDING PAYMENTS ============================ */
@@ -664,7 +771,10 @@ function viewWedding(){
   h += '<div class="split" style="margin:16px 0 4px"><h1>' + esc(w.salutation) + '</h1>' +
     '<span class="label">' + esc(ukDate(w.wedding_date)) + '</span></div>';
   h += '<p class="muted" style="margin:0 0 18px">' +
-    (d.event ? esc(d.event.name) : '<span style="color:var(--alert)">Couldn\'t reach Guestline — showing stored details only.</span>') + '</p>';
+    (d.event ? esc(d.event.name) : '<span style="color:var(--alert)">Couldn\'t reach Guestline — showing stored details only.</span>') +
+    // Daytime and evening side by side, so nobody quotes the wrong one.
+    (d.functions && d.functions.length
+      ? '<br><strong>' + esc(guestSplitText(d.functions)) + ' guests</strong>' : '') + '</p>';
 
   /* ---- what the couple types to log in, and the email that tells them ---- */
   h += '<div class="notice notice--ok"><strong>Their login:</strong> ' +
@@ -1155,7 +1265,7 @@ function previewHtml(){
     '<tr><th>Date</th><td>' + esc(ukDate(ev.startDate)) + '</td></tr>' +
     '<tr><th>Reference</th><td><code>' + esc(ev.eventId) + '</code></td></tr>' +
     '<tr><th>Status</th><td>' + esc(ev.eventStatusDescription) + '</td></tr>' +
-    '<tr><th>Guests</th><td class="num">' + esc(ev.guests) + '</td></tr>' +
+    '<tr><th>Guests</th><td class="num">' + esc(guestSplitText(p.functions, ev.guests)) + '</td></tr>' +
     '<tr><th>Total</th><td class="num">' + money(ev.totalCost) + '</td></tr>' +
     '<tr><th>Outstanding</th><td class="num">' + money(p.balance.outstanding) + '</td></tr>' +
     '<tr><th>Coordinator</th><td>' + esc(ev.coordinatorName||"—") + '</td></tr>' +
