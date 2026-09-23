@@ -63,6 +63,19 @@ header{background:var(--sage);color:var(--bone);padding:16px 0;
   padding-top:max(env(safe-area-inset-top,0px), 16px)}
 header .wrap{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .brand{font-family:var(--display);font-size:1.0625rem;letter-spacing:.14em;text-transform:uppercase}
+header .hdr{display:flex;align-items:center;gap:12px}
+.burger{display:none;background:none;border:0;padding:8px 6px;margin-left:-6px;cursor:pointer;
+  flex-direction:column;justify-content:center;gap:5px;flex:0 0 auto}
+.burger span{display:block;width:21px;height:2px;background:var(--celadon);
+  transition:transform .18s,opacity .18s}
+.burger[aria-expanded="true"] span:nth-child(1){transform:translateY(7px) rotate(45deg)}
+.burger[aria-expanded="true"] span:nth-child(2){opacity:0}
+.burger[aria-expanded="true"] span:nth-child(3){transform:translateY(-7px) rotate(-45deg)}
+.hdr .where{display:none;font-family:var(--display);font-size:1rem;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--bone);white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;flex:1 1 auto}
+.hdr .brand{flex:1 1 auto}
+
 nav{display:flex;gap:2px;margin-top:12px;flex-wrap:wrap}
 nav button{background:transparent;border:0;border-bottom:2px solid transparent;color:var(--celadon);
   padding:9px 14px;cursor:pointer;font:500 .6875rem/1 var(--body);letter-spacing:.2em;text-transform:uppercase}
@@ -132,14 +145,27 @@ tbody tr:hover{background:var(--sage-10)}
   h2{font-size:1.125rem}
   main{padding-top:18px}
 
-  /* The section nav scrolls sideways rather than wrapping to three rows. */
-  nav{flex-wrap:nowrap;overflow-x:auto;margin:10px -14px 0;padding:0 14px;
-    scrollbar-width:none;-webkit-overflow-scrolling:touch}
-  nav::-webkit-scrollbar{display:none}
-  nav button{white-space:nowrap;padding:9px 11px;letter-spacing:.14em}
+  /* The tabs become a dropdown. Anchored under the header rather than
+     floating, so it cannot end up somewhere off the top of the view. */
+  header{position:relative}
+  .burger{display:flex}
+  .hdr .where{display:block}
+  .hdr .brand{display:none}
+  .navwrap{position:absolute;left:0;right:0;top:100%;padding:0;z-index:40}
 
-  header .wrap{gap:8px}
-  .brand{font-size:.9375rem;letter-spacing:.1em}
+  nav{display:none;flex-direction:column;gap:0;margin:0;background:var(--sage);
+    border-top:1px solid rgba(247,247,247,.16);box-shadow:0 10px 24px rgba(38,38,38,.24)}
+  nav.open{display:flex}
+  nav button{width:100%;text-align:left;border-bottom:1px solid rgba(247,247,247,.1);
+    border-left:3px solid transparent;padding:15px 18px;letter-spacing:.16em}
+  nav button:last-child{border-bottom:0}
+  nav button[aria-current="page"]{border-bottom-color:rgba(247,247,247,.1);
+    border-left-color:var(--celadon);color:var(--bone)}
+
+  /* Tapping anywhere else closes it. */
+  .navscrim{position:fixed;inset:0;z-index:30}
+
+  header .wrap{gap:10px}
 
   .card{padding:14px}
   .stat div{padding:11px 8px}
@@ -202,12 +228,25 @@ code{font-family:ui-monospace,"SF Mono",monospace;font-size:.875em;background:va
 </section>
 
 <div id="app" class="hide">
+  <!--
+    Two navigations, one list of sections.
+
+    On a desk this is a row of tabs, which is what a tool like this should
+    look like. On a phone the same buttons become a dropdown under a burger,
+    the way the couple's app does it — a nav you have to drag sideways is a
+    nav you have to hunt through.
+  -->
   <header>
-    <div class="wrap">
+    <div class="wrap hdr">
+      <button id="burger" class="burger" aria-label="Menu" aria-expanded="false"
+              aria-controls="nav" onclick="toggleNav()">
+        <span></span><span></span><span></span>
+      </button>
       <span class="brand">Wedding Admin</span>
+      <span class="where" id="whereAmI">Overview</span>
       <button class="btn btn--sm" style="color:var(--celadon)" onclick="lock()">Lock</button>
     </div>
-    <div class="wrap">
+    <div class="wrap navwrap">
       <nav id="nav">
         <button data-view="overview" aria-current="page">Overview</button>
         <button data-view="weddings">Weddings</button>
@@ -396,13 +435,52 @@ $("gateForm").onsubmit = function(ev){
 $("nav").addEventListener("click", function(ev){
   var b = ev.target.closest("button[data-view]"); if (!b) return;
   S.view = b.dataset.view; S.current = null;
-  [].forEach.call($("nav").children, function(x){
-    if (x.dataset.view === S.view) x.setAttribute("aria-current","page"); else x.removeAttribute("aria-current");
-  });
+  markNav();
+  closeNav();
   clearErr(); render(); window.scrollTo({top:0});
 });
 
-async function boot(){ await refreshPending(); render(); }
+/* One place that keeps the tabs, the dropdown and the "you are here" label
+   saying the same thing. */
+function markNav(){
+  [].forEach.call($("nav").children, function(x){
+    if (x.dataset.view === S.view) x.setAttribute("aria-current","page");
+    else x.removeAttribute("aria-current");
+  });
+  var here = [].filter.call($("nav").children, function(x){ return x.dataset.view === S.view; })[0];
+  var label = $("whereAmI");
+  // The badge on "Payments to post" is a count, not part of its name.
+  if (label && here) label.textContent = here.firstChild.textContent.trim();
+}
+
+function toggleNav(){
+  var nav = $("nav"), b = $("burger");
+  var open = nav.classList.toggle("open");
+  b.setAttribute("aria-expanded", open ? "true" : "false");
+  var scrim = $("navScrim");
+  if (open) {
+    if (!scrim) {
+      scrim = document.createElement("div");
+      scrim.id = "navScrim"; scrim.className = "navscrim";
+      scrim.addEventListener("click", closeNav);
+      document.querySelector("header").appendChild(scrim);
+    }
+    scrim.style.display = "block";
+  } else if (scrim) {
+    scrim.style.display = "none";
+  }
+}
+
+function closeNav(){
+  var nav = $("nav"), b = $("burger"), scrim = $("navScrim");
+  if (nav) nav.classList.remove("open");
+  if (b) b.setAttribute("aria-expanded", "false");
+  if (scrim) scrim.style.display = "none";
+}
+
+document.addEventListener("keydown", function(ev){ if (ev.key === "Escape") closeNav(); });
+
+async function boot(){ markNav(); await refreshPending(); render(); }
 
 async function refreshPending(){
   try {
@@ -801,13 +879,18 @@ function listRow(w, dim){
 
 function goto(v){
   S.view = v; S.current = null;
-  [].forEach.call($("nav").children, function(x){
-    if (x.dataset.view === v) x.setAttribute("aria-current","page"); else x.removeAttribute("aria-current");
-  });
+  markNav();
+  closeNav();
   render();
 }
 
-function open_(id){ S.current = id; clearErr(); render(); window.scrollTo({top:0}); }
+function open_(id){
+  S.current = id;
+  closeNav();
+  var label = $("whereAmI");
+  if (label) label.textContent = "Wedding";
+  clearErr(); render(); window.scrollTo({ top: 0 });
+}
 
 /* ============================ ONE WEDDING ============================ */
 async function loadWedding(id){
