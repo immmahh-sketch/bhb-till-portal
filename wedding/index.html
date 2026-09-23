@@ -2205,15 +2205,20 @@ function viewGuests(){
     h += '<p class="muted" style="margin:0">Add your guests below, then invite them from here.</p>';
   } else {
     h += '<p class="muted" style="margin:0 0 14px;font-size:.9375rem">' +
-      'We\'ll email each guest their own invitation with a link to reply. ' +
-      'Their answer lands straight back here.</p>';
+      (S.data.wedding.invite_style === "rsvp"
+        ? 'We\'ll email each guest a reply link to go alongside the invitations you are ' +
+          'sending yourselves. Their answer lands straight back here.'
+        : 'We\'ll email each guest their own invitation with a link to reply. ' +
+          'Their answer lands straight back here.') + '</p>';
 
     h += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">' +
       '<button class="btn btn--sm" onclick="previewInvite()">Preview the invitation</button>' +
       '<button class="btn btn--sm" onclick="editInviteWording()">Edit the wording</button>' +
       (withEmail.length > invited.length
         ? '<button class="btn btn--sm btn--primary" onclick="sendInvites()">Send to the ' +
-          withEmail.filter(function(x){ return !x.invite_sent_at; }).length + ' not yet invited</button>'
+          withEmail.filter(function(x){ return !x.invite_sent_at; }).length +
+          (S.data.wedding.invite_style === "rsvp" ? ' not yet asked' : ' not yet invited') +
+          '</button>'
         : '') +
       '</div>';
 
@@ -2616,8 +2621,28 @@ async function previewInvite(guestId){
 
 function editInviteWording(){
   var w = S.data.wedding;
+  var style = w.invite_style === "rsvp" ? "rsvp" : "invitation";
+
   showModal('<div class="split" style="margin-bottom:14px"><h2>Your invitation</h2>' +
     '<button class="btn btn--sm" onclick="closeModal()">Close</button></div>' +
+
+    /* Plenty of couples have cards printed and posted. For them this email
+       is not the invitation \u2014 it is the reply slip, which is the part
+       paper is worst at. */
+    '<div class="field"><span class="label">What is this email for?</span>' +
+      '<label class="check" style="display:flex;gap:10px;align-items:flex-start;cursor:pointer;margin:6px 0 0">' +
+        '<input type="radio" name="ivstyle" value="invitation" style="width:18px;height:18px;flex:0 0 auto;margin-top:2px"' +
+          (style === "invitation" ? " checked" : "") + '>' +
+        '<span style="font-size:.9375rem;line-height:1.5"><strong>This is the invitation.</strong><br>' +
+        '<span class="muted">We invite them on your behalf, and they reply here.</span></span></label>' +
+      '<label class="check" style="display:flex;gap:10px;align-items:flex-start;cursor:pointer;margin:10px 0 0">' +
+        '<input type="radio" name="ivstyle" value="rsvp" style="width:18px;height:18px;flex:0 0 auto;margin-top:2px"' +
+          (style === "rsvp" ? " checked" : "") + '>' +
+        '<span style="font-size:.9375rem;line-height:1.5"><strong>We are sending our own invitations.</strong><br>' +
+        '<span class="muted">This just asks them to reply, with meal choices and ' +
+        'anything they cannot eat.</span></span></label>' +
+    '</div>' +
+
     '<p class="muted" style="margin:0 0 16px;font-size:.875rem">' +
     'Your names, the date and your timings come from your booking. These bits are yours to write.</p>' +
     '<div class="field"><span class="label">A note to your guests</span>' +
@@ -2634,11 +2659,13 @@ function editInviteWording(){
 
 async function saveInviteWording(){
   try {
+    var chosen = document.querySelector('input[name="ivstyle"]:checked');
     var payload = {
       invite_message: $("iv_msg").value.trim(),
       invite_dress_code: $("iv_dress").value.trim(),
       invite_rsvp_by: $("iv_by").value || null,
-      invite_extra_info: $("iv_extra").value.trim()
+      invite_extra_info: $("iv_extra").value.trim(),
+      invite_style: chosen ? chosen.value : "invitation"
     };
     await api("invite.settings", payload);
     Object.keys(payload).forEach(function(k){ S.data.wedding[k] = payload[k]; });
