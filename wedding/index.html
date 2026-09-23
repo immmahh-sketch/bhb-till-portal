@@ -1455,49 +1455,6 @@ function renderStandaloneNote(){
   return true;
 }
 
-/* ---------- telling the page how tall we are ----------
-   Embedded in the Squarespace page, this app sits in an iframe with a fixed
-   height. Anything longer than that \u2014 a guest list, a table plan, the
-   journey \u2014 makes the frame scroll internally, and on a phone that scroll
-   does not chain to the page behind it: you reach the end of the frame and
-   everything stops until you find a sliver of page beside it to drag.
-
-   So the frame is told our real height and grows to fit. Nothing inside ever
-   scrolls, the page does all the scrolling, and the trap cannot happen. */
-var PARENT_ORIGINS = [
-  "https://www.blackhorsebeamish.co.uk",
-  "https://blackhorsebeamish.co.uk"
-];
-
-function reportHeight(){
-  if (!isFramed()) return;
-  var h = Math.max(
-    document.documentElement ? document.documentElement.scrollHeight : 0,
-    document.body ? document.body.scrollHeight : 0
-  );
-  if (!h || Math.abs(h - reportHeight.last) < 2) return;
-  reportHeight.last = h;
-  PARENT_ORIGINS.forEach(function(origin){
-    try { parent.postMessage({ type: "bhb-wedding-height", height: h }, origin); }
-    catch (e) { /* not our parent; nothing to do */ }
-  });
-}
-reportHeight.last = 0;
-
-(function watchHeight(){
-  if (!isFramed()) return;
-  window.addEventListener("load", reportHeight);
-  window.addEventListener("resize", reportHeight);
-
-  // Views are swapped in and out by hand, and a table or a Calendly frame
-  // can change height well after the click that caused it.
-  if (window.ResizeObserver) {
-    try { new ResizeObserver(reportHeight).observe(document.documentElement); } catch (e) {}
-  }
-  setInterval(reportHeight, 500);
-  reportHeight();
-})();
-
 function installHint(){
   if (!isFramed()) return "";
   try { if (localStorage.getItem("bhb_wedding_hint") === "off") return ""; } catch (e) {}
@@ -1526,7 +1483,6 @@ function go(v){
   clearError();
   render();
   window.scrollTo({ top: 0 });
-  reportHeight();
 }
 
 /* ============================ DETAILS ============================ */
