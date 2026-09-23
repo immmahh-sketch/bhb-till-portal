@@ -145,11 +145,28 @@ tbody tr:hover{background:var(--sage-10)}
   .stat div{padding:11px 8px}
   .stat .v{font-size:1.0625rem}
 
-  /* A wide table scrolls inside its own box instead of stretching the page
-     and taking every other column off the side of the screen with it. */
-  .tw{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -14px;padding:0 14px}
-  .tw > table{min-width:520px}
-  .card--flush .tw{margin:0;padding:0}
+  /* A wide table is turned on its side rather than made to scroll. Reading
+     a table by dragging it sideways means the row you are reading loses the
+     name it belongs to — on the forward book the couple went off the left
+     edge, which is the one column that matters. Each row becomes a small
+     block instead, every value labelled. */
+  table.stack, table.stack tbody, table.stack tr, table.stack td{display:block;width:auto}
+  table.stack thead{display:none}
+  table.stack tr{padding:11px 0;border-bottom:1px solid var(--mist)}
+  table.stack tr:last-child{border-bottom:0}
+  table.stack tbody tr:hover{background:transparent}
+  table.stack td{border:0;padding:3px 0;text-align:left}
+  table.stack td.money,table.stack td.num{text-align:left}
+  table.stack td[data-label]:not([data-label=""]):before{
+    content:attr(data-label);display:inline-block;min-width:104px;
+    font-size:.625rem;font-weight:500;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--sage-70);vertical-align:baseline}
+  /* A blank cell says nothing worth a line of its own on a phone. */
+  table.stack td.is-empty{display:none}
+  .card--flush table.stack tr{padding:11px 14px}
+
+  /* Anything not stacked — the label-and-value tables — still scrolls. */
+  .tw{overflow-x:auto;-webkit-overflow-scrolling:touch}
   th,td{padding:9px 10px}
 
   .btn{padding:10px 16px}
@@ -396,29 +413,63 @@ async function refreshPending(){
   } catch (e) { /* the badge is a nicety; a failure here shouldn't block the page */ }
 }
 
-/* Every table gets a scroller around it, rather than each of the thirty-odd
-   tables in this file having to remember. Called after anything renders. */
-function wrapTables(root){
+/* Prepare every table to stack on a phone, rather than each of the thirty-odd
+   tables in this file having to carry labels of its own.
+
+   The labels come from the table's own headings, so they cannot drift out of
+   step with the columns. A table with no headings — a list of functions, a
+   couple of deposits — still stacks, just without them. A label-and-value
+   table is left alone: it is two columns wide and already fits. */
+function adaptTables(root){
   var el = root || document;
   [].forEach.call(el.querySelectorAll("table"), function(t){
-    if (t.parentNode && t.parentNode.classList &&
-        t.parentNode.classList.contains("tw")) return;
-    var w = document.createElement("div");
-    w.className = "tw";
-    t.parentNode.insertBefore(w, t);
-    w.appendChild(t);
+    if (t.getAttribute("data-adapted")) return;
+    t.setAttribute("data-adapted", "1");
+
+    var heads = t.querySelectorAll("thead th");
+
+    // "Couple | Smith & Jones" down the left — already narrow, leave it.
+    if (!heads.length && t.querySelector("tr > th:first-child")) {
+      wrapTable(t);
+      return;
+    }
+
+    var labels = [].map.call(heads, function(h){ return h.textContent.trim(); });
+
+    [].forEach.call(t.rows, function(tr){
+      if (tr.querySelector("th")) return;                       // a heading row
+      var spans = [].some.call(tr.cells, function(c){ return c.colSpan > 1; });
+      if (spans) return;                                        // "nothing here yet"
+      [].forEach.call(tr.cells, function(td, i){
+        if (labels.length && !td.hasAttribute("data-label")) {
+          td.setAttribute("data-label", labels[i] || "");
+        }
+        var txt = (td.textContent || "").replace(/\s+/g, " ").trim();
+        if (!txt || txt === "\u2014" || txt === "-") td.classList.add("is-empty");
+      });
+    });
+
+    t.classList.add("stack");
   });
+}
+
+function wrapTable(t){
+  if (t.parentNode && t.parentNode.classList && t.parentNode.classList.contains("tw")) return;
+  var w = document.createElement("div");
+  w.className = "tw";
+  t.parentNode.insertBefore(w, t);
+  w.appendChild(t);
 }
 
 /* innerHTML is set in a couple of dozen places; patching the setter once is
    far safer than finding every one of them. */
 (function(){
   var views = null;
-  var observer = new MutationObserver(function(){ wrapTables(views); });
+  var observer = new MutationObserver(function(){ adaptTables(views); });
   document.addEventListener("DOMContentLoaded", function(){
     views = document.getElementById("views");
     if (!views) return;
-    wrapTables(views);
+    adaptTables(views);
     observer.observe(views, { childList: true, subtree: true });
   });
 })();
