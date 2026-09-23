@@ -178,7 +178,8 @@ main.wrap{padding-top:38px;padding-bottom:64px}
   main.wrap{padding-top:32px;padding-bottom:56px}
   .brand{font-size:.9375rem;letter-spacing:.1em}
   .balance div{padding:13px 6px}
-  .balance .v{font-size:1.0625rem}
+  /* The figure's size is a clamp on .balance .v and is left alone here —
+     a fixed size at this breakpoint is what used to cut "£14,000.00" off. */
   .balance .label{font-size:.625rem;letter-spacing:.1em}
   .card{padding:18px 16px}
   th,td{padding:10px 8px}
@@ -190,7 +191,6 @@ main.wrap{padding-top:38px;padding-bottom:64px}
    than clip, and stop the tabs eating the whole screen. */
 @media(max-width:360px){
   .wrap{padding:0 11px}
-  .balance .v{font-size:.9375rem}
   .balance .label{font-size:.5625rem;letter-spacing:.06em}
   .balance div{padding:11px 4px}
   .hero .names{font-size:1.4375rem}
@@ -203,7 +203,18 @@ main.wrap{padding-top:38px;padding-bottom:64px}
 .balance{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;
   background:var(--mist);border:1px solid var(--mist)}
 .balance div{background:var(--white);padding:16px 10px;text-align:center;min-width:0}
-.balance .v{font-size:1.25rem;margin-top:3px;white-space:nowrap}
+/* Three figures across a phone. They must not wrap — "£8,450" broken over
+   two lines reads as two numbers — so the type gives way instead.
+   Sized against the cell rather than the window, because the same strip
+   appears both full width and inside a card, and a card is 32px narrower:
+   a window-based size that fits on the home page cut "£14,000.00" off on
+   the budget page. The vw version is the fallback for anything that has
+   never heard of a container. */
+.balance div{container-type:inline-size}
+.balance .v{font-size:clamp(.6875rem,3.4vw,1.25rem);margin-top:3px;white-space:nowrap}
+@supports (width:1cqw){
+  .balance .v{font-size:clamp(.6875rem,13cqw,1.25rem)}
+}
 .balance .label{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .balance .v.out{color:var(--attention)}
 .balance .v.clear{color:var(--sage)}
@@ -418,9 +429,10 @@ footer.app{border-top:1px solid var(--mist);padding:26px 0;text-align:center;fon
   border:1px solid rgba(255,255,255,.9);background:rgba(0,0,0,.28);color:#fff;
   font-size:.75rem;line-height:20px;text-align:center}
 .ptile[data-sel="1"] .tick{background:var(--sage);border-color:var(--sage)}
-.ptile .zoom{position:absolute;bottom:0;right:0;width:34px;height:34px;border:0;cursor:pointer;
-  background:rgba(0,0,0,.3);color:#fff;font-size:.875rem;line-height:34px;text-align:center;padding:0}
-.ptile .zoom:hover{background:rgba(0,0,0,.55)}
+.ptile .zoom{position:absolute;bottom:0;right:0;width:38px;height:38px;border:0;cursor:pointer;
+  background:rgba(0,0,0,.34);padding:0;display:flex;align-items:center;justify-content:center}
+.ptile .zoom svg{width:17px;height:17px;fill:none;stroke:#fff;stroke-width:1.9;stroke-linecap:round}
+.ptile .zoom:hover{background:rgba(0,0,0,.6)}
 .ptile .who{position:absolute;left:0;right:34px;bottom:0;padding:14px 6px 5px;
   font-size:.625rem;letter-spacing:.05em;color:#fff;
   background:linear-gradient(transparent,rgba(0,0,0,.55));
@@ -431,7 +443,11 @@ footer.app{border-top:1px solid var(--mist);padding:26px 0;text-align:center;fon
 
 .ptools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;
   padding:12px 0 2px;border-top:1px solid var(--mist);margin-top:14px}
-.ptools .grow{flex:1;min-width:120px}
+/* Wide enough to hold its own label. Button text is deliberately nowrap, so
+   a basis smaller than the words means the words get cut in half instead of
+   the button dropping onto its own line. */
+.ptools .grow{flex:1 1 220px;min-width:0}
+.ptools .pair{display:flex;gap:8px}
 
 .lb{position:fixed;inset:0;background:rgba(32,38,32,.92);z-index:80;
   display:flex;align-items:center;justify-content:center;padding:16px}
@@ -3032,7 +3048,7 @@ function viewMeals(){
 
   if (sitting.length) {
     h += '<div class="center" style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">' +
-      '<button class="btn" onclick="confirmAllMeals()">Confirm everyone with a choice</button>' +
+      '<button class="btn" onclick="confirmAllMeals()">Confirm all choices</button>' +
       '<button class="btn" onclick="go(\'tables\')">Go to your table plan</button></div>';
   }
   return h;
@@ -4224,8 +4240,12 @@ function viewAlbum(){
     '</div>' +
     '<div class="ptools" style="border:0;padding-top:4px">' +
       '<button class="btn btn--primary grow" id="dlBtn" onclick="downloadPhotos()">Download chosen</button>' +
-      '<button class="btn btn--sm" onclick="hidePhotos()">Hide</button>' +
-      '<button class="btn btn--sm" onclick="deletePhotos()">Delete</button>' +
+      // Kept together, so that when the download button takes a line of its
+      // own these two follow it as a pair rather than one being left behind.
+      '<span class="pair">' +
+        '<button class="btn btn--sm" onclick="hidePhotos()">Hide</button>' +
+        '<button class="btn btn--sm" onclick="deletePhotos()">Delete</button>' +
+      '</span>' +
     '</div>' +
     '<div id="dlProg" class="hide"><div class="bar" style="height:3px;background:var(--mist);' +
       'margin:12px 0 6px;overflow:hidden"><span id="dlBar" style="display:block;height:100%;' +
@@ -4243,21 +4263,38 @@ function photoTiles(){
   return A.photos.map(function(p){
     return '<div class="ptile" data-id="' + esc(p.id) + '"' +
       (A.sel[p.id] ? ' data-sel="1"' : "") + (p.hidden ? ' data-hidden="1"' : "") +
-      ' onclick="togglePhoto(this)">' +
+      ' onclick="togglePhoto(this, event)">' +
       '<img loading="lazy" src="' + esc(p.thumb) + '" alt="">' +
       '<span class="tick">' + (A.sel[p.id] ? "&#10003;" : "") + '</span>' +
       // Its own badge rather than a suffix on the name, which a long name
       // pushes straight off the end of the tile.
       (p.hidden ? '<span class="flag">Hidden</span>' : '') +
       (p.uploader ? '<span class="who">' + esc(p.uploader) + '</span>' : '') +
-      '<button class="zoom" title="View full size" ' +
-        'onclick="event.stopPropagation();openPhoto(' + JSON.stringify(p.id) + ')">&#9906;</button>' +
+      // Drawn rather than a character: the nearest glyph to a magnifier in
+      // the fonts we load is the neuter sign, which is not what it looks
+      // like it is.
+      '<button class="zoom" type="button" title="View full size" aria-label="View full size">' +
+        '<svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">' +
+        '<circle cx="8.5" cy="8.5" r="5.5"></circle>' +
+        '<line x1="12.6" y1="12.6" x2="17" y2="17"></line></svg>' +
+      '</button>' +
     '</div>';
   }).join("");
 }
 
-function togglePhoto(el){
+/* The tile handles the tap and works out what was hit.
+   The magnifier used to carry its own onclick with the id written into the
+   attribute by JSON.stringify — which puts real double quotes in, closing
+   the attribute at the first one and leaving a button that did nothing. */
+function togglePhoto(el, ev){
   var id = el.dataset.id;
+
+  if (ev && ev.target.closest(".zoom")) {
+    ev.stopPropagation();
+    openPhoto(id);
+    return;
+  }
+
   A.sel[id] = !A.sel[id];
   el.dataset.sel = A.sel[id] ? "1" : "";
   el.querySelector(".tick").innerHTML = A.sel[id] ? "&#10003;" : "";
@@ -4621,18 +4658,24 @@ function viewBudget(){
   if (!b.length) {
     h += '<div class="empty">Nothing here yet.</div>';
   } else {
-    h += '<table><thead><tr><th>What</th><th class="money">Budgeted</th><th class="money">Spent</th><th></th></tr></thead><tbody>';
+    /* Four columns is one more than a phone can carry, so this stacks like
+       every other wide table in the app. Without it the whole page scrolled
+       sideways and the Edit button sat off the right-hand edge. */
+    h += '<table class="stack"><thead><tr><th>What</th><th class="money">Budgeted</th>' +
+      '<th class="money">Spent</th><th></th></tr></thead><tbody>';
     b.forEach(function(x){
       h += '<tr id="b_' + x.id + '"><td><strong>' + esc(x.description) + '</strong>' +
         (x.is_venue_cost ? ' <span class="pill pill--ok">From your booking</span>' : '') +
         '<br><span class="muted" style="font-size:.8125rem">' + esc(x.category) + '</span></td>' +
-        '<td class="money num">' + money(x.budgeted) + '</td>' +
-        '<td class="money num">' + money(x.spent) + (x.is_paid ? '<br><span class="pill pill--ok">Paid</span>' : '') + '</td>' +
+        '<td class="money num" data-label="Budgeted">' + money(x.budgeted) + '</td>' +
+        '<td class="money num" data-label="Spent">' + money(x.spent) +
+          (x.is_paid ? '<br><span class="pill pill--ok">Paid</span>' : '') + '</td>' +
         '<td class="money">' + (x.is_venue_cost ? '' :
           '<button class="btn btn--sm" onclick="editBudget(\'' + x.id + '\')">Edit</button>') + '</td></tr>';
     });
-    h += '<tr><td><strong>Total</strong></td><td class="money num"><strong>' + money(budgeted) + '</strong></td>' +
-      '<td class="money num"><strong>' + money(spent) + '</strong></td><td></td></tr>';
+    h += '<tr><td><strong>Total</strong></td>' +
+      '<td class="money num" data-label="Budgeted"><strong>' + money(budgeted) + '</strong></td>' +
+      '<td class="money num" data-label="Spent"><strong>' + money(spent) + '</strong></td><td></td></tr>';
     h += '</tbody></table>';
   }
   h += '</div>';

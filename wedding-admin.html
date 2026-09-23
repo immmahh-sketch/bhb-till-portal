@@ -195,8 +195,6 @@ tbody tr:hover{background:var(--sage-10)}
   table.stack td.is-empty{display:none}
   .card--flush table.stack tr{padding:11px 14px}
 
-  /* Anything not stacked — the label-and-value tables — still scrolls. */
-  .tw{overflow-x:auto;-webkit-overflow-scrolling:touch}
   th,td{padding:9px 10px}
 
   .btn{padding:10px 16px}
@@ -214,6 +212,12 @@ tbody tr:hover{background:var(--sage-10)}
 @keyframes s{to{transform:rotate(360deg)}}
 code{font-family:ui-monospace,"SF Mono",monospace;font-size:.875em;background:var(--sage-10);padding:1px 5px}
 .login{max-width:360px;margin:70px auto;padding:0 20px}
+
+/* A table that cannot be made narrower scrolls inside its own card rather
+   than taking the page sideways with it. At every width, not just on a
+   phone: the by-month grid is fourteen columns and was hanging off the side
+   of a tablet, where nothing stacks. */
+.tw{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
 
 /* ---- photo album ---- */
 .linkrow{border:1px solid var(--mist);background:var(--bone);padding:10px 12px}
@@ -544,6 +548,18 @@ function adaptTables(root){
     });
 
     t.classList.add("stack");
+  });
+
+  /* Stacking handles most of it, but some tables cannot stack and still mean
+     anything — the by-month grid is a year against twelve months, and a
+     stacked version of that is a list of numbers. Anything still wider than
+     the space it has gets its own scroller, so the page itself never moves
+     sideways. Measured rather than guessed, because it depends on the window
+     as much as the table. */
+  [].forEach.call(el.querySelectorAll("table"), function(t){
+    var host = t.parentNode;
+    if (!host || (host.classList && host.classList.contains("tw"))) return;
+    if (t.scrollWidth > host.clientWidth + 2) wrapTable(t);
   });
 }
 
