@@ -44,11 +44,16 @@
   .cattile .cname{font-size:19px;font-weight:600}
   .cattile .ccount{font-size:12.5px;color:var(--muted);margin-top:4px;font-style:italic}
   .cattile .carrow{font-size:26px;color:var(--muted);margin-left:14px;line-height:1}
-  .item{background:#fff;border:1px solid var(--line);border-radius:2px;padding:16px;margin-bottom:10px;display:flex;gap:14px;align-items:center}
+  .item{background:#fff;border:1px solid var(--line);border-radius:2px;padding:16px;margin-bottom:10px;display:flex;flex-direction:column}
+  .item-row{display:flex;gap:14px;align-items:center;width:100%}
   .item .info{flex:1;min-width:0}
   .item .nm{font-weight:600;font-size:17px}
   .item .dsc{font-size:13px;color:var(--muted);margin-top:4px;line-height:1.4;font-style:italic}
   .item .pr{font-weight:700;color:var(--ink);margin-top:8px;font-size:15px}
+  .dish-btn{margin-top:10px;background:none;border:1px solid var(--line);color:var(--ink);padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;letter-spacing:.3px;font-family:inherit;display:inline-block}
+  .dish-photo{display:none;margin-top:14px}
+  .dish-photo.show{display:block}
+  .dish-photo img{width:100%;display:block;border-radius:2px}
   .stepper{display:flex;align-items:center;gap:0;flex:0 0 auto}
   .stepper button{width:32px;height:32px;border-radius:50%;border:1.3px solid var(--ink);background:#fff;font-size:17px;font-weight:600;line-height:1;display:flex;align-items:center;justify-content:center;font-family:Georgia,serif}
   .stepper button.add{background:var(--ink);color:#fff}
@@ -640,6 +645,30 @@ function openWineType(t){
 }
 
 /* ---------------- menu ---------------- */
+// Real dish photography from the kitchen's menu spec sheets - only these
+// items had an actual photo in the pack (the rest of the spec docs just
+// carried the shared letterhead graphic, no food shot), so most menu items
+// have no "See the dish" button at all. Keyed on the exact item name so one
+// entry covers a dish wherever it reappears (Sunday Lunch, half portions,
+// steak on both Steak Night and From the Grill, etc).
+var DISH_PHOTOS = {
+  "Caprese Salad": "assets/dishes/caprese-salad.jpg",
+  "Seafood Cocktail": "assets/dishes/seafood-cocktail.jpg",
+  "Club Sandwich": "assets/dishes/club-sandwich.jpg",
+  "Grilled Cheese & Roasted Ham Bloomer": "assets/dishes/grilled-cheese-ham.jpg",
+  "Chicken Caesar Salad": "assets/dishes/chicken-caesar-salad.jpg",
+  "Fish & Chips": "assets/dishes/fish-and-chips.jpg",
+  "Fish & Chips (Half Portion)": "assets/dishes/fish-and-chips.jpg",
+  "Traditional Fish & Chips": "assets/dishes/fish-and-chips.jpg",
+  "Lemon Tilapia": "assets/dishes/lemon-tilapia.jpg",
+  "12oz Flat Iron Steak": "assets/dishes/flat-iron-steak.jpg",
+  "Passionfruit Cheesecake": "assets/dishes/passionfruit-cheesecake.jpg",
+  "Sticky Toffee Pudding": "assets/dishes/sticky-toffee-pudding.jpg",
+  "Strawberry Bread & Butter Pudding": "assets/dishes/strawberry-bread-butter-pudding.jpg"
+};
+function dishBtnHtml(m){
+  return DISH_PHOTOS[m.name] ? '<button class="dish-btn" type="button">See the dish</button>' : "";
+}
 function buildItemEl(m){
   var hasVariants = Array.isArray(m.variants) && m.variants.length>0;
   var hasCombo = Array.isArray(m.combo_groups) && m.combo_groups.length>0;
@@ -648,52 +677,75 @@ function buildItemEl(m){
   // placing a kitchen-only comp order, so it's left off entirely for him.
   var dsc = (m.description && !S.isComp) ? '<div class="dsc">'+esc(m.description)+'</div>' : '';
   var el = document.createElement("div"); el.className="item";
+  var rowHtml;
   if(hasCombo){
     var qtyForCombo = cartLines().filter(function(l){ return l.itemId===m.id; }).reduce(function(s,l){ return s+l.qty; }, 0);
-    el.innerHTML =
+    rowHtml =
       '<div class="info"><div class="nm">'+esc(m.name)+'</div>'+
       dsc+
       (S.isComp ? '' : '<div class="pr">£'+money(m.price)+'</div>')+
       (qtyForCombo>0 ? '<div class="picked">'+qtyForCombo+' in your order</div>' : '')+
+      dishBtnHtml(m)+
       '</div>'+
       '<div class="stepper"><button class="choose-btn">Choose</button></div>';
+    el.innerHTML = '<div class="item-row">'+rowHtml+'</div>'+dishPhotoHtml(m);
     el.querySelector(".choose-btn").onclick = function(){ openComboPicker(m); };
   } else if(hasVariants){
     var qtyForItem = cartLines().filter(function(l){ return l.itemId===m.id; }).reduce(function(s,l){ return s+l.qty; }, 0);
     var minPrice = Math.min.apply(null, m.variants.map(function(v){ return v.price; }));
-    el.innerHTML =
+    rowHtml =
       '<div class="info"><div class="nm">'+esc(m.name)+'</div>'+
       dsc+
       (S.isComp ? '' : '<div class="pr">From £'+money(minPrice)+'</div>')+
       (qtyForItem>0 ? '<div class="picked">'+qtyForItem+' in your order</div>' : '')+
+      dishBtnHtml(m)+
       '</div>'+
       '<div class="stepper"><button class="choose-btn">Choose</button></div>';
+    el.innerHTML = '<div class="item-row">'+rowHtml+'</div>'+dishPhotoHtml(m);
     el.querySelector(".choose-btn").onclick = function(){ openVariantPicker(m); };
   } else if(m.needs_cooking_pref){
     var qtyForSteak = cartLines().filter(function(l){ return l.itemId===m.id; }).reduce(function(s,l){ return s+l.qty; }, 0);
-    el.innerHTML =
+    rowHtml =
       '<div class="info"><div class="nm">'+esc(m.name)+'</div>'+
       dsc+
       (S.isComp ? '' : '<div class="pr">£'+money(m.price)+'</div>')+
       (qtyForSteak>0 ? '<div class="picked">'+qtyForSteak+' in your order</div>' : '')+
+      dishBtnHtml(m)+
       '</div>'+
       '<div class="stepper"><button class="choose-btn">Choose</button></div>';
+    el.innerHTML = '<div class="item-row">'+rowHtml+'</div>'+dishPhotoHtml(m);
     el.querySelector(".choose-btn").onclick = function(){ openCookingModal(m); };
   } else {
     var row = S.cart[m.id];
-    el.innerHTML =
+    rowHtml =
       '<div class="info"><div class="nm">'+esc(m.name)+'</div>'+
       dsc+
-      (S.isComp ? '' : '<div class="pr">£'+money(m.price)+'</div>')+'</div>'+
+      (S.isComp ? '' : '<div class="pr">£'+money(m.price)+'</div>')+
+      dishBtnHtml(m)+
+      '</div>'+
       '<div class="stepper">'+
         (row&&row.qty>0 ? '<button class="rm">−</button><span class="qty">'+row.qty+'</span>' : '')+
         '<button class="add">+</button>'+
       '</div>';
+    el.innerHTML = '<div class="item-row">'+rowHtml+'</div>'+dishPhotoHtml(m);
     el.querySelector(".add").onclick = function(){ addToCart(m, null); };
     var rmBtn = el.querySelector(".rm");
     if(rmBtn) rmBtn.onclick = function(){ adjustCartQty(m.id, -1); };
   }
+  var dishBtn = el.querySelector(".dish-btn");
+  if(dishBtn){
+    dishBtn.onclick = function(){
+      var photo = el.querySelector(".dish-photo");
+      var open = photo.classList.toggle("show");
+      dishBtn.textContent = open ? "Hide photo" : "See the dish";
+    };
+  }
   return el;
+}
+function dishPhotoHtml(m){
+  var src = DISH_PHOTOS[m.name];
+  if(!src) return "";
+  return '<div class="dish-photo"><img src="'+src+'" alt="'+esc(m.name)+'" loading="lazy"></div>';
 }
 function renderMenu(){
   var box = $("menuList"); box.innerHTML = "";
