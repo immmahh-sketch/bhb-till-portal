@@ -627,9 +627,24 @@ function render(){
 /* ============================ OVERVIEW / FORWARD BOOK ============================ */
 var MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
+/* Did the screen change while we were waiting?
+
+   The forward book takes a good fifteen seconds to come back from Guestline,
+   and anybody sensible clicks something else in the meantime. Without this
+   the slow answer lands last and drags them back to a page they had already
+   left. Every loader records where it was going and writes nothing if that
+   is no longer where we are. */
+function stillWanted(view, current){
+  return S.view === view && (S.current || null) === (current || null);
+}
+
 async function loadForecast(){
-  try { S.forecast = await call("report.forecast"); $("views").innerHTML = viewOverview(); showAlbumBeat(); }
-  catch (e) { showErr(e.message); $("views").innerHTML = ""; }
+  var want = S.view, cur = S.current;
+  try {
+    S.forecast = await call("report.forecast");
+    if (!stillWanted(want, cur)) return;
+    $("views").innerHTML = viewOverview(); showAlbumBeat();
+  } catch (e) { if (!stillWanted(want, cur)) return; showErr(e.message); $("views").innerHTML = ""; }
 }
 
 function viewOverview(){
@@ -750,8 +765,12 @@ function exportForecast(){
 
 /* ============================ OUTSTANDING PAYMENTS ============================ */
 async function loadOutstanding(){
-  try { S.outstanding = await call("report.outstanding"); $("views").innerHTML = viewOutstanding(); }
-  catch (e) { showErr(e.message); $("views").innerHTML = ""; }
+  var want = S.view, cur = S.current;
+  try {
+    S.outstanding = await call("report.outstanding");
+    if (!stillWanted(want, cur)) return;
+    $("views").innerHTML = viewOutstanding();
+  } catch (e) { if (!stillWanted(want, cur)) return; showErr(e.message); $("views").innerHTML = ""; }
 }
 
 function viewOutstanding(){
@@ -897,8 +916,12 @@ function csvRaw(name, head, rows){
 
 /* ============================ WEDDINGS LIST ============================ */
 async function loadList(){
-  try { S.list = await call("list"); $("views").innerHTML = viewList(); }
-  catch (e) { showErr(e.message); $("views").innerHTML = ""; }
+  var want = S.view, cur = S.current;
+  try {
+    S.list = await call("list");
+    if (!stillWanted(want, cur)) return;
+    $("views").innerHTML = viewList();
+  } catch (e) { if (!stillWanted(want, cur)) return; showErr(e.message); $("views").innerHTML = ""; }
 }
 
 function viewList(){
@@ -1558,11 +1581,13 @@ async function deleteWedding(){
 var U = { rows: [], filter: "all" };
 
 async function loadUsage(){
+  var want = S.view, cur = S.current;
   try {
     S.list = await call("list");
     U.rows = S.list;
+    if (!stillWanted(want, cur)) return;
     $("views").innerHTML = viewUsage();
-  } catch (e) { showErr(e.message); $("views").innerHTML = ""; }
+  } catch (e) { if (!stillWanted(want, cur)) return; showErr(e.message); $("views").innerHTML = ""; }
 }
 
 function usageFilter(f){
