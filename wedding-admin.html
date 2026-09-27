@@ -1600,10 +1600,14 @@ function agoText(iso){
 
 function viewUsage(){
   var all = U.rows;
-  var sent = all.filter(function(r){ return r.welcome_sent_at; }).length;
-  var used = all.filter(function(r){ return r.last_login_at; }).length;
-  var waiting = all.length - sent;
-  var ignored = sent - used;
+  /* Counted the same way each list is filtered, not by subtracting one from
+     another. These four do not partition the weddings: a couple who never
+     had an invitation but has logged in anyway appears in two of them, and
+     that is exactly the case worth seeing — it is almost always us. */
+  var sent    = all.filter(function(r){ return r.welcome_sent_at; }).length;
+  var used    = all.filter(function(r){ return r.last_login_at; }).length;
+  var waiting = all.filter(function(r){ return !r.welcome_sent_at; }).length;
+  var ignored = all.filter(function(r){ return r.welcome_sent_at && !r.last_login_at; }).length;
 
   var h = '<div class="split" style="margin-bottom:6px"><h1>App usage</h1>' +
     '<span class="label">' + all.length + ' wedding' + (all.length === 1 ? "" : "s") + '</span></div>' +
