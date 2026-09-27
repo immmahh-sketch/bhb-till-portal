@@ -1588,6 +1588,17 @@ function daysSince(iso){
   return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
 }
 
+/* A wedding that has already happened still belongs on this sheet — it is
+   where "we sent it and they never opened it" is most worth knowing. So the
+   date has to read properly in both directions rather than "-3 days". */
+function whenText(iso){
+  var d = daysToGo(iso);
+  if (d === 0) return "today";
+  if (d === 1) return "tomorrow";
+  if (d === -1) return "yesterday";
+  return d > 0 ? d + " days to go" : Math.abs(d) + " days ago";
+}
+
 function agoText(iso){
   var d = daysSince(iso);
   if (d === null) return "";
@@ -1646,7 +1657,7 @@ function viewUsage(){
       '<td data-label="Couple"><strong>' + esc(r.salutation) + '</strong><br>' +
         '<span class="muted" style="font-size:.8125rem"><code>' + esc(r.event_id) + '</code></span></td>' +
       '<td data-label="Wedding date" class="num">' + esc(ukDate(r.wedding_date)) + '<br>' +
-        '<span class="muted" style="font-size:.8125rem">' + daysToGo(r.wedding_date) + ' days</span></td>' +
+        '<span class="muted" style="font-size:.8125rem">' + whenText(r.wedding_date) + '</span></td>' +
       '<td data-label="Invitation sent">' +
         (r.welcome_sent_at
           ? '<span class="pill pill--ok">Sent</span><br><span class="muted" style="font-size:.8125rem">' +
