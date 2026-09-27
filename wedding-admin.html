@@ -213,6 +213,22 @@ tbody tr:hover{background:var(--sage-10)}
 code{font-family:ui-monospace,"SF Mono",monospace;font-size:.875em;background:var(--sage-10);padding:1px 5px}
 .login{max-width:360px;margin:70px auto;padding:0 20px}
 
+/* ---- app usage ---- */
+.ufilters{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 16px}
+.ufilter{flex:1 1 130px;text-align:left;padding:12px 14px;background:var(--white);
+  border:1px solid var(--mist);cursor:pointer;color:var(--sage)}
+.ufilter .un{display:block;font-family:var(--display);font-size:1.5rem;line-height:1.1}
+.ufilter .ul{display:block;font-size:.6875rem;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--sage-70);margin-top:3px}
+.ufilter:hover{border-color:var(--celadon)}
+.ufilter.on{border-color:var(--sage);box-shadow:inset 0 0 0 1px var(--sage)}
+.ufilter--warn .un{color:var(--alert)}
+.ufilter--ok .un{color:var(--sage)}
+.urow{cursor:pointer}
+.urow:hover{background:var(--sage-10)}
+.udel{border-color:var(--mist);color:var(--sage-70)}
+.udel:hover{background:var(--alert);border-color:var(--alert);color:#fff}
+
 /* A table that cannot be made narrower scrolls inside its own card rather
    than taking the page sideways with it. At every width, not just on a
    phone: the by-month grid is fourteen columns and was hanging off the side
@@ -274,6 +290,7 @@ code{font-family:ui-monospace,"SF Mono",monospace;font-size:.875em;background:va
       <nav id="nav">
         <button data-view="overview" aria-current="page">Overview</button>
         <button data-view="weddings">Weddings</button>
+        <button data-view="usage">App usage</button>
         <button data-view="outstanding">Outstanding</button>
         <button data-view="reconcile">Payments to post <span id="recBadge"></span></button>
         <button data-view="add">Add a wedding</button>
@@ -598,6 +615,7 @@ function render(){
                           '<p style="margin-top:14px">Reading the forward book from Guestline…</p></div>';
                         loadForecast(); break;
     case "weddings":    v.innerHTML = '<div class="empty"><span class="spin"></span></div>'; loadList(); break;
+    case "usage":       v.innerHTML = '<div class="empty"><span class="spin"></span></div>'; loadUsage(); break;
     case "outstanding": v.innerHTML = '<div class="empty"><span class="spin"></span>' +
                           '<p style="margin-top:14px">Checking every couple\'s balance…</p></div>';
                         loadOutstanding(); break;
@@ -823,7 +841,8 @@ function chaseTable(heading, rows, showShortfall, emptyMsg){
           "You can pay any amount at any time in your wedding app:\n" +
           "https://www.blackhorsebeamish.co.uk/wedding-app\n\n" +
           "Your reference is " + r.event_id + " and your password is your wedding date.\n\n" +
-          "Any questions at all, just give us a ring on 01207 232 569.\n\n" +
+          "Any questions at all, just give us a ring on 01207 232 569, or send us a\n" +
+          "message on WhatsApp on 07455 850424.\n\n" +
           "Best wishes,\nThe events team\nBlack Horse Beamish"
         ) + '">' + esc(r.primary_email) + '</a>' +
         (r.mobile ? '<br>' + esc(r.mobile) : '') +
@@ -1525,6 +1544,169 @@ async function deleteWedding(){
   if (prompt('Type the reference "' + w.event_id + '" to confirm deletion.') !== w.event_id) return;
   try { await call("delete", { id:w.id }); S.current = null; await refreshPending(); goto("weddings"); }
   catch (e) { showErr(e.message); }
+}
+
+/* ============================ APP USAGE ============================
+   Who has been handed the app and who has actually opened it.
+
+   Two different questions, and the gap between them is the only number
+   that says whether any of this is working. A couple who was never sent
+   their invitation has not ignored the app; a couple who was sent it three
+   months ago and has never logged in has.
+   ================================================================== */
+
+var U = { rows: [], filter: "all" };
+
+async function loadUsage(){
+  try {
+    S.list = await call("list");
+    U.rows = S.list;
+    $("views").innerHTML = viewUsage();
+  } catch (e) { showErr(e.message); $("views").innerHTML = ""; }
+}
+
+function usageFilter(f){
+  U.filter = f;
+  $("views").innerHTML = viewUsage();
+}
+
+function usageRows(){
+  var rows = U.rows.slice();
+  if (U.filter === "waiting") {
+    rows = rows.filter(function(r){ return !r.welcome_sent_at; });
+  } else if (U.filter === "never") {
+    rows = rows.filter(function(r){ return r.welcome_sent_at && !r.last_login_at; });
+  } else if (U.filter === "using") {
+    rows = rows.filter(function(r){ return r.last_login_at; });
+  }
+  // Soonest wedding first: the ones where it still matters.
+  return rows.sort(function(a, b){ return a.wedding_date < b.wedding_date ? -1 : 1; });
+}
+
+function daysSince(iso){
+  if (!iso) return null;
+  return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+}
+
+function agoText(iso){
+  var d = daysSince(iso);
+  if (d === null) return "";
+  if (d === 0) return "today";
+  if (d === 1) return "yesterday";
+  if (d < 31) return d + " days ago";
+  if (d < 365) return Math.round(d / 30) + " months ago";
+  return "over a year ago";
+}
+
+function viewUsage(){
+  var all = U.rows;
+  var sent = all.filter(function(r){ return r.welcome_sent_at; }).length;
+  var used = all.filter(function(r){ return r.last_login_at; }).length;
+  var waiting = all.length - sent;
+  var ignored = sent - used;
+
+  var h = '<div class="split" style="margin-bottom:6px"><h1>App usage</h1>' +
+    '<span class="label">' + all.length + ' wedding' + (all.length === 1 ? "" : "s") + '</span></div>' +
+    '<p class="muted" style="margin:0 0 18px">' +
+    'Who has been sent their invitation, and who has actually opened the app. ' +
+    'Click any row to open that wedding.</p>';
+
+  /* The four states, as buttons, because each one is a different job:
+     send the invitation, chase the ones ignoring it, or leave well alone. */
+  var tab = function(key, label, n, tone){
+    return '<button class="ufilter' + (U.filter === key ? " on" : "") +
+      (tone ? " ufilter--" + tone : "") + '" onclick="usageFilter(\'' + key + '\')">' +
+      '<span class="un">' + n + '</span><span class="ul">' + label + '</span></button>';
+  };
+  h += '<div class="ufilters">' +
+    tab("all", "All weddings", all.length, "") +
+    tab("waiting", "Not sent yet", waiting, waiting ? "warn" : "") +
+    tab("never", "Sent, never opened", ignored, ignored ? "warn" : "") +
+    tab("using", "Using the app", used, "ok") +
+  '</div>';
+
+  var rows = usageRows();
+  if (!rows.length) {
+    h += '<div class="card empty">Nothing in this list.</div>';
+    return h;
+  }
+
+  h += '<div class="card card--flush"><table class="usage"><thead><tr>' +
+    '<th>Couple</th><th>Wedding date</th><th>Invitation sent</th>' +
+    '<th>Logged in</th><th>Last log in</th><th></th>' +
+    '</tr></thead><tbody>';
+
+  rows.forEach(function(r){
+    var openIt = 'onclick="open_(\'' + esc(r.id) + '\')"';
+    h += '<tr class="urow" ' + openIt + '>' +
+      '<td data-label="Couple"><strong>' + esc(r.salutation) + '</strong><br>' +
+        '<span class="muted" style="font-size:.8125rem"><code>' + esc(r.event_id) + '</code></span></td>' +
+      '<td data-label="Wedding date" class="num">' + esc(ukDate(r.wedding_date)) + '<br>' +
+        '<span class="muted" style="font-size:.8125rem">' + daysToGo(r.wedding_date) + ' days</span></td>' +
+      '<td data-label="Invitation sent">' +
+        (r.welcome_sent_at
+          ? '<span class="pill pill--ok">Sent</span><br><span class="muted" style="font-size:.8125rem">' +
+            esc(ukDate(r.welcome_sent_at)) + '</span>'
+          : '<span class="pill pill--prov">Not yet</span>') + '</td>' +
+      '<td data-label="Logged in">' +
+        (r.last_login_at
+          ? '<span class="pill pill--ok">Yes</span>'
+          : (r.welcome_sent_at
+              ? '<span class="pill pill--late">Never</span>'
+              : '<span class="muted">&mdash;</span>')) + '</td>' +
+      '<td data-label="Last log in" class="num">' +
+        (r.last_login_at
+          ? esc(ukDate(r.last_login_at)) + '<br><span class="muted" style="font-size:.8125rem">' +
+            esc(agoText(r.last_login_at)) + '</span>'
+          : '<span class="muted">&mdash;</span>') + '</td>' +
+      '<td class="money">' +
+        '<button class="btn btn--sm udel" onclick="event.stopPropagation();removeWedding(\'' +
+        esc(r.id) + '\')">Delete</button></td>' +
+    '</tr>';
+  });
+
+  h += '</tbody></table></div>' +
+    '<p class="muted" style="margin:14px 0 0;font-size:.8125rem">' +
+    'Deleting removes the account and everything the couple has built. It is here for ' +
+    'clearing out anything that was only ever us testing — for a real couple, ' +
+    'use the danger zone on their own page, where you can see what you are about to lose.</p>' +
+    '<div class="center" style="margin-top:16px">' +
+    '<button class="btn" onclick="exportUsage()">Download this sheet</button></div>';
+
+  return h;
+}
+
+/* Deleting from the list, rather than from the wedding's own page. Same
+   confirmation either way: typing the reference is deliberately more work
+   than clicking Yes, because there is no undo behind it. */
+async function removeWedding(id){
+  var r = (U.rows || []).filter(function(x){ return x.id === id; })[0];
+  if (!r) return;
+  var typed = prompt(
+    'Delete ' + r.salutation + ' (' + r.event_id + ')?\n\n' +
+    'This removes the account and everything on it — guest list, suppliers, ' +
+    'budget, payment records, photographs. It cannot be undone.\n\n' +
+    'Type the reference "' + r.event_id + '" to confirm.');
+  if (typed !== r.event_id) return;
+  try {
+    await call("delete", { id: id });
+    await refreshPending();
+    await loadUsage();
+    clearErr();
+  } catch (e) { showErr(e.message); }
+}
+
+function exportUsage(){
+  var rows = usageRows().map(function(r){
+    return [r.salutation, r.event_id, ymd(r.wedding_date),
+            r.welcome_sent_at ? ymd(r.welcome_sent_at) : "",
+            r.last_login_at ? "Yes" : "No",
+            r.last_login_at ? ymd(r.last_login_at) : "",
+            r.status];
+  });
+  csvRaw("app-usage",
+    ["Couple", "Reference", "Wedding date", "Invitation sent", "Logged in", "Last log in", "Status"],
+    rows);
 }
 
 /* ============================ RECONCILE QUEUE ============================ */
