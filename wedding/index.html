@@ -627,7 +627,10 @@ var CFG = {
   REMEMBER_KEY: "bhb_wedding_login"
 };
 
-var S = { onboardStep: 1, token: null, data: null, view: "home", guests: [], suppliers: [], budget: [], tables: [], menu: [] };
+// locked: a phone that has not been added to the home screen yet, where the
+// instructions are the whole app until it has.
+var S = { onboardStep: 1, locked: false, token: null, data: null, view: "home",
+          guests: [], suppliers: [], budget: [], tables: [], menu: [] };
 
 /* ---------- helpers ---------- */
 function $(id){ return document.getElementById(id); }
@@ -1468,6 +1471,37 @@ function devicePlatform(){
   return "desktop";
 }
 
+/* Is this a phone or a tablet — something with a home screen to add to?
+
+   Asked three ways and all three have to agree, because the cost of being
+   wrong is a couple locked out of their own wedding. A touchscreen laptop
+   has a fine pointer as well as a coarse one; a desktop browser pretending
+   to be a phone has neither the touch points nor the screen. */
+function hasHomeScreen(){
+  try {
+    if (devicePlatform() === "desktop") return false;
+    var coarse = window.matchMedia("(pointer: coarse)").matches;
+    var touch = (navigator.maxTouchPoints || 0) > 1;
+    // The short edge of the device itself, not the window, which in an
+    // iframe is whatever the page gave us.
+    var shortEdge = Math.min(screen.width || 0, screen.height || 0);
+    return coarse && touch && shortEdge > 0 && shortEdge <= 900;
+  } catch (e) { return false; }
+}
+
+/* The gate.
+
+   On a phone, the app is only usable once it has been added to the home
+   screen: opened any other way there is nothing to reach but the
+   instructions. On a computer there is no home screen, so nothing changes.
+
+   Deliberately not a once-only thing. Whether they installed it last week
+   is beside the point — what matters is how it was opened this time, and
+   isStandalone() answers that on every load. */
+function mustInstall(){
+  return hasHomeScreen() && !isStandalone();
+}
+
 function onboardDone(){
   try { return localStorage.getItem(ONBOARD_KEY) === "done"; } catch (e) { return false; }
 }
@@ -1495,12 +1529,26 @@ function showLogin(){
    step one is getting out of it. Already full screen, step two. Already
    on the home screen, there is nothing left to do. */
 function startOnboarding(){
-  if (isStandalone() || onboardDone()) { showLogin(); return; }
+  if (isStandalone()) { showLogin(); return; }
+
+  /* On a phone this is the whole app until it is installed, so neither
+     "done it before" nor the skip link gets them past it. On anything else
+     it stays what it was: a suggestion, shown once. */
+  S.locked = mustInstall();
+  if (!S.locked && onboardDone()) { showLogin(); return; }
+
   S.onboardStep = isFramed() ? 1 : 2;
   $("login").classList.add("hide");
   $("onboard").classList.remove("hide");
   renderOnboard();
-  $("onboardSkip").onclick = function(ev){ ev.preventDefault(); skipOnboarding(); };
+
+  var skip = $("onboardSkip");
+  if (S.locked) {
+    skip.classList.add("hide");
+  } else {
+    skip.classList.remove("hide");
+    skip.onclick = function(ev){ ev.preventDefault(); skipOnboarding(); };
+  }
 }
 
 function onboardStep(n){ S.onboardStep = n; renderOnboard(); window.scrollTo({ top: 0 }); }
@@ -1570,7 +1618,16 @@ function renderOnboard(){
         'and it can remember you, so you are not typing your reference in every time.</p>' +
       '<p class="muted" style="font-size:.875rem;margin:0 0 16px">When it opens from the icon ' +
         'you will see a tick here, and then you can log in.</p>' +
-      '<button class="btn" style="width:100%" onclick="skipOnboarding()">Log in here instead</button>';
+      (S.locked
+        /* No way round on a phone — the icon is the door. If they are stuck,
+           a person is more use than another button. */
+        ? '<button class="btn" style="width:100%" onclick="recheckStandalone()">' +
+            'I have opened it from the icon</button>' +
+          '<p class="muted" style="font-size:.8125rem;margin:14px 0 0;text-align:center">' +
+            'Cannot get it to work? Ring us on <a href="tel:01207232569">01207 232 569</a> ' +
+            'or WhatsApp <a href="https://wa.me/447455850424">07455 850424</a> and we will ' +
+            'walk you through it.</p>'
+        : '<button class="btn" style="width:100%" onclick="skipOnboarding()">Log in here instead</button>');
   }
 
   $("onboardCard").innerHTML = h;
@@ -1594,6 +1651,24 @@ async function installNow(){
 }
 
 function skipOnboarding(){ markOnboardDone(); showLogin(); }
+
+/* They say they opened it from the icon. If they really did, this copy of
+   the page is not the one they are looking at — so say so plainly rather
+   than pretending to check and letting them through. */
+function recheckStandalone(){
+  if (isStandalone()) { showLogin(); return; }
+  var el = $("onboardCard");
+  if (!el || $("stuckNote")) return;
+  var p = document.createElement("div");
+  p.id = "stuckNote";
+  p.className = "notice notice--due";
+  p.style.marginTop = "16px";
+  p.innerHTML = '<strong>This is still the browser.</strong> The icon opens a separate ' +
+    'copy with no address bar along the top — close this tab and tap the ' +
+    '<strong>Your Wedding</strong> icon on your home screen. If it is not there, ' +
+    'go back a step and add it.';
+  el.appendChild(p);
+}
 
 /* The tick they were promised on step three: shown above the login only
    when the app really is running from the home screen. */
@@ -4919,6 +4994,17 @@ function exportBudget(){
 /* ---------- start ---------- */
 (function(){
   try { S.token = localStorage.getItem(CFG.SESSION_KEY); } catch(e){}
+
+  /* The gate comes first, before the saved session is honoured.
+     On a phone opened anywhere but the home screen there is nothing to
+     reach but the instructions — and a couple who logged in last week has
+     a token sitting in localStorage, so checking that first would let them
+     straight past it. The one exception is on the way back from a payment:
+     finishing that matters more than where they opened it. */
+  if (mustInstall() && !/[?&]paid=1/.test(location.search)) {
+    startOnboarding();
+    return;
+  }
 
   /* Coming back from SumUp. The webhook is what actually records the
      payment, so a moment's grace avoids showing a stale balance — and if
