@@ -410,6 +410,13 @@ footer.app{border-top:1px solid var(--mist);padding:26px 0;text-align:center;fon
   letter-spacing:.14em;text-transform:uppercase}
 .pw-toggle:hover{color:var(--sage)}
 
+/* ---- the back office, signed in as a couple ---- */
+.staffbar{position:sticky;top:0;z-index:60;background:var(--alert);color:#fff;
+  padding:9px 16px;text-align:center;font-size:.8125rem;line-height:1.45;
+  letter-spacing:.02em}
+.staffbar strong{letter-spacing:.06em;text-transform:uppercase;font-size:.6875rem;
+  display:block;opacity:.85;margin-bottom:1px}
+
 /* ---- photo album ---- */
 .linkbox{display:flex;gap:0;border:1px solid var(--mist);background:var(--bone);margin:0 0 12px}
 .linkbox code{flex:1;min-width:0;padding:12px 14px;font:.8125rem/1.5 var(--body);
@@ -562,6 +569,12 @@ footer.app{border-top:1px solid var(--mist);padding:26px 0;text-align:center;fon
 
 <!-- ============================ APP ============================ -->
 <div id="app" class="hide">
+  <!--
+    A coordinator signed in as a couple. Loud on purpose and never
+    dismissible: everything in here is the couple's real wedding, and
+    anything changed is changed for them.
+  -->
+  <div id="staffBar" class="staffbar hide"></div>
   <!--
     Just the tabs. The venue wordmark used to sit above them, but it was the
     same words in the same serif as the website's own header, which made the
@@ -1252,7 +1265,22 @@ function askConfirm(title, body, yesLabel, onYes){
   $("askYes").onclick = function(){ close(); onYes(); };
 }
 
+/* Shown on every screen, for as long as the session lasts. A coordinator
+   who forgets whose app they are in will change somebody's guest list. */
+function renderStaffBar(){
+  var bar = $("staffBar");
+  if (!bar) return;
+  var w = S.data && S.data.wedding;
+  if (!w || w.staff !== true) { bar.classList.add("hide"); return; }
+  bar.innerHTML = '<strong>Back office view</strong>' +
+    'You are signed in as <strong style="display:inline;text-transform:none;font-size:.8125rem;opacity:1">' +
+    esc(w.salutation) + '</strong> (' + esc(w.event_id) + '). ' +
+    'Anything you change here changes their wedding. This visit is not counted as theirs.';
+  bar.classList.remove("hide");
+}
+
 function render(){
+  renderStaffBar();
   var v = $("views");
   switch (S.view) {
     case "home":      v.innerHTML = viewHome(); break;

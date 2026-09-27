@@ -1151,6 +1151,22 @@ function viewWedding(){
     (d.functions && d.functions.length
       ? '<br><strong>' + esc(guestSplitText(d.functions)) + ' guests</strong>' : '') + '</p>';
 
+  /* ---- our own way into their app ----
+     Same password as theirs; the BHBADMIN- prefix is what keeps a
+     coordinator's visit off the couple's usage. */
+  h += '<div class="notice notice--ok"><strong>Look at their app:</strong> ' +
+    'reference <code>BHBADMIN-' + esc(w.event_id) + '</code> and date <code>' +
+      esc(ddmmyyyy(w.wedding_date)) + '</code>. ' +
+    '<a href="https://app.blackhorsebeamish.co.uk/wedding/" target="_blank" rel="noopener">Open the app</a>' +
+    '<div class="muted" style="margin-top:6px;font-size:.8125rem">' +
+      'You will see exactly what they see, and anything you change is really theirs. ' +
+      (w.staff_login_at
+        ? 'Last looked at ' + esc(ukDate(w.staff_login_at)) +
+          (w.staff_login_count ? ', ' + w.staff_login_count + ' time' +
+            (w.staff_login_count === 1 ? '' : 's') + ' in all' : '') + '.'
+        : 'Nobody here has looked yet.') +
+    '</div></div>';
+
   /* ---- what the couple types to log in, and the email that tells them ---- */
   h += '<div class="notice notice--ok"><strong>Their login:</strong> ' +
     'reference <code>' + esc(w.event_id) + '</code> and date <code>' + esc(ddmmyyyy(w.wedding_date)) + '</code>.' +
@@ -1673,7 +1689,7 @@ function viewUsage(){
 
   h += '<div class="card card--flush"><table class="usage"><thead><tr>' +
     '<th>Couple</th><th>Wedding date</th><th>Invitation sent</th>' +
-    '<th>Logged in</th><th>Last log in</th><th></th>' +
+    '<th>Logged in</th><th>Last log in</th><th>We looked</th><th></th>' +
     '</tr></thead><tbody>';
 
   rows.forEach(function(r){
@@ -1690,7 +1706,12 @@ function viewUsage(){
           : '<span class="pill pill--prov">Not yet</span>') + '</td>' +
       '<td data-label="Logged in">' +
         (r.last_login_at
-          ? '<span class="pill pill--ok">Yes</span>'
+          ? '<span class="pill pill--ok">Yes</span>' +
+            // A login from before the BHBADMIN- prefix existed may well have
+            // been one of us. This moves it across rather than deleting a
+            // real wedding to tidy the sheet.
+            '<br><button class="btn btn--sm udel" style="margin-top:5px" ' +
+            'onclick="event.stopPropagation();notThem(\'' + esc(r.id) + '\')">Wasn\'t them</button>'
           : (r.welcome_sent_at
               ? '<span class="pill pill--late">Never</span>'
               : '<span class="muted">&mdash;</span>')) + '</td>' +
@@ -1698,6 +1719,14 @@ function viewUsage(){
         (r.last_login_at
           ? esc(ukDate(r.last_login_at)) + '<br><span class="muted" style="font-size:.8125rem">' +
             esc(agoText(r.last_login_at)) + '</span>'
+          : '<span class="muted">&mdash;</span>') + '</td>' +
+      // Our own visits, so the two are never confused for one another.
+      '<td data-label="We looked" class="num">' +
+        (r.staff_login_at
+          ? esc(ukDate(r.staff_login_at)) +
+            (r.staff_login_count > 1
+              ? '<br><span class="muted" style="font-size:.8125rem">' +
+                r.staff_login_count + ' times</span>' : '')
           : '<span class="muted">&mdash;</span>') + '</td>' +
       '<td class="money">' +
         '<button class="btn btn--sm udel" onclick="event.stopPropagation();removeWedding(\'' +
@@ -1736,16 +1765,36 @@ async function removeWedding(id){
   } catch (e) { showErr(e.message); }
 }
 
+/* Reclassifying a log in that was really one of us. Not a delete: the visit
+   happened, it was just ours, so it moves to the staff column rather than
+   disappearing. */
+async function notThem(id){
+  var r = (U.rows || []).filter(function(x){ return x.id === id; })[0];
+  if (!r) return;
+  if (!confirm("Mark " + r.salutation + "'s log in as one of ours?\n\n" +
+               "It moves to our own column, so the usage sheet stops counting them as a " +
+               "user. Nothing else changes.\n\n" +
+               "From now on, use BHBADMIN-" + r.event_id + " to look at their app and this " +
+               "will not happen.")) return;
+  try {
+    await call("usage.notThem", { id: id });
+    await loadUsage();
+    clearErr();
+  } catch (e) { showErr(e.message); }
+}
+
 function exportUsage(){
   var rows = usageRows().map(function(r){
     return [r.salutation, r.event_id, ymd(r.wedding_date),
             r.welcome_sent_at ? ymd(r.welcome_sent_at) : "",
             r.last_login_at ? "Yes" : "No",
             r.last_login_at ? ymd(r.last_login_at) : "",
+            r.staff_login_at ? ymd(r.staff_login_at) : "",
             r.status];
   });
   csvRaw("app-usage",
-    ["Couple", "Reference", "Wedding date", "Invitation sent", "Logged in", "Last log in", "Status"],
+    ["Couple", "Reference", "Wedding date", "Invitation sent", "Logged in", "Last log in",
+     "We looked", "Status"],
     rows);
 }
 
