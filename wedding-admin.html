@@ -214,6 +214,16 @@ code{font-family:ui-monospace,"SF Mono",monospace;font-size:.875em;background:va
 .login{max-width:360px;margin:70px auto;padding:0 20px}
 
 /* ---- app usage ---- */
+/* ---- bulk add ---- */
+.bkcard{border-left:3px solid var(--mist)}
+.bkcard--done{border-left-color:var(--sage);opacity:.75}
+.bkcard--failed{border-left-color:var(--alert)}
+.bkcard textarea,.bkcard input{font-size:.9375rem}
+/* Stays in reach at the foot of a long column of cards. */
+.bkbar{position:sticky;bottom:0;display:flex;gap:12px;align-items:center;flex-wrap:wrap;
+  background:var(--bone);border-top:1px solid var(--mist);padding:14px 0;margin-top:8px}
+details summary::-webkit-details-marker{color:var(--sage-70)}
+
 /* ---- search ---- */
 .searchbox{position:relative;margin:0 0 16px}
 .searchbox input{width:100%;padding:13px 40px 13px 15px;border:1px solid var(--mist);
@@ -305,6 +315,7 @@ code{font-family:ui-monospace,"SF Mono",monospace;font-size:.875em;background:va
         <button data-view="outstanding">Outstanding</button>
         <button data-view="reconcile">Payments to post <span id="recBadge"></span></button>
         <button data-view="add">Add a wedding</button>
+        <button data-view="bulk">Bulk add</button>
       </nav>
     </div>
   </header>
@@ -632,6 +643,7 @@ function render(){
                         loadOutstanding(); break;
     case "reconcile":   v.innerHTML = viewReconcile(); break;
     case "add":         v.innerHTML = viewAdd(); break;
+    case "bulk":        v.innerHTML = viewBulk(); break;
   }
 }
 
@@ -1905,6 +1917,248 @@ function exportUsage(){
     ["Couple", "Reference", "Wedding date", "Invitation sent", "Logged in", "Last log in",
      "We looked", "Status"],
     rows);
+}
+
+/* ============================ BULK ADD ============================
+   A column of event references pasted out of a spreadsheet, turned into
+   the ones that still need adding and a form for each.
+
+   The references alone cannot create anything: the Guestline API is
+   authenticated by the token in each event's portal link, so a link still
+   has to be pasted per wedding. What this saves is working out which of
+   fifty-eight are already in, and then holding fifty-eight separate trips
+   through Add a wedding in your head.
+
+   Pasting a link looks it up there and then — names filled in from the
+   event title, the date shown, and a loud warning if the link turns out to
+   be for a different wedding than the row it was pasted on. That last part
+   is the whole reason this is not simply a spreadsheet import.
+   ================================================================ */
+
+var BK = { known: [], rows: [], busy: false, checked: false };
+
+function bulkCheck(){
+  var text = $("bulkPaste").value || "";
+  var lines = text.split(/[\r\n,;\t]+/);
+  if (!lines.filter(function(l){ return l.trim(); }).length) {
+    showErr("Paste the event references first."); return;
+  }
+  var btn = $("bulkCheckBtn");
+  btn.disabled = true; btn.textContent = "Checking…";
+  call("bulk.check", { refs: lines })
+    .then(function(out){
+      BK.known = out.known || [];
+      BK.checked = true;
+      BK.rows = (out.unknown || []).map(function(ref){
+        return { ref: ref, link: "", p1: "", p2: "", email: "", phone: "",
+                 state: "", message: "" };
+      });
+      $("views").innerHTML = viewBulk();
+      clearErr();
+    })
+    .catch(function(e){
+      showErr(e.message);
+      btn.disabled = false; btn.textContent = "Check them";
+    });
+}
+
+function bulkRow(ref){
+  return BK.rows.filter(function(r){ return r.ref === ref; })[0];
+}
+
+/* Typed values go straight into the model and nothing is redrawn — redraw
+   on a keystroke and the caret jumps out of whatever is being filled in. */
+function bulkSet(ref, field, value){
+  var r = bulkRow(ref);
+  if (r) r[field] = value;
+}
+
+function bulkRemove(ref){
+  BK.rows = BK.rows.filter(function(r){ return r.ref !== ref; });
+  $("views").innerHTML = viewBulk();
+}
+
+function bulkStartAgain(){
+  BK = { known: [], rows: [], busy: false, checked: false };
+  $("views").innerHTML = viewBulk();
+}
+
+/* Look a link up the moment it is pasted, so a wrong one is caught while
+   the person is still looking at it rather than after another fifty. */
+async function bulkLookup(ref){
+  var r = bulkRow(ref);
+  var note = document.getElementById("bk_note_" + ref);
+  if (!r || !r.link.trim() || !note) return;
+  note.innerHTML = '<span class="muted">Looking it up…</span>';
+  try {
+    var out = await call("preview", { link: r.link.trim() });
+    var ev = out.event || {};
+
+    if (out.alreadyExists) {
+      note.innerHTML = '<span style="color:var(--alert)">Already in the app as ' +
+        esc(out.alreadyExists.salutation) + ' (' + esc(out.alreadyExists.event_id) + ').</span>';
+      return;
+    }
+    if (ev.eventId && ev.eventId !== ref) {
+      note.innerHTML = '<span style="color:var(--alert)"><strong>This link is for ' +
+        esc(ev.eventId) + ', not ' + esc(ref) + '.</strong> Check you have the right one.</span>';
+      return;
+    }
+    /* The names come off the event title, so they are a suggestion to check
+       rather than an answer — which is why they land in editable boxes. */
+    if (out.suggestedNames) {
+      var p1 = document.getElementById("bk_p1_" + ref);
+      var p2 = document.getElementById("bk_p2_" + ref);
+      if (p1 && !r.p1) { r.p1 = out.suggestedNames.partner1; p1.value = r.p1; }
+      if (p2 && !r.p2) { r.p2 = out.suggestedNames.partner2; p2.value = r.p2; }
+    }
+    note.innerHTML = '<strong>' + esc(ev.name || "") + '</strong> &middot; ' +
+      esc(ukDate(ev.startDate)) + ' &middot; ' + esc(ev.eventStatusDescription || "");
+  } catch (e) {
+    note.innerHTML = '<span style="color:var(--alert)">' + esc(e.message) + '</span>';
+  }
+}
+
+function bulkReady(){
+  return BK.rows.filter(function(r){
+    return r.state !== "added" && r.link.trim() && r.p1.trim() && r.p2.trim() && r.email.trim();
+  });
+}
+
+async function bulkAddAll(){
+  var ready = bulkReady();
+  if (!ready.length) {
+    showErr("Nothing is filled in enough yet — each one needs a link, both names and an email.");
+    return;
+  }
+  if (!confirm("Add " + ready.length + " wedding" + (ready.length === 1 ? "" : "s") +
+               " to the app?\n\nAnything not filled in is left alone.")) return;
+
+  BK.busy = true;
+  var btn = $("bulkAddBtn");
+  btn.disabled = true;
+
+  for (var i = 0; i < ready.length; i++) {
+    var r = ready[i];
+    btn.textContent = "Adding " + (i + 1) + " of " + ready.length + "…";
+    var cell = document.getElementById("bk_state_" + r.ref);
+    if (cell) cell.innerHTML = '<span class="muted">Adding…</span>';
+    try {
+      await call("create", {
+        link: r.link.trim(),
+        // The row already says which wedding this is meant to be, so the
+        // server refuses a link that turns out to be a different one.
+        expect_event_id: r.ref,
+        partner1_name: r.p1.trim(),
+        partner2_name: r.p2.trim(),
+        primary_email: r.email.trim(),
+        mobile: r.phone.trim() || null
+      });
+      r.state = "added"; r.message = "";
+    } catch (e) {
+      r.state = "failed"; r.message = e.message;
+    }
+  }
+
+  BK.busy = false;
+  $("views").innerHTML = viewBulk();
+  try { await refreshPending(); } catch (e) {}
+  clearErr();
+}
+
+function viewBulk(){
+  var h = '<h1 style="margin-bottom:6px">Bulk add</h1>';
+
+  if (!BK.checked) {
+    h += '<p class="muted" style="margin:0 0 18px">' +
+      'Paste a column of event references — straight out of a spreadsheet is fine, ' +
+      'blank lines and repeats and all. We will say which are already in the app, and ' +
+      'give you a form for the rest.</p>' +
+      '<div class="card">' +
+      '<div class="field"><span class="label">Event references</span>' +
+      '<textarea id="bulkPaste" rows="12" ' +
+        'placeholder="EVNT002665&#10;EVNT002666&#10;EVNT002669&#10;…"></textarea></div>' +
+      '<button class="btn btn--primary" id="bulkCheckBtn" onclick="bulkCheck()">Check them</button>' +
+      '</div>';
+    return h;
+  }
+
+  var added = BK.rows.filter(function(r){ return r.state === "added"; }).length;
+  var left = BK.rows.length - added;
+
+  h += '<p class="muted" style="margin:0 0 18px">' +
+    '<strong>' + BK.known.length + '</strong> already in the app, ' +
+    '<strong>' + BK.rows.length + '</strong> to add' +
+    (added ? ', <strong>' + added + '</strong> added just now' : '') + '. ' +
+    '<button class="linkish" onclick="bulkStartAgain()">Start again</button></p>';
+
+  if (BK.known.length) {
+    h += '<details class="card" style="margin-bottom:16px">' +
+      '<summary style="cursor:pointer">The ' + BK.known.length + ' already here</summary>' +
+      '<p class="muted" style="margin:12px 0 0;font-size:.875rem">' +
+      BK.known.map(function(w){
+        return esc(w.salutation) + ' (' + esc(w.event_id) + ')';
+      }).join(' &middot; ') + '</p></details>';
+  }
+
+  if (!BK.rows.length) {
+    h += '<div class="card empty">Nothing left to add.</div>';
+    return h;
+  }
+
+  BK.rows.forEach(function(r){
+    var done = r.state === "added";
+    var ref = esc(r.ref);
+    h += '<div class="card bkcard' + (done ? " bkcard--done" : "") +
+         (r.state === "failed" ? " bkcard--failed" : "") + '">' +
+      '<div class="split" style="margin-bottom:10px">' +
+        '<h3 style="margin:0"><code>' + ref + '</code></h3>' +
+        '<span id="bk_state_' + ref + '">' +
+          (done ? '<span class="pill pill--ok">Added</span>'
+                : (r.state === "failed"
+                    ? '<span class="pill pill--late">Not added</span>'
+                    : '<button class="btn btn--sm udel" onclick="bulkRemove(\'' + ref + '\')">Remove</button>')) +
+        '</span></div>';
+
+    if (r.message) h += '<p class="err" style="margin:0 0 12px">' + esc(r.message) + '</p>';
+
+    if (!done) {
+      h += '<div class="field"><span class="label">Guestline event link</span>' +
+        '<input id="bk_link_' + ref + '" value="' + esc(r.link) + '" ' +
+          'placeholder="https://event.eu.guestline.app/e/…" ' +
+          'oninput="bulkSet(\'' + ref + '\',\'link\',this.value)" ' +
+          'onchange="bulkLookup(\'' + ref + '\')"></div>' +
+        '<p class="muted" id="bk_note_' + ref + '" style="margin:-10px 0 14px;font-size:.8125rem">' +
+          'Paste the link and we will check it is the right wedding.</p>' +
+        '<div class="row">' +
+          '<div class="field"><span class="label">Partner 1</span>' +
+            '<input id="bk_p1_' + ref + '" value="' + esc(r.p1) + '" ' +
+            'oninput="bulkSet(\'' + ref + '\',\'p1\',this.value)"></div>' +
+          '<div class="field"><span class="label">Partner 2</span>' +
+            '<input id="bk_p2_' + ref + '" value="' + esc(r.p2) + '" ' +
+            'oninput="bulkSet(\'' + ref + '\',\'p2\',this.value)"></div>' +
+        '</div>' +
+        '<div class="row">' +
+          '<div class="field"><span class="label">Email *</span>' +
+            '<input id="bk_em_' + ref + '" type="email" value="' + esc(r.email) + '" ' +
+            'oninput="bulkSet(\'' + ref + '\',\'email\',this.value)"></div>' +
+          '<div class="field"><span class="label">Phone</span>' +
+            '<input id="bk_ph_' + ref + '" value="' + esc(r.phone) + '" ' +
+            'oninput="bulkSet(\'' + ref + '\',\'phone\',this.value)"></div>' +
+        '</div>';
+    }
+    h += '</div>';
+  });
+
+  if (left) {
+    h += '<div class="bkbar">' +
+      '<button class="btn btn--primary" id="bulkAddBtn" onclick="bulkAddAll()">' +
+        'Add the ones that are filled in</button>' +
+      '<span class="muted" style="font-size:.8125rem">' +
+        'Each needs a link, both names and an email. The rest can wait.</span>' +
+    '</div>';
+  }
+  return h;
 }
 
 /* ============================ RECONCILE QUEUE ============================ */
