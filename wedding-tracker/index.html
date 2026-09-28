@@ -1,0 +1,1083 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Wedding &amp; Events Tracker — Black Horse Beamish</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+/* ============================================================ tokens
+   Branding from the live website, same values as the wedding app.
+   Every colour is a token; nothing hard-codes a hex below this block. */
+:root{
+  --sage:#4E5F4F; --sage-70:#7B887C; --sage-10:#EDEFED; --sage-dark:#3B483C;
+  --bone:#F7F7F7; --celadon:#C1C8B4; --mist:#E7E7E7; --white:#fff; --ink:#262626;
+  --gold:#C9A56B;
+  --attention:#B08D57; --attention-bg:#F7F0E4;
+  --alert:#8C4A3F;     --alert-bg:#F6EAE8;
+  --good:#4F6B4F;      --good-bg:#EDF2ED;
+  --display:"Cormorant Garamond",Georgia,serif;
+  --body:Raleway,"Helvetica Neue",Arial,sans-serif;
+  --track-label:.18em;
+  --radius:10px;
+  --shadow:0 1px 2px rgba(38,38,38,.06),0 8px 24px rgba(38,38,38,.07);
+  --maxw:1440px;
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  font-family:var(--body); color:var(--ink); background:var(--bone);
+  font-size:15px; line-height:1.45; -webkit-text-size-adjust:100%;
+}
+h1,h2,h3{font-family:var(--display); font-weight:600; margin:0; letter-spacing:.01em}
+button,input,select,textarea{font:inherit; color:inherit}
+a{color:var(--sage)}
+
+.shell{max-width:var(--maxw); margin:0 auto; padding:0 20px 64px}
+
+/* ============================================================ gate */
+#gate{
+  position:fixed; inset:0; background:var(--sage); z-index:100;
+  display:flex; align-items:center; justify-content:center; padding:24px;
+}
+.gatecard{
+  background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow);
+  width:100%; max-width:380px; padding:32px 28px; text-align:center;
+}
+.gatecard h1{font-size:26px; color:var(--sage); line-height:1.15}
+.gatecard .sub{
+  font-size:11px; letter-spacing:var(--track-label); text-transform:uppercase;
+  color:var(--sage-70); margin:6px 0 22px;
+}
+.gatecard input{
+  width:100%; padding:12px 14px; border:1px solid var(--mist);
+  border-radius:8px; background:var(--bone); margin-bottom:10px; text-align:center;
+}
+.gatecard input:focus{outline:2px solid var(--celadon); outline-offset:1px}
+.gatecard button{
+  width:100%; padding:12px; border:0; border-radius:8px; cursor:pointer;
+  background:var(--sage); color:var(--white); font-weight:600;
+  letter-spacing:var(--track-label); text-transform:uppercase; font-size:12px;
+}
+.gateerr{color:var(--alert); font-size:13px; min-height:18px; margin-top:8px}
+
+/* ============================================================ header */
+header.top{background:var(--sage); color:var(--white)}
+.topin{
+  max-width:var(--maxw); margin:0 auto; padding:14px 20px;
+  display:flex; align-items:center; gap:18px; flex-wrap:wrap;
+}
+.brand{font-family:var(--display); font-size:21px; line-height:1.1}
+.brand small{
+  display:block; font-family:var(--body); font-size:10px;
+  letter-spacing:var(--track-label); text-transform:uppercase; opacity:.75;
+}
+.who{
+  margin-left:auto; display:flex; align-items:center; gap:10px;
+  font-size:12px; opacity:.9;
+}
+.who button{
+  background:transparent; border:1px solid rgba(255,255,255,.4); color:var(--white);
+  border-radius:6px; padding:5px 10px; cursor:pointer; font-size:11px;
+  letter-spacing:.06em; text-transform:uppercase;
+}
+
+/* tabs — own class names, not reusing .tab anywhere else */
+nav.tabs{background:var(--sage-dark)}
+.tabsin{
+  max-width:var(--maxw); margin:0 auto; padding:0 20px;
+  display:flex; gap:2px; overflow-x:auto;
+}
+.tabbtn{
+  background:transparent; border:0; cursor:pointer; color:rgba(255,255,255,.72);
+  padding:12px 16px; font-size:12px; font-weight:600; white-space:nowrap;
+  letter-spacing:var(--track-label); text-transform:uppercase;
+  border-bottom:3px solid transparent;
+}
+.tabbtn[aria-selected="true"]{color:var(--white); border-bottom-color:var(--gold)}
+
+/* ============================================================ layout */
+.page{display:none; padding-top:26px}
+.page.on{display:block}
+.pagehead{display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; margin-bottom:18px}
+.pagehead h2{font-size:26px; color:var(--sage)}
+.pagehead .hint{font-size:13px; color:var(--sage-70)}
+.spacer{margin-left:auto}
+
+.btn{
+  border:1px solid var(--sage); background:var(--sage); color:var(--white);
+  border-radius:8px; padding:9px 16px; cursor:pointer; font-size:12px;
+  font-weight:600; letter-spacing:var(--track-label); text-transform:uppercase;
+}
+.btn.ghost{background:var(--white); color:var(--sage)}
+.btn.ghost:hover{background:var(--sage-10)}
+.btn.danger{background:var(--alert); border-color:var(--alert)}
+.btn:disabled{opacity:.5; cursor:default}
+
+/* ============================================================ tiles */
+.tiles{display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:14px; margin-bottom:26px}
+.tile{
+  background:var(--white); border-radius:var(--radius); padding:16px 18px;
+  box-shadow:var(--shadow); border-left:4px solid var(--celadon);
+}
+.tile .n{font-family:var(--display); font-size:34px; line-height:1; color:var(--sage)}
+.tile .l{
+  font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase;
+  color:var(--sage-70); margin-top:6px;
+}
+.tile.warn{border-left-color:var(--attention)} .tile.warn .n{color:var(--attention)}
+.tile.bad{border-left-color:var(--alert)}      .tile.bad  .n{color:var(--alert)}
+.tile.ok{border-left-color:var(--good)}        .tile.ok   .n{color:var(--good)}
+
+/* ============================================================ table */
+.card{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden}
+.tablewrap{overflow-x:auto}
+table.grid{width:100%; border-collapse:collapse; font-size:14px}
+table.grid th{
+  text-align:left; padding:11px 12px; background:var(--sage-10); color:var(--sage);
+  font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase;
+  font-weight:700; white-space:nowrap; position:sticky; top:0; z-index:1;
+}
+table.grid td{padding:11px 12px; border-top:1px solid var(--mist); vertical-align:top}
+table.grid tbody tr{cursor:pointer}
+table.grid tbody tr:hover{background:var(--sage-10)}
+.nowrap{white-space:nowrap}
+.muted{color:var(--sage-70)}
+.strong{font-weight:600}
+
+/* due-date colouring, mirroring the spreadsheet's rules */
+.due-today{background:var(--attention-bg)}
+.due-soon{background:var(--good-bg)}
+.due-over{background:var(--alert-bg)}
+.due-over td:first-child{box-shadow:inset 3px 0 0 var(--alert)}
+.due-today td:first-child{box-shadow:inset 3px 0 0 var(--attention)}
+.due-soon td:first-child{box-shadow:inset 3px 0 0 var(--good)}
+tr.closed{opacity:.55}
+
+.pill{
+  display:inline-block; padding:3px 9px; border-radius:999px; font-size:11px;
+  font-weight:600; white-space:nowrap; background:var(--sage-10); color:var(--sage);
+}
+.pill.booked{background:var(--good-bg); color:var(--good)}
+.pill.lost{background:var(--mist); color:var(--sage-70)}
+.pill.past{background:var(--mist); color:var(--sage-70)}
+.pill.hold{background:var(--attention-bg); color:var(--attention)}
+
+.filters{display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:14px}
+.chip{
+  background:var(--white); border:1px solid var(--mist); color:var(--sage);
+  border-radius:999px; padding:7px 14px; cursor:pointer; font-size:12px; font-weight:600;
+}
+.chip[aria-pressed="true"]{background:var(--sage); border-color:var(--sage); color:var(--white)}
+.search{
+  flex:1; min-width:180px; padding:9px 13px; border:1px solid var(--mist);
+  border-radius:999px; background:var(--white);
+}
+.search:focus{outline:2px solid var(--celadon); outline-offset:1px}
+
+.empty{padding:40px 20px; text-align:center; color:var(--sage-70)}
+
+/* ============================================================ drawer */
+#veil{
+  position:fixed; inset:0; background:rgba(38,38,38,.45); z-index:60;
+  display:none; opacity:0; transition:opacity .18s;
+}
+#veil.on{display:block; opacity:1}
+#drawer{
+  position:fixed; top:0; right:0; bottom:0; width:min(560px,100%);
+  background:var(--bone); z-index:61; box-shadow:-8px 0 30px rgba(38,38,38,.18);
+  transform:translateX(100%); transition:transform .22s ease; display:flex; flex-direction:column;
+}
+#drawer.on{transform:none}
+.dhead{background:var(--sage); color:var(--white); padding:16px 20px; display:flex; gap:12px; align-items:flex-start}
+.dhead h3{font-size:20px; line-height:1.2}
+.dhead .x{
+  margin-left:auto; background:transparent; border:0; color:var(--white);
+  font-size:26px; line-height:1; cursor:pointer; padding:0 4px;
+}
+.dbody{flex:1; overflow-y:auto; padding:20px}
+.dfoot{padding:14px 20px; background:var(--white); border-top:1px solid var(--mist); display:flex; gap:10px; flex-wrap:wrap}
+
+.field{margin-bottom:14px}
+.field label{
+  display:block; font-size:10px; letter-spacing:var(--track-label);
+  text-transform:uppercase; color:var(--sage-70); margin-bottom:5px; font-weight:700;
+}
+.field input,.field select,.field textarea{
+  width:100%; padding:10px 12px; border:1px solid var(--mist);
+  border-radius:8px; background:var(--white);
+}
+.field textarea{min-height:88px; resize:vertical; font-family:var(--body)}
+.field input:focus,.field select:focus,.field textarea:focus{outline:2px solid var(--celadon); outline-offset:1px}
+.two{display:grid; grid-template-columns:1fr 1fr; gap:12px}
+.fieldnote{font-size:12px; color:var(--sage-70); margin-top:4px}
+.fielderr{font-size:12px; color:var(--alert); margin-top:4px; font-weight:600}
+
+.sect{
+  font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase;
+  color:var(--sage); font-weight:700; margin:22px 0 10px;
+  padding-bottom:6px; border-bottom:1px solid var(--mist);
+}
+.hist{background:var(--white); border:1px solid var(--mist); border-radius:8px; padding:12px; max-height:260px; overflow-y:auto}
+.hist .e{padding:9px 0; border-bottom:1px solid var(--mist)}
+.hist .e:last-child{border-bottom:0}
+.hist .m{font-size:11px; color:var(--sage-70); margin-bottom:3px}
+.hist .b{white-space:pre-wrap; font-size:14px}
+
+/* ============================================================ calendar */
+.calbar{display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:14px}
+.calbar select{padding:9px 13px; border:1px solid var(--mist); border-radius:8px; background:var(--white)}
+.calwrap{overflow-x:auto; background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); padding:12px}
+table.cal{border-collapse:collapse; font-size:12px; min-width:900px; width:100%}
+table.cal th{
+  background:var(--sage-10); color:var(--sage); padding:8px 4px; font-size:10px;
+  letter-spacing:.1em; text-transform:uppercase; border:1px solid var(--mist);
+}
+table.cal td{
+  border:1px solid var(--mist); height:30px; padding:2px 4px; text-align:left;
+  vertical-align:middle; position:relative; min-width:66px;
+}
+table.cal td.daynum{
+  background:var(--sage-10); color:var(--sage-70); text-align:center;
+  font-weight:600; width:40px; min-width:40px;
+}
+table.cal td.void{background:var(--ink); opacity:.12}
+table.cal td.has{background:var(--sage-10); cursor:pointer}
+table.cal td.has:hover{outline:2px solid var(--sage)}
+table.cal td.bh{box-shadow:inset 0 0 0 2px var(--gold)}
+table.cal td.wknd{background:#FAFAF6}
+table.cal td.has.wknd{background:var(--sage-10)}
+.dletter{position:absolute; right:3px; bottom:0; font-size:9px; color:var(--sage-70)}
+.dletter.we{color:var(--attention)}
+.evdot{font-size:13px; letter-spacing:1px}
+.legend{display:flex; gap:16px; flex-wrap:wrap; margin-top:12px; font-size:12px; color:var(--sage-70)}
+
+/* ============================================================ toast */
+#toast{
+  position:fixed; left:50%; bottom:26px; transform:translate(-50%,20px);
+  background:var(--ink); color:var(--white); padding:12px 20px; border-radius:8px;
+  z-index:200; opacity:0; transition:.2s; pointer-events:none; font-size:14px; max-width:90vw;
+}
+#toast.on{opacity:1; transform:translate(-50%,0)}
+#toast.bad{background:var(--alert)}
+
+.loading{padding:60px; text-align:center; color:var(--sage-70)}
+
+@media (max-width:760px){
+  .shell{padding:0 14px 48px}
+  .topin,.tabsin{padding-left:14px; padding-right:14px}
+  .two{grid-template-columns:1fr}
+  .pagehead h2{font-size:22px}
+  .tile .n{font-size:28px}
+}
+</style>
+</head>
+<body>
+
+<!-- ======================================================== gate -->
+<div id="gate">
+  <div class="gatecard">
+    <h1>Wedding &amp; Events</h1>
+    <div class="sub">Enquiry Tracker</div>
+    <input id="gpw" type="password" placeholder="Password" autocomplete="current-password">
+    <input id="gwho" type="text" placeholder="Your name" autocomplete="name">
+    <button id="gbtn">Open tracker</button>
+    <div class="gateerr" id="gerr"></div>
+  </div>
+</div>
+
+<!-- ======================================================== app -->
+<div id="app" hidden>
+  <header class="top">
+    <div class="topin">
+      <div class="brand">Wedding &amp; Events Tracker<small>Black Horse Beamish</small></div>
+      <div class="who">
+        <span id="whoName"></span>
+        <button id="signout">Sign out</button>
+      </div>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <div class="tabsin" role="tablist">
+      <button class="tabbtn" role="tab" data-page="todo" aria-selected="true">To Do</button>
+      <button class="tabbtn" role="tab" data-page="enq" aria-selected="false">Enquiries</button>
+      <button class="tabbtn" role="tab" data-page="cal" aria-selected="false">Calendar</button>
+      <button class="tabbtn" role="tab" data-page="tot" aria-selected="false">Year Totals</button>
+    </div>
+  </nav>
+
+  <div class="shell">
+
+    <!-- ---------------------------------------------------- To Do -->
+    <section class="page on" id="page-todo">
+      <div class="tiles" id="tiles"></div>
+      <div class="pagehead">
+        <h2>Needs action</h2>
+        <div class="hint">Due within 3 days or overdue. Lost, No response and past events drop off automatically.</div>
+        <div class="spacer"></div>
+        <button class="btn" id="addTop">Add enquiry</button>
+      </div>
+      <div class="card"><div class="tablewrap"><table class="grid" id="todoTable"></table></div></div>
+    </section>
+
+    <!-- ------------------------------------------------ Enquiries -->
+    <section class="page" id="page-enq">
+      <div class="pagehead">
+        <h2>Enquiries</h2>
+        <div class="spacer"></div>
+        <button class="btn ghost" id="exportCsv">Export CSV</button>
+        <button class="btn" id="addEnq">Add enquiry</button>
+      </div>
+      <div class="filters" id="chips"></div>
+      <div class="filters"><input class="search" id="q" type="search" placeholder="Search name, email or phone"></div>
+      <div class="card"><div class="tablewrap"><table class="grid" id="enqTable"></table></div></div>
+      <p class="muted" id="enqCount" style="margin-top:12px"></p>
+    </section>
+
+    <!-- ------------------------------------------------- Calendar -->
+    <section class="page" id="page-cal">
+      <div class="pagehead">
+        <h2>Calendar</h2>
+        <div class="hint">Confirmed bookings only. Click a day to open it.</div>
+      </div>
+      <div class="calbar">
+        <button class="btn ghost" id="yPrev">&larr;</button>
+        <select id="yearSel"></select>
+        <button class="btn ghost" id="yNext">&rarr;</button>
+      </div>
+      <div class="calwrap"><table class="cal" id="calTable"></table>
+        <div class="legend" id="calLegend"></div>
+      </div>
+    </section>
+
+    <!-- --------------------------------------------- Year Totals -->
+    <section class="page" id="page-tot">
+      <div class="pagehead">
+        <h2>Year Totals</h2>
+        <div class="hint">Confirmed bookings, split by venue.</div>
+      </div>
+      <div class="card"><div class="tablewrap"><table class="grid" id="totTable"></table></div></div>
+    </section>
+
+  </div>
+</div>
+
+<div id="veil"></div>
+<aside id="drawer" aria-hidden="true">
+  <div class="dhead">
+    <div>
+      <h3 id="dTitle">Enquiry</h3>
+      <div style="font-size:12px;opacity:.85" id="dSub"></div>
+    </div>
+    <button class="x" id="dClose" title="Close">&times;</button>
+  </div>
+  <div class="dbody" id="dBody"></div>
+  <div class="dfoot">
+    <button class="btn" id="dSave">Save</button>
+    <button class="btn ghost" id="dWhats">WhatsApp</button>
+    <button class="btn ghost" id="dCancel">Cancel</button>
+  </div>
+</aside>
+
+<div id="toast"></div>
+
+<script>
+/* ==================================================================
+   Wedding & Events Tracker
+   Replaces the Excel tracker as the system of record.
+
+   The data lives in Supabase behind the wedding-tracker-api edge
+   function. These tables are customer personal data with RLS on and no
+   public policies, so this page can never read them directly - every
+   call goes through the function with the password attached. This file
+   is published publicly; it holds no secret beyond what the user types.
+   ================================================================== */
+
+const FN   = "https://safcrtrfdzsnftghibot.supabase.co/functions/v1/wedding-tracker-api";
+const ANON = "sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU";
+
+const LS_KEY = "bhb_tracker_key";
+const LS_WHO = "bhb_tracker_who";
+
+const CLOSED = ["lost","no response","past event"];
+const BOOKED = "booked (deposit paid and contract signed)";
+const ACTION_6MONTH = "book in 6 month meeting";
+const MAX_MONTHS_AHEAD = 3;
+
+const S = {                       // app state
+  key:"", who:"", today:"",
+  all:[], lists:{}, view:"live", q:"", editing:null, year:new Date().getFullYear(),
+};
+
+/* ---------------------------------------------------------- helpers */
+const $  = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const norm = v => String(v ?? "").trim().toLowerCase();
+const esc = v => String(v ?? "").replace(/[&<>"']/g, c =>
+  ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+
+const isClosed = r => CLOSED.includes(norm(r.status));
+const isBooked = r => norm(r.status) === BOOKED;
+const isWedding = t => norm(t).includes("wedding");
+function venueBucket(v){
+  const s = norm(v);
+  if (s.includes("george")) return 0;
+  if (s.includes("marquee")) return 1;
+  return 2;                              // blank is NOT a marquee
+}
+
+function ukDate(iso){
+  if(!iso) return "";
+  const [y,m,d] = String(iso).slice(0,10).split("-");
+  return `${d}/${m}/${y}`;
+}
+function addDays(iso,n){
+  const d = new Date(iso+"T12:00:00Z"); d.setUTCDate(d.getUTCDate()+n);
+  return d.toISOString().slice(0,10);
+}
+function addMonths(iso,n){
+  const d = new Date(iso+"T12:00:00Z"), day = d.getUTCDate();
+  d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth()+n);
+  const last = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth()+1, 0)).getUTCDate();
+  d.setUTCDate(Math.min(day,last));
+  return d.toISOString().slice(0,10);
+}
+function digits(s){ return String(s ?? "").replace(/\D+/g,""); }
+
+function toast(msg, bad){
+  const t = $("#toast");
+  t.textContent = msg;
+  t.className = "on" + (bad ? " bad" : "");
+  clearTimeout(toast._t);
+  toast._t = setTimeout(()=>{ t.className = ""; }, bad ? 5200 : 2600);
+}
+
+async function api(action, params){
+  const r = await fetch(FN, {
+    method:"POST",
+    headers:{ "apikey":ANON, "Content-Type":"application/json" },
+    body: JSON.stringify({ action, key:S.key, ...(params||{}) }),
+  });
+  let d = {};
+  try { d = await r.json(); } catch(e){}
+  if(!r.ok) throw new Error(d.error || `Request failed (${r.status})`);
+  if(d.error) throw new Error(d.error);
+  return d;
+}
+
+/* ------------------------------------------------------------- gate */
+function openGate(msg){
+  $("#gate").style.display = "flex";
+  $("#app").hidden = true;
+  if(msg) $("#gerr").textContent = msg;
+  $("#gwho").value = localStorage.getItem(LS_WHO) || "";
+}
+
+async function tryOpen(pw, who){
+  $("#gerr").textContent = "";
+  if(!pw) { $("#gerr").textContent = "Enter the password."; return; }
+  if(!who.trim()) { $("#gerr").textContent = "Enter your name — it is recorded against anything you change."; return; }
+  S.key = pw; S.who = who.trim();
+  try{
+    const d = await api("lists");
+    S.lists = d.lists; S.today = d.today;
+    try{
+      localStorage.setItem(LS_KEY, pw);
+      localStorage.setItem(LS_WHO, S.who);
+    }catch(e){}
+    $("#gate").style.display = "none";
+    $("#app").hidden = false;
+    $("#whoName").textContent = S.who;
+    await refresh();
+  }catch(e){
+    S.key = "";
+    $("#gerr").textContent = /password/i.test(e.message) ? "Wrong password." : e.message;
+  }
+}
+
+$("#gbtn").onclick = () => tryOpen($("#gpw").value, $("#gwho").value);
+$("#gpw").onkeydown = e => { if(e.key==="Enter") $("#gwho").focus(); };
+$("#gwho").onkeydown = e => { if(e.key==="Enter") $("#gbtn").click(); };
+$("#signout").onclick = () => {
+  try{ localStorage.removeItem(LS_KEY); }catch(e){}
+  location.reload();
+};
+
+/* ---------------------------------------------------------- loading */
+async function refresh(){
+  const d = await api("list");
+  S.all = d.enquiries; S.today = d.today;
+  renderTiles(); renderTodo(); renderChips(); renderEnq(); renderTotals(); renderYearPicker();
+}
+
+/* ----------------------------------------------------------- tiles */
+function renderTiles(){
+  const t = S.today, thisYear = t.slice(0,4);
+  const todo = S.all.filter(r => r._todo);
+  const overdue = todo.filter(r => r.next_due < t);
+  const live = S.all.filter(r => !isClosed(r) && !r._past);
+  const bookedYear = S.all.filter(r => isBooked(r) && String(r.event_date||"").slice(0,4) === thisYear);
+
+  const tiles = [
+    ["To do now", todo.length, todo.length ? "warn" : "ok"],
+    ["Overdue", overdue.length, overdue.length ? "bad" : "ok"],
+    ["Live enquiries", live.length, ""],
+    [`Confirmed ${thisYear}`, bookedYear.length, "ok"],
+    ["All records", S.all.length, ""],
+  ];
+  $("#tiles").innerHTML = tiles.map(([l,n,c]) =>
+    `<div class="tile ${c}"><div class="n">${n}</div><div class="l">${esc(l)}</div></div>`).join("");
+}
+
+/* ----------------------------------------------------- due colouring */
+function dueClass(r){
+  if(!r.next_due) return "";
+  const t = S.today;
+  if(r.next_due === t) return "due-today";
+  if(r.next_due < t)   return "due-over";
+  if(r.next_due <= addDays(t,3)) return "due-soon";
+  return "";
+}
+function statusPill(r){
+  let c = "";
+  const s = norm(r.status);
+  if(s === BOOKED) c = "booked";
+  else if(s === "lost" || s === "no response") c = "lost";
+  else if(s === "past event") c = "past";
+  else if(s === "on hold") c = "hold";
+  return `<span class="pill ${c}">${esc(r.status)}</span>`;
+}
+
+/* ------------------------------------------------------------ To Do */
+function renderTodo(){
+  const rows = S.all.filter(r => r._todo)
+    .sort((a,b) => String(a.next_due).localeCompare(String(b.next_due)));
+
+  if(!rows.length){
+    $("#todoTable").innerHTML =
+      `<tbody><tr><td class="empty">Nothing due. Everything is either scheduled further out or closed off.</td></tr></tbody>`;
+    return;
+  }
+
+  $("#todoTable").innerHTML = `
+    <thead><tr>
+      <th>Due</th><th>Name</th><th>Event date</th><th>Type</th>
+      <th>Venue</th><th>Status</th><th>Next action</th><th>Last contact</th>
+    </tr></thead>
+    <tbody>${rows.map(r => `
+      <tr class="${dueClass(r)}" data-id="${r.id}">
+        <td class="nowrap strong">${ukDate(r.next_due)}</td>
+        <td class="strong">${esc(r.name)}</td>
+        <td class="nowrap">${ukDate(r.event_date)}</td>
+        <td>${esc(r.event_type)}</td>
+        <td>${esc(r.venue)}</td>
+        <td>${statusPill(r)}</td>
+        <td>${esc(r.next_action)}</td>
+        <td class="nowrap muted">${ukDate(r.last_contact)}${r.last_by ? "<br><span class='muted'>"+esc(r.last_by)+"</span>" : ""}</td>
+      </tr>`).join("")}</tbody>`;
+}
+
+/* -------------------------------------------------------- Enquiries */
+const VIEWS = [
+  ["live","Live enquiries"],
+  ["todo","Needs action"],
+  ["confirmed","Confirmed events"],
+  ["past","Past events"],
+  ["lost","Lost / no response"],
+  ["all","Everything"],
+];
+
+function renderChips(){
+  $("#chips").innerHTML = VIEWS.map(([k,l]) =>
+    `<button class="chip" data-view="${k}" aria-pressed="${S.view===k}">${esc(l)}</button>`).join("");
+  $$("#chips .chip").forEach(b => b.onclick = () => { S.view = b.dataset.view; renderChips(); renderEnq(); });
+}
+
+function viewRows(){
+  let rows = S.all;
+  switch(S.view){
+    case "live":      rows = rows.filter(r => !isClosed(r) && !r._past); break;
+    case "todo":      rows = rows.filter(r => r._todo); break;
+    case "confirmed": rows = rows.filter(r => isBooked(r)); break;
+    case "past":      rows = rows.filter(r => r._past); break;
+    case "lost":      rows = rows.filter(r => ["lost","no response"].includes(norm(r.status))); break;
+  }
+  const q = norm(S.q);
+  if(q){
+    const qd = digits(q);
+    rows = rows.filter(r =>
+      norm(r.name).includes(q) ||
+      norm(r.email).includes(q) ||
+      (qd && digits(r.phone).includes(qd)));
+  }
+  return rows.slice().sort((a,b) => String(b.event_date||"").localeCompare(String(a.event_date||"")));
+}
+
+function renderEnq(){
+  const rows = viewRows();
+  $("#enqCount").textContent = `${rows.length} of ${S.all.length} records`;
+
+  if(!rows.length){
+    $("#enqTable").innerHTML = `<tbody><tr><td class="empty">Nothing matches.</td></tr></tbody>`;
+    return;
+  }
+
+  $("#enqTable").innerHTML = `
+    <thead><tr>
+      <th>Event date</th><th>Name</th><th>Type</th><th>Venue</th>
+      <th>Status</th><th>Next action</th><th>Due</th><th>Contact</th>
+    </tr></thead>
+    <tbody>${rows.map(r => `
+      <tr class="${dueClass(r)} ${isClosed(r)?"closed":""}" data-id="${r.id}">
+        <td class="nowrap strong">${ukDate(r.event_date)}</td>
+        <td class="strong">${esc(r.name)}</td>
+        <td>${esc(r.event_type)}</td>
+        <td>${esc(r.venue)}</td>
+        <td>${statusPill(r)}</td>
+        <td>${esc(r.next_action)}</td>
+        <td class="nowrap">${ukDate(r.next_due)}</td>
+        <td class="muted">${esc(r.email||"")}${r.phone?"<br>"+esc(r.phone):""}</td>
+      </tr>`).join("")}</tbody>`;
+}
+
+$("#q").oninput = e => { S.q = e.target.value; renderEnq(); };
+
+document.addEventListener("click", e => {
+  const tr = e.target.closest("table.grid tbody tr[data-id]");
+  if(tr) openDrawer(S.all.find(r => r.id === tr.dataset.id));
+});
+
+/* ------------------------------------------------------------ tabs */
+$$(".tabbtn").forEach(b => b.onclick = () => {
+  $$(".tabbtn").forEach(x => x.setAttribute("aria-selected", String(x===b)));
+  $$(".page").forEach(p => p.classList.remove("on"));
+  $("#page-"+b.dataset.page).classList.add("on");
+  if(b.dataset.page === "cal") renderCalendar();
+});
+
+/* ---------------------------------------------------------- drawer */
+function opts(list, val){
+  const vals = (S.lists[list]||[]).map(o => o.value);
+  if(val && !vals.includes(val)) vals.unshift(val);      // keep legacy values visible
+  return `<option value=""></option>` + vals.map(v =>
+    `<option value="${esc(v)}"${v===val?" selected":""}>${esc(v)}</option>`).join("");
+}
+
+function openDrawer(r){
+  if(!r) return;
+  S.editing = r;
+  $("#dTitle").textContent = r.id ? r.name : "New enquiry";
+  $("#dSub").textContent = r.id
+    ? [r.event_type, r.venue, ukDate(r.event_date)].filter(Boolean).join(" · ")
+    : "";
+  $("#dWhats").style.display = r.phone ? "" : "none";
+
+  $("#dBody").innerHTML = `
+    <div class="field"><label>Name for the booking</label>
+      <input id="f_name" value="${esc(r.name||"")}"></div>
+
+    <div class="two">
+      <div class="field"><label>Contact email</label><input id="f_email" type="email" value="${esc(r.email||"")}"></div>
+      <div class="field"><label>Contact number</label><input id="f_phone" value="${esc(r.phone||"")}"></div>
+    </div>
+
+    <div class="two">
+      <div class="field"><label>Enquiry date</label><input id="f_enquiry_date" type="date" value="${esc(r.enquiry_date||"")}"></div>
+      <div class="field"><label>Enquiry source</label><select id="f_source">${opts("source", r.source)}</select></div>
+    </div>
+
+    <div class="two">
+      <div class="field"><label>Event type</label><select id="f_event_type">${opts("event_type", r.event_type)}</select></div>
+      <div class="field"><label>Marquee or George Ridley?</label><select id="f_venue">${opts("venue", r.venue)}</select></div>
+    </div>
+
+    <div class="two">
+      <div class="field"><label>Date of event</label><input id="f_event_date" type="date" value="${esc(r.event_date||"")}"></div>
+      <div class="field"><label>Emailed brochure</label><input id="f_brochure_date" type="date" value="${esc(r.brochure_date||"")}"></div>
+    </div>
+
+    <div class="two">
+      <div class="field"><label>Daytime numbers</label><input id="f_day_guests" value="${esc(r.day_guests||"")}"></div>
+      <div class="field"><label>Evening numbers</label><input id="f_evening_guests" value="${esc(r.evening_guests||"")}"></div>
+    </div>
+
+    <div class="sect">Where it stands</div>
+
+    <div class="field"><label>Current status</label><select id="f_status">${opts("status", r.status)}</select></div>
+
+    <div class="two">
+      <div class="field"><label>Next action</label><select id="f_next_action">${opts("next_action", r.next_action)}</select></div>
+      <div class="field"><label>Next action due</label>
+        <input id="f_next_due" type="date" value="${esc(r.next_due||"")}">
+        <div class="fieldnote" id="dueNote"></div>
+        <div class="fielderr" id="dueErr"></div>
+      </div>
+    </div>
+
+    <div class="two">
+      <div class="field"><label>Last contacted</label><input id="f_last_contact" type="date" value="${esc(r.last_contact||S.today)}"></div>
+      <div class="field"><label>Last contacted by</label><input id="f_last_by" value="${esc(r.last_by||S.who)}"></div>
+    </div>
+
+    <div class="field"><label>Notes</label><textarea id="f_notes">${esc(r.notes||"")}</textarea></div>
+
+    <div class="field"><label>Add to the history</label>
+      <textarea id="f_note" placeholder="What happened this time — saved with your name and the date"></textarea></div>
+
+    ${r.id ? `<div class="sect">History</div><div class="hist" id="hist"><div class="muted">Loading…</div></div>` : ""}
+  `;
+
+  wireDueRule();
+  wireChaseSuggestion();
+  showDrawer(true);
+  if(r.id) loadHistory(r.id);
+}
+
+function maxDue(action){
+  return norm(action) === ACTION_6MONTH ? null : addMonths(S.today, MAX_MONTHS_AHEAD);
+}
+
+function wireDueRule(){
+  const act = $("#f_next_action"), due = $("#f_next_due");
+  const note = $("#dueNote"), err = $("#dueErr");
+
+  function check(){
+    const lim = maxDue(act.value);
+    note.textContent = lim
+      ? `Latest allowed: ${ukDate(lim)}`
+      : "This action may be scheduled any time ahead.";
+    if(lim) due.max = lim; else due.removeAttribute("max");
+    const bad = lim && due.value && due.value > lim;
+    err.textContent = bad
+      ? `Only “Book in 6 month meeting” may be more than ${MAX_MONTHS_AHEAD} months ahead.`
+      : "";
+    return !bad;
+  }
+  act.addEventListener("change", check);
+  due.addEventListener("change", check);
+  check();
+  wireDueRule.check = check;
+}
+
+/* When a chase is marked complete, offer the next one from the Timescales
+   rules. Only fills the boxes — nothing is written until Save. */
+function wireChaseSuggestion(){
+  const st = $("#f_status"), act = $("#f_next_action"), due = $("#f_next_due");
+
+  st.addEventListener("change", () => {
+    const m = norm(st.value).match(/^chase (\d) complete$/);
+    let nextName = null;
+    if(norm(st.value) === "quote sent") nextName = "Chase 1";
+    else if(m) nextName = Number(m[1]) >= 5 ? "Set to lost" : `Chase ${Number(m[1])+1}`;
+    if(!nextName) return;
+
+    const rule = (S.lists.next_action||[]).find(o => norm(o.value) === norm(nextName));
+    if(!rule) return;
+
+    act.value = rule.value;
+    due.value = addDays(S.today, rule.chase_days ?? 5);
+    act.dispatchEvent(new Event("change"));
+    toast(`Next step set to ${rule.value}, due ${ukDate(due.value)}`);
+  });
+}
+
+async function loadHistory(id){
+  try{
+    const d = await api("notes", { id });
+    const h = $("#hist");
+    if(!h) return;
+    h.innerHTML = d.notes.length
+      ? d.notes.map(n => `
+          <div class="e">
+            <div class="m">${n.created_at ? ukDate(n.created_at) + " " + String(n.created_at).slice(11,16) : "Imported"}
+              ${n.author ? " · " + esc(n.author) : ""}${n.imported ? " · from the spreadsheet" : ""}</div>
+            <div class="b">${esc(n.body)}</div>
+          </div>`).join("")
+      : `<div class="muted">No history yet.</div>`;
+  }catch(e){ /* history is not worth blocking the drawer for */ }
+}
+
+function showDrawer(on){
+  $("#drawer").classList.toggle("on", on);
+  $("#veil").classList.toggle("on", on);
+  $("#drawer").setAttribute("aria-hidden", String(!on));
+  document.body.style.overflow = on ? "hidden" : "";
+}
+$("#dClose").onclick = $("#dCancel").onclick = $("#veil").onclick = () => showDrawer(false);
+document.addEventListener("keydown", e => { if(e.key==="Escape" && $("#drawer").classList.contains("on")) showDrawer(false); });
+
+function collect(){
+  const g = id => { const el = $("#f_"+id); return el ? el.value : undefined; };
+  return {
+    name:g("name"), email:g("email"), phone:g("phone"),
+    enquiry_date:g("enquiry_date"), source:g("source"),
+    event_type:g("event_type"), venue:g("venue"),
+    event_date:g("event_date"), brochure_date:g("brochure_date"),
+    day_guests:g("day_guests"), evening_guests:g("evening_guests"),
+    status:g("status"), next_action:g("next_action"), next_due:g("next_due"),
+    last_contact:g("last_contact"), last_by:g("last_by"), notes:g("notes"),
+  };
+}
+
+$("#dSave").onclick = async () => {
+  if(wireDueRule.check && !wireDueRule.check()){
+    toast("Fix the next action due date first.", true);
+    return;
+  }
+  const rec = collect();
+  if(!String(rec.name||"").trim()){ toast("Please enter a name for the booking.", true); return; }
+
+  const note = $("#f_note") ? $("#f_note").value : "";
+  const btn = $("#dSave"); btn.disabled = true; btn.textContent = "Saving…";
+
+  try{
+    if(S.editing.id){
+      await api("save", { id:S.editing.id, ...rec, note, author:S.who });
+      toast("Saved.");
+    }else{
+      let d = await api("create", { ...rec, note, author:S.who });
+      if(d.duplicate){
+        const dup = d.duplicate;
+        const ok = confirm(
+          `There is already an enquiry for this contact:\n\n  ${dup.name}\n  ` +
+          `Event date: ${ukDate(dup.event_date)}\n  Status: ${dup.status}\n\n` +
+          `Add this as a separate new enquiry anyway?`);
+        if(!ok){ btn.disabled=false; btn.textContent="Save"; return; }
+        d = await api("create", { ...rec, note, author:S.who, force:true });
+      }
+      toast("Enquiry added.");
+    }
+    showDrawer(false);
+    await refresh();
+  }catch(e){
+    toast(e.message, true);
+  }finally{
+    btn.disabled = false; btn.textContent = "Save";
+  }
+};
+
+$("#dWhats").onclick = () => {
+  const r = S.editing; if(!r || !r.phone) return;
+  let p = digits(r.phone);
+  if(p.startsWith("0")) p = "44" + p.slice(1);
+  else if(!p.startsWith("44")) p = "44" + p;
+  window.open("https://wa.me/" + p, "_blank", "noopener");
+
+  const lc = $("#f_last_contact"), lb = $("#f_last_by");
+  if(lc) lc.value = S.today;
+  if(lb) lb.value = S.who + " - WhatsApp";
+  toast("Contact stamped — Save to keep it.");
+};
+
+function blank(){
+  return {
+    id:null, name:"", email:"", phone:"", enquiry_date:S.today, source:"",
+    event_type:"", venue:"", event_date:"", brochure_date:"",
+    day_guests:"", evening_guests:"", status:"New Enquiry",
+    next_action:"", next_due:addDays(S.today,2),
+    last_contact:S.today, last_by:S.who, notes:"",
+  };
+}
+$("#addEnq").onclick = $("#addTop").onclick = () => openDrawer(blank());
+
+/* -------------------------------------------------------- calendar */
+function easter(y){
+  const a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4;
+  const f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3);
+  const h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4;
+  const l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451);
+  const mo=Math.floor((h+l-7*m+114)/31), da=((h+l-7*m+114)%31)+1;
+  return new Date(Date.UTC(y,mo-1,da));
+}
+const iso = d => d.toISOString().slice(0,10);
+function substitute(d){ const r=new Date(d); while(r.getUTCDay()===0||r.getUTCDay()===6) r.setUTCDate(r.getUTCDate()+1); return r; }
+function nthMonday(y,m,last){
+  if(last){ const d=new Date(Date.UTC(y,m,0)); while(d.getUTCDay()!==1) d.setUTCDate(d.getUTCDate()-1); return d; }
+  const d=new Date(Date.UTC(y,m-1,1)); while(d.getUTCDay()!==1) d.setUTCDate(d.getUTCDate()+1); return d;
+}
+function bankHolidays(y){
+  const h = {};
+  h[iso(substitute(new Date(Date.UTC(y,0,1))))] = "New Year's Day";
+  const e = easter(y);
+  h[iso(new Date(e.getTime()-2*864e5))] = "Good Friday";
+  h[iso(new Date(e.getTime()+1*864e5))] = "Easter Monday";
+  h[iso(nthMonday(y,5,false))] = "Early May";
+  h[iso(nthMonday(y,5,true))]  = "Spring";
+  h[iso(nthMonday(y,8,true))]  = "Summer";
+  const xmas = new Date(Date.UTC(y,11,25));
+  if(xmas.getUTCDay()===6){ h[`${y}-12-27`]="Christmas Day (substitute)"; h[`${y}-12-28`]="Boxing Day (substitute)"; }
+  else if(xmas.getUTCDay()===0){ h[`${y}-12-26`]="Boxing Day"; h[`${y}-12-27`]="Christmas Day (substitute)"; }
+  else if(xmas.getUTCDay()===5){ h[`${y}-12-25`]="Christmas Day"; h[`${y}-12-28`]="Boxing Day (substitute)"; }
+  else { h[`${y}-12-25`]="Christmas Day"; h[`${y}-12-26`]="Boxing Day"; }
+  return h;
+}
+
+function emojiFor(t){
+  const s = norm(t);
+  if(s.includes("wedding")) return "\u{1F48D}";
+  if(s.includes("party")) return "\u{1F389}";
+  if(s.includes("christening")||s.includes("baby")) return "\u{1F476}";
+  if(s.includes("wake")) return "\u{26B0}";
+  if(s.includes("corporate")) return "\u{1F574}";
+  if(s.includes("carbarn")) return "\u{1F697}";
+  return "\u{1F514}";
+}
+
+function renderYearPicker(){
+  const yrs = new Set();
+  const now = new Date().getFullYear();
+  for(let y=now; y<=now+9; y++) yrs.add(y);
+  S.all.forEach(r => { if(r.event_date) yrs.add(Number(String(r.event_date).slice(0,4))); });
+  const list = Array.from(yrs).sort();
+  if(!list.includes(S.year)) S.year = list.includes(now) ? now : list[0];
+  $("#yearSel").innerHTML = list.map(y =>
+    `<option value="${y}"${y===S.year?" selected":""}>${y}</option>`).join("");
+}
+$("#yearSel").onchange = e => { S.year = Number(e.target.value); renderCalendar(); };
+$("#yPrev").onclick = () => { S.year--; renderYearPicker(); renderCalendar(); };
+$("#yNext").onclick = () => { S.year++; renderYearPicker(); renderCalendar(); };
+
+function renderCalendar(){
+  const y = S.year;
+  const bh = bankHolidays(y);
+  const byDate = {};
+  S.all.filter(r => isBooked(r) && String(r.event_date||"").startsWith(String(y)))
+       .forEach(r => (byDate[r.event_date] ||= []).push(r));
+
+  const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const LETTERS = ["S","M","T","W","T","F","S"];
+
+  let html = `<thead><tr><th>Day</th>${MONTHS.map(m=>`<th>${m}</th>`).join("")}</tr></thead><tbody>`;
+  for(let d=1; d<=31; d++){
+    html += `<tr><td class="daynum">${d}</td>`;
+    for(let m=1; m<=12; m++){
+      const last = new Date(Date.UTC(y,m,0)).getUTCDate();
+      if(d > last){ html += `<td class="void"></td>`; continue; }
+      const key = `${y}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+      const dow = new Date(Date.UTC(y,m-1,d)).getUTCDay();
+      const evs = byDate[key] || [];
+      const cls = [
+        evs.length ? "has" : "",
+        bh[key] ? "bh" : "",
+        (dow===0||dow===6) ? "wknd" : "",
+      ].filter(Boolean).join(" ");
+      const tip = [
+        bh[key] ? "Bank holiday: " + bh[key] : "",
+        ...evs.map(e => `${e.name} — ${e.event_type||""}${e.venue?" — "+e.venue:""}`),
+      ].filter(Boolean).join("\n");
+      html += `<td class="${cls}"${tip?` title="${esc(tip)}"`:""}${evs.length?` data-date="${key}"`:""}>`
+            + `<span class="evdot">${evs.map(e=>emojiFor(e.event_type)).join("")}</span>`
+            + `<span class="dletter ${(dow===0||dow===6)?"we":""}">${LETTERS[dow]}</span></td>`;
+    }
+    html += `</tr>`;
+  }
+  $("#calTable").innerHTML = html + `</tbody>`;
+
+  const count = Object.values(byDate).reduce((a,v)=>a+v.length,0);
+  $("#calLegend").innerHTML =
+    `<span>\u{1F48D} Wedding</span><span>\u{1F389} Party</span><span>\u{1F476} Baby shower / christening</span>` +
+    `<span>\u{26B0} Wake</span><span>\u{1F574} Corporate</span><span>\u{1F697} Carbarn</span><span>\u{1F514} Other</span>` +
+    `<span style="color:var(--gold);font-weight:600">Gold outline = bank holiday</span>` +
+    `<span class="strong">${count} confirmed in ${y}</span>`;
+
+  $("#calTable").querySelectorAll("td[data-date]").forEach(td => {
+    td.onclick = () => {
+      const evs = byDate[td.dataset.date];
+      if(evs.length === 1) openDrawer(evs[0]);
+      else {
+        const pick = prompt(
+          `${ukDate(td.dataset.date)} — ${evs.length} bookings:\n\n` +
+          evs.map((e,i)=>`${i+1}. ${e.name} (${e.event_type||""})`).join("\n") +
+          `\n\nOpen which number?`, "1");
+        const n = Number(pick);
+        if(n>=1 && n<=evs.length) openDrawer(evs[n-1]);
+      }
+    };
+  });
+}
+
+/* ---------------------------------------------------- year totals */
+function renderTotals(){
+  const years = {};
+  S.all.forEach(r => {
+    if(!isBooked(r) || !r.event_date) return;
+    const y = String(r.event_date).slice(0,4);
+    years[y] ||= { wed:[0,0,0], evt:[0,0,0] };
+    years[y][isWedding(r.event_type)?"wed":"evt"][venueBucket(r.venue)]++;
+  });
+
+  const now = new Date().getFullYear();
+  const keys = new Set(Object.keys(years));
+  for(let y=now; y<=now+9; y++) keys.add(String(y));
+  const list = Array.from(keys).sort();
+
+  const tot = { wed:[0,0,0], evt:[0,0,0] };
+  const body = list.map(y => {
+    const v = years[y] || { wed:[0,0,0], evt:[0,0,0] };
+    for(let i=0;i<3;i++){ tot.wed[i]+=v.wed[i]; tot.evt[i]+=v.evt[i]; }
+    const w = v.wed.reduce((a,b)=>a+b,0), e = v.evt.reduce((a,b)=>a+b,0);
+    const dim = (w+e) ? "" : ' class="muted"';
+    return `<tr${dim}><td class="strong">${y}</td>
+      <td>${v.wed[0]||""}</td><td>${v.wed[1]||""}</td><td>${v.wed[2]||""}</td>
+      <td class="strong" style="background:var(--sage-10)">${w||""}</td>
+      <td>${v.evt[0]||""}</td><td>${v.evt[1]||""}</td><td>${v.evt[2]||""}</td>
+      <td class="strong">${e||""}</td>
+      <td class="strong">${(w+e)||""}</td></tr>`;
+  }).join("");
+
+  const tw = tot.wed.reduce((a,b)=>a+b,0), te = tot.evt.reduce((a,b)=>a+b,0);
+
+  $("#totTable").innerHTML = `
+    <thead>
+      <tr>
+        <th rowspan="2">Year</th>
+        <th colspan="4" style="text-align:center">Weddings</th>
+        <th colspan="4" style="text-align:center">Other events</th>
+        <th rowspan="2">All</th>
+      </tr>
+      <tr>
+        <th>George Ridley</th><th>Marquee</th><th>Other</th><th>Total</th>
+        <th>George Ridley</th><th>Marquee</th><th>Other</th><th>Total</th>
+      </tr>
+    </thead>
+    <tbody>${body}
+      <tr style="background:var(--sage-10);font-weight:700">
+        <td>TOTAL</td>
+        <td>${tot.wed[0]}</td><td>${tot.wed[1]}</td><td>${tot.wed[2]}</td><td>${tw}</td>
+        <td>${tot.evt[0]}</td><td>${tot.evt[1]}</td><td>${tot.evt[2]}</td><td>${te}</td>
+        <td>${tw+te}</td>
+      </tr>
+    </tbody>`;
+}
+
+/* ------------------------------------------------------- CSV export */
+$("#exportCsv").onclick = () => {
+  const cols = ["enquiry_date","source","event_type","name","email","phone","event_date",
+                "venue","day_guests","evening_guests","brochure_date","status",
+                "next_action","next_due","last_contact","last_by","notes"];
+  const q = v => `"${String(v ?? "").replace(/"/g,'""')}"`;
+  const rows = viewRows();
+  const csv = [cols.join(","), ...rows.map(r => cols.map(c => q(r[c])).join(","))].join("\r\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob(["﻿"+csv], { type:"text/csv;charset=utf-8" }));
+  a.download = `wedding-tracker-${S.view}-${S.today}.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast(`${rows.length} records exported.`);
+};
+
+/* ------------------------------------------------------------- boot */
+(function boot(){
+  const saved = localStorage.getItem(LS_KEY);
+  const who = localStorage.getItem(LS_WHO);
+  if(saved && who){ tryOpen(saved, who); }
+  else openGate();
+})();
+</script>
+</body>
+</html>
