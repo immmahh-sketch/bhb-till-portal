@@ -120,10 +120,15 @@ nav.tabs{background:var(--sage-dark)}
 
 /* ============================================================ tiles */
 .tiles{display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:14px; margin-bottom:26px}
+/* Buttons, not divs - each one filters the Enquiries list */
 .tile{
   background:var(--white); border-radius:var(--radius); padding:16px 18px;
-  box-shadow:var(--shadow); border-left:4px solid var(--celadon);
+  box-shadow:var(--shadow); border:0; border-left:4px solid var(--celadon);
+  font:inherit; color:inherit; text-align:left; width:100%; cursor:pointer;
+  transition:transform .12s, box-shadow .12s;
 }
+.tile:hover{transform:translateY(-2px); box-shadow:0 2px 4px rgba(38,38,38,.08),0 12px 28px rgba(38,38,38,.12)}
+.tile:focus-visible{outline:2px solid var(--sage); outline-offset:2px}
 .tile .n{font-family:var(--display); font-size:34px; line-height:1; color:var(--sage)}
 .tile .l{
   font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase;
@@ -256,6 +261,51 @@ table.cal td.has.wknd{background:var(--sage-10)}
 .evdot{font-size:13px; letter-spacing:1px}
 .legend{display:flex; gap:16px; flex-wrap:wrap; margin-top:12px; font-size:12px; color:var(--sage-70)}
 
+/* ================================================== drill-down panel
+   Own class names throughout (.lhead/.lbody/.lfoot, not .dhead/.dbody) so
+   these cannot collide with the edit drawer's rules. */
+#listveil{
+  position:fixed; inset:0; background:rgba(38,38,38,.45); z-index:70; display:none;
+}
+#listveil.on{display:block}
+#listbox{
+  position:fixed; z-index:71; left:50%; top:50%; transform:translate(-50%,-48%) scale(.98);
+  width:min(880px,94vw); max-height:86vh; background:var(--bone);
+  border-radius:var(--radius); box-shadow:0 20px 60px rgba(38,38,38,.3);
+  display:none; flex-direction:column; opacity:0; transition:opacity .16s, transform .16s;
+}
+#listbox.on{display:flex; opacity:1; transform:translate(-50%,-50%) scale(1)}
+.lhead{background:var(--sage); color:var(--white); padding:15px 20px; display:flex; gap:12px; align-items:flex-start;
+  border-radius:var(--radius) var(--radius) 0 0}
+.lhead h3{font-size:19px; line-height:1.2}
+.lsub{font-size:12px; opacity:.85; margin-top:2px}
+.lhead .x{margin-left:auto; background:transparent; border:0; color:var(--white);
+  font-size:26px; line-height:1; cursor:pointer; padding:0 4px}
+.lbody{flex:1; overflow:auto; background:var(--white)}
+.lfoot{padding:12px 20px; background:var(--white); border-top:1px solid var(--mist);
+  display:flex; gap:10px; justify-content:flex-end; border-radius:0 0 var(--radius) var(--radius)}
+
+/* clickable figures in Year Totals */
+table.grid td.num{cursor:pointer; font-weight:600; text-decoration:underline;
+  text-decoration-color:var(--celadon); text-underline-offset:3px}
+table.grid td.num:hover{background:var(--sage); color:var(--white)}
+table.grid td.wedtot{background:var(--sage-10)}
+table.grid tr.totrow{background:var(--sage-10); font-weight:700}
+table.grid tr.totrow td.num:hover{background:var(--sage); color:var(--white)}
+
+/* a record that came from, or is kept in step with, the couples' app */
+.applink{
+  display:inline-block; font-size:9px; font-weight:700; letter-spacing:.1em;
+  text-transform:uppercase; padding:2px 6px; border-radius:4px;
+  background:var(--attention-bg); color:var(--attention); vertical-align:middle;
+}
+.pinchip{background:var(--attention)!important; border-color:var(--attention)!important; color:var(--white)!important}
+
+.syncnote{
+  background:var(--attention-bg); border-left:4px solid var(--attention);
+  border-radius:8px; padding:11px 14px; margin-bottom:18px; font-size:13px; line-height:1.4;
+}
+
 /* ============================================================ toast */
 #toast{
   position:fixed; left:50%; bottom:26px; transform:translate(-50%,20px);
@@ -320,6 +370,7 @@ table.cal td.has.wknd{background:var(--sage-10)}
         <h2>Needs action</h2>
         <div class="hint">Due within 3 days or overdue. Lost, No response and past events drop off automatically.</div>
         <div class="spacer"></div>
+        <button class="btn ghost" id="syncBtn" title="Pull confirmed weddings and their next meeting or payment from the couples' app">Sync wedding app</button>
         <button class="btn" id="addTop">Add enquiry</button>
       </div>
       <div class="card"><div class="tablewrap"><table class="grid" id="todoTable"></table></div></div>
@@ -364,6 +415,22 @@ table.cal td.has.wknd{background:var(--sage-10)}
       <div class="card"><div class="tablewrap"><table class="grid" id="totTable"></table></div></div>
     </section>
 
+  </div>
+</div>
+
+<div id="listveil"></div>
+<div id="listbox" role="dialog" aria-modal="true">
+  <div class="lhead">
+    <div>
+      <h3 id="lTitle">Bookings</h3>
+      <div class="lsub" id="lCount"></div>
+    </div>
+    <button class="x" id="lClose" title="Close">&times;</button>
+  </div>
+  <div class="lbody" id="lBody"></div>
+  <div class="lfoot">
+    <button class="btn ghost" id="lToList">Show these in Enquiries</button>
+    <button class="btn ghost" id="lDone">Close</button>
   </div>
 </div>
 
@@ -412,6 +479,9 @@ const MAX_MONTHS_AHEAD = 3;
 const S = {                       // app state
   key:"", who:"", today:"",
   all:[], lists:{}, view:"live", q:"", editing:null, year:new Date().getFullYear(),
+  // Set by a dashboard tile or a Year Totals cell. Narrows the Enquiries
+  // list beyond the chosen view, and is cleared the moment a chip is used.
+  pin:null,                       // { label, test(row) }
 };
 
 /* ---------------------------------------------------------- helpers */
@@ -516,22 +586,37 @@ async function refresh(){
 }
 
 /* ----------------------------------------------------------- tiles */
-function renderTiles(){
-  const t = S.today, thisYear = t.slice(0,4);
-  const todo = S.all.filter(r => r._todo);
-  const overdue = todo.filter(r => r.next_due < t);
-  const live = S.all.filter(r => !isClosed(r) && !r._past);
-  const bookedYear = S.all.filter(r => isBooked(r) && String(r.event_date||"").slice(0,4) === thisYear);
-
-  const tiles = [
-    ["To do now", todo.length, todo.length ? "warn" : "ok"],
-    ["Overdue", overdue.length, overdue.length ? "bad" : "ok"],
-    ["Live enquiries", live.length, ""],
-    [`Confirmed ${thisYear}`, bookedYear.length, "ok"],
-    ["All records", S.all.length, ""],
+/* Each tile is a filter. Clicking one jumps to Enquiries showing exactly the
+   records the number counted. */
+function tileDefs(){
+  const t = S.today, y = t.slice(0,4);
+  return [
+    { label:"To do now",  cls:"warn", view:"todo", test:r => r._todo },
+    { label:"Overdue",    cls:"bad",  view:"todo", test:r => r._todo && r.next_due < t },
+    { label:"Live enquiries", cls:"", view:"live", test:r => !isClosed(r) && !r._past },
+    { label:`Confirmed ${y}`, cls:"ok", view:"confirmed",
+      test:r => isBooked(r) && String(r.event_date||"").slice(0,4) === y },
+    { label:"From the app",   cls:"", view:"confirmed", test:r => !!r.guestline_event_id },
+    { label:"All records", cls:"", view:"all", test:() => true },
   ];
-  $("#tiles").innerHTML = tiles.map(([l,n,c]) =>
-    `<div class="tile ${c}"><div class="n">${n}</div><div class="l">${esc(l)}</div></div>`).join("");
+}
+
+function renderTiles(){
+  $("#tiles").innerHTML = tileDefs().map((d,i) => {
+    const n = S.all.filter(d.test).length;
+    const cls = (d.cls === "warn" || d.cls === "bad") && n === 0 ? "ok" : d.cls;
+    return `<button class="tile ${cls}" data-tile="${i}">
+      <div class="n">${n}</div><div class="l">${esc(d.label)}</div></button>`;
+  }).join("");
+
+  $$("#tiles .tile").forEach(b => b.onclick = () => {
+    const d = tileDefs()[Number(b.dataset.tile)];
+    S.view = d.view;
+    S.pin  = { label:d.label, test:d.test };
+    S.q = ""; $("#q").value = "";
+    goTab("enq");
+    renderChips(); renderEnq();
+  });
 }
 
 /* ----------------------------------------------------- due colouring */
@@ -543,6 +628,14 @@ function dueClass(r){
   if(r.next_due <= addDays(t,3)) return "due-soon";
   return "";
 }
+// Marks a record the couples' app keeps in step. Its status, event date and
+// next action are set by the sync, so an edit to those here is temporary.
+function appTag(r){
+  return r.guestline_event_id
+    ? ' <span class="applink" title="Kept in step with the wedding app">app</span>'
+    : "";
+}
+
 function statusPill(r){
   let c = "";
   const s = norm(r.status);
@@ -572,7 +665,7 @@ function renderTodo(){
     <tbody>${rows.map(r => `
       <tr class="${dueClass(r)}" data-id="${r.id}">
         <td class="nowrap strong">${ukDate(r.next_due)}</td>
-        <td class="strong">${esc(r.name)}</td>
+        <td class="strong">${esc(r.name)}${appTag(r)}</td>
         <td class="nowrap">${ukDate(r.event_date)}</td>
         <td>${esc(r.event_type)}</td>
         <td>${esc(r.venue)}</td>
@@ -593,13 +686,27 @@ const VIEWS = [
 ];
 
 function renderChips(){
-  $("#chips").innerHTML = VIEWS.map(([k,l]) =>
-    `<button class="chip" data-view="${k}" aria-pressed="${S.view===k}">${esc(l)}</button>`).join("");
-  $$("#chips .chip").forEach(b => b.onclick = () => { S.view = b.dataset.view; renderChips(); renderEnq(); });
+  const pin = S.pin
+    ? `<button class="chip pinchip" id="clearPin" aria-pressed="true" title="Clear this filter">
+         ${esc(S.pin.label)} &times;</button>`
+    : "";
+  $("#chips").innerHTML = pin + VIEWS.map(([k,l]) =>
+    `<button class="chip" data-view="${k}" aria-pressed="${!S.pin && S.view===k}">${esc(l)}</button>`).join("");
+
+  $$("#chips .chip[data-view]").forEach(b => b.onclick = () => {
+    S.view = b.dataset.view; S.pin = null; renderChips(); renderEnq();
+  });
+  const cp = $("#clearPin");
+  if(cp) cp.onclick = () => { S.pin = null; renderChips(); renderEnq(); };
 }
 
 function viewRows(){
   let rows = S.all;
+
+  // A tile or a totals cell wins outright - it already says exactly which
+  // records are meant, so the view chips do not narrow it further.
+  if(S.pin) return applySearch(rows.filter(S.pin.test));
+
   switch(S.view){
     case "live":      rows = rows.filter(r => !isClosed(r) && !r._past); break;
     case "todo":      rows = rows.filter(r => r._todo); break;
@@ -607,6 +714,10 @@ function viewRows(){
     case "past":      rows = rows.filter(r => r._past); break;
     case "lost":      rows = rows.filter(r => ["lost","no response"].includes(norm(r.status))); break;
   }
+  return applySearch(rows);
+}
+
+function applySearch(rows){
   const q = norm(S.q);
   if(q){
     const qd = digits(q);
@@ -635,7 +746,7 @@ function renderEnq(){
     <tbody>${rows.map(r => `
       <tr class="${dueClass(r)} ${isClosed(r)?"closed":""}" data-id="${r.id}">
         <td class="nowrap strong">${ukDate(r.event_date)}</td>
-        <td class="strong">${esc(r.name)}</td>
+        <td class="strong">${esc(r.name)}${appTag(r)}</td>
         <td>${esc(r.event_type)}</td>
         <td>${esc(r.venue)}</td>
         <td>${statusPill(r)}</td>
@@ -653,12 +764,14 @@ document.addEventListener("click", e => {
 });
 
 /* ------------------------------------------------------------ tabs */
-$$(".tabbtn").forEach(b => b.onclick = () => {
-  $$(".tabbtn").forEach(x => x.setAttribute("aria-selected", String(x===b)));
+function goTab(name){
+  $$(".tabbtn").forEach(x => x.setAttribute("aria-selected", String(x.dataset.page===name)));
   $$(".page").forEach(p => p.classList.remove("on"));
-  $("#page-"+b.dataset.page).classList.add("on");
-  if(b.dataset.page === "cal") renderCalendar();
-});
+  $("#page-"+name).classList.add("on");
+  if(name === "cal") renderCalendar();
+  window.scrollTo({ top:0, behavior:"smooth" });
+}
+$$(".tabbtn").forEach(b => b.onclick = () => goTab(b.dataset.page));
 
 /* ---------------------------------------------------------- drawer */
 function opts(list, val){
@@ -678,6 +791,13 @@ function openDrawer(r){
   $("#dWhats").style.display = r.phone ? "" : "none";
 
   $("#dBody").innerHTML = `
+    ${r.guestline_event_id ? `<div class="syncnote">
+      <strong>Kept in step with the wedding app</strong> (${esc(r.guestline_event_id)}).
+      The status, event date and next action come from the couple's own booking
+      and are reset the next time it syncs — change them in the wedding app,
+      not here. Everything else on this form is yours.
+    </div>` : ""}
+
     <div class="field"><label>Name for the booking</label>
       <input id="f_name" value="${esc(r.name||"")}"></div>
 
@@ -885,6 +1005,34 @@ function blank(){
 }
 $("#addEnq").onclick = $("#addTop").onclick = () => openDrawer(blank());
 
+$("#lClose").onclick = $("#lDone").onclick = $("#listveil").onclick = closeList;
+document.addEventListener("keydown", e => {
+  if(e.key === "Escape" && $("#listbox").classList.contains("on")) closeList();
+});
+
+/* Guestline is the source of truth for what is booked. This pulls anything
+   confirmed in the couples' app into the tracker and sets the next action
+   from that couple's own next meeting or payment. */
+$("#syncBtn").onclick = async () => {
+  const b = $("#syncBtn");
+  b.disabled = true; b.textContent = "Syncing…";
+  try{
+    const d = await api("syncWeddingApp");
+    try{ localStorage.setItem(LS_SYNC, String(Date.now())); }catch(e){}
+    await refresh();
+    const bits = [];
+    if(d.created)   bits.push(`${d.created} added`);
+    if(d.confirmed) bits.push(`${d.confirmed} confirmed`);
+    if(d.actionSet) bits.push(`${d.actionSet} next action${d.actionSet===1?"":"s"} updated`);
+    if(d.dateFixed) bits.push(`${d.dateFixed} date${d.dateFixed===1?"":"s"} corrected`);
+    toast(bits.length ? bits.join(", ") + "." : "Already up to date.");
+    if(d.ambiguous && d.ambiguous.length){
+      alert("These could not be matched automatically and were left alone:\n\n" + d.ambiguous.join("\n"));
+    }
+  }catch(e){ toast(e.message, true); }
+  finally{ b.disabled = false; b.textContent = "Sync wedding app"; }
+};
+
 /* -------------------------------------------------------- calendar */
 function easter(y){
   const a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4;
@@ -1017,17 +1165,24 @@ function renderTotals(){
   const list = Array.from(keys).sort();
 
   const tot = { wed:[0,0,0], evt:[0,0,0] };
+
+  // Every figure carries the query that produced it, so clicking it can show
+  // exactly the events counted rather than re-deriving them.
+  const cell = (n, y, kind, bucket, extra) =>
+    n ? `<td class="num ${extra||""}" data-y="${y}" data-kind="${kind}" data-bucket="${bucket}">${n}</td>`
+      : `<td class="${extra||""}"></td>`;
+
   const body = list.map(y => {
     const v = years[y] || { wed:[0,0,0], evt:[0,0,0] };
     for(let i=0;i<3;i++){ tot.wed[i]+=v.wed[i]; tot.evt[i]+=v.evt[i]; }
     const w = v.wed.reduce((a,b)=>a+b,0), e = v.evt.reduce((a,b)=>a+b,0);
     const dim = (w+e) ? "" : ' class="muted"';
     return `<tr${dim}><td class="strong">${y}</td>
-      <td>${v.wed[0]||""}</td><td>${v.wed[1]||""}</td><td>${v.wed[2]||""}</td>
-      <td class="strong" style="background:var(--sage-10)">${w||""}</td>
-      <td>${v.evt[0]||""}</td><td>${v.evt[1]||""}</td><td>${v.evt[2]||""}</td>
-      <td class="strong">${e||""}</td>
-      <td class="strong">${(w+e)||""}</td></tr>`;
+      ${cell(v.wed[0],y,"wed",0)}${cell(v.wed[1],y,"wed",1)}${cell(v.wed[2],y,"wed",2)}
+      ${cell(w,y,"wed","all","wedtot")}
+      ${cell(v.evt[0],y,"evt",0)}${cell(v.evt[1],y,"evt",1)}${cell(v.evt[2],y,"evt",2)}
+      ${cell(e,y,"evt","all")}
+      ${cell(w+e,y,"any","all")}</tr>`;
   }).join("");
 
   const tw = tot.wed.reduce((a,b)=>a+b,0), te = tot.evt.reduce((a,b)=>a+b,0);
@@ -1046,13 +1201,72 @@ function renderTotals(){
       </tr>
     </thead>
     <tbody>${body}
-      <tr style="background:var(--sage-10);font-weight:700">
+      <tr class="totrow">
         <td>TOTAL</td>
-        <td>${tot.wed[0]}</td><td>${tot.wed[1]}</td><td>${tot.wed[2]}</td><td>${tw}</td>
-        <td>${tot.evt[0]}</td><td>${tot.evt[1]}</td><td>${tot.evt[2]}</td><td>${te}</td>
-        <td>${tw+te}</td>
+        ${cell(tot.wed[0],"any","wed",0)}${cell(tot.wed[1],"any","wed",1)}${cell(tot.wed[2],"any","wed",2)}
+        ${cell(tw,"any","wed","all","wedtot")}
+        ${cell(tot.evt[0],"any","evt",0)}${cell(tot.evt[1],"any","evt",1)}${cell(tot.evt[2],"any","evt",2)}
+        ${cell(te,"any","evt","all")}
+        ${cell(tw+te,"any","any","all")}
       </tr>
     </tbody>`;
+
+  $$("#totTable td.num").forEach(td => td.onclick = () => {
+    const { y, kind, bucket } = td.dataset;
+    const BUCKETS = ["George Ridley","Marquee","Other / not set"];
+    const test = r =>
+      isBooked(r) && r.event_date &&
+      (y === "any" || String(r.event_date).slice(0,4) === y) &&
+      (kind === "any" || (kind === "wed") === isWedding(r.event_type)) &&
+      (bucket === "all" || venueBucket(r.venue) === Number(bucket));
+
+    const label = [
+      y === "any" ? "All years" : y,
+      kind === "wed" ? "weddings" : kind === "evt" ? "other events" : "bookings",
+      bucket === "all" ? "" : "— " + BUCKETS[Number(bucket)],
+    ].filter(Boolean).join(" ");
+
+    openList(label, S.all.filter(test), test);
+  });
+}
+
+/* The list behind a number. Clicking a row opens that enquiry; "Show these in
+   Enquiries" hands the same filter to the main list. */
+function openList(title, rows, test){
+  $("#lTitle").textContent = title;
+  $("#lCount").textContent = `${rows.length} booking${rows.length===1?"":"s"}`;
+
+  $("#lBody").innerHTML = rows.length ? `
+    <table class="grid"><thead><tr>
+      <th>Event date</th><th>Name</th><th>Type</th><th>Venue</th><th>Next action</th>
+    </tr></thead><tbody>
+    ${rows.slice().sort((a,b)=>String(a.event_date).localeCompare(String(b.event_date)))
+      .map(r => `<tr data-open="${r.id}">
+        <td class="nowrap strong">${ukDate(r.event_date)}</td>
+        <td class="strong">${esc(r.name)}${r.guestline_event_id?' <span class="applink">app</span>':""}</td>
+        <td>${esc(r.event_type)}</td>
+        <td>${esc(r.venue)}</td>
+        <td>${esc(r.next_action)}${r.next_due?` <span class="muted">${ukDate(r.next_due)}</span>`:""}</td>
+      </tr>`).join("")}
+    </tbody></table>` : `<div class="empty">Nothing counted here.</div>`;
+
+  $$("#lBody tr[data-open]").forEach(tr => tr.onclick = () => {
+    closeList();
+    openDrawer(S.all.find(r => r.id === tr.dataset.open));
+  });
+
+  $("#lToList").onclick = () => {
+    S.pin = { label:title, test };
+    S.view = "all"; S.q = ""; $("#q").value = "";
+    closeList(); goTab("enq"); renderChips(); renderEnq();
+  };
+
+  $("#listveil").classList.add("on");
+  $("#listbox").classList.add("on");
+}
+function closeList(){
+  $("#listveil").classList.remove("on");
+  $("#listbox").classList.remove("on");
 }
 
 /* ------------------------------------------------------- CSV export */
@@ -1071,11 +1285,41 @@ $("#exportCsv").onclick = () => {
   toast(`${rows.length} records exported.`);
 };
 
+/* Quietly pull anything new from the couples' app, at most once an hour per
+   browser. Runs after the first render so it never delays the page, and only
+   redraws if something actually changed. The button does the same thing on
+   demand. */
+const LS_SYNC = "bhb_tracker_last_sync";
+const SYNC_EVERY_MS = 60 * 60 * 1000;
+
+async function autoSync(){
+  let last = 0;
+  try{ last = Number(localStorage.getItem(LS_SYNC) || 0); }catch(e){}
+  if(Date.now() - last < SYNC_EVERY_MS) return;
+
+  try{
+    const d = await api("syncWeddingApp");
+    try{ localStorage.setItem(LS_SYNC, String(Date.now())); }catch(e){}
+
+    const changed = (d.created||0) + (d.confirmed||0) + (d.actionSet||0) + (d.dateFixed||0);
+    if(changed){
+      await refresh();
+      const bits = [];
+      if(d.created)   bits.push(`${d.created} new booking${d.created===1?"":"s"}`);
+      if(d.confirmed) bits.push(`${d.confirmed} confirmed`);
+      if(d.actionSet) bits.push(`${d.actionSet} next action${d.actionSet===1?"":"s"} updated`);
+      toast("From the wedding app: " + bits.join(", ") + ".");
+    }
+  }catch(e){
+    // A sync failure must never stop somebody using the tracker
+  }
+}
+
 /* ------------------------------------------------------------- boot */
 (function boot(){
   const saved = localStorage.getItem(LS_KEY);
   const who = localStorage.getItem(LS_WHO);
-  if(saved && who){ tryOpen(saved, who); }
+  if(saved && who){ tryOpen(saved, who).then(() => { if(S.key) autoSync(); }); }
   else openGate();
 })();
 </script>
