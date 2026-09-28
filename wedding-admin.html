@@ -214,6 +214,17 @@ code{font-family:ui-monospace,"SF Mono",monospace;font-size:.875em;background:va
 .login{max-width:360px;margin:70px auto;padding:0 20px}
 
 /* ---- app usage ---- */
+/* ---- search ---- */
+.searchbox{position:relative;margin:0 0 16px}
+.searchbox input{width:100%;padding:13px 40px 13px 15px;border:1px solid var(--mist);
+  background:var(--white);color:var(--sage);font:400 1rem/1.3 var(--body);
+  letter-spacing:.02em;border-radius:0;-webkit-appearance:none}
+.searchbox input:focus{outline:none;border-color:var(--sage)}
+.searchbox input::-webkit-search-cancel-button{display:none}
+.searchclear{position:absolute;right:1px;top:1px;bottom:1px;width:38px;border:0;
+  background:transparent;color:var(--sage-70);font-size:1.25rem;line-height:1;cursor:pointer}
+.searchclear:hover{color:var(--sage)}
+
 .ufilters{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 16px}
 .ufilter{flex:1 1 130px;text-align:left;padding:12px 14px;background:var(--white);
   border:1px solid var(--mist);cursor:pointer;color:var(--sage)}
@@ -314,7 +325,7 @@ var CFG = {
 };
 
 var S = { pw:null, view:"overview", list:[], pending:[], current:null, preview:null,
-          outstanding:null, forecast:null };
+          outstanding:null, forecast:null, listQuery:"" };
 
 function $(id){ return document.getElementById(id); }
 function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){
@@ -924,12 +935,87 @@ async function loadList(){
   } catch (e) { if (!stillWanted(want, cur)) return; showErr(e.message); $("views").innerHTML = ""; }
 }
 
-function viewList(){
-  var upcoming = S.list.filter(function(w){ return daysToGo(w.wedding_date) >= 0 && w.status !== "cancelled"; });
-  var past = S.list.filter(function(w){ return daysToGo(w.wedding_date) < 0 || w.status === "cancelled"; });
+/* ---------- finding one wedding among forty-seven ----------
 
-  var h = '<div class="split" style="margin-bottom:18px"><h1>Weddings</h1>' +
-    '<span class="label">' + upcoming.length + ' upcoming</span></div>';
+   Whatever is to hand: a name, a date, a reference. Nobody remembers which
+   of the three the box wants, so it takes all of them and does not ask.
+
+   Each wedding is flattened once into a line of text holding every way it
+   could reasonably be written — both names, the salutation, the email, the
+   reference, and the date as an ISO string, as 24/10/2026, as 24102026, as
+   "24 Oct 2026", as "24 October 2026", and as the weekday. Then the words
+   typed have to appear somewhere in it, which is what lets "andrew oct"
+   and "booth 2026" both work.
+
+   Recomputed per keystroke rather than cached: forty-seven rows is nothing,
+   and a cache is one more thing to go stale when a wedding is edited. */
+function searchBlob(w){
+  if (!w.__blob) {
+    var d = ymd(w.wedding_date), p = d.split("-");
+    var parts = [w.salutation, w.partner1_name, w.partner2_name, w.primary_email,
+                 w.event_id, w.status, d];
+    if (p.length === 3) {
+      var dt = new Date(Date.UTC(+p[0], +p[1] - 1, +p[2]));
+      var fmt = function(o){
+        try {
+          return new Intl.DateTimeFormat("en-GB",
+            Object.assign({ timeZone: "UTC" }, o)).format(dt);
+        } catch (e) { return ""; }
+      };
+      parts.push(p[2] + "/" + p[1] + "/" + p[0], p[2] + p[1] + p[0],
+                 fmt({ day:"numeric", month:"short", year:"numeric" }),
+                 fmt({ day:"numeric", month:"long", year:"numeric" }),
+                 fmt({ weekday:"long" }), p[0]);
+    }
+    w.__blob = parts.filter(Boolean).join(" ").toLowerCase();
+  }
+  return w.__blob;
+}
+
+/** Every word typed has to appear somewhere, in any order. */
+function matchesSearch(w, query){
+  var words = String(query || "").toLowerCase().trim().split(/\s+/).filter(Boolean);
+  if (!words.length) return true;
+  var blob = searchBlob(w);
+  return words.every(function(word){ return blob.indexOf(word) >= 0; });
+}
+
+function searchBox(id, value, fn, placeholder){
+  return '<div class="searchbox">' +
+    '<input id="' + id + '" type="search" autocomplete="off" spellcheck="false" ' +
+      'placeholder="' + esc(placeholder) + '" value="' + esc(value || "") + '" ' +
+      'oninput="' + fn + '(this.value)">' +
+    (value ? '<button class="searchclear" onclick="' + fn + '(\'\')" ' +
+             'aria-label="Clear">&times;</button>' : '') +
+  '</div>';
+}
+
+/* The box is redrawn with the view, so the caret has to be put back or it
+   jumps to the front of what they are still typing. */
+function keepCaret(id){
+  var el = document.getElementById(id);
+  if (!el) return;
+  var at = el.value.length;
+  el.focus();
+  try { el.setSelectionRange(at, at); } catch (e) {}
+}
+
+function listSearch(v){
+  S.listQuery = v;
+  $("views").innerHTML = viewList();
+  keepCaret("listSearch");
+}
+
+function viewList(){
+  var q = S.listQuery || "";
+  var found = S.list.filter(function(w){ return matchesSearch(w, q); });
+  var upcoming = found.filter(function(w){ return daysToGo(w.wedding_date) >= 0 && w.status !== "cancelled"; });
+  var past = found.filter(function(w){ return daysToGo(w.wedding_date) < 0 || w.status === "cancelled"; });
+
+  var h = '<div class="split" style="margin-bottom:14px"><h1>Weddings</h1>' +
+    '<span class="label">' +
+      (q ? found.length + " of " + S.list.length : upcoming.length + " upcoming") +
+    '</span></div>';
 
   if (!S.list.length) {
     h += '<div class="card empty">No weddings set up yet.<br><br>' +
@@ -937,11 +1023,22 @@ function viewList(){
     return h;
   }
 
-  h += '<div class="card card--flush"><table><thead><tr>' +
-    '<th>Couple</th><th>Date</th><th>Reference</th><th>Login</th><th></th>' +
-    '</tr></thead><tbody>';
-  upcoming.forEach(function(w){ h += listRow(w); });
-  h += '</tbody></table></div>';
+  h += searchBox("listSearch", q, "listSearch",
+                 "Search by name, date or reference");
+
+  if (!found.length) {
+    h += '<div class="card empty">Nothing matches &ldquo;' + esc(q) + '&rdquo;.<br><br>' +
+      '<button class="btn" onclick="listSearch(\'\')">Show them all</button></div>';
+    return h;
+  }
+
+  if (upcoming.length) {
+    h += '<div class="card card--flush"><table><thead><tr>' +
+      '<th>Couple</th><th>Date</th><th>Reference</th><th>Login</th><th></th>' +
+      '</tr></thead><tbody>';
+    upcoming.forEach(function(w){ h += listRow(w); });
+    h += '</tbody></table></div>';
+  }
 
   if (past.length) {
     h += '<h2 style="margin:26px 0 12px">Past &amp; cancelled</h2>' +
@@ -1594,7 +1691,7 @@ async function deleteWedding(){
    months ago and has never logged in has.
    ================================================================== */
 
-var U = { rows: [], filter: "all" };
+var U = { rows: [], filter: "all", query: "" };
 
 async function loadUsage(){
   var want = S.view, cur = S.current;
@@ -1611,8 +1708,14 @@ function usageFilter(f){
   $("views").innerHTML = viewUsage();
 }
 
+function usageSearch(v){
+  U.query = v;
+  $("views").innerHTML = viewUsage();
+  keepCaret("usageSearch");
+}
+
 function usageRows(){
-  var rows = U.rows.slice();
+  var rows = U.rows.filter(function(w){ return matchesSearch(w, U.query); });
   if (U.filter === "waiting") {
     rows = rows.filter(function(r){ return !r.welcome_sent_at; });
   } else if (U.filter === "never") {
@@ -1681,9 +1784,15 @@ function viewUsage(){
     tab("using", "Using the app", used, "ok") +
   '</div>';
 
+  h += searchBox("usageSearch", U.query, "usageSearch",
+                 "Search by name, date or reference");
+
   var rows = usageRows();
   if (!rows.length) {
-    h += '<div class="card empty">Nothing in this list.</div>';
+    h += '<div class="card empty">' +
+      (U.query ? 'Nothing matches &ldquo;' + esc(U.query) + '&rdquo; in this list.<br><br>' +
+                 '<button class="btn" onclick="usageSearch(\'\')">Clear the search</button>'
+               : 'Nothing in this list.') + '</div>';
     return h;
   }
 
