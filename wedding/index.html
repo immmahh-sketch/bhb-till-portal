@@ -1148,6 +1148,7 @@ var VIEWS = [
   ["meals", "Meals & allergies"],
   ["tables", "Table plan"],
   ["album", "Photo album"],
+  ["scan", "Scan your journal"],
   ["suppliers", "Suppliers"],
   ["budget", "Budget"]
 ];
@@ -1296,6 +1297,7 @@ function render(){
     case "meals":     v.innerHTML = '<div class="empty"><span class="spin"></span></div>'; loadMeals(); break;
     case "tables":    v.innerHTML = '<div class="empty"><span class="spin"></span></div>'; loadTables(); break;
     case "album":     v.innerHTML = '<div class="empty"><span class="spin"></span></div>'; loadAlbum(); break;
+    case "scan":      v.innerHTML = viewScan(); bindScan(); break;
     case "suppliers": v.innerHTML = '<div class="empty"><span class="spin"></span></div>'; loadSuppliers(); break;
     case "budget":    v.innerHTML = '<div class="empty"><span class="spin"></span></div>'; loadBudget(); break;
   }
@@ -4730,6 +4732,258 @@ function downloadQr(){
   a.download = "Photo album QR - " + w.salutation.replace(/[^\w &-]/g, "") + ".svg";
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(function(){ URL.revokeObjectURL(href); }, 4000);
+}
+
+/* ============================ SCAN THE JOURNAL ============================
+   The printed planner, photographed a page at a time.
+
+   Plenty of couples will keep using the paper book — it is a nice object and
+   a kitchen table beats a phone for spreading things out. This gets what
+   they have written into the app without typing it twice.
+
+   Nothing is ever saved from a photograph on its own. The page is read, then
+   shown back as ordinary editable boxes, and only what is on screen when the
+   button is pressed gets written. Handwriting varies from neat to hopeless,
+   and a name read wrongly and saved silently is worse than no scanning at
+   all — so this reads, offers, and waits.
+   ======================================================================== */
+
+var SC = { stage: "start", page: null, rows: [], unsure: [], note: "", busy: false, done: null };
+
+var SCAN_PAGES = {
+  checklist: { title: "Your checklist",     verb: "Tick these off" },
+  journey:   { title: "Your wedding journey", verb: "Tick these off" },
+  guests:    { title: "Your guest list",    verb: "Add these guests" },
+  budget:    { title: "Your budget",        verb: "Add these costs" },
+  suppliers: { title: "Your suppliers",     verb: "Add these suppliers" }
+};
+
+function viewScan(){
+  var h = '<h1 style="margin-bottom:6px">Scan your journal</h1>' +
+    '<p class="muted" style="margin:0 0 18px">' +
+    'Filled a page of your printed planner in by hand? Photograph it and we will put it ' +
+    'into the app for you — you check it first, and nothing is saved until you say so.</p>';
+
+  if (SC.stage === "busy") {
+    return h + '<div class="card empty"><span class="spin"></span>' +
+      '<p style="margin-top:14px">Reading your page…</p>' +
+      '<p class="muted" style="font-size:.875rem">This takes a few seconds.</p></div>';
+  }
+
+  if (SC.stage === "start" || SC.stage === "failed") {
+    if (SC.stage === "failed") {
+      h += '<div class="notice notice--due"><strong>' + esc(SC.note || "We could not read that page.") +
+        '</strong><br>A straighter photograph in better light usually does it — get the whole ' +
+        'page in, and try not to let your shadow fall across it.</div>';
+    }
+    h += '<div class="card center">' +
+      '<input id="scanPick" type="file" accept="image/*" capture="environment" ' +
+        'style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none">' +
+      '<button class="btn btn--primary btn--block" onclick="document.getElementById(\'scanPick\').click()">' +
+        'Photograph a page</button>' +
+      '<p class="muted" style="margin:14px 0 0;font-size:.875rem">' +
+        'One page at a time. We can read your <strong>checklist</strong>, <strong>guest list</strong>, ' +
+        '<strong>budget</strong> and <strong>suppliers</strong> pages — we work out which is which.</p>' +
+    '</div>';
+
+    if (SC.done) {
+      h += '<div class="notice notice--ok" style="margin-top:16px">' + SC.done + '</div>';
+    }
+    return h;
+  }
+
+  // ---- what we read, for checking ----
+  var cfg = SCAN_PAGES[SC.page] || { title: "this page", verb: "Add these" };
+  h += '<div class="notice notice--ok"><strong>' + esc(SC.note || cfg.title) + '</strong><br>' +
+    'Check it over. Change anything we have got wrong, and cross out anything you do not want.</div>';
+
+  if (SC.unsure.length) {
+    h += '<div class="notice notice--due"><strong>We were not sure about ' +
+      SC.unsure.length + ' thing' + (SC.unsure.length === 1 ? "" : "s") + ':</strong> ' +
+      esc(SC.unsure.join("; ")) + '. Worth a look before you save.</div>';
+  }
+
+  if (!SC.rows.length) {
+    h += '<div class="card empty">We could not find anything filled in on that page.</div>' +
+      '<div class="center" style="margin-top:14px">' +
+      '<button class="btn" onclick="scanReset()">Try another page</button></div>';
+    return h;
+  }
+
+  h += '<div class="card card--flush"><table class="stack"><tbody>';
+  SC.rows.forEach(function(r, i){ h += scanRow(i); });
+  h += '</tbody></table></div>';
+
+  h += '<div class="ptools" style="border:0">' +
+    '<button class="btn btn--primary grow" id="scanSave" onclick="applyScan()">' +
+      esc(cfg.verb) + '</button>' +
+    '<span class="pair"><button class="btn btn--sm" onclick="scanReset()">Start again</button></span>' +
+  '</div>';
+  return h;
+}
+
+function scanRow(i){
+  var r = SC.rows[i];
+  var set = function(f){ return 'oninput="SC.rows[' + i + '].' + f + '=this.value"'; };
+  var drop = '<button class="btn btn--sm udel" onclick="scanDrop(' + i + ')">Remove</button>';
+
+  if (SC.page === "checklist" || SC.page === "journey") {
+    return '<tr><td><strong>' + esc(r.label) + '</strong>' +
+      '<br><span class="muted" style="font-size:.8125rem">ticked on paper</span></td>' +
+      '<td class="money">' + drop + '</td></tr>';
+  }
+  if (SC.page === "guests") {
+    return '<tr><td data-label="Name"><input value="' + esc(r.name || "") + '" ' + set("name") + '></td>' +
+      '<td data-label="Address"><input value="' + esc(r.address || "") + '" ' + set("address") + '></td>' +
+      '<td data-label="Replied"><label class="muted" style="font-size:.8125rem">' +
+        '<input type="checkbox"' + (r.rsvp ? " checked" : "") +
+        ' onchange="SC.rows[' + i + '].rsvp=this.checked" ' +
+        'style="width:18px;height:18px;accent-color:#4E5F4F;vertical-align:-3px"> replied yes</label></td>' +
+      '<td class="money">' + drop + '</td></tr>';
+  }
+  if (SC.page === "budget") {
+    return '<tr><td data-label="What"><input value="' + esc(r.description || "") + '" ' + set("description") + '></td>' +
+      '<td data-label="Budgeted"><input inputmode="decimal" value="' + esc(r.budgeted == null ? "" : r.budgeted) + '" ' + set("budgeted") + '></td>' +
+      '<td data-label="Spent"><input inputmode="decimal" value="' + esc(r.spent == null ? "" : r.spent) + '" ' + set("spent") + '></td>' +
+      '<td class="money">' + drop + '</td></tr>';
+  }
+  return '<tr><td data-label="Supplier"><input value="' + esc(r.name || "") + '" ' + set("name") + '></td>' +
+    '<td data-label="Contact"><input value="' + esc(r.contact || "") + '" ' + set("contact") + '></td>' +
+    '<td data-label="Arrives"><input placeholder="09:30" value="' + esc(r.arrival || "") + '" ' + set("arrival") + '></td>' +
+    '<td class="money">' + drop + '</td></tr>';
+}
+
+function scanDrop(i){ SC.rows.splice(i, 1); render(); }
+function scanReset(){ SC = { stage:"start", page:null, rows:[], unsure:[], note:"", busy:false, done:SC.done }; render(); }
+
+/* The photograph is scaled before it goes anywhere. A page needs detail to
+   be readable, but not a phone camera's full twelve megapixels — 1600px on
+   the long edge reads the same and uploads in a second. */
+async function scanShrink(file){
+  var bmp = await decodeForScan(file);
+  var edge = 1600;
+  var f = Math.min(1, edge / Math.max(bmp.width, bmp.height));
+  var c = document.createElement("canvas");
+  c.width = Math.round(bmp.width * f); c.height = Math.round(bmp.height * f);
+  c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
+  if (bmp.close) bmp.close();
+  return c.toDataURL("image/jpeg", 0.88);
+}
+
+function decodeForScan(file){
+  if (window.createImageBitmap) {
+    return createImageBitmap(file, { imageOrientation: "from-image" }).catch(viaImg);
+  }
+  return viaImg();
+  function viaImg(){
+    return new Promise(function(res, rej){
+      var url = URL.createObjectURL(file), img = new Image();
+      img.onload = function(){ URL.revokeObjectURL(url); res(img); };
+      img.onerror = function(){ URL.revokeObjectURL(url); rej(new Error("not an image")); };
+      img.src = url;
+    });
+  }
+}
+
+async function scanPage(file){
+  SC.stage = "busy"; render();
+  try {
+    var image = await scanShrink(file);
+    var out = await callFn("journal-scan", { token: S.token, image: image });
+    if (out.page === "unknown" || out.legible === false) {
+      SC.stage = "failed";
+      SC.note = out.note || "We could not tell which page that was.";
+      render();
+      return;
+    }
+    SC.page = out.page;
+    SC.rows = out.rows || [];
+    SC.unsure = out.unsure || [];
+    SC.note = out.note || "";
+    SC.stage = "review";
+    SC.done = null;
+    render();
+  } catch (e) {
+    SC.stage = "failed";
+    SC.note = e.message || "We could not read that page.";
+    render();
+  }
+}
+
+/* Only what is on the screen gets written, through the same endpoints the
+   app uses when somebody types it in by hand. */
+async function applyScan(){
+  var btn = $("scanSave");
+  if (btn) { btn.disabled = true; btn.textContent = "Saving…"; }
+  try {
+    var n = SC.rows.length, what = "";
+
+    if (SC.page === "guests") {
+      await api("guests.bulk", { rows: SC.rows.map(function(r){
+        var parts = String(r.name || "").trim().split(/\s+/);
+        return {
+          first_name: parts.shift() || "",
+          surname: parts.join(" "),
+          address: r.address || null,
+          rsvp: r.rsvp ? "attending" : "no_reply"
+        };
+      }) });
+      what = n + (n === 1 ? " guest" : " guests") + " added to your guest list";
+      S.guests = null;
+
+    } else if (SC.page === "budget") {
+      for (var i = 0; i < SC.rows.length; i++) {
+        var b = SC.rows[i];
+        await api("budget.save", {
+          description: b.description, category: "From your journal",
+          budgeted: Number(b.budgeted) || 0, spent: Number(b.spent) || 0
+        });
+      }
+      what = n + (n === 1 ? " cost" : " costs") + " added to your budget";
+
+    } else if (SC.page === "suppliers") {
+      for (var j = 0; j < SC.rows.length; j++) {
+        var s = SC.rows[j];
+        await api("suppliers.save", {
+          name: s.name, category: "Other",
+          phone: s.contact || null,
+          arrival_time: /^\d{1,2}:\d{2}$/.test(String(s.arrival || "")) ? s.arrival : null
+        });
+      }
+      what = n + (n === 1 ? " supplier" : " suppliers") + " added";
+
+    } else {
+      // Checklist and journey: the row already carries the key the app uses.
+      for (var k = 0; k < SC.rows.length; k++) {
+        var it = SC.rows[k];
+        await api("progress.toggle", {
+          kind: SC.page === "journey" ? "milestone" : "checklist",
+          item_key: it.key || it.label, done: true
+        });
+      }
+      what = n + (n === 1 ? " item" : " items") + " ticked off";
+      S.data = null;
+    }
+
+    SC = { stage:"start", page:null, rows:[], unsure:[], note:"",
+           busy:false, done: "Done — " + what + ". Photograph another page whenever you like." };
+    // Whatever changed, the next visit to that page should reload it.
+    if (S.data) { try { S.data = await api("dashboard"); } catch (e) {} }
+    render();
+    clearError();
+  } catch (e) {
+    showError(e.message);
+    if (btn) { btn.disabled = false; btn.textContent = "Try again"; }
+  }
+}
+
+function bindScan(){
+  var pick = $("scanPick");
+  if (!pick) return;
+  pick.addEventListener("change", function(){
+    if (pick.files && pick.files[0]) scanPage(pick.files[0]);
+    pick.value = "";
+  });
 }
 
 /* ============================ SUPPLIERS ============================ */
