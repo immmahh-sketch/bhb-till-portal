@@ -3042,6 +3042,53 @@ function securedBox(r, ro){
     '</select></div>';
 }
 
+/* Read a Guestline portal link and take the reference off it.
+
+   The same preview the Add a wedding page uses. Nothing is assumed from it
+   beyond the reference and, where the line is still blank, the names it
+   suggests — those come off the event title and are a guess to check, which
+   is why they land in boxes rather than being saved. */
+async function bonusLookup(id){
+  var r = bonusRow(id); if (!r) return;
+  var note = document.getElementById("btnote_" + id);
+  var btn = document.getElementById("btread_" + id);
+  var link = (r.guestline_link || "").trim();
+  if (!link) { if (note) note.innerHTML = "Paste the link first."; return; }
+
+  if (btn) { btn.disabled = true; btn.textContent = "Reading\u2026"; }
+  if (note) note.innerHTML = '<span class="muted">Asking Guestline\u2026</span>';
+  try {
+    var out = await call("preview", { link: link });
+    var ev = (out && out.event) || {};
+    var ref = out.alreadyExists ? out.alreadyExists.event_id : ev.eventId;
+    if (!ref) throw new Error("That link came back without a booking reference on it.");
+
+    var held = BT.rows.filter(function(x){ return x.id !== id && x.event_ref === ref; })[0];
+    if (held) {
+      if (note) {
+        note.innerHTML = '<span style="color:var(--alert)">' + esc(ref) +
+          ' is already on ' + esc(held.booking_name || "another booking") +
+          '. One of the two has the wrong link.</span>';
+      }
+      if (btn) { btn.disabled = false; btn.textContent = "Read the link"; }
+      return;
+    }
+
+    var save = { pass: BT.pass, id: r.id, event_ref: ref, guestline_link: link };
+    if (!r.partner1_name && out.suggestedNames) save.partner1_name = out.suggestedNames.partner1;
+    if (!r.partner2_name && out.suggestedNames) save.partner2_name = out.suggestedNames.partner2;
+    if (!r.event_date && ev.startDate) save.event_date = String(ev.startDate).slice(0, 10);
+    await call("bonus.save", save);
+    await loadBonus();
+    BT.open = id;
+    $("views").innerHTML = viewBonus();
+    clearErr();
+  } catch (e) {
+    if (note) note.innerHTML = '<span style="color:var(--alert)">' + esc(e.message) + '</span>';
+    if (btn) { btn.disabled = false; btn.textContent = "Read the link"; }
+  }
+}
+
 /* What this booking pays, and how that number was arrived at.
 
    Shown rather than typed. The bonus follows the revenue, so a revenue
@@ -3144,9 +3191,23 @@ function bonusDetail(r, added, wedding){
       (app.wedding_date ? ', ' + esc(ukDate(app.wedding_date)) : '') + '. ' +
       '<button class="linkish" onclick="open_(\'' + esc(app.id) + '\')">Open it</button></p>';
   } else if (wedding && !r.event_ref) {
-    h += '<p class="muted" style="margin:0 0 14px;font-size:.875rem">' +
-      'Without a booking reference there is no way to tell whether this one is ' +
-      'already in the app, so it is not offered. Put the reference on and it will say.</p>';
+    /* No reference, so nothing can be checked and nothing offered. The
+       reference is in Guestline and Guestline will not be asked for it by
+       name — its API authenticates one event at a time, with the token in
+       that event's own portal link. So: paste the link, and it tells us. */
+    h += '<p class="muted" style="margin:0 0 12px;font-size:.875rem">' +
+      'This one has no booking reference, so there is no way to tell whether it is ' +
+      'already in the app. Paste its Guestline event link and press ' +
+      '<strong>Read the link</strong> &mdash; the reference comes back with it.</p>' +
+      '<div class="field"><span class="label">Guestline event link</span>' +
+        '<input id="btlook_' + esc(r.id) + '" value="' + esc(r.guestline_link || "") + '"' +
+        (ro ? " disabled" : "") + ' placeholder="https://event.eu.guestline.app/\u2026" ' +
+        'oninput="bonusSet(\'' + esc(r.id) + '\',\'guestline_link\',this.value)"></div>' +
+      (ro ? '' :
+        '<button class="btn btn--sm btn--primary" id="btread_' + esc(r.id) + '" ' +
+          'onclick="bonusLookup(\'' + esc(r.id) + '\')">Read the link</button>') +
+      '<p class="muted" id="btnote_' + esc(r.id) + '" ' +
+        'style="margin:10px 0 14px;font-size:.8125rem"></p>';
   } else if (wedding) {
     h += '<p class="muted" style="margin:0 0 14px;font-size:.875rem">' +
       'What this booking still needs before it can go into the wedding app. The portal ' +
