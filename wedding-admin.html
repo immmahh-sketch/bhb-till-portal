@@ -740,14 +740,23 @@ function viewOverview(){
   var peak = Math.max(1, Math.max.apply(null, years.map(function(y){ return y.weddings; })));
 
   var h = '<div class="split" style="margin-bottom:6px"><h1>Overview</h1>' +
-    '<span class="label">' + f.totalRegistered + ' wedding' + (f.totalRegistered===1?"":"s") + ' in the app</span></div>' +
+    '<span class="label">' + f.onTheBooks + ' still to come</span></div>' +
     '<p class="muted" style="margin:0 0 20px">' +
-    'Everything below counts couples registered in this app, with numbers read live from Guestline. ' +
+    'What is left on the books: weddings still ahead of us, counting couples registered ' +
+    'in this app, with numbers read live from Guestline. ' +
+    (f.alreadyHeld
+      ? f.alreadyHeld + ' already held ' + (f.alreadyHeld === 1 ? 'is' : 'are') +
+        ' left out of every figure below. '
+      : '') +
     'A wedding in the diary but not yet set up here won\'t appear.</p>';
 
-  if (!f.totalRegistered) {
-    h += '<div class="card empty">No weddings registered yet.<br><br>' +
-      '<button class="btn btn--primary" onclick="goto(\'add\')">Add the first</button></div>';
+  if (!f.onTheBooks) {
+    h += '<div class="card empty">' +
+      (f.alreadyHeld
+        ? 'Nothing left on the books. ' + f.alreadyHeld + ' wedding' +
+          (f.alreadyHeld === 1 ? ' has' : 's have') + ' been held.'
+        : 'No weddings registered yet.') + '<br><br>' +
+      '<button class="btn btn--primary" onclick="goto(\'add\')">Add one</button></div>';
     return h;
   }
 
@@ -757,9 +766,9 @@ function viewOverview(){
   var value5 = years.reduce(function(s,y){ return s + y.value; }, 0);
 
   h += '<div class="stat" style="margin-bottom:18px">' +
-    '<div><span class="label">Weddings, next 5 years</span><div class="v">' + total5 + '</div></div>' +
-    '<div><span class="label">Guests</span><div class="v">' + guests5.toLocaleString("en-GB") + '</div></div>' +
-    '<div><span class="label">Value</span><div class="v">' + money(value5) + '</div></div>' +
+    '<div><span class="label">Still to come, next 5 years</span><div class="v">' + total5 + '</div></div>' +
+    '<div><span class="label">Guests to come</span><div class="v">' + guests5.toLocaleString("en-GB") + '</div></div>' +
+    '<div><span class="label">Value to come</span><div class="v">' + money(value5) + '</div></div>' +
     '<div><span class="label">Avg. guests</span><div class="v">' +
       (total5 ? Math.round(guests5/total5) : 0) + '</div></div>' +
   '</div>';
@@ -787,24 +796,31 @@ function viewOverview(){
   /* ---- month grid: where the gaps are ---- */
   h += '<div class="card"><h2 style="margin-bottom:6px">By month</h2>' +
     '<p class="muted" style="margin:0 0 14px;font-size:.875rem">' +
-    'Weddings per month. Blank months are the ones worth selling into.</p>' +
+    'Weddings per month, from this month on. Blank months are the ones worth selling ' +
+    'into; a dash is a month already gone.</p>' +
     '<table><thead><tr><th>Year</th>' +
     MONTHS.map(function(m){ return '<th class="money">' + m + '</th>'; }).join("") +
     '<th class="money">Total</th></tr></thead><tbody>';
   years.forEach(function(y){
     h += '<tr><td><strong>' + y.year + '</strong></td>' +
       y.months.map(function(m){
+        /* Past months hold no weddings here, because the figures are
+           forward only. Left as a blank they would read as a gap to sell
+           into. This month counts as gone: nobody is booking a wedding into
+           the month they are standing in, and a month with weddings left in
+           it shows the number rather than either mark. */
+        var gone = (y.year + "-" + String(m.month).padStart(2, "0")) <= (f.today || "").slice(0, 7);
         return '<td class="money num' + (m.weddings ? '' : ' muted') + '"' +
           (m.weddings ? ' style="background:var(--sage-10);font-weight:600"' : '') + '>' +
-          (m.weddings || "·") + '</td>';
+          (m.weddings || (gone ? '<span style="opacity:.45">&mdash;</span>' : "·")) + '</td>';
       }).join("") +
       '<td class="money num"><strong>' + (y.weddings || "·") + '</strong></td></tr>';
   });
   h += '</tbody></table></div>';
 
   /* ---- what's next ---- */
-  var todayIso = new Intl.DateTimeFormat("en-CA",{timeZone:"Europe/London"}).format(new Date());
-  var upcoming = f.weddings.filter(function(x){ return x.wedding_date >= todayIso; }).slice(0, 8);
+  // The whole forward book is upcoming now, so this is simply the front of it.
+  var upcoming = f.weddings.slice(0, 8);
   if (upcoming.length) {
     h += '<div class="card"><h2 style="margin-bottom:12px">Coming up</h2>' +
       '<table><thead><tr><th>Couple</th><th>Date</th>' +
