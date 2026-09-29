@@ -257,6 +257,9 @@ details summary::-webkit-details-marker{color:var(--sage-70)}
 .tw{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
 
 /* ---- bonus tracker ---- */
+.btmonth{max-width:190px}
+.bttotal td{border-top:1px solid var(--sage);padding-top:11px}
+.bttotal td:first-child{font-size:.6875rem;letter-spacing:.14em;text-transform:uppercase}
 .btfilters{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px 14px;margin:0 0 16px}
 .btfilters label{display:block}
 .btfilters .label{display:block;margin-bottom:4px}
@@ -2225,7 +2228,7 @@ function viewBulk(){
    ===================================================================== */
 
 var BT = { level:null, pass:"", rows:[], inApp:[], open:null,
-           query:"", type:"", from:"", to:"" };
+           query:"", type:"", from:"", to:"", month:"" };
 
 /* Who is on the bonus scheme.
 
@@ -2240,7 +2243,39 @@ var BT = { level:null, pass:"", rows:[], inApp:[], open:null,
    It is left in the database untouched and simply never shown, rather than
    quietly deleted out of somebody's own records. */
 var BONUS_NOT_TEAM = ["Paul Riley"];
+
+/* The co-ordinators the scheme pays. Typing a name into a box is how
+   "Rebecca Thraves" and "Rebecca thraves" end up as two people on a report,
+   so a booking is put against somebody from this list instead. */
+var BONUS_TEAM = ["Katie Oliver", "Rebecca Thraves", "Rebecca Airey", "Calli Hogarth"];
+
+/* Everyone who can be put against a booking, split into those the bonus is
+   paid to and those it is not.
+
+   The list is not only BONUS_TEAM: anybody already named on the tracker is
+   offered too, so a name that predates this list — somebody who has since
+   left — is not quietly wiped off a booking the first time it is opened. The
+   row's own current value is always in there for the same reason. */
+function bonusWhoOptions(current){
+  var names = BONUS_TEAM.concat(BONUS_NOT_TEAM);
+  BT.rows.forEach(function(r){
+    if (r.showround_by) names.push(r.showround_by);
+    if (r.secured_by) names.push(r.secured_by);
+  });
+  if (current) names.push(current);
+  names = names.filter(function(n, i, a){ return a.indexOf(n) === i; }).sort();
+  return { paid: names.filter(coordinator), unpaid: names.filter(function(n){ return !coordinator(n); }) };
+}
 function coordinator(name){ return !!name && BONUS_NOT_TEAM.indexOf(name) < 0; }
+
+/* A dry hire is a wedding as far as this app is concerned: a couple hires the
+   place for their day and brings their own caterer. They want a countdown, a
+   guest list and a table plan the same as anybody else, so they are counted
+   with the weddings and offered the same button. */
+function isWedding(type){
+  var t = String(type || "").trim().toLowerCase();
+  return t === "wedding" || t.replace(/[^a-z]/g, "") === "dryhire";
+}
 
 /** A bonus figure, but only where there is somebody it is actually paid to. */
 function bonusPaid(name, amount){
@@ -2285,6 +2320,10 @@ function bonusLock(){
 
 function bonusSearch(v){ BT.query = v; $("views").innerHTML = viewBonus(); keepCaret("btSearch"); }
 function bonusFilter(field, v){ BT[field] = v; BT.open = null; $("views").innerHTML = viewBonus(); }
+/* The month picker sits over the by-person table only. It does not touch the
+   list below it: somebody checking what a co-ordinator earned in July has no
+   reason to lose the booking they were looking at. */
+function bonusMonth(v){ BT.month = v; $("views").innerHTML = viewBonus(); }
 function bonusClearFilters(){
   BT.query = ""; BT.type = ""; BT.from = ""; BT.to = ""; BT.open = null;
   $("views").innerHTML = viewBonus();
@@ -2330,6 +2369,14 @@ function bonusOpen(id){ BT.open = (BT.open === id) ? null : id; $("views").inner
 function bonusRow(id){ return BT.rows.filter(function(r){ return r.id === id; })[0]; }
 function bonusSet(id, field, value){ var r = bonusRow(id); if (r) r[field] = value; }
 
+/* Who did it decides whether there is a bonus box at all, so the panel is
+   redrawn. Everything typed into it is already in BT.rows, so nothing typed
+   is lost by the redraw. */
+function bonusSetWho(id, field, value){
+  bonusSet(id, field, value);
+  $("views").innerHTML = viewBonus();
+}
+
 /* Money typed by a person, read by a database. "£12,500" and "12500.00" and
    a stray space all mean the same thing, and an empty box means nothing
    rather than zero. */
@@ -2371,6 +2418,54 @@ async function bonusSave(id){
     showErr(e.message);
     if (btn) { btn.disabled = false; btn.textContent = "Save"; }
   }
+}
+
+/* A new line on the tracker.
+
+   Made on the server first so it comes back with an id, then opened with the
+   cursor in it. Dated today and called a wedding because that is what four
+   out of five of them are — both are the first things on the form, and
+   neither is a guess anybody has to live with. */
+async function bonusAdd(){
+  var btn = $("btAdd");
+  if (btn) { btn.disabled = true; btn.textContent = "Adding\u2026"; }
+  try {
+    var today = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/London" }).format(new Date());
+    var out = await call("bonus.save", {
+      pass: BT.pass, booking_month: today, event_type: "Wedding",
+      booking_name: "New booking"
+    });
+    clearErr();
+    // Cleared, so the new line is not hidden behind a filter the moment it
+    // is made — which is exactly what would happen on any narrowed view.
+    BT.query = ""; BT.type = ""; BT.from = ""; BT.to = "";
+    await loadBonus();
+    if (out && out.row) {
+      BT.open = out.row.id;
+      $("views").innerHTML = viewBonus();
+      var el = document.querySelector(".btdetail");
+      if (el) el.scrollIntoView({ block: "center" });
+    }
+  } catch (e) {
+    showErr(e.message);
+    if (btn) { btn.disabled = false; btn.textContent = "Add a booking"; }
+  }
+}
+
+/* Taking one off. Typing the name is deliberately more work than clicking
+   yes, because there is nothing behind this to undo it with. */
+async function bonusDelete(id){
+  var r = bonusRow(id); if (!r) return;
+  var name = r.booking_name || r.event_ref || "this booking";
+  if (prompt('Remove "' + name + '" from the bonus tracker?\n\n' +
+             'This only takes it off the tracker. A wedding already in the app ' +
+             'is not touched.\n\nType REMOVE to confirm.') !== "REMOVE") return;
+  try {
+    await call("bonus.delete", { pass: BT.pass, id: id });
+    BT.open = null;
+    clearErr();
+    await loadBonus();
+  } catch (e) { showErr(e.message); }
 }
 
 /* Turning a line of the tracker into a wedding, through exactly the same
@@ -2416,35 +2511,55 @@ async function bonusToApp(id){
 }
 
 /* ---------- what the tracker adds up to ---------- */
-function bonusStats(){
-  var byMonth = {}, secured = {}, shown = {}, earned = {};
+/* Who did what, over whichever bookings are handed in.
 
-  BT.rows.forEach(function(r){
+   Every booking is counted against whoever took it. What is not counted is
+   money to anybody off the scheme — the bookings are the venue's, the bonus
+   is only for the people it is paid to. */
+function bonusTally(rows){
+  var secured = {}, shown = {}, earned = {};
+  rows.forEach(function(r){
     var who = r.secured_by || "Not recorded";
-    if (coordinator(who) || !r.secured_by) {
-      var m = String(r.booking_month || "").slice(0, 7);
-      if (/^\d{4}-\d{2}$/.test(m)) {
-        byMonth[m] = byMonth[m] || {};
-        byMonth[m][who] = (byMonth[m][who] || 0) + 1;
-      }
-      secured[who] = (secured[who] || 0) + 1;
-        earned[who] = (earned[who] || 0) + (bonusPaid(who, r.booking_bonus) || 0);
-    }
-    if (coordinator(r.showround_by)) {
+    secured[who] = (secured[who] || 0) + 1;
+    earned[who] = (earned[who] || 0) + (bonusPaid(who, r.booking_bonus) || 0);
+    if (r.showround_by) {
       shown[r.showround_by] = (shown[r.showround_by] || 0) + 1;
       earned[r.showround_by] = (earned[r.showround_by] || 0) +
         (bonusPaid(r.showround_by, r.showround_bonus) || 0);
-    } else if (!r.showround_by && Number(r.showround_bonus)) {
+    } else if (Number(r.showround_bonus)) {
       // A show-round bonus with nobody's name against it. The money is real
       // and has to appear somewhere; the show-round itself is not counted,
       // because a blank name may well mean there never was one.
       earned["Not recorded"] = (earned["Not recorded"] || 0) + Number(r.showround_bonus);
     }
   });
+  return { secured: secured, shown: shown, earned: earned };
+}
 
-  var weddings = BT.rows.filter(function(r){
-    return String(r.event_type || "").toLowerCase() === "wedding";
+/** The month a booking was secured, or "" if it has no date on it yet. */
+function bonusMonthOf(r){
+  var m = String(r.booking_month || "").slice(0, 7);
+  return /^\d{4}-\d{2}$/.test(m) ? m : "";
+}
+
+function monthName(m){
+  return (MONTHS[+m.slice(5, 7) - 1] || "") + " " + m.slice(0, 4);
+}
+
+function bonusStats(){
+  var byMonth = {};
+  BT.rows.forEach(function(r){
+    var m = bonusMonthOf(r);
+    if (!m) return;
+    byMonth[m] = byMonth[m] || {};
+    var who = r.secured_by || "Not recorded";
+    byMonth[m][who] = (byMonth[m][who] || 0) + 1;
   });
+
+  var all = bonusTally(BT.rows);
+  var secured = all.secured, shown = all.shown, earned = all.earned;
+
+  var weddings = BT.rows.filter(function(r){ return isWedding(r.event_type); });
 
   return {
     total: BT.rows.length,
@@ -2509,7 +2624,7 @@ function bonusMonthChart(st){
   });
   svg += '</svg>';
 
-  return '<div class="card"><h2 style="margin-bottom:4px">Bookings the co-ordinators took</h2>' +
+  return '<div class="card"><h2 style="margin-bottom:4px">Bookings taken each month</h2>' +
     '<p class="muted" style="margin:0 0 14px;font-size:.875rem">' +
     'By the month the booking came in, not the month of the event, and coloured by who ' +
     'secured it.</p>' +
@@ -2524,13 +2639,54 @@ function bonusMonthChart(st){
    two different bonuses, so they get two columns rather than one total that
    hides which is which. */
 function bonusPeopleChart(st){
+  if (!BT.rows.length) return "";
+  /* Whichever month is picked, or the lot. The picker's own options come from
+     the whole tracker, so choosing a quiet month never empties the list you
+     would use to get back out of it. */
+  var rows = BT.month
+    ? BT.rows.filter(function(r){ return bonusMonthOf(r) === BT.month; })
+    : BT.rows;
+  var tally = BT.month ? bonusTally(rows) : st;
+
+  var picker = '<select class="btmonth" onchange="bonusMonth(this.value)">' +
+    '<option value=""' + (BT.month ? "" : " selected") + '>Every month</option>' +
+    st.months.slice().reverse().map(function(m){
+      return '<option value="' + esc(m) + '"' + (BT.month === m ? " selected" : "") + '>' +
+        esc(monthName(m)) + '</option>';
+    }).join("") + '</select>';
+
+  var total = Object.keys(tally.earned).reduce(function(a, k){ return a + tally.earned[k]; }, 0);
+
+  return bonusPeopleTable(tally, picker, total, rows.length);
+}
+
+function bonusPeopleTable(st, picker, total, bookings){
   var people = Object.keys(st.secured).concat(Object.keys(st.shown), Object.keys(st.earned))
     .filter(function(p, i, a){ return a.indexOf(p) === i; })
-    .sort(function(a, b){ return (st.earned[b] || 0) - (st.earned[a] || 0); });
-  if (!people.length) return "";
+    // By the work, not the money: the bonus column is now blank for anybody
+    // off the scheme, and sorting on it buried them under people who took no
+    // bookings at all.
+    .sort(function(a, b){
+      return (st.secured[b] || 0) - (st.secured[a] || 0) ||
+             (st.shown[b] || 0) - (st.shown[a] || 0) ||
+             (st.earned[b] || 0) - (st.earned[a] || 0);
+    });
+
+  var head = '<div class="card">' +
+    '<div class="split" style="margin-bottom:14px"><h2>By person</h2>' + picker + '</div>' +
+    (BT.month
+      ? '<p class="muted" style="margin:-4px 0 14px;font-size:.8125rem">' +
+        'Bookings secured in ' + esc(monthName(BT.month)) + ', and the bonus on them. ' +
+        (bookings ? bookings + ' booking' + (bookings === 1 ? "" : "s") + ' that month.'
+                  : 'Nothing was booked that month.') + '</p>'
+      : "");
+
+  // Only reachable if a month somehow holds no bookings, which the picker
+  // does not offer. Cheaper than a crash out of Math.max on an empty list.
+  if (!people.length) return head + '</div>';
   var most = Math.max.apply(null, people.map(function(p){ return st.secured[p] || 0; })) || 1;
 
-  return '<div class="card"><h2 style="margin-bottom:14px">By co-ordinator</h2>' +
+  return head +
     '<table><thead><tr><th>Who</th><th>Bookings secured</th>' +
     '<th class="num">Show-rounds</th><th class="money">Bonus earned</th></tr></thead><tbody>' +
     people.map(function(p){
@@ -2539,8 +2695,16 @@ function bonusPeopleChart(st){
         '<td><span class="btbar"><i style="width:' + Math.round(n / most * 100) + '%"></i></span>' +
           '<span class="num">' + n + '</span></td>' +
         '<td class="num">' + (st.shown[p] || 0) + '</td>' +
-        '<td class="money num">' + money(st.earned[p] || 0) + '</td></tr>';
-    }).join("") + '</tbody></table></div>';
+        '<td class="money num">' +
+          (coordinator(p)
+            ? money(st.earned[p] || 0)
+            : '<span class="muted">&mdash;</span>') + '</td></tr>';
+    }).join("") +
+    '<tr class="bttotal"><td><strong>Total</strong></td>' +
+      '<td class="num">' + people.reduce(function(a, p){ return a + (st.secured[p] || 0); }, 0) + '</td>' +
+      '<td class="num">' + people.reduce(function(a, p){ return a + (st.shown[p] || 0); }, 0) + '</td>' +
+      '<td class="money num"><strong>' + money(total) + '</strong></td></tr>' +
+    '</tbody></table></div>';
 }
 
 /* ---------- the page ---------- */
@@ -2571,10 +2735,10 @@ function viewBonus(){
       '</span><span class="ul">' + label + '</span></div>';
   };
   h += '<div class="ufilters">' +
-    tile(st.weddings, "Weddings booked") +
+    tile(st.weddings, "Weddings and dry hires") +
     tile(st.onApp + " of " + st.weddings, "In the wedding app") +
     tile(money(st.revenue).replace(/\.00$/, ""), "Revenue booked") +
-    tile(money(st.bonus).replace(/\.00$/, ""), "Co-ordinator bonus") +
+    tile(money(st.bonus).replace(/\.00$/, ""), "Bonus earned") +
   '</div>';
 
   h += bonusMonthChart(st) + bonusPeopleChart(st);
@@ -2594,11 +2758,17 @@ function viewBonus(){
       '</div>';
   }
 
-  if (bonusFiltersOn()) {
-    h += '<p class="muted" style="margin:0 0 12px;font-size:.8125rem">Showing ' +
-      rows.length + ' of ' + BT.rows.length + '. ' +
-      '<button class="linkish" onclick="bonusClearFilters()">Show them all</button></p>';
-  }
+  h += '<div class="split" style="margin:0 0 12px">' +
+    '<span class="muted" style="font-size:.8125rem">' +
+      (bonusFiltersOn()
+        ? 'Showing ' + rows.length + ' of ' + BT.rows.length + '. ' +
+          '<button class="linkish" onclick="bonusClearFilters()">Show them all</button>'
+        : rows.length + ' booking' + (rows.length === 1 ? "" : "s")) + '</span>' +
+    (BT.level === "edit"
+      ? '<button class="btn btn--sm btn--primary" id="btAdd" onclick="bonusAdd()">' +
+        'Add a booking</button>'
+      : '') +
+  '</div>';
 
   h += '<div class="card card--flush"><table><thead><tr>' +
     '<th>Booking</th><th>Secured</th><th>Event</th><th class="money">Revenue</th>' +
@@ -2607,7 +2777,7 @@ function viewBonus(){
 
   rows.forEach(function(r){
     var added = !!(r.event_ref && BT.inApp.indexOf(r.event_ref) >= 0);
-    var wedding = String(r.event_type || "").toLowerCase() === "wedding";
+    var wedding = isWedding(r.event_type);
     h += '<tr class="urow' + (BT.open === r.id ? " btopen" : "") +
         '" onclick="bonusOpen(\'' + esc(r.id) + '\')">' +
       '<td data-label="Booking"><strong>' + esc(r.booking_name || "—") + '</strong>' +
@@ -2700,6 +2870,25 @@ function bonusDetail(r, added, wedding){
       (attrs || "") + ' oninput="bonusSet(\'' + esc(r.id) + '\',\'' + field + '\',this.value)"></div>';
   };
 
+  var who = function(label, field){
+    var now = r[field] || "";
+    var opts = bonusWhoOptions(now);
+    var group = function(title, names){
+      return names.length
+        ? '<optgroup label="' + title + '">' + names.map(function(n){
+            return '<option' + (n === now ? " selected" : "") + '>' + esc(n) + '</option>';
+          }).join("") + '</optgroup>'
+        : "";
+    };
+    return '<div class="field"><span class="label">' + label + '</span>' +
+      '<select' + (ro ? " disabled" : "") +
+        ' onchange="bonusSetWho(\'' + esc(r.id) + '\',\'' + field + '\',this.value)">' +
+        '<option value=""' + (now ? "" : " selected") + '>Nobody recorded</option>' +
+        group("Gets a bonus", opts.paid) +
+        group("No bonus", opts.unpaid) +
+      '</select></div>';
+  };
+
   var h = '<tr class="btdetail"><td colspan="7"><div class="btpanel" onclick="event.stopPropagation()">';
 
   if (added) {
@@ -2725,17 +2914,21 @@ function bonusDetail(r, added, wedding){
     '<div class="row">' + box("Event type", "event_type") + box("Revenue", "revenue") + '</div>' +
     // The bonus box only appears where there is somebody on the scheme to pay
     // it to. On a line the GM worked there is no bonus, so there is no box.
-    '<div class="row">' + box("Show-round by", "showround_by") +
+    '<div class="row">' + who("Show-round by", "showround_by") +
       (coordinator(r.showround_by) || !r.showround_by ? box("Show-round bonus", "showround_bonus") : "") +
       '</div>' +
-    '<div class="row">' + box("Secured by", "secured_by") +
+    '<div class="row">' + who("Secured by", "secured_by") +
       (coordinator(r.secured_by) || !r.secured_by ? box("Booking bonus", "booking_bonus") : "") +
       '</div>' +
     box("Notes", "notes");
 
   if (!ro) {
-    h += '<button class="btn btn--primary btn--sm" id="btsave_' + esc(r.id) + '" ' +
-      'onclick="bonusSave(\'' + esc(r.id) + '\')">Save</button>';
+    h += '<div class="split">' +
+      '<button class="btn btn--primary btn--sm" id="btsave_' + esc(r.id) + '" ' +
+        'onclick="bonusSave(\'' + esc(r.id) + '\')">Save</button>' +
+      '<button class="btn btn--sm btn--danger" ' +
+        'onclick="bonusDelete(\'' + esc(r.id) + '\')">Remove from tracker</button>' +
+    '</div>';
   }
 
   return h + '</div></td></tr>';
