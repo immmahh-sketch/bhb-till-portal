@@ -257,6 +257,13 @@ details summary::-webkit-details-marker{color:var(--sage-70)}
 .tw{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
 
 /* ---- bonus tracker ---- */
+/* A tick box that reads as one thing, not a stray square next to some text. */
+.tick{display:inline-flex;align-items:center;gap:9px;margin:0 0 18px;cursor:pointer;
+  font-size:.8125rem;color:var(--sage-70);border:1px solid var(--mist);background:var(--white);
+  padding:9px 14px}
+.tick:hover{border-color:var(--celadon);color:var(--sage)}
+.tick input{width:15px;height:15px;accent-color:var(--sage);cursor:pointer;margin:0}
+
 .btmonth{max-width:190px}
 .btscope{display:flex;flex-wrap:wrap;gap:0;margin:0 0 16px;border:1px solid var(--mist);
   background:var(--white);width:fit-content;max-width:100%}
@@ -708,6 +715,16 @@ function wrapTable(t){
     adaptTables(views);
     observer.observe(views, { childList: true, subtree: true });
   });
+
+  /* Widths change without the page changing: a window dragged narrower, a
+     phone turned on its side. Nothing re-measured then, so a table that
+     fitted when it was drawn stayed unwrapped and took the page sideways
+     with it. Debounced, because a drag fires this a hundred times. */
+  var settle = null;
+  window.addEventListener("resize", function(){
+    clearTimeout(settle);
+    settle = setTimeout(function(){ if (views) adaptTables(views); }, 150);
+  });
 })();
 
 function render(){
@@ -756,23 +773,90 @@ async function loadForecast(){
   } catch (e) { if (!stillWanted(want, cur)) return; showErr(e.message); $("views").innerHTML = ""; }
 }
 
+/* The five-year grid, over whichever weddings are being counted.
+
+   Built here rather than on the server because the answer depends on a tick
+   box, and asking Guestline again to change a filter would take fifteen
+   seconds to tell us something already in hand. */
+function forecastYears(f, withHeld){
+  var rows = withHeld ? f.weddings
+    : f.weddings.filter(function(w){ return w.wedding_date >= f.today; });
+  var thisYear = Number(f.today.slice(0, 4));
+
+  /* Forward, the window starts today. Backwards, it starts at the earliest
+     wedding there is: a five-year window hiding a year of held weddings
+     would be a worse answer than the one it replaced. */
+  var first = thisYear;
+  if (withHeld) {
+    rows.forEach(function(w){
+      var y = Number(String(w.wedding_date).slice(0, 4));
+      if (y && y < first) first = y;
+    });
+  }
+  var last = thisYear + 4;
+
+  var years = [];
+  for (var y = first; y <= last; y++) {
+    (function(year){
+      var inYear = rows.filter(function(d){ return d.wedding_date.slice(0, 4) === String(year); });
+      years.push({
+        year: year,
+        weddings: inYear.length,
+        guests: inYear.reduce(function(s, d){ return s + (d.guests || 0); }, 0),
+        guestsDay: inYear.reduce(function(s, d){ return s + (d.guestsDay || 0); }, 0),
+        guestsEvening: inYear.reduce(function(s, d){ return s + (d.guestsEvening || 0); }, 0),
+        value: Math.round(inYear.reduce(function(s, d){ return s + (d.value || 0); }, 0) * 100) / 100,
+        months: Array.from({ length: 12 }, function(_, m){
+          var mm = String(m + 1).padStart(2, "0");
+          var inMonth = inYear.filter(function(d){ return d.wedding_date.slice(5, 7) === mm; });
+          return {
+            month: m + 1,
+            weddings: inMonth.length,
+            guests: inMonth.reduce(function(s, d){ return s + (d.guests || 0); }, 0),
+          };
+        }),
+      });
+    })(y);
+  }
+  return {
+    years: years, rows: rows, last: last,
+    // Anything booked beyond the window still exists — say so rather than
+    // letting the five-year total quietly disagree with reality.
+    beyond: rows.filter(function(d){ return Number(d.wedding_date.slice(0, 4)) > last; }).length,
+  };
+}
+
+function toggleHeld(on){ S.showHeld = !!on; $("views").innerHTML = viewOverview(); }
+
 function viewOverview(){
   var f = S.forecast;
-  var years = f.years;
+  var held = !!S.showHeld;
+  var fc = forecastYears(f, held);
+  var years = fc.years;
   var peak = Math.max(1, Math.max.apply(null, years.map(function(y){ return y.weddings; })));
 
   var h = '<div class="split" style="margin-bottom:6px"><h1>Overview</h1>' +
-    '<span class="label">' + f.onTheBooks + ' still to come</span></div>' +
-    '<p class="muted" style="margin:0 0 20px">' +
-    'What is left on the books: weddings still ahead of us, counting couples registered ' +
-    'in this app, with numbers read live from Guestline. ' +
-    (f.alreadyHeld
-      ? f.alreadyHeld + ' already held ' + (f.alreadyHeld === 1 ? 'is' : 'are') +
-        ' left out of every figure below. '
-      : '') +
+    '<span class="label">' + (held ? f.totalRegistered + ' in the app'
+                                   : f.onTheBooks + ' still to come') + '</span></div>' +
+    '<p class="muted" style="margin:0 0 10px">' +
+    (held
+      ? 'Every wedding in the app, held and still to come, with numbers read live from ' +
+        'Guestline. '
+      : 'What is left on the books: weddings still ahead of us, counting couples registered ' +
+        'in this app, with numbers read live from Guestline. ' +
+        (f.alreadyHeld
+          ? f.alreadyHeld + ' already held ' + (f.alreadyHeld === 1 ? 'is' : 'are') +
+            ' left out of every figure below. '
+          : '')) +
     'A wedding in the diary but not yet set up here won\'t appear.</p>';
 
-  if (!f.onTheBooks) {
+  if (f.alreadyHeld) {
+    h += '<label class="tick"><input type="checkbox"' + (held ? " checked" : "") +
+      ' onchange="toggleHeld(this.checked)"> Include the ' + f.alreadyHeld +
+      ' wedding' + (f.alreadyHeld === 1 ? '' : 's') + ' already held</label>';
+  }
+
+  if (!f.onTheBooks && !held) {
     h += '<div class="card empty">' +
       (f.alreadyHeld
         ? 'Nothing left on the books. ' + f.alreadyHeld + ' wedding' +
@@ -788,15 +872,18 @@ function viewOverview(){
   var value5 = years.reduce(function(s,y){ return s + y.value; }, 0);
 
   h += '<div class="stat" style="margin-bottom:18px">' +
-    '<div><span class="label">Still to come, next 5 years</span><div class="v">' + total5 + '</div></div>' +
-    '<div><span class="label">Guests to come</span><div class="v">' + guests5.toLocaleString("en-GB") + '</div></div>' +
-    '<div><span class="label">Value to come</span><div class="v">' + money(value5) + '</div></div>' +
+    '<div><span class="label">' + (held ? "Weddings" : "Still to come, next 5 years") +
+      '</span><div class="v">' + total5 + '</div></div>' +
+    '<div><span class="label">' + (held ? "Guests" : "Guests to come") +
+      '</span><div class="v">' + guests5.toLocaleString("en-GB") + '</div></div>' +
+    '<div><span class="label">' + (held ? "Value" : "Value to come") +
+      '</span><div class="v">' + money(value5) + '</div></div>' +
     '<div><span class="label">Avg. guests</span><div class="v">' +
       (total5 ? Math.round(guests5/total5) : 0) + '</div></div>' +
   '</div>';
 
-  if (f.beyond) {
-    h += '<div class="notice notice--ok">' + f.beyond + ' further wedding' + (f.beyond===1?" is":"s are") +
+  if (fc.beyond) {
+    h += '<div class="notice notice--ok">' + fc.beyond + ' further wedding' + (fc.beyond===1?" is":"s are") +
       ' booked beyond ' + years[years.length-1].year + ', so they sit outside the five years above.</div>';
   }
 
@@ -818,8 +905,11 @@ function viewOverview(){
   /* ---- month grid: where the gaps are ---- */
   h += '<div class="card"><h2 style="margin-bottom:6px">By month</h2>' +
     '<p class="muted" style="margin:0 0 14px;font-size:.875rem">' +
-    'Weddings per month, from this month on. Blank months are the ones worth selling ' +
-    'into; a dash is a month already gone.</p>' +
+    (held
+      ? 'Weddings per month, held and still to come. Blank months are the ones that went ' +
+        'unsold.</p>'
+      : 'Weddings per month, from this month on. Blank months are the ones worth selling ' +
+        'into; a dash is a month already gone.</p>') +
     '<table><thead><tr><th>Year</th>' +
     MONTHS.map(function(m){ return '<th class="money">' + m + '</th>'; }).join("") +
     '<th class="money">Total</th></tr></thead><tbody>';
@@ -831,7 +921,8 @@ function viewOverview(){
            into. This month counts as gone: nobody is booking a wedding into
            the month they are standing in, and a month with weddings left in
            it shows the number rather than either mark. */
-        var gone = (y.year + "-" + String(m.month).padStart(2, "0")) <= (f.today || "").slice(0, 7);
+        var gone = !held &&
+          (y.year + "-" + String(m.month).padStart(2, "0")) <= (f.today || "").slice(0, 7);
         return '<td class="money num' + (m.weddings ? '' : ' muted') + '"' +
           (m.weddings ? ' style="background:var(--sage-10);font-weight:600"' : '') + '>' +
           (m.weddings || (gone ? '<span style="opacity:.45">&mdash;</span>' : "·")) + '</td>';
@@ -841,8 +932,8 @@ function viewOverview(){
   h += '</tbody></table></div>';
 
   /* ---- what's next ---- */
-  // The whole forward book is upcoming now, so this is simply the front of it.
-  var upcoming = f.weddings.slice(0, 8);
+  // Coming up means coming up, whatever the tick box says.
+  var upcoming = f.weddings.filter(function(x){ return x.wedding_date >= f.today; }).slice(0, 8);
   if (upcoming.length) {
     h += '<div class="card"><h2 style="margin-bottom:12px">Coming up</h2>' +
       '<table><thead><tr><th>Couple</th><th>Date</th>' +
@@ -880,7 +971,8 @@ function viewOverview(){
 }
 
 function exportForecast(){
-  var rows = S.forecast.weddings.map(function(x){
+  // What is on screen: the tick box decides this too.
+  var rows = forecastYears(S.forecast, !!S.showHeld).rows.map(function(x){
     return [x.wedding_date, x.salutation, x.event_id,
             x.guestsDay || "", x.guestsEvening || "", x.value, x.status];
   });
