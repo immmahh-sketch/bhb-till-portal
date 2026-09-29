@@ -2727,8 +2727,11 @@ function bonusPeopleChart(st){
 }
 
 function bonusPeopleTable(st, picker, total, bookings){
+  /* This table is the bonus run. Anybody the scheme does not pay has no
+     business being in it with a dash where the money goes — their bookings
+     are still counted everywhere else, which is where they belong. */
   var people = Object.keys(st.secured).concat(Object.keys(st.shown), Object.keys(st.earned))
-    .filter(function(p, i, a){ return a.indexOf(p) === i; })
+    .filter(function(p, i, a){ return a.indexOf(p) === i && coordinator(p); })
     // By the work, not the money: the bonus column is now blank for anybody
     // off the scheme, and sorting on it buried them under people who took no
     // bookings at all.
@@ -2761,16 +2764,31 @@ function bonusPeopleTable(st, picker, total, bookings){
         '<td><span class="btbar"><i style="width:' + Math.round(n / most * 100) + '%"></i></span>' +
           '<span class="num">' + n + '</span></td>' +
         '<td class="num">' + (st.shown[p] || 0) + '</td>' +
-        '<td class="money num">' +
-          (coordinator(p)
-            ? money(st.earned[p] || 0)
-            : '<span class="muted">&mdash;</span>') + '</td></tr>';
+        '<td class="money num">' + money(st.earned[p] || 0) + '</td></tr>';
     }).join("") +
     '<tr class="bttotal"><td><strong>Total</strong></td>' +
       '<td class="num">' + people.reduce(function(a, p){ return a + (st.secured[p] || 0); }, 0) + '</td>' +
       '<td class="num">' + people.reduce(function(a, p){ return a + (st.shown[p] || 0); }, 0) + '</td>' +
       '<td class="money num"><strong>' + money(total) + '</strong></td></tr>' +
-    '</tbody></table>' + bonusWaitingNote() + bonusNamelessNote() + '</div>';
+    '</tbody></table>' + bonusOffSchemeNote() + bonusWaitingNote() +
+    bonusNamelessNote() + '</div>';
+}
+
+/* Why the totals here are smaller than the tracker's.
+
+   Bookings taken by somebody the scheme does not pay are counted in the
+   figures at the top and in the month chart, because they are the venue's
+   bookings. They are not in a bonus run, because there is no bonus. */
+function bonusOffSchemeNote(){
+  var rows = BT.rows.filter(function(r){
+    return (r.secured_by && !coordinator(r.secured_by)) ||
+           (r.showround_by && !coordinator(r.showround_by));
+  });
+  if (!rows.length) return "";
+  return '<p class="muted" style="margin:14px 0 0;font-size:.8125rem">' +
+    rows.length + ' booking' + (rows.length === 1 ? " was" : "s were") +
+    ' worked by somebody not on the bonus scheme. They are counted in the ' +
+    'figures above and not listed here, because nothing is paid on them.</p>';
 }
 
 /* Show-round bonus with nobody down as having done the show-round.
