@@ -257,6 +257,24 @@ details summary::-webkit-details-marker{color:var(--sage-70)}
 .tw{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
 
 /* ---- bonus tracker ---- */
+.btfilters{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px 14px;margin:0 0 16px}
+.btfilters label{display:block}
+.btfilters .label{display:block;margin-bottom:4px}
+.btfilters select,.btfilters input{min-width:170px}
+.btfclear{align-self:flex-end}
+@media(max-width:600px){
+  .btfilters{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .btfilters label:first-child{grid-column:1/-1}
+  .btfilters select,.btfilters input{min-width:0;width:100%}
+  .btfclear{grid-column:1/-1}
+}
+/* Two date boxes will not fit side by side on a 320px phone: Chrome gives
+   each one an intrinsic width for the calendar button that no amount of
+   width:100% will go under, and the pair took the whole page sideways. */
+@media(max-width:460px){
+  .btfilters{grid-template-columns:1fr}
+  .btfilters label{grid-column:1/-1}
+}
 /* A button that reads as a link. Used here and by Bulk add, which asked for
    the class long before anything defined it. */
 .linkish{background:none;border:0;padding:0;font:inherit;color:var(--sage);
@@ -2206,18 +2224,28 @@ function viewBulk(){
    secrets; this page asks for one, it never holds one.
    ===================================================================== */
 
-var BT = { level:null, pass:"", rows:[], inApp:[], open:null, query:"" };
+var BT = { level:null, pass:"", rows:[], inApp:[], open:null,
+           query:"", type:"", from:"", to:"" };
 
-/* Who the reporting is not about.
+/* Who is on the bonus scheme.
 
-   The bonus scheme measures the co-ordinators. The GM picks up a show-round
-   when nobody else can and takes the odd booking off the back of it, which is
-   a small corner of that job and not something to be charted against people
-   doing it full time. The bookings themselves stay exactly where they are —
-   on the tracker, in the revenue, and on the line of whoever worked them.
-   What comes out is the per-person reporting. */
+   The scheme is for the co-ordinators. The GM picks up a show-round when
+   nobody else can and takes the odd booking off the back of it, and is paid
+   nothing for either — so no figure is ever shown against his name, and
+   nothing of his is counted into the totals. The bookings themselves stay
+   exactly where they are: on the tracker, in the revenue, and on the line of
+   whoever worked them. It is only the money that comes off.
+
+   The spreadsheet this was imported from does carry a figure on those lines.
+   It is left in the database untouched and simply never shown, rather than
+   quietly deleted out of somebody's own records. */
 var BONUS_NOT_TEAM = ["Paul Riley"];
 function coordinator(name){ return !!name && BONUS_NOT_TEAM.indexOf(name) < 0; }
+
+/** A bonus figure, but only where there is somebody it is actually paid to. */
+function bonusPaid(name, amount){
+  return coordinator(name) && Number(amount) ? Number(amount) : null;
+}
 
 async function bonusUnlock(){
   var btn = $("btGo");
@@ -2256,6 +2284,47 @@ function bonusLock(){
 }
 
 function bonusSearch(v){ BT.query = v; $("views").innerHTML = viewBonus(); keepCaret("btSearch"); }
+function bonusFilter(field, v){ BT[field] = v; BT.open = null; $("views").innerHTML = viewBonus(); }
+function bonusClearFilters(){
+  BT.query = ""; BT.type = ""; BT.from = ""; BT.to = ""; BT.open = null;
+  $("views").innerHTML = viewBonus();
+}
+function bonusFiltersOn(){ return !!(BT.query || BT.type || BT.from || BT.to); }
+
+/* Newest booking first.
+
+   Within a month the reference is the only thing that says which came in
+   first: the event date is when the wedding is, which can be three years out
+   and bears no relation to the order they were taken in. A booking with no
+   month on it yet goes to the bottom rather than the top, where it would sit
+   above everything every time the page is opened. */
+function bonusNewestFirst(a, b){
+  var am = a.booking_month || "", bm = b.booking_month || "";
+  if (am !== bm) return am && bm ? (am < bm ? 1 : -1) : (am ? -1 : 1);
+  var ar = a.event_ref || "", br = b.event_ref || "";
+  if (ar !== br) return ar && br ? (ar < br ? 1 : -1) : (ar ? -1 : 1);
+  return String(b.booking_name || "").localeCompare(String(a.booking_name || ""));
+}
+
+/* Everything the list is narrowed by, in one place, so the count above the
+   table and the rows in it can never disagree. */
+function bonusFiltered(){
+  var words = String(BT.query || "").toLowerCase().trim().split(/\s+/).filter(Boolean);
+  return BT.rows.filter(function(r){
+    // "Wake" and "wake" are one thing that somebody typed twice.
+    if (BT.type && String(r.event_type || "").toLowerCase() !== BT.type) return false;
+    // On the date of the function, which is what anybody looking for one has
+    // in their head. A booking with no date on it is not in any range.
+    var d = ymd(r.event_date);
+    if (BT.from && (!d || d < BT.from)) return false;
+    if (BT.to && (!d || d > BT.to)) return false;
+    if (!words.length) return true;
+    var blob = [r.booking_name, r.event_ref, r.secured_by, r.showround_by, r.event_type,
+                r.event_date, r.booking_month, r.primary_email, r.partner1_name,
+                r.partner2_name].filter(Boolean).join(" ").toLowerCase();
+    return words.every(function(w){ return blob.indexOf(w) >= 0; });
+  }).sort(bonusNewestFirst);
+}
 function bonusOpen(id){ BT.open = (BT.open === id) ? null : id; $("views").innerHTML = viewBonus(); }
 
 function bonusRow(id){ return BT.rows.filter(function(r){ return r.id === id; })[0]; }
@@ -2359,11 +2428,12 @@ function bonusStats(){
         byMonth[m][who] = (byMonth[m][who] || 0) + 1;
       }
       secured[who] = (secured[who] || 0) + 1;
-      earned[who] = (earned[who] || 0) + (Number(r.booking_bonus) || 0);
+        earned[who] = (earned[who] || 0) + (bonusPaid(who, r.booking_bonus) || 0);
     }
     if (coordinator(r.showround_by)) {
       shown[r.showround_by] = (shown[r.showround_by] || 0) + 1;
-      earned[r.showround_by] = (earned[r.showround_by] || 0) + (Number(r.showround_bonus) || 0);
+      earned[r.showround_by] = (earned[r.showround_by] || 0) +
+        (bonusPaid(r.showround_by, r.showround_bonus) || 0);
     } else if (!r.showround_by && Number(r.showround_bonus)) {
       // A show-round bonus with nobody's name against it. The money is real
       // and has to appear somewhere; the show-round itself is not counted,
@@ -2508,24 +2578,30 @@ function viewBonus(){
   '</div>';
 
   h += bonusMonthChart(st) + bonusPeopleChart(st);
-  h += searchBox("btSearch", BT.query, "bonusSearch", "Search by name, reference or person");
 
-  var words = String(BT.query || "").toLowerCase().trim().split(/\s+/).filter(Boolean);
-  var rows = BT.rows.filter(function(r){
-    if (!words.length) return true;
-    var blob = [r.booking_name, r.event_ref, r.secured_by, r.showround_by, r.event_type,
-                r.event_date, r.booking_month, r.primary_email]
-      .filter(Boolean).join(" ").toLowerCase();
-    return words.every(function(w){ return blob.indexOf(w) >= 0; });
-  });
+  /* The two reports above are always the whole tracker. Narrowing them with
+     the list would make the four figures at the top mean something different
+     every time somebody looked for a booking. */
+  h += searchBox("btSearch", BT.query, "bonusSearch",
+                 "Search by name, reference or person");
+  h += bonusFilterBar();
+
+  var rows = bonusFiltered();
 
   if (!rows.length) {
-    return h + '<div class="card empty">Nothing matches &ldquo;' + esc(BT.query) + '&rdquo;.<br><br>' +
-      '<button class="btn" onclick="bonusSearch(\'\')">Clear the search</button></div>';
+    return h + '<div class="card empty">Nothing on the tracker matches that.<br><br>' +
+      '<button class="btn" onclick="bonusClearFilters()">Clear the search and filters</button>' +
+      '</div>';
+  }
+
+  if (bonusFiltersOn()) {
+    h += '<p class="muted" style="margin:0 0 12px;font-size:.8125rem">Showing ' +
+      rows.length + ' of ' + BT.rows.length + '. ' +
+      '<button class="linkish" onclick="bonusClearFilters()">Show them all</button></p>';
   }
 
   h += '<div class="card card--flush"><table><thead><tr>' +
-    '<th>Booking</th><th>Event</th><th class="money">Revenue</th>' +
+    '<th>Booking</th><th>Secured</th><th>Event</th><th class="money">Revenue</th>' +
     '<th>Show-round</th><th>Secured by</th><th></th>' +
     '</tr></thead><tbody>';
 
@@ -2537,15 +2613,20 @@ function viewBonus(){
       '<td data-label="Booking"><strong>' + esc(r.booking_name || "—") + '</strong>' +
         (r.event_ref ? '<br><span class="muted" style="font-size:.8125rem"><code>' +
           esc(r.event_ref) + '</code></span>' : '') + '</td>' +
+      // What the list is ordered by, so the order is not a mystery.
+      '<td data-label="Secured" class="num">' +
+        (r.booking_month ? esc(ukDate(r.booking_month)) : "—") + '</td>' +
       '<td data-label="Event" class="num">' + (r.event_date ? esc(ukDate(r.event_date)) : "—") +
         '<br><span class="muted" style="font-size:.8125rem">' + esc(r.event_type || "") + '</span></td>' +
       '<td data-label="Revenue" class="money num">' + (r.revenue ? money(r.revenue) : "—") + '</td>' +
       '<td data-label="Show-round">' + esc(r.showround_by || "—") +
-        (r.showround_bonus ? '<br><span class="muted" style="font-size:.8125rem">' +
-          money(r.showround_bonus) + '</span>' : '') + '</td>' +
+        (bonusPaid(r.showround_by, r.showround_bonus)
+          ? '<br><span class="muted" style="font-size:.8125rem">' +
+            money(r.showround_bonus) + '</span>' : '') + '</td>' +
       '<td data-label="Secured by">' + esc(r.secured_by || "—") +
-        (r.booking_bonus ? '<br><span class="muted" style="font-size:.8125rem">' +
-          money(r.booking_bonus) + '</span>' : '') + '</td>' +
+        (bonusPaid(r.secured_by, r.booking_bonus)
+          ? '<br><span class="muted" style="font-size:.8125rem">' +
+            money(r.booking_bonus) + '</span>' : '') + '</td>' +
       '<td class="money">' + bonusButton(r, added, wedding) + '</td>' +
     '</tr>';
     if (BT.open === r.id) h += bonusDetail(r, added, wedding);
@@ -2555,6 +2636,50 @@ function viewBonus(){
     '<div class="center" style="margin-top:16px">' +
     '<button class="btn" onclick="exportBonus()">Download the tracker</button></div>';
   return h;
+}
+
+/* Event type and a date range, next to the search box.
+
+   The types are read off the tracker rather than listed here: the venue takes
+   wakes and baby showers and whatever else comes along, and a list written
+   into the page would be out of date by the first booking that is none of
+   them. */
+function bonusFilterBar(){
+  /* Counted by the lower-cased type, labelled by the tidiest spelling of it
+     on the tracker, so "Wake" and "wake" are one line rather than two. */
+  var counts = {}, label = {};
+  BT.rows.forEach(function(r){
+    var t = String(r.event_type || "").trim();
+    if (!t) return;
+    var k = t.toLowerCase();
+    counts[k] = (counts[k] || 0) + 1;
+    // A capital first letter wins; otherwise whichever came first.
+    if (!label[k] || (t[0] === t[0].toUpperCase() && label[k][0] !== label[k][0].toUpperCase())) {
+      label[k] = t;
+    }
+  });
+  var types = Object.keys(counts).sort(function(a, b){ return counts[b] - counts[a]; });
+
+  return '<div class="btfilters">' +
+    '<label><span class="label">Function type</span>' +
+      '<select onchange="bonusFilter(\'type\', this.value)">' +
+        '<option value=""' + (BT.type ? "" : " selected") + '>' +
+          'Everything (' + BT.rows.length + ')</option>' +
+        types.map(function(t){
+          return '<option value="' + esc(t) + '"' + (BT.type === t ? " selected" : "") + '>' +
+            esc(label[t]) + ' (' + counts[t] + ')</option>';
+        }).join("") +
+      '</select></label>' +
+    '<label><span class="label">Function on or after</span>' +
+      '<input type="date" value="' + esc(BT.from) + '" ' +
+        'onchange="bonusFilter(\'from\', this.value)"></label>' +
+    '<label><span class="label">On or before</span>' +
+      '<input type="date" value="' + esc(BT.to) + '" ' +
+        'onchange="bonusFilter(\'to\', this.value)"></label>' +
+    (bonusFiltersOn()
+      ? '<button class="btn btn--sm btfclear" onclick="bonusClearFilters()">Clear</button>'
+      : '') +
+  '</div>';
 }
 
 /* Only a wedding gets the button. A dry hire or a wake has no couple to
@@ -2575,7 +2700,7 @@ function bonusDetail(r, added, wedding){
       (attrs || "") + ' oninput="bonusSet(\'' + esc(r.id) + '\',\'' + field + '\',this.value)"></div>';
   };
 
-  var h = '<tr class="btdetail"><td colspan="6"><div class="btpanel" onclick="event.stopPropagation()">';
+  var h = '<tr class="btdetail"><td colspan="7"><div class="btpanel" onclick="event.stopPropagation()">';
 
   if (added) {
     h += '<p class="muted" style="margin:0 0 14px;font-size:.875rem">' +
@@ -2594,13 +2719,18 @@ function bonusDetail(r, added, wedding){
         box("Phone", "mobile") + '</div>';
   }
 
-  h += '<div class="row">' + box("Booking taken", "booking_month", ' type="date"') +
+  h += '<div class="row">' + box("Secured on", "booking_month", ' type="date"') +
       box("Event date", "event_date", ' type="date"') + '</div>' +
     '<div class="row">' + box("Booking name", "booking_name") + box("Reference", "event_ref") + '</div>' +
     '<div class="row">' + box("Event type", "event_type") + box("Revenue", "revenue") + '</div>' +
+    // The bonus box only appears where there is somebody on the scheme to pay
+    // it to. On a line the GM worked there is no bonus, so there is no box.
     '<div class="row">' + box("Show-round by", "showround_by") +
-      box("Show-round bonus", "showround_bonus") + '</div>' +
-    '<div class="row">' + box("Secured by", "secured_by") + box("Booking bonus", "booking_bonus") + '</div>' +
+      (coordinator(r.showround_by) || !r.showround_by ? box("Show-round bonus", "showround_bonus") : "") +
+      '</div>' +
+    '<div class="row">' + box("Secured by", "secured_by") +
+      (coordinator(r.secured_by) || !r.secured_by ? box("Booking bonus", "booking_bonus") : "") +
+      '</div>' +
     box("Notes", "notes");
 
   if (!ro) {
@@ -2613,13 +2743,16 @@ function bonusDetail(r, added, wedding){
 
 function exportBonus(){
   csvRaw("bonus-tracker",
-    ["Booking taken", "Event type", "Event date", "Booking name", "Reference", "Revenue",
+    ["Secured on", "Event type", "Event date", "Booking name", "Reference", "Revenue",
      "Show-round by", "Show-round bonus", "Secured by", "Booking bonus", "In the wedding app"],
-    BT.rows.map(function(r){
+    // What is on the screen, in the order it is on the screen. Downloading
+    // the whole tracker after narrowing it to eleven lines is never what
+    // anybody meant.
+    bonusFiltered().map(function(r){
       return [ymd(r.booking_month), r.event_type || "", ymd(r.event_date), r.booking_name || "",
               r.event_ref || "", r.revenue == null ? "" : r.revenue,
-              r.showround_by || "", r.showround_bonus == null ? "" : r.showround_bonus,
-              r.secured_by || "", r.booking_bonus == null ? "" : r.booking_bonus,
+              r.showround_by || "", bonusPaid(r.showround_by, r.showround_bonus) || "",
+              r.secured_by || "", bonusPaid(r.secured_by, r.booking_bonus) || "",
               (r.event_ref && BT.inApp.indexOf(r.event_ref) >= 0) ? "Yes" : "No"];
     }));
 }
