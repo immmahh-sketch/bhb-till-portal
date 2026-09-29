@@ -2208,6 +2208,17 @@ function viewBulk(){
 
 var BT = { level:null, pass:"", rows:[], inApp:[], open:null, query:"" };
 
+/* Who the reporting is not about.
+
+   The bonus scheme measures the co-ordinators. The GM picks up a show-round
+   when nobody else can and takes the odd booking off the back of it, which is
+   a small corner of that job and not something to be charted against people
+   doing it full time. The bookings themselves stay exactly where they are —
+   on the tracker, in the revenue, and on the line of whoever worked them.
+   What comes out is the per-person reporting. */
+var BONUS_NOT_TEAM = ["Paul Riley"];
+function coordinator(name){ return !!name && BONUS_NOT_TEAM.indexOf(name) < 0; }
+
 async function bonusUnlock(){
   var btn = $("btGo");
   btn.disabled = true; btn.textContent = "Checking…";
@@ -2341,17 +2352,19 @@ function bonusStats(){
 
   BT.rows.forEach(function(r){
     var who = r.secured_by || "Not recorded";
-    var m = String(r.booking_month || "").slice(0, 7);
-    if (/^\d{4}-\d{2}$/.test(m)) {
-      byMonth[m] = byMonth[m] || {};
-      byMonth[m][who] = (byMonth[m][who] || 0) + 1;
+    if (coordinator(who) || !r.secured_by) {
+      var m = String(r.booking_month || "").slice(0, 7);
+      if (/^\d{4}-\d{2}$/.test(m)) {
+        byMonth[m] = byMonth[m] || {};
+        byMonth[m][who] = (byMonth[m][who] || 0) + 1;
+      }
+      secured[who] = (secured[who] || 0) + 1;
+      earned[who] = (earned[who] || 0) + (Number(r.booking_bonus) || 0);
     }
-    secured[who] = (secured[who] || 0) + 1;
-    earned[who] = (earned[who] || 0) + (Number(r.booking_bonus) || 0);
-    if (r.showround_by) {
+    if (coordinator(r.showround_by)) {
       shown[r.showround_by] = (shown[r.showround_by] || 0) + 1;
       earned[r.showround_by] = (earned[r.showround_by] || 0) + (Number(r.showround_bonus) || 0);
-    } else if (Number(r.showround_bonus)) {
+    } else if (!r.showround_by && Number(r.showround_bonus)) {
       // A show-round bonus with nobody's name against it. The money is real
       // and has to appear somewhere; the show-round itself is not counted,
       // because a blank name may well mean there never was one.
@@ -2370,8 +2383,7 @@ function bonusStats(){
     onApp: weddings.filter(function(r){
       return r.event_ref && BT.inApp.indexOf(r.event_ref) >= 0; }).length,
     revenue: BT.rows.reduce(function(s, r){ return s + (Number(r.revenue) || 0); }, 0),
-    bonus: BT.rows.reduce(function(s, r){
-      return s + (Number(r.booking_bonus) || 0) + (Number(r.showround_bonus) || 0); }, 0),
+    bonus: Object.keys(earned).reduce(function(s, k){ return s + earned[k]; }, 0),
     months: Object.keys(byMonth).sort(),
     byMonth: byMonth, secured: secured, shown: shown, earned: earned,
     // Busiest first, so the legend reads in the order the blocks stack.
@@ -2427,9 +2439,10 @@ function bonusMonthChart(st){
   });
   svg += '</svg>';
 
-  return '<div class="card"><h2 style="margin-bottom:4px">Bookings taken each month</h2>' +
+  return '<div class="card"><h2 style="margin-bottom:4px">Bookings the co-ordinators took</h2>' +
     '<p class="muted" style="margin:0 0 14px;font-size:.875rem">' +
-    'The month the booking came in, not the month of the event. Coloured by who secured it.</p>' +
+    'By the month the booking came in, not the month of the event, and coloured by who ' +
+    'secured it.</p>' +
     '<div class="tw">' + svg + '</div>' +
     '<div class="btkey">' + people.map(function(p, i){
       return '<span><i style="background:' + BT_COLOURS[i % BT_COLOURS.length] + '"></i>' +
@@ -2447,7 +2460,7 @@ function bonusPeopleChart(st){
   if (!people.length) return "";
   var most = Math.max.apply(null, people.map(function(p){ return st.secured[p] || 0; })) || 1;
 
-  return '<div class="card"><h2 style="margin-bottom:14px">By person</h2>' +
+  return '<div class="card"><h2 style="margin-bottom:14px">By co-ordinator</h2>' +
     '<table><thead><tr><th>Who</th><th>Bookings secured</th>' +
     '<th class="num">Show-rounds</th><th class="money">Bonus earned</th></tr></thead><tbody>' +
     people.map(function(p){
@@ -2491,7 +2504,7 @@ function viewBonus(){
     tile(st.weddings, "Weddings booked") +
     tile(st.onApp + " of " + st.weddings, "In the wedding app") +
     tile(money(st.revenue).replace(/\.00$/, ""), "Revenue booked") +
-    tile(money(st.bonus).replace(/\.00$/, ""), "Bonus earned") +
+    tile(money(st.bonus).replace(/\.00$/, ""), "Co-ordinator bonus") +
   '</div>';
 
   h += bonusMonthChart(st) + bonusPeopleChart(st);
