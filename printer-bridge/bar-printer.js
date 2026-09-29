@@ -29,13 +29,15 @@
 // Run with: node bar-printer.js   (needs Node 18+ for built-in fetch)
 
 const { buildTicket, printToDevice } = require("./ticket.js");
+const wake = require("./wake.js");
 
 const SUPABASE_URL = "https://safcrtrfdzsnftghibot.supabase.co";
 const SUPABASE_KEY = "sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU";
 
 const PRINTER_IP = "192.168.100.134";
 const PRINTER_PORT = 9100;
-const POLL_MS = 4000;
+const POLL_MS = 4000;     // how often to check when live updates aren't working
+const SAFETY_MS = 60000;  // a safety check once a minute even when they are (see wake.js)
 
 async function rest(path, init = {}) {
   const r = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
@@ -56,9 +58,9 @@ function hasDrinks(payload) {
   return (payload.lines || []).some((l) => l.category !== "food");
 }
 
-let busy = false;
+let busy = false, again = false;
 async function pollOnce() {
-  if (busy) return;
+  if (busy) { again = true; return; }
   busy = true;
   try {
     const jobs = await rest(
@@ -92,11 +94,15 @@ async function pollOnce() {
     }
   } finally {
     busy = false;
+    if (again) { again = false; setImmediate(() => pollOnce().catch((e) => console.error("poll error:", e.message))); }
   }
 }
 
-console.log(`Bar printer bridge running — polling every ${POLL_MS / 1000}s, printing to ${PRINTER_IP}:${PRINTER_PORT}`);
-pollOnce().catch((e) => console.error("poll error:", e.message));
-setInterval(() => {
-  pollOnce().catch((e) => console.error("poll error:", e.message));
-}, POLL_MS);
+console.log(`Bar printer bridge running — woken by live updates (checking every ${SAFETY_MS / 1000}s anyway, every ${POLL_MS / 1000}s without them), printing to ${PRINTER_IP}:${PRINTER_PORT}`);
+// Checks when Supabase says something changed (wake.js), plus a safety check every minute; every 4 seconds
+// whenever live updates aren't working (old Node, network blip), as it always used to.
+let live = false, timer = null;
+function schedule() { clearTimeout(timer); timer = setTimeout(tick, live ? SAFETY_MS : POLL_MS); }
+function tick() { pollOnce().catch((e) => console.error("poll error:", e.message)).finally(schedule); }
+wake.watch({ name: "bar", changes: [{ table: "print_jobs", filter: "destination=eq.bar" }], onChange: () => pollOnce().catch((e) => console.error("poll error:", e.message)), onStatus: (v) => { live = v; schedule(); } });
+tick();

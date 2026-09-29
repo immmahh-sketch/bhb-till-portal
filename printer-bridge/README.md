@@ -20,7 +20,20 @@ printing. Ctrl+C to stop.
 
 ## What it does
 
-Every 4 seconds it checks for `print_jobs` rows where
+It waits to be told. `wake.js` keeps a live connection to Supabase Realtime, and the moment a print job (or a
+receipt request) is added or changed, the bridge checks and prints. It also checks once a minute as a safety net.
+If the live connection isn't available (Node older than 22, or the network drops) it goes back to checking every
+4 seconds, exactly as before, and switches back by itself when the connection returns. Its log says which:
+`[wake] live updates ON` or `live updates OFF (polling)`.
+
+Why: polling every 4 seconds from both bridges was about 410,000 requests a month, 80% of all the project's
+traffic, and put the Supabase Free plan over its log allowance (September 2026).
+
+**Needs Node 22 or later** for the live connection (`node -v` to check; install the LTS from nodejs.org). On an older
+Node it still works, it just polls. The Realtime side is switched on by
+`Till App/supabase/migrations/20260929140000_printer_bridge_realtime.sql` (already applied).
+
+When it does check, it looks for `print_jobs` rows where
 `destination = 'kitchen'` and `status = 'pending'`, prints each one, then
 marks it `printed` — the same status the portal's virtual-printer "Mark
 printed" button sets, so the two stay in sync and a job never prints twice.
@@ -56,3 +69,9 @@ Bixolon SRP-275III: hold the Feed button while powering on to print a
 self-test page with the current IP/MAC. Update `PRINTER_IP` at the top of
 `kitchen-printer.js` if it changes (e.g. after a DHCP lease renewal — ask
 whoever manages the network to give it a static/reserved IP to avoid this).
+
+## Updating the bridge PC
+
+Copy the new files over the old ones in the bridge folder, then end the two `node.exe` processes in Task Manager
+(Details tab). The supervisor (`start-bridge.ps1`) starts them again within about 15 seconds, running the new code.
+Check `logskitchen.out.log` for `[wake] live updates ON`.

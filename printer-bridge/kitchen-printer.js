@@ -29,12 +29,14 @@
 // Run with: node kitchen-printer.js   (needs Node 18+ for built-in fetch)
 
 const { buildTicket, printToDevice } = require("./ticket.js");
+const wake = require("./wake.js");
 
 const SUPABASE_URL = "https://safcrtrfdzsnftghibot.supabase.co";
 const SUPABASE_KEY = "sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU";
 
 const PRINTER_PORT = 9100;
-const POLL_MS = 4000;
+const POLL_MS = 4000;     // how often to check when live updates aren't working
+const SAFETY_MS = 60000;  // a safety check once a minute even when they are (see wake.js)
 
 const PRINTER1_IP = "192.168.100.10"; // full food check + full ROOM SERVICE check + guest receipts
 const PRINTER2_IP = "192.168.100.11"; // full food check
@@ -133,7 +135,7 @@ async function printAutoTickets() {
 
 async function printRequestedReceipts() {
   const orders = await rest(
-    "roomservice_orders?select=*&receipt_requested_at=not.is.null&order=receipt_requested_at.asc"
+    `roomservice_orders?select=*&receipt_requested_at=gte.${encodeURIComponent(new Date(Date.now() - 2 * 86400000).toISOString())}&order=receipt_requested_at.asc`
   );
   for (const order of orders) {
     const needsPrint = !order.receipt_printed_at || order.receipt_printed_at < order.receipt_requested_at;
@@ -161,20 +163,24 @@ async function printRequestedReceipts() {
   }
 }
 
-let busy = false;
+let busy = false, again = false;
 async function pollOnce() {
-  if (busy) return;
+  if (busy) { again = true; return; }
   busy = true;
   try {
     await printAutoTickets();
     await printRequestedReceipts();
   } finally {
     busy = false;
+    if (again) { again = false; setImmediate(() => pollOnce().catch((e) => console.error("poll error:", e.message))); }
   }
 }
 
-console.log(`Kitchen printer bridge running — polling every ${POLL_MS / 1000}s, printers: ${FOOD_PRINTERS.join(", ")} (full food check), ${PRINTER4_IP} (desserts only), printer1 also gets staff-copy + receipts`);
-pollOnce().catch((e) => console.error("poll error:", e.message));
-setInterval(() => {
-  pollOnce().catch((e) => console.error("poll error:", e.message));
-}, POLL_MS);
+console.log(`Kitchen printer bridge running — woken by live updates (checking every ${SAFETY_MS / 1000}s anyway, every ${POLL_MS / 1000}s without them), printers: ${FOOD_PRINTERS.join(", ")} (full food check), ${PRINTER4_IP} (desserts only), printer1 also gets staff-copy + receipts`);
+// Checks when Supabase says something changed (wake.js), plus a safety check every minute; every 4 seconds
+// whenever live updates aren't working (old Node, network blip), as it always used to.
+let live = false, timer = null;
+function schedule() { clearTimeout(timer); timer = setTimeout(tick, live ? SAFETY_MS : POLL_MS); }
+function tick() { pollOnce().catch((e) => console.error("poll error:", e.message)).finally(schedule); }
+wake.watch({ name: "kitchen", changes: [{ table: "print_jobs", filter: "destination=eq.kitchen" }, { table: "roomservice_orders" }], onChange: () => pollOnce().catch((e) => console.error("poll error:", e.message)), onStatus: (v) => { live = v; schedule(); } });
+tick();
