@@ -248,6 +248,7 @@ tr.wedrow td:first-child{box-shadow:inset 3px 0 0 var(--gold)}
         <h2 id="monthTitle">Month</h2>
         <div class="hint">Forecast vs actual by day, compared with the same weekday last year.</div>
         <div class="spacer"></div>
+        <button class="btn ghost" id="exportMonthCsv">Export CSV</button>
         <button class="btn ghost" id="mPrev">&larr; Prev</button>
         <button class="btn ghost" id="mNext">Next &rarr;</button>
       </div>
@@ -260,6 +261,8 @@ tr.wedrow td:first-child{box-shadow:inset 3px 0 0 var(--gold)}
       <div class="pagehead">
         <h2>Period</h2>
         <div class="hint">Any date range — a week, a trading period, a quarter — against the same weekday-aligned range last year.</div>
+        <div class="spacer"></div>
+        <button class="btn ghost" id="exportPeriodCsv">Export CSV</button>
       </div>
       <div class="filters">
         <input type="date" id="pStart">
@@ -280,6 +283,8 @@ tr.wedrow td:first-child{box-shadow:inset 3px 0 0 var(--gold)}
       <div class="pagehead">
         <h2>Forecast Accuracy</h2>
         <div class="hint">Days in this range that have turned into actuals, and how far the forecast was out.</div>
+        <div class="spacer"></div>
+        <button class="btn ghost" id="exportAccuracyCsv">Export CSV</button>
       </div>
       <div class="filters">
         <input type="date" id="aStart">
@@ -328,11 +333,35 @@ const FN   = "https://safcrtrfdzsnftghibot.supabase.co/functions/v1/forecast-das
 const ANON = "sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU";
 const LS_KEY = "bhb_forecast_key";
 
-const S = { key:"", view:"month", monthY:new Date().getFullYear(), monthM:new Date().getMonth()+1 };
+const S = {
+  key:"", view:"month", monthY:new Date().getFullYear(), monthM:new Date().getMonth()+1,
+  lastMonth:null, lastPeriod:null, lastAccuracy:null,   // most recent loaded data, for CSV export
+};
 
 const $  = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
 const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+
+/* ------------------------------------------------------- CSV export
+   Client-side only - builds a CSV from whatever rows/columns are passed
+   and triggers a download. No server round-trip, so it always matches
+   exactly what is on screen. */
+function csvCell(v){
+  if (v === null || v === undefined) return "";
+  const s = String(v);
+  return /[",\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
+}
+function downloadCsv(filename, columns, rows){
+  if (!rows || !rows.length){ toast("Nothing to export.", true); return; }
+  const header = columns.map(c => csvCell(c.label)).join(",");
+  const body = rows.map(r => columns.map(c => csvCell(typeof c.value==="function" ? c.value(r) : r[c.value])).join(",")).join("\n");
+  const blob = new Blob([header + "\n" + body], { type:"text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
 
 function gbp(n){
   if (n === null || n === undefined || isNaN(n)) return "—";
@@ -431,6 +460,7 @@ async function loadMonth(){
   $("#monthTitle").textContent = `${MONTH_NAMES[S.monthM-1]} ${S.monthY}`;
   try{
     const d = await api("month", { year:S.monthY, month:S.monthM });
+    S.lastMonth = d;
     renderMonthTiles(d);
     renderMonthTable(d);
   }catch(e){
@@ -567,6 +597,7 @@ async function loadPeriod(start, end){
   $("#periodTable").innerHTML = `<tr><td class="loading">Loading…</td></tr>`;
   try{
     const d = await api("range", { start, end });
+    S.lastPeriod = d;
     const t = d.totals, ly = d.last_year.totals;
     $("#periodTiles").innerHTML = [
       { l:"Total Revenue — Forecast", n:gbp(t.total_revenue_forecast), d:deltaSpan(pctDelta(t.total_revenue_forecast, ly.total_revenue_forecast)) },
@@ -645,6 +676,7 @@ async function loadAccuracy(start, end){
   $("#accuracyTable").innerHTML = `<tr><td class="loading">Loading…</td></tr>`;
   try{
     const d = await api("accuracy", { start, end });
+    S.lastAccuracy = d;
     $("#accuracyTiles").innerHTML = [
       { l:"Rooms — Avg Error", n: d.rooms_mape_pct===null?"—":d.rooms_mape_pct+"%" },
       { l:"Revenue — Avg Error", n: d.revenue_mape_pct===null?"—":d.revenue_mape_pct+"%" },
@@ -666,6 +698,52 @@ $("#aGo").addEventListener("click", ()=>{
   const s = $("#aStart").value, e = $("#aEnd").value;
   if(!s || !e){ toast("Pick both dates.", true); return; }
   loadAccuracy(s, e);
+});
+
+/* ------------------------------------------------------ CSV exports */
+const MONTH_COLS = [
+  { label:"Date", value:r=>ukDate(r.date) },
+  { label:"Day", value:"day_of_week" },
+  { label:"Wedding", value:r=>r.wedding_name||"" },
+  { label:"Rooms Forecast", value:"rooms_forecast" },
+  { label:"Rooms Actual", value:r=>r.has_actual?r.rooms_actual:"" },
+  { label:"ADR Forecast", value:"adr_forecast" },
+  { label:"ADR Actual", value:r=>r.has_actual?r.adr_actual:"" },
+  { label:"Food Revenue Forecast", value:"food_revenue_forecast" },
+  { label:"Beverage Revenue Forecast", value:"beverage_revenue_forecast" },
+  { label:"Total Revenue Forecast", value:"total_revenue_forecast" },
+  { label:"Total Revenue Actual", value:r=>r.has_actual?r.total_revenue_actual:"" },
+];
+const PERIOD_COLS = [
+  { label:"Date", value:r=>ukDate(r.date) },
+  { label:"Day", value:"day_of_week" },
+  { label:"Rooms Forecast", value:"rooms_forecast" },
+  { label:"Rooms Actual", value:r=>r.has_actual?r.rooms_actual:"" },
+  { label:"Total Revenue Forecast", value:"total_revenue_forecast" },
+  { label:"Total Revenue Actual", value:r=>r.has_actual?r.total_revenue_actual:"" },
+];
+const ACCURACY_COLS = [
+  { label:"Date", value:r=>ukDate(r.date) },
+  { label:"Day", value:"day_of_week" },
+  { label:"Rooms Forecast", value:"rooms_forecast" },
+  { label:"Rooms Actual", value:"rooms_actual" },
+  { label:"Rooms Variance %", value:"rooms_variance_pct" },
+  { label:"Revenue Forecast", value:"total_revenue_forecast" },
+  { label:"Revenue Actual", value:"total_revenue_actual" },
+  { label:"Revenue Variance %", value:"revenue_variance_pct" },
+];
+
+$("#exportMonthCsv").addEventListener("click", ()=>{
+  if(!S.lastMonth){ toast("Nothing loaded yet.", true); return; }
+  downloadCsv(`forecast-${S.monthY}-${String(S.monthM).padStart(2,'0')}.csv`, MONTH_COLS, S.lastMonth.days);
+});
+$("#exportPeriodCsv").addEventListener("click", ()=>{
+  if(!S.lastPeriod){ toast("Nothing loaded yet.", true); return; }
+  downloadCsv(`forecast-period-${S.lastPeriod.start}-to-${S.lastPeriod.end}.csv`, PERIOD_COLS, S.lastPeriod.days);
+});
+$("#exportAccuracyCsv").addEventListener("click", ()=>{
+  if(!S.lastAccuracy){ toast("Nothing loaded yet.", true); return; }
+  downloadCsv(`forecast-accuracy-${S.lastAccuracy.start}-to-${S.lastAccuracy.end}.csv`, ACCURACY_COLS, S.lastAccuracy.days);
 });
 
 /* -------------------------------------------------------------- init */
