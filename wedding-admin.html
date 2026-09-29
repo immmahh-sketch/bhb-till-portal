@@ -779,8 +779,11 @@ async function loadForecast(){
    box, and asking Guestline again to change a filter would take fifteen
    seconds to tell us something already in hand. */
 function forecastYears(f, withHeld){
-  var rows = withHeld ? f.weddings
-    : f.weddings.filter(function(w){ return w.wedding_date >= f.today; });
+  // allWeddings is every wedding; weddings is the ones still to come, which
+  // is all an older response carried.
+  var all = f.allWeddings || f.weddings || [];
+  var rows = withHeld ? all
+    : all.filter(function(w){ return w.wedding_date >= f.today; });
   var thisYear = Number(f.today.slice(0, 4));
 
   /* Forward, the window starts today. Backwards, it starts at the earliest
@@ -933,7 +936,8 @@ function viewOverview(){
 
   /* ---- what's next ---- */
   // Coming up means coming up, whatever the tick box says.
-  var upcoming = f.weddings.filter(function(x){ return x.wedding_date >= f.today; }).slice(0, 8);
+  var upcoming = (f.allWeddings || f.weddings || [])
+    .filter(function(x){ return x.wedding_date >= f.today; }).slice(0, 8);
   if (upcoming.length) {
     h += '<div class="card"><h2 style="margin-bottom:12px">Coming up</h2>' +
       '<table><thead><tr><th>Couple</th><th>Date</th>' +
