@@ -258,6 +258,8 @@ details summary::-webkit-details-marker{color:var(--sage-70)}
 
 /* ---- bonus tracker ---- */
 .btmonth{max-width:190px}
+.btlink{border-color:var(--mist);color:var(--sage)}
+.btlink:hover{background:var(--sage);border-color:var(--sage);color:var(--bone)}
 .btworking{background:var(--sage-10);padding:12px 14px;font-size:.875rem}
 .btworking .label{margin-bottom:6px}
 .btworking li{margin-bottom:3px}
@@ -434,7 +436,13 @@ async function call(action, payload){
     body: JSON.stringify({ password:S.pw, action:action, payload:payload||{} })
   });
   var data = await r.json().catch(function(){ return {}; });
-  if (!r.ok) throw new Error(data.error || ("Request failed ("+r.status+")"));
+  if (!r.ok) {
+    // The body often carries more than a sentence — which wedding clashed,
+    // for one — and a caller that can act on that should be able to.
+    var err = new Error(data.error || ("Request failed ("+r.status+")"));
+    err.data = data; err.status = r.status;
+    throw err;
+  }
   return data;
 }
 
@@ -2230,8 +2238,15 @@ function viewBulk(){
    secrets; this page asks for one, it never holds one.
    ===================================================================== */
 
-var BT = { level:null, pass:"", rows:[], inApp:[], open:null,
+/* inApp maps a booking reference to the wedding in the app that has it, so
+   a tracker line can open that wedding rather than only knowing it exists. */
+var BT = { level:null, pass:"", rows:[], inApp:{}, open:null,
            query:"", type:"", from:"", to:"", month:"" };
+
+/** The wedding in the app this tracker line became, if it became one. */
+function bonusApp(r){
+  return (r && r.event_ref && BT.inApp[r.event_ref]) || null;
+}
 
 /* Who is on the bonus scheme.
 
@@ -2351,7 +2366,7 @@ async function loadBonus(){
   try {
     var out = await call("bonus.list", { pass: BT.pass });
     if (!stillWanted(want, cur)) return;
-    BT.level = out.level; BT.rows = out.rows || []; BT.inApp = out.inApp || [];
+    BT.level = out.level; BT.rows = out.rows || []; BT.inApp = out.inApp || {};
     $("views").innerHTML = viewBonus();
   } catch (e) {
     if (!stillWanted(want, cur)) return;
@@ -2362,7 +2377,10 @@ async function loadBonus(){
 /* Locking is a real lock rather than a hidden panel: the password goes with
    it, so the next person has to know it too. */
 function bonusLock(){
-  BT = { level:null, pass:"", rows:[], inApp:[], open:null, query:"" };
+  // Everything the unlocked view holds, so a relock and unlock starts clean
+  // rather than leaving the filters as undefined.
+  BT = { level:null, pass:"", rows:[], inApp:{}, open:null,
+         query:"", type:"", from:"", to:"", month:"" };
   $("views").innerHTML = viewBonus();
 }
 
@@ -2444,6 +2462,19 @@ function bonusDate(v){ return /^\d{4}-\d{2}-\d{2}$/.test(String(v || "")) ? v : 
 
 async function bonusSave(id){
   var r = bonusRow(id); if (!r) return;
+
+  /* The server checks this too, and the database after it. Checked here as
+     well because the answer is already in hand, and being told instantly
+     which booking holds it beats a round trip to be told the same. */
+  var ref = (r.event_ref || "").trim().toUpperCase();
+  if (ref) {
+    var held = BT.rows.filter(function(x){ return x.id !== id && x.event_ref === ref; })[0];
+    if (held) {
+      showErr(ref + " is already on " + (held.booking_name || "another booking") +
+        ". Two bookings cannot share a reference, so one of them has the wrong one.");
+      return;
+    }
+  }
   var btn = document.getElementById("btsave_" + id);
   if (btn) { btn.disabled = true; btn.textContent = "Saving…"; }
   try {
@@ -2568,7 +2599,22 @@ async function bonusToApp(id){
     await loadBonus();
     try { await refreshPending(); } catch (e) {}
   } catch (e) {
-    showErr(e.message);
+    /* The app has just said which wedding this is. That is exactly the
+       reference the tracker line is missing, so offer to write it on rather
+       than leaving somebody to copy it across by hand. */
+    var clash = e.data && e.data.alreadyExists;
+    if (clash && clash.event_id && !r.event_ref &&
+        confirm("The app already has this as " + clash.salutation + " (" +
+                clash.event_id + ").\n\nPut that reference on this tracker line?")) {
+      try {
+        await call("bonus.save", { pass: BT.pass, id: r.id, event_ref: clash.event_id });
+        await loadBonus();
+        clearErr();
+        return;
+      } catch (e2) { showErr(e2.message); }
+    } else {
+      showErr(e.message);
+    }
     if (btn) { btn.disabled = false; btn.textContent = "Add to wedding app"; }
   }
 }
@@ -2632,8 +2678,7 @@ function bonusStats(){
     total: BT.rows.length,
     weddings: weddings.length,
     // Of the weddings on the tracker, the ones the couple can already log into.
-    onApp: weddings.filter(function(r){
-      return r.event_ref && BT.inApp.indexOf(r.event_ref) >= 0; }).length,
+    onApp: weddings.filter(bonusApp).length,
     revenue: BT.rows.reduce(function(s, r){ return s + (Number(r.revenue) || 0); }, 0),
     bonus: Object.keys(earned).reduce(function(s, k){ return s + earned[k]; }, 0),
     months: Object.keys(byMonth).sort(),
@@ -2900,7 +2945,7 @@ function viewBonus(){
     '</tr></thead><tbody>';
 
   rows.forEach(function(r){
-    var added = !!(r.event_ref && BT.inApp.indexOf(r.event_ref) >= 0);
+    var added = !!bonusApp(r);
     var wedding = isWedding(r.event_type);
     h += '<tr class="urow' + (BT.open === r.id ? " btopen" : "") +
         '" onclick="bonusOpen(\'' + esc(r.id) + '\')">' +
@@ -3045,7 +3090,20 @@ function bonusWorking(r){
    nobody ever logs into. */
 function bonusButton(r, added, wedding){
   if (!wedding) return '<span class="muted" style="font-size:.8125rem">Not a wedding</span>';
-  if (added) return '<span class="pill pill--ok">Already added</span>';
+
+  // In the app, and the reference says which one — so go there.
+  var app = bonusApp(r);
+  if (app) {
+    return '<button class="btn btn--sm btlink" ' +
+      'onclick="event.stopPropagation();open_(\'' + esc(app.id) + '\')" ' +
+      'title="Open ' + esc(app.salutation || r.event_ref) + ' in the app">Open in app</button>';
+  }
+
+  /* Whether a booking is in the app is answered by its reference. Without
+     one there is no answer — and a button reading "Add to wedding app" is an
+     answer. It offered to add a wedding that was already there. */
+  if (!r.event_ref) return '<span class="pill pill--prov">Needs a reference</span>';
+
   return '<button class="btn btn--sm btn--primary" id="btadd_' + esc(r.id) + '" ' +
     'onclick="event.stopPropagation();bonusToApp(\'' + esc(r.id) + '\')">Add to wedding app</button>';
 }
@@ -3079,9 +3137,16 @@ function bonusDetail(r, added, wedding){
 
   var h = '<tr class="btdetail"><td colspan="7"><div class="btpanel" onclick="event.stopPropagation()">';
 
-  if (added) {
+  var app = bonusApp(r);
+  if (app) {
     h += '<p class="muted" style="margin:0 0 14px;font-size:.875rem">' +
-      'Already in the wedding app &mdash; the couple are under Weddings.</p>';
+      'In the wedding app as <strong>' + esc(app.salutation || "") + '</strong>' +
+      (app.wedding_date ? ', ' + esc(ukDate(app.wedding_date)) : '') + '. ' +
+      '<button class="linkish" onclick="open_(\'' + esc(app.id) + '\')">Open it</button></p>';
+  } else if (wedding && !r.event_ref) {
+    h += '<p class="muted" style="margin:0 0 14px;font-size:.875rem">' +
+      'Without a booking reference there is no way to tell whether this one is ' +
+      'already in the app, so it is not offered. Put the reference on and it will say.</p>';
   } else if (wedding) {
     h += '<p class="muted" style="margin:0 0 14px;font-size:.875rem">' +
       'What this booking still needs before it can go into the wedding app. The portal ' +
@@ -3134,7 +3199,7 @@ function exportBonus(){
               r.event_ref || "", r.revenue == null ? "" : r.revenue,
               r.showround_by || "", bonusPaid(r.showround_by, r) || "",
               r.secured_by || "", bonusPaid(r.secured_by, r) || "",
-              (r.event_ref && BT.inApp.indexOf(r.event_ref) >= 0) ? "Yes" : "No"];
+              bonusApp(r) ? "Yes" : "No"];
     }));
 }
 
