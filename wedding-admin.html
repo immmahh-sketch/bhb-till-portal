@@ -256,6 +256,32 @@ details summary::-webkit-details-marker{color:var(--sage-70)}
    of a tablet, where nothing stacks. */
 .tw{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
 
+/* ---- bonus tracker ---- */
+/* A button that reads as a link. Used here and by Bulk add, which asked for
+   the class long before anything defined it. */
+.linkish{background:none;border:0;padding:0;font:inherit;color:var(--sage);
+  text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.linkish:hover{color:var(--attention)}
+/* The four figures at the top are a summary, not a filter, so they lose the
+   pointer and the hover the usage tabs have. */
+.ufilter--still{cursor:default}
+.ufilter--still:hover{border-color:var(--mist)}
+.ufilter--still .un{font-size:1.25rem}
+.btkey{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:12px;
+  font-size:.75rem;color:var(--sage-70)}
+.btkey span{display:inline-flex;align-items:center;gap:6px}
+.btkey i{width:11px;height:11px;flex:0 0 11px}
+.btbar{display:inline-block;width:110px;height:8px;background:var(--sage-10);
+  margin-right:9px;vertical-align:middle}
+.btbar i{display:block;height:100%;background:var(--sage)}
+.btopen{background:var(--sage-10)}
+.btdetail td{background:var(--bone);border-top:0}
+.btpanel{padding:16px 2px 18px;cursor:auto}
+@media(max-width:720px){
+  .btbar{width:70px}
+  .btdetail td{padding:0 14px 14px!important}
+}
+
 /* ---- photo album ---- */
 .linkrow{border:1px solid var(--mist);background:var(--bone);padding:10px 12px}
 .linkrow code{background:transparent;padding:0;overflow-wrap:anywhere;font-size:.8125rem}
@@ -316,6 +342,7 @@ details summary::-webkit-details-marker{color:var(--sage-70)}
         <button data-view="reconcile">Payments to post <span id="recBadge"></span></button>
         <button data-view="add">Add a wedding</button>
         <button data-view="bulk">Bulk add</button>
+        <button data-view="bonus">Bonus tracker</button>
       </nav>
     </div>
   </header>
@@ -644,6 +671,11 @@ function render(){
     case "reconcile":   v.innerHTML = viewReconcile(); break;
     case "add":         v.innerHTML = viewAdd(); break;
     case "bulk":        v.innerHTML = viewBulk(); break;
+    case "bonus":       v.innerHTML = viewBonus();
+                        // Already unlocked from an earlier visit? Refresh it rather
+                        // than showing yesterday’s numbers.
+                        if (BT.level) loadBonus();
+                        break;
   }
 }
 
@@ -2159,6 +2191,424 @@ function viewBulk(){
     '</div>';
   }
   return h;
+}
+
+/* ============================ BONUS TRACKER ============================
+
+   The bonus spreadsheet, with room for the rest of what a booking needs
+   before it can become a wedding in the app.
+
+   Two gates on top of the back-office password, and both are checked on the
+   server rather than here. What each booking is worth, and what each person
+   earned on it, is not something every staff login should open by wandering
+   into the wrong tab — and a gate that exists only in JavaScript is one
+   anybody opens with the developer tools. The passwords live in Supabase
+   secrets; this page asks for one, it never holds one.
+   ===================================================================== */
+
+var BT = { level:null, pass:"", rows:[], inApp:[], open:null, query:"" };
+
+async function bonusUnlock(){
+  var btn = $("btGo");
+  btn.disabled = true; btn.textContent = "Checking…";
+  try {
+    var typed = $("btPass").value || "";
+    var out = await call("bonus.unlock", { pass: typed });
+    BT.level = out.level; BT.pass = typed;
+    clearErr();
+    $("views").innerHTML = '<div class="empty"><span class="spin"></span></div>';
+    await loadBonus();
+  } catch (e) {
+    showErr(e.message);
+    btn.disabled = false; btn.textContent = "Open";
+  }
+}
+
+async function loadBonus(){
+  var want = S.view, cur = S.current;
+  try {
+    var out = await call("bonus.list", { pass: BT.pass });
+    if (!stillWanted(want, cur)) return;
+    BT.level = out.level; BT.rows = out.rows || []; BT.inApp = out.inApp || [];
+    $("views").innerHTML = viewBonus();
+  } catch (e) {
+    if (!stillWanted(want, cur)) return;
+    showErr(e.message); $("views").innerHTML = viewBonus();
+  }
+}
+
+/* Locking is a real lock rather than a hidden panel: the password goes with
+   it, so the next person has to know it too. */
+function bonusLock(){
+  BT = { level:null, pass:"", rows:[], inApp:[], open:null, query:"" };
+  $("views").innerHTML = viewBonus();
+}
+
+function bonusSearch(v){ BT.query = v; $("views").innerHTML = viewBonus(); keepCaret("btSearch"); }
+function bonusOpen(id){ BT.open = (BT.open === id) ? null : id; $("views").innerHTML = viewBonus(); }
+
+function bonusRow(id){ return BT.rows.filter(function(r){ return r.id === id; })[0]; }
+function bonusSet(id, field, value){ var r = bonusRow(id); if (r) r[field] = value; }
+
+/* Money typed by a person, read by a database. "£12,500" and "12500.00" and
+   a stray space all mean the same thing, and an empty box means nothing
+   rather than zero. */
+function bonusNum(v){
+  if (v === "" || v == null) return null;
+  var n = parseFloat(String(v).replace(/[^0-9.-]/g, ""));
+  return isFinite(n) ? n : null;
+}
+function bonusDate(v){ return /^\d{4}-\d{2}-\d{2}$/.test(String(v || "")) ? v : null; }
+
+async function bonusSave(id){
+  var r = bonusRow(id); if (!r) return;
+  var btn = document.getElementById("btsave_" + id);
+  if (btn) { btn.disabled = true; btn.textContent = "Saving…"; }
+  try {
+    await call("bonus.save", {
+      pass: BT.pass, id: r.id,
+      booking_month: bonusDate(r.booking_month), event_date: bonusDate(r.event_date),
+      event_type: r.event_type || null, booking_name: r.booking_name || null,
+      event_ref: (r.event_ref || "").trim().toUpperCase() || null,
+      revenue: bonusNum(r.revenue),
+      showround_by: r.showround_by || null, showround_bonus: bonusNum(r.showround_bonus),
+      secured_by: r.secured_by || null, booking_bonus: bonusNum(r.booking_bonus),
+      guestline_link: (r.guestline_link || "").trim() || null,
+      partner1_name: (r.partner1_name || "").trim() || null,
+      partner2_name: (r.partner2_name || "").trim() || null,
+      primary_email: (r.primary_email || "").trim() || null,
+      mobile: (r.mobile || "").trim() || null,
+      notes: r.notes || null
+    });
+    clearErr();
+    if (btn) {
+      btn.textContent = "Saved";
+      setTimeout(function(){
+        if (btn.isConnected) { btn.textContent = "Save"; btn.disabled = false; }
+      }, 1400);
+    }
+  } catch (e) {
+    showErr(e.message);
+    if (btn) { btn.disabled = false; btn.textContent = "Save"; }
+  }
+}
+
+/* Turning a line of the tracker into a wedding, through exactly the same
+   create that Add a wedding uses — including the check that the link really
+   does belong to the reference on this row. */
+async function bonusToApp(id){
+  var r = bonusRow(id); if (!r) return;
+
+  var missing = [];
+  if (!(r.guestline_link || "").trim()) missing.push("the Guestline link");
+  if (!(r.partner1_name || "").trim() || !(r.partner2_name || "").trim()) missing.push("both names");
+  if (!(r.primary_email || "").trim()) missing.push("an email address");
+  if (missing.length) {
+    BT.open = id;
+    $("views").innerHTML = viewBonus();
+    // "a, b and c" rather than "a and b and c".
+    var needs = missing.length > 1
+      ? missing.slice(0, -1).join(", ") + " and " + missing[missing.length - 1]
+      : missing[0];
+    showErr("This one still needs " + needs + " — it is open below.");
+    return;
+  }
+
+  var btn = document.getElementById("btadd_" + id);
+  if (btn) { btn.disabled = true; btn.textContent = "Adding…"; }
+  try {
+    await call("create", {
+      link: r.guestline_link.trim(),
+      expect_event_id: (r.event_ref || "").trim().toUpperCase() || undefined,
+      partner1_name: r.partner1_name.trim(),
+      partner2_name: r.partner2_name.trim(),
+      primary_email: r.primary_email.trim(),
+      mobile: (r.mobile || "").trim() || null
+    });
+    clearErr();
+    BT.open = null;
+    await loadBonus();
+    try { await refreshPending(); } catch (e) {}
+  } catch (e) {
+    showErr(e.message);
+    if (btn) { btn.disabled = false; btn.textContent = "Add to wedding app"; }
+  }
+}
+
+/* ---------- what the tracker adds up to ---------- */
+function bonusStats(){
+  var byMonth = {}, secured = {}, shown = {}, earned = {};
+
+  BT.rows.forEach(function(r){
+    var who = r.secured_by || "Not recorded";
+    var m = String(r.booking_month || "").slice(0, 7);
+    if (/^\d{4}-\d{2}$/.test(m)) {
+      byMonth[m] = byMonth[m] || {};
+      byMonth[m][who] = (byMonth[m][who] || 0) + 1;
+    }
+    secured[who] = (secured[who] || 0) + 1;
+    earned[who] = (earned[who] || 0) + (Number(r.booking_bonus) || 0);
+    if (r.showround_by) {
+      shown[r.showround_by] = (shown[r.showround_by] || 0) + 1;
+      earned[r.showround_by] = (earned[r.showround_by] || 0) + (Number(r.showround_bonus) || 0);
+    } else if (Number(r.showround_bonus)) {
+      // A show-round bonus with nobody's name against it. The money is real
+      // and has to appear somewhere; the show-round itself is not counted,
+      // because a blank name may well mean there never was one.
+      earned["Not recorded"] = (earned["Not recorded"] || 0) + Number(r.showround_bonus);
+    }
+  });
+
+  var weddings = BT.rows.filter(function(r){
+    return String(r.event_type || "").toLowerCase() === "wedding";
+  });
+
+  return {
+    total: BT.rows.length,
+    weddings: weddings.length,
+    // Of the weddings on the tracker, the ones the couple can already log into.
+    onApp: weddings.filter(function(r){
+      return r.event_ref && BT.inApp.indexOf(r.event_ref) >= 0; }).length,
+    revenue: BT.rows.reduce(function(s, r){ return s + (Number(r.revenue) || 0); }, 0),
+    bonus: BT.rows.reduce(function(s, r){
+      return s + (Number(r.booking_bonus) || 0) + (Number(r.showround_bonus) || 0); }, 0),
+    months: Object.keys(byMonth).sort(),
+    byMonth: byMonth, secured: secured, shown: shown, earned: earned,
+    // Busiest first, so the legend reads in the order the blocks stack.
+    people: Object.keys(secured).sort(function(a, b){ return secured[b] - secured[a]; })
+  };
+}
+
+var BT_COLOURS = ["#4E5F4F", "#C9A56B", "#A3B0A4", "#8C4A3F", "#C1C8B4", "#6E7F70", "#D8C6A6"];
+
+/* Bookings taken each month, stacked by whoever secured them. Drawn as SVG
+   rather than pulled in from a charting library: it is two dozen rectangles,
+   and this page already loads behind a password on a venue's wifi. */
+function bonusMonthChart(st){
+  if (!st.months.length) return "";
+  var people = st.people.slice(0, BT_COLOURS.length);
+  var tall = 0;
+  st.months.forEach(function(m){
+    var t = 0; for (var k in st.byMonth[m]) t += st.byMonth[m][k];
+    if (t > tall) tall = t;
+  });
+  if (!tall) return "";
+
+  var step = 46, W = 34 + st.months.length * step, H = 212, base = H - 36, top = 24;
+  var yOf = function(n){ return base - (n / tall) * (base - top); };
+  var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" height="' + H + '" ' +
+    'role="img" aria-label="Bookings taken each month, by who secured them">';
+
+  var grid = Math.max(1, Math.ceil(tall / 4));
+  for (var g = 0; g <= tall; g += grid) {
+    svg += '<line x1="30" y1="' + yOf(g).toFixed(1) + '" x2="' + W + '" y2="' + yOf(g).toFixed(1) +
+      '" stroke="#E7E7E7"/><text x="24" y="' + (yOf(g) + 4).toFixed(1) +
+      '" text-anchor="end" font-size="10" fill="#7B887C">' + g + '</text>';
+  }
+
+  st.months.forEach(function(m, i){
+    var x = 34 + i * step, y = base, total = 0;
+    people.forEach(function(p, pi){
+      var n = (st.byMonth[m] || {})[p] || 0;
+      if (!n) return;
+      total += n;
+      var hgt = (n / tall) * (base - top);
+      y -= hgt;
+      svg += '<rect x="' + x + '" y="' + y.toFixed(1) + '" width="30" height="' + hgt.toFixed(1) +
+        '" fill="' + BT_COLOURS[pi % BT_COLOURS.length] + '"><title>' + esc(p) + ' — ' + n +
+        ' in ' + esc((MONTHS[+m.slice(5, 7) - 1] || "") + " " + m.slice(0, 4)) + '</title></rect>';
+    });
+    svg += '<text x="' + (x + 15) + '" y="' + (y - 6).toFixed(1) + '" text-anchor="middle" ' +
+        'font-size="11" fill="#4E5F4F">' + total + '</text>' +
+      '<text x="' + (x + 15) + '" y="' + (base + 15) + '" text-anchor="middle" font-size="10" ' +
+        'fill="#7B887C">' + esc(MONTHS[+m.slice(5, 7) - 1] || "") + '</text>' +
+      '<text x="' + (x + 15) + '" y="' + (base + 27) + '" text-anchor="middle" font-size="9" ' +
+        'fill="#A3B0A4">' + esc(m.slice(2, 4)) + '</text>';
+  });
+  svg += '</svg>';
+
+  return '<div class="card"><h2 style="margin-bottom:4px">Bookings taken each month</h2>' +
+    '<p class="muted" style="margin:0 0 14px;font-size:.875rem">' +
+    'The month the booking came in, not the month of the event. Coloured by who secured it.</p>' +
+    '<div class="tw">' + svg + '</div>' +
+    '<div class="btkey">' + people.map(function(p, i){
+      return '<span><i style="background:' + BT_COLOURS[i % BT_COLOURS.length] + '"></i>' +
+        esc(p) + '</span>';
+    }).join("") + '</div></div>';
+}
+
+/* Who did what. A show-round and a booking are two different jobs earning
+   two different bonuses, so they get two columns rather than one total that
+   hides which is which. */
+function bonusPeopleChart(st){
+  var people = Object.keys(st.secured).concat(Object.keys(st.shown), Object.keys(st.earned))
+    .filter(function(p, i, a){ return a.indexOf(p) === i; })
+    .sort(function(a, b){ return (st.earned[b] || 0) - (st.earned[a] || 0); });
+  if (!people.length) return "";
+  var most = Math.max.apply(null, people.map(function(p){ return st.secured[p] || 0; })) || 1;
+
+  return '<div class="card"><h2 style="margin-bottom:14px">By person</h2>' +
+    '<table><thead><tr><th>Who</th><th>Bookings secured</th>' +
+    '<th class="num">Show-rounds</th><th class="money">Bonus earned</th></tr></thead><tbody>' +
+    people.map(function(p){
+      var n = st.secured[p] || 0;
+      return '<tr><td><strong>' + esc(p) + '</strong></td>' +
+        '<td><span class="btbar"><i style="width:' + Math.round(n / most * 100) + '%"></i></span>' +
+          '<span class="num">' + n + '</span></td>' +
+        '<td class="num">' + (st.shown[p] || 0) + '</td>' +
+        '<td class="money num">' + money(st.earned[p] || 0) + '</td></tr>';
+    }).join("") + '</tbody></table></div>';
+}
+
+/* ---------- the page ---------- */
+function viewBonus(){
+  if (!BT.level) {
+    return '<h1 style="margin-bottom:6px">Bonus tracker</h1>' +
+      '<p class="muted" style="margin:0 0 18px">Every booking taken, who secured it, and ' +
+        'what it is worth. Behind its own password.</p>' +
+      '<div class="card" style="max-width:400px">' +
+        '<div class="field"><span class="label">Password</span>' +
+          '<input id="btPass" type="password" autocomplete="off" ' +
+            'onkeydown="if(event.key===\'Enter\'){event.preventDefault();bonusUnlock()}"></div>' +
+        '<button class="btn btn--primary" id="btGo" onclick="bonusUnlock()">Open</button>' +
+        '<p class="muted" style="margin:14px 0 0;font-size:.8125rem">' +
+          'There are two. One opens the tracker to read; the other lets you change it.</p>' +
+      '</div>';
+  }
+
+  var st = bonusStats();
+  var h = '<div class="split" style="margin-bottom:6px"><h1>Bonus tracker</h1>' +
+    '<span class="label">' + (BT.level === "edit" ? "You can edit this" : "Read only") + '</span></div>' +
+    '<p class="muted" style="margin:0 0 18px">' + st.total + ' booking' + (st.total === 1 ? "" : "s") +
+      ' on the tracker. Click any line to open it. ' +
+      '<button class="linkish" onclick="bonusLock()">Lock it again</button></p>';
+
+  var tile = function(n, label){
+    return '<div class="ufilter ufilter--still"><span class="un">' + n +
+      '</span><span class="ul">' + label + '</span></div>';
+  };
+  h += '<div class="ufilters">' +
+    tile(st.weddings, "Weddings booked") +
+    tile(st.onApp + " of " + st.weddings, "In the wedding app") +
+    tile(money(st.revenue).replace(/\.00$/, ""), "Revenue booked") +
+    tile(money(st.bonus).replace(/\.00$/, ""), "Bonus earned") +
+  '</div>';
+
+  h += bonusMonthChart(st) + bonusPeopleChart(st);
+  h += searchBox("btSearch", BT.query, "bonusSearch", "Search by name, reference or person");
+
+  var words = String(BT.query || "").toLowerCase().trim().split(/\s+/).filter(Boolean);
+  var rows = BT.rows.filter(function(r){
+    if (!words.length) return true;
+    var blob = [r.booking_name, r.event_ref, r.secured_by, r.showround_by, r.event_type,
+                r.event_date, r.booking_month, r.primary_email]
+      .filter(Boolean).join(" ").toLowerCase();
+    return words.every(function(w){ return blob.indexOf(w) >= 0; });
+  });
+
+  if (!rows.length) {
+    return h + '<div class="card empty">Nothing matches &ldquo;' + esc(BT.query) + '&rdquo;.<br><br>' +
+      '<button class="btn" onclick="bonusSearch(\'\')">Clear the search</button></div>';
+  }
+
+  h += '<div class="card card--flush"><table><thead><tr>' +
+    '<th>Booking</th><th>Event</th><th class="money">Revenue</th>' +
+    '<th>Show-round</th><th>Secured by</th><th></th>' +
+    '</tr></thead><tbody>';
+
+  rows.forEach(function(r){
+    var added = !!(r.event_ref && BT.inApp.indexOf(r.event_ref) >= 0);
+    var wedding = String(r.event_type || "").toLowerCase() === "wedding";
+    h += '<tr class="urow' + (BT.open === r.id ? " btopen" : "") +
+        '" onclick="bonusOpen(\'' + esc(r.id) + '\')">' +
+      '<td data-label="Booking"><strong>' + esc(r.booking_name || "—") + '</strong>' +
+        (r.event_ref ? '<br><span class="muted" style="font-size:.8125rem"><code>' +
+          esc(r.event_ref) + '</code></span>' : '') + '</td>' +
+      '<td data-label="Event" class="num">' + (r.event_date ? esc(ukDate(r.event_date)) : "—") +
+        '<br><span class="muted" style="font-size:.8125rem">' + esc(r.event_type || "") + '</span></td>' +
+      '<td data-label="Revenue" class="money num">' + (r.revenue ? money(r.revenue) : "—") + '</td>' +
+      '<td data-label="Show-round">' + esc(r.showround_by || "—") +
+        (r.showround_bonus ? '<br><span class="muted" style="font-size:.8125rem">' +
+          money(r.showround_bonus) + '</span>' : '') + '</td>' +
+      '<td data-label="Secured by">' + esc(r.secured_by || "—") +
+        (r.booking_bonus ? '<br><span class="muted" style="font-size:.8125rem">' +
+          money(r.booking_bonus) + '</span>' : '') + '</td>' +
+      '<td class="money">' + bonusButton(r, added, wedding) + '</td>' +
+    '</tr>';
+    if (BT.open === r.id) h += bonusDetail(r, added, wedding);
+  });
+
+  h += '</tbody></table></div>' +
+    '<div class="center" style="margin-top:16px">' +
+    '<button class="btn" onclick="exportBonus()">Download the tracker</button></div>';
+  return h;
+}
+
+/* Only a wedding gets the button. A dry hire or a wake has no couple to
+   invite, and offering it would be an invitation to make an account that
+   nobody ever logs into. */
+function bonusButton(r, added, wedding){
+  if (!wedding) return '<span class="muted" style="font-size:.8125rem">Not a wedding</span>';
+  if (added) return '<span class="pill pill--ok">Already added</span>';
+  return '<button class="btn btn--sm btn--primary" id="btadd_' + esc(r.id) + '" ' +
+    'onclick="event.stopPropagation();bonusToApp(\'' + esc(r.id) + '\')">Add to wedding app</button>';
+}
+
+function bonusDetail(r, added, wedding){
+  var ro = BT.level !== "edit";
+  var box = function(label, field, attrs){
+    return '<div class="field"><span class="label">' + label + '</span>' +
+      '<input value="' + esc(r[field] == null ? "" : r[field]) + '"' + (ro ? " disabled" : "") +
+      (attrs || "") + ' oninput="bonusSet(\'' + esc(r.id) + '\',\'' + field + '\',this.value)"></div>';
+  };
+
+  var h = '<tr class="btdetail"><td colspan="6"><div class="btpanel" onclick="event.stopPropagation()">';
+
+  if (added) {
+    h += '<p class="muted" style="margin:0 0 14px;font-size:.875rem">' +
+      'Already in the wedding app &mdash; the couple are under Weddings.</p>';
+  } else if (wedding) {
+    h += '<p class="muted" style="margin:0 0 14px;font-size:.875rem">' +
+      'What this booking still needs before it can go into the wedding app. The portal ' +
+      'link is the only one we cannot work out for ourselves &mdash; it is on the booking ' +
+      'confirmation Guestline sent them.' + (ro ? ' You are reading, not editing.' : '') + '</p>' +
+      '<div class="field"><span class="label">Guestline event link</span>' +
+        '<input value="' + esc(r.guestline_link || "") + '"' + (ro ? " disabled" : "") +
+        ' placeholder="https://event.eu.guestline.app/…" ' +
+        'oninput="bonusSet(\'' + esc(r.id) + '\',\'guestline_link\',this.value)"></div>' +
+      '<div class="row">' + box("Partner 1", "partner1_name") + box("Partner 2", "partner2_name") + '</div>' +
+      '<div class="row">' + box("Email", "primary_email", ' type="email"') +
+        box("Phone", "mobile") + '</div>';
+  }
+
+  h += '<div class="row">' + box("Booking taken", "booking_month", ' type="date"') +
+      box("Event date", "event_date", ' type="date"') + '</div>' +
+    '<div class="row">' + box("Booking name", "booking_name") + box("Reference", "event_ref") + '</div>' +
+    '<div class="row">' + box("Event type", "event_type") + box("Revenue", "revenue") + '</div>' +
+    '<div class="row">' + box("Show-round by", "showround_by") +
+      box("Show-round bonus", "showround_bonus") + '</div>' +
+    '<div class="row">' + box("Secured by", "secured_by") + box("Booking bonus", "booking_bonus") + '</div>' +
+    box("Notes", "notes");
+
+  if (!ro) {
+    h += '<button class="btn btn--primary btn--sm" id="btsave_' + esc(r.id) + '" ' +
+      'onclick="bonusSave(\'' + esc(r.id) + '\')">Save</button>';
+  }
+
+  return h + '</div></td></tr>';
+}
+
+function exportBonus(){
+  csvRaw("bonus-tracker",
+    ["Booking taken", "Event type", "Event date", "Booking name", "Reference", "Revenue",
+     "Show-round by", "Show-round bonus", "Secured by", "Booking bonus", "In the wedding app"],
+    BT.rows.map(function(r){
+      return [ymd(r.booking_month), r.event_type || "", ymd(r.event_date), r.booking_name || "",
+              r.event_ref || "", r.revenue == null ? "" : r.revenue,
+              r.showround_by || "", r.showround_bonus == null ? "" : r.showround_bonus,
+              r.secured_by || "", r.booking_bonus == null ? "" : r.booking_bonus,
+              (r.event_ref && BT.inApp.indexOf(r.event_ref) >= 0) ? "Yes" : "No"];
+    }));
 }
 
 /* ============================ RECONCILE QUEUE ============================ */
