@@ -375,6 +375,12 @@ function pctDelta(now, then){
   if (!then) return null;
   return ((now - then) / then) * 100;
 }
+// Last year's own forecast is 0 for dates before any Forecast workbook
+// existed (only actuals were backfilled that far back) - fall back to the
+// actual so "vs last year" still works for the earliest comparable months.
+function lyValue(lyTotals, forecastField, actualField){
+  return lyTotals[forecastField] || lyTotals[actualField] || 0;
+}
 function deltaSpan(pct){
   if (pct === null || pct === undefined || isNaN(pct)) return `<span class="muted">—</span>`;
   const cls = pct >= 0 ? "up" : "down";
@@ -471,10 +477,10 @@ async function loadMonth(){
 function renderMonthTiles(d){
   const t = d.totals, ly = d.last_year.totals;
   const tiles = [
-    { l:"Total Revenue — Forecast", n:gbp(t.total_revenue_forecast), d:deltaSpan(pctDelta(t.total_revenue_forecast, ly.total_revenue_forecast)) },
+    { l:"Total Revenue — Forecast", n:gbp(t.total_revenue_forecast), d:deltaSpan(pctDelta(t.total_revenue_forecast, lyValue(ly,'total_revenue_forecast','total_revenue_actual'))) },
     { l:"Total Revenue — Actual so far", n: t.days_with_actual ? gbp(t.total_revenue_actual) : "—", d: t.days_with_actual ? `${t.days_with_actual} of ${t.days} days` : "No actuals yet" },
-    { l:"Rooms Forecast", n:num(t.rooms_forecast), d:deltaSpan(pctDelta(t.rooms_forecast, ly.rooms_forecast)) },
-    { l:"ADR Forecast", n:gbp(t.adr_forecast), d:deltaSpan(pctDelta(t.adr_forecast, ly.adr_forecast)) },
+    { l:"Rooms Forecast", n:num(t.rooms_forecast), d:deltaSpan(pctDelta(t.rooms_forecast, lyValue(ly,'rooms_forecast','rooms_actual'))) },
+    { l:"ADR Forecast", n:gbp(t.adr_forecast), d:deltaSpan(pctDelta(t.adr_forecast, lyValue(ly,'adr_forecast','adr_actual'))) },
   ];
   $("#monthTiles").innerHTML = tiles.map(x=>`
     <div class="tile"><div class="n">${x.n}</div><div class="l">${x.l}</div><div class="d">${x.d}</div></div>
@@ -550,13 +556,16 @@ async function openDay(date){
     $("#lSub").textContent = day ? (day.day_of_week||"") + (day.wedding_name ? " — "+day.wedding_name : "") : "No data";
     if(!day){ $("#lBody").innerHTML = `<div class="empty">No data for this date.</div>`; return; }
 
+    // Same fallback as the month/period tiles: a "last year" date before any
+    // Forecast workbook existed only has an actual, not a forecast.
+    const lyNum = (f, a) => ly ? (ly[f] || ly[a] || null) : null;
     const rows = [
-      ["Rooms", day.rooms_forecast, day.rooms_actual, ly?.rooms_forecast],
-      ["ADR", gbp(day.adr_forecast), day.has_actual?gbp(day.adr_actual):null, ly?ly.adr_forecast!=null?gbp(ly.adr_forecast):null:null],
-      ["Rooms Revenue", gbp(day.rooms_revenue_forecast), day.has_actual?gbp(day.rooms_revenue_actual):null, ly?gbp(ly.rooms_revenue_forecast):null],
-      ["Food Revenue", gbp(day.food_revenue_forecast), day.has_actual?gbp(day.food_revenue_actual):null, ly?gbp(ly.food_revenue_forecast):null],
-      ["Beverage Revenue", gbp(day.beverage_revenue_forecast), day.has_actual?gbp(day.beverage_revenue_actual):null, ly?gbp(ly.beverage_revenue_forecast):null],
-      ["Total Revenue", gbp(day.total_revenue_forecast), day.has_actual?gbp(day.total_revenue_actual):null, ly?gbp(ly.total_revenue_forecast):null],
+      ["Rooms", day.rooms_forecast, day.has_actual?day.rooms_actual:null, lyNum('rooms_forecast','rooms_actual')],
+      ["ADR", gbp(day.adr_forecast), day.has_actual?gbp(day.adr_actual):null, lyNum('adr_forecast','adr_actual')!=null?gbp(lyNum('adr_forecast','adr_actual')):null],
+      ["Rooms Revenue", gbp(day.rooms_revenue_forecast), day.has_actual?gbp(day.rooms_revenue_actual):null, lyNum('rooms_revenue_forecast','rooms_revenue_actual')!=null?gbp(lyNum('rooms_revenue_forecast','rooms_revenue_actual')):null],
+      ["Food Revenue", gbp(day.food_revenue_forecast), day.has_actual?gbp(day.food_revenue_actual):null, lyNum('food_revenue_forecast','food_revenue_actual')!=null?gbp(lyNum('food_revenue_forecast','food_revenue_actual')):null],
+      ["Beverage Revenue", gbp(day.beverage_revenue_forecast), day.has_actual?gbp(day.beverage_revenue_actual):null, lyNum('beverage_revenue_forecast','beverage_revenue_actual')!=null?gbp(lyNum('beverage_revenue_forecast','beverage_revenue_actual')):null],
+      ["Total Revenue", gbp(day.total_revenue_forecast), day.has_actual?gbp(day.total_revenue_actual):null, lyNum('total_revenue_forecast','total_revenue_actual')!=null?gbp(lyNum('total_revenue_forecast','total_revenue_actual')):null],
     ];
     let html = `<div class="sect">Forecast vs Actual vs Same Weekday Last Year</div>
       <table class="cmp"><thead><tr><th></th><th>Forecast</th><th>Actual</th><th>Last Year</th></tr></thead><tbody>
@@ -600,10 +609,10 @@ async function loadPeriod(start, end){
     S.lastPeriod = d;
     const t = d.totals, ly = d.last_year.totals;
     $("#periodTiles").innerHTML = [
-      { l:"Total Revenue — Forecast", n:gbp(t.total_revenue_forecast), d:deltaSpan(pctDelta(t.total_revenue_forecast, ly.total_revenue_forecast)) },
+      { l:"Total Revenue — Forecast", n:gbp(t.total_revenue_forecast), d:deltaSpan(pctDelta(t.total_revenue_forecast, lyValue(ly,'total_revenue_forecast','total_revenue_actual'))) },
       { l:"Total Revenue — Actual so far", n: t.days_with_actual ? gbp(t.total_revenue_actual) : "—", d: t.days_with_actual ? `${t.days_with_actual} of ${t.days} days` : "No actuals yet" },
-      { l:"Rooms Forecast", n:num(t.rooms_forecast), d:deltaSpan(pctDelta(t.rooms_forecast, ly.rooms_forecast)) },
-      { l:"Last Year Equivalent", n:gbp(ly.total_revenue_forecast), d:`${ukDate(d.last_year.start)} – ${ukDate(d.last_year.end)}` },
+      { l:"Rooms Forecast", n:num(t.rooms_forecast), d:deltaSpan(pctDelta(t.rooms_forecast, lyValue(ly,'rooms_forecast','rooms_actual'))) },
+      { l:"Last Year Equivalent", n:gbp(lyValue(ly,'total_revenue_forecast','total_revenue_actual')), d:`${ukDate(d.last_year.start)} – ${ukDate(d.last_year.end)}` },
     ].map(x=>`<div class="tile"><div class="n">${x.n}</div><div class="l">${x.l}</div><div class="d">${x.d}</div></div>`).join("");
 
     if(!d.days.length){
