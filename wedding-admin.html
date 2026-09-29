@@ -258,6 +258,9 @@ details summary::-webkit-details-marker{color:var(--sage-70)}
 
 /* ---- bonus tracker ---- */
 .btmonth{max-width:190px}
+.btworking{background:var(--sage-10);padding:12px 14px;font-size:.875rem}
+.btworking .label{margin-bottom:6px}
+.btworking li{margin-bottom:3px}
 .bttotal td{border-top:1px solid var(--sage);padding-top:11px}
 .bttotal td:first-child{font-size:.6875rem;letter-spacing:.14em;text-transform:uppercase}
 .btfilters{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px 14px;margin:0 0 16px}
@@ -2240,8 +2243,9 @@ var BT = { level:null, pass:"", rows:[], inApp:[], open:null,
    whoever worked them. It is only the money that comes off.
 
    The spreadsheet this was imported from does carry a figure on those lines.
-   It is left in the database untouched and simply never shown, rather than
-   quietly deleted out of somebody's own records. */
+   It is not kept: the bonus is worked out from the revenue now, so the stored
+   columns are the working rather than the record, and his come out at nil
+   like everything else the scheme does not pay. */
 var BONUS_NOT_TEAM = ["Paul Riley"];
 
 /* The co-ordinators the scheme pays. Typing a name into a box is how
@@ -2277,9 +2281,52 @@ function isWedding(type){
   return t === "wedding" || t.replace(/[^a-z]/g, "") === "dryhire";
 }
 
-/** A bonus figure, but only where there is somebody it is actually paid to. */
-function bonusPaid(name, amount){
-  return coordinator(name) && Number(amount) ? Number(amount) : null;
+/* The rule.
+
+   Every booking type, on anything over a thousand pounds. One per cent of the
+   booked revenue rounded down to the last thousand first, so £4,700 pays on
+   £4,000. One per cent for doing the show-round and another for securing the
+   booking, which is two if the same person did both.
+
+   Worked out from the revenue rather than typed in. Checked against all sixty
+   lines of the spreadsheet this came from: it agrees with fifty-seven of them
+   and fills in the three that had been left blank. */
+/** Money without the pennies when there are none, which is most of the time. */
+function tidy(n){ return money(n).replace(/\.00$/, ""); }
+
+function bonusDue(revenue){
+  var r = Number(revenue) || 0;
+  if (r <= 1000) return 0;
+  return Math.floor(r / 1000) * 1000 * 0.01;
+}
+
+/* A booking is secured when the contract is signed and the deposit is in.
+   Until both, it is on the tracker but nothing is payable on it.
+
+   Overridable per booking, because the exception is real: a wake booked on
+   the Tuesday for the Friday pays in full and never sees a contract, and
+   somebody earned the bonus on it. The override goes the other way too — a
+   deposit that bounced is not a deposit. */
+function bonusSecured(r){
+  if (r.secured_override === true) return true;
+  if (r.secured_override === false) return false;
+  return !!(r.contract_signed_date && r.deposit_paid_date);
+}
+
+/** What is still wanted before it counts, in the order anybody would say it. */
+function bonusWanting(r){
+  if (bonusSecured(r)) return "";
+  if (r.secured_override === false) return "held back";
+  var want = [];
+  if (!r.contract_signed_date) want.push("a contract");
+  if (!r.deposit_paid_date) want.push("a deposit");
+  return want.length ? "waiting on " + want.join(" and ") : "";
+}
+
+/** What is actually paid to this person for this booking, which may be nothing. */
+function bonusPaid(name, row){
+  if (!row || !bonusSecured(row) || !coordinator(name)) return 0;
+  return bonusDue(row.revenue);
 }
 
 async function bonusUnlock(){
@@ -2377,6 +2424,13 @@ function bonusSetWho(id, field, value){
   $("views").innerHTML = viewBonus();
 }
 
+/* Three states out of a box that can only hold text, so "" has to mean the
+   rule rather than false. */
+function bonusSetSecured(id, value){
+  bonusSet(id, "secured_override", value === "yes" ? true : value === "no" ? false : null);
+  $("views").innerHTML = viewBonus();
+}
+
 /* Money typed by a person, read by a database. "£12,500" and "12500.00" and
    a stray space all mean the same thing, and an empty box means nothing
    rather than zero. */
@@ -2398,8 +2452,16 @@ async function bonusSave(id){
       event_type: r.event_type || null, booking_name: r.booking_name || null,
       event_ref: (r.event_ref || "").trim().toUpperCase() || null,
       revenue: bonusNum(r.revenue),
-      showround_by: r.showround_by || null, showround_bonus: bonusNum(r.showround_bonus),
-      secured_by: r.secured_by || null, booking_bonus: bonusNum(r.booking_bonus),
+      deposit_paid_date: bonusDate(r.deposit_paid_date),
+      contract_signed_date: bonusDate(r.contract_signed_date),
+      secured_override: r.secured_override === true ? true
+                      : r.secured_override === false ? false : null,
+      // Written back worked out, not as typed, so anything reading these
+      // columns directly sees the same figures the page does.
+      showround_by: r.showround_by || null,
+      showround_bonus: bonusPaid(r.showround_by, r),
+      secured_by: r.secured_by || null,
+      booking_bonus: bonusPaid(r.secured_by, r),
       guestline_link: (r.guestline_link || "").trim() || null,
       partner1_name: (r.partner1_name || "").trim() || null,
       partner2_name: (r.partner2_name || "").trim() || null,
@@ -2520,17 +2582,21 @@ function bonusTally(rows){
   var secured = {}, shown = {}, earned = {};
   rows.forEach(function(r){
     var who = r.secured_by || "Not recorded";
-    secured[who] = (secured[who] || 0) + 1;
-    earned[who] = (earned[who] || 0) + (bonusPaid(who, r.booking_bonus) || 0);
+    // Counted only once it actually is secured. A booking somebody is still
+    // chasing a contract for is not one they have won.
+    if (bonusSecured(r)) secured[who] = (secured[who] || 0) + 1;
+    earned[who] = (earned[who] || 0) + bonusPaid(who, r);
     if (r.showround_by) {
       shown[r.showround_by] = (shown[r.showround_by] || 0) + 1;
-      earned[r.showround_by] = (earned[r.showround_by] || 0) +
-        (bonusPaid(r.showround_by, r.showround_bonus) || 0);
-    } else if (Number(r.showround_bonus)) {
+      earned[r.showround_by] = (earned[r.showround_by] || 0) + bonusPaid(r.showround_by, r);
+    } else if (bonusSecured(r) && bonusDue(r.revenue)) {
       // A show-round bonus with nobody's name against it. The money is real
       // and has to appear somewhere; the show-round itself is not counted,
       // because a blank name may well mean there never was one.
-      earned["Not recorded"] = (earned["Not recorded"] || 0) + Number(r.showround_bonus);
+      /* Nobody is down as having done the show-round, so this is owed to
+         nobody — but it is owed to somebody, and the only way anyone finds
+         out is by it appearing here rather than quietly not existing. */
+      earned["Not recorded"] = (earned["Not recorded"] || 0) + bonusDue(r.revenue);
     }
   });
   return { secured: secured, shown: shown, earned: earned };
@@ -2704,7 +2770,42 @@ function bonusPeopleTable(st, picker, total, bookings){
       '<td class="num">' + people.reduce(function(a, p){ return a + (st.secured[p] || 0); }, 0) + '</td>' +
       '<td class="num">' + people.reduce(function(a, p){ return a + (st.shown[p] || 0); }, 0) + '</td>' +
       '<td class="money num"><strong>' + money(total) + '</strong></td></tr>' +
-    '</tbody></table></div>';
+    '</tbody></table>' + bonusWaitingNote() + bonusNamelessNote() + '</div>';
+}
+
+/* Show-round bonus with nobody down as having done the show-round.
+
+   It is the "Not recorded" line in the table, which on its own looks like a
+   rounding error rather than what it is: somebody did those show-rounds and
+   is owed for them, and the only fix is putting the name on the booking. */
+function bonusNamelessNote(){
+  var rows = BT.rows.filter(function(r){
+    return !r.showround_by && bonusSecured(r) && bonusDue(r.revenue);
+  });
+  if (!rows.length) return "";
+  var owed = rows.reduce(function(a, r){ return a + bonusDue(r.revenue); }, 0);
+  return '<p class="muted" style="margin:10px 0 0;font-size:.8125rem">' +
+    money(owed) + ' of show-round bonus has no name against it, across ' +
+    rows.length + ' booking' + (rows.length === 1 ? "" : "s") + ': ' +
+    rows.map(function(r){ return esc(r.booking_name || r.event_ref || "one"); }).join(", ") +
+    '. Put the name on and it moves to them.</p>';
+}
+
+/* The bookings nothing is payable on yet, and what each is waiting for.
+
+   Without this the table is quietly short and nobody can see why. It is the
+   same count whichever month is picked, because a contract signed in October
+   settles a booking taken in July. */
+function bonusWaitingNote(){
+  var waiting = BT.rows.filter(function(r){ return !bonusSecured(r); });
+  if (!waiting.length) return "";
+  var owed = waiting.reduce(function(a, r){ return a + bonusDue(r.revenue) * 2; }, 0);
+  return '<p class="muted" style="margin:14px 0 0;font-size:.8125rem">' +
+    waiting.length + ' booking' + (waiting.length === 1 ? " is" : "s are") +
+    ' not secured yet' + (owed ? ', holding back ' + money(owed) : '') +
+    '. ' + waiting.map(function(r){
+      return esc(r.booking_name || r.event_ref || "one") + ' (' + esc(bonusWanting(r)) + ')';
+    }).join(", ") + '.</p>';
 }
 
 /* ---------- the page ---------- */
@@ -2737,8 +2838,8 @@ function viewBonus(){
   h += '<div class="ufilters">' +
     tile(st.weddings, "Weddings and dry hires") +
     tile(st.onApp + " of " + st.weddings, "In the wedding app") +
-    tile(money(st.revenue).replace(/\.00$/, ""), "Revenue booked") +
-    tile(money(st.bonus).replace(/\.00$/, ""), "Bonus earned") +
+    tile(tidy(st.revenue), "Revenue booked") +
+    tile(tidy(st.bonus), "Bonus earned") +
   '</div>';
 
   h += bonusMonthChart(st) + bonusPeopleChart(st);
@@ -2785,18 +2886,20 @@ function viewBonus(){
           esc(r.event_ref) + '</code></span>' : '') + '</td>' +
       // What the list is ordered by, so the order is not a mystery.
       '<td data-label="Secured" class="num">' +
-        (r.booking_month ? esc(ukDate(r.booking_month)) : "—") + '</td>' +
+        (r.booking_month ? esc(ukDate(r.booking_month)) : "—") +
+        (bonusWanting(r) ? '<br><span class="pill pill--prov">' +
+          esc(bonusWanting(r)) + '</span>' : '') + '</td>' +
       '<td data-label="Event" class="num">' + (r.event_date ? esc(ukDate(r.event_date)) : "—") +
         '<br><span class="muted" style="font-size:.8125rem">' + esc(r.event_type || "") + '</span></td>' +
       '<td data-label="Revenue" class="money num">' + (r.revenue ? money(r.revenue) : "—") + '</td>' +
       '<td data-label="Show-round">' + esc(r.showround_by || "—") +
-        (bonusPaid(r.showround_by, r.showround_bonus)
+        (bonusPaid(r.showround_by, r)
           ? '<br><span class="muted" style="font-size:.8125rem">' +
-            money(r.showround_bonus) + '</span>' : '') + '</td>' +
+            money(bonusPaid(r.showround_by, r)) + '</span>' : '') + '</td>' +
       '<td data-label="Secured by">' + esc(r.secured_by || "—") +
-        (bonusPaid(r.secured_by, r.booking_bonus)
+        (bonusPaid(r.secured_by, r)
           ? '<br><span class="muted" style="font-size:.8125rem">' +
-            money(r.booking_bonus) + '</span>' : '') + '</td>' +
+            money(bonusPaid(r.secured_by, r)) + '</span>' : '') + '</td>' +
       '<td class="money">' + bonusButton(r, added, wedding) + '</td>' +
     '</tr>';
     if (BT.open === r.id) h += bonusDetail(r, added, wedding);
@@ -2850,6 +2953,68 @@ function bonusFilterBar(){
       ? '<button class="btn btn--sm btfclear" onclick="bonusClearFilters()">Clear</button>'
       : '') +
   '</div>';
+}
+
+/* The override, spelled out rather than left as a tick nobody can read.
+
+   Left alone it says what the two dates say, so the usual booking needs
+   nothing doing to it and the rule is visible on every line. */
+function securedBox(r, ro){
+  var now = r.secured_override === true ? "yes"
+          : r.secured_override === false ? "no" : "";
+  var opt = function(v, text){
+    return '<option value="' + v + '"' + (now === v ? " selected" : "") + '>' + text + '</option>';
+  };
+  return '<div class="field"><span class="label">Counts as secured</span>' +
+    '<select' + (ro ? " disabled" : "") +
+      ' onchange="bonusSetSecured(\'' + esc(r.id) + '\', this.value)">' +
+      opt("", "When the contract is signed and the deposit is in") +
+      opt("yes", "Yes \u2014 whatever the dates say") +
+      opt("no", "No \u2014 whatever the dates say") +
+    '</select></div>';
+}
+
+/* What this booking pays, and how that number was arrived at.
+
+   Shown rather than typed. The bonus follows the revenue, so a revenue
+   corrected on this form corrects the bonus with it, and there is no second
+   number to remember to change. */
+function bonusWorking(r){
+  var rev = Number(r.revenue) || 0;
+  var each = bonusDue(rev);
+
+  var line = function(did, nobody, name){
+    if (!name) return '<li>' + nobody + ', so that half is not paid.</li>';
+    if (!coordinator(name)) {
+      return '<li><strong>' + esc(name) + '</strong> ' + did +
+        ', and is not on the bonus scheme.</li>';
+    }
+    return '<li><strong>' + esc(name) + '</strong> ' + did +
+      ': <strong>' + tidy(each) + '</strong></li>';
+  };
+
+  var body;
+  if (!bonusSecured(r)) {
+    body = '<p style="margin:0">Nothing yet \u2014 ' + esc(bonusWanting(r)) +
+      '. Nothing is payable until a booking is secured.</p>';
+  } else if (!rev) {
+    body = '<p style="margin:0">Put the booked revenue in and the bonus works itself out.</p>';
+  } else if (!each) {
+    body = '<p style="margin:0">Nothing \u2014 ' + tidy(rev) +
+      ' is not over £1,000.</p>';
+  } else {
+    body = '<p style="margin:0 0 8px">One per cent of <strong>' +
+        tidy(Math.floor(rev / 1000) * 1000) + '</strong> each \u2014 ' + tidy(rev) +
+        ' rounded down to the last £1,000.</p>' +
+      '<ul style="margin:0;padding-left:18px">' +
+        line("did the show-round", "Nobody is down as having done the show-round",
+             r.showround_by) +
+        line("secured it", "Nobody is down as having secured it", r.secured_by) +
+      '</ul>';
+  }
+
+  return '<div class="field btworking"><span class="label">Bonus on this booking</span>' +
+    body + '</div>';
 }
 
 /* Only a wedding gets the button. A dry hire or a wake has no couple to
@@ -2914,12 +3079,12 @@ function bonusDetail(r, added, wedding){
     '<div class="row">' + box("Event type", "event_type") + box("Revenue", "revenue") + '</div>' +
     // The bonus box only appears where there is somebody on the scheme to pay
     // it to. On a line the GM worked there is no bonus, so there is no box.
+    '<div class="row">' + box("Deposit paid", "deposit_paid_date", ' type="date"') +
+      box("Contract signed", "contract_signed_date", ' type="date"') + '</div>' +
+    securedBox(r, ro) +
     '<div class="row">' + who("Show-round by", "showround_by") +
-      (coordinator(r.showround_by) || !r.showround_by ? box("Show-round bonus", "showround_bonus") : "") +
-      '</div>' +
-    '<div class="row">' + who("Secured by", "secured_by") +
-      (coordinator(r.secured_by) || !r.secured_by ? box("Booking bonus", "booking_bonus") : "") +
-      '</div>' +
+      who("Secured by", "secured_by") + '</div>' +
+    bonusWorking(r) +
     box("Notes", "notes");
 
   if (!ro) {
@@ -2944,8 +3109,8 @@ function exportBonus(){
     bonusFiltered().map(function(r){
       return [ymd(r.booking_month), r.event_type || "", ymd(r.event_date), r.booking_name || "",
               r.event_ref || "", r.revenue == null ? "" : r.revenue,
-              r.showround_by || "", bonusPaid(r.showround_by, r.showround_bonus) || "",
-              r.secured_by || "", bonusPaid(r.secured_by, r.booking_bonus) || "",
+              r.showround_by || "", bonusPaid(r.showround_by, r) || "",
+              r.secured_by || "", bonusPaid(r.secured_by, r) || "",
               (r.event_ref && BT.inApp.indexOf(r.event_ref) >= 0) ? "Yes" : "No"];
     }));
 }
