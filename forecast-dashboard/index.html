@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Forecast Dashboard — Black Horse Beamish</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+/* ============================================================ tokens
+   Same values as the wedding tracker and the live website branding. */
+:root{
+  --sage:#4E5F4F; --sage-70:#7B887C; --sage-10:#EDEFED; --sage-dark:#3B483C;
+  --bone:#F7F7F7; --celadon:#C1C8B4; --mist:#E7E7E7; --white:#fff; --ink:#262626;
+  --gold:#C9A56B;
+  --attention:#B08D57; --attention-bg:#F7F0E4;
+  --alert:#8C4A3F;     --alert-bg:#F6EAE8;
+  --good:#4F6B4F;      --good-bg:#EDF2ED;
+  --display:"Cormorant Garamond",Georgia,serif;
+  --body:Raleway,"Helvetica Neue",Arial,sans-serif;
+  --track-label:.18em;
+  --radius:10px;
+  --shadow:0 1px 2px rgba(38,38,38,.06),0 8px 24px rgba(38,38,38,.07);
+  --maxw:1440px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  font-family:var(--body); color:var(--ink); background:var(--bone);
+  font-size:15px; line-height:1.45; -webkit-text-size-adjust:100%;
+}
+h1,h2,h3{font-family:var(--display); font-weight:600; margin:0; letter-spacing:.01em}
+button,input,select,textarea{font:inherit; color:inherit}
+a{color:var(--sage)}
+.shell{max-width:var(--maxw); margin:0 auto; padding:0 20px 64px}
+
+/* ============================================================ gate */
+#gate{
+  position:fixed; inset:0; background:var(--sage); z-index:100;
+  display:flex; align-items:center; justify-content:center; padding:24px;
+}
+.gatecard{
+  background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow);
+  width:100%; max-width:380px; padding:32px 28px; text-align:center;
+}
+.gatecard h1{font-size:26px; color:var(--sage); line-height:1.15}
+.gatecard .sub{
+  font-size:11px; letter-spacing:var(--track-label); text-transform:uppercase;
+  color:var(--sage-70); margin:6px 0 22px;
+}
+.gatecard input{
+  width:100%; padding:12px 14px; border:1px solid var(--mist);
+  border-radius:8px; background:var(--bone); margin-bottom:10px; text-align:center;
+}
+.gatecard input:focus{outline:2px solid var(--celadon); outline-offset:1px}
+.gatecard button{
+  width:100%; padding:12px; border:0; border-radius:8px; cursor:pointer;
+  background:var(--sage); color:var(--white); font-weight:600;
+  letter-spacing:var(--track-label); text-transform:uppercase; font-size:12px;
+}
+.gateerr{color:var(--alert); font-size:13px; min-height:18px; margin-top:8px}
+
+/* ============================================================ header */
+header.top{background:var(--sage); color:var(--white)}
+.topin{
+  max-width:var(--maxw); margin:0 auto; padding:14px 20px;
+  display:flex; align-items:center; gap:18px; flex-wrap:wrap;
+}
+.brand{font-family:var(--display); font-size:21px; line-height:1.1}
+.brand small{
+  display:block; font-family:var(--body); font-size:10px;
+  letter-spacing:var(--track-label); text-transform:uppercase; opacity:.75;
+}
+.who{margin-left:auto; display:flex; align-items:center; gap:10px; font-size:12px; opacity:.9}
+.who button{
+  background:transparent; border:1px solid rgba(255,255,255,.4); color:var(--white);
+  border-radius:6px; padding:5px 10px; cursor:pointer; font-size:11px;
+  letter-spacing:.06em; text-transform:uppercase;
+}
+
+nav.tabs{background:var(--sage-dark)}
+.tabsin{max-width:var(--maxw); margin:0 auto; padding:0 20px; display:flex; gap:2px; overflow-x:auto}
+.tabbtn{
+  background:transparent; border:0; cursor:pointer; color:rgba(255,255,255,.72);
+  padding:12px 16px; font-size:12px; font-weight:600; white-space:nowrap;
+  letter-spacing:var(--track-label); text-transform:uppercase;
+  border-bottom:3px solid transparent;
+}
+.tabbtn[aria-selected="true"]{color:var(--white); border-bottom-color:var(--gold)}
+
+/* ============================================================ layout */
+.page{display:none; padding-top:26px}
+.page.on{display:block}
+.pagehead{display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; margin-bottom:18px}
+.pagehead h2{font-size:26px; color:var(--sage)}
+.pagehead .hint{font-size:13px; color:var(--sage-70)}
+.spacer{margin-left:auto}
+
+.btn{
+  border:1px solid var(--sage); background:var(--sage); color:var(--white);
+  border-radius:8px; padding:9px 16px; cursor:pointer; font-size:12px;
+  font-weight:600; letter-spacing:var(--track-label); text-transform:uppercase;
+}
+.btn.ghost{background:var(--white); color:var(--sage)}
+.btn.ghost:hover{background:var(--sage-10)}
+.btn:disabled{opacity:.5; cursor:default}
+
+/* ============================================================ tiles */
+.tiles{display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:14px; margin-bottom:26px}
+.tile{
+  background:var(--white); border-radius:var(--radius); padding:16px 18px;
+  box-shadow:var(--shadow); border-left:4px solid var(--celadon);
+}
+.tile .n{font-family:var(--display); font-size:30px; line-height:1; color:var(--sage)}
+.tile .l{font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); margin-top:6px}
+.tile .d{font-size:12px; margin-top:4px; font-weight:600}
+.tile .d.up{color:var(--good)} .tile .d.down{color:var(--alert)}
+.tile.warn{border-left-color:var(--attention)} .tile.warn .n{color:var(--attention)}
+.tile.bad{border-left-color:var(--alert)}      .tile.bad  .n{color:var(--alert)}
+.tile.ok{border-left-color:var(--good)}        .tile.ok   .n{color:var(--good)}
+
+/* ============================================================ table */
+.card{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden; margin-bottom:20px}
+.tablewrap{overflow-x:auto}
+table.grid{width:100%; border-collapse:collapse; font-size:14px}
+table.grid th{
+  text-align:left; padding:11px 12px; background:var(--sage-10); color:var(--sage);
+  font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase;
+  font-weight:700; white-space:nowrap; position:sticky; top:0; z-index:1;
+}
+table.grid td{padding:10px 12px; border-top:1px solid var(--mist); vertical-align:top; white-space:nowrap}
+table.grid tbody tr{cursor:pointer}
+table.grid tbody tr:hover{background:var(--sage-10)}
+table.grid tr.totrow{background:var(--sage-10); font-weight:700}
+table.grid td.num{text-align:right; font-variant-numeric:tabular-nums}
+.muted{color:var(--sage-70)}
+.strong{font-weight:600}
+.up{color:var(--good)} .down{color:var(--alert)}
+tr.wedrow td:first-child{box-shadow:inset 3px 0 0 var(--gold)}
+
+.pill{
+  display:inline-block; padding:3px 9px; border-radius:999px; font-size:11px;
+  font-weight:600; white-space:nowrap; background:var(--sage-10); color:var(--sage);
+}
+.pill.gold{background:var(--attention-bg); color:var(--attention)}
+
+.filters{display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:18px}
+.filters select,.filters input{
+  padding:9px 13px; border:1px solid var(--mist); border-radius:8px; background:var(--white);
+}
+.quickbtn{
+  background:var(--white); border:1px solid var(--mist); color:var(--sage);
+  border-radius:999px; padding:7px 14px; cursor:pointer; font-size:12px; font-weight:600;
+}
+.quickbtn[aria-pressed="true"]{background:var(--sage); border-color:var(--sage); color:var(--white)}
+
+.empty{padding:40px 20px; text-align:center; color:var(--sage-70)}
+.loading{padding:60px; text-align:center; color:var(--sage-70)}
+
+/* ================================================== drill-down panel */
+#listveil{position:fixed; inset:0; background:rgba(38,38,38,.45); z-index:70; display:none}
+#listveil.on{display:block}
+#listbox{
+  position:fixed; z-index:71; left:50%; top:50%; transform:translate(-50%,-48%) scale(.98);
+  width:min(720px,94vw); max-height:86vh; background:var(--bone);
+  border-radius:var(--radius); box-shadow:0 20px 60px rgba(38,38,38,.3);
+  display:none; flex-direction:column; opacity:0; transition:opacity .16s, transform .16s;
+}
+#listbox.on{display:flex; opacity:1; transform:translate(-50%,-50%) scale(1)}
+.lhead{background:var(--sage); color:var(--white); padding:15px 20px; display:flex; gap:12px; align-items:flex-start;
+  border-radius:var(--radius) var(--radius) 0 0}
+.lhead h3{font-size:19px; line-height:1.2}
+.lsub{font-size:12px; opacity:.85; margin-top:2px}
+.lhead .x{margin-left:auto; background:transparent; border:0; color:var(--white);
+  font-size:26px; line-height:1; cursor:pointer; padding:0 4px}
+.lbody{flex:1; overflow:auto; background:var(--white); padding:18px 20px}
+.lfoot{padding:12px 20px; background:var(--white); border-top:1px solid var(--mist);
+  display:flex; gap:10px; justify-content:flex-end; border-radius:0 0 var(--radius) var(--radius)}
+
+.sect{
+  font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase;
+  color:var(--sage); font-weight:700; margin:20px 0 10px;
+  padding-bottom:6px; border-bottom:1px solid var(--mist);
+}
+.sect:first-child{margin-top:0}
+.cmp{width:100%; border-collapse:collapse; font-size:13px}
+.cmp th{text-align:left; padding:6px 8px; color:var(--sage-70); font-weight:600; font-size:11px}
+.cmp td{padding:6px 8px; text-align:right; font-variant-numeric:tabular-nums; border-top:1px solid var(--mist)}
+.cmp td:first-child{text-align:left}
+
+.toast{
+  position:fixed; left:50%; bottom:26px; transform:translate(-50%,20px);
+  background:var(--ink); color:var(--white); padding:12px 20px; border-radius:8px;
+  z-index:200; opacity:0; transition:.2s; pointer-events:none; font-size:14px; max-width:90vw;
+}
+.toast.on{opacity:1; transform:translate(-50%,0)}
+.toast.bad{background:var(--alert)}
+
+@media (max-width:760px){
+  .shell{padding:0 14px 48px}
+  .topin,.tabsin{padding-left:14px; padding-right:14px}
+  .pagehead h2{font-size:22px}
+  .tile .n{font-size:24px}
+  table.grid td, table.grid th{padding:8px 8px}
+}
+</style>
+</head>
+<body>
+
+<!-- ======================================================== gate -->
+<div id="gate">
+  <div class="gatecard">
+    <h1>Forecast Dashboard</h1>
+    <div class="sub">Black Horse Beamish</div>
+    <input id="gpw" type="password" placeholder="Password" autocomplete="current-password">
+    <button id="gbtn">Open dashboard</button>
+    <div class="gateerr" id="gerr"></div>
+  </div>
+</div>
+
+<!-- ======================================================== app -->
+<div id="app" hidden>
+  <header class="top">
+    <div class="topin">
+      <div class="brand">Forecast Dashboard<small>Black Horse Beamish</small></div>
+      <div class="who">
+        <span>Read-only — figures from the Forecast workbooks</span>
+        <button id="signout">Sign out</button>
+      </div>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <div class="tabsin" role="tablist">
+      <button class="tabbtn" role="tab" data-page="month" aria-selected="true">Month</button>
+      <button class="tabbtn" role="tab" data-page="period" aria-selected="false">Period</button>
+      <button class="tabbtn" role="tab" data-page="accuracy" aria-selected="false">Forecast Accuracy</button>
+    </div>
+  </nav>
+
+  <div class="shell">
+
+    <!-- --------------------------------------------------- Month -->
+    <section class="page on" id="page-month">
+      <div class="pagehead">
+        <h2 id="monthTitle">Month</h2>
+        <div class="hint">Forecast vs actual by day, compared with the same weekday last year.</div>
+        <div class="spacer"></div>
+        <button class="btn ghost" id="mPrev">&larr; Prev</button>
+        <button class="btn ghost" id="mNext">Next &rarr;</button>
+      </div>
+      <div class="tiles" id="monthTiles"></div>
+      <div class="card"><div class="tablewrap"><table class="grid" id="monthTable"></table></div></div>
+    </section>
+
+    <!-- -------------------------------------------------- Period -->
+    <section class="page" id="page-period">
+      <div class="pagehead">
+        <h2>Period</h2>
+        <div class="hint">Any date range — a week, a trading period, a quarter — against the same weekday-aligned range last year.</div>
+      </div>
+      <div class="filters">
+        <input type="date" id="pStart">
+        <span class="muted">to</span>
+        <input type="date" id="pEnd">
+        <button class="btn" id="pGo">Show totals</button>
+        <div class="spacer"></div>
+        <button class="quickbtn" id="pThisWeek">This week</button>
+        <button class="quickbtn" id="pThisMonth">This month</button>
+        <button class="quickbtn" id="pNext28">Next 28 days</button>
+      </div>
+      <div class="tiles" id="periodTiles"></div>
+      <div class="card"><div class="tablewrap"><table class="grid" id="periodTable"></table></div></div>
+    </section>
+
+    <!-- ------------------------------------------------ Accuracy -->
+    <section class="page" id="page-accuracy">
+      <div class="pagehead">
+        <h2>Forecast Accuracy</h2>
+        <div class="hint">Days in this range that have turned into actuals, and how far the forecast was out.</div>
+      </div>
+      <div class="filters">
+        <input type="date" id="aStart">
+        <span class="muted">to</span>
+        <input type="date" id="aEnd">
+        <button class="btn" id="aGo">Check accuracy</button>
+      </div>
+      <div class="tiles" id="accuracyTiles"></div>
+      <div class="card"><div class="tablewrap"><table class="grid" id="accuracyTable"></table></div></div>
+    </section>
+
+  </div>
+</div>
+
+<div id="listveil"></div>
+<div id="listbox" role="dialog" aria-modal="true">
+  <div class="lhead">
+    <div>
+      <h3 id="lTitle">Day</h3>
+      <div class="lsub" id="lSub"></div>
+    </div>
+    <button class="x" id="lClose" title="Close">&times;</button>
+  </div>
+  <div class="lbody" id="lBody"></div>
+  <div class="lfoot"><button class="btn ghost" id="lDone">Close</button></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ==================================================================
+   Forecast Dashboard
+   Read-only view of the Forecast workbooks in
+   C:\Users\GM\Desktop\Forecasts, populated by a local push script that
+   Excel COM cannot be reached from Supabase, so the numbers here are as
+   fresh as the last time that script was run.
+
+   forecast_daily / forecast_snapshots have RLS on with no public
+   policies, so this page can never read them directly - every call goes
+   through the forecast-dashboard-api edge function with the password
+   attached. This file is published publicly; it holds no secret beyond
+   what the user types.
+   ================================================================== */
+
+const FN   = "https://safcrtrfdzsnftghibot.supabase.co/functions/v1/forecast-dashboard-api";
+const ANON = "sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU";
+const LS_KEY = "bhb_forecast_key";
+
+const S = { key:"", view:"month", monthY:new Date().getFullYear(), monthM:new Date().getMonth()+1 };
+
+const $  = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+
+function gbp(n){
+  if (n === null || n === undefined || isNaN(n)) return "—";
+  return "£" + Math.round(n).toLocaleString("en-GB");
+}
+function num(n, dp){
+  if (n === null || n === undefined || isNaN(n)) return "—";
+  return Number(n).toLocaleString("en-GB", { minimumFractionDigits:dp||0, maximumFractionDigits:dp||0 });
+}
+function pctDelta(now, then){
+  if (!then) return null;
+  return ((now - then) / then) * 100;
+}
+function deltaSpan(pct){
+  if (pct === null || pct === undefined || isNaN(pct)) return `<span class="muted">—</span>`;
+  const cls = pct >= 0 ? "up" : "down";
+  const arrow = pct >= 0 ? "&uarr;" : "&darr;";
+  return `<span class="${cls}">${arrow} ${Math.abs(pct).toFixed(1)}%</span>`;
+}
+function ukDate(iso){
+  if(!iso) return "";
+  const [y,m,d] = String(iso).slice(0,10).split("-");
+  return `${d}/${m}/${y}`;
+}
+function addDaysIso(iso, n){
+  const d = new Date(iso+"T12:00:00Z"); d.setUTCDate(d.getUTCDate()+n);
+  return d.toISOString().slice(0,10);
+}
+function todayIso(){
+  return new Date().toLocaleDateString("en-CA", { timeZone:"Europe/London" });
+}
+function toast(msg, bad){
+  const t = $("#toast");
+  t.textContent = msg;
+  t.className = "toast on" + (bad ? " bad" : "");
+  clearTimeout(toast._t);
+  toast._t = setTimeout(()=>{ t.className = "toast"; }, bad ? 5200 : 2600);
+}
+
+async function api(action, params){
+  const r = await fetch(FN, {
+    method:"POST",
+    headers:{ "apikey":ANON, "Content-Type":"application/json" },
+    body: JSON.stringify({ action, key:S.key, ...(params||{}) }),
+  });
+  let d = {};
+  try { d = await r.json(); } catch(e){}
+  if(!r.ok) throw new Error(d.error || `Request failed (${r.status})`);
+  if(d.error) throw new Error(d.error);
+  return d;
+}
+
+/* ------------------------------------------------------------- gate */
+function openGate(msg){
+  $("#gate").style.display = "flex";
+  $("#app").hidden = true;
+  if(msg) $("#gerr").textContent = msg;
+}
+async function tryOpen(pw){
+  $("#gerr").textContent = "";
+  if(!pw) { $("#gerr").textContent = "Enter the password."; return; }
+  S.key = pw;
+  try{
+    await api("month", { year:S.monthY, month:S.monthM });
+    localStorage.setItem(LS_KEY, pw);
+    $("#gate").style.display = "none";
+    $("#app").hidden = false;
+    loadMonth();
+  }catch(e){
+    $("#gerr").textContent = /password/i.test(e.message) ? "Wrong password." : e.message;
+  }
+}
+$("#gbtn").addEventListener("click", ()=> tryOpen($("#gpw").value));
+$("#gpw").addEventListener("keydown", e=>{ if(e.key==="Enter") tryOpen($("#gpw").value); });
+$("#signout").addEventListener("click", ()=>{
+  try{ localStorage.removeItem(LS_KEY); }catch(e){}
+  S.key = "";
+  openGate();
+});
+
+/* -------------------------------------------------------------- tabs */
+$$(".tabbtn").forEach(b=>{
+  b.addEventListener("click", ()=>{
+    $$(".tabbtn").forEach(x=>x.setAttribute("aria-selected", x===b ? "true":"false"));
+    $$(".page").forEach(p=>p.classList.remove("on"));
+    $("#page-"+b.dataset.page).classList.add("on");
+    S.view = b.dataset.page;
+  });
+});
+
+/* ------------------------------------------------------------- month */
+const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+async function loadMonth(){
+  $("#monthTable").innerHTML = `<tr><td class="loading">Loading…</td></tr>`;
+  $("#monthTitle").textContent = `${MONTH_NAMES[S.monthM-1]} ${S.monthY}`;
+  try{
+    const d = await api("month", { year:S.monthY, month:S.monthM });
+    renderMonthTiles(d);
+    renderMonthTable(d);
+  }catch(e){
+    $("#monthTable").innerHTML = `<tr><td class="empty">${esc(e.message)}</td></tr>`;
+  }
+}
+
+function renderMonthTiles(d){
+  const t = d.totals, ly = d.last_year.totals;
+  const tiles = [
+    { l:"Total Revenue — Forecast", n:gbp(t.total_revenue_forecast), d:deltaSpan(pctDelta(t.total_revenue_forecast, ly.total_revenue_forecast)) },
+    { l:"Total Revenue — Actual so far", n: t.days_with_actual ? gbp(t.total_revenue_actual) : "—", d: t.days_with_actual ? `${t.days_with_actual} of ${t.days} days` : "No actuals yet" },
+    { l:"Rooms Forecast", n:num(t.rooms_forecast), d:deltaSpan(pctDelta(t.rooms_forecast, ly.rooms_forecast)) },
+    { l:"ADR Forecast", n:gbp(t.adr_forecast), d:deltaSpan(pctDelta(t.adr_forecast, ly.adr_forecast)) },
+  ];
+  $("#monthTiles").innerHTML = tiles.map(x=>`
+    <div class="tile"><div class="n">${x.n}</div><div class="l">${x.l}</div><div class="d">${x.d}</div></div>
+  `).join("");
+}
+
+function monthRow(r, isActual){
+  const wed = r.wedding_name ? `<span class="pill gold" title="${esc(r.wedding_name)}">Wedding</span>` : "";
+  return `<tr class="${r.wedding_name?'wedrow':''}" data-date="${r.date}">
+    <td class="strong">${ukDate(r.date)}<div class="muted" style="font-size:11px">${esc(r.day_of_week||'')}</div></td>
+    <td>${wed}</td>
+    <td class="num">${num(r.rooms_forecast)}</td>
+    <td class="num">${r.has_actual ? num(r.rooms_actual) : '<span class="muted">—</span>'}</td>
+    <td class="num">${gbp(r.adr_forecast)}</td>
+    <td class="num">${r.has_actual ? gbp(r.adr_actual) : '<span class="muted">—</span>'}</td>
+    <td class="num">${gbp(r.food_revenue_forecast)}</td>
+    <td class="num">${gbp(r.beverage_revenue_forecast)}</td>
+    <td class="num strong">${gbp(r.total_revenue_forecast)}</td>
+    <td class="num strong">${r.has_actual ? gbp(r.total_revenue_actual) : '<span class="muted">—</span>'}</td>
+  </tr>`;
+}
+
+function renderMonthTable(d){
+  if(!d.days.length){
+    $("#monthTable").innerHTML = `<tr><td class="empty">No data pushed for this month yet.</td></tr>`;
+    return;
+  }
+  const t = d.totals;
+  $("#monthTable").innerHTML = `
+    <thead><tr>
+      <th>Date</th><th>Event</th><th>Rooms FC</th><th>Rooms Act</th>
+      <th>ADR FC</th><th>ADR Act</th><th>Food FC</th><th>Bev FC</th>
+      <th>Total FC</th><th>Total Act</th>
+    </tr></thead>
+    <tbody>
+      ${d.days.map(r=>monthRow(r)).join("")}
+      <tr class="totrow">
+        <td colspan="2">Month total</td>
+        <td class="num">${num(t.rooms_forecast)}</td>
+        <td class="num">${t.rooms_actual ? num(t.rooms_actual) : '—'}</td>
+        <td class="num">${gbp(t.adr_forecast)}</td>
+        <td class="num">${t.adr_actual ? gbp(t.adr_actual) : '—'}</td>
+        <td class="num">${gbp(t.food_revenue_forecast)}</td>
+        <td class="num">${gbp(t.beverage_revenue_forecast)}</td>
+        <td class="num">${gbp(t.total_revenue_forecast)}</td>
+        <td class="num">${t.total_revenue_actual ? gbp(t.total_revenue_actual) : '—'}</td>
+      </tr>
+    </tbody>`;
+  $$("#monthTable tbody tr[data-date]").forEach(tr=>{
+    tr.addEventListener("click", ()=> openDay(tr.dataset.date));
+  });
+}
+
+$("#mPrev").addEventListener("click", ()=>{
+  S.monthM--; if(S.monthM<1){ S.monthM=12; S.monthY--; }
+  loadMonth();
+});
+$("#mNext").addEventListener("click", ()=>{
+  S.monthM++; if(S.monthM>12){ S.monthM=1; S.monthY++; }
+  loadMonth();
+});
+
+/* --------------------------------------------------------- day drill */
+async function openDay(date){
+  $("#lTitle").textContent = ukDate(date);
+  $("#lSub").textContent = "Loading…";
+  $("#lBody").innerHTML = "";
+  $("#listveil").classList.add("on");
+  $("#listbox").classList.add("on");
+  try{
+    const d = await api("day", { date });
+    const day = d.day, ly = d.last_year.day;
+    $("#lSub").textContent = day ? (day.day_of_week||"") + (day.wedding_name ? " — "+day.wedding_name : "") : "No data";
+    if(!day){ $("#lBody").innerHTML = `<div class="empty">No data for this date.</div>`; return; }
+
+    const rows = [
+      ["Rooms", day.rooms_forecast, day.rooms_actual, ly?.rooms_forecast],
+      ["ADR", gbp(day.adr_forecast), day.has_actual?gbp(day.adr_actual):null, ly?ly.adr_forecast!=null?gbp(ly.adr_forecast):null:null],
+      ["Rooms Revenue", gbp(day.rooms_revenue_forecast), day.has_actual?gbp(day.rooms_revenue_actual):null, ly?gbp(ly.rooms_revenue_forecast):null],
+      ["Food Revenue", gbp(day.food_revenue_forecast), day.has_actual?gbp(day.food_revenue_actual):null, ly?gbp(ly.food_revenue_forecast):null],
+      ["Beverage Revenue", gbp(day.beverage_revenue_forecast), day.has_actual?gbp(day.beverage_revenue_actual):null, ly?gbp(ly.beverage_revenue_forecast):null],
+      ["Total Revenue", gbp(day.total_revenue_forecast), day.has_actual?gbp(day.total_revenue_actual):null, ly?gbp(ly.total_revenue_forecast):null],
+    ];
+    let html = `<div class="sect">Forecast vs Actual vs Same Weekday Last Year</div>
+      <table class="cmp"><thead><tr><th></th><th>Forecast</th><th>Actual</th><th>Last Year</th></tr></thead><tbody>
+      ${rows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]??'—'}</td><td>${r[2]??'—'}</td><td>${r[3]??'—'}</td></tr>`).join("")}
+      </tbody></table>`;
+
+    if(d.snapshots && d.snapshots.length){
+      html += `<div class="sect">Forecast Accuracy Over Time</div>
+        <table class="cmp"><thead><tr><th>Captured</th><th>Rooms FC</th><th>Total Revenue FC</th></tr></thead><tbody>
+        ${d.snapshots.map(s=>`<tr><td>${esc(new Date(s.captured_at).toLocaleDateString('en-GB'))}</td><td>${num(s.rooms_forecast)}</td><td>${gbp(s.total_revenue_forecast)}</td></tr>`).join("")}
+        </tbody></table>`;
+    }
+    $("#lBody").innerHTML = html;
+  }catch(e){
+    $("#lBody").innerHTML = `<div class="empty">${esc(e.message)}</div>`;
+  }
+}
+function closeDay(){
+  $("#listveil").classList.remove("on");
+  $("#listbox").classList.remove("on");
+}
+$("#lClose").addEventListener("click", closeDay);
+$("#lDone").addEventListener("click", closeDay);
+$("#listveil").addEventListener("click", closeDay);
+
+/* ------------------------------------------------------------ period */
+function periodRow(r){
+  return `<tr data-date="${r.date}">
+    <td class="strong">${ukDate(r.date)}<div class="muted" style="font-size:11px">${esc(r.day_of_week||'')}</div></td>
+    <td class="num">${num(r.rooms_forecast)}</td>
+    <td class="num">${r.has_actual ? num(r.rooms_actual) : '<span class="muted">—</span>'}</td>
+    <td class="num strong">${gbp(r.total_revenue_forecast)}</td>
+    <td class="num strong">${r.has_actual ? gbp(r.total_revenue_actual) : '<span class="muted">—</span>'}</td>
+  </tr>`;
+}
+
+async function loadPeriod(start, end){
+  $("#periodTable").innerHTML = `<tr><td class="loading">Loading…</td></tr>`;
+  try{
+    const d = await api("range", { start, end });
+    const t = d.totals, ly = d.last_year.totals;
+    $("#periodTiles").innerHTML = [
+      { l:"Total Revenue — Forecast", n:gbp(t.total_revenue_forecast), d:deltaSpan(pctDelta(t.total_revenue_forecast, ly.total_revenue_forecast)) },
+      { l:"Total Revenue — Actual so far", n: t.days_with_actual ? gbp(t.total_revenue_actual) : "—", d: t.days_with_actual ? `${t.days_with_actual} of ${t.days} days` : "No actuals yet" },
+      { l:"Rooms Forecast", n:num(t.rooms_forecast), d:deltaSpan(pctDelta(t.rooms_forecast, ly.rooms_forecast)) },
+      { l:"Last Year Equivalent", n:gbp(ly.total_revenue_forecast), d:`${ukDate(d.last_year.start)} – ${ukDate(d.last_year.end)}` },
+    ].map(x=>`<div class="tile"><div class="n">${x.n}</div><div class="l">${x.l}</div><div class="d">${x.d}</div></div>`).join("");
+
+    if(!d.days.length){
+      $("#periodTable").innerHTML = `<tr><td class="empty">No data pushed for this range yet.</td></tr>`;
+      return;
+    }
+    $("#periodTable").innerHTML = `
+      <thead><tr><th>Date</th><th>Rooms FC</th><th>Rooms Act</th><th>Total FC</th><th>Total Act</th></tr></thead>
+      <tbody>
+        ${d.days.map(periodRow).join("")}
+        <tr class="totrow">
+          <td>Total</td>
+          <td class="num">${num(t.rooms_forecast)}</td>
+          <td class="num">${t.rooms_actual ? num(t.rooms_actual) : '—'}</td>
+          <td class="num">${gbp(t.total_revenue_forecast)}</td>
+          <td class="num">${t.total_revenue_actual ? gbp(t.total_revenue_actual) : '—'}</td>
+        </tr>
+      </tbody>`;
+    $$("#periodTable tbody tr[data-date]").forEach(tr=>{
+      tr.addEventListener("click", ()=> openDay(tr.dataset.date));
+    });
+  }catch(e){
+    $("#periodTable").innerHTML = `<tr><td class="empty">${esc(e.message)}</td></tr>`;
+  }
+}
+$("#pGo").addEventListener("click", ()=>{
+  const s = $("#pStart").value, e = $("#pEnd").value;
+  if(!s || !e){ toast("Pick both dates.", true); return; }
+  loadPeriod(s, e);
+});
+$("#pThisWeek").addEventListener("click", ()=>{
+  const t = todayIso();
+  const dow = new Date(t+"T12:00:00Z").getUTCDay(); // 0=Sun
+  const mon = addDaysIso(t, dow===0 ? -6 : 1-dow);
+  const sun = addDaysIso(mon, 6);
+  $("#pStart").value = mon; $("#pEnd").value = sun;
+  loadPeriod(mon, sun);
+});
+$("#pThisMonth").addEventListener("click", ()=>{
+  const t = todayIso();
+  const [y,m] = t.split("-");
+  const start = `${y}-${m}-01`;
+  const lastDay = new Date(Date.UTC(Number(y), Number(m), 0)).getUTCDate();
+  const end = `${y}-${m}-${String(lastDay).padStart(2,'0')}`;
+  $("#pStart").value = start; $("#pEnd").value = end;
+  loadPeriod(start, end);
+});
+$("#pNext28").addEventListener("click", ()=>{
+  const t = todayIso();
+  const end = addDaysIso(t, 27);
+  $("#pStart").value = t; $("#pEnd").value = end;
+  loadPeriod(t, end);
+});
+
+/* ---------------------------------------------------------- accuracy */
+function accuracyRow(r){
+  const rc = r.rooms_variance_pct===null ? "" : (r.rooms_variance_pct>=0?"up":"down");
+  const tc = r.revenue_variance_pct===null ? "" : (r.revenue_variance_pct>=0?"up":"down");
+  return `<tr>
+    <td class="strong">${ukDate(r.date)}<div class="muted" style="font-size:11px">${esc(r.day_of_week||'')}</div></td>
+    <td class="num">${num(r.rooms_forecast)}</td>
+    <td class="num">${num(r.rooms_actual)}</td>
+    <td class="num ${rc}">${r.rooms_variance_pct===null?'—':(r.rooms_variance_pct>=0?'+':'')+r.rooms_variance_pct+'%'}</td>
+    <td class="num">${gbp(r.total_revenue_forecast)}</td>
+    <td class="num">${gbp(r.total_revenue_actual)}</td>
+    <td class="num ${tc}">${r.revenue_variance_pct===null?'—':(r.revenue_variance_pct>=0?'+':'')+r.revenue_variance_pct+'%'}</td>
+  </tr>`;
+}
+async function loadAccuracy(start, end){
+  $("#accuracyTable").innerHTML = `<tr><td class="loading">Loading…</td></tr>`;
+  try{
+    const d = await api("accuracy", { start, end });
+    $("#accuracyTiles").innerHTML = [
+      { l:"Rooms — Avg Error", n: d.rooms_mape_pct===null?"—":d.rooms_mape_pct+"%" },
+      { l:"Revenue — Avg Error", n: d.revenue_mape_pct===null?"—":d.revenue_mape_pct+"%" },
+      { l:"Days Compared", n: d.sample_size },
+    ].map(x=>`<div class="tile"><div class="n">${x.n}</div><div class="l">${x.l}</div></div>`).join("");
+
+    if(!d.days.length){
+      $("#accuracyTable").innerHTML = `<tr><td class="empty">No actuals in this range yet to compare.</td></tr>`;
+      return;
+    }
+    $("#accuracyTable").innerHTML = `
+      <thead><tr><th>Date</th><th>Rooms FC</th><th>Rooms Act</th><th>Variance</th><th>Revenue FC</th><th>Revenue Act</th><th>Variance</th></tr></thead>
+      <tbody>${d.days.map(accuracyRow).join("")}</tbody>`;
+  }catch(e){
+    $("#accuracyTable").innerHTML = `<tr><td class="empty">${esc(e.message)}</td></tr>`;
+  }
+}
+$("#aGo").addEventListener("click", ()=>{
+  const s = $("#aStart").value, e = $("#aEnd").value;
+  if(!s || !e){ toast("Pick both dates.", true); return; }
+  loadAccuracy(s, e);
+});
+
+/* -------------------------------------------------------------- init */
+(function init(){
+  const t = todayIso();
+  $("#aEnd").value = t; $("#aStart").value = addDaysIso(t, -30);
+  $("#pStart").value = t; $("#pEnd").value = addDaysIso(t, 27);
+
+  let saved = "";
+  try{ saved = localStorage.getItem(LS_KEY); }catch(e){}
+  if(saved){ tryOpen(saved); } else { openGate(); }
+})();
+</script>
+</body>
+</html>
