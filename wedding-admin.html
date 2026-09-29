@@ -2580,23 +2580,19 @@ async function bonusToApp(id){
    is only for the people it is paid to. */
 function bonusTally(rows){
   var secured = {}, shown = {}, earned = {};
+  /* A name or nothing. Money with nobody's name against it is not a person
+     and does not get a line in a bonus run — it is a booking somebody has
+     not finished filling in, which the note under the table says plainly. */
   rows.forEach(function(r){
-    var who = r.secured_by || "Not recorded";
-    // Counted only once it actually is secured. A booking somebody is still
-    // chasing a contract for is not one they have won.
-    if (bonusSecured(r)) secured[who] = (secured[who] || 0) + 1;
-    earned[who] = (earned[who] || 0) + bonusPaid(who, r);
+    if (r.secured_by) {
+      // Counted only once it actually is secured. A booking somebody is
+      // still chasing a contract for is not one they have won.
+      if (bonusSecured(r)) secured[r.secured_by] = (secured[r.secured_by] || 0) + 1;
+      earned[r.secured_by] = (earned[r.secured_by] || 0) + bonusPaid(r.secured_by, r);
+    }
     if (r.showround_by) {
       shown[r.showround_by] = (shown[r.showround_by] || 0) + 1;
       earned[r.showround_by] = (earned[r.showround_by] || 0) + bonusPaid(r.showround_by, r);
-    } else if (bonusSecured(r) && bonusDue(r.revenue)) {
-      // A show-round bonus with nobody's name against it. The money is real
-      // and has to appear somewhere; the show-round itself is not counted,
-      // because a blank name may well mean there never was one.
-      /* Nobody is down as having done the show-round, so this is owed to
-         nobody — but it is owed to somebody, and the only way anyone finds
-         out is by it appearing here rather than quietly not existing. */
-      earned["Not recorded"] = (earned["Not recorded"] || 0) + bonusDue(r.revenue);
     }
   });
   return { secured: secured, shown: shown, earned: earned };
@@ -2613,13 +2609,17 @@ function monthName(m){
 }
 
 function bonusStats(){
-  var byMonth = {};
+  /* Counted per person as well as per month, because the chart draws a
+     block for every name it knows about and the axis has to be the height of
+     what is actually drawn. Deriving both from the same pass is what keeps
+     them in step. */
+  var byMonth = {}, taken = {};
   BT.rows.forEach(function(r){
     var m = bonusMonthOf(r);
-    if (!m) return;
+    if (!m || !r.secured_by) return;
     byMonth[m] = byMonth[m] || {};
-    var who = r.secured_by || "Not recorded";
-    byMonth[m][who] = (byMonth[m][who] || 0) + 1;
+    byMonth[m][r.secured_by] = (byMonth[m][r.secured_by] || 0) + 1;
+    taken[r.secured_by] = (taken[r.secured_by] || 0) + 1;
   });
 
   var all = bonusTally(BT.rows);
@@ -2638,7 +2638,7 @@ function bonusStats(){
     months: Object.keys(byMonth).sort(),
     byMonth: byMonth, secured: secured, shown: shown, earned: earned,
     // Busiest first, so the legend reads in the order the blocks stack.
-    people: Object.keys(secured).sort(function(a, b){ return secured[b] - secured[a]; })
+    people: Object.keys(taken).sort(function(a, b){ return taken[b] - taken[a]; })
   };
 }
 
@@ -2793,20 +2793,24 @@ function bonusOffSchemeNote(){
 
 /* Show-round bonus with nobody down as having done the show-round.
 
-   It is the "Not recorded" line in the table, which on its own looks like a
-   rounding error rather than what it is: somebody did those show-rounds and
-   is owed for them, and the only fix is putting the name on the booking. */
+   Nobody earns it as things stand, and nobody would ever find out: a bonus
+   run lists people, and this belongs to no one. So it is said in words under
+   the table instead. Somebody did those show-rounds and is owed for them,
+   and the only fix is putting the name on the booking. */
 function bonusNamelessNote(){
-  var rows = BT.rows.filter(function(r){
-    return !r.showround_by && bonusSecured(r) && bonusDue(r.revenue);
-  });
-  if (!rows.length) return "";
-  var owed = rows.reduce(function(a, r){ return a + bonusDue(r.revenue); }, 0);
-  return '<p class="muted" style="margin:10px 0 0;font-size:.8125rem">' +
-    money(owed) + ' of show-round bonus has no name against it, across ' +
-    rows.length + ' booking' + (rows.length === 1 ? "" : "s") + ': ' +
-    rows.map(function(r){ return esc(r.booking_name || r.event_ref || "one"); }).join(", ") +
-    '. Put the name on and it moves to them.</p>';
+  var half = function(field, what){
+    var rows = BT.rows.filter(function(r){
+      return !r[field] && bonusSecured(r) && bonusDue(r.revenue);
+    });
+    if (!rows.length) return "";
+    var owed = rows.reduce(function(a, r){ return a + bonusDue(r.revenue); }, 0);
+    return '<p class="muted" style="margin:10px 0 0;font-size:.8125rem">' +
+      tidy(owed) + ' of ' + what + ' bonus has no name against it, across ' +
+      rows.length + ' booking' + (rows.length === 1 ? "" : "s") + ': ' +
+      rows.map(function(r){ return esc(r.booking_name || r.event_ref || "one"); }).join(", ") +
+      '. Put the name on the booking and it goes to them.</p>';
+  };
+  return half("showround_by", "show-round") + half("secured_by", "booking");
 }
 
 /* The bookings nothing is payable on yet, and what each is waiting for.
