@@ -496,7 +496,7 @@ function tillOptions(current){
 function render(){
   const v = $("#views");
   switch (S.view) {
-    case "dashboard":     v.innerHTML = viewDashboard(); break;
+    case "dashboard":     v.innerHTML = viewDashboard(); loadDashboard(); break;
     case "cashup":        v.innerHTML = viewCashUpEntry(); wireCashUpEntry(); break;
     case "cashup-history": v.innerHTML = viewCashUpHistory(); loadCashUpHistory(); break;
     case "safe":          v.innerHTML = viewSafeEntry(); wireSafeEntry(); break;
@@ -508,10 +508,8 @@ function render(){
     case "pettycash-history": v.innerHTML = viewPettyCashHistory(); loadPettyCashHistory(); break;
     case "adjustments":         v.innerHTML = viewAdjustmentsEntry(); wireAdjustmentsEntry(); break;
     case "adjustments-history": v.innerHTML = viewAdjustmentsHistory(); loadAdjustmentsHistory(); break;
-    case "trends": v.innerHTML = comingSoon("Trends",
-      "Variance summaries by till, safe and petty cash category land here in the next phase."); break;
-    case "settings": v.innerHTML = comingSoon("Settings",
-      "Managing tills, staff and petty cash categories lands here in the next phase."); break;
+    case "trends": v.innerHTML = viewTrends(); wireTrends(); break;
+    case "settings": v.innerHTML = viewSettings(); wireSettings(); break;
     default: v.innerHTML = "";
   }
 }
@@ -519,11 +517,179 @@ function comingSoon(title, note){
   return `<div class="pagehead"><h2>${esc(title)}</h2></div><div class="card empty">${esc(note)}</div>`;
 }
 
+/* ============================================================== trends */
+function viewTrends(){
+  return `
+    <div class="pagehead">
+      <h2>Trends</h2>
+      <div class="hint">Variance patterns over a date range - which till, which safe session, where petty cash goes.</div>
+      <div class="spacer"></div>
+      <div class="field" style="margin:0 8px"><input type="date" id="tr_start" value="${addDaysIso(todayIso(),-29)}"></div>
+      <div class="field" style="margin:0 8px"><input type="date" id="tr_end" value="${todayIso()}"></div>
+      <button class="btn ghost" id="tr_go">Show</button>
+    </div>
+    <div class="card"><div id="tr_tills" class="tablewrap"></div></div>
+    <div class="card"><div id="tr_safe" class="tablewrap"></div></div>
+    <div class="card"><div id="tr_petty" class="tablewrap"></div></div>
+    <div class="card"><div id="tr_twoday" style="padding:16px 18px"></div></div>`;
+}
+function wireTrends(){
+  $("#tr_go").addEventListener("click", loadTrends);
+  loadTrends();
+}
+async function loadTrends(){
+  const start = $("#tr_start").value, end = $("#tr_end").value;
+  $("#tr_tills").innerHTML = `<div class="loading">Loading…</div>`;
+  $("#tr_safe").innerHTML = ""; $("#tr_petty").innerHTML = ""; $("#tr_twoday").innerHTML = "";
+  try {
+    const d = await call("trends.summary", { start, end });
+
+    $("#tr_tills").innerHTML = `
+      <h3 style="margin:16px 18px 10px;font-size:16px">Till variances</h3>
+      <table class="grid"><thead><tr><th>Till</th><th class="num">Cash Ups</th><th class="num">Total Variance</th></tr></thead>
+      <tbody>${d.till_variances.length ? d.till_variances.map(t=>`
+        <tr><td>${esc(tillLabel(t.till_key))}</td><td class="num">${t.count}</td><td class="num">${money(t.total_variance)}</td></tr>
+      `).join("") : `<tr><td class="empty" colspan="3">No cash up entries in this range.</td></tr>`}</tbody></table>`;
+
+    $("#tr_safe").innerHTML = `
+      <h3 style="margin:16px 18px 10px;font-size:16px">Safe count variances</h3>
+      <table class="grid"><thead><tr><th>Session</th><th class="num">Counts</th><th class="num">Total Variance</th></tr></thead>
+      <tbody>${d.safe_variances.length ? d.safe_variances.map(s=>`
+        <tr><td>${esc(s.session)}</td><td class="num">${s.count}</td><td class="num">${money(s.total_variance)}</td></tr>
+      `).join("") : `<tr><td class="empty" colspan="3">No safe counts in this range.</td></tr>`}</tbody></table>`;
+
+    $("#tr_petty").innerHTML = `
+      <h3 style="margin:16px 18px 10px;font-size:16px">Petty cash by category</h3>
+      <table class="grid"><thead><tr><th>Category</th><th class="num">Entries</th><th class="num">Total</th></tr></thead>
+      <tbody>${d.petty_cash_by_category.length ? d.petty_cash_by_category.map(c=>`
+        <tr><td>${esc(categoryLabel(c.category_key))}</td><td class="num">${c.count}</td><td class="num">${money(c.total_amount)}</td></tr>
+      `).join("") : `<tr><td class="empty" colspan="3">No petty cash entries in this range.</td></tr>`}</tbody></table>`;
+
+    $("#tr_twoday").innerHTML = `
+      <h3 style="margin:0 0 10px;font-size:16px">Likely miscounts (2-day net)</h3>
+      <div class="hint" style="margin-bottom:12px">A flagged variance whose very next safe count roughly cancels it out - usually a miscounted-then-corrected float, not a real loss.</div>
+      ${d.two_day_net.length ? d.two_day_net.map(p => `
+        <div style="padding:8px 0;border-top:1px solid var(--mist)">
+          ${esc(ukDate(p.first.business_date))} ${esc(p.first.session)}: ${money(p.first.variance)}
+          &nbsp;→&nbsp;
+          ${esc(ukDate(p.second.business_date))} ${esc(p.second.session)}: ${money(p.second.variance)}
+        </div>
+      `).join("") : `<p class="muted" style="font-size:13px">None found in this range.</p>`}`;
+  } catch(e) {
+    $("#tr_tills").innerHTML = `<div class="empty">${esc(e.message)}</div>`;
+  }
+}
+
+/* ============================================================= settings */
+function viewSettings(){
+  return `
+    <div class="pagehead"><h2>Settings</h2><div class="hint">Tills, staff, petty cash categories and the two numbers reconciliation flags against.</div></div>
+    <div class="card">
+      <h3 style="margin:16px 18px 10px;font-size:16px">General</h3>
+      <div class="row" style="padding:0 18px 16px">
+        <div class="field"><label>Petty cash target float (£)</label><input type="number" step="0.01" id="st_targetFloat"></div>
+        <div class="field"><label>Variance flag threshold (£)</label><input type="number" step="0.01" id="st_threshold"></div>
+        <div class="field" style="align-self:flex-end"><button class="btn" id="st_saveGeneral">Save</button></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3 style="margin:16px 18px 10px;font-size:16px">Tills</h3>
+      <div id="st_tills" class="tablewrap"></div>
+      <div style="padding:14px 18px"><button class="btn ghost" id="st_addTill">Add till</button></div>
+    </div>
+    <div class="card">
+      <h3 style="margin:16px 18px 10px;font-size:16px">Staff</h3>
+      <div id="st_staff" class="tablewrap"></div>
+      <div style="padding:14px 18px"><button class="btn ghost" id="st_addStaff">Add staff member</button></div>
+    </div>
+    <div class="card">
+      <h3 style="margin:16px 18px 10px;font-size:16px">Petty cash categories</h3>
+      <div id="st_categories" class="tablewrap"></div>
+      <div style="padding:14px 18px"><button class="btn ghost" id="st_addCategory">Add category</button></div>
+    </div>`;
+}
+function wireSettings(){
+  $("#st_saveGeneral").addEventListener("click", saveGeneralSettings);
+  $("#st_addTill").addEventListener("click", ()=> editTillRow());
+  $("#st_addStaff").addEventListener("click", ()=> editStaffRow());
+  $("#st_addCategory").addEventListener("click", ()=> editCategoryRow());
+  loadSettings();
+}
+async function loadSettings(){
+  try {
+    const d = await call("settings.get");
+    S.settingsData = d;
+    $("#st_targetFloat").value = d.settings ? d.settings.petty_cash_target_float : 500;
+    $("#st_threshold").value = d.settings ? d.settings.variance_flag_threshold : 1;
+
+    $("#st_tills").innerHTML = `
+      <table class="grid"><thead><tr><th>Till</th><th class="num">Float</th><th>Active</th><th></th></tr></thead>
+      <tbody>${d.tills.map(t => `
+        <tr><td>${esc(t.label)}</td><td class="num">${money(t.float_amount)}</td><td>${t.active?"Yes":"No"}</td>
+        <td><button class="btn ghost" onclick='editTillRow(${JSON.stringify(t)})'>Edit</button></td></tr>
+      `).join("")}</tbody></table>`;
+
+    $("#st_staff").innerHTML = `
+      <table class="grid"><thead><tr><th>Name</th><th>Active</th><th></th></tr></thead>
+      <tbody>${d.staff.length ? d.staff.map(s => `
+        <tr><td>${esc(s.name)}</td><td>${s.active?"Yes":"No"}</td>
+        <td><button class="btn ghost" onclick='editStaffRow(${JSON.stringify(s)})'>Edit</button></td></tr>
+      `).join("") : `<tr><td class="empty" colspan="3">No staff added yet.</td></tr>`}</tbody></table>`;
+
+    $("#st_categories").innerHTML = `
+      <table class="grid"><thead><tr><th>Category</th><th>Float top-up?</th><th>Active</th><th></th></tr></thead>
+      <tbody>${d.categories.map(c => `
+        <tr><td>${esc(c.label)}</td><td>${c.is_float_topup?"Yes":"No"}</td><td>${c.active?"Yes":"No"}</td>
+        <td><button class="btn ghost" onclick='editCategoryRow(${JSON.stringify(c)})'>Edit</button></td></tr>
+      `).join("")}</tbody></table>`;
+  } catch(e) { toast(e.message, true); }
+}
+async function saveGeneralSettings(){
+  try {
+    await call("settings.save", {
+      petty_cash_target_float: $("#st_targetFloat").value,
+      variance_flag_threshold: $("#st_threshold").value,
+    });
+    toast("Saved.");
+  } catch(e) { toast(e.message, true); }
+}
+function editTillRow(t){
+  const key = prompt("Till key (lowercase, no spaces - existing key edits that till):", t ? t.key : "");
+  if (!key) return;
+  const label = prompt("Label:", t ? t.label : key);
+  if (label === null) return;
+  const floatAmount = prompt("Float amount (£):", t ? t.float_amount : 0);
+  if (floatAmount === null) return;
+  const active = t ? t.active : true;
+  call("tills.save", { key, label, float_amount: floatAmount, sort_order: t ? t.sort_order : 99, active })
+    .then(()=>{ toast("Saved."); loadSettings(); })
+    .catch(e=> toast(e.message, true));
+}
+function editStaffRow(s){
+  const name = prompt("Name:", s ? s.name : "");
+  if (!name) return;
+  const active = s ? s.active : true;
+  call("staff.save", { id: s ? s.id : undefined, name, sort_order: s ? s.sort_order : 99, active })
+    .then(()=>{ toast("Saved."); loadSettings(); })
+    .catch(e=> toast(e.message, true));
+}
+function editCategoryRow(c){
+  const key = prompt("Category key (lowercase, no spaces - existing key edits that category):", c ? c.key : "");
+  if (!key) return;
+  const label = prompt("Label:", c ? c.label : key);
+  if (label === null) return;
+  const isTopup = confirm("Is this a Float Top-Up category (money moving from the safe into a till's float, not spend)?" + (c && c.is_float_topup ? "\n\n(currently: yes)" : ""));
+  const active = c ? c.active : true;
+  call("pettycash_categories.save", { key, label, is_float_topup: isTopup, sort_order: c ? c.sort_order : 99, active })
+    .then(()=>{ toast("Saved."); loadSettings(); })
+    .catch(e=> toast(e.message, true));
+}
+
 function viewDashboard(){
   return `
     <div class="pagehead">
       <h2>Dashboard</h2>
-      <div class="hint">Today's snapshot lands here once Reconciliation is built. For now, jump straight to a task.</div>
+      <div class="hint">Today's snapshot - who's reported in, and any variance worth a look.</div>
     </div>
     <div class="tiles">
       <button class="tile" style="text-align:left;cursor:pointer" onclick="goView('cashup')">
@@ -535,10 +701,41 @@ function viewDashboard(){
       <button class="tile" style="text-align:left;cursor:pointer" onclick="goView('float')">
         <div class="l">Float Count</div><div class="n" style="font-size:18px">Verify a till's float</div>
       </button>
-      <button class="tile" style="text-align:left;cursor:pointer" onclick="goView('cashup-history')">
-        <div class="l">History</div><div class="n" style="font-size:18px">Cash Up records</div>
+      <button class="tile" style="text-align:left;cursor:pointer" onclick="goView('reconciliation')">
+        <div class="l">Reconciliation</div><div class="n" style="font-size:18px">Today's variances</div>
       </button>
-    </div>`;
+    </div>
+    <div class="card" id="dashSummary"><div class="loading">Loading today's snapshot…</div></div>`;
+}
+async function loadDashboard(){
+  const date = todayIso();
+  try {
+    const d = await call("dashboard.summary", { business_date: date });
+    const checklistRow = (label, info) => `
+      <tr><td class="strong">${esc(label)}</td><td>${
+        info.done.length ? info.done.map(k=>`<span class="pill">${esc(tillLabel(k))}</span>`).join(" ") : "<span class=\"muted\">None yet</span>"
+      }</td><td>${
+        info.missing.length ? info.missing.map(k=>`<span class="pill off">${esc(tillLabel(k))}</span>`).join(" ") : "<span class=\"muted\">All done</span>"
+      }</td></tr>`;
+    const flagged = d.reconciliation.variances.filter(v=>v.flagged);
+    $("#dashSummary").innerHTML = `
+      <div style="padding:16px 18px 0"><h3 style="font-size:16px;margin-bottom:6px">Today — ${esc(ukDate(date))}</h3></div>
+      <div class="tablewrap"><table class="grid">
+        <thead><tr><th>Check</th><th>Done</th><th>Missing</th></tr></thead>
+        <tbody>
+          ${checklistRow("Cash Up", d.cashup)}
+          ${checklistRow("Float Count", d.float)}
+          <tr><td class="strong">Safe Count</td><td>${d.safe.done.length?d.safe.done.map(s=>`<span class="pill">${esc(s)}</span>`).join(" "):"<span class=\"muted\">None yet</span>"}</td><td>${d.safe.missing.length?d.safe.missing.map(s=>`<span class="pill off">${esc(s)}</span>`).join(" "):"<span class=\"muted\">All done</span>"}</td></tr>
+        </tbody>
+      </table></div>
+      <div style="padding:14px 18px 18px">
+        ${flagged.length
+          ? `<div class="notice" style="background:var(--alert-bg);color:var(--alert);border-radius:8px;padding:12px 14px">${flagged.length} variance${flagged.length===1?"":"s"} flagged today — see <a href="#" onclick="goView('reconciliation');return false">Reconciliation</a>.</div>`
+          : `<p class="muted" style="font-size:13px;margin:0">No flagged variances so far today.</p>`}
+      </div>`;
+  } catch(e) {
+    $("#dashSummary").innerHTML = `<div class="empty">${esc(e.message)}</div>`;
+  }
 }
 
 /* ============================================================ Cash Up */
