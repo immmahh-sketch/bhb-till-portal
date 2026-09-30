@@ -707,6 +707,11 @@ function periodRow(r){
     <td class="strong">${ukDate(r.date)}<div class="muted" style="font-size:11px">${esc(r.day_of_week||'')}</div></td>
     <td>${eventTag(r)}</td>
     <td class="num">${dayValue(r.rooms_forecast, r.rooms_actual, r.has_actual, v=>num(v))}</td>
+    <td class="num">${dayValue(r.adr_forecast, r.adr_actual, r.has_actual, v=>gbp(v))}</td>
+    <td class="num">${dayValue(r.rooms_revenue_forecast, r.rooms_revenue_actual, r.has_actual, v=>gbp(v))}</td>
+    <td class="num">${dayValue(r.food_revenue_forecast, r.food_revenue_actual, r.has_actual, v=>gbp(v))}</td>
+    <td class="num">${dayValue(r.beverage_revenue_forecast, r.beverage_revenue_actual, r.has_actual, v=>gbp(v))}</td>
+    <td class="num">${dayValue(r.other_revenue_forecast, r.other_revenue_actual, r.has_actual, v=>gbp(v))}</td>
     <td class="num strong">${dayValue(r.total_revenue_forecast, r.total_revenue_actual, r.has_actual, v=>gbp(v))}</td>
   </tr>`;
 }
@@ -729,12 +734,20 @@ async function loadPeriod(start, end){
       return;
     }
     $("#periodTable").innerHTML = `
-      <thead><tr><th>Date</th><th>Event</th><th>Rooms</th><th>Total Revenue</th></tr></thead>
+      <thead><tr>
+        <th>Date</th><th>Event</th><th>Rooms</th><th>ARR</th><th>Accommodation</th>
+        <th>Food</th><th>Beverage</th><th>Other</th><th>Total Revenue</th>
+      </tr></thead>
       <tbody>
         ${d.days.map(periodRow).join("")}
         <tr class="totrow">
           <td colspan="2">Total</td>
           <td class="num">${fcActual(t.rooms_forecast, t.rooms_actual, !!t.days_with_actual, v=>num(v))}</td>
+          <td class="num">${fcActual(t.adr_forecast, t.adr_actual, !!t.days_with_actual, v=>gbp(v))}</td>
+          <td class="num">${fcActual(t.rooms_revenue_forecast, t.rooms_revenue_actual, !!t.days_with_actual, v=>gbp(v))}</td>
+          <td class="num">${fcActual(t.food_revenue_forecast, t.food_revenue_actual, !!t.days_with_actual, v=>gbp(v))}</td>
+          <td class="num">${fcActual(t.beverage_revenue_forecast, t.beverage_revenue_actual, !!t.days_with_actual, v=>gbp(v))}</td>
+          <td class="num">${fcActual(t.other_revenue_forecast, t.other_revenue_actual, !!t.days_with_actual, v=>gbp(v))}</td>
           <td class="num">${fcActual(t.total_revenue_forecast, t.total_revenue_actual, !!t.days_with_actual, v=>gbp(v))}</td>
         </tr>
       </tbody>`;
@@ -842,6 +855,16 @@ const PERIOD_COLS = [
   { label:"Complete", value:r=>r.has_actual?"Yes":"No" },
   { label:"Rooms Forecast", value:"rooms_forecast" },
   { label:"Rooms Actual", value:r=>r.has_actual?r.rooms_actual:"" },
+  { label:"ARR Forecast", value:"adr_forecast" },
+  { label:"ARR Actual", value:r=>r.has_actual?r.adr_actual:"" },
+  { label:"Accommodation Revenue Forecast", value:"rooms_revenue_forecast" },
+  { label:"Accommodation Revenue Actual", value:r=>r.has_actual?r.rooms_revenue_actual:"" },
+  { label:"Food Revenue Forecast", value:"food_revenue_forecast" },
+  { label:"Food Revenue Actual", value:r=>r.has_actual?r.food_revenue_actual:"" },
+  { label:"Beverage Revenue Forecast", value:"beverage_revenue_forecast" },
+  { label:"Beverage Revenue Actual", value:r=>r.has_actual?r.beverage_revenue_actual:"" },
+  { label:"Other Revenue Forecast", value:"other_revenue_forecast" },
+  { label:"Other Revenue Actual", value:r=>r.has_actual?r.other_revenue_actual:"" },
   { label:"Total Revenue Forecast", value:"total_revenue_forecast" },
   { label:"Total Revenue Actual", value:r=>r.has_actual?r.total_revenue_actual:"" },
 ];
