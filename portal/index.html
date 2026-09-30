@@ -498,11 +498,14 @@ $("#navveil").addEventListener("click", closeNav);
 // same-origin frames immediately; sessionStorage is per-frame, so those
 // apps get the value written into the iframe's own window after it loads,
 // then reloaded once so their normal startup check picks it up.
+// Wedding & Events Tracker merged into Wedding App (one login, one nav,
+// its former four tabs now live inside wedding-admin) - no separate entry
+// here any more. "who" moved across with it: the Tracker still wants a
+// name to attribute chases/saves to, wherever its tabs now live.
 const AUTOLOGIN = {
-  "wedding-admin":      { store:"session", key:"bhb_wedding_admin", value:(p)=>p.app_password },
-  "forecast-dashboard": { store:"local",   key:"bhb_forecast_key",  value:(p)=>p.app_password },
-  "wedding-tracker":    { store:"local",   key:"bhb_tracker_key",   value:(p)=>p.app_password,
+  "wedding-admin":      { store:"session", key:"bhb_wedding_admin", value:(p)=>p.app_password,
                            extra:{ key:"bhb_tracker_who", value:()=>S.user.name } },
+  "forecast-dashboard": { store:"local",   key:"bhb_forecast_key",  value:(p)=>p.app_password },
   "till-reports":       { store:"session", key:"bhb_portal_ok",     value:()=>"1" },
 };
 
@@ -535,10 +538,12 @@ async function openPortal(key, ref){
 
   const cfg = AUTOLOGIN[key];
   if (cfg && cfg.store === "local") {
-    try {
-      localStorage.setItem(cfg.key, cfg.value(p));
-      if (cfg.extra) localStorage.setItem(cfg.extra.key, cfg.extra.value(p));
-    } catch(e){}
+    try { localStorage.setItem(cfg.key, cfg.value(p)); } catch(e){}
+  }
+  // Independent of the main door-password's own store - some apps read a
+  // second, always-localStorage value like "who's actually using this".
+  if (cfg && cfg.extra) {
+    try { localStorage.setItem(cfg.extra.key, cfg.extra.value(p)); } catch(e){}
   }
 
   $("#vname").textContent = p.label;
@@ -550,9 +555,12 @@ async function openPortal(key, ref){
   $("#viewer").classList.add("on");
 }
 
-// A portal iframe (wedding-tracker / wedding-admin) can ask to jump to the
-// other one, cross-linking a wedding's enquiry and its app account without
-// leaving the gateway. See each app's own postMessage call.
+// A portal iframe can ask to jump to another one - was used to cross-link
+// a wedding's enquiry and its app account between the Tracker and the
+// Wedding App before they were merged into one page. Nothing sends this
+// message any more (that cross-link is an in-page tab switch now, inside
+// wedding-admin.html itself), but left wired in case a future app wants
+// the same deep-link handshake.
 window.addEventListener("message", (ev)=>{
   const d = ev.data;
   if (!d || d.type !== "bhb-open-portal" || !d.key) return;
@@ -561,11 +569,13 @@ window.addEventListener("message", (ev)=>{
 });
 
 // Each app's own tab-nav button, by tab_key, so a tab the person is not
-// allowed can be hidden. Matches the markup each app already has.
+// allowed can be hidden. Matches the markup each app already has. The
+// Tracker's four tabs (todo/enq/cal/tot) live under wedding-admin now,
+// using the same data-view attribute as its own tabs - no separate entry
+// needed for them.
 const TAB_SELECTORS = {
   "wedding-admin":      k => `button[data-view="${k}"]`,
   "forecast-dashboard": k => `.tabbtn[data-page="${k}"]`,
-  "wedding-tracker":    k => `.tabbtn[data-page="${k}"]`,
   "till-reports":       k => `button[data-tab="${k}"]`,
 };
 
