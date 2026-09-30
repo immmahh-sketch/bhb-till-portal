@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Staff Portal — Black Horse Beamish</title>
 <meta name="robots" content="noindex,nofollow">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#4E5F4F">
+<link rel="icon" href="icons/favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="BH Staff">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
@@ -60,6 +67,40 @@ button,input,select{font:inherit; color:inherit}
 .gateerr{color:var(--alert); font-size:13px; min-height:18px; margin-top:8px}
 .gatelink{color:var(--sage-70); font-size:12px; margin-top:6px; cursor:pointer; text-decoration:underline}
 .gatelink:hover{color:var(--sage)}
+
+/* ======================================================= install gate
+   On a phone, the portal is only usable once it has been added to the
+   home screen - opened any other way there is nothing to reach but
+   these instructions, every time, not just the first time. */
+#install{
+  position:fixed; inset:0; background:var(--sage); z-index:110;
+  display:flex; align-items:center; justify-content:center; padding:24px;
+  overflow-y:auto;
+}
+.installcard{
+  background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow);
+  width:100%; max-width:400px; padding:30px 26px; text-align:left;
+}
+.installcard .badge{
+  width:64px; height:64px; border-radius:16px; margin:0 auto 16px; display:block;
+}
+.installcard h1{font-size:23px; color:var(--sage); line-height:1.2; text-align:center}
+.installcard .sub{
+  font-size:11px; letter-spacing:var(--track-label); text-transform:uppercase;
+  color:var(--sage-70); margin:6px 0 20px; text-align:center;
+}
+.installcard p{margin:0 0 14px; font-size:14px; line-height:1.5}
+.howto{margin:0 0 18px; padding-left:22px; font-size:14px; line-height:1.7}
+.howto li{margin-bottom:4px}
+.installcard button{
+  width:100%; padding:12px; border:1px solid var(--sage); border-radius:8px; cursor:pointer;
+  background:var(--sage); color:var(--white); font-weight:600;
+  letter-spacing:var(--track-label); text-transform:uppercase; font-size:12px;
+}
+.installcard .notice{
+  background:var(--attention-bg); color:var(--attention); border-radius:8px;
+  padding:12px 14px; font-size:13px; margin-top:16px; line-height:1.5;
+}
 .gatemsg{color:var(--good); font-size:13px; margin-top:8px; min-height:18px}
 .gateback{color:var(--sage-70); font-size:12px; margin-top:14px; cursor:pointer; text-decoration:underline; display:block}
 
@@ -208,6 +249,18 @@ table.grid td{padding:10px 12px; border-top:1px solid var(--mist); vertical-alig
 </style>
 </head>
 <body>
+
+<!-- ============================================================ install
+     Shown instead of everything else on a phone until the portal is
+     genuinely running from its home-screen icon - see mustInstall(). -->
+<div id="install" hidden>
+  <div class="installcard">
+    <img class="badge" src="icons/icon-192.png" alt="">
+    <h1>Add this to your Home Screen</h1>
+    <div class="sub">Staff Portal — Black Horse Beamish</div>
+    <div id="installSteps"></div>
+  </div>
+</div>
 
 <div id="gate">
   <div class="gatecard">
@@ -859,8 +912,121 @@ async function saveUser(id){
   }
 }
 
+/* --------------------------------------------------------- install gate
+   Three things the page can actually tell about where it is running,
+   every one a plain browser check rather than a guess (same technique
+   already proven in the wedding app's own onboarding flow):
+
+     isStandalone()  — it was opened from the home screen
+     hasHomeScreen() — it is a phone or tablet, not a desktop pretending
+     devicePlatform() — which set of instructions to show
+
+   Unlike the wedding app there is no "shown once, then skippable" mode
+   here and no framed-in-Squarespace step to clear first - on a phone
+   this page is the instructions until isStandalone() is true, full stop,
+   on every single load. */
+function isStandalone(){
+  try {
+    if (window.navigator.standalone === true) return true;               // iOS
+    return window.matchMedia("(display-mode: standalone)").matches ||
+           window.matchMedia("(display-mode: fullscreen)").matches;      // everything else
+  } catch(e) { return false; }
+}
+function devicePlatform(){
+  const ua = navigator.userAgent || "";
+  // iPadOS reports itself as a Mac, so the touch count is what gives it away.
+  if (/iPad|iPhone|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)) return "ios";
+  if (/Android/i.test(ua)) return "android";
+  return "desktop";
+}
+function hasHomeScreen(){
+  try {
+    if (devicePlatform() === "desktop") return false;
+    const coarse = window.matchMedia("(pointer: coarse)").matches;
+    const touch = (navigator.maxTouchPoints || 0) > 1;
+    const shortEdge = Math.min(screen.width || 0, screen.height || 0);
+    return coarse && touch && shortEdge > 0 && shortEdge <= 900;
+  } catch(e) { return false; }
+}
+function mustInstall(){ return hasHomeScreen() && !isStandalone(); }
+
+// Chrome hands over a real install prompt, but only if this is kept from
+// the moment it fires.
+let deferredInstall = null;
+window.addEventListener("beforeinstallprompt", ev=>{
+  ev.preventDefault();
+  deferredInstall = ev;
+  if (!$("#install").hidden) renderInstallScreen();
+});
+
+function renderInstallScreen(){
+  const p = devicePlatform();
+  let h = "";
+
+  if (p === "ios") {
+    h += `<p>In Safari, tap the <strong>Share</strong> button — the square with an arrow coming out of the top of it.</p>
+      <ol class="howto">
+        <li>Tap <strong>Share</strong></li>
+        <li>Scroll down and tap <strong>Add to Home Screen</strong></li>
+        <li>Tap <strong>Add</strong> in the top corner</li>
+      </ol>`;
+  } else if (p === "android") {
+    if (deferredInstall) {
+      h += `<p>One tap and it's done.</p>
+        <button onclick="installNow()">Add to home screen</button>
+        <p class="muted" style="font-size:12px;margin-top:10px">If nothing happens, open the menu and choose <strong>Install app</strong> or <strong>Add to Home screen</strong>.</p>`;
+    } else {
+      h += `<p>In Chrome, open the menu at the top right.</p>
+        <ol class="howto">
+          <li>Tap the <strong>menu</strong> button</li>
+          <li>Tap <strong>Install app</strong>, or <strong>Add to Home screen</strong></li>
+          <li>Tap <strong>Install</strong> to confirm</li>
+        </ol>`;
+    }
+  }
+
+  h += `<p style="margin-top:4px">Once it's added, close this tab and open <strong>BH Staff</strong> from your home screen — it remembers you, so you won't need to sign in every time.</p>
+    <button onclick="recheckStandalone()">I've added it — check again</button>
+    <div id="installStuck"></div>`;
+
+  $("#installSteps").innerHTML = h;
+}
+
+async function installNow(){
+  if (!deferredInstall) return;
+  try {
+    deferredInstall.prompt();
+    await deferredInstall.userChoice;
+    deferredInstall = null;
+  } catch(e) {}
+  renderInstallScreen();
+}
+
+// They say they added it. If this copy of the page is still the one they
+// are looking at, that is not true yet — say so plainly rather than
+// pretending to check and letting them through.
+function recheckStandalone(){
+  if (isStandalone()) { location.reload(); return; }
+  const el = $("#installStuck");
+  if (!el || el.children.length) return;
+  el.innerHTML = `<div class="notice">This is still the browser. The icon opens a separate copy with
+    no address bar along the top — close this tab and tap the <strong>BH Staff</strong> icon on your
+    home screen. If it's not there yet, follow the steps above first.</div>`;
+}
+
 /* -------------------------------------------------------------- init */
 (function init(){
+  if (mustInstall()) {
+    // Not just visually covered - actually unreachable. A fixed overlay on
+    // top of a still-focusable login form is still a login form a keyboard
+    // or screen reader can get to.
+    $("#gate").style.display = "none";
+    $("#app").hidden = true;
+    $("#install").hidden = false;
+    renderInstallScreen();
+    return;
+  }
+
   const qs = new URLSearchParams(location.search);
   const rt = qs.get("reset");
   if(rt){
