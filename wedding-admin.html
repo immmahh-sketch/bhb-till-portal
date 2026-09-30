@@ -3427,10 +3427,16 @@ async function bonusDelete(id){
    does belong to the reference on this row. */
 async function bonusToApp(id){
   var r = bonusRow(id); if (!r) return;
+  var wedding = isWedding(r.event_type);
+  var label = wedding ? "Add to wedding app" : "Add to payment tracking";
 
   var missing = [];
   if (!(r.guestline_link || "").trim()) missing.push("the Guestline link");
-  if (!(r.partner1_name || "").trim() || !(r.partner2_name || "").trim()) missing.push("both names");
+  if (wedding) {
+    if (!(r.partner1_name || "").trim() || !(r.partner2_name || "").trim()) missing.push("both names");
+  } else {
+    if (!(r.partner1_name || "").trim()) missing.push("the organiser's name");
+  }
   if (!(r.primary_email || "").trim()) missing.push("an email address");
   if (missing.length) {
     BT.open = id;
@@ -3449,8 +3455,9 @@ async function bonusToApp(id){
     await call("create", {
       link: r.guestline_link.trim(),
       expect_event_id: (r.event_ref || "").trim().toUpperCase() || undefined,
+      is_event: !wedding,
       partner1_name: r.partner1_name.trim(),
-      partner2_name: r.partner2_name.trim(),
+      partner2_name: wedding ? r.partner2_name.trim() : undefined,
       primary_email: r.primary_email.trim(),
       mobile: (r.mobile || "").trim() || null
     });
@@ -3475,7 +3482,7 @@ async function bonusToApp(id){
     } else {
       showErr(e.message);
     }
-    if (btn) { btn.disabled = false; btn.textContent = "Add to wedding app"; }
+    if (btn) { btn.disabled = false; btn.textContent = label; }
   }
 }
 
@@ -4022,9 +4029,10 @@ function bonusWorking(r){
    invite, and offering it would be an invitation to make an account that
    nobody ever logs into. */
 function bonusButton(r, added, wedding){
-  if (!wedding) return '<span class="muted" style="font-size:.8125rem">Not a wedding</span>';
-
-  // In the app, and the reference says which one — so go there.
+  // In the app, and the reference says which one — so go there. A wedding
+  // opens the full couple's-app account; an event opens the same staff
+  // detail screen, but it only ever feeds payment tracking and reporting -
+  // there is no guest-facing side to it.
   var app = bonusApp(r);
   if (app) {
     return '<button class="btn btn--sm btlink" ' +
@@ -4038,7 +4046,8 @@ function bonusButton(r, added, wedding){
   if (!r.event_ref) return '<span class="pill pill--prov">Needs a reference</span>';
 
   return '<button class="btn btn--sm btn--primary" id="btadd_' + esc(r.id) + '" ' +
-    'onclick="event.stopPropagation();bonusToApp(\'' + esc(r.id) + '\')">Add to wedding app</button>';
+    'onclick="event.stopPropagation();bonusToApp(\'' + esc(r.id) + '\')">' +
+    (wedding ? 'Add to wedding app' : 'Add to payment tracking') + '</button>';
 }
 
 function bonusDetail(r, added, wedding){
@@ -4073,10 +4082,11 @@ function bonusDetail(r, added, wedding){
   var app = bonusApp(r);
   if (app) {
     h += '<p class="muted" style="margin:0 0 14px;font-size:.875rem">' +
-      'In the wedding app as <strong>' + esc(app.salutation || "") + '</strong>' +
+      (wedding ? 'In the wedding app as ' : 'Set up for payment tracking as ') +
+      '<strong>' + esc(app.salutation || "") + '</strong>' +
       (app.wedding_date ? ', ' + esc(ukDate(app.wedding_date)) : '') + '. ' +
       '<button class="linkish" onclick="open_(\'' + esc(app.id) + '\')">Open it</button></p>';
-  } else if (wedding && !r.event_ref) {
+  } else if (!r.event_ref) {
     /* No reference, so nothing can be checked and nothing offered. The
        reference is in Guestline and Guestline will not be asked for it by
        name — its API authenticates one event at a time, with the token in
@@ -4094,16 +4104,19 @@ function bonusDetail(r, added, wedding){
           'onclick="bonusLookup(\'' + esc(r.id) + '\')">Read the link</button>') +
       '<p class="muted" id="btnote_' + esc(r.id) + '" ' +
         'style="margin:10px 0 14px;font-size:.8125rem"></p>';
-  } else if (wedding) {
+  } else {
     h += '<p class="muted" style="margin:0 0 14px;font-size:.875rem">' +
-      'What this booking still needs before it can go into the wedding app. The portal ' +
+      'What this booking still needs before it can go into ' +
+      (wedding ? 'the wedding app' : 'payment tracking') + '. The portal ' +
       'link is the only one we cannot work out for ourselves &mdash; it is on the booking ' +
       'confirmation Guestline sent them.' + (ro ? ' You are reading, not editing.' : '') + '</p>' +
       '<div class="field"><span class="label">Guestline event link</span>' +
         '<input value="' + esc(r.guestline_link || "") + '"' + (ro ? " disabled" : "") +
         ' placeholder="https://event.eu.guestline.app/…" ' +
         'oninput="bonusSet(\'' + esc(r.id) + '\',\'guestline_link\',this.value)"></div>' +
-      '<div class="row">' + box("Partner 1", "partner1_name") + box("Partner 2", "partner2_name") + '</div>' +
+      (wedding
+        ? '<div class="row">' + box("Partner 1", "partner1_name") + box("Partner 2", "partner2_name") + '</div>'
+        : box("Organiser", "partner1_name")) +
       '<div class="row">' + box("Email", "primary_email", ' type="email"') +
         box("Phone", "mobile") + '</div>';
   }
