@@ -99,6 +99,9 @@ header.top{background:var(--sage); color:var(--white)}
 .tile .ic{font-size:26px; margin-bottom:10px}
 .tile h3{font-size:19px; color:var(--ink)}
 .tile p{font-size:12.5px; color:var(--sage-70); margin:6px 0 0}
+.tile.locked{opacity:.6}
+.tile.locked:hover{transform:none; box-shadow:var(--shadow)}
+.tile .lockNote{font-size:11px; font-weight:600; color:var(--attention); margin-top:8px; letter-spacing:.02em}
 .empty{padding:60px 20px; text-align:center; color:var(--sage-70)}
 
 /* ============================================================ viewer */
@@ -435,13 +438,17 @@ function renderTiles(){
     $("#tiles").innerHTML = `<div class="empty">No portals assigned to your account yet — ask an admin to give you access.</div>`;
     return;
   }
-  $("#tiles").innerHTML = S.portals.map(p => `
-    <button class="tile" style="border-top-color:${esc(p.color||'#4E5F4F')}" data-key="${esc(p.key)}">
+  $("#tiles").innerHTML = S.portals.map(p => {
+    const locked = p.granted === false;
+    return `
+    <button class="tile${locked?' locked':''}" style="border-top-color:${esc(p.color||'#4E5F4F')}" data-key="${esc(p.key)}">
       <div class="ic" style="color:${esc(p.color||'#4E5F4F')}">${iconFor(p.icon)}</div>
       <h3>${esc(p.label)}</h3>
       <p>${esc(p.description||'')}</p>
+      ${locked ? `<div class="lockNote">&#128274; Contact your administrator for access</div>` : ""}
     </button>
-  `).join("");
+  `;
+  }).join("");
   $$("#tiles .tile").forEach(b => b.addEventListener("click", ()=> openPortal(b.dataset.key)));
 }
 
@@ -502,6 +509,12 @@ const AUTOLOGIN = {
 function openPortal(key, ref){
   const p = S.portals.find(x => x.key === key);
   if(!p) return;
+
+  if (p.granted === false) {
+    toast(`You don't have access to ${p.label} — contact your administrator to request it.`, true);
+    return;
+  }
+
   S.current = key;
 
   if (key === "po-tracker") {
