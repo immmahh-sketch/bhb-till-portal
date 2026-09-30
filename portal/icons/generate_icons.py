@@ -1,7 +1,7 @@
 """
 Generates the Staff Portal's home-screen icon set (portal/icons/*.png) from
 scratch - same brand palette as the portal itself (--sage/--bone/--gold),
-same "BH" + subtitle mark as app/icon.svg (the till app's icon), so a
+same "BHB" + subtitle mark as app/icon.svg (the till app's icon), so a
 phone with more than one Black Horse app installed can tell them apart by
 the subtitle while still reading as the same family.
 
@@ -38,7 +38,7 @@ def maskable_icon(size):
 
 
 def draw_mark(d, w, h, scale=0.78):
-    bh_size = round(h * 0.34 * scale / 0.78)
+    bh_size = round(h * 0.27 * scale / 0.78)
     sub_size = round(h * 0.11 * scale / 0.78)
     bh_font = ImageFont.truetype(FONT_BOLD, bh_size)
     sub_font = ImageFont.truetype(FONT_BOLD, sub_size)
@@ -46,10 +46,10 @@ def draw_mark(d, w, h, scale=0.78):
     cx = w / 2
     cy = h * 0.5
 
-    bbox = d.textbbox((0, 0), "BH", font=bh_font)
+    bbox = d.textbbox((0, 0), "BHB", font=bh_font)
     bh_h = bbox[3] - bbox[1]
     bh_y = cy - bh_h * 0.85
-    d.text((cx, bh_y), "BH", font=bh_font, fill=BONE, anchor="ma")
+    d.text((cx, bh_y), "BHB", font=bh_font, fill=BONE, anchor="ma")
 
     # Letter-spaced "STAFF" - PIL has no native tracking, so space the
     # glyphs by hand.
@@ -69,8 +69,8 @@ def favicon(size):
     img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
     d.rounded_rectangle([0, 0, size - 1, size - 1], radius=round(size * 0.22), fill=SAGE)
-    font = ImageFont.truetype(FONT_BOLD, round(size * 0.58))
-    d.text((size / 2, size / 2 + size * 0.03), "BH", font=font, fill=BONE, anchor="mm")
+    font = ImageFont.truetype(FONT_BOLD, round(size * 0.44))
+    d.text((size / 2, size / 2 + size * 0.03), "BHB", font=font, fill=BONE, anchor="mm")
     return img
 
 
