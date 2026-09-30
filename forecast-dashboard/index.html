@@ -145,6 +145,7 @@ tr.wedrow td:first-child{box-shadow:inset 3px 0 0 var(--gold)}
   font-weight:600; white-space:nowrap; background:var(--sage-10); color:var(--sage);
 }
 .pill.gold{background:var(--attention-bg); color:var(--attention)}
+.pill.blue{background:var(--sage-10); color:var(--sage-70)}
 
 .filters{display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:18px}
 .filters select,.filters input{
@@ -371,6 +372,14 @@ function num(n, dp){
   if (n === null || n === undefined || isNaN(n)) return "—";
   return Number(n).toLocaleString("en-GB", { minimumFractionDigits:dp||0, maximumFractionDigits:dp||0 });
 }
+// The forecast is always shown bracketed; once the day is complete (EOD
+// report processed) the actual is appended in bold after a slash, e.g.
+// "(£52.68)/£64.20". A future day shows only the bracketed forecast.
+function fcActual(fc, act, hasActual, fmt){
+  const fcStr = `(${fmt(fc)})`;
+  if (!hasActual) return fcStr;
+  return `${fcStr}/<b>${fmt(act)}</b>`;
+}
 function pctDelta(now, then){
   if (!then) return null;
   return ((now - then) / then) * 100;
@@ -487,19 +496,28 @@ function renderMonthTiles(d){
   `).join("");
 }
 
-function monthRow(r, isActual){
-  const wed = r.wedding_name ? `<span class="pill gold" title="${esc(r.wedding_name)}">Wedding</span>` : "";
-  return `<tr class="${r.wedding_name?'wedrow':''}" data-date="${r.date}">
+// Only Wedding/Dry hire tag as "Wedding"; any other event_type tags as
+// "Event"; no event_type at all shows nothing. Hover always shows the real
+// name; click-through to the day drilldown (row click) shows the full
+// revenue breakdown.
+function eventTag(r){
+  if (!r.event_type) return "";
+  const isWedding = ["wedding","dry hire"].includes(String(r.event_type).toLowerCase());
+  const label = isWedding ? "Wedding" : "Event";
+  const cls = isWedding ? "pill gold" : "pill blue";
+  const title = r.wedding_name ? esc(r.wedding_name) : label;
+  return `<span class="${cls}" title="${title}">${label}</span>`;
+}
+
+function monthRow(r){
+  return `<tr class="${r.event_type?'wedrow':''}" data-date="${r.date}">
     <td class="strong">${ukDate(r.date)}<div class="muted" style="font-size:11px">${esc(r.day_of_week||'')}</div></td>
-    <td>${wed}</td>
-    <td class="num">${num(r.rooms_forecast)}</td>
-    <td class="num">${r.has_actual ? num(r.rooms_actual) : '<span class="muted">—</span>'}</td>
-    <td class="num">${gbp(r.adr_forecast)}</td>
-    <td class="num">${r.has_actual ? gbp(r.adr_actual) : '<span class="muted">—</span>'}</td>
-    <td class="num">${gbp(r.food_revenue_forecast)}</td>
-    <td class="num">${gbp(r.beverage_revenue_forecast)}</td>
-    <td class="num strong">${gbp(r.total_revenue_forecast)}</td>
-    <td class="num strong">${r.has_actual ? gbp(r.total_revenue_actual) : '<span class="muted">—</span>'}</td>
+    <td>${eventTag(r)}</td>
+    <td class="num">${fcActual(r.rooms_forecast, r.rooms_actual, r.has_actual, v=>num(v))}</td>
+    <td class="num">${fcActual(r.rooms_revenue_forecast, r.rooms_revenue_actual, r.has_actual, v=>gbp(v))}</td>
+    <td class="num">${fcActual(r.food_revenue_forecast, r.food_revenue_actual, r.has_actual, v=>gbp(v))}</td>
+    <td class="num">${fcActual(r.beverage_revenue_forecast, r.beverage_revenue_actual, r.has_actual, v=>gbp(v))}</td>
+    <td class="num strong">${fcActual(r.total_revenue_forecast, r.total_revenue_actual, r.has_actual, v=>gbp(v))}</td>
   </tr>`;
 }
 
@@ -511,24 +529,21 @@ function renderMonthTable(d){
   const t = d.totals;
   $("#monthTable").innerHTML = `
     <thead><tr>
-      <th>Date</th><th>Event</th><th>Rooms FC</th><th>Rooms Act</th>
-      <th>ADR FC</th><th>ADR Act</th><th>Food FC</th><th>Bev FC</th>
-      <th>Total FC</th><th>Total Act</th>
+      <th>Date</th><th>Event</th><th>Rooms</th><th>Rooms Revenue</th>
+      <th>Food</th><th>Beverage</th><th>Total Revenue</th>
     </tr></thead>
     <tbody>
       ${d.days.map(r=>monthRow(r)).join("")}
       <tr class="totrow">
         <td colspan="2">Month total</td>
-        <td class="num">${num(t.rooms_forecast)}</td>
-        <td class="num">${t.rooms_actual ? num(t.rooms_actual) : '—'}</td>
-        <td class="num">${gbp(t.adr_forecast)}</td>
-        <td class="num">${t.adr_actual ? gbp(t.adr_actual) : '—'}</td>
-        <td class="num">${gbp(t.food_revenue_forecast)}</td>
-        <td class="num">${gbp(t.beverage_revenue_forecast)}</td>
-        <td class="num">${gbp(t.total_revenue_forecast)}</td>
-        <td class="num">${t.total_revenue_actual ? gbp(t.total_revenue_actual) : '—'}</td>
+        <td class="num">${fcActual(t.rooms_forecast, t.rooms_actual, !!t.days_with_actual, v=>num(v))}</td>
+        <td class="num">${fcActual(t.rooms_revenue_forecast, t.rooms_revenue_actual, !!t.days_with_actual, v=>gbp(v))}</td>
+        <td class="num">${fcActual(t.food_revenue_forecast, t.food_revenue_actual, !!t.days_with_actual, v=>gbp(v))}</td>
+        <td class="num">${fcActual(t.beverage_revenue_forecast, t.beverage_revenue_actual, !!t.days_with_actual, v=>gbp(v))}</td>
+        <td class="num">${fcActual(t.total_revenue_forecast, t.total_revenue_actual, !!t.days_with_actual, v=>gbp(v))}</td>
       </tr>
-    </tbody>`;
+    </tbody>
+    <caption class="muted" style="caption-side:bottom; text-align:left; padding:8px 12px; font-size:11px;">(Forecast) / <b>Actual</b> once the day's end-of-day report has been processed. A day with only a bracketed figure is still forecast.</caption>`;
   $$("#monthTable tbody tr[data-date]").forEach(tr=>{
     tr.addEventListener("click", ()=> openDay(tr.dataset.date));
   });
@@ -595,10 +610,9 @@ $("#listveil").addEventListener("click", closeDay);
 function periodRow(r){
   return `<tr data-date="${r.date}">
     <td class="strong">${ukDate(r.date)}<div class="muted" style="font-size:11px">${esc(r.day_of_week||'')}</div></td>
-    <td class="num">${num(r.rooms_forecast)}</td>
-    <td class="num">${r.has_actual ? num(r.rooms_actual) : '<span class="muted">—</span>'}</td>
-    <td class="num strong">${gbp(r.total_revenue_forecast)}</td>
-    <td class="num strong">${r.has_actual ? gbp(r.total_revenue_actual) : '<span class="muted">—</span>'}</td>
+    <td>${eventTag(r)}</td>
+    <td class="num">${fcActual(r.rooms_forecast, r.rooms_actual, r.has_actual, v=>num(v))}</td>
+    <td class="num strong">${fcActual(r.total_revenue_forecast, r.total_revenue_actual, r.has_actual, v=>gbp(v))}</td>
   </tr>`;
 }
 
@@ -620,15 +634,13 @@ async function loadPeriod(start, end){
       return;
     }
     $("#periodTable").innerHTML = `
-      <thead><tr><th>Date</th><th>Rooms FC</th><th>Rooms Act</th><th>Total FC</th><th>Total Act</th></tr></thead>
+      <thead><tr><th>Date</th><th>Event</th><th>Rooms</th><th>Total Revenue</th></tr></thead>
       <tbody>
         ${d.days.map(periodRow).join("")}
         <tr class="totrow">
-          <td>Total</td>
-          <td class="num">${num(t.rooms_forecast)}</td>
-          <td class="num">${t.rooms_actual ? num(t.rooms_actual) : '—'}</td>
-          <td class="num">${gbp(t.total_revenue_forecast)}</td>
-          <td class="num">${t.total_revenue_actual ? gbp(t.total_revenue_actual) : '—'}</td>
+          <td colspan="2">Total</td>
+          <td class="num">${fcActual(t.rooms_forecast, t.rooms_actual, !!t.days_with_actual, v=>num(v))}</td>
+          <td class="num">${fcActual(t.total_revenue_forecast, t.total_revenue_actual, !!t.days_with_actual, v=>gbp(v))}</td>
         </tr>
       </tbody>`;
     $$("#periodTable tbody tr[data-date]").forEach(tr=>{
@@ -713,11 +725,15 @@ $("#aGo").addEventListener("click", ()=>{
 const MONTH_COLS = [
   { label:"Date", value:r=>ukDate(r.date) },
   { label:"Day", value:"day_of_week" },
-  { label:"Wedding", value:r=>r.wedding_name||"" },
+  { label:"Event Type", value:r=>r.event_type||"" },
+  { label:"Event Name", value:r=>r.wedding_name||"" },
+  { label:"Complete", value:r=>r.has_actual?"Yes":"No" },
   { label:"Rooms Forecast", value:"rooms_forecast" },
   { label:"Rooms Actual", value:r=>r.has_actual?r.rooms_actual:"" },
   { label:"ADR Forecast", value:"adr_forecast" },
   { label:"ADR Actual", value:r=>r.has_actual?r.adr_actual:"" },
+  { label:"Rooms Revenue Forecast", value:"rooms_revenue_forecast" },
+  { label:"Rooms Revenue Actual", value:r=>r.has_actual?r.rooms_revenue_actual:"" },
   { label:"Food Revenue Forecast", value:"food_revenue_forecast" },
   { label:"Beverage Revenue Forecast", value:"beverage_revenue_forecast" },
   { label:"Total Revenue Forecast", value:"total_revenue_forecast" },
@@ -726,6 +742,8 @@ const MONTH_COLS = [
 const PERIOD_COLS = [
   { label:"Date", value:r=>ukDate(r.date) },
   { label:"Day", value:"day_of_week" },
+  { label:"Event Type", value:r=>r.event_type||"" },
+  { label:"Complete", value:r=>r.has_actual?"Yes":"No" },
   { label:"Rooms Forecast", value:"rooms_forecast" },
   { label:"Rooms Actual", value:r=>r.has_actual?r.rooms_actual:"" },
   { label:"Total Revenue Forecast", value:"total_revenue_forecast" },
