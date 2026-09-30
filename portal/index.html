@@ -506,7 +506,7 @@ const AUTOLOGIN = {
   "till-reports":       { store:"session", key:"bhb_portal_ok",     value:()=>"1" },
 };
 
-function openPortal(key, ref){
+async function openPortal(key, ref){
   const p = S.portals.find(x => x.key === key);
   if(!p) return;
 
@@ -518,8 +518,18 @@ function openPortal(key, ref){
   S.current = key;
 
   if (key === "po-tracker") {
-    // Separate app on its own infrastructure - link out rather than embed.
-    window.open(p.url, "_blank", "noopener");
+    // Separate app on its own infrastructure, reached via a freshly-minted
+    // SSO token rather than an embedded iframe. Open the tab synchronously
+    // (before the await) so browsers don't treat it as a blocked popup,
+    // then point it at the real URL once the token comes back.
+    const win = window.open("", "_blank", "noopener");
+    try {
+      const d = await api("po_sso");
+      if (win) win.location = d.url; else window.open(d.url, "_blank", "noopener");
+    } catch(e) {
+      if (win) win.close();
+      toast(e.message, true);
+    }
     return;
   }
 
@@ -646,8 +656,18 @@ function openUserDrawer(id){
   const u = id ? S.users.find(x => x.id === id) : null;
   $("#dTitle").textContent = u ? "Edit user" : "Add user";
 
+  const PO_PROFILES = [
+    ["Staff", "Raises orders, sees only their own orders, own department only."],
+    ["Head of Department", "As Staff, plus sees all orders in their department and can manage suppliers."],
+    ["Accounts", "Sees all orders, uploads invoices, processes orders into Xero, manages suppliers."],
+    ["Manager", "Sees all orders, approves/rejects orders, accepts invoice variances, edits approved orders, manages suppliers."],
+    ["Administrator", "Everything, including PO Tracker settings. Their own orders never need approval."],
+  ];
+  const PO_DEPARTMENTS = ["Admin","FOH","Kitchen","Maintenance","Rooms","Weddings"];
+
   const portalBlocks = S.apps.map(a => {
     const grant = u ? u.apps.find(x => x.key === a.key) : null;
+    const isPo = a.key === "po-tracker";
     const tabs = (S.tabCatalogue || []).filter(t => t.app_key === a.key);
     const hasEditableTab = tabs.some(t => t.editable);
     const grantedTabs = grant ? grant.tabs : null; // null = every tab
@@ -655,14 +675,39 @@ function openUserDrawer(id){
       <label><input type="checkbox" class="tabCheck" value="${esc(t.tab_key)}"
         ${(!grant || grantedTabs===null || grantedTabs.includes(t.tab_key)) ? "checked":""}> ${esc(t.label)}</label>
     `).join("");
+    const po = (grant && grant.po) || { profile:null, department:null, spending_limit:null };
+    const poFields = isPo ? `
+      <div class="field" style="margin-bottom:10px">
+        <label>PO Tracker role</label>
+        <select class="poProfile">
+          <option value="">— choose a role —</option>
+          ${PO_PROFILES.map(([name]) => `<option value="${esc(name)}" ${po.profile===name?"selected":""}>${esc(name)}</option>`).join("")}
+        </select>
+        <div class="hint" style="font-size:11.5px; color:var(--sage-70); margin-top:6px; line-height:1.5">
+          ${PO_PROFILES.map(([name,desc]) => `<div><b>${esc(name)}</b> — ${esc(desc)}</div>`).join("")}
+        </div>
+      </div>
+      <div class="field" style="margin-bottom:10px">
+        <label>Department</label>
+        <select class="poDepartment">
+          <option value="">— none —</option>
+          ${PO_DEPARTMENTS.map(d => `<option value="${esc(d)}" ${po.department===d?"selected":""}>${esc(d)}</option>`).join("")}
+        </select>
+      </div>
+      <div class="field" style="margin-bottom:0">
+        <label>Personal spending limit (£, blank = none)</label>
+        <input class="poSpendingLimit" type="number" min="0" step="1" value="${po.spending_limit ?? ''}">
+      </div>
+    ` : "";
     return `
       <div class="field portal-block" data-key="${esc(a.key)}" style="border:1px solid var(--mist); border-radius:8px; padding:12px; margin-bottom:10px">
         <label style="text-transform:none; letter-spacing:0; font-size:14px; font-weight:600; color:var(--ink); display:flex; align-items:center; gap:8px">
           <input type="checkbox" class="portalGrant" ${grant ? "checked":""}> ${esc(a.label)}
         </label>
         <div class="portal-detail" style="margin:10px 0 0 24px; ${grant?'':'display:none'}">
-          <div class="checks" style="margin-bottom:${hasEditableTab?'10px':'0'}">${tabChecks}</div>
-          ${hasEditableTab ? `<label style="display:flex; align-items:center; gap:8px; font-weight:600">
+          ${poFields}
+          ${tabs.length ? `<div class="checks" style="margin-bottom:${hasEditableTab?'10px':'0'}">${tabChecks}</div>` : ""}
+          ${(hasEditableTab && !isPo) ? `<label style="display:flex; align-items:center; gap:8px; font-weight:600">
             <input type="checkbox" class="editCheck" ${(!grant || grant.can_edit!==false) ? "checked":""}> Can edit (untick for view only)
           </label>` : ""}
         </div>
@@ -701,12 +746,26 @@ async function saveUser(id){
     const allTabs = Array.from(b.querySelectorAll(".tabCheck"));
     const checked = allTabs.filter(c => c.checked).map(c => c.value);
     const editCb = b.querySelector(".editCheck");
-    return {
+    const entry = {
       key: b.dataset.key,
       can_edit: editCb ? editCb.checked : true,
       tabs: checked.length === allTabs.length ? null : checked, // every box ticked = unrestricted
     };
+    if (b.dataset.key === "po-tracker") {
+      const limitEl = b.querySelector(".poSpendingLimit");
+      entry.po = {
+        profile: b.querySelector(".poProfile").value || null,
+        department: b.querySelector(".poDepartment").value || null,
+        spending_limit: limitEl.value === "" ? null : Number(limitEl.value),
+      };
+    }
+    return entry;
   });
+  const poEntry = apps.find(a => a.key === "po-tracker");
+  if (poEntry && !poEntry.po.profile) {
+    toast("Pick a PO Tracker role for this user, or untick PO Tracker access.", true);
+    return;
+  }
   const payload = {
     display_name: $("#fName").value.trim(),
     role: $("#fRole").value,
