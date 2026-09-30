@@ -1,0 +1,1082 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<!-- Seen once: a long-lived tab kept serving a stale cached copy of this
+     document through multiple deploys and hard refreshes, showing an old
+     app icon and missing new fixes. These are a defensive measure against
+     that, not a confirmed fix - real HTTP Cache-Control headers would be
+     the proper fix but aren't configurable on this static host. -->
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>Staff Portal — Black Horse Beamish</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#4E5F4F">
+<link rel="icon" href="icons/favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="BHB Staff">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --sage:#4E5F4F; --sage-70:#7B887C; --sage-10:#EDEFED; --sage-dark:#3B483C;
+  --bone:#F7F7F7; --celadon:#C1C8B4; --mist:#E7E7E7; --white:#fff; --ink:#262626;
+  --gold:#C9A56B;
+  --attention:#B08D57; --attention-bg:#F7F0E4;
+  --alert:#8C4A3F;     --alert-bg:#F6EAE8;
+  --good:#4F6B4F;      --good-bg:#EDF2ED;
+  --display:"Cormorant Garamond",Georgia,serif;
+  --body:Raleway,"Helvetica Neue",Arial,sans-serif;
+  --track-label:.18em;
+  --radius:10px;
+  --shadow:0 1px 2px rgba(38,38,38,.06),0 8px 24px rgba(38,38,38,.07);
+  --maxw:1200px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%}
+body{
+  font-family:var(--body); color:var(--ink); background:var(--bone);
+  font-size:15px; line-height:1.45; -webkit-text-size-adjust:100%;
+}
+h1,h2,h3{font-family:var(--display); font-weight:600; margin:0; letter-spacing:.01em}
+button,input,select{font:inherit; color:inherit}
+.shell{max-width:var(--maxw); margin:0 auto; padding:0 20px 64px}
+
+/* ============================================================ gate */
+#gate{
+  position:fixed; inset:0; background:var(--sage); z-index:100;
+  display:flex; align-items:center; justify-content:center; padding:24px;
+}
+.gatecard{
+  background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow);
+  width:100%; max-width:380px; padding:32px 28px; text-align:center;
+}
+.gatecard h1{font-size:26px; color:var(--sage); line-height:1.15}
+.gatecard .sub{
+  font-size:11px; letter-spacing:var(--track-label); text-transform:uppercase;
+  color:var(--sage-70); margin:6px 0 22px;
+}
+.gatecard input{
+  width:100%; padding:12px 14px; border:1px solid var(--mist);
+  border-radius:8px; background:var(--bone); margin-bottom:10px; text-align:center;
+}
+.gatecard input:focus{outline:2px solid var(--celadon); outline-offset:1px}
+.gatecard button{
+  width:100%; padding:12px; border:0; border-radius:8px; cursor:pointer;
+  background:var(--sage); color:var(--white); font-weight:600;
+  letter-spacing:var(--track-label); text-transform:uppercase; font-size:12px;
+}
+.gateerr{color:var(--alert); font-size:13px; min-height:18px; margin-top:8px}
+.gatelink{color:var(--sage-70); font-size:12px; margin-top:6px; cursor:pointer; text-decoration:underline}
+.gatelink:hover{color:var(--sage)}
+
+/* ======================================================= install gate
+   On a phone, the portal is only usable once it has been added to the
+   home screen - opened any other way there is nothing to reach but
+   these instructions, every time, not just the first time. */
+#install{
+  position:fixed; inset:0; background:var(--sage); z-index:110;
+  display:flex; align-items:center; justify-content:center; padding:24px;
+  overflow-y:auto;
+}
+.installcard{
+  background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow);
+  width:100%; max-width:400px; padding:30px 26px; text-align:left;
+}
+.installcard .badge{
+  width:64px; height:64px; border-radius:16px; margin:0 auto 16px; display:block;
+}
+.installcard h1{font-size:23px; color:var(--sage); line-height:1.2; text-align:center}
+.installcard .sub{
+  font-size:11px; letter-spacing:var(--track-label); text-transform:uppercase;
+  color:var(--sage-70); margin:6px 0 20px; text-align:center;
+}
+.installcard p{margin:0 0 14px; font-size:14px; line-height:1.5}
+.howto{margin:0 0 18px; padding-left:22px; font-size:14px; line-height:1.7}
+.howto li{margin-bottom:4px}
+.installcard button{
+  width:100%; padding:12px; border:1px solid var(--sage); border-radius:8px; cursor:pointer;
+  background:var(--sage); color:var(--white); font-weight:600;
+  letter-spacing:var(--track-label); text-transform:uppercase; font-size:12px;
+}
+.installcard .notice{
+  background:var(--attention-bg); color:var(--attention); border-radius:8px;
+  padding:12px 14px; font-size:13px; margin-top:16px; line-height:1.5;
+}
+.gatemsg{color:var(--good); font-size:13px; margin-top:8px; min-height:18px}
+.gateback{color:var(--sage-70); font-size:12px; margin-top:14px; cursor:pointer; text-decoration:underline; display:block}
+
+/* ============================================================ header */
+header.top{background:var(--sage); color:var(--white)}
+.topin{
+  max-width:var(--maxw); margin:0 auto; padding:14px 20px;
+  display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+}
+.brand{font-family:var(--display); font-size:21px; line-height:1.1}
+.brand small{
+  display:block; font-family:var(--body); font-size:10px;
+  letter-spacing:var(--track-label); text-transform:uppercase; opacity:.75;
+}
+.who{margin-left:auto; display:flex; align-items:center; gap:10px; font-size:12px; opacity:.9}
+.who button{
+  background:transparent; border:1px solid rgba(255,255,255,.4); color:var(--white);
+  border-radius:6px; padding:5px 10px; cursor:pointer; font-size:11px;
+  letter-spacing:.06em; text-transform:uppercase;
+}
+.hbtn{
+  background:transparent; border:1px solid rgba(255,255,255,.4); color:var(--white);
+  border-radius:6px; padding:6px 10px; cursor:pointer; font-size:16px; line-height:1;
+}
+
+/* ============================================================ landing */
+.landing-head{padding:32px 0 8px}
+.landing-head h2{font-size:28px; color:var(--sage)}
+.landing-head .hint{font-size:13px; color:var(--sage-70); margin-top:4px}
+.tile-group{margin-top:30px}
+.tile-group:first-child{margin-top:0}
+.tile-group h3{
+  font-size:12px; letter-spacing:.12em; text-transform:uppercase; font-weight:700;
+  color:var(--sage-70); margin:0 0 12px; padding-bottom:6px; border-bottom:1px solid var(--mist);
+}
+.tiles{display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:16px; margin-top:22px}
+.tile-group .tiles{margin-top:0}
+.tile{
+  background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow);
+  padding:20px; text-align:left; cursor:pointer; border:0; border-top:5px solid var(--sage);
+  transition:transform .12s, box-shadow .12s; font:inherit; color:inherit;
+}
+.tile:hover{transform:translateY(-2px); box-shadow:0 2px 4px rgba(38,38,38,.08),0 12px 28px rgba(38,38,38,.12)}
+.tile .ic{font-size:26px; margin-bottom:10px}
+.tile h3{font-size:19px; color:var(--ink)}
+.tile p{font-size:12.5px; color:var(--sage-70); margin:6px 0 0}
+.tile.locked{opacity:.6}
+.tile.locked:hover{transform:none; box-shadow:var(--shadow)}
+.tile .lockNote{font-size:11px; font-weight:600; color:var(--attention); margin-top:8px; letter-spacing:.02em}
+.empty{padding:60px 20px; text-align:center; color:var(--sage-70)}
+
+/* ============================================================ viewer */
+#viewer{position:fixed; inset:0; z-index:60; display:none; flex-direction:column; background:var(--bone)}
+#viewer.on{display:flex}
+.vband{padding:10px 16px; display:flex; align-items:center; gap:12px; color:var(--white)}
+.vband .vname{font-family:var(--display); font-size:17px}
+.vband .spacer{flex:1}
+.vband button{
+  background:rgba(255,255,255,.15); border:1px solid rgba(255,255,255,.4); color:var(--white);
+  border-radius:6px; padding:6px 10px; cursor:pointer; font-size:12px;
+}
+#viewer iframe{flex:1; width:100%; border:0; background:var(--white)}
+
+/* ============================================================ hamburger menu */
+#navveil{position:fixed; inset:0; background:rgba(38,38,38,.4); z-index:70; display:none}
+#navveil.on{display:block}
+#navmenu{
+  position:fixed; top:0; right:0; bottom:0; width:min(300px,86vw); background:var(--white);
+  z-index:71; box-shadow:-8px 0 30px rgba(38,38,38,.18); transform:translateX(100%);
+  transition:transform .2s ease; display:flex; flex-direction:column;
+}
+#navmenu.on{transform:none}
+.nhead{background:var(--sage); color:var(--white); padding:16px 20px}
+.nhead .x{float:right; background:transparent; border:0; color:var(--white); font-size:22px; cursor:pointer}
+.nlist{flex:1; overflow-y:auto; padding:10px}
+.nitem{
+  display:flex; align-items:center; gap:10px; width:100%; text-align:left; padding:12px 14px;
+  border:0; background:transparent; border-radius:8px; cursor:pointer; font-size:14px; color:var(--ink);
+  border-left:4px solid transparent;
+}
+.nitem:hover{background:var(--sage-10)}
+.nitem.active{background:var(--sage-10); font-weight:600}
+.nitem .dot{width:10px; height:10px; border-radius:50%; flex-shrink:0}
+.nfoot{padding:14px 20px; border-top:1px solid var(--mist)}
+.nfoot button{
+  width:100%; padding:10px; border:1px solid var(--sage); background:var(--white); color:var(--sage);
+  border-radius:8px; cursor:pointer; font-size:12px; letter-spacing:.06em; text-transform:uppercase;
+}
+
+/* ============================================================ settings */
+.page{display:none}
+.page.on{display:block}
+.pagehead{display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; margin:24px 0 18px}
+.pagehead h2{font-size:26px; color:var(--sage)}
+.spacer2{margin-left:auto}
+.btn{
+  border:1px solid var(--sage); background:var(--sage); color:var(--white);
+  border-radius:8px; padding:9px 16px; cursor:pointer; font-size:12px;
+  font-weight:600; letter-spacing:var(--track-label); text-transform:uppercase;
+}
+.btn.ghost{background:var(--white); color:var(--sage)}
+.card{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden; margin-bottom:20px}
+table.grid{width:100%; border-collapse:collapse; font-size:14px}
+table.grid th{
+  text-align:left; padding:11px 12px; background:var(--sage-10); color:var(--sage);
+  font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; font-weight:700;
+}
+table.grid td{padding:10px 12px; border-top:1px solid var(--mist); vertical-align:top}
+.pill{display:inline-block; padding:3px 9px; border-radius:999px; font-size:11px; font-weight:600; background:var(--sage-10); color:var(--sage)}
+.pill.admin{background:var(--attention-bg); color:var(--attention)}
+.pill.off{background:var(--mist); color:var(--sage-70)}
+
+/* ============================================================ drawer (user edit) */
+#veil{position:fixed; inset:0; background:rgba(38,38,38,.45); z-index:80; display:none}
+#veil.on{display:block}
+#drawer{
+  position:fixed; top:0; right:0; bottom:0; width:min(440px,100%); background:var(--bone);
+  z-index:81; box-shadow:-8px 0 30px rgba(38,38,38,.18); transform:translateX(100%);
+  transition:transform .2s ease; display:flex; flex-direction:column;
+}
+#drawer.on{transform:none}
+.dhead{background:var(--sage); color:var(--white); padding:16px 20px}
+.dhead .x{float:right; background:transparent; border:0; color:var(--white); font-size:22px; cursor:pointer}
+.dbody{flex:1; overflow-y:auto; padding:20px}
+.dfoot{padding:14px 20px; background:var(--white); border-top:1px solid var(--mist); display:flex; gap:10px; flex-wrap:wrap}
+.field{margin-bottom:14px}
+.field label{display:block; font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); margin-bottom:5px; font-weight:700}
+.field input,.field select{width:100%; padding:10px 12px; border:1px solid var(--mist); border-radius:8px; background:var(--white)}
+.field input[type=checkbox]{width:auto; padding:0; border:0; border-radius:0; background:transparent; flex:none}
+.checks{display:flex; flex-direction:column; gap:8px}
+.checks label{display:flex; align-items:center; gap:8px; font-size:13px; font-weight:400; text-transform:none; letter-spacing:0; color:var(--ink)}
+
+.toast{
+  position:fixed; left:50%; bottom:26px; transform:translate(-50%,20px);
+  background:var(--ink); color:var(--white); padding:12px 20px; border-radius:8px;
+  z-index:200; opacity:0; transition:.2s; pointer-events:none; font-size:14px; max-width:90vw;
+}
+.toast.on{opacity:1; transform:translate(-50%,0)}
+.toast.bad{background:var(--alert)}
+
+@media (max-width:760px){
+  .shell{padding:0 14px 48px}
+  .topin{padding-left:14px; padding-right:14px}
+  .tiles{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<!-- ============================================================ install
+     Shown instead of everything else on a phone until the portal is
+     genuinely running from its home-screen icon - see mustInstall(). -->
+<div id="install" hidden>
+  <div class="installcard">
+    <img class="badge" src="icons/icon-192.png" alt="">
+    <h1>Add this to your Home Screen</h1>
+    <div class="sub">Staff Portal — Black Horse Beamish</div>
+    <div id="installSteps"></div>
+    <!-- Real href, not just "#" - if this is a stale cached copy of the
+         page where continueInBrowser() doesn't even exist yet, the onclick
+         throws before it can return false, so the browser falls through to
+         this href instead of doing nothing. A cache-busting query string
+         forces an actual fresh network request for a URL that's never been
+         cached before, rather than reusing whatever cached this page. -->
+    <a href="./?nocache=1" onclick="continueInBrowser();return false;" class="muted" style="display:block;margin-top:14px;font-size:12px">Having trouble? Continue in browser</a>
+  </div>
+</div>
+
+<div id="gate">
+  <div class="gatecard">
+    <h1>Staff Portal</h1>
+    <div class="sub">Black Horse Beamish</div>
+
+    <div id="gLogin">
+      <input id="gemail" type="email" placeholder="Email" autocomplete="username">
+      <input id="gpw" type="password" placeholder="Password" autocomplete="current-password">
+      <button id="gbtn">Sign in</button>
+      <div class="gatelink" id="gForgotLink">Forgot password?</div>
+      <div class="gateerr" id="gerr"></div>
+    </div>
+
+    <div id="gForgot" hidden>
+      <input id="fgEmail" type="email" placeholder="Email" autocomplete="username">
+      <button id="fgBtn">Send reset link</button>
+      <span class="gateback" id="fgBack">Back to sign in</span>
+      <div class="gateerr" id="fgErr"></div>
+      <div class="gatemsg" id="fgMsg"></div>
+    </div>
+
+    <div id="gReset" hidden>
+      <div class="sub" style="margin-bottom:14px">Choose a new password</div>
+      <input id="rsPw" type="password" placeholder="New password" autocomplete="new-password">
+      <input id="rsPw2" type="password" placeholder="Confirm new password" autocomplete="new-password">
+      <button id="rsBtn">Set new password</button>
+      <div class="gateerr" id="rsErr"></div>
+    </div>
+  </div>
+</div>
+
+<div id="app" hidden>
+  <header class="top">
+    <div class="topin">
+      <div class="brand">Staff Portal<small>Black Horse Beamish</small></div>
+      <div class="who">
+        <span id="whoName"></span>
+        <button class="hbtn" id="hamBtn" title="Menu">&#9776;</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="shell">
+    <section class="page on" id="page-landing">
+      <div class="landing-head">
+        <h2>Your Portals</h2>
+        <div class="hint">Signed in once, everything below opens without asking again.</div>
+      </div>
+      <div id="tiles"></div>
+    </section>
+
+    <section class="page" id="page-settings">
+      <div class="pagehead">
+        <h2>Settings — Users</h2>
+        <div class="spacer2"></div>
+        <button class="btn" id="addUserBtn">Add user</button>
+      </div>
+      <div class="card"><div style="overflow-x:auto"><table class="grid" id="usersTable"></table></div></div>
+    </section>
+  </div>
+</div>
+
+<div id="viewer">
+  <div class="vband" id="vband">
+    <span class="vname" id="vname"></span>
+    <div class="spacer"></div>
+    <button id="vHome">Portals</button>
+    <button id="vMenu">&#9776;</button>
+  </div>
+  <iframe id="vframe"></iframe>
+</div>
+
+<div id="navveil"></div>
+<div id="navmenu">
+  <div class="nhead"><span>Switch Portal</span><button class="x" id="navClose">&times;</button></div>
+  <div class="nlist" id="navList"></div>
+  <div class="nfoot"><button id="navSignout">Sign out</button></div>
+</div>
+
+<div id="veil"></div>
+<aside id="drawer">
+  <div class="dhead"><span id="dTitle">Add user</span><button class="x" id="dClose">&times;</button></div>
+  <div class="dbody" id="dBody"></div>
+  <div class="dfoot">
+    <button class="btn" id="dSave">Save</button>
+    <button class="btn ghost" id="dCancel">Cancel</button>
+  </div>
+</aside>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ==================================================================
+   Staff Portal — one login for every in-house app.
+   Each portal keeps its own existing password as a second layer; this
+   page holds it (service-role only, never in this file) and injects it
+   into that app's own storage key inside the iframe so the person never
+   sees or types it again. portal_users/portal_sessions have RLS on with
+   no public policies - every call goes through portal-gateway-api.
+   ================================================================== */
+
+const FN   = "https://safcrtrfdzsnftghibot.supabase.co/functions/v1/portal-gateway-api";
+const ANON = "sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU";
+const LS_TOKEN = "bhb_portal_token";
+
+const S = { token:"", user:null, portals:[], current:null, users:[], apps:[] };
+
+const $  = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+
+function toast(msg, bad){
+  const t = $("#toast");
+  t.textContent = msg;
+  t.className = "toast on" + (bad ? " bad" : "");
+  clearTimeout(toast._t);
+  toast._t = setTimeout(()=>{ t.className = "toast"; }, bad ? 5200 : 2600);
+}
+
+async function api(action, params){
+  const r = await fetch(FN, {
+    method:"POST",
+    headers:{ "apikey":ANON, "Content-Type":"application/json" },
+    body: JSON.stringify({ action, token:S.token, ...(params||{}) }),
+  });
+  let d = {};
+  try { d = await r.json(); } catch(e){}
+  if(!r.ok) throw new Error(d.error || `Request failed (${r.status})`);
+  if(d.error) throw new Error(d.error);
+  return d;
+}
+
+/* ------------------------------------------------------------- gate */
+function gateMode(mode){
+  $("#gLogin").hidden  = mode !== "login";
+  $("#gForgot").hidden = mode !== "forgot";
+  $("#gReset").hidden  = mode !== "reset";
+}
+function openGate(msg){
+  $("#gate").style.display = "flex";
+  $("#app").hidden = true;
+  if(msg) $("#gerr").textContent = msg;
+}
+async function trySignIn(email, password){
+  $("#gerr").textContent = "";
+  $("#gerr").style.color = "";
+  if(!email || !password){ $("#gerr").textContent = "Enter your email and password."; return; }
+  try{
+    const d = await api("login", { email, password });
+    S.token = d.token; S.user = d.user; S.portals = d.portals || [];
+    localStorage.setItem(LS_TOKEN, S.token);
+    enterApp();
+  }catch(e){
+    $("#gerr").textContent = e.message;
+  }
+}
+$("#gbtn").addEventListener("click", ()=> trySignIn($("#gemail").value.trim(), $("#gpw").value));
+$("#gpw").addEventListener("keydown", e=>{ if(e.key==="Enter") trySignIn($("#gemail").value.trim(), $("#gpw").value); });
+
+/* ------------------------------------------------------- forgot pw */
+$("#gForgotLink").addEventListener("click", ()=>{
+  $("#fgEmail").value = $("#gemail").value.trim();
+  $("#fgErr").textContent = ""; $("#fgMsg").textContent = "";
+  gateMode("forgot");
+});
+$("#fgBack").addEventListener("click", ()=> gateMode("login"));
+async function sendResetLink(){
+  const email = $("#fgEmail").value.trim();
+  $("#fgErr").textContent = ""; $("#fgMsg").textContent = "";
+  if(!email){ $("#fgErr").textContent = "Enter your email."; return; }
+  $("#fgBtn").disabled = true;
+  try{
+    await api("request_password_reset", { email });
+    $("#fgMsg").textContent = "If that email has an account, a reset link is on its way.";
+  }catch(e){
+    $("#fgErr").textContent = e.message;
+  }finally{
+    $("#fgBtn").disabled = false;
+  }
+}
+$("#fgBtn").addEventListener("click", sendResetLink);
+$("#fgEmail").addEventListener("keydown", e=>{ if(e.key==="Enter") sendResetLink(); });
+
+/* --------------------------------------------------- reset password */
+let resetToken = "";
+async function submitReset(){
+  const pw = $("#rsPw").value, pw2 = $("#rsPw2").value;
+  $("#rsErr").textContent = "";
+  if(pw.length < 8){ $("#rsErr").textContent = "Password needs to be at least 8 characters."; return; }
+  if(pw !== pw2){ $("#rsErr").textContent = "Passwords don't match."; return; }
+  $("#rsBtn").disabled = true;
+  try{
+    await api("reset_password", { reset_token: resetToken, password: pw });
+    resetToken = "";
+    history.replaceState(null, "", location.pathname);
+    gateMode("login");
+    $("#gerr").style.color = "var(--good)";
+    openGate("Password updated — sign in below.");
+  }catch(e){
+    $("#rsErr").textContent = e.message;
+  }finally{
+    $("#rsBtn").disabled = false;
+  }
+}
+$("#rsBtn").addEventListener("click", submitReset);
+$("#rsPw2").addEventListener("keydown", e=>{ if(e.key==="Enter") submitReset(); });
+
+function signOut(){
+  api("logout").catch(()=>{});
+  try{ localStorage.removeItem(LS_TOKEN); }catch(e){}
+  S.token = ""; S.user = null; S.portals = [];
+  closeViewer();
+  openGate();
+}
+$("#navSignout").addEventListener("click", signOut);
+
+/* -------------------------------------------------------------- app */
+function enterApp(){
+  $("#gate").style.display = "none";
+  $("#app").hidden = false;
+  $("#whoName").textContent = S.user.name;
+  renderTiles();
+  renderNav();
+  if (S.user.role !== "admin") $("#page-settings").remove();
+}
+
+function iconFor(k){
+  const m = { heart:"&#10084;", chart:"&#128200;", calendar:"&#128197;", receipt:"&#128179;", till:"&#128176;",
+              ledger:"&#128209;", safe:"&#128274;" };
+  return m[k] || "&#9679;";
+}
+
+// Static grouping for the front page - which heading each tile sits under,
+// and the order those headings show in. Not data-driven (no portal_apps
+// column for it): the grouping is a fixed, hand-picked layout, not
+// something that should shift on its own as apps are added.
+const TILE_GROUPS = ["Accounts", "FOH", "Office", "Weddings and events"];
+const TILE_GROUP_FOR = {
+  "forecast-dashboard":  "Accounts",
+  "po-tracker":          "Accounts",
+  "financial-reporting": "Accounts",
+  "till-reports":        "FOH",
+  "restaurant-ordering": "FOH",
+  "financial-reporting-cashup": "FOH",
+  "financial-reporting-safe":   "Office",
+  "financial-reporting-float":  "Office",
+  "wedding-admin":       "Weddings and events",
+};
+
+function renderTiles(){
+  if(!S.portals.length){
+    $("#tiles").innerHTML = `<div class="empty">No portals assigned to your account yet — ask an admin to give you access.</div>`;
+    return;
+  }
+  const tileHtml = p => {
+    const locked = p.granted === false;
+    return `
+    <button class="tile${locked?' locked':''}" style="border-top-color:${esc(p.color||'#4E5F4F')}" data-key="${esc(p.key)}">
+      <div class="ic" style="color:${esc(p.color||'#4E5F4F')}">${iconFor(p.icon)}</div>
+      <h3>${esc(p.label)}</h3>
+      <p>${esc(p.description||'')}</p>
+      ${locked ? `<div class="lockNote">&#128274; Contact your administrator for access</div>` : ""}
+    </button>`;
+  };
+
+  // Keep each app's own order within its group. An app not in
+  // TILE_GROUP_FOR (a new one, not yet categorised) gets its own "Other"
+  // group at the end rather than silently disappearing.
+  const groups = new Map();
+  S.portals.forEach(p => {
+    const g = TILE_GROUP_FOR[p.key] || "Other";
+    if (!groups.has(g)) groups.set(g, []);
+    groups.get(g).push(p);
+  });
+  const order = TILE_GROUPS.concat([...groups.keys()].filter(g => !TILE_GROUPS.includes(g)));
+
+  $("#tiles").innerHTML = order.filter(g => groups.has(g)).map(g => `
+    <div class="tile-group">
+      <h3>${esc(g)}</h3>
+      <div class="tiles">${groups.get(g).map(tileHtml).join("")}</div>
+    </div>
+  `).join("");
+  $$("#tiles .tile").forEach(b => b.addEventListener("click", ()=> openPortal(b.dataset.key)));
+}
+
+function renderNav(){
+  const items = S.portals.map(p => `
+    <button class="nitem ${S.current===p.key?'active':''}" data-key="${esc(p.key)}">
+      <span class="dot" style="background:${esc(p.color||'#4E5F4F')}"></span>${esc(p.label)}
+    </button>
+  `).join("");
+  const settingsItem = S.user && S.user.role==="admin"
+    ? `<button class="nitem" data-goto="settings"><span class="dot" style="background:#8C4A3F"></span>Settings</button>`
+    : "";
+  $("#navList").innerHTML = `
+    <button class="nitem" data-goto="landing"><span class="dot" style="background:#7B887C"></span>All Portals</button>
+    ${items}
+    ${settingsItem}
+  `;
+  $$("#navList .nitem").forEach(b => b.addEventListener("click", ()=>{
+    closeNav();
+    if (b.dataset.goto === "landing") { closeViewer(); showLanding(); }
+    else if (b.dataset.goto === "settings") { closeViewer(); showSettings(); }
+    else openPortal(b.dataset.key);
+  }));
+}
+
+function showLanding(){
+  $$(".page").forEach(p=>p.classList.remove("on"));
+  $("#page-landing").classList.add("on");
+}
+function showSettings(){
+  $$(".page").forEach(p=>p.classList.remove("on"));
+  $("#page-settings").classList.add("on");
+  loadUsers();
+}
+
+/* ----------------------------------------------------- hamburger nav */
+function openNav(){ $("#navveil").classList.add("on"); $("#navmenu").classList.add("on"); renderNav(); }
+function closeNav(){ $("#navveil").classList.remove("on"); $("#navmenu").classList.remove("on"); }
+$("#hamBtn").addEventListener("click", openNav);
+$("#vMenu").addEventListener("click", openNav);
+$("#navClose").addEventListener("click", closeNav);
+$("#navveil").addEventListener("click", closeNav);
+
+/* -------------------------------------------------------- the viewer */
+// Each app's own "already unlocked" storage key, so opening it here never
+// shows a second password prompt. localStorage is shared across all
+// same-origin frames immediately; sessionStorage is per-frame, so those
+// apps get the value written into the iframe's own window after it loads,
+// then reloaded once so their normal startup check picks it up.
+// Wedding & Events Tracker merged into Wedding App (one login, one nav,
+// its former four tabs now live inside wedding-admin) - no separate entry
+// here any more. "who" moved across with it: the Tracker still wants a
+// name to attribute chases/saves to, wherever its tabs now live.
+const AUTOLOGIN = {
+  "wedding-admin":      { store:"session", key:"bhb_wedding_admin", value:(p)=>p.app_password,
+                           extra:{ key:"bhb_tracker_who", value:()=>S.user.name } },
+  "forecast-dashboard": { store:"local",   key:"bhb_forecast_key",  value:(p)=>p.app_password },
+  "till-reports":       { store:"session", key:"bhb_portal_ok",     value:()=>"1" },
+  "restaurant-ordering":{ store:"session", key:"bhb_restaurant_ok", value:()=>"1" },
+  // All four financial-reporting tiles are the same physical page (kiosk
+  // views deep-link via their own ?view= baked into the portal_apps url),
+  // so they share one door-password check.
+  "financial-reporting":       { store:"session", key:"bhb_financial_ok", value:()=>"1" },
+  "financial-reporting-cashup":{ store:"session", key:"bhb_financial_ok", value:()=>"1" },
+  "financial-reporting-safe":  { store:"session", key:"bhb_financial_ok", value:()=>"1" },
+  "financial-reporting-float": { store:"session", key:"bhb_financial_ok", value:()=>"1" },
+};
+
+async function openPortal(key, ref){
+  const p = S.portals.find(x => x.key === key);
+  if(!p) return;
+
+  if (p.granted === false) {
+    toast(`You don't have access to ${p.label} — contact your administrator to request it.`, true);
+    return;
+  }
+
+  S.current = key;
+
+  if (key === "po-tracker") {
+    // Separate app on its own infrastructure, reached via a freshly-minted
+    // SSO token rather than an embedded iframe. Open the tab synchronously
+    // (before the await) so browsers don't treat it as a blocked popup,
+    // then point it at the real URL once the token comes back.
+    const win = window.open("", "_blank", "noopener");
+    try {
+      const d = await api("po_sso");
+      if (win) win.location = d.url; else window.open(d.url, "_blank", "noopener");
+    } catch(e) {
+      if (win) win.close();
+      toast(e.message, true);
+    }
+    return;
+  }
+
+  const cfg = AUTOLOGIN[key];
+  if (cfg && cfg.store === "local") {
+    try { localStorage.setItem(cfg.key, cfg.value(p)); } catch(e){}
+  }
+  // Independent of the main door-password's own store - some apps read a
+  // second, always-localStorage value like "who's actually using this".
+  if (cfg && cfg.extra) {
+    try { localStorage.setItem(cfg.extra.key, cfg.extra.value(p)); } catch(e){}
+  }
+
+  $("#vname").textContent = p.label;
+  $("#vband").style.background = p.color || "#4E5F4F";
+  const frame = $("#vframe");
+  frame.dataset.key = key;
+  frame.dataset.injected = "0";
+  frame.src = ref ? `${p.url}${p.url.includes('?')?'&':'?'}ref=${encodeURIComponent(ref)}` : p.url;
+  $("#viewer").classList.add("on");
+}
+
+// A portal iframe can ask to jump to another one - was used to cross-link
+// a wedding's enquiry and its app account between the Tracker and the
+// Wedding App before they were merged into one page. Nothing sends this
+// message any more (that cross-link is an in-page tab switch now, inside
+// wedding-admin.html itself), but left wired in case a future app wants
+// the same deep-link handshake.
+window.addEventListener("message", (ev)=>{
+  const d = ev.data;
+  if (!d || d.type !== "bhb-open-portal" || !d.key) return;
+  if (!S.portals.some(p => p.key === d.key)) return; // not granted, ignore
+  openPortal(d.key, d.ref);
+});
+
+// Each app's own tab-nav button, by tab_key, so a tab the person is not
+// allowed can be hidden. Matches the markup each app already has. The
+// Tracker's four tabs (todo/enq/cal/tot) live under wedding-admin now,
+// using the same data-view attribute as its own tabs - no separate entry
+// needed for them.
+const TAB_SELECTORS = {
+  "wedding-admin":      k => `button[data-view="${k}"]`,
+  "forecast-dashboard": k => `.tabbtn[data-page="${k}"]`,
+  "till-reports":       k => `button[data-tab="${k}"]`,
+  "restaurant-ordering":k => `button[data-tab="${k}"]`,
+};
+
+// Soft enforcement, not a security boundary - the real data access is still
+// whatever that app's own backend allows. This hides what a read-only or
+// tab-restricted person would otherwise see and click, so the UI matches
+// what Settings says they can do.
+function applyRestrictions(iframeDoc, portal){
+  try {
+    if (Array.isArray(portal.allowed_tabs)) {
+      const sel = TAB_SELECTORS[portal.key];
+      if (sel) {
+        iframeDoc.querySelectorAll('[data-view],[data-page],[data-tab]').forEach(btn=>{
+          const k = btn.dataset.view || btn.dataset.page || btn.dataset.tab;
+          if (k && !portal.allowed_tabs.includes(k)) btn.style.display = "none";
+        });
+      }
+    }
+    if (portal.can_edit === false) {
+      const style = iframeDoc.createElement("style");
+      style.textContent = `
+        input,textarea,select{pointer-events:none!important;background:#F0EDE4!important;opacity:.7}
+        input[type=checkbox],input[type=radio]{opacity:.4}
+      `;
+      iframeDoc.head.appendChild(style);
+      const writeWords = /^(save|add|delete|remove|record|send|import|sync|create|new|edit|bulk|reset|post|upload)\b/i;
+      iframeDoc.querySelectorAll("button").forEach(btn=>{
+        const t = (btn.textContent || "").trim();
+        if (writeWords.test(t)) { btn.disabled = true; btn.style.opacity = ".4"; btn.style.cursor = "not-allowed"; }
+      });
+      const banner = iframeDoc.createElement("div");
+      banner.textContent = "View only";
+      banner.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:999;background:#8C4A3F;color:#fff;text-align:center;font-size:11px;letter-spacing:.1em;text-transform:uppercase;padding:4px;font-family:sans-serif";
+      iframeDoc.body.prepend(banner);
+    }
+  } catch(e){}
+}
+
+$("#vframe").addEventListener("load", function(){
+  const key = this.dataset.key;
+  const cfg = AUTOLOGIN[key];
+  const p = S.portals.find(x => x.key === key);
+  // sessionStorage is per-frame, so who's signed in has to be written into
+  // this iframe's own window on every load, same as a session-store app's
+  // password - wedding-admin's bonus tracker uses it to tell the GM's
+  // account apart from everyone else's for edit access.
+  try { this.contentWindow.sessionStorage.setItem("bhb_staff_email", S.user.email || ""); } catch(e){}
+  if (cfg && cfg.store === "session" && this.dataset.injected !== "1") {
+    this.dataset.injected = "1";
+    try {
+      this.contentWindow.sessionStorage.setItem(cfg.key, cfg.value(p));
+      this.contentWindow.location.reload();
+      return; // restrictions applied on the reload's own load event
+    } catch(e){}
+  }
+  if (p) applyRestrictions(this.contentDocument, p);
+});
+
+function closeViewer(){
+  $("#viewer").classList.remove("on");
+  $("#vframe").src = "about:blank";
+  S.current = null;
+}
+$("#vHome").addEventListener("click", ()=>{ closeViewer(); showLanding(); });
+
+/* ------------------------------------------------------------ settings */
+async function loadUsers(){
+  $("#usersTable").innerHTML = `<tr><td style="padding:20px">Loading…</td></tr>`;
+  try{
+    const d = await api("list_users");
+    S.users = d.users; S.apps = d.apps; S.tabCatalogue = d.tabCatalogue || [];
+    $("#usersTable").innerHTML = `
+      <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Portals</th><th>Last login</th><th></th></tr></thead>
+      <tbody>
+        ${S.users.map(u => `
+          <tr data-id="${u.id}" style="cursor:pointer">
+            <td class="strong">${esc(u.display_name)}</td>
+            <td>${esc(u.email)}</td>
+            <td>${u.role==="admin" ? '<span class="pill admin">Admin</span>' : '<span class="pill">Staff</span>'}</td>
+            <td>${u.apps.length} of ${S.apps.length}</td>
+            <td>${u.last_login_at ? new Date(u.last_login_at).toLocaleDateString('en-GB') : '<span class="muted">Never</span>'}</td>
+            <td>${u.active ? '' : '<span class="pill off">Inactive</span>'}</td>
+          </tr>`).join("")}
+      </tbody>`;
+    $$("#usersTable tbody tr").forEach(tr => tr.addEventListener("click", ()=> openUserDrawer(tr.dataset.id)));
+  }catch(e){
+    $("#usersTable").innerHTML = `<tr><td style="padding:20px">${esc(e.message)}</td></tr>`;
+  }
+}
+$("#addUserBtn").addEventListener("click", ()=> openUserDrawer(null));
+
+function openUserDrawer(id){
+  const u = id ? S.users.find(x => x.id === id) : null;
+  $("#dTitle").textContent = u ? "Edit user" : "Add user";
+
+  const PO_PROFILES = [
+    ["Staff", "Raises orders, sees only their own orders, own department only."],
+    ["Head of Department", "As Staff, plus sees all orders in their department and can manage suppliers."],
+    ["Accounts", "Sees all orders, uploads invoices, processes orders into Xero, manages suppliers."],
+    ["Manager", "Sees all orders, approves/rejects orders, accepts invoice variances, edits approved orders, manages suppliers."],
+    ["Administrator", "Everything, including PO Tracker settings. Their own orders never need approval."],
+  ];
+  const PO_DEPARTMENTS = ["Admin","FOH","Kitchen","Maintenance","Rooms","Weddings"];
+
+  const portalBlocks = S.apps.map(a => {
+    const grant = u ? u.apps.find(x => x.key === a.key) : null;
+    const isPo = a.key === "po-tracker";
+    const tabs = (S.tabCatalogue || []).filter(t => t.app_key === a.key);
+    const hasEditableTab = tabs.some(t => t.editable);
+    const grantedTabs = grant ? grant.tabs : null; // null = every tab
+    const tabChecks = tabs.map(t => `
+      <label><input type="checkbox" class="tabCheck" value="${esc(t.tab_key)}"
+        ${(!grant || grantedTabs===null || grantedTabs.includes(t.tab_key)) ? "checked":""}> ${esc(t.label)}</label>
+    `).join("");
+    const po = (grant && grant.po) || { profile:null, department:null, spending_limit:null };
+    const poFields = isPo ? `
+      <div class="field" style="margin-bottom:10px">
+        <label>PO Tracker role</label>
+        <select class="poProfile">
+          <option value="">— choose a role —</option>
+          ${PO_PROFILES.map(([name]) => `<option value="${esc(name)}" ${po.profile===name?"selected":""}>${esc(name)}</option>`).join("")}
+        </select>
+        <div class="hint" style="font-size:11.5px; color:var(--sage-70); margin-top:6px; line-height:1.5">
+          ${PO_PROFILES.map(([name,desc]) => `<div><b>${esc(name)}</b> — ${esc(desc)}</div>`).join("")}
+        </div>
+      </div>
+      <div class="field" style="margin-bottom:10px">
+        <label>Department</label>
+        <select class="poDepartment">
+          <option value="">— none —</option>
+          ${PO_DEPARTMENTS.map(d => `<option value="${esc(d)}" ${po.department===d?"selected":""}>${esc(d)}</option>`).join("")}
+        </select>
+      </div>
+      <div class="field" style="margin-bottom:0">
+        <label>Personal spending limit (£, blank = none)</label>
+        <input class="poSpendingLimit" type="number" min="0" step="1" autocomplete="off" value="${po.spending_limit ?? ''}">
+      </div>
+    ` : "";
+    return `
+      <div class="field portal-block" data-key="${esc(a.key)}" style="border:1px solid var(--mist); border-radius:8px; padding:12px; margin-bottom:10px">
+        <label style="text-transform:none; letter-spacing:0; font-size:14px; font-weight:600; color:var(--ink); display:flex; align-items:center; gap:8px">
+          <input type="checkbox" class="portalGrant" ${grant ? "checked":""}> ${esc(a.label)}
+        </label>
+        <div class="portal-detail" style="margin:10px 0 0 24px; ${grant?'':'display:none'}">
+          ${poFields}
+          ${tabs.length ? `<div class="checks" style="margin-bottom:${hasEditableTab?'10px':'0'}">${tabChecks}</div>` : ""}
+          ${(hasEditableTab && !isPo) ? `<label style="display:flex; align-items:center; gap:8px; font-weight:600">
+            <input type="checkbox" class="editCheck" ${(!grant || grant.can_edit!==false) ? "checked":""}> Can edit (untick for view only)
+          </label>` : ""}
+        </div>
+      </div>`;
+  }).join("");
+
+  $("#dBody").innerHTML = `
+    <div class="field"><label>Name</label><input id="fName" value="${u?esc(u.display_name):''}"></div>
+    <div class="field"><label>Email</label><input id="fEmail" type="email" value="${u?esc(u.email):''}" ${u?'readonly':''}></div>
+    ${u
+      ? `<div class="field"><label>New password (leave blank to keep)</label><input id="fPw" type="password" autocomplete="new-password"></div>`
+      : `<p class="hint" style="margin:0 0 14px">An email will be sent to them to set their own password.</p>`}
+    <div class="field"><label>Role</label>
+      <select id="fRole">
+        <option value="staff" ${u && u.role==="staff"?"selected":""}>Staff</option>
+        <option value="admin" ${u && u.role==="admin"?"selected":""}>Admin (can manage users)</option>
+      </select>
+    </div>
+    ${u ? `<div class="field"><label>Account</label><select id="fActive">
+        <option value="1" ${u.active?"selected":""}>Active</option>
+        <option value="0" ${!u.active?"selected":""}>Inactive (blocks sign-in)</option>
+      </select></div>` : ""}
+    <div class="field"><label>Portal access</label>${portalBlocks}</div>
+  `;
+  $$("#dBody .portalGrant").forEach(cb => cb.addEventListener("change", ()=>{
+    cb.closest(".portal-block").querySelector(".portal-detail").style.display = cb.checked ? "" : "none";
+  }));
+  $("#dSave").onclick = ()=> saveUser(u ? u.id : null);
+  $("#veil").classList.add("on"); $("#drawer").classList.add("on");
+}
+function closeDrawer(){ $("#veil").classList.remove("on"); $("#drawer").classList.remove("on"); }
+$("#dClose").addEventListener("click", closeDrawer);
+$("#dCancel").addEventListener("click", closeDrawer);
+$("#veil").addEventListener("click", closeDrawer);
+
+async function saveUser(id){
+  const apps = $$("#dBody .portal-block").filter(b => b.querySelector(".portalGrant").checked).map(b => {
+    const allTabs = Array.from(b.querySelectorAll(".tabCheck"));
+    const checked = allTabs.filter(c => c.checked).map(c => c.value);
+    const editCb = b.querySelector(".editCheck");
+    const entry = {
+      key: b.dataset.key,
+      can_edit: editCb ? editCb.checked : true,
+      tabs: checked.length === allTabs.length ? null : checked, // every box ticked = unrestricted
+    };
+    if (b.dataset.key === "po-tracker") {
+      const limitEl = b.querySelector(".poSpendingLimit");
+      entry.po = {
+        profile: b.querySelector(".poProfile").value || null,
+        department: b.querySelector(".poDepartment").value || null,
+        spending_limit: limitEl.value === "" ? null : Number(limitEl.value),
+      };
+    }
+    return entry;
+  });
+  const poEntry = apps.find(a => a.key === "po-tracker");
+  if (poEntry && !poEntry.po.profile) {
+    toast("Pick a PO Tracker role for this user, or untick PO Tracker access.", true);
+    return;
+  }
+  const payload = {
+    display_name: $("#fName").value.trim(),
+    role: $("#fRole").value,
+    apps,
+  };
+  try{
+    if (id){
+      const pwEl = $("#fPw");
+      if (pwEl && pwEl.value) payload.password = pwEl.value;
+      const activeSel = $("#fActive");
+      if (activeSel) payload.active = activeSel.value === "1";
+      await api("update_user", { id, ...payload });
+      toast("Saved.");
+    } else {
+      payload.email = $("#fEmail").value.trim();
+      await api("create_user", payload);
+      toast("User created — an invite email is on its way to them.");
+    }
+    closeDrawer();
+    loadUsers();
+  }catch(e){
+    toast(e.message, true);
+  }
+}
+
+/* --------------------------------------------------------- install gate
+   Three things the page can actually tell about where it is running,
+   every one a plain browser check rather than a guess (same technique
+   already proven in the wedding app's own onboarding flow):
+
+     isStandalone()  — it was opened from the home screen
+     hasHomeScreen() — it is a phone or tablet, not a desktop pretending
+     devicePlatform() — which set of instructions to show
+
+   Unlike the wedding app there is no "shown once, then skippable" mode
+   here and no framed-in-Squarespace step to clear first - on a phone
+   this page is the instructions until isStandalone() is true, full stop,
+   on every single load. */
+function isStandalone(){
+  try {
+    if (window.navigator.standalone === true) return true;               // iOS
+    return window.matchMedia("(display-mode: standalone)").matches ||
+           window.matchMedia("(display-mode: fullscreen)").matches;      // everything else
+  } catch(e) { return false; }
+}
+function devicePlatform(){
+  const ua = navigator.userAgent || "";
+  // iPadOS reports itself as a Mac, so the touch count is what gives it away.
+  if (/iPad|iPhone|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)) return "ios";
+  if (/Android/i.test(ua)) return "android";
+  return "desktop";
+}
+// Was previously also a coarse-pointer/touch-point/screen-size heuristic
+// on top of devicePlatform() - dropped entirely after a night of it
+// showing this gate on confirmed-desktop machines with no reproducible
+// cause. devicePlatform() alone (pure user-agent string matching) is
+// deterministic and can't misfire the way a hardware-heuristic can: a PC
+// is never iOS/Android no matter what pointer/touch capabilities it
+// reports, so this is the only signal that matters.
+function hasHomeScreen(){ return devicePlatform() !== "desktop"; }
+function mustInstall(){ return hasHomeScreen() && !isStandalone(); }
+
+// Chrome hands over a real install prompt, but only if this is kept from
+// the moment it fires.
+let deferredInstall = null;
+window.addEventListener("beforeinstallprompt", ev=>{
+  ev.preventDefault();
+  deferredInstall = ev;
+  if (!$("#install").hidden) renderInstallScreen();
+});
+
+function renderInstallScreen(){
+  const p = devicePlatform();
+  let h = "";
+
+  if (p === "ios") {
+    h += `<p>In Safari, tap the <strong>Share</strong> button — the square with an arrow coming out of the top of it.</p>
+      <ol class="howto">
+        <li>Tap <strong>Share</strong></li>
+        <li>Scroll down and tap <strong>Add to Home Screen</strong></li>
+        <li>Tap <strong>Add</strong> in the top corner</li>
+      </ol>`;
+  } else if (p === "android") {
+    if (deferredInstall) {
+      h += `<p>One tap and it's done.</p>
+        <button onclick="installNow()">Add to home screen</button>
+        <p class="muted" style="font-size:12px;margin-top:10px">If nothing happens, open the menu and choose <strong>Install app</strong> or <strong>Add to Home screen</strong>.</p>`;
+    } else {
+      h += `<p>In Chrome, open the menu at the top right.</p>
+        <ol class="howto">
+          <li>Tap the <strong>menu</strong> button</li>
+          <li>Tap <strong>Install app</strong>, or <strong>Add to Home screen</strong></li>
+          <li>Tap <strong>Install</strong> to confirm</li>
+        </ol>`;
+    }
+  }
+
+  h += `<p style="margin-top:4px">Once it's added, close this tab and open <strong>BHB Staff</strong> from your home screen — it remembers you, so you won't need to sign in every time.</p>
+    <button onclick="recheckStandalone()">I've added it — check again</button>
+    <div id="installStuck"></div>`;
+
+  $("#installSteps").innerHTML = h;
+}
+
+async function installNow(){
+  if (!deferredInstall) return;
+  try {
+    deferredInstall.prompt();
+    await deferredInstall.userChoice;
+    deferredInstall = null;
+  } catch(e) {}
+  renderInstallScreen();
+}
+
+// They say they added it. If this copy of the page is still the one they
+// are looking at, that is not true yet — say so plainly rather than
+// pretending to check and letting them through.
+function recheckStandalone(){
+  if (isStandalone()) { location.reload(); return; }
+  const el = $("#installStuck");
+  if (!el || el.children.length) return;
+  el.innerHTML = `<div class="notice">This is still the browser. The icon opens a separate copy with
+    no address bar along the top — close this tab and tap the <strong>BHB Staff</strong> icon on your
+    home screen. If it's not there yet, follow the steps above first.</div>`;
+}
+
+/* -------------------------------------------------------------- init */
+function proceedPastInstallGate(){
+  const qs = new URLSearchParams(location.search);
+  const rt = qs.get("reset");
+  if(rt){
+    resetToken = rt;
+    gateMode("reset");
+    openGate();
+    return;
+  }
+
+  let saved = "";
+  try{ saved = localStorage.getItem(LS_TOKEN); }catch(e){}
+  if(saved){
+    S.token = saved;
+    api("me").then(d=>{
+      S.user = d.user; S.portals = d.portals || [];
+      enterApp();
+    }).catch(()=>{
+      try{ localStorage.removeItem(LS_TOKEN); }catch(e){}
+      openGate();
+    });
+  } else {
+    openGate();
+  }
+}
+
+// Escape hatch for the rare case this gate misfires on a desktop browser -
+// lets anyone past it without needing DevTools.
+function continueInBrowser(){
+  $("#install").hidden = true;
+  $("#gate").style.display = "";
+  $("#app").hidden = false;
+  proceedPastInstallGate();
+}
+
+(function init(){
+  if (mustInstall()) {
+    // Not just visually covered - actually unreachable. A fixed overlay on
+    // top of a still-focusable login form is still a login form a keyboard
+    // or screen reader can get to.
+    $("#gate").style.display = "none";
+    $("#app").hidden = true;
+    $("#install").hidden = false;
+    renderInstallScreen();
+    return;
+  }
+  proceedPastInstallGate();
+})();
+</script>
+</body>
+</html>
