@@ -448,17 +448,63 @@ function openPortal(key){
   $("#viewer").classList.add("on");
 }
 
+// Each app's own tab-nav button, by tab_key, so a tab the person is not
+// allowed can be hidden. Matches the markup each app already has.
+const TAB_SELECTORS = {
+  "wedding-admin":      k => `button[data-view="${k}"]`,
+  "forecast-dashboard": k => `.tabbtn[data-page="${k}"]`,
+  "wedding-tracker":    k => `.tabbtn[data-page="${k}"]`,
+  "till-reports":       k => `button[data-tab="${k}"]`,
+};
+
+// Soft enforcement, not a security boundary - the real data access is still
+// whatever that app's own backend allows. This hides what a read-only or
+// tab-restricted person would otherwise see and click, so the UI matches
+// what Settings says they can do.
+function applyRestrictions(iframeDoc, portal){
+  try {
+    if (Array.isArray(portal.allowed_tabs)) {
+      const sel = TAB_SELECTORS[portal.key];
+      if (sel) {
+        iframeDoc.querySelectorAll('[data-view],[data-page],[data-tab]').forEach(btn=>{
+          const k = btn.dataset.view || btn.dataset.page || btn.dataset.tab;
+          if (k && !portal.allowed_tabs.includes(k)) btn.style.display = "none";
+        });
+      }
+    }
+    if (portal.can_edit === false) {
+      const style = iframeDoc.createElement("style");
+      style.textContent = `
+        input,textarea,select{pointer-events:none!important;background:#F0EDE4!important;opacity:.7}
+        input[type=checkbox],input[type=radio]{opacity:.4}
+      `;
+      iframeDoc.head.appendChild(style);
+      const writeWords = /^(save|add|delete|remove|record|send|import|sync|create|new|edit|bulk|reset|post|upload)\b/i;
+      iframeDoc.querySelectorAll("button").forEach(btn=>{
+        const t = (btn.textContent || "").trim();
+        if (writeWords.test(t)) { btn.disabled = true; btn.style.opacity = ".4"; btn.style.cursor = "not-allowed"; }
+      });
+      const banner = iframeDoc.createElement("div");
+      banner.textContent = "View only";
+      banner.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:999;background:#8C4A3F;color:#fff;text-align:center;font-size:11px;letter-spacing:.1em;text-transform:uppercase;padding:4px;font-family:sans-serif";
+      iframeDoc.body.prepend(banner);
+    }
+  } catch(e){}
+}
+
 $("#vframe").addEventListener("load", function(){
   const key = this.dataset.key;
   const cfg = AUTOLOGIN[key];
+  const p = S.portals.find(x => x.key === key);
   if (cfg && cfg.store === "session" && this.dataset.injected !== "1") {
     this.dataset.injected = "1";
     try {
-      const p = S.portals.find(x => x.key === key);
       this.contentWindow.sessionStorage.setItem(cfg.key, cfg.value(p));
       this.contentWindow.location.reload();
+      return; // restrictions applied on the reload's own load event
     } catch(e){}
   }
+  if (p) applyRestrictions(this.contentDocument, p);
 });
 
 function closeViewer(){
@@ -473,7 +519,7 @@ async function loadUsers(){
   $("#usersTable").innerHTML = `<tr><td style="padding:20px">Loading…</td></tr>`;
   try{
     const d = await api("list_users");
-    S.users = d.users; S.apps = d.apps;
+    S.users = d.users; S.apps = d.apps; S.tabCatalogue = d.tabCatalogue || [];
     $("#usersTable").innerHTML = `
       <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Portals</th><th>Last login</th><th></th></tr></thead>
       <tbody>
@@ -497,9 +543,30 @@ $("#addUserBtn").addEventListener("click", ()=> openUserDrawer(null));
 function openUserDrawer(id){
   const u = id ? S.users.find(x => x.id === id) : null;
   $("#dTitle").textContent = u ? "Edit user" : "Add user";
-  const checks = S.apps.map(a => `
-    <label><input type="checkbox" value="${esc(a.key)}" ${u && u.apps.includes(a.key) ? "checked":""}> ${esc(a.label)}</label>
-  `).join("");
+
+  const portalBlocks = S.apps.map(a => {
+    const grant = u ? u.apps.find(x => x.key === a.key) : null;
+    const tabs = (S.tabCatalogue || []).filter(t => t.app_key === a.key);
+    const hasEditableTab = tabs.some(t => t.editable);
+    const grantedTabs = grant ? grant.tabs : null; // null = every tab
+    const tabChecks = tabs.map(t => `
+      <label><input type="checkbox" class="tabCheck" value="${esc(t.tab_key)}"
+        ${(!grant || grantedTabs===null || grantedTabs.includes(t.tab_key)) ? "checked":""}> ${esc(t.label)}</label>
+    `).join("");
+    return `
+      <div class="field portal-block" data-key="${esc(a.key)}" style="border:1px solid var(--mist); border-radius:8px; padding:12px; margin-bottom:10px">
+        <label style="text-transform:none; letter-spacing:0; font-size:14px; font-weight:600; color:var(--ink); display:flex; align-items:center; gap:8px">
+          <input type="checkbox" class="portalGrant" ${grant ? "checked":""}> ${esc(a.label)}
+        </label>
+        <div class="portal-detail" style="margin:10px 0 0 24px; ${grant?'':'display:none'}">
+          <div class="checks" style="margin-bottom:${hasEditableTab?'10px':'0'}">${tabChecks}</div>
+          ${hasEditableTab ? `<label style="display:flex; align-items:center; gap:8px; font-weight:600">
+            <input type="checkbox" class="editCheck" ${(!grant || grant.can_edit!==false) ? "checked":""}> Can edit (untick for view only)
+          </label>` : ""}
+        </div>
+      </div>`;
+  }).join("");
+
   $("#dBody").innerHTML = `
     <div class="field"><label>Name</label><input id="fName" value="${u?esc(u.display_name):''}"></div>
     <div class="field"><label>Email</label><input id="fEmail" type="email" value="${u?esc(u.email):''}" ${u?'readonly':''}></div>
@@ -514,10 +581,12 @@ function openUserDrawer(id){
         <option value="1" ${u.active?"selected":""}>Active</option>
         <option value="0" ${!u.active?"selected":""}>Inactive (blocks sign-in)</option>
       </select></div>` : ""}
-    <div class="field"><label>Portal access</label><div class="checks">${checks}</div></div>
+    <div class="field"><label>Portal access</label>${portalBlocks}</div>
   `;
+  $$("#dBody .portalGrant").forEach(cb => cb.addEventListener("change", ()=>{
+    cb.closest(".portal-block").querySelector(".portal-detail").style.display = cb.checked ? "" : "none";
+  }));
   $("#dSave").onclick = ()=> saveUser(u ? u.id : null);
-  $("#dBody").dataset.deleteId = u ? u.id : "";
   $("#veil").classList.add("on"); $("#drawer").classList.add("on");
 }
 function closeDrawer(){ $("#veil").classList.remove("on"); $("#drawer").classList.remove("on"); }
@@ -526,7 +595,16 @@ $("#dCancel").addEventListener("click", closeDrawer);
 $("#veil").addEventListener("click", closeDrawer);
 
 async function saveUser(id){
-  const apps = $$("#dBody .checks input:checked").map(c => c.value);
+  const apps = $$("#dBody .portal-block").filter(b => b.querySelector(".portalGrant").checked).map(b => {
+    const allTabs = $$(".tabCheck", b);
+    const checked = allTabs.filter(c => c.checked).map(c => c.value);
+    const editCb = b.querySelector(".editCheck");
+    return {
+      key: b.dataset.key,
+      can_edit: editCb ? editCb.checked : true,
+      tabs: checked.length === allTabs.length ? null : checked, // every box ticked = unrestricted
+    };
+  });
   const payload = {
     display_name: $("#fName").value.trim(),
     role: $("#fRole").value,
