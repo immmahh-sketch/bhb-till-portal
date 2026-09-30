@@ -259,6 +259,7 @@ table.grid td{padding:10px 12px; border-top:1px solid var(--mist); vertical-alig
     <h1>Add this to your Home Screen</h1>
     <div class="sub">Staff Portal — Black Horse Beamish</div>
     <div id="installSteps"></div>
+    <a href="#" onclick="continueInBrowser();return false;" class="muted" style="display:block;margin-top:14px;font-size:12px">Having trouble? Continue in browser</a>
   </div>
 </div>
 
@@ -1015,18 +1016,7 @@ function recheckStandalone(){
 }
 
 /* -------------------------------------------------------------- init */
-(function init(){
-  if (mustInstall()) {
-    // Not just visually covered - actually unreachable. A fixed overlay on
-    // top of a still-focusable login form is still a login form a keyboard
-    // or screen reader can get to.
-    $("#gate").style.display = "none";
-    $("#app").hidden = true;
-    $("#install").hidden = false;
-    renderInstallScreen();
-    return;
-  }
-
+function proceedPastInstallGate(){
   const qs = new URLSearchParams(location.search);
   const rt = qs.get("reset");
   if(rt){
@@ -1050,6 +1040,29 @@ function recheckStandalone(){
   } else {
     openGate();
   }
+}
+
+// Escape hatch for the rare case this gate misfires on a desktop browser -
+// lets anyone past it without needing DevTools.
+function continueInBrowser(){
+  $("#install").hidden = true;
+  $("#gate").style.display = "";
+  $("#app").hidden = false;
+  proceedPastInstallGate();
+}
+
+(function init(){
+  if (mustInstall()) {
+    // Not just visually covered - actually unreachable. A fixed overlay on
+    // top of a still-focusable login form is still a login form a keyboard
+    // or screen reader can get to.
+    $("#gate").style.display = "none";
+    $("#app").hidden = true;
+    $("#install").hidden = false;
+    renderInstallScreen();
+    return;
+  }
+  proceedPastInstallGate();
 })();
 </script>
 </body>
