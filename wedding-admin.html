@@ -1182,6 +1182,18 @@ async function ensureForecastRows(){
   return S.forecast.allWeddings || S.forecast.weddings || [];
 }
 
+// A network call with no timeout is a spinner that can hang forever on a
+// dropped connection - wraps any promise so it gives up and falls back
+// rather than leaving a page stuck. Used by Year Totals below.
+function withTimeout(promise, ms){
+  return new Promise(function(resolve){
+    var done = false;
+    var timer = setTimeout(function(){ if (!done) { done = true; resolve(null); } }, ms);
+    promise.then(function(v){ if (!done) { done = true; clearTimeout(timer); resolve(v); } },
+                 function(){ if (!done) { done = true; clearTimeout(timer); resolve(null); } });
+  });
+}
+
 /* The five-year grid, over whichever weddings are being counted.
 
    Built here rather than on the server because the answer depends on a tick
@@ -4927,7 +4939,11 @@ var TrackerApp = (function(){
     $("#totTable").innerHTML = '<tbody><tr><td class="empty"><span class="spin"></span></td></tr></tbody>';
 
     let appRows = null;
-    try { appRows = window.ensureForecastRows ? await window.ensureForecastRows() : null; } catch(e){ appRows = null; }
+    try {
+      appRows = window.ensureForecastRows && window.withTimeout
+        ? await window.withTimeout(window.ensureForecastRows(), 12000)
+        : null;
+    } catch(e){ appRows = null; }
     // Still on this tab? (guards the same slow-Guestline race Overview does)
     if (!$("#page-tot").classList.contains("on")) return;
 
