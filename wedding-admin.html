@@ -652,7 +652,7 @@ async function openFromRefParam(){
   var ref = new URLSearchParams(location.search).get("ref");
   if (!ref) return;
   try {
-    if (!S.list) S.list = await call("list");
+    if (!S.list || !S.list.length) S.list = await call("list");
     var match = S.list.filter(function(w){ return w.event_id === ref; })[0];
     if (match) { S.view = "weddings"; S.current = match.id; }
   } catch (e) { /* deep link is a convenience, not worth failing boot over */ }
