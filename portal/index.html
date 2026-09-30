@@ -963,7 +963,13 @@ function hasHomeScreen(){
     return coarse && touch && shortEdge > 0 && shortEdge <= 900;
   } catch(e) { return false; }
 }
-function mustInstall(){ return hasHomeScreen() && !isStandalone(); }
+// Disabled per explicit request - GitHub Pages serves this page with a
+// genuine 10-minute cache header that can't be overridden from the app,
+// so a stale pre-fix copy could keep showing this gate and blocking
+// login well after a fix shipped. Not a code bug; removing the check
+// entirely was the chosen fix over living with the caching window.
+function mustInstall(){ return false; }
+function _mustInstallOld(){ return hasHomeScreen() && !isStandalone(); }
 
 // Chrome hands over a real install prompt, but only if this is kept from
 // the moment it fires.
