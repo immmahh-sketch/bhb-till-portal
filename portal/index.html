@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Staff Portal — Black Horse Beamish</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --sage:#4E5F4F; --sage-70:#7B887C; --sage-10:#EDEFED; --sage-dark:#3B483C;
+  --bone:#F7F7F7; --celadon:#C1C8B4; --mist:#E7E7E7; --white:#fff; --ink:#262626;
+  --gold:#C9A56B;
+  --attention:#B08D57; --attention-bg:#F7F0E4;
+  --alert:#8C4A3F;     --alert-bg:#F6EAE8;
+  --good:#4F6B4F;      --good-bg:#EDF2ED;
+  --display:"Cormorant Garamond",Georgia,serif;
+  --body:Raleway,"Helvetica Neue",Arial,sans-serif;
+  --track-label:.18em;
+  --radius:10px;
+  --shadow:0 1px 2px rgba(38,38,38,.06),0 8px 24px rgba(38,38,38,.07);
+  --maxw:1200px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%}
+body{
+  font-family:var(--body); color:var(--ink); background:var(--bone);
+  font-size:15px; line-height:1.45; -webkit-text-size-adjust:100%;
+}
+h1,h2,h3{font-family:var(--display); font-weight:600; margin:0; letter-spacing:.01em}
+button,input,select{font:inherit; color:inherit}
+.shell{max-width:var(--maxw); margin:0 auto; padding:0 20px 64px}
+
+/* ============================================================ gate */
+#gate{
+  position:fixed; inset:0; background:var(--sage); z-index:100;
+  display:flex; align-items:center; justify-content:center; padding:24px;
+}
+.gatecard{
+  background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow);
+  width:100%; max-width:380px; padding:32px 28px; text-align:center;
+}
+.gatecard h1{font-size:26px; color:var(--sage); line-height:1.15}
+.gatecard .sub{
+  font-size:11px; letter-spacing:var(--track-label); text-transform:uppercase;
+  color:var(--sage-70); margin:6px 0 22px;
+}
+.gatecard input{
+  width:100%; padding:12px 14px; border:1px solid var(--mist);
+  border-radius:8px; background:var(--bone); margin-bottom:10px; text-align:center;
+}
+.gatecard input:focus{outline:2px solid var(--celadon); outline-offset:1px}
+.gatecard button{
+  width:100%; padding:12px; border:0; border-radius:8px; cursor:pointer;
+  background:var(--sage); color:var(--white); font-weight:600;
+  letter-spacing:var(--track-label); text-transform:uppercase; font-size:12px;
+}
+.gateerr{color:var(--alert); font-size:13px; min-height:18px; margin-top:8px}
+
+/* ============================================================ header */
+header.top{background:var(--sage); color:var(--white)}
+.topin{
+  max-width:var(--maxw); margin:0 auto; padding:14px 20px;
+  display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+}
+.brand{font-family:var(--display); font-size:21px; line-height:1.1}
+.brand small{
+  display:block; font-family:var(--body); font-size:10px;
+  letter-spacing:var(--track-label); text-transform:uppercase; opacity:.75;
+}
+.who{margin-left:auto; display:flex; align-items:center; gap:10px; font-size:12px; opacity:.9}
+.who button{
+  background:transparent; border:1px solid rgba(255,255,255,.4); color:var(--white);
+  border-radius:6px; padding:5px 10px; cursor:pointer; font-size:11px;
+  letter-spacing:.06em; text-transform:uppercase;
+}
+.hbtn{
+  background:transparent; border:1px solid rgba(255,255,255,.4); color:var(--white);
+  border-radius:6px; padding:6px 10px; cursor:pointer; font-size:16px; line-height:1;
+}
+
+/* ============================================================ landing */
+.landing-head{padding:32px 0 8px}
+.landing-head h2{font-size:28px; color:var(--sage)}
+.landing-head .hint{font-size:13px; color:var(--sage-70); margin-top:4px}
+.tiles{display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:16px; margin-top:22px}
+.tile{
+  background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow);
+  padding:20px; text-align:left; cursor:pointer; border:0; border-top:5px solid var(--sage);
+  transition:transform .12s, box-shadow .12s; font:inherit; color:inherit;
+}
+.tile:hover{transform:translateY(-2px); box-shadow:0 2px 4px rgba(38,38,38,.08),0 12px 28px rgba(38,38,38,.12)}
+.tile .ic{font-size:26px; margin-bottom:10px}
+.tile h3{font-size:19px; color:var(--ink)}
+.tile p{font-size:12.5px; color:var(--sage-70); margin:6px 0 0}
+.empty{padding:60px 20px; text-align:center; color:var(--sage-70)}
+
+/* ============================================================ viewer */
+#viewer{position:fixed; inset:0; z-index:60; display:none; flex-direction:column; background:var(--bone)}
+#viewer.on{display:flex}
+.vband{padding:10px 16px; display:flex; align-items:center; gap:12px; color:var(--white)}
+.vband .vname{font-family:var(--display); font-size:17px}
+.vband .spacer{flex:1}
+.vband button{
+  background:rgba(255,255,255,.15); border:1px solid rgba(255,255,255,.4); color:var(--white);
+  border-radius:6px; padding:6px 10px; cursor:pointer; font-size:12px;
+}
+#viewer iframe{flex:1; width:100%; border:0; background:var(--white)}
+
+/* ============================================================ hamburger menu */
+#navveil{position:fixed; inset:0; background:rgba(38,38,38,.4); z-index:70; display:none}
+#navveil.on{display:block}
+#navmenu{
+  position:fixed; top:0; right:0; bottom:0; width:min(300px,86vw); background:var(--white);
+  z-index:71; box-shadow:-8px 0 30px rgba(38,38,38,.18); transform:translateX(100%);
+  transition:transform .2s ease; display:flex; flex-direction:column;
+}
+#navmenu.on{transform:none}
+.nhead{background:var(--sage); color:var(--white); padding:16px 20px}
+.nhead .x{float:right; background:transparent; border:0; color:var(--white); font-size:22px; cursor:pointer}
+.nlist{flex:1; overflow-y:auto; padding:10px}
+.nitem{
+  display:flex; align-items:center; gap:10px; width:100%; text-align:left; padding:12px 14px;
+  border:0; background:transparent; border-radius:8px; cursor:pointer; font-size:14px; color:var(--ink);
+  border-left:4px solid transparent;
+}
+.nitem:hover{background:var(--sage-10)}
+.nitem.active{background:var(--sage-10); font-weight:600}
+.nitem .dot{width:10px; height:10px; border-radius:50%; flex-shrink:0}
+.nfoot{padding:14px 20px; border-top:1px solid var(--mist)}
+.nfoot button{
+  width:100%; padding:10px; border:1px solid var(--sage); background:var(--white); color:var(--sage);
+  border-radius:8px; cursor:pointer; font-size:12px; letter-spacing:.06em; text-transform:uppercase;
+}
+
+/* ============================================================ settings */
+.page{display:none}
+.page.on{display:block}
+.pagehead{display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; margin:24px 0 18px}
+.pagehead h2{font-size:26px; color:var(--sage)}
+.spacer2{margin-left:auto}
+.btn{
+  border:1px solid var(--sage); background:var(--sage); color:var(--white);
+  border-radius:8px; padding:9px 16px; cursor:pointer; font-size:12px;
+  font-weight:600; letter-spacing:var(--track-label); text-transform:uppercase;
+}
+.btn.ghost{background:var(--white); color:var(--sage)}
+.card{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden; margin-bottom:20px}
+table.grid{width:100%; border-collapse:collapse; font-size:14px}
+table.grid th{
+  text-align:left; padding:11px 12px; background:var(--sage-10); color:var(--sage);
+  font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; font-weight:700;
+}
+table.grid td{padding:10px 12px; border-top:1px solid var(--mist); vertical-align:top}
+.pill{display:inline-block; padding:3px 9px; border-radius:999px; font-size:11px; font-weight:600; background:var(--sage-10); color:var(--sage)}
+.pill.admin{background:var(--attention-bg); color:var(--attention)}
+.pill.off{background:var(--mist); color:var(--sage-70)}
+
+/* ============================================================ drawer (user edit) */
+#veil{position:fixed; inset:0; background:rgba(38,38,38,.45); z-index:80; display:none}
+#veil.on{display:block}
+#drawer{
+  position:fixed; top:0; right:0; bottom:0; width:min(440px,100%); background:var(--bone);
+  z-index:81; box-shadow:-8px 0 30px rgba(38,38,38,.18); transform:translateX(100%);
+  transition:transform .2s ease; display:flex; flex-direction:column;
+}
+#drawer.on{transform:none}
+.dhead{background:var(--sage); color:var(--white); padding:16px 20px}
+.dhead .x{float:right; background:transparent; border:0; color:var(--white); font-size:22px; cursor:pointer}
+.dbody{flex:1; overflow-y:auto; padding:20px}
+.dfoot{padding:14px 20px; background:var(--white); border-top:1px solid var(--mist); display:flex; gap:10px; flex-wrap:wrap}
+.field{margin-bottom:14px}
+.field label{display:block; font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); margin-bottom:5px; font-weight:700}
+.field input,.field select{width:100%; padding:10px 12px; border:1px solid var(--mist); border-radius:8px; background:var(--white)}
+.checks{display:flex; flex-direction:column; gap:8px}
+.checks label{display:flex; align-items:center; gap:8px; font-size:13px; font-weight:400; text-transform:none; letter-spacing:0; color:var(--ink)}
+
+.toast{
+  position:fixed; left:50%; bottom:26px; transform:translate(-50%,20px);
+  background:var(--ink); color:var(--white); padding:12px 20px; border-radius:8px;
+  z-index:200; opacity:0; transition:.2s; pointer-events:none; font-size:14px; max-width:90vw;
+}
+.toast.on{opacity:1; transform:translate(-50%,0)}
+.toast.bad{background:var(--alert)}
+
+@media (max-width:760px){
+  .shell{padding:0 14px 48px}
+  .topin{padding-left:14px; padding-right:14px}
+  .tiles{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<div id="gate">
+  <div class="gatecard">
+    <h1>Staff Portal</h1>
+    <div class="sub">Black Horse Beamish</div>
+    <input id="gemail" type="email" placeholder="Email" autocomplete="username">
+    <input id="gpw" type="password" placeholder="Password" autocomplete="current-password">
+    <button id="gbtn">Sign in</button>
+    <div class="gateerr" id="gerr"></div>
+  </div>
+</div>
+
+<div id="app" hidden>
+  <header class="top">
+    <div class="topin">
+      <div class="brand">Staff Portal<small>Black Horse Beamish</small></div>
+      <div class="who">
+        <span id="whoName"></span>
+        <button class="hbtn" id="hamBtn" title="Menu">&#9776;</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="shell">
+    <section class="page on" id="page-landing">
+      <div class="landing-head">
+        <h2>Your Portals</h2>
+        <div class="hint">Signed in once, everything below opens without asking again.</div>
+      </div>
+      <div class="tiles" id="tiles"></div>
+    </section>
+
+    <section class="page" id="page-settings">
+      <div class="pagehead">
+        <h2>Settings — Users</h2>
+        <div class="spacer2"></div>
+        <button class="btn" id="addUserBtn">Add user</button>
+      </div>
+      <div class="card"><div style="overflow-x:auto"><table class="grid" id="usersTable"></table></div></div>
+    </section>
+  </div>
+</div>
+
+<div id="viewer">
+  <div class="vband" id="vband">
+    <span class="vname" id="vname"></span>
+    <div class="spacer"></div>
+    <button id="vHome">Portals</button>
+    <button id="vMenu">&#9776;</button>
+  </div>
+  <iframe id="vframe"></iframe>
+</div>
+
+<div id="navveil"></div>
+<div id="navmenu">
+  <div class="nhead"><span>Switch Portal</span><button class="x" id="navClose">&times;</button></div>
+  <div class="nlist" id="navList"></div>
+  <div class="nfoot"><button id="navSignout">Sign out</button></div>
+</div>
+
+<div id="veil"></div>
+<aside id="drawer">
+  <div class="dhead"><span id="dTitle">Add user</span><button class="x" id="dClose">&times;</button></div>
+  <div class="dbody" id="dBody"></div>
+  <div class="dfoot">
+    <button class="btn" id="dSave">Save</button>
+    <button class="btn ghost" id="dCancel">Cancel</button>
+  </div>
+</aside>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ==================================================================
+   Staff Portal — one login for every in-house app.
+   Each portal keeps its own existing password as a second layer; this
+   page holds it (service-role only, never in this file) and injects it
+   into that app's own storage key inside the iframe so the person never
+   sees or types it again. portal_users/portal_sessions have RLS on with
+   no public policies - every call goes through portal-gateway-api.
+   ================================================================== */
+
+const FN   = "https://safcrtrfdzsnftghibot.supabase.co/functions/v1/portal-gateway-api";
+const ANON = "sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU";
+const LS_TOKEN = "bhb_portal_token";
+
+const S = { token:"", user:null, portals:[], current:null, users:[], apps:[] };
+
+const $  = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+
+function toast(msg, bad){
+  const t = $("#toast");
+  t.textContent = msg;
+  t.className = "toast on" + (bad ? " bad" : "");
+  clearTimeout(toast._t);
+  toast._t = setTimeout(()=>{ t.className = "toast"; }, bad ? 5200 : 2600);
+}
+
+async function api(action, params){
+  const r = await fetch(FN, {
+    method:"POST",
+    headers:{ "apikey":ANON, "Content-Type":"application/json" },
+    body: JSON.stringify({ action, token:S.token, ...(params||{}) }),
+  });
+  let d = {};
+  try { d = await r.json(); } catch(e){}
+  if(!r.ok) throw new Error(d.error || `Request failed (${r.status})`);
+  if(d.error) throw new Error(d.error);
+  return d;
+}
+
+/* ------------------------------------------------------------- gate */
+function openGate(msg){
+  $("#gate").style.display = "flex";
+  $("#app").hidden = true;
+  if(msg) $("#gerr").textContent = msg;
+}
+async function trySignIn(email, password){
+  $("#gerr").textContent = "";
+  if(!email || !password){ $("#gerr").textContent = "Enter your email and password."; return; }
+  try{
+    const d = await api("login", { email, password });
+    S.token = d.token; S.user = d.user; S.portals = d.portals || [];
+    localStorage.setItem(LS_TOKEN, S.token);
+    enterApp();
+  }catch(e){
+    $("#gerr").textContent = e.message;
+  }
+}
+$("#gbtn").addEventListener("click", ()=> trySignIn($("#gemail").value.trim(), $("#gpw").value));
+$("#gpw").addEventListener("keydown", e=>{ if(e.key==="Enter") trySignIn($("#gemail").value.trim(), $("#gpw").value); });
+
+function signOut(){
+  api("logout").catch(()=>{});
+  try{ localStorage.removeItem(LS_TOKEN); }catch(e){}
+  S.token = ""; S.user = null; S.portals = [];
+  closeViewer();
+  openGate();
+}
+$("#navSignout").addEventListener("click", signOut);
+
+/* -------------------------------------------------------------- app */
+function enterApp(){
+  $("#gate").style.display = "none";
+  $("#app").hidden = false;
+  $("#whoName").textContent = S.user.name;
+  renderTiles();
+  renderNav();
+  if (S.user.role !== "admin") $("#page-settings").remove();
+}
+
+function iconFor(k){
+  const m = { heart:"&#10084;", chart:"&#128200;", calendar:"&#128197;", receipt:"&#128179;", till:"&#128176;" };
+  return m[k] || "&#9679;";
+}
+
+function renderTiles(){
+  if(!S.portals.length){
+    $("#tiles").innerHTML = `<div class="empty">No portals assigned to your account yet — ask an admin to give you access.</div>`;
+    return;
+  }
+  $("#tiles").innerHTML = S.portals.map(p => `
+    <button class="tile" style="border-top-color:${esc(p.color||'#4E5F4F')}" data-key="${esc(p.key)}">
+      <div class="ic" style="color:${esc(p.color||'#4E5F4F')}">${iconFor(p.icon)}</div>
+      <h3>${esc(p.label)}</h3>
+      <p>${esc(p.description||'')}</p>
+    </button>
+  `).join("");
+  $$("#tiles .tile").forEach(b => b.addEventListener("click", ()=> openPortal(b.dataset.key)));
+}
+
+function renderNav(){
+  const items = S.portals.map(p => `
+    <button class="nitem ${S.current===p.key?'active':''}" data-key="${esc(p.key)}">
+      <span class="dot" style="background:${esc(p.color||'#4E5F4F')}"></span>${esc(p.label)}
+    </button>
+  `).join("");
+  const settingsItem = S.user && S.user.role==="admin"
+    ? `<button class="nitem" data-goto="settings"><span class="dot" style="background:#8C4A3F"></span>Settings</button>`
+    : "";
+  $("#navList").innerHTML = `
+    <button class="nitem" data-goto="landing"><span class="dot" style="background:#7B887C"></span>All Portals</button>
+    ${items}
+    ${settingsItem}
+  `;
+  $$("#navList .nitem").forEach(b => b.addEventListener("click", ()=>{
+    closeNav();
+    if (b.dataset.goto === "landing") { closeViewer(); showLanding(); }
+    else if (b.dataset.goto === "settings") { closeViewer(); showSettings(); }
+    else openPortal(b.dataset.key);
+  }));
+}
+
+function showLanding(){
+  $$(".page").forEach(p=>p.classList.remove("on"));
+  $("#page-landing").classList.add("on");
+}
+function showSettings(){
+  $$(".page").forEach(p=>p.classList.remove("on"));
+  $("#page-settings").classList.add("on");
+  loadUsers();
+}
+
+/* ----------------------------------------------------- hamburger nav */
+function openNav(){ $("#navveil").classList.add("on"); $("#navmenu").classList.add("on"); renderNav(); }
+function closeNav(){ $("#navveil").classList.remove("on"); $("#navmenu").classList.remove("on"); }
+$("#hamBtn").addEventListener("click", openNav);
+$("#vMenu").addEventListener("click", openNav);
+$("#navClose").addEventListener("click", closeNav);
+$("#navveil").addEventListener("click", closeNav);
+
+/* -------------------------------------------------------- the viewer */
+// Each app's own "already unlocked" storage key, so opening it here never
+// shows a second password prompt. localStorage is shared across all
+// same-origin frames immediately; sessionStorage is per-frame, so those
+// apps get the value written into the iframe's own window after it loads,
+// then reloaded once so their normal startup check picks it up.
+const AUTOLOGIN = {
+  "wedding-admin":      { store:"session", key:"bhb_wedding_admin", value:(p)=>p.app_password },
+  "forecast-dashboard": { store:"local",   key:"bhb_forecast_key",  value:(p)=>p.app_password },
+  "wedding-tracker":    { store:"local",   key:"bhb_tracker_key",   value:(p)=>p.app_password,
+                           extra:{ key:"bhb_tracker_who", value:()=>S.user.name } },
+  "till-reports":       { store:"session", key:"bhb_portal_ok",     value:()=>"1" },
+};
+
+function openPortal(key){
+  const p = S.portals.find(x => x.key === key);
+  if(!p) return;
+  S.current = key;
+
+  if (key === "po-tracker") {
+    // Separate app on its own infrastructure - link out rather than embed.
+    window.open(p.url, "_blank", "noopener");
+    return;
+  }
+
+  const cfg = AUTOLOGIN[key];
+  if (cfg && cfg.store === "local") {
+    try {
+      localStorage.setItem(cfg.key, cfg.value(p));
+      if (cfg.extra) localStorage.setItem(cfg.extra.key, cfg.extra.value(p));
+    } catch(e){}
+  }
+
+  $("#vname").textContent = p.label;
+  $("#vband").style.background = p.color || "#4E5F4F";
+  const frame = $("#vframe");
+  frame.dataset.key = key;
+  frame.dataset.injected = "0";
+  frame.src = p.url;
+  $("#viewer").classList.add("on");
+}
+
+$("#vframe").addEventListener("load", function(){
+  const key = this.dataset.key;
+  const cfg = AUTOLOGIN[key];
+  if (cfg && cfg.store === "session" && this.dataset.injected !== "1") {
+    this.dataset.injected = "1";
+    try {
+      const p = S.portals.find(x => x.key === key);
+      this.contentWindow.sessionStorage.setItem(cfg.key, cfg.value(p));
+      this.contentWindow.location.reload();
+    } catch(e){}
+  }
+});
+
+function closeViewer(){
+  $("#viewer").classList.remove("on");
+  $("#vframe").src = "about:blank";
+  S.current = null;
+}
+$("#vHome").addEventListener("click", ()=>{ closeViewer(); showLanding(); });
+
+/* ------------------------------------------------------------ settings */
+async function loadUsers(){
+  $("#usersTable").innerHTML = `<tr><td style="padding:20px">Loading…</td></tr>`;
+  try{
+    const d = await api("list_users");
+    S.users = d.users; S.apps = d.apps;
+    $("#usersTable").innerHTML = `
+      <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Portals</th><th>Last login</th><th></th></tr></thead>
+      <tbody>
+        ${S.users.map(u => `
+          <tr data-id="${u.id}" style="cursor:pointer">
+            <td class="strong">${esc(u.display_name)}</td>
+            <td>${esc(u.email)}</td>
+            <td>${u.role==="admin" ? '<span class="pill admin">Admin</span>' : '<span class="pill">Staff</span>'}</td>
+            <td>${u.apps.length} of ${S.apps.length}</td>
+            <td>${u.last_login_at ? new Date(u.last_login_at).toLocaleDateString('en-GB') : '<span class="muted">Never</span>'}</td>
+            <td>${u.active ? '' : '<span class="pill off">Inactive</span>'}</td>
+          </tr>`).join("")}
+      </tbody>`;
+    $$("#usersTable tbody tr").forEach(tr => tr.addEventListener("click", ()=> openUserDrawer(tr.dataset.id)));
+  }catch(e){
+    $("#usersTable").innerHTML = `<tr><td style="padding:20px">${esc(e.message)}</td></tr>`;
+  }
+}
+$("#addUserBtn").addEventListener("click", ()=> openUserDrawer(null));
+
+function openUserDrawer(id){
+  const u = id ? S.users.find(x => x.id === id) : null;
+  $("#dTitle").textContent = u ? "Edit user" : "Add user";
+  const checks = S.apps.map(a => `
+    <label><input type="checkbox" value="${esc(a.key)}" ${u && u.apps.includes(a.key) ? "checked":""}> ${esc(a.label)}</label>
+  `).join("");
+  $("#dBody").innerHTML = `
+    <div class="field"><label>Name</label><input id="fName" value="${u?esc(u.display_name):''}"></div>
+    <div class="field"><label>Email</label><input id="fEmail" type="email" value="${u?esc(u.email):''}" ${u?'readonly':''}></div>
+    <div class="field"><label>${u ? "New password (leave blank to keep)" : "Password"}</label><input id="fPw" type="password" autocomplete="new-password"></div>
+    <div class="field"><label>Role</label>
+      <select id="fRole">
+        <option value="staff" ${u && u.role==="staff"?"selected":""}>Staff</option>
+        <option value="admin" ${u && u.role==="admin"?"selected":""}>Admin (can manage users)</option>
+      </select>
+    </div>
+    ${u ? `<div class="field"><label>Account</label><select id="fActive">
+        <option value="1" ${u.active?"selected":""}>Active</option>
+        <option value="0" ${!u.active?"selected":""}>Inactive (blocks sign-in)</option>
+      </select></div>` : ""}
+    <div class="field"><label>Portal access</label><div class="checks">${checks}</div></div>
+  `;
+  $("#dSave").onclick = ()=> saveUser(u ? u.id : null);
+  $("#dBody").dataset.deleteId = u ? u.id : "";
+  $("#veil").classList.add("on"); $("#drawer").classList.add("on");
+}
+function closeDrawer(){ $("#veil").classList.remove("on"); $("#drawer").classList.remove("on"); }
+$("#dClose").addEventListener("click", closeDrawer);
+$("#dCancel").addEventListener("click", closeDrawer);
+$("#veil").addEventListener("click", closeDrawer);
+
+async function saveUser(id){
+  const apps = $$("#dBody .checks input:checked").map(c => c.value);
+  const payload = {
+    display_name: $("#fName").value.trim(),
+    role: $("#fRole").value,
+    apps,
+  };
+  const pw = $("#fPw").value;
+  try{
+    if (id){
+      if (pw) payload.password = pw;
+      const activeSel = $("#fActive");
+      if (activeSel) payload.active = activeSel.value === "1";
+      await api("update_user", { id, ...payload });
+    } else {
+      payload.email = $("#fEmail").value.trim();
+      payload.password = pw;
+      await api("create_user", payload);
+    }
+    toast("Saved.");
+    closeDrawer();
+    loadUsers();
+  }catch(e){
+    toast(e.message, true);
+  }
+}
+
+/* -------------------------------------------------------------- init */
+(function init(){
+  let saved = "";
+  try{ saved = localStorage.getItem(LS_TOKEN); }catch(e){}
+  if(saved){
+    S.token = saved;
+    api("me").then(d=>{
+      S.user = d.user; S.portals = d.portals || [];
+      enterApp();
+    }).catch(()=>{
+      try{ localStorage.removeItem(LS_TOKEN); }catch(e){}
+      openGate();
+    });
+  } else {
+    openGate();
+  }
+})();
+</script>
+</body>
+</html>
