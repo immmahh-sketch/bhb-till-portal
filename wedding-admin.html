@@ -126,6 +126,11 @@ tbody tr:hover{background:var(--sage-10)}
 .err{background:var(--alert-bg);border:1px solid var(--alert);color:var(--alert);padding:11px 14px;
   font-size:.875rem;margin-bottom:14px}
 .split{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+/* The small "which page within this group" row - Payments (Outstanding /
+   Payments to post), Add a wedding (Add / Bulk add), Enquiries Tracker
+   (To Do / Enquiries). */
+.subnav{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 22px}
+.subnav button.on{background:var(--sage);color:var(--bone)}
 .empty{padding:34px 20px;text-align:center;color:var(--sage-70)}
 .sheet{white-space:pre-wrap;font-size:.875rem;line-height:1.7;background:var(--bone);
   border:1px solid var(--mist);padding:14px;max-height:340px;overflow:auto}
@@ -619,15 +624,12 @@ details summary::-webkit-details-marker{color:var(--sage-70)}
     <div class="wrap navwrap">
       <nav id="nav">
         <button data-view="overview" aria-current="page">Overview</button>
-        <button data-view="weddings">Weddings</button>
+        <button data-view="weddings">Registered weddings</button>
         <button data-view="usage">App usage</button>
-        <button data-view="outstanding">Outstanding</button>
-        <button data-view="reconcile">Payments to post <span id="recBadge"></span></button>
-        <button data-view="add">Add a wedding</button>
-        <button data-view="bulk">Bulk add</button>
+        <button data-view="outstanding" data-group="outstanding,reconcile">Payments <span id="recBadge"></span></button>
+        <button data-view="add" data-group="add,bulk">Add a wedding</button>
         <button data-view="bonus">Bonus tracker</button>
-        <button data-view="todo">To Do</button>
-        <button data-view="enq">Enquiries</button>
+        <button data-view="todo" data-group="todo,enq">Enquiries Tracker</button>
         <button data-view="cal">Calendar</button>
         <button data-view="tot">Year Totals</button>
       </nav>
@@ -637,6 +639,12 @@ details summary::-webkit-details-marker{color:var(--sage-70)}
     <div id="err" class="err hide"></div>
     <div id="views"></div>
   </main>
+
+  <!-- Sub-nav for the Enquiries Tracker group (To Do / Enquiries) - shown
+       above #trackerApp, not inside it, since Calendar and Year Totals
+       (also part of #trackerApp) are their own top-level tabs, not part
+       of this group. -->
+  <div class="wrap hide" id="enqSubnav"></div>
 
   <!-- ================================================================
     Wedding & Events Tracker, merged in. Everything below is scoped
@@ -936,17 +944,42 @@ $("nav").addEventListener("click", function(ev){
   clearErr(); render(); window.scrollTo({top:0});
 });
 
+/* A nav button covers one view (data-view) or a small group of them
+   (data-group, comma-separated - e.g. Payments covers Outstanding and
+   Payments to post). Group membership, for the top nav's own sake. */
+function navGroup(btn){
+  return btn.dataset.group ? btn.dataset.group.split(",") : [btn.dataset.view];
+}
+
 /* One place that keeps the tabs, the dropdown and the "you are here" label
    saying the same thing. */
 function markNav(){
   [].forEach.call($("nav").children, function(x){
-    if (x.dataset.view === S.view) x.setAttribute("aria-current","page");
+    if (navGroup(x).indexOf(S.view) !== -1) x.setAttribute("aria-current","page");
     else x.removeAttribute("aria-current");
   });
-  var here = [].filter.call($("nav").children, function(x){ return x.dataset.view === S.view; })[0];
+  var here = [].filter.call($("nav").children, function(x){ return navGroup(x).indexOf(S.view) !== -1; })[0];
   var label = $("whereAmI");
-  // The badge on "Payments to post" is a count, not part of its name.
+  // The badge on "Payments" is a count, not part of its name.
   if (label && here) label.textContent = here.firstChild.textContent.trim();
+}
+
+/* Switches to a view without going through the top nav - used by a
+   group's own sub-nav (Payments / Add a wedding / Enquiries Tracker) to
+   move between the pages grouped under one nav button. */
+function goView(v){
+  S.view = v; S.current = null;
+  markNav(); closeNav(); clearErr(); render();
+  window.scrollTo({top:0});
+}
+
+/* The small pill row at the top of a grouped page - pairs is
+   [[view,label], ...], current is whichever one is showing. */
+function subnavHtml(pairs, current){
+  return '<div class="subnav">' + pairs.map(function(p){
+    return '<button class="btn btn--sm' + (p[0]===current?' on':'') + '" onclick="goView(\'' + p[0] + '\')">' +
+      esc(p[1]) + '</button>';
+  }).join('') + '</div>';
 }
 
 function toggleNav(){
@@ -1130,6 +1163,15 @@ function render(){
   var toTracker = TRACKER_VIEWS.indexOf(S.view) !== -1;
   t.classList.toggle("hide", !toTracker);
   v.parentNode.classList.toggle("hide", toTracker); // hides #err too, alongside #views
+
+  // Enquiries Tracker's own sub-nav (To Do / Enquiries) - not part of
+  // #trackerApp itself, since Calendar and Year Totals live there too but
+  // aren't part of this group.
+  var enqSub = $("enqSubnav");
+  var showEnqSub = (S.view === "todo" || S.view === "enq");
+  enqSub.classList.toggle("hide", !showEnqSub);
+  if (showEnqSub) enqSub.innerHTML = subnavHtml([["todo","To Do"],["enq","Enquiries"]], S.view);
+
   if (toTracker) { TrackerApp.show(S.view); return; }
 
   if (S.current) { v.innerHTML = '<div class="empty"><span class="spin"></span></div>'; loadWedding(S.current); return; }
@@ -1432,7 +1474,8 @@ function viewOutstanding(){
   var chaseTotal = behind.reduce(function(s,r){ return s + r.shortfall; }, 0);
   var owedTotal = live.reduce(function(s,r){ return s + r.outstanding; }, 0);
 
-  var h = '<div class="split" style="margin-bottom:6px"><h1>Outstanding payments</h1>' +
+  var h = subnavHtml([["outstanding","Outstanding"],["reconcile","Payments to post"]], "outstanding");
+  h += '<div class="split" style="margin-bottom:6px"><h1>Outstanding payments</h1>' +
     '<button class="btn btn--sm" onclick="loadOutstanding()">Refresh</button></div>' +
     '<p class="muted" style="margin:0 0 18px">' +
     'Balances read live from Guestline, plus any app payment not yet posted to Rezlynx. ' +
@@ -2898,7 +2941,8 @@ async function bulkAddAll(){
 }
 
 function viewBulk(){
-  var h = '<h1 style="margin-bottom:6px">Bulk add</h1>';
+  var h = subnavHtml([["add","Add a wedding"],["bulk","Bulk add"]], "bulk");
+  h += '<h1 style="margin-bottom:6px">Bulk add</h1>';
 
   if (!BK.checked) {
     h += '<p class="muted" style="margin:0 0 18px">' +
@@ -4082,7 +4126,8 @@ function exportBonus(){
 
 /* ============================ RECONCILE QUEUE ============================ */
 function viewReconcile(){
-  var h = '<h1 style="margin-bottom:6px">Payments to post</h1>' +
+  var h = subnavHtml([["outstanding","Outstanding"],["reconcile","Payments to post"]], "reconcile");
+  h += '<h1 style="margin-bottom:6px">Payments to post</h1>' +
     '<p class="muted" style="margin:0 0 18px">' +
     'Card payments taken in the app. They don\'t reach Guestline on their own — post each one in Rezlynx, ' +
     'then mark it here so the app stops counting it separately.</p>';
@@ -4124,7 +4169,8 @@ async function reconcileFromQueue(id){
 
 /* ============================ ADD A WEDDING ============================ */
 function viewAdd(){
-  var h = '<h1 style="margin-bottom:6px">Add a wedding</h1>' +
+  var h = subnavHtml([["add","Add a wedding"],["bulk","Bulk add"]], "add");
+  h += '<h1 style="margin-bottom:6px">Add a wedding</h1>' +
     '<p class="muted" style="margin:0 0 18px">' +
     'Paste the couple\'s Guestline event portal link. Everything else comes from it.</p>';
 
