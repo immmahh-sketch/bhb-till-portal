@@ -631,7 +631,32 @@ function closeNav(){
 
 document.addEventListener("keydown", function(ev){ if (ev.key === "Escape") closeNav(); });
 
-async function boot(){ markNav(); await refreshPending(); render(); }
+async function boot(){
+  markNav();
+  await refreshPending();
+  await openFromRefParam();
+  render();
+}
+
+function openInTracker(ref){
+  try{
+    window.parent.postMessage({ type:"bhb-open-portal", key:"wedding-tracker", ref:ref }, "*");
+  }catch(e){}
+}
+
+/* Deep link from the enquiry tracker: ?ref=EVNT002784 opens straight into
+   that wedding instead of landing on Overview. Silently does nothing if
+   the reference isn't found (wedding app account not set up yet) - render()
+   still runs normally in that case. */
+async function openFromRefParam(){
+  var ref = new URLSearchParams(location.search).get("ref");
+  if (!ref) return;
+  try {
+    if (!S.list) S.list = await call("list");
+    var match = S.list.filter(function(w){ return w.event_id === ref; })[0];
+    if (match) { S.view = "weddings"; S.current = match.id; }
+  } catch (e) { /* deep link is a convenience, not worth failing boot over */ }
+}
 
 async function refreshPending(){
   try {
@@ -1659,7 +1684,8 @@ async function runAlbumEmails(btn){
 
 function viewWedding(){
   var d = S.detail, w = d.wedding, b = d.balance;
-  var h = '<button class="btn btn--sm" onclick="S.current=null;render()">&larr; All weddings</button>';
+  var h = '<button class="btn btn--sm" onclick="S.current=null;render()">&larr; All weddings</button>' +
+    ' <button class="btn btn--sm" onclick="openInTracker(\'' + esc(w.event_id) + '\')">View in Tracker</button>';
 
   h += '<div class="split" style="margin:16px 0 4px"><h1>' + esc(w.salutation) + '</h1>' +
     '<span class="label">' + esc(ukDate(w.wedding_date)) + '</span></div>';

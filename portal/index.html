@@ -420,7 +420,7 @@ const AUTOLOGIN = {
   "till-reports":       { store:"session", key:"bhb_portal_ok",     value:()=>"1" },
 };
 
-function openPortal(key){
+function openPortal(key, ref){
   const p = S.portals.find(x => x.key === key);
   if(!p) return;
   S.current = key;
@@ -444,9 +444,19 @@ function openPortal(key){
   const frame = $("#vframe");
   frame.dataset.key = key;
   frame.dataset.injected = "0";
-  frame.src = p.url;
+  frame.src = ref ? `${p.url}${p.url.includes('?')?'&':'?'}ref=${encodeURIComponent(ref)}` : p.url;
   $("#viewer").classList.add("on");
 }
+
+// A portal iframe (wedding-tracker / wedding-admin) can ask to jump to the
+// other one, cross-linking a wedding's enquiry and its app account without
+// leaving the gateway. See each app's own postMessage call.
+window.addEventListener("message", (ev)=>{
+  const d = ev.data;
+  if (!d || d.type !== "bhb-open-portal" || !d.key) return;
+  if (!S.portals.some(p => p.key === d.key)) return; // not granted, ignore
+  openPortal(d.key, d.ref);
+});
 
 // Each app's own tab-nav button, by tab_key, so a tab the person is not
 // allowed can be hidden. Matches the markup each app already has.

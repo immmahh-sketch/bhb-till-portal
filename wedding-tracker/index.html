@@ -564,6 +564,7 @@ async function tryOpen(pw, who){
     $("#app").hidden = false;
     $("#whoName").textContent = S.who;
     await refresh();
+    openFromRefParam();
   }catch(e){
     S.key = "";
     $("#gerr").textContent = /password/i.test(e.message) ? "Wrong password." : e.message;
@@ -583,6 +584,16 @@ async function refresh(){
   const d = await api("list");
   S.all = d.enquiries; S.today = d.today;
   renderTiles(); renderTodo(); renderChips(); renderEnq(); renderTotals(); renderYearPicker();
+}
+
+/* Deep link from the wedding app: ?ref=EVNT002784 opens straight into that
+   enquiry instead of landing on To Do. Does nothing if not found (e.g. the
+   enquiry that created this wedding was deleted, or never linked). */
+function openFromRefParam(){
+  const ref = new URLSearchParams(location.search).get("ref");
+  if(!ref) return;
+  const match = S.all.find(r => r.guestline_event_id === ref);
+  if(match) openDrawer(match);
 }
 
 /* ----------------------------------------------------------- tiles */
@@ -621,6 +632,7 @@ function renderTiles(){
 
 /* ----------------------------------------------------- due colouring */
 function dueClass(r){
+  if(r._needsAppSetup && !r.next_due) return "due-today"; // reuse the attention styling
   if(!r.next_due) return "";
   const t = S.today;
   if(r.next_due === t) return "due-today";
@@ -648,8 +660,15 @@ function statusPill(r){
 
 /* ------------------------------------------------------------ To Do */
 function renderTodo(){
+  // Rows with no real next_due (booked, app not set up yet) sort first -
+  // there is no natural date to rank them by, and they should not get
+  // buried behind everything that happens to have a due date already.
   const rows = S.all.filter(r => r._todo)
-    .sort((a,b) => String(a.next_due).localeCompare(String(b.next_due)));
+    .sort((a,b) => {
+      if (a._needsAppSetup && !a.next_due && !(b._needsAppSetup && !b.next_due)) return -1;
+      if (b._needsAppSetup && !b.next_due && !(a._needsAppSetup && !a.next_due)) return 1;
+      return String(a.next_due).localeCompare(String(b.next_due));
+    });
 
   if(!rows.length){
     $("#todoTable").innerHTML =
@@ -664,13 +683,13 @@ function renderTodo(){
     </tr></thead>
     <tbody>${rows.map(r => `
       <tr class="${dueClass(r)}" data-id="${r.id}">
-        <td class="nowrap strong">${ukDate(r.next_due)}</td>
+        <td class="nowrap strong">${r._needsAppSetup && !r.next_due ? "Now" : ukDate(r.next_due)}</td>
         <td class="strong">${esc(r.name)}${appTag(r)}</td>
         <td class="nowrap">${ukDate(r.event_date)}</td>
         <td>${esc(r.event_type)}</td>
         <td>${esc(r.venue)}</td>
         <td>${statusPill(r)}</td>
-        <td>${esc(r.next_action)}</td>
+        <td>${r._needsAppSetup && !r.next_due ? '<span class="pill hold">Set up wedding app</span>' : esc(r.next_action)}</td>
         <td class="nowrap muted">${ukDate(r.last_contact)}${r.last_by ? "<br><span class='muted'>"+esc(r.last_by)+"</span>" : ""}</td>
       </tr>`).join("")}</tbody>`;
 }
@@ -796,7 +815,14 @@ function openDrawer(r){
       The status, event date and next action come from the couple's own booking
       and are reset the next time it syncs — change them in the wedding app,
       not here. Everything else on this form is yours.
-    </div>` : ""}
+      <div style="margin-top:8px"><button class="btn ghost" type="button" id="openInWeddingApp"
+        style="padding:6px 12px; font-size:11px">Open in Wedding App</button></div>
+    </div>` : `<div class="field"><label>Guestline reference (once known)</label>
+      <input id="f_guestline_event_id" placeholder="e.g. EVNT002784" value="">
+      <div class="fieldnote">Enter this as soon as Guestline has it — quote or contract stage, before the
+      wedding app account exists. It links this enquiry to that booking early, instead of relying on
+      matching by email, phone or name once the app account is set up.</div>
+    </div>`}
 
     <div class="field"><label>Name for the booking</label>
       <input id="f_name" value="${esc(r.name||"")}"></div>
@@ -856,6 +882,15 @@ function openDrawer(r){
   wireChaseSuggestion();
   showDrawer(true);
   if(r.id) loadHistory(r.id);
+
+  const openBtn = $("#openInWeddingApp");
+  if(openBtn) openBtn.onclick = () => {
+    // Same-origin parent (the staff portal gateway) if opened through it;
+    // falls back to nothing if this page is ever opened on its own.
+    try{
+      window.parent.postMessage({ type:"bhb-open-portal", key:"wedding-admin", ref:r.guestline_event_id }, "*");
+    }catch(e){}
+  };
 }
 
 function maxDue(action){
@@ -941,6 +976,7 @@ function collect(){
     day_guests:g("day_guests"), evening_guests:g("evening_guests"),
     status:g("status"), next_action:g("next_action"), next_due:g("next_due"),
     last_contact:g("last_contact"), last_by:g("last_by"), notes:g("notes"),
+    guestline_event_id:g("guestline_event_id"),
   };
 }
 
