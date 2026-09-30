@@ -608,6 +608,11 @@ $("#vframe").addEventListener("load", function(){
   const key = this.dataset.key;
   const cfg = AUTOLOGIN[key];
   const p = S.portals.find(x => x.key === key);
+  // sessionStorage is per-frame, so who's signed in has to be written into
+  // this iframe's own window on every load, same as a session-store app's
+  // password - wedding-admin's bonus tracker uses it to tell the GM's
+  // account apart from everyone else's for edit access.
+  try { this.contentWindow.sessionStorage.setItem("bhb_staff_email", S.user.email || ""); } catch(e){}
   if (cfg && cfg.store === "session" && this.dataset.injected !== "1") {
     this.dataset.injected = "1";
     try {
@@ -717,7 +722,9 @@ function openUserDrawer(id){
   $("#dBody").innerHTML = `
     <div class="field"><label>Name</label><input id="fName" value="${u?esc(u.display_name):''}"></div>
     <div class="field"><label>Email</label><input id="fEmail" type="email" value="${u?esc(u.email):''}" ${u?'readonly':''}></div>
-    <div class="field"><label>${u ? "New password (leave blank to keep)" : "Password"}</label><input id="fPw" type="password" autocomplete="new-password"></div>
+    ${u
+      ? `<div class="field"><label>New password (leave blank to keep)</label><input id="fPw" type="password" autocomplete="new-password"></div>`
+      : `<p class="hint" style="margin:0 0 14px">An email will be sent to them to set their own password.</p>`}
     <div class="field"><label>Role</label>
       <select id="fRole">
         <option value="staff" ${u && u.role==="staff"?"selected":""}>Staff</option>
@@ -771,19 +778,19 @@ async function saveUser(id){
     role: $("#fRole").value,
     apps,
   };
-  const pw = $("#fPw").value;
   try{
     if (id){
-      if (pw) payload.password = pw;
+      const pwEl = $("#fPw");
+      if (pwEl && pwEl.value) payload.password = pwEl.value;
       const activeSel = $("#fActive");
       if (activeSel) payload.active = activeSel.value === "1";
       await api("update_user", { id, ...payload });
+      toast("Saved.");
     } else {
       payload.email = $("#fEmail").value.trim();
-      payload.password = pw;
       await api("create_user", payload);
+      toast("User created — an invite email is on its way to them.");
     }
-    toast("Saved.");
     closeDrawer();
     loadUsers();
   }catch(e){
