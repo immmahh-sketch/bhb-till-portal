@@ -617,34 +617,31 @@ details summary::-webkit-details-marker{color:var(--sage-70)}
               aria-controls="nav" onclick="toggleNav()">
         <span></span><span></span><span></span>
       </button>
-      <span class="brand">Wedding Admin</span>
+      <span class="brand" aria-hidden="true"></span>
       <span class="where" id="whereAmI">Overview</span>
       <button class="btn btn--sm" style="color:var(--celadon)" onclick="lock()">Lock</button>
     </div>
     <div class="wrap navwrap">
       <nav id="nav">
-        <button data-view="overview" aria-current="page">Overview</button>
-        <button data-view="weddings">Registered weddings</button>
-        <button data-view="usage">App usage</button>
+        <button data-view="overview" aria-current="page" data-group="overview,cal,tot">Overview</button>
+        <button data-view="weddings" data-group="weddings,usage,add,bulk">Wedding App</button>
         <button data-view="outstanding" data-group="outstanding,reconcile">Payments <span id="recBadge"></span></button>
-        <button data-view="add" data-group="add,bulk">Add a wedding</button>
-        <button data-view="bonus">Bonus tracker</button>
-        <button data-view="todo" data-group="todo,enq">Enquiries Tracker</button>
-        <button data-view="cal">Calendar</button>
-        <button data-view="tot">Year Totals</button>
+        <button data-view="todo" data-group="todo,enq,bonus">Trackers</button>
       </nav>
     </div>
   </header>
+
+  <!-- The active top-nav button's own sub-pages (e.g. Wedding App covers
+       Registered weddings / App usage / Add a wedding) - shown here, above
+       both #views and #trackerApp, since a group can mix pages from either
+       (Overview covers Calendar and Year Totals, both part of #trackerApp,
+       alongside Overview itself, which isn't). -->
+  <div class="wrap hide" id="groupSubnav"></div>
+
   <main class="wrap">
     <div id="err" class="err hide"></div>
     <div id="views"></div>
   </main>
-
-  <!-- Sub-nav for the Enquiries Tracker group (To Do / Enquiries) - shown
-       above #trackerApp, not inside it, since Calendar and Year Totals
-       (also part of #trackerApp) are their own top-level tabs, not part
-       of this group. -->
-  <div class="wrap hide" id="enqSubnav"></div>
 
   <!-- ================================================================
     Wedding & Events Tracker, merged in. Everything below is scoped
@@ -1168,19 +1165,39 @@ function wrapTable(t){
 // else above is the Wedding App's own, unchanged.
 var TRACKER_VIEWS = ["todo", "enq", "cal", "tot"];
 
+// The top nav's four groups, and the sub-pages each one covers - same
+// order as the pills should show in. "Add a wedding" carries its own
+// further, nested pair (Add a wedding / Bulk add, built into viewAdd()/
+// viewBulk() themselves) - "bulk" isn't a pill here, it's folded into the
+// "add" pill for this level, same as its data-group entry on the nav
+// button above.
+var NAV_GROUPS = [
+  { items:[["overview","Overview"],["cal","Calendar"],["tot","Year totals"]] },
+  { items:[["weddings","Registered Weddings"],["usage","App Usage"],["add","Add a wedding"]] },
+  { items:[["outstanding","Outstanding"],["reconcile","Payments to post"]] },
+  { items:[["todo","To Do"],["enq","Enquiries"],["bonus","Bonus"]] },
+];
+function groupSubnavFor(view){
+  var v = view === "bulk" ? "add" : view;
+  for (var i = 0; i < NAV_GROUPS.length; i++){
+    var items = NAV_GROUPS[i].items;
+    if (items.some(function(it){ return it[0] === v; })) return { items:items, current:v };
+  }
+  return null;
+}
+
 function render(){
   var v = $("views"), t = $("trackerApp");
   var toTracker = TRACKER_VIEWS.indexOf(S.view) !== -1;
   t.classList.toggle("hide", !toTracker);
   v.parentNode.classList.toggle("hide", toTracker); // hides #err too, alongside #views
 
-  // Enquiries Tracker's own sub-nav (To Do / Enquiries) - not part of
-  // #trackerApp itself, since Calendar and Year Totals live there too but
-  // aren't part of this group.
-  var enqSub = $("enqSubnav");
-  var showEnqSub = (S.view === "todo" || S.view === "enq");
-  enqSub.classList.toggle("hide", !showEnqSub);
-  if (showEnqSub) enqSub.innerHTML = subnavHtml([["todo","To Do"],["enq","Enquiries"]], S.view);
+  // The active group's own further nav - sits above both #views and
+  // #trackerApp, since a group can mix pages from either (see NAV_GROUPS).
+  var groupSub = $("groupSubnav");
+  var subInfo = groupSubnavFor(S.view);
+  groupSub.classList.toggle("hide", !subInfo);
+  if (subInfo) groupSub.innerHTML = subnavHtml(subInfo.items, subInfo.current);
 
   if (toTracker) { TrackerApp.show(S.view); return; }
 
@@ -1484,8 +1501,7 @@ function viewOutstanding(){
   var chaseTotal = behind.reduce(function(s,r){ return s + r.shortfall; }, 0);
   var owedTotal = live.reduce(function(s,r){ return s + r.outstanding; }, 0);
 
-  var h = subnavHtml([["outstanding","Outstanding"],["reconcile","Payments to post"]], "outstanding");
-  h += '<div class="split" style="margin-bottom:6px"><h1>Outstanding payments</h1>' +
+  var h = '<div class="split" style="margin-bottom:6px"><h1>Outstanding payments</h1>' +
     '<button class="btn btn--sm" onclick="loadOutstanding()">Refresh</button></div>' +
     '<p class="muted" style="margin:0 0 18px">' +
     'Balances read live from Guestline, plus any app payment not yet posted to Rezlynx. ' +
@@ -4136,8 +4152,7 @@ function exportBonus(){
 
 /* ============================ RECONCILE QUEUE ============================ */
 function viewReconcile(){
-  var h = subnavHtml([["outstanding","Outstanding"],["reconcile","Payments to post"]], "reconcile");
-  h += '<h1 style="margin-bottom:6px">Payments to post</h1>' +
+  var h = '<h1 style="margin-bottom:6px">Payments to post</h1>' +
     '<p class="muted" style="margin:0 0 18px">' +
     'Card payments taken in the app. They don\'t reach Guestline on their own — post each one in Rezlynx, ' +
     'then mark it here so the app stops counting it separately.</p>';
