@@ -143,6 +143,7 @@ tr.wedrow td:first-child{box-shadow:inset 3px 0 0 var(--gold)}
 .pill{
   display:inline-block; padding:3px 9px; border-radius:999px; font-size:11px;
   font-weight:600; white-space:nowrap; background:var(--sage-10); color:var(--sage);
+  cursor:pointer;
 }
 .pill.gold{background:var(--attention-bg); color:var(--attention)}
 .pill.blue{background:var(--sage-10); color:var(--sage-70)}
@@ -161,15 +162,15 @@ tr.wedrow td:first-child{box-shadow:inset 3px 0 0 var(--gold)}
 .loading{padding:60px; text-align:center; color:var(--sage-70)}
 
 /* ================================================== drill-down panel */
-#listveil{position:fixed; inset:0; background:rgba(38,38,38,.45); z-index:70; display:none}
-#listveil.on{display:block}
-#listbox{
+.modalveil{position:fixed; inset:0; background:rgba(38,38,38,.45); z-index:70; display:none}
+.modalveil.on{display:block}
+.modalbox{
   position:fixed; z-index:71; left:50%; top:50%; transform:translate(-50%,-48%) scale(.98);
   width:min(720px,94vw); max-height:86vh; background:var(--bone);
   border-radius:var(--radius); box-shadow:0 20px 60px rgba(38,38,38,.3);
   display:none; flex-direction:column; opacity:0; transition:opacity .16s, transform .16s;
 }
-#listbox.on{display:flex; opacity:1; transform:translate(-50%,-50%) scale(1)}
+.modalbox.on{display:flex; opacity:1; transform:translate(-50%,-50%) scale(1)}
 .lhead{background:var(--sage); color:var(--white); padding:15px 20px; display:flex; gap:12px; align-items:flex-start;
   border-radius:var(--radius) var(--radius) 0 0}
 .lhead h3{font-size:19px; line-height:1.2}
@@ -300,8 +301,8 @@ tr.wedrow td:first-child{box-shadow:inset 3px 0 0 var(--gold)}
   </div>
 </div>
 
-<div id="listveil"></div>
-<div id="listbox" role="dialog" aria-modal="true">
+<div id="listveil" class="modalveil"></div>
+<div id="listbox" class="modalbox" role="dialog" aria-modal="true">
   <div class="lhead">
     <div>
       <h3 id="lTitle">Day</h3>
@@ -311,6 +312,22 @@ tr.wedrow td:first-child{box-shadow:inset 3px 0 0 var(--gold)}
   </div>
   <div class="lbody" id="lBody"></div>
   <div class="lfoot"><button class="btn ghost" id="lDone">Close</button></div>
+</div>
+
+<div id="wedveil" class="modalveil"></div>
+<div id="wedbox" class="modalbox" role="dialog" aria-modal="true">
+  <div class="lhead">
+    <div>
+      <h3 id="wTitle">Wedding</h3>
+      <div class="lsub" id="wSub"></div>
+    </div>
+    <button class="x" id="wClose" title="Close">&times;</button>
+  </div>
+  <div class="lbody" id="wBody"></div>
+  <div class="lfoot">
+    <button class="btn" id="wViewBtn">View in the weddings portal</button>
+    <button class="btn ghost" id="wDone">Close</button>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -374,11 +391,19 @@ function num(n, dp){
 }
 // The forecast is always shown bracketed; once the day is complete (EOD
 // report processed) the actual is appended in bold after a slash, e.g.
-// "(£52.68)/£64.20". A future day shows only the bracketed forecast.
+// "(£52.68)/£64.20". A future day shows only the bracketed forecast. Used
+// for totals rows, which mix complete and incomplete days and so still
+// want both the actual-so-far and the forecast for what's left.
 function fcActual(fc, act, hasActual, fmt){
   const fcStr = `(${fmt(fc)})`;
   if (!hasActual) return fcStr;
   return `${fcStr}/<b>${fmt(act)}</b>`;
+}
+// A single day is one or the other: bracketed forecast until the day is
+// complete, then just the actual in bold - no point still bracketing a
+// forecast a real number has already replaced.
+function dayValue(fc, act, hasActual, fmt){
+  return hasActual ? `<b>${fmt(act)}</b>` : `(${fmt(fc)})`;
 }
 function pctDelta(now, then){
   if (!then) return null;
@@ -498,26 +523,39 @@ function renderMonthTiles(d){
 
 // Only Wedding/Dry hire tag as "Wedding"; any other event_type tags as
 // "Event"; no event_type at all shows nothing. Hover always shows the real
-// name; click-through to the day drilldown (row click) shows the full
-// revenue breakdown.
+// name; clicking the pill opens the wedding pop-up (row click elsewhere
+// still opens the day drilldown).
 function eventTag(r){
   if (!r.event_type) return "";
   const isWedding = ["wedding","dry hire"].includes(String(r.event_type).toLowerCase());
   const label = isWedding ? "Wedding" : "Event";
   const cls = isWedding ? "pill gold" : "pill blue";
   const title = r.wedding_name ? esc(r.wedding_name) : label;
-  return `<span class="${cls}" title="${title}">${label}</span>`;
+  return `<span class="${cls}" data-date="${r.date}" title="${title}">${label}</span>`;
+}
+
+// Delegated onto the pills after a table render - looks the full row back
+// up by date so the pop-up has the whole revenue breakdown, not just what
+// the pill itself carries.
+function wireEventPills(tableSel, days){
+  $$(`${tableSel} .pill`).forEach(el=>{
+    el.addEventListener("click", ev=>{
+      ev.stopPropagation();
+      const row = days.find(d=>d.date===el.dataset.date);
+      if (row) openWedding(row);
+    });
+  });
 }
 
 function monthRow(r){
   return `<tr class="${r.event_type?'wedrow':''}" data-date="${r.date}">
     <td class="strong">${ukDate(r.date)}<div class="muted" style="font-size:11px">${esc(r.day_of_week||'')}</div></td>
     <td>${eventTag(r)}</td>
-    <td class="num">${fcActual(r.rooms_forecast, r.rooms_actual, r.has_actual, v=>num(v))}</td>
-    <td class="num">${fcActual(r.rooms_revenue_forecast, r.rooms_revenue_actual, r.has_actual, v=>gbp(v))}</td>
-    <td class="num">${fcActual(r.food_revenue_forecast, r.food_revenue_actual, r.has_actual, v=>gbp(v))}</td>
-    <td class="num">${fcActual(r.beverage_revenue_forecast, r.beverage_revenue_actual, r.has_actual, v=>gbp(v))}</td>
-    <td class="num strong">${fcActual(r.total_revenue_forecast, r.total_revenue_actual, r.has_actual, v=>gbp(v))}</td>
+    <td class="num">${dayValue(r.rooms_forecast, r.rooms_actual, r.has_actual, v=>num(v))}</td>
+    <td class="num">${dayValue(r.rooms_revenue_forecast, r.rooms_revenue_actual, r.has_actual, v=>gbp(v))}</td>
+    <td class="num">${dayValue(r.food_revenue_forecast, r.food_revenue_actual, r.has_actual, v=>gbp(v))}</td>
+    <td class="num">${dayValue(r.beverage_revenue_forecast, r.beverage_revenue_actual, r.has_actual, v=>gbp(v))}</td>
+    <td class="num strong">${dayValue(r.total_revenue_forecast, r.total_revenue_actual, r.has_actual, v=>gbp(v))}</td>
   </tr>`;
 }
 
@@ -543,10 +581,11 @@ function renderMonthTable(d){
         <td class="num">${fcActual(t.total_revenue_forecast, t.total_revenue_actual, !!t.days_with_actual, v=>gbp(v))}</td>
       </tr>
     </tbody>
-    <caption class="muted" style="caption-side:bottom; text-align:left; padding:8px 12px; font-size:11px;">(Forecast) / <b>Actual</b> once the day's end-of-day report has been processed. A day with only a bracketed figure is still forecast.</caption>`;
+    <caption class="muted" style="caption-side:bottom; text-align:left; padding:8px 12px; font-size:11px;">(Forecast) until the day's end-of-day report has been processed, then <b>actual</b>. The month total keeps both — actual so far, and forecast for what's left.</caption>`;
   $$("#monthTable tbody tr[data-date]").forEach(tr=>{
     tr.addEventListener("click", ()=> openDay(tr.dataset.date));
   });
+  wireEventPills("#monthTable", d.days);
 }
 
 $("#mPrev").addEventListener("click", ()=>{
@@ -606,13 +645,69 @@ $("#lClose").addEventListener("click", closeDay);
 $("#lDone").addEventListener("click", closeDay);
 $("#listveil").addEventListener("click", closeDay);
 
+/* ----------------------------------------------------- wedding pop-up
+   The pill's own row already has this day's full revenue breakdown - no
+   second API call needed, just format what's already on screen. "View in
+   the weddings portal" only makes sense embedded inside the Staff Portal
+   (this page is also iframed standalone on the Squarespace forecast page,
+   which has no such portal to jump to), and only for a real wedding, not
+   a generic "Event" tag with nothing to look up. Whether it actually goes
+   anywhere depends on the signed-in person having access to the Weddings
+   app - the portal's own message listener silently ignores the request
+   if they don't, same as it always has for this handshake. */
+const IN_PORTAL_FRAME = window.parent !== window;
+
+function openWedding(r){
+  const isWedding = r.event_type && ["wedding","dry hire"].includes(String(r.event_type).toLowerCase());
+  const label = isWedding ? "Wedding" : (r.event_type || "Event");
+  $("#wTitle").textContent = r.wedding_name || label;
+  $("#wSub").textContent = `${ukDate(r.date)} — ${r.day_of_week||""}`;
+
+  const rows = [
+    ["Rooms", dayValue(r.rooms_forecast, r.rooms_actual, r.has_actual, v=>num(v))],
+    ["Rooms Revenue", dayValue(r.rooms_revenue_forecast, r.rooms_revenue_actual, r.has_actual, v=>gbp(v))],
+    ["Food Revenue", dayValue(r.food_revenue_forecast, r.food_revenue_actual, r.has_actual, v=>gbp(v))],
+    ["Beverage Revenue", dayValue(r.beverage_revenue_forecast, r.beverage_revenue_actual, r.has_actual, v=>gbp(v))],
+    ["Total Revenue", dayValue(r.total_revenue_forecast, r.total_revenue_actual, r.has_actual, v=>gbp(v))],
+  ];
+  $("#wBody").innerHTML = `
+    <div class="sect">${esc(label)}${r.wedding_name ? ` — ${esc(r.wedding_name)}` : ""}</div>
+    <table class="cmp"><tbody>
+      ${rows.map(x=>`<tr><td>${x[0]}</td><td>${x[1]}</td></tr>`).join("")}
+    </tbody></table>`;
+
+  const canLink = !!(isWedding && r.wedding_name && IN_PORTAL_FRAME);
+  const btn = $("#wViewBtn");
+  btn.style.display = canLink ? "" : "none";
+  btn.onclick = canLink ? () => {
+    // The date alone, not the name - the Wedding App's search matches by
+    // substring but requires every word typed to be found, and this page
+    // has no idea how "wedding_name" (free text from the forecast
+    // workbook) lines up with the couple's names as stored there. The
+    // date reliably narrows to the one wedding on this day.
+    const ref = "search:" + r.date;
+    window.parent.postMessage({ type:"bhb-open-portal", key:"wedding-admin", ref }, "*");
+    closeWedding();
+  } : null;
+
+  $("#wedveil").classList.add("on");
+  $("#wedbox").classList.add("on");
+}
+function closeWedding(){
+  $("#wedveil").classList.remove("on");
+  $("#wedbox").classList.remove("on");
+}
+$("#wClose").addEventListener("click", closeWedding);
+$("#wDone").addEventListener("click", closeWedding);
+$("#wedveil").addEventListener("click", closeWedding);
+
 /* ------------------------------------------------------------ period */
 function periodRow(r){
   return `<tr data-date="${r.date}">
     <td class="strong">${ukDate(r.date)}<div class="muted" style="font-size:11px">${esc(r.day_of_week||'')}</div></td>
     <td>${eventTag(r)}</td>
-    <td class="num">${fcActual(r.rooms_forecast, r.rooms_actual, r.has_actual, v=>num(v))}</td>
-    <td class="num strong">${fcActual(r.total_revenue_forecast, r.total_revenue_actual, r.has_actual, v=>gbp(v))}</td>
+    <td class="num">${dayValue(r.rooms_forecast, r.rooms_actual, r.has_actual, v=>num(v))}</td>
+    <td class="num strong">${dayValue(r.total_revenue_forecast, r.total_revenue_actual, r.has_actual, v=>gbp(v))}</td>
   </tr>`;
 }
 
@@ -646,6 +741,7 @@ async function loadPeriod(start, end){
     $$("#periodTable tbody tr[data-date]").forEach(tr=>{
       tr.addEventListener("click", ()=> openDay(tr.dataset.date));
     });
+    wireEventPills("#periodTable", d.days);
   }catch(e){
     $("#periodTable").innerHTML = `<tr><td class="empty">${esc(e.message)}</td></tr>`;
   }

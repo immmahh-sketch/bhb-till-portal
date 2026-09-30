@@ -1049,14 +1049,24 @@ window.openWeddingByRef = async function(ref){
 /* Deep link from the enquiry tracker: ?ref=EVNT002784 opens straight into
    that wedding instead of landing on Overview. Silently does nothing if
    the reference isn't found (wedding app account not set up yet) - render()
-   still runs normally in that case. */
+   still runs normally in that case.
+
+   A second form, ?ref=search:<name> <date>, comes from the Forecast
+   Dashboard's wedding pop-up - it only knows a wedding by name and date,
+   not by event_id, so it lands on the Registered weddings list pre-filtered
+   to that search instead of a single record. */
 async function openFromRefParam(){
   var ref = new URLSearchParams(location.search).get("ref");
   if (!ref) return;
+  if (ref.indexOf("search:") === 0) {
+    S.view = "weddings"; S.listQuery = ref.slice(7);
+    markNav();
+    return;
+  }
   try {
     if (!S.list || !S.list.length) S.list = await call("list");
     var match = S.list.filter(function(w){ return w.event_id === ref; })[0];
-    if (match) { S.view = "weddings"; S.current = match.id; }
+    if (match) { S.view = "weddings"; S.current = match.id; markNav(); }
   } catch (e) { /* deep link is a convenience, not worth failing boot over */ }
 }
 
