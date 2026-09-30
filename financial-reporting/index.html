@@ -249,8 +249,8 @@ table.grid td.num{text-align:right; font-variant-numeric:tabular-nums}
       <button class="tabbtn" data-view="cashup" data-group="cashup,cashup-history">Cash Up</button>
       <button class="tabbtn" data-view="safe" data-group="safe,safe-history,float,float-history">Safe &amp; Float Counts</button>
       <button class="tabbtn" data-view="reconciliation">Reconciliation</button>
-      <button class="tabbtn" data-view="pettycash">Petty Cash</button>
-      <button class="tabbtn" data-view="adjustments">Adjustments</button>
+      <button class="tabbtn" data-view="pettycash" data-group="pettycash,pettycash-history">Petty Cash</button>
+      <button class="tabbtn" data-view="adjustments" data-group="adjustments,adjustments-history">Adjustments</button>
       <button class="tabbtn" data-view="trends">Trends</button>
       <button class="tabbtn" data-view="settings">Settings</button>
     </div>
@@ -273,6 +273,12 @@ table.grid td.num{text-align:right; font-variant-numeric:tabular-nums}
 
 <div class="toast" id="toast"></div>
 
+<!-- Rezlynx Period End exports are real .xls/.xlsx files - parsed client
+     side (see parseRezlynxWorkbook below) rather than sent to the server,
+     the same reasoning as html2pdf.js in the root till portal: no
+     Deno-side binary spreadsheet parsing precedent anywhere on this
+     stack, and the browser already does this well. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 /* ==================================================================
    Financial Reporting
@@ -302,12 +308,14 @@ const S = {
   view: "dashboard", tills: [], staff: [], pettyCategories: [],
   safeFloatSub: "safe",
   lastCashUp: null, lastSafe: null, lastFloat: null,
+  lastPettyCash: null, lastAdjustments: null, lastReconciliation: null, rezParsed: null,
 };
 
 const $  = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
 const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 const money = n => "£" + (Number(n)||0).toLocaleString("en-GB",{minimumFractionDigits:2,maximumFractionDigits:2});
+const round2 = n => Math.round(((Number(n)||0) + Number.EPSILON) * 100) / 100;
 function todayIso(){ return new Intl.DateTimeFormat("en-CA",{timeZone:"Europe/London"}).format(new Date()); }
 function ukDate(iso){
   const p = String(iso||"").slice(0,10).split("-"); if (p.length!==3) return "";
@@ -495,12 +503,11 @@ function render(){
     case "safe-history":  v.innerHTML = viewSafeHistory(); loadSafeHistory(); break;
     case "float":         v.innerHTML = viewFloatEntry(); wireFloatEntry(); break;
     case "float-history": v.innerHTML = viewFloatHistory(); loadFloatHistory(); break;
-    case "reconciliation": v.innerHTML = comingSoon("Reconciliation",
-      "Rezlynx import, Worldpay/bank income/SumUp entry and the variance checks land here in the next phase."); break;
-    case "pettycash": v.innerHTML = comingSoon("Petty Cash",
-      "The petty cash log and running balance land here in the next phase."); break;
-    case "adjustments": v.innerHTML = comingSoon("Adjustments",
-      "Change deliveries and banking collections land here in the next phase."); break;
+    case "reconciliation": v.innerHTML = viewReconciliation(); wireReconciliation(); break;
+    case "pettycash":         v.innerHTML = viewPettyCashEntry(); wirePettyCashEntry(); break;
+    case "pettycash-history": v.innerHTML = viewPettyCashHistory(); loadPettyCashHistory(); break;
+    case "adjustments":         v.innerHTML = viewAdjustmentsEntry(); wireAdjustmentsEntry(); break;
+    case "adjustments-history": v.innerHTML = viewAdjustmentsHistory(); loadAdjustmentsHistory(); break;
     case "trends": v.innerHTML = comingSoon("Trends",
       "Variance summaries by till, safe and petty cash category land here in the next phase."); break;
     case "settings": v.innerHTML = comingSoon("Settings",
@@ -845,6 +852,508 @@ async function loadFloatHistory(){
         <td class="num ${Math.abs(r.variance)>1?'down':'up'}">${money(r.variance)}</td>
       </tr>`).join("")}</tbody>`;
   } catch(e) { $("#flh_table").innerHTML = `<tr><td class="empty">${esc(e.message)}</td></tr>`; }
+}
+
+/* ============================================================ petty cash */
+function categoryOptions(current){
+  return S.pettyCategories.map(c => `<option value="${esc(c.key)}"${c.key===current?" selected":""}>${esc(c.label)}</option>`).join("");
+}
+function categoryLabel(key){ const c = S.pettyCategories.find(x=>x.key===key); return c ? c.label : key; }
+async function ensurePettyCategories(){
+  if (S.pettyCategories.length) return;
+  try { S.pettyCategories = (await call("pettycash.categories")).categories || []; }
+  catch(e) { toast(e.message, true); }
+}
+
+function viewPettyCashEntry(){
+  return `
+    <div class="subnav">
+      <button class="on">Add an entry</button>
+      <button onclick="goView('pettycash-history')">History</button>
+    </div>
+    <div class="pagehead"><h2>Petty Cash</h2><div class="hint">Spend and float top-ups, with a running balance.</div></div>
+    <div class="card">
+      <div class="row">
+        <div class="field"><label>Date</label><input type="date" id="pc_date" value="${todayIso()}"></div>
+        <div class="field"><label>Category</label><select id="pc_category">${categoryOptions()}</select></div>
+        <div class="field"><label>Amount</label><input type="number" step="0.01" autocomplete="off" id="pc_amount" value="0"></div>
+      </div>
+      <div class="field"><label>Description (optional)</label><input type="text" id="pc_desc"></div>
+      <div class="row">
+        <div class="field"><label>Staff</label><select id="pc_staff">${staffOptions()}</select></div>
+        <div class="field"><label>Receipt kept?</label><input type="checkbox" id="pc_receipt"></div>
+      </div>
+    </div>
+    <button class="btn" id="pc_save">Save entry</button>`;
+}
+async function wirePettyCashEntry(){
+  await ensurePettyCategories();
+  $("#pc_category").innerHTML = categoryOptions();
+  $("#pc_save").addEventListener("click", savePettyCash);
+}
+async function savePettyCash(){
+  const btn = $("#pc_save");
+  const payload = {
+    business_date: $("#pc_date").value, category_key: $("#pc_category").value,
+    description: $("#pc_desc").value, amount: $("#pc_amount").value,
+    has_receipt: $("#pc_receipt").checked, staff_name: $("#pc_staff").value,
+  };
+  if (!payload.category_key){ toast("Pick a category.", true); return; }
+  btn.disabled = true; btn.textContent = "Saving…";
+  try {
+    await call("pettycash.save", payload);
+    toast("Saved.");
+    goView("pettycash-history");
+  } catch(e) { toast(e.message, true); }
+  finally { btn.disabled = false; btn.textContent = "Save entry"; }
+}
+
+const PETTYCASH_COLS = [
+  { label:"Date", value:r=>ukDate(r.business_date) },
+  { label:"Category", value:r=>categoryLabel(r.category_key) },
+  { label:"Description", value:r=>r.description||"" },
+  { label:"Amount", value:"amount" },
+  { label:"Receipt", value:r=>r.has_receipt?"Yes":"No" },
+  { label:"Staff", value:r=>r.staff_name||"" },
+  { label:"Balance After", value:"balance_after" },
+];
+function viewPettyCashHistory(){
+  return `
+    <div class="subnav">
+      <button onclick="goView('pettycash')">Add an entry</button>
+      <button class="on">History</button>
+    </div>
+    <div class="pagehead">
+      <h2>Petty Cash — History</h2>
+      <div class="hint" id="pch_balance">&nbsp;</div>
+      <div class="spacer"></div>
+      <div class="field" style="margin:0 8px"><input type="date" id="pch_start" value="${addDaysIso(todayIso(),-29)}"></div>
+      <div class="field" style="margin:0 8px"><input type="date" id="pch_end" value="${todayIso()}"></div>
+      <button class="btn ghost" id="pch_go">Show</button>
+      <button class="btn ghost" id="pch_csv">Export CSV</button>
+    </div>
+    <div class="card"><div class="tablewrap"><table class="grid" id="pch_table"></table></div></div>`;
+}
+async function loadPettyCashHistory(){
+  await ensurePettyCategories();
+  $("#pch_go").addEventListener("click", loadPettyCashHistory);
+  $("#pch_csv").addEventListener("click", ()=> downloadCsv(`petty-cash-${$("#pch_start").value}-to-${$("#pch_end").value}.csv`, PETTYCASH_COLS, S.lastPettyCash||[]));
+  $("#pch_table").innerHTML = `<tr><td class="loading">Loading…</td></tr>`;
+  try {
+    const d = await call("pettycash.list", { start: $("#pch_start").value, end: $("#pch_end").value });
+    S.lastPettyCash = d.entries || [];
+    $("#pch_balance").textContent = `Current balance: ${money(d.current_balance)} (target ${money(d.target_float)})`;
+    if (!S.lastPettyCash.length){ $("#pch_table").innerHTML = `<tr><td class="empty">No petty cash entries in this range.</td></tr>`; return; }
+    $("#pch_table").innerHTML = `
+      <thead><tr><th>Date</th><th>Category</th><th>Description</th><th class="num">Amount</th><th>Receipt</th><th>Staff</th><th class="num">Balance</th></tr></thead>
+      <tbody>${S.lastPettyCash.map(r => `<tr>
+        <td class="strong">${ukDate(r.business_date)}</td><td>${esc(categoryLabel(r.category_key))}</td><td>${esc(r.description||"")}</td>
+        <td class="num">${money(r.amount)}</td><td>${r.has_receipt?"Yes":"No"}</td><td>${esc(r.staff_name||"")}</td>
+        <td class="num">${money(r.balance_after)}</td>
+      </tr>`).join("")}</tbody>`;
+  } catch(e) { $("#pch_table").innerHTML = `<tr><td class="empty">${esc(e.message)}</td></tr>`; }
+}
+
+/* ============================================================ adjustments */
+function adjTypeOptions(current){
+  return `<option value="change_delivery"${current==="change_delivery"?" selected":""}>Change Delivery (cash in)</option>
+    <option value="banking_collection"${current==="banking_collection"?" selected":""}>Banking Collection (cash out)</option>`;
+}
+function adjTypeLabel(t){ return t==="change_delivery" ? "Change Delivery" : "Banking Collection"; }
+
+function viewAdjustmentsEntry(){
+  return `
+    <div class="subnav">
+      <button class="on">Add an entry</button>
+      <button onclick="goView('adjustments-history')">History</button>
+    </div>
+    <div class="pagehead"><h2>Adjustments</h2><div class="hint">Change deliveries and banking collections - feeds the safe's expected total.</div></div>
+    <div class="card">
+      <div class="row">
+        <div class="field"><label>Date</label><input type="date" id="aj_date" value="${todayIso()}"></div>
+        <div class="field"><label>Type</label><select id="aj_type">${adjTypeOptions()}</select></div>
+        <div class="field"><label>Amount</label><input type="number" step="0.01" autocomplete="off" id="aj_amount" value="0"></div>
+      </div>
+      <div class="field"><label>Description (optional)</label><input type="text" id="aj_desc"></div>
+      <div class="field"><label>Authorised by</label><select id="aj_auth">${staffOptions()}</select></div>
+    </div>
+    <button class="btn" id="aj_save">Save entry</button>`;
+}
+function wireAdjustmentsEntry(){ $("#aj_save").addEventListener("click", saveAdjustment); }
+async function saveAdjustment(){
+  const btn = $("#aj_save");
+  const payload = {
+    business_date: $("#aj_date").value, type: $("#aj_type").value,
+    amount: $("#aj_amount").value, description: $("#aj_desc").value,
+    authorised_by: $("#aj_auth").value,
+  };
+  if (!payload.authorised_by){ toast("Pick who authorised this.", true); return; }
+  btn.disabled = true; btn.textContent = "Saving…";
+  try {
+    await call("adjustments.save", payload);
+    toast("Saved.");
+    goView("adjustments-history");
+  } catch(e) { toast(e.message, true); }
+  finally { btn.disabled = false; btn.textContent = "Save entry"; }
+}
+
+const ADJUSTMENTS_COLS = [
+  { label:"Date", value:r=>ukDate(r.business_date) },
+  { label:"Type", value:r=>adjTypeLabel(r.type) },
+  { label:"Amount", value:"amount" },
+  { label:"Description", value:r=>r.description||"" },
+  { label:"Authorised By", value:"authorised_by" },
+];
+function viewAdjustmentsHistory(){
+  return `
+    <div class="subnav">
+      <button onclick="goView('adjustments')">Add an entry</button>
+      <button class="on">History</button>
+    </div>
+    <div class="pagehead">
+      <h2>Adjustments — History</h2><div class="spacer"></div>
+      <div class="field" style="margin:0 8px"><input type="date" id="ajh_start" value="${addDaysIso(todayIso(),-29)}"></div>
+      <div class="field" style="margin:0 8px"><input type="date" id="ajh_end" value="${todayIso()}"></div>
+      <button class="btn ghost" id="ajh_go">Show</button>
+      <button class="btn ghost" id="ajh_csv">Export CSV</button>
+    </div>
+    <div class="card"><div class="tablewrap"><table class="grid" id="ajh_table"></table></div></div>`;
+}
+async function loadAdjustmentsHistory(){
+  $("#ajh_go").addEventListener("click", loadAdjustmentsHistory);
+  $("#ajh_csv").addEventListener("click", ()=> downloadCsv(`adjustments-${$("#ajh_start").value}-to-${$("#ajh_end").value}.csv`, ADJUSTMENTS_COLS, S.lastAdjustments||[]));
+  $("#ajh_table").innerHTML = `<tr><td class="loading">Loading…</td></tr>`;
+  try {
+    const d = await call("adjustments.list", { start: $("#ajh_start").value, end: $("#ajh_end").value });
+    S.lastAdjustments = d.entries || [];
+    if (!S.lastAdjustments.length){ $("#ajh_table").innerHTML = `<tr><td class="empty">No adjustments in this range.</td></tr>`; return; }
+    $("#ajh_table").innerHTML = `
+      <thead><tr><th>Date</th><th>Type</th><th class="num">Amount</th><th>Description</th><th>Authorised By</th></tr></thead>
+      <tbody>${S.lastAdjustments.map(r => `<tr>
+        <td class="strong">${ukDate(r.business_date)}</td><td>${esc(adjTypeLabel(r.type))}</td>
+        <td class="num">${money(r.amount)}</td><td>${esc(r.description||"")}</td><td>${esc(r.authorised_by)}</td>
+      </tr>`).join("")}</tbody>`;
+  } catch(e) { $("#ajh_table").innerHTML = `<tr><td class="empty">${esc(e.message)}</td></tr>`; }
+}
+
+/* ========================================================= reconciliation
+   Nothing here is "saved" as a reconciliation record - Section E/F are
+   computed fresh by reconciliation.day from whatever's already in Cash Up,
+   Worldpay, Bank Income, SumUp and the Rezlynx import for the chosen date.
+   Re-loading the date after any of the four save actions below just
+   re-runs that computation. */
+function viewReconciliation(){
+  return `
+    <div class="pagehead">
+      <h2>Reconciliation</h2>
+      <div class="hint">Rezlynx vs Worldpay vs Cash Up vs the forecast - one date at a time.</div>
+      <div class="spacer"></div>
+      <div class="field" style="margin:0 8px"><input type="date" id="rc_date" value="${todayIso()}"></div>
+      <button class="btn ghost" id="rc_load">Load this date</button>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-bottom:10px;font-size:18px">A. Rezlynx Period End import</h3>
+      <p class="muted" style="margin:0 0 12px;font-size:13px">Choose the Period End export Rezlynx produces (.xls/.xlsx) - figures are read off it automatically. Check them before saving.</p>
+      <div class="field"><input type="file" id="rc_file" accept=".xls,.xlsx"></div>
+      <div id="rc_rezPreview"></div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-bottom:10px;font-size:18px">B. Worldpay</h3>
+      <p class="muted" style="margin:0 0 12px;font-size:13px">Gross card sales, refunds and fees per till, off the bank settlement. Manual for now - no Worldpay export has been reviewed yet to build an importer against.</p>
+      <div id="rc_worldpay"></div>
+      <button class="btn ghost" id="rc_worldpaySave">Save Worldpay figures</button>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-bottom:10px;font-size:18px">C. Manual bank income</h3>
+      <div class="row">
+        <div class="field"><label>Description</label><input type="text" id="rc_biDesc"></div>
+        <div class="field"><label>Amount</label><input type="number" step="0.01" autocomplete="off" id="rc_biAmount" value="0"></div>
+      </div>
+      <button class="btn ghost" id="rc_biAdd">Add</button>
+      <div id="rc_biList" style="margin-top:12px"></div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-bottom:10px;font-size:18px">D. SumUp</h3>
+      <p class="muted" style="margin:0 0 12px;font-size:13px">One combined total for the day - pop-up bar card machines, not attached to any till. Leave at £0 on days it wasn't used.</p>
+      <div class="field"><label>Total for the day</label><input type="number" step="0.01" autocomplete="off" id="rc_sumup" value="0"></div>
+      <button class="btn ghost" id="rc_sumupSave">Save SumUp total</button>
+    </div>
+
+    <div class="card" id="rc_summary"></div>`;
+}
+
+function worldpayRowsHtml(){
+  return S.tills.map(t => `
+    <div class="row" style="margin-bottom:8px">
+      <div class="field"><label>${esc(t.label)} — Gross</label><input type="number" step="0.01" autocomplete="off" id="rc_wp_${t.key}_gross" value="0"></div>
+      <div class="field"><label>Refunds</label><input type="number" step="0.01" autocomplete="off" id="rc_wp_${t.key}_refunds" value="0"></div>
+      <div class="field"><label>Fees</label><input type="number" step="0.01" autocomplete="off" id="rc_wp_${t.key}_fees" value="0"></div>
+    </div>`).join("");
+}
+
+function wireReconciliation(){
+  $("#rc_worldpay").innerHTML = worldpayRowsHtml();
+  $("#rc_load").addEventListener("click", ()=> loadReconciliationDay($("#rc_date").value));
+  $("#rc_file").addEventListener("change", onRezlynxFileChosen);
+  $("#rc_worldpaySave").addEventListener("click", saveWorldpayAll);
+  $("#rc_biAdd").addEventListener("click", addBankIncome);
+  $("#rc_sumupSave").addEventListener("click", saveSumUp);
+  loadReconciliationDay($("#rc_date").value);
+}
+
+/* ---------- Rezlynx Period End parsing (client-side, via SheetJS) ----------
+   Same label/code-search approach as the Excel system's own VBA importer:
+   search for text labels and codes rather than trust fixed cell addresses,
+   so Rezlynx adding or removing a payment/department code later doesn't
+   break this. */
+function cellStr(v){ return v==null ? "" : String(v).trim(); }
+function findLabelSameRow(rows, label){
+  for (let r=0; r<rows.length; r++){
+    const row = rows[r] || [];
+    for (let c=0; c<row.length; c++){
+      if (cellStr(row[c]) === label){
+        for (let c2=c+1; c2<row.length; c2++){
+          if (cellStr(row[c2]) !== "") return row[c2];
+        }
+      }
+    }
+  }
+  return null;
+}
+function findCodeRows(rows, code){
+  const out = [];
+  rows.forEach((row,r)=>{ if (row && cellStr(row[0]) === code) out.push(r); });
+  return out;
+}
+function numAt(rows, r, c){
+  const row = rows[r] || [];
+  const v = row[c];
+  if (typeof v === "number") return v;
+  const n = parseFloat(v);
+  return isNaN(n) ? 0 : n;
+}
+// Payment codes (Z_CASH etc.) - Gross Total sits in whichever of two
+// candidate columns (Ledger / Non Ledger CC Gross Total) is populated.
+function codeValue(rows, code){
+  const idxs = findCodeRows(rows, code);
+  if (!idxs.length) return 0;
+  const j = numAt(rows, idxs[0], 9), l = numAt(rows, idxs[0], 11);
+  return Math.abs(j || l);
+}
+// Deposit codes - single Gross Total column, kept as-is (not abs()'d),
+// matching Rezlynx's own sign convention. Informational only.
+function depositCodeValue(rows, code){
+  const idxs = findCodeRows(rows, code);
+  return idxs.length ? numAt(rows, idxs[0], 12) : 0;
+}
+// Revenue category codes appear twice - a header row, then a Total row.
+// The second occurrence is the one with the real figure.
+function categoryTotalGross(rows, code){
+  const idxs = findCodeRows(rows, code);
+  if (!idxs.length) return 0;
+  return numAt(rows, idxs[idxs.length > 1 ? 1 : 0], 12);
+}
+function revenueGrandTotalGross(rows){
+  let headerRow = -1;
+  for (let r=0; r<rows.length; r++){
+    if (cellStr((rows[r]||[])[0]) === "Analysis Codes Revenue"){ headerRow = r; break; }
+  }
+  if (headerRow === -1) return 0;
+  for (let r=headerRow+1; r<rows.length; r++){
+    if (cellStr((rows[r]||[])[0]) === "Totals") return numAt(rows, r, 12);
+  }
+  return 0;
+}
+// "02/08/2026 05:20:14" (UK, DD/MM/YYYY) -> a plain ISO string. Informational
+// timestamps only, so no timezone handling beyond that.
+function parseRezlynxDateTime(s){
+  if (!s) return null;
+  const m = String(s).trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})/);
+  if (!m) return null;
+  const [, d, mo, y, h, mi, se] = m;
+  return `${y}-${mo.padStart(2,"0")}-${d.padStart(2,"0")}T${h.padStart(2,"0")}:${mi}:${se}`;
+}
+function parseRezlynxWorkbook(rows){
+  const periodId = findLabelSameRow(rows, "Period ID");
+  const periodOpenedIso = parseRezlynxDateTime(findLabelSameRow(rows, "Period Opened"));
+  const periodClosedIso = parseRezlynxDateTime(findLabelSameRow(rows, "Period Closed"));
+  const accom = categoryTotalGross(rows, "ACCOM");
+  const grand = revenueGrandTotalGross(rows);
+  const depBfwd = depositCodeValue(rows, "DEP_BFWD");
+  const depRecvd = depositCodeValue(rows, "DEP_RECVD");
+  const depRefud = depositCodeValue(rows, "DEP_REFUD");
+  return {
+    period_id: periodId ? String(periodId) : null,
+    period_opened: periodOpenedIso, period_closed: periodClosedIso,
+    fnb_events_revenue: round2(grand - accom),
+    accommodation_revenue: round2(accom),
+    epos_cash: round2(codeValue(rows, "Z_CASH")),
+    epos_card: round2(codeValue(rows,"Z_VISA") + codeValue(rows,"Z_MASTER") + codeValue(rows,"Z_AMEX")),
+    epos_vouchers: round2(codeValue(rows, "Z_VOUCHER")),
+    deposit_brought_forward: round2(depBfwd),
+    deposit_received: round2(depRecvd),
+    deposit_refunded: round2(depRefud),
+    deposit_closing_balance: round2(depBfwd + depRecvd - depRefud),
+    grand_total: round2(grand),
+    business_date: periodOpenedIso ? periodOpenedIso.slice(0,10) : todayIso(),
+  };
+}
+
+async function onRezlynxFileChosen(ev){
+  const file = ev.target.files && ev.target.files[0];
+  if (!file) return;
+  const box = $("#rc_rezPreview");
+  box.innerHTML = `<p class="muted">Reading…</p>`;
+  try {
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, { type:"array" });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, { header:1, raw:true, defval:"" });
+    const parsed = parseRezlynxWorkbook(rows);
+    S.rezParsed = { ...parsed, raw_parse_json: rows, source_filename: file.name };
+    box.innerHTML = rezPreviewHtml(parsed);
+    $("#rc_rezSave").addEventListener("click", saveRezlynxImport);
+  } catch(e) {
+    box.innerHTML = `<p style="color:var(--alert)">Couldn't read that file: ${esc(e.message)}</p>`;
+  }
+}
+function rezPreviewHtml(p){
+  const row = (label, val) => `<tr><td>${label}</td><td class="num">${val}</td></tr>`;
+  return `
+    <div class="tablewrap"><table class="grid" style="margin-top:10px"><tbody>
+      ${row("Period", esc(p.period_id||"—"))}
+      ${row("Opened", p.period_opened?esc(p.period_opened.replace("T"," ")):"—")}
+      ${row("Closed", p.period_closed?esc(p.period_closed.replace("T"," ")):"—")}
+      ${row("F&amp;B/Events Revenue", money(p.fnb_events_revenue))}
+      ${row("Accommodation Revenue", money(p.accommodation_revenue))}
+      ${row("EPOS Cash", money(p.epos_cash))}
+      ${row("EPOS Card", money(p.epos_card))}
+      ${row("EPOS Vouchers", money(p.epos_vouchers))}
+      ${row("Deposit Closing Balance", money(p.deposit_closing_balance))}
+    </tbody></table></div>
+    <div class="field" style="margin-top:12px"><label>Business date (which day this reconciliation is for)</label>
+      <input type="date" id="rc_rezDate" value="${p.business_date}"></div>
+    <button class="btn" id="rc_rezSave" style="margin-top:8px">Save Rezlynx import</button>`;
+}
+async function saveRezlynxImport(){
+  if (!S.rezParsed) return;
+  const btn = $("#rc_rezSave");
+  btn.disabled = true; btn.textContent = "Saving…";
+  try {
+    await call("rezlynx.save_parsed", { ...S.rezParsed, business_date: $("#rc_rezDate").value });
+    toast("Rezlynx import saved.");
+    $("#rc_date").value = $("#rc_rezDate").value;
+    loadReconciliationDay($("#rc_date").value);
+  } catch(e) { toast(e.message, true); }
+  finally { btn.disabled = false; btn.textContent = "Save Rezlynx import"; }
+}
+
+async function saveWorldpayAll(){
+  const btn = $("#rc_worldpaySave");
+  const date = $("#rc_date").value;
+  btn.disabled = true; btn.textContent = "Saving…";
+  try {
+    await Promise.all(S.tills.map(t => call("worldpay.save", {
+      business_date: date, till_key: t.key,
+      gross_card_sales: $(`#rc_wp_${t.key}_gross`).value,
+      refunds: $(`#rc_wp_${t.key}_refunds`).value,
+      fees: $(`#rc_wp_${t.key}_fees`).value,
+    })));
+    toast("Worldpay figures saved.");
+    loadReconciliationDay(date);
+  } catch(e) { toast(e.message, true); }
+  finally { btn.disabled = false; btn.textContent = "Save Worldpay figures"; }
+}
+
+async function addBankIncome(){
+  const btn = $("#rc_biAdd");
+  const payload = {
+    business_date: $("#rc_date").value,
+    description: $("#rc_biDesc").value,
+    amount: $("#rc_biAmount").value,
+  };
+  if (!payload.description.trim()){ toast("Enter a description.", true); return; }
+  btn.disabled = true;
+  try {
+    await call("bankincome.save", payload);
+    $("#rc_biDesc").value = ""; $("#rc_biAmount").value = "0";
+    toast("Added.");
+    loadReconciliationDay(payload.business_date);
+  } catch(e) { toast(e.message, true); }
+  finally { btn.disabled = false; }
+}
+
+async function saveSumUp(){
+  const btn = $("#rc_sumupSave");
+  const date = $("#rc_date").value;
+  btn.disabled = true;
+  try {
+    await call("sumup.save", { business_date: date, total: $("#rc_sumup").value });
+    toast("SumUp total saved.");
+    loadReconciliationDay(date);
+  } catch(e) { toast(e.message, true); }
+  finally { btn.disabled = false; }
+}
+
+async function loadReconciliationDay(date){
+  $("#rc_summary").innerHTML = `<div class="loading">Loading…</div>`;
+  try {
+    const [rec, bankIncome, worldpay] = await Promise.all([
+      call("reconciliation.day", { business_date: date }),
+      call("bankincome.list", { start: date, end: date }),
+      call("worldpay.list", { start: date, end: date }),
+    ]);
+    S.lastReconciliation = rec;
+
+    const byTill = {};
+    (worldpay.entries||[]).forEach(w => { byTill[w.till_key] = w; });
+    S.tills.forEach(t => {
+      const w = byTill[t.key];
+      const g = $(`#rc_wp_${t.key}_gross`), r = $(`#rc_wp_${t.key}_refunds`), f = $(`#rc_wp_${t.key}_fees`);
+      if (g) g.value = w ? w.gross_card_sales : 0;
+      if (r) r.value = w ? w.refunds : 0;
+      if (f) f.value = w ? w.fees : 0;
+    });
+
+    $("#rc_biList").innerHTML = (bankIncome.entries||[]).length
+      ? `<div class="tablewrap"><table class="grid"><tbody>${bankIncome.entries.map(b=>
+          `<tr><td>${esc(b.description)}</td><td class="num">${money(b.amount)}</td></tr>`).join("")}</tbody></table></div>`
+      : `<p class="muted" style="font-size:13px">Nothing added for this date yet.</p>`;
+
+    $("#rc_sumup").value = rec.sumup_total || 0;
+    $("#rc_summary").innerHTML = reconciliationSummaryHtml(rec);
+  } catch(e) {
+    $("#rc_summary").innerHTML = `<p style="color:var(--alert)">${esc(e.message)}</p>`;
+  }
+}
+
+function reconciliationSummaryHtml(rec){
+  const c = rec.cashup;
+  const row = (label, val) => `<tr><td>${label}</td><td class="num">${val}</td></tr>`;
+  return `
+    <h3 style="margin-bottom:10px;font-size:18px">E. Cash Up summary</h3>
+    <div class="tablewrap"><table class="grid"><tbody>
+      ${row("Tills reported", c.tills_reported)}
+      ${row("Total cash banked", money(c.total_cash_banked))}
+      ${row("Total card", money(c.total_card))}
+      ${row("Total vouchers", money(c.total_vouchers))}
+      ${row("Total room charge", money(c.total_room_charge))}
+      ${row("Grand total takings", `<strong>${money(c.grand_total_takings)}</strong>`)}
+      ${row("Total takings incl. SumUp", `<strong>${money(rec.total_takings_incl_sumup)}</strong>`)}
+    </tbody></table></div>
+
+    <h3 style="margin:20px 0 10px;font-size:18px">F. Variances</h3>
+    <div class="tablewrap"><table class="grid">
+      <thead><tr><th>Check</th><th class="num">Variance</th></tr></thead>
+      <tbody>${rec.variances.map(v => `<tr${v.flagged?' style="background:var(--alert-bg)"':""}>
+        <td>${esc(v.label)}${v.note?`<div class="muted" style="font-size:11px">${esc(v.note)}</div>`:""}</td>
+        <td class="num ${v.value==null?"":(Math.abs(v.value)>1?"down":"up")}">${v.value==null?"—":money(v.value)}</td>
+      </tr>`).join("")}</tbody>
+    </table></div>`;
 }
 
 /* ============================================================ kiosk mode
