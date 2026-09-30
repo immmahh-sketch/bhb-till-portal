@@ -101,6 +101,7 @@ nav.tabs{background:var(--sage-dark)}
   border:1px solid var(--sage); background:var(--sage); color:var(--white);
   border-radius:8px; padding:9px 16px; cursor:pointer; font-size:12px;
   font-weight:600; letter-spacing:var(--track-label); text-transform:uppercase;
+  min-height:44px;
 }
 .btn.ghost{background:var(--white); color:var(--sage)}
 .btn.ghost:hover{background:var(--sage-10)}
@@ -124,19 +125,30 @@ nav.tabs{background:var(--sage-dark)}
 .field{margin-bottom:14px}
 .field label{display:block; font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); margin-bottom:5px}
 .field input,.field select,.field textarea{
-  width:100%; padding:9px 12px; border:1px solid var(--mist); border-radius:8px; background:var(--white);
+  width:100%; padding:11px 12px; border:1px solid var(--mist); border-radius:8px; background:var(--white);
+  font-size:16px; min-height:44px;
 }
-.field input[type=checkbox]{width:auto; padding:0; border:0}
+.field textarea{min-height:0}
+.field input[type=checkbox]{width:auto; padding:0; border:0; min-height:0}
 .row{display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:14px}
+/* No spin buttons on the denomination/money fields - a phone keyboard is
+   how these get filled in, not the tiny up/down arrows, and the arrows are
+   an easy mis-tap on a touchscreen. */
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
+input[type=number]{ -moz-appearance:textfield; }
 /* Portrait list, not a grid - counting cash is a top-to-bottom habit, and
-   Tab/Enter both need to land on the next denomination down, not sideways. */
-.denomlist{display:flex; flex-direction:column; gap:8px; max-width:380px; margin-bottom:10px}
+   Tab/Enter both need to land on the next denomination down, not sideways.
+   16px font and a 44px-tall field throughout are both for touch: under
+   16px, iOS Safari auto-zooms in on focus, which is exactly what you don't
+   want mid-count on a phone. */
+.denomlist{display:flex; flex-direction:column; gap:10px; max-width:380px; margin-bottom:10px}
 .denomrow{display:flex; align-items:center; gap:14px}
 .denomrow .dlabel{
-  width:44px; flex:none; font-size:10px; letter-spacing:var(--track-label);
+  width:44px; flex:none; font-size:12px; letter-spacing:var(--track-label);
   text-transform:uppercase; color:var(--sage-70);
 }
-.denomrow input{flex:1; text-align:center}
+.denomrow input{flex:1; text-align:center; min-height:48px; font-size:17px}
 .denomrow .lineval{
   width:76px; flex:none; text-align:right; color:var(--sage-70);
   font-variant-numeric:tabular-nums; font-size:13px;
@@ -190,6 +202,20 @@ table.grid td.num{text-align:right; font-variant-numeric:tabular-nums}
   .topin,.tabsin{padding-left:14px; padding-right:14px}
   .pagehead h2{font-size:22px}
   table.grid td, table.grid th{padding:8px 8px}
+}
+/* Phone - this is where the Daily Cash Up / Safe Count / Float Count kiosk
+   tiles actually get used, standing at the till. One column throughout,
+   bigger tap targets, everything reachable with a thumb. */
+@media (max-width:480px){
+  #kiosk{padding:14px}
+  .card{padding:16px}
+  .row{grid-template-columns:1fr}
+  .denomrow{gap:10px}
+  .denomrow .dlabel{width:36px; font-size:11px}
+  .denomrow .lineval{width:60px; font-size:12px}
+  .btn{width:100%}
+  .checklist{gap:6px}
+  .checkpill{font-size:11px; padding:6px 11px}
 }
 </style>
 </head>
