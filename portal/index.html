@@ -58,6 +58,10 @@ button,input,select{font:inherit; color:inherit}
   letter-spacing:var(--track-label); text-transform:uppercase; font-size:12px;
 }
 .gateerr{color:var(--alert); font-size:13px; min-height:18px; margin-top:8px}
+.gatelink{color:var(--sage-70); font-size:12px; margin-top:6px; cursor:pointer; text-decoration:underline}
+.gatelink:hover{color:var(--sage)}
+.gatemsg{color:var(--good); font-size:13px; margin-top:8px; min-height:18px}
+.gateback{color:var(--sage-70); font-size:12px; margin-top:14px; cursor:pointer; text-decoration:underline; display:block}
 
 /* ============================================================ header */
 header.top{background:var(--sage); color:var(--white)}
@@ -198,10 +202,30 @@ table.grid td{padding:10px 12px; border-top:1px solid var(--mist); vertical-alig
   <div class="gatecard">
     <h1>Staff Portal</h1>
     <div class="sub">Black Horse Beamish</div>
-    <input id="gemail" type="email" placeholder="Email" autocomplete="username">
-    <input id="gpw" type="password" placeholder="Password" autocomplete="current-password">
-    <button id="gbtn">Sign in</button>
-    <div class="gateerr" id="gerr"></div>
+
+    <div id="gLogin">
+      <input id="gemail" type="email" placeholder="Email" autocomplete="username">
+      <input id="gpw" type="password" placeholder="Password" autocomplete="current-password">
+      <button id="gbtn">Sign in</button>
+      <div class="gatelink" id="gForgotLink">Forgot password?</div>
+      <div class="gateerr" id="gerr"></div>
+    </div>
+
+    <div id="gForgot" hidden>
+      <input id="fgEmail" type="email" placeholder="Email" autocomplete="username">
+      <button id="fgBtn">Send reset link</button>
+      <span class="gateback" id="fgBack">Back to sign in</span>
+      <div class="gateerr" id="fgErr"></div>
+      <div class="gatemsg" id="fgMsg"></div>
+    </div>
+
+    <div id="gReset" hidden>
+      <div class="sub" style="margin-bottom:14px">Choose a new password</div>
+      <input id="rsPw" type="password" placeholder="New password" autocomplete="new-password">
+      <input id="rsPw2" type="password" placeholder="Confirm new password" autocomplete="new-password">
+      <button id="rsBtn">Set new password</button>
+      <div class="gateerr" id="rsErr"></div>
+    </div>
   </div>
 </div>
 
@@ -307,6 +331,11 @@ async function api(action, params){
 }
 
 /* ------------------------------------------------------------- gate */
+function gateMode(mode){
+  $("#gLogin").hidden  = mode !== "login";
+  $("#gForgot").hidden = mode !== "forgot";
+  $("#gReset").hidden  = mode !== "reset";
+}
 function openGate(msg){
   $("#gate").style.display = "flex";
   $("#app").hidden = true;
@@ -314,6 +343,7 @@ function openGate(msg){
 }
 async function trySignIn(email, password){
   $("#gerr").textContent = "";
+  $("#gerr").style.color = "";
   if(!email || !password){ $("#gerr").textContent = "Enter your email and password."; return; }
   try{
     const d = await api("login", { email, password });
@@ -326,6 +356,54 @@ async function trySignIn(email, password){
 }
 $("#gbtn").addEventListener("click", ()=> trySignIn($("#gemail").value.trim(), $("#gpw").value));
 $("#gpw").addEventListener("keydown", e=>{ if(e.key==="Enter") trySignIn($("#gemail").value.trim(), $("#gpw").value); });
+
+/* ------------------------------------------------------- forgot pw */
+$("#gForgotLink").addEventListener("click", ()=>{
+  $("#fgEmail").value = $("#gemail").value.trim();
+  $("#fgErr").textContent = ""; $("#fgMsg").textContent = "";
+  gateMode("forgot");
+});
+$("#fgBack").addEventListener("click", ()=> gateMode("login"));
+async function sendResetLink(){
+  const email = $("#fgEmail").value.trim();
+  $("#fgErr").textContent = ""; $("#fgMsg").textContent = "";
+  if(!email){ $("#fgErr").textContent = "Enter your email."; return; }
+  $("#fgBtn").disabled = true;
+  try{
+    await api("request_password_reset", { email });
+    $("#fgMsg").textContent = "If that email has an account, a reset link is on its way.";
+  }catch(e){
+    $("#fgErr").textContent = e.message;
+  }finally{
+    $("#fgBtn").disabled = false;
+  }
+}
+$("#fgBtn").addEventListener("click", sendResetLink);
+$("#fgEmail").addEventListener("keydown", e=>{ if(e.key==="Enter") sendResetLink(); });
+
+/* --------------------------------------------------- reset password */
+let resetToken = "";
+async function submitReset(){
+  const pw = $("#rsPw").value, pw2 = $("#rsPw2").value;
+  $("#rsErr").textContent = "";
+  if(pw.length < 8){ $("#rsErr").textContent = "Password needs to be at least 8 characters."; return; }
+  if(pw !== pw2){ $("#rsErr").textContent = "Passwords don't match."; return; }
+  $("#rsBtn").disabled = true;
+  try{
+    await api("reset_password", { reset_token: resetToken, password: pw });
+    resetToken = "";
+    history.replaceState(null, "", location.pathname);
+    gateMode("login");
+    $("#gerr").style.color = "var(--good)";
+    openGate("Password updated — sign in below.");
+  }catch(e){
+    $("#rsErr").textContent = e.message;
+  }finally{
+    $("#rsBtn").disabled = false;
+  }
+}
+$("#rsBtn").addEventListener("click", submitReset);
+$("#rsPw2").addEventListener("keydown", e=>{ if(e.key==="Enter") submitReset(); });
 
 function signOut(){
   api("logout").catch(()=>{});
@@ -642,6 +720,15 @@ async function saveUser(id){
 
 /* -------------------------------------------------------------- init */
 (function init(){
+  const qs = new URLSearchParams(location.search);
+  const rt = qs.get("reset");
+  if(rt){
+    resetToken = rt;
+    gateMode("reset");
+    openGate();
+    return;
+  }
+
   let saved = "";
   try{ saved = localStorage.getItem(LS_TOKEN); }catch(e){}
   if(saved){
