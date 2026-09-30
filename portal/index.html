@@ -89,7 +89,14 @@ header.top{background:var(--sage); color:var(--white)}
 .landing-head{padding:32px 0 8px}
 .landing-head h2{font-size:28px; color:var(--sage)}
 .landing-head .hint{font-size:13px; color:var(--sage-70); margin-top:4px}
+.tile-group{margin-top:30px}
+.tile-group:first-child{margin-top:0}
+.tile-group h3{
+  font-size:12px; letter-spacing:.12em; text-transform:uppercase; font-weight:700;
+  color:var(--sage-70); margin:0 0 12px; padding-bottom:6px; border-bottom:1px solid var(--mist);
+}
 .tiles{display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:16px; margin-top:22px}
+.tile-group .tiles{margin-top:0}
 .tile{
   background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow);
   padding:20px; text-align:left; cursor:pointer; border:0; border-top:5px solid var(--sage);
@@ -250,7 +257,7 @@ table.grid td{padding:10px 12px; border-top:1px solid var(--mist); vertical-alig
         <h2>Your Portals</h2>
         <div class="hint">Signed in once, everything below opens without asking again.</div>
       </div>
-      <div class="tiles" id="tiles"></div>
+      <div id="tiles"></div>
     </section>
 
     <section class="page" id="page-settings">
@@ -433,12 +440,25 @@ function iconFor(k){
   return m[k] || "&#9679;";
 }
 
+// Static grouping for the front page - which heading each tile sits under,
+// and the order those headings show in. Not data-driven (no portal_apps
+// column for it): the grouping is a fixed, hand-picked layout, not
+// something that should shift on its own as apps are added.
+const TILE_GROUPS = ["Accounts", "FOH", "Weddings and events"];
+const TILE_GROUP_FOR = {
+  "forecast-dashboard":  "Accounts",
+  "po-tracker":          "Accounts",
+  "till-reports":        "FOH",
+  "restaurant-ordering": "FOH",
+  "wedding-admin":       "Weddings and events",
+};
+
 function renderTiles(){
   if(!S.portals.length){
     $("#tiles").innerHTML = `<div class="empty">No portals assigned to your account yet — ask an admin to give you access.</div>`;
     return;
   }
-  $("#tiles").innerHTML = S.portals.map(p => {
+  const tileHtml = p => {
     const locked = p.granted === false;
     return `
     <button class="tile${locked?' locked':''}" style="border-top-color:${esc(p.color||'#4E5F4F')}" data-key="${esc(p.key)}">
@@ -446,9 +466,26 @@ function renderTiles(){
       <h3>${esc(p.label)}</h3>
       <p>${esc(p.description||'')}</p>
       ${locked ? `<div class="lockNote">&#128274; Contact your administrator for access</div>` : ""}
-    </button>
-  `;
-  }).join("");
+    </button>`;
+  };
+
+  // Keep each app's own order within its group. An app not in
+  // TILE_GROUP_FOR (a new one, not yet categorised) gets its own "Other"
+  // group at the end rather than silently disappearing.
+  const groups = new Map();
+  S.portals.forEach(p => {
+    const g = TILE_GROUP_FOR[p.key] || "Other";
+    if (!groups.has(g)) groups.set(g, []);
+    groups.get(g).push(p);
+  });
+  const order = TILE_GROUPS.concat([...groups.keys()].filter(g => !TILE_GROUPS.includes(g)));
+
+  $("#tiles").innerHTML = order.filter(g => groups.has(g)).map(g => `
+    <div class="tile-group">
+      <h3>${esc(g)}</h3>
+      <div class="tiles">${groups.get(g).map(tileHtml).join("")}</div>
+    </div>
+  `).join("");
   $$("#tiles .tile").forEach(b => b.addEventListener("click", ()=> openPortal(b.dataset.key)));
 }
 
