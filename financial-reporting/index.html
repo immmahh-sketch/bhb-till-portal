@@ -128,10 +128,19 @@ nav.tabs{background:var(--sage-dark)}
 }
 .field input[type=checkbox]{width:auto; padding:0; border:0}
 .row{display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:14px}
-.denomgrid{display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:12px; margin-bottom:6px}
-.denomgrid .field{margin-bottom:0}
-.denomgrid .field label{display:flex; justify-content:space-between}
-.denomgrid .field .lineval{color:var(--sage-70); font-weight:400; text-transform:none; letter-spacing:0}
+/* Portrait list, not a grid - counting cash is a top-to-bottom habit, and
+   Tab/Enter both need to land on the next denomination down, not sideways. */
+.denomlist{display:flex; flex-direction:column; gap:8px; max-width:380px; margin-bottom:10px}
+.denomrow{display:flex; align-items:center; gap:14px}
+.denomrow .dlabel{
+  width:44px; flex:none; font-size:10px; letter-spacing:var(--track-label);
+  text-transform:uppercase; color:var(--sage-70);
+}
+.denomrow input{flex:1; text-align:center}
+.denomrow .lineval{
+  width:76px; flex:none; text-align:right; color:var(--sage-70);
+  font-variant-numeric:tabular-nums; font-size:13px;
+}
 
 /* ============================================================ table */
 .tablewrap{overflow-x:auto}
@@ -343,13 +352,29 @@ const DENOMS = [
   { key:"qty_1p",  label:"1p",   value:0.01 },
 ];
 function denomGridHtml(prefix){
-  return `<div class="denomgrid">` + DENOMS.map(d => `
-    <div class="field">
-      <label>${d.label} <span class="lineval" id="${prefix}_line_${d.key}">£0.00</span></label>
+  return `<div class="denomlist">` + DENOMS.map(d => `
+    <div class="denomrow">
+      <span class="dlabel">${d.label}</span>
       <input type="number" min="0" step="1" inputmode="numeric" id="${prefix}_${d.key}" value="0"
-             oninput="updateDenomTotal('${prefix}')">
+             oninput="updateDenomTotal('${prefix}')"
+             onkeydown="denomKeydown(event)" onfocus="this.select()">
+      <span class="lineval" id="${prefix}_line_${d.key}">£0.00</span>
     </div>`).join("") + `</div>
     <p class="muted" style="margin:4px 0 0">Total counted: <strong id="${prefix}_total">£0.00</strong></p>`;
+}
+// Enter moves to the next denomination down, same as Tab, so a count can be
+// keyed in top to bottom without reaching for the mouse. On the last line
+// it hands off to whatever field comes right after the list (e.g. Notes).
+function denomKeydown(e){
+  if (e.key !== "Enter") return;
+  e.preventDefault();
+  const list = Array.from(document.querySelectorAll(".denomlist input"));
+  const i = list.indexOf(e.target);
+  if (i === -1) return;
+  if (i < list.length - 1) { list[i+1].focus(); return; }
+  const all = Array.from(document.querySelectorAll("input, select, textarea, button"));
+  const j = all.indexOf(e.target);
+  if (j > -1 && j < all.length - 1) all[j+1].focus();
 }
 function readDenoms(prefix){
   const out = {}; let total = 0;
