@@ -3,6 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<!-- Seen once: a long-lived tab kept serving a stale cached copy of this
+     document through multiple deploys and hard refreshes, showing an old
+     app icon and missing new fixes. These are a defensive measure against
+     that, not a confirmed fix - real HTTP Cache-Control headers would be
+     the proper fix but aren't configurable on this static host. -->
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>Staff Portal — Black Horse Beamish</title>
 <meta name="robots" content="noindex,nofollow">
 <link rel="manifest" href="manifest.webmanifest">
@@ -259,7 +267,13 @@ table.grid td{padding:10px 12px; border-top:1px solid var(--mist); vertical-alig
     <h1>Add this to your Home Screen</h1>
     <div class="sub">Staff Portal — Black Horse Beamish</div>
     <div id="installSteps"></div>
-    <a href="#" onclick="continueInBrowser();return false;" class="muted" style="display:block;margin-top:14px;font-size:12px">Having trouble? Continue in browser</a>
+    <!-- Real href, not just "#" - if this is a stale cached copy of the
+         page where continueInBrowser() doesn't even exist yet, the onclick
+         throws before it can return false, so the browser falls through to
+         this href instead of doing nothing. A cache-busting query string
+         forces an actual fresh network request for a URL that's never been
+         cached before, rather than reusing whatever cached this page. -->
+    <a href="./?nocache=1" onclick="continueInBrowser();return false;" class="muted" style="display:block;margin-top:14px;font-size:12px">Having trouble? Continue in browser</a>
   </div>
 </div>
 
