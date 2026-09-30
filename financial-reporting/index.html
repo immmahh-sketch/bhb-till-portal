@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Financial Reporting — Black Horse Beamish</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+/* ============================================================ tokens
+   Same values as every other app in this portal. */
+:root{
+  --sage:#4E5F4F; --sage-70:#7B887C; --sage-10:#EDEFED; --sage-dark:#3B483C;
+  --bone:#F7F7F7; --celadon:#C1C8B4; --mist:#E7E7E7; --white:#fff; --ink:#262626;
+  --gold:#C9A56B;
+  --attention:#B08D57; --attention-bg:#F7F0E4;
+  --alert:#8C4A3F;     --alert-bg:#F6EAE8;
+  --good:#4F6B4F;      --good-bg:#EDF2ED;
+  --display:"Cormorant Garamond",Georgia,serif;
+  --body:Raleway,"Helvetica Neue",Arial,sans-serif;
+  --track-label:.18em;
+  --radius:10px;
+  --shadow:0 1px 2px rgba(38,38,38,.06),0 8px 24px rgba(38,38,38,.07);
+  --maxw:1320px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  font-family:var(--body); color:var(--ink); background:var(--bone);
+  font-size:15px; line-height:1.45; -webkit-text-size-adjust:100%;
+}
+h1,h2,h3{font-family:var(--display); font-weight:600; margin:0; letter-spacing:.01em}
+button,input,select,textarea{font:inherit; color:inherit}
+a{color:var(--sage)}
+.shell{max-width:var(--maxw); margin:0 auto; padding:0 20px 64px}
+
+/* ============================================================ gate */
+#gate{
+  position:fixed; inset:0; background:var(--sage); z-index:100;
+  display:flex; align-items:center; justify-content:center; padding:24px;
+}
+.gatecard{
+  background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow);
+  width:100%; max-width:380px; padding:32px 28px; text-align:center;
+}
+.gatecard h1{font-size:26px; color:var(--sage); line-height:1.15}
+.gatecard .sub{
+  font-size:11px; letter-spacing:var(--track-label); text-transform:uppercase;
+  color:var(--sage-70); margin:6px 0 22px;
+}
+.gatecard input{
+  width:100%; padding:12px 14px; border:1px solid var(--mist);
+  border-radius:8px; background:var(--bone); margin-bottom:10px; text-align:center;
+}
+.gatecard button{
+  width:100%; padding:12px; border:0; border-radius:8px; cursor:pointer;
+  background:var(--sage); color:var(--white); font-weight:600;
+  letter-spacing:var(--track-label); text-transform:uppercase; font-size:12px;
+}
+.gateerr{color:var(--alert); font-size:13px; min-height:18px; margin-top:8px}
+
+/* ============================================================ header */
+header.top{background:var(--sage); color:var(--white)}
+.topin{
+  max-width:var(--maxw); margin:0 auto; padding:14px 20px;
+  display:flex; align-items:center; gap:18px; flex-wrap:wrap;
+}
+.brand{font-family:var(--display); font-size:21px; line-height:1.1}
+.brand small{
+  display:block; font-family:var(--body); font-size:10px;
+  letter-spacing:var(--track-label); text-transform:uppercase; opacity:.75;
+}
+.who{margin-left:auto; display:flex; align-items:center; gap:10px; font-size:12px; opacity:.9}
+.who button{
+  background:transparent; border:1px solid rgba(255,255,255,.4); color:var(--white);
+  border-radius:6px; padding:5px 10px; cursor:pointer; font-size:11px;
+  letter-spacing:.06em; text-transform:uppercase;
+}
+
+nav.tabs{background:var(--sage-dark)}
+.tabsin{max-width:var(--maxw); margin:0 auto; padding:0 20px; display:flex; gap:2px; overflow-x:auto}
+.tabbtn{
+  background:transparent; border:0; cursor:pointer; color:rgba(255,255,255,.72);
+  padding:12px 16px; font-size:12px; font-weight:600; white-space:nowrap;
+  letter-spacing:var(--track-label); text-transform:uppercase;
+  border-bottom:3px solid transparent;
+}
+.tabbtn[aria-current="page"]{color:var(--white); border-bottom-color:var(--gold)}
+
+/* ============================================================ layout */
+.page{display:none; padding-top:26px}
+.page.on{display:block}
+.pagehead{display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; margin-bottom:18px}
+.pagehead h2{font-size:26px; color:var(--sage)}
+.pagehead .hint{font-size:13px; color:var(--sage-70)}
+.spacer{margin-left:auto}
+
+.btn{
+  border:1px solid var(--sage); background:var(--sage); color:var(--white);
+  border-radius:8px; padding:9px 16px; cursor:pointer; font-size:12px;
+  font-weight:600; letter-spacing:var(--track-label); text-transform:uppercase;
+}
+.btn.ghost{background:var(--white); color:var(--sage)}
+.btn.ghost:hover{background:var(--sage-10)}
+.btn:disabled{opacity:.5; cursor:default}
+
+/* ============================================================ tiles */
+.tiles{display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:14px; margin-bottom:26px}
+.tile{
+  background:var(--white); border-radius:var(--radius); padding:16px 18px;
+  box-shadow:var(--shadow); border-left:4px solid var(--celadon);
+}
+.tile .n{font-family:var(--display); font-size:30px; line-height:1; color:var(--sage)}
+.tile .l{font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); margin-top:6px}
+.tile .d{font-size:12px; margin-top:4px; font-weight:600}
+.tile.warn{border-left-color:var(--attention)} .tile.warn .n{color:var(--attention)}
+.tile.bad{border-left-color:var(--alert)}      .tile.bad  .n{color:var(--alert)}
+.tile.ok{border-left-color:var(--good)}        .tile.ok   .n{color:var(--good)}
+
+/* ============================================================ form */
+.card{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px; margin-bottom:20px}
+.field{margin-bottom:14px}
+.field label{display:block; font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); margin-bottom:5px}
+.field input,.field select,.field textarea{
+  width:100%; padding:9px 12px; border:1px solid var(--mist); border-radius:8px; background:var(--white);
+}
+.field input[type=checkbox]{width:auto; padding:0; border:0}
+.row{display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:14px}
+.denomgrid{display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:12px; margin-bottom:6px}
+.denomgrid .field{margin-bottom:0}
+.denomgrid .field label{display:flex; justify-content:space-between}
+.denomgrid .field .lineval{color:var(--sage-70); font-weight:400; text-transform:none; letter-spacing:0}
+
+/* ============================================================ table */
+.tablewrap{overflow-x:auto}
+table.grid{width:100%; border-collapse:collapse; font-size:14px}
+table.grid th{
+  text-align:left; padding:11px 12px; background:var(--sage-10); color:var(--sage);
+  font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase;
+  font-weight:700; white-space:nowrap;
+}
+table.grid th.num{text-align:right}
+table.grid td{padding:10px 12px; border-top:1px solid var(--mist); vertical-align:top; white-space:nowrap}
+table.grid td.num{text-align:right; font-variant-numeric:tabular-nums}
+.muted{color:var(--sage-70)}
+.strong{font-weight:600}
+.up{color:var(--good)} .down{color:var(--alert)}
+
+.subnav{display:flex; gap:8px; flex-wrap:wrap; margin:0 0 18px}
+.subnav button{
+  background:var(--white); border:1px solid var(--mist); color:var(--sage);
+  border-radius:999px; padding:7px 16px; cursor:pointer; font-size:12px; font-weight:600;
+}
+.subnav button.on{background:var(--sage); border-color:var(--sage); color:var(--white)}
+
+.empty{padding:40px 20px; text-align:center; color:var(--sage-70)}
+.loading{padding:60px; text-align:center; color:var(--sage-70)}
+
+.toast{
+  position:fixed; left:50%; bottom:26px; transform:translate(-50%,20px);
+  background:var(--ink); color:var(--white); padding:12px 20px; border-radius:8px;
+  z-index:200; opacity:0; transition:.2s; pointer-events:none; font-size:14px; max-width:90vw;
+}
+.toast.on{opacity:1; transform:translate(-50%,0)}
+.toast.bad{background:var(--alert)}
+
+/* ============================================================ kiosk */
+#kiosk{max-width:640px; margin:0 auto; padding:20px}
+#kiosk header.top{border-radius:var(--radius) var(--radius) 0 0}
+.checklist{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:18px}
+.checkpill{
+  border-radius:999px; padding:6px 14px; font-size:12px; font-weight:600;
+  background:var(--sage-10); color:var(--sage-70);
+}
+.checkpill.done{background:var(--good-bg); color:var(--good)}
+
+@media (max-width:760px){
+  .shell{padding:0 14px 48px}
+  .topin,.tabsin{padding-left:14px; padding-right:14px}
+  .pagehead h2{font-size:22px}
+  table.grid td, table.grid th{padding:8px 8px}
+}
+</style>
+</head>
+<body>
+
+<!-- ======================================================== gate -->
+<div id="gate">
+  <div class="gatecard">
+    <h1>Financial Reporting</h1>
+    <div class="sub">Black Horse Beamish</div>
+    <input id="gpw" type="password" placeholder="Password" autocomplete="current-password">
+    <button id="gbtn">Open</button>
+    <div class="gateerr" id="gerr"></div>
+  </div>
+</div>
+
+<!-- ======================================================== full app -->
+<div id="app" hidden>
+  <header class="top">
+    <div class="topin">
+      <div class="brand">Financial Reporting<small>Black Horse Beamish</small></div>
+      <div class="who">
+        <button id="signout">Sign out</button>
+      </div>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <div class="tabsin" role="tablist">
+      <button class="tabbtn" data-view="dashboard">Dashboard</button>
+      <button class="tabbtn" data-view="cashup" data-group="cashup,cashup-history">Cash Up</button>
+      <button class="tabbtn" data-view="safe" data-group="safe,safe-history,float,float-history">Safe &amp; Float Counts</button>
+      <button class="tabbtn" data-view="reconciliation">Reconciliation</button>
+      <button class="tabbtn" data-view="pettycash">Petty Cash</button>
+      <button class="tabbtn" data-view="adjustments">Adjustments</button>
+      <button class="tabbtn" data-view="trends">Trends</button>
+      <button class="tabbtn" data-view="settings">Settings</button>
+    </div>
+  </nav>
+
+  <div class="shell">
+    <div id="views"></div>
+  </div>
+</div>
+
+<!-- ======================================================== kiosk app -->
+<div id="kioskApp" hidden>
+  <header class="top">
+    <div class="topin">
+      <div class="brand" id="kioskTitle">Financial Reporting<small>Black Horse Beamish</small></div>
+    </div>
+  </header>
+  <div id="kiosk"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ==================================================================
+   Financial Reporting
+   Replaces the Excel/VBA workbook in the GM's OneDrive "Financial
+   Reporting System" folder. One physical page, reached through four
+   Staff Portal tiles: the full app (Accounts), and three kiosk deep
+   links (?view=cashup under FOH, ?view=safe / ?view=float under
+   Office) that each boot straight into one form, no nav.
+
+   fin_* tables have RLS on with no public policies - every call goes
+   through the financial-api edge function with the service role.
+   staff_email (injected by the portal into sessionStorage, same as
+   every other app here) is the real access check; the page password
+   below is just the door, same as till-reports/restaurant-ordering.
+   ================================================================== */
+
+const CFG = {
+  SUPABASE_URL: "https://safcrtrfdzsnftghibot.supabase.co",
+  SUPABASE_KEY: "sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU",
+  PORTAL_PASSWORD: "F1nancial#26",
+  KEY: "bhb_financial_ok",
+};
+
+const VIEW = new URLSearchParams(location.search).get("view"); // null | "cashup" | "safe" | "float"
+
+const S = {
+  view: "dashboard", tills: [], staff: [], pettyCategories: [],
+  safeFloatSub: "safe",
+  lastCashUp: null, lastSafe: null, lastFloat: null,
+};
+
+const $  = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const money = n => "£" + (Number(n)||0).toLocaleString("en-GB",{minimumFractionDigits:2,maximumFractionDigits:2});
+function todayIso(){ return new Intl.DateTimeFormat("en-CA",{timeZone:"Europe/London"}).format(new Date()); }
+function ukDate(iso){
+  const p = String(iso||"").slice(0,10).split("-"); if (p.length!==3) return "";
+  return `${p[2]}/${p[1]}/${p[0]}`;
+}
+function toast(msg, bad){
+  const t = $("#toast");
+  t.textContent = msg;
+  t.className = "toast on" + (bad ? " bad" : "");
+  clearTimeout(toast._t);
+  toast._t = setTimeout(()=>{ t.className = "toast"; }, bad ? 5200 : 2600);
+}
+
+// Set by the Staff Portal (sessionStorage, same-origin injection) when this
+// page is opened from there - the real identity every server-side access
+// check runs against, on top of the shared door password.
+function staffEmail(){
+  try { return sessionStorage.getItem("bhb_staff_email") || ""; } catch(e){ return ""; }
+}
+
+async function call(action, payload){
+  const r = await fetch(CFG.SUPABASE_URL + "/functions/v1/financial-api", {
+    method: "POST",
+    headers: { "Content-Type":"application/json", Authorization:"Bearer "+CFG.SUPABASE_KEY, apikey: CFG.SUPABASE_KEY },
+    body: JSON.stringify({ action, staff_email: staffEmail(), ...(payload||{}) }),
+  });
+  let d = {};
+  try { d = await r.json(); } catch(e){}
+  if (!r.ok || d.error) throw new Error(d.error || `Request failed (${r.status})`);
+  return d;
+}
+
+/* ------------------------------------------------------------- CSV export
+   Client-side only, no server round-trip - matches forecast-dashboard's
+   downloadCsv/csvCell exactly, the established pattern in this codebase. */
+function csvCell(v){
+  if (v === null || v === undefined) return "";
+  const s = String(v);
+  return /[",\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
+}
+function downloadCsv(filename, columns, rows){
+  if (!rows || !rows.length){ toast("Nothing to export.", true); return; }
+  const header = columns.map(c => csvCell(c.label)).join(",");
+  const body = rows.map(r => columns.map(c => csvCell(typeof c.value==="function" ? c.value(r) : r[c.value])).join(",")).join("\n");
+  const blob = new Blob([header + "\n" + body], { type:"text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/* ------------------------------------------------------ denominations
+   Fixed UK cash/coin set, largest first - mirrors the DENOMS constant in
+   financial-api itself. Not a lookup table; these don't change. */
+const DENOMS = [
+  { key:"qty_50",  label:"£50",  value:50   },
+  { key:"qty_20",  label:"£20",  value:20   },
+  { key:"qty_10",  label:"£10",  value:10   },
+  { key:"qty_5",   label:"£5",   value:5    },
+  { key:"qty_2",   label:"£2",   value:2    },
+  { key:"qty_1",   label:"£1",   value:1    },
+  { key:"qty_50p", label:"50p",  value:0.5  },
+  { key:"qty_20p", label:"20p",  value:0.2  },
+  { key:"qty_10p", label:"10p",  value:0.1  },
+  { key:"qty_5p",  label:"5p",   value:0.05 },
+  { key:"qty_2p",  label:"2p",   value:0.02 },
+  { key:"qty_1p",  label:"1p",   value:0.01 },
+];
+function denomGridHtml(prefix){
+  return `<div class="denomgrid">` + DENOMS.map(d => `
+    <div class="field">
+      <label>${d.label} <span class="lineval" id="${prefix}_line_${d.key}">£0.00</span></label>
+      <input type="number" min="0" step="1" inputmode="numeric" id="${prefix}_${d.key}" value="0"
+             oninput="updateDenomTotal('${prefix}')">
+    </div>`).join("") + `</div>
+    <p class="muted" style="margin:4px 0 0">Total counted: <strong id="${prefix}_total">£0.00</strong></p>`;
+}
+function readDenoms(prefix){
+  const out = {}; let total = 0;
+  DENOMS.forEach(d => {
+    const n = Math.max(0, Math.floor(Number($(`#${prefix}_${d.key}`)?.value) || 0));
+    out[d.key] = n; total += n * d.value;
+  });
+  return { values: out, total: Math.round(total * 100) / 100 };
+}
+function updateDenomTotal(prefix){
+  DENOMS.forEach(d => {
+    const n = Math.max(0, Math.floor(Number($(`#${prefix}_${d.key}`)?.value) || 0));
+    const el = $(`#${prefix}_line_${d.key}`);
+    if (el) el.textContent = money(n * d.value);
+  });
+  const { total } = readDenoms(prefix);
+  const t = $(`#${prefix}_total`); if (t) t.textContent = money(total);
+  return total;
+}
+
+/* ------------------------------------------------------------- gate */
+function openGate(msg){
+  $("#gate").style.display = "flex";
+  $("#app").hidden = true;
+  $("#kioskApp").hidden = true;
+  if (msg) $("#gerr").textContent = msg;
+}
+function tryOpen(pw){
+  $("#gerr").textContent = "";
+  if (!pw){ $("#gerr").textContent = "Enter the password."; return; }
+  if (pw !== CFG.PORTAL_PASSWORD){ $("#gerr").textContent = "Wrong password."; return; }
+  try { sessionStorage.setItem(CFG.KEY, "1"); } catch(e){}
+  $("#gate").style.display = "none";
+  boot();
+}
+$("#gbtn").addEventListener("click", ()=> tryOpen($("#gpw").value));
+$("#gpw").addEventListener("keydown", e=>{ if (e.key==="Enter") tryOpen($("#gpw").value); });
+$("#signout").addEventListener("click", ()=>{
+  try { sessionStorage.removeItem(CFG.KEY); } catch(e){}
+  openGate();
+});
+
+/* -------------------------------------------------------------- boot */
+async function boot(){
+  try {
+    const [t, s] = await Promise.all([ call("tills.list"), call("staff.list") ]);
+    S.tills = t.tills || []; S.staff = s.staff || [];
+  } catch(e) { toast(e.message, true); }
+
+  if (VIEW === "cashup" || VIEW === "safe" || VIEW === "float") {
+    $("#kioskApp").hidden = false;
+    bootKiosk(VIEW);
+  } else {
+    $("#app").hidden = false;
+    $$(".tabbtn").forEach(b=>{
+      b.addEventListener("click", ()=> goView(b.dataset.view));
+    });
+    goView("dashboard");
+  }
+}
+
+function navGroup(btn){ return btn.dataset.group ? btn.dataset.group.split(",") : [btn.dataset.view]; }
+function markNav(){
+  $$(".tabbtn").forEach(x=>{
+    if (navGroup(x).indexOf(S.view) !== -1) x.setAttribute("aria-current","page");
+    else x.removeAttribute("aria-current");
+  });
+}
+function goView(v){
+  S.view = v;
+  markNav();
+  render();
+  window.scrollTo({top:0});
+}
+
+function staffOptions(current){
+  return `<option value="">Pick a name&hellip;</option>` +
+    S.staff.map(s => `<option${s.name===current?" selected":""}>${esc(s.name)}</option>`).join("");
+}
+function tillOptions(current){
+  return S.tills.map(t => `<option value="${esc(t.key)}"${t.key===current?" selected":""}>${esc(t.label)}</option>`).join("");
+}
+
+/* ======================================================= render router */
+function render(){
+  const v = $("#views");
+  switch (S.view) {
+    case "dashboard":     v.innerHTML = viewDashboard(); break;
+    case "cashup":        v.innerHTML = viewCashUpEntry(); wireCashUpEntry(); break;
+    case "cashup-history": v.innerHTML = viewCashUpHistory(); loadCashUpHistory(); break;
+    case "safe":          v.innerHTML = viewSafeEntry(); wireSafeEntry(); break;
+    case "safe-history":  v.innerHTML = viewSafeHistory(); loadSafeHistory(); break;
+    case "float":         v.innerHTML = viewFloatEntry(); wireFloatEntry(); break;
+    case "float-history": v.innerHTML = viewFloatHistory(); loadFloatHistory(); break;
+    case "reconciliation": v.innerHTML = comingSoon("Reconciliation",
+      "Rezlynx import, Worldpay/bank income/SumUp entry and the variance checks land here in the next phase."); break;
+    case "pettycash": v.innerHTML = comingSoon("Petty Cash",
+      "The petty cash log and running balance land here in the next phase."); break;
+    case "adjustments": v.innerHTML = comingSoon("Adjustments",
+      "Change deliveries and banking collections land here in the next phase."); break;
+    case "trends": v.innerHTML = comingSoon("Trends",
+      "Variance summaries by till, safe and petty cash category land here in the next phase."); break;
+    case "settings": v.innerHTML = comingSoon("Settings",
+      "Managing tills, staff and petty cash categories lands here in the next phase."); break;
+    default: v.innerHTML = "";
+  }
+}
+function comingSoon(title, note){
+  return `<div class="pagehead"><h2>${esc(title)}</h2></div><div class="card empty">${esc(note)}</div>`;
+}
+
+function viewDashboard(){
+  return `
+    <div class="pagehead">
+      <h2>Dashboard</h2>
+      <div class="hint">Today's snapshot lands here once Reconciliation is built. For now, jump straight to a task.</div>
+    </div>
+    <div class="tiles">
+      <button class="tile" style="text-align:left;cursor:pointer" onclick="goView('cashup')">
+        <div class="l">Cash Up</div><div class="n" style="font-size:18px">Enter a till's count</div>
+      </button>
+      <button class="tile" style="text-align:left;cursor:pointer" onclick="goView('safe')">
+        <div class="l">Safe Count</div><div class="n" style="font-size:18px">AM / PM safe count</div>
+      </button>
+      <button class="tile" style="text-align:left;cursor:pointer" onclick="goView('float')">
+        <div class="l">Float Count</div><div class="n" style="font-size:18px">Verify a till's float</div>
+      </button>
+      <button class="tile" style="text-align:left;cursor:pointer" onclick="goView('cashup-history')">
+        <div class="l">History</div><div class="n" style="font-size:18px">Cash Up records</div>
+      </button>
+    </div>`;
+}
+
+/* ============================================================ Cash Up */
+function viewCashUpEntry(){
+  return `
+    ${VIEW ? "" : `<div class="subnav">
+      <button class="on">Add a count</button>
+      <button onclick="goView('cashup-history')">History</button>
+    </div>`}
+    <div class="pagehead"><h2>Cash Up</h2><div class="hint">Count a till and log the day's cash and card takings.</div></div>
+    <div class="card">
+      <div class="row">
+        <div class="field"><label>Date</label><input type="date" id="cu_date" value="${todayIso()}"></div>
+        <div class="field"><label>Till</label><select id="cu_till">${tillOptions()}</select></div>
+        <div class="field"><label>Completed by</label><select id="cu_staff">${staffOptions()}</select></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3 style="margin-bottom:10px;font-size:18px">Cash counted</h3>
+      ${denomGridHtml("cu")}
+    </div>
+    <div class="card">
+      <div class="row">
+        <div class="field"><label>Opening float</label><input type="number" step="0.01" id="cu_opening" readonly></div>
+        <div class="field"><label>Float retained for tomorrow</label><input type="number" step="0.01" id="cu_retained"></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3 style="margin-bottom:10px;font-size:18px">Card &amp; other (off the till's Z-read)</h3>
+      <div class="row">
+        <div class="field"><label>Visa</label><input type="number" step="0.01" id="cu_visa" value="0"></div>
+        <div class="field"><label>Mastercard</label><input type="number" step="0.01" id="cu_mc" value="0"></div>
+        <div class="field"><label>Amex</label><input type="number" step="0.01" id="cu_amex" value="0"></div>
+        <div class="field"><label>Vouchers</label><input type="number" step="0.01" id="cu_vouchers" value="0"></div>
+        <div class="field"><label>Room charge</label><input type="number" step="0.01" id="cu_room" value="0"></div>
+      </div>
+      <div class="field"><label>Z-Read reported total sales</label><input type="number" step="0.01" id="cu_zread" value="0"></div>
+      <div class="field"><label>Notes (optional)</label><textarea id="cu_notes" rows="2"></textarea></div>
+    </div>
+    <button class="btn" id="cu_save">Save &amp; archive</button>`;
+}
+function wireCashUpEntry(){
+  const fillFloat = () => {
+    const t = S.tills.find(x => x.key === $("#cu_till").value);
+    const f = t ? Number(t.float_amount) || 0 : 0;
+    $("#cu_opening").value = f.toFixed(2);
+    $("#cu_retained").value = f.toFixed(2);
+  };
+  $("#cu_till").addEventListener("change", fillFloat);
+  fillFloat();
+  $("#cu_save").addEventListener("click", saveCashUp);
+}
+// After a successful save: in the full app, jump to History. In kiosk mode
+// there is no #views router to jump to - refresh the same-day checklist
+// and reset the form in place instead, ready for the next till/session.
+function afterSave(kioskView, historyView){
+  if (VIEW === kioskView) {
+    refreshKioskChecklist(kioskView);
+    $("#kioskForm").innerHTML = KIOSK[kioskView].entry();
+    KIOSK[kioskView].wire();
+  } else {
+    goView(historyView);
+  }
+}
+
+async function saveCashUp(){
+  const btn = $("#cu_save");
+  const { values } = readDenoms("cu");
+  const payload = {
+    business_date: $("#cu_date").value,
+    till_key: $("#cu_till").value,
+    ...values,
+    opening_float: $("#cu_opening").value,
+    float_retained_for_tomorrow: $("#cu_retained").value,
+    visa_total: $("#cu_visa").value,
+    mastercard_total: $("#cu_mc").value,
+    amex_total: $("#cu_amex").value,
+    vouchers_total: $("#cu_vouchers").value,
+    room_charge_total: $("#cu_room").value,
+    zread_reported_total: $("#cu_zread").value,
+    staff_name: $("#cu_staff").value,
+    notes: $("#cu_notes").value,
+  };
+  if (!payload.staff_name){ toast("Pick who completed this.", true); return; }
+  btn.disabled = true; btn.textContent = "Saving…";
+  try {
+    const out = await call("cashup.save", payload);
+    toast(`Saved — variance ${money(out.cashup.variance)}.`);
+    afterSave("cashup", "cashup-history");
+  } catch(e) { toast(e.message, true); }
+  finally { btn.disabled = false; btn.textContent = "Save & archive"; }
+}
+
+const CASHUP_COLS = [
+  { label:"Date", value:r=>ukDate(r.business_date) },
+  { label:"Till", value:r=>tillLabel(r.till_key) },
+  { label:"Completed By", value:"staff_name" },
+  { label:"Total Cash Counted", value:"total_cash_counted" },
+  { label:"Opening Float", value:"opening_float" },
+  { label:"Float Retained", value:"float_retained_for_tomorrow" },
+  { label:"Cash Banking/Drop", value:"cash_banking" },
+  { label:"Visa", value:"visa_total" }, { label:"Mastercard", value:"mastercard_total" },
+  { label:"Amex", value:"amex_total" }, { label:"Vouchers", value:"vouchers_total" },
+  { label:"Room Charge", value:"room_charge_total" },
+  { label:"Total Card & Other", value:"total_card_and_other" },
+  { label:"Z-Read Reported Total", value:"zread_reported_total" },
+  { label:"Grand Total Takings", value:"grand_total_takings" },
+  { label:"Variance", value:"variance" },
+  { label:"Notes", value:r=>r.notes||"" },
+];
+function tillLabel(key){ const t = S.tills.find(x=>x.key===key); return t ? t.label : key; }
+function viewCashUpHistory(){
+  return `
+    <div class="subnav">
+      <button onclick="goView('cashup')">Add a count</button>
+      <button class="on">History</button>
+    </div>
+    <div class="pagehead">
+      <h2>Cash Up — History</h2>
+      <div class="hint">Every saved count, latest per till per day.</div>
+      <div class="spacer"></div>
+      <div class="field" style="margin:0 8px"><input type="date" id="cuh_start" value="${addDaysIso(todayIso(),-29)}"></div>
+      <div class="field" style="margin:0 8px"><input type="date" id="cuh_end" value="${todayIso()}"></div>
+      <button class="btn ghost" id="cuh_go">Show</button>
+      <button class="btn ghost" id="cuh_csv">Export CSV</button>
+    </div>
+    <div class="card"><div class="tablewrap"><table class="grid" id="cuh_table"></table></div></div>`;
+}
+function addDaysIso(iso, n){ const d = new Date(iso+"T12:00:00Z"); d.setUTCDate(d.getUTCDate()+n); return d.toISOString().slice(0,10); }
+async function loadCashUpHistory(){
+  $("#cuh_go").addEventListener("click", loadCashUpHistory);
+  $("#cuh_csv").addEventListener("click", ()=> downloadCsv(`cashup-${$("#cuh_start").value}-to-${$("#cuh_end").value}.csv`, CASHUP_COLS, S.lastCashUp||[]));
+  $("#cuh_table").innerHTML = `<tr><td class="loading">Loading…</td></tr>`;
+  try {
+    const d = await call("cashup.list", { start: $("#cuh_start").value, end: $("#cuh_end").value });
+    S.lastCashUp = d.days || [];
+    if (!S.lastCashUp.length){ $("#cuh_table").innerHTML = `<tr><td class="empty">No cash-ups in this range.</td></tr>`; return; }
+    $("#cuh_table").innerHTML = `
+      <thead><tr><th>Date</th><th>Till</th><th>Completed By</th><th class="num">Cash Banked</th>
+        <th class="num">Card &amp; Other</th><th class="num">Grand Total</th><th class="num">Variance</th></tr></thead>
+      <tbody>${S.lastCashUp.map(r => `<tr>
+        <td class="strong">${ukDate(r.business_date)}</td><td>${esc(tillLabel(r.till_key))}</td><td>${esc(r.staff_name)}</td>
+        <td class="num">${money(r.cash_banking)}</td><td class="num">${money(r.total_card_and_other)}</td>
+        <td class="num strong">${money(r.grand_total_takings)}</td>
+        <td class="num ${Math.abs(r.variance)>1?'down':'up'}">${money(r.variance)}</td>
+      </tr>`).join("")}</tbody>`;
+  } catch(e) { $("#cuh_table").innerHTML = `<tr><td class="empty">${esc(e.message)}</td></tr>`; }
+}
+
+/* ============================================================ Safe Count */
+function viewSafeEntry(){
+  return `
+    ${VIEW ? "" : `<div class="subnav">
+      <button class="on">Add a safe count</button>
+      <button onclick="goView('safe-history')">Safe History</button>
+      <button onclick="goView('float')">Float Count</button>
+      <button onclick="goView('float-history')">Float History</button>
+    </div>`}
+    <div class="pagehead"><h2>Safe Count</h2><div class="hint">One safe, holding both petty cash and banking cash — counted AM and PM.</div></div>
+    <div class="card">
+      <div class="row">
+        <div class="field"><label>Date</label><input type="date" id="sf_date" value="${todayIso()}"></div>
+        <div class="field"><label>Session</label>
+          <select id="sf_session"><option value="AM">AM — Office Manager</option><option value="PM">PM — FOH Supervisor</option></select>
+        </div>
+        <div class="field"><label>Counted by</label><select id="sf_staff">${staffOptions()}</select></div>
+      </div>
+    </div>
+    <div class="card">${denomGridHtml("sf")}</div>
+    <div class="card">
+      <div class="field"><label>Manual adjustment (optional)</label><input type="number" step="0.01" id="sf_adj" value="0"></div>
+      <div class="field"><label>Notes (optional)</label><textarea id="sf_notes" rows="2"></textarea></div>
+    </div>
+    <button class="btn" id="sf_save">Save count</button>`;
+}
+function wireSafeEntry(){ $("#sf_save").addEventListener("click", saveSafeCount); }
+async function saveSafeCount(){
+  const btn = $("#sf_save");
+  const { values } = readDenoms("sf");
+  const payload = {
+    business_date: $("#sf_date").value, session: $("#sf_session").value,
+    ...values, manual_adjustment: $("#sf_adj").value,
+    counted_by: $("#sf_staff").value, notes: $("#sf_notes").value,
+  };
+  if (!payload.counted_by){ toast("Pick who counted this.", true); return; }
+  btn.disabled = true; btn.textContent = "Saving…";
+  try {
+    const out = await call("safe.save", payload);
+    toast(`Saved — variance ${money(out.safe_count.variance)}.`);
+    afterSave("safe", "safe-history");
+  } catch(e) { toast(e.message, true); }
+  finally { btn.disabled = false; btn.textContent = "Save count"; }
+}
+const SAFE_COLS = [
+  { label:"Date", value:r=>ukDate(r.business_date) }, { label:"Session", value:"session" },
+  { label:"Counted By", value:"counted_by" }, { label:"Total Counted", value:"total_counted" },
+  { label:"Expected Total", value:"expected_total" }, { label:"Manual Adjustment", value:"manual_adjustment" },
+  { label:"Variance", value:"variance" }, { label:"Notes", value:r=>r.notes||"" },
+];
+function viewSafeHistory(){
+  return `
+    <div class="subnav">
+      <button onclick="goView('safe')">Add a safe count</button>
+      <button class="on">Safe History</button>
+      <button onclick="goView('float')">Float Count</button>
+      <button onclick="goView('float-history')">Float History</button>
+    </div>
+    <div class="pagehead">
+      <h2>Safe Count — History</h2><div class="spacer"></div>
+      <div class="field" style="margin:0 8px"><input type="date" id="sfh_start" value="${addDaysIso(todayIso(),-29)}"></div>
+      <div class="field" style="margin:0 8px"><input type="date" id="sfh_end" value="${todayIso()}"></div>
+      <button class="btn ghost" id="sfh_go">Show</button>
+      <button class="btn ghost" id="sfh_csv">Export CSV</button>
+    </div>
+    <div class="card"><div class="tablewrap"><table class="grid" id="sfh_table"></table></div></div>`;
+}
+async function loadSafeHistory(){
+  $("#sfh_go").addEventListener("click", loadSafeHistory);
+  $("#sfh_csv").addEventListener("click", ()=> downloadCsv(`safe-counts-${$("#sfh_start").value}-to-${$("#sfh_end").value}.csv`, SAFE_COLS, S.lastSafe||[]));
+  $("#sfh_table").innerHTML = `<tr><td class="loading">Loading…</td></tr>`;
+  try {
+    const d = await call("safe.list", { start: $("#sfh_start").value, end: $("#sfh_end").value });
+    S.lastSafe = d.counts || [];
+    if (!S.lastSafe.length){ $("#sfh_table").innerHTML = `<tr><td class="empty">No safe counts in this range.</td></tr>`; return; }
+    $("#sfh_table").innerHTML = `
+      <thead><tr><th>Date</th><th>Session</th><th>Counted By</th><th class="num">Total</th>
+        <th class="num">Expected</th><th class="num">Variance</th></tr></thead>
+      <tbody>${S.lastSafe.map(r => `<tr>
+        <td class="strong">${ukDate(r.business_date)}</td><td>${esc(r.session)}</td><td>${esc(r.counted_by)}</td>
+        <td class="num">${money(r.total_counted)}</td><td class="num">${money(r.expected_total)}</td>
+        <td class="num ${Math.abs(r.variance)>1?'down':'up'}">${money(r.variance)}</td>
+      </tr>`).join("")}</tbody>`;
+  } catch(e) { $("#sfh_table").innerHTML = `<tr><td class="empty">${esc(e.message)}</td></tr>`; }
+}
+
+/* ============================================================ Float Count */
+function viewFloatEntry(){
+  return `
+    ${VIEW ? "" : `<div class="subnav">
+      <button onclick="goView('safe')">Safe Count</button>
+      <button onclick="goView('safe-history')">Safe History</button>
+      <button class="on">Add a float count</button>
+      <button onclick="goView('float-history')">Float History</button>
+    </div>`}
+    <div class="pagehead"><h2>Float Count</h2><div class="hint">Verify each till's starting float before trading.</div></div>
+    <div class="card">
+      <div class="row">
+        <div class="field"><label>Date</label><input type="date" id="fl_date" value="${todayIso()}"></div>
+        <div class="field"><label>Till</label><select id="fl_till">${tillOptions()}</select></div>
+        <div class="field"><label>Counted by</label><select id="fl_staff">${staffOptions()}</select></div>
+      </div>
+    </div>
+    <div class="card">${denomGridHtml("fl")}</div>
+    <div class="card"><div class="field"><label>Notes (optional)</label><textarea id="fl_notes" rows="2"></textarea></div></div>
+    <button class="btn" id="fl_save">Save count</button>`;
+}
+function wireFloatEntry(){ $("#fl_save").addEventListener("click", saveFloatCount); }
+async function saveFloatCount(){
+  const btn = $("#fl_save");
+  const { values } = readDenoms("fl");
+  const payload = {
+    business_date: $("#fl_date").value, till_key: $("#fl_till").value,
+    ...values, counted_by: $("#fl_staff").value, notes: $("#fl_notes").value,
+  };
+  if (!payload.counted_by){ toast("Pick who counted this.", true); return; }
+  btn.disabled = true; btn.textContent = "Saving…";
+  try {
+    const out = await call("float.save", payload);
+    toast(`Saved — variance ${money(out.float_count.variance)}.`);
+    afterSave("float", "float-history");
+  } catch(e) { toast(e.message, true); }
+  finally { btn.disabled = false; btn.textContent = "Save count"; }
+}
+const FLOAT_COLS = [
+  { label:"Date", value:r=>ukDate(r.business_date) }, { label:"Till", value:r=>tillLabel(r.till_key) },
+  { label:"Counted By", value:"counted_by" }, { label:"Total Counted", value:"total_counted" },
+  { label:"Expected Float", value:"expected_float" }, { label:"Variance", value:"variance" },
+  { label:"Notes", value:r=>r.notes||"" },
+];
+function viewFloatHistory(){
+  return `
+    <div class="subnav">
+      <button onclick="goView('safe')">Safe Count</button>
+      <button onclick="goView('safe-history')">Safe History</button>
+      <button onclick="goView('float')">Add a float count</button>
+      <button class="on">Float History</button>
+    </div>
+    <div class="pagehead">
+      <h2>Float Count — History</h2><div class="spacer"></div>
+      <div class="field" style="margin:0 8px"><input type="date" id="flh_start" value="${addDaysIso(todayIso(),-29)}"></div>
+      <div class="field" style="margin:0 8px"><input type="date" id="flh_end" value="${todayIso()}"></div>
+      <button class="btn ghost" id="flh_go">Show</button>
+      <button class="btn ghost" id="flh_csv">Export CSV</button>
+    </div>
+    <div class="card"><div class="tablewrap"><table class="grid" id="flh_table"></table></div></div>`;
+}
+async function loadFloatHistory(){
+  $("#flh_go").addEventListener("click", loadFloatHistory);
+  $("#flh_csv").addEventListener("click", ()=> downloadCsv(`float-counts-${$("#flh_start").value}-to-${$("#flh_end").value}.csv`, FLOAT_COLS, S.lastFloat||[]));
+  $("#flh_table").innerHTML = `<tr><td class="loading">Loading…</td></tr>`;
+  try {
+    const d = await call("float.list", { start: $("#flh_start").value, end: $("#flh_end").value });
+    S.lastFloat = d.counts || [];
+    if (!S.lastFloat.length){ $("#flh_table").innerHTML = `<tr><td class="empty">No float counts in this range.</td></tr>`; return; }
+    $("#flh_table").innerHTML = `
+      <thead><tr><th>Date</th><th>Till</th><th>Counted By</th><th class="num">Total</th>
+        <th class="num">Expected</th><th class="num">Variance</th></tr></thead>
+      <tbody>${S.lastFloat.map(r => `<tr>
+        <td class="strong">${ukDate(r.business_date)}</td><td>${esc(tillLabel(r.till_key))}</td><td>${esc(r.counted_by)}</td>
+        <td class="num">${money(r.total_counted)}</td><td class="num">${money(r.expected_float)}</td>
+        <td class="num ${Math.abs(r.variance)>1?'down':'up'}">${money(r.variance)}</td>
+      </tr>`).join("")}</tbody>`;
+  } catch(e) { $("#flh_table").innerHTML = `<tr><td class="empty">${esc(e.message)}</td></tr>`; }
+}
+
+/* ============================================================ kiosk mode
+   ?view=cashup|safe|float - one form, a same-day checklist, no nav. The
+   query string is UX only; financial-api checks staff_email against
+   portal_user_access for this specific app_key on every call regardless
+   of what's in the URL. */
+const KIOSK = {
+  cashup: { title:"Daily Cash Up", statusAction:"cashup.today_status", entry:viewCashUpEntry, wire:wireCashUpEntry,
+            doneKey:"till_key", doneLabel:tillLabel, checklistOver:()=>S.tills },
+  safe:   { title:"Daily Safe Count", statusAction:"safe.today_status", entry:viewSafeEntry, wire:wireSafeEntry,
+            doneKey:"session", doneLabel:k=>k, checklistOver:()=>[{key:"AM"},{key:"PM"}] },
+  float:  { title:"Daily Float Count", statusAction:"float.today_status", entry:viewFloatEntry, wire:wireFloatEntry,
+            doneKey:"till_key", doneLabel:tillLabel, checklistOver:()=>S.tills },
+};
+async function bootKiosk(view){
+  const k = KIOSK[view];
+  $("#kioskTitle").innerHTML = `${esc(k.title)}<small>Black Horse Beamish</small>`;
+  const body = $("#kiosk");
+  body.innerHTML = `<div id="kioskChecklist" class="checklist"></div><div id="kioskForm"></div>`;
+  body.querySelector("#kioskForm").innerHTML = k.entry();
+  k.wire();
+  await refreshKioskChecklist(view);
+}
+async function refreshKioskChecklist(view){
+  const k = KIOSK[view];
+  try {
+    const out = await call(k.statusAction, { business_date: todayIso() });
+    const doneKeys = new Set((out.done||[]).map(r => r[k.doneKey]));
+    const items = k.checklistOver().map(t => {
+      const done = doneKeys.has(t.key);
+      return `<span class="checkpill${done?' done':''}">${esc(k.doneLabel(t.key))}${done?' ✓':''}</span>`;
+    }).join("");
+    $("#kioskChecklist").innerHTML = items;
+  } catch(e) { /* the checklist is a nicety, a failure here shouldn't block entry */ }
+}
+
+/* -------------------------------------------------------------- init */
+(function init(){
+  let saved = "";
+  try { saved = sessionStorage.getItem(CFG.KEY); } catch(e){}
+  if (saved === "1") { $("#gate").style.display = "none"; boot(); }
+  else { openGate(); }
+})();
+</script>
+</body>
+</html>

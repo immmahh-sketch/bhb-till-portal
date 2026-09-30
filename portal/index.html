@@ -436,7 +436,8 @@ function enterApp(){
 }
 
 function iconFor(k){
-  const m = { heart:"&#10084;", chart:"&#128200;", calendar:"&#128197;", receipt:"&#128179;", till:"&#128176;" };
+  const m = { heart:"&#10084;", chart:"&#128200;", calendar:"&#128197;", receipt:"&#128179;", till:"&#128176;",
+              ledger:"&#128209;", safe:"&#128274;" };
   return m[k] || "&#9679;";
 }
 
@@ -444,12 +445,16 @@ function iconFor(k){
 // and the order those headings show in. Not data-driven (no portal_apps
 // column for it): the grouping is a fixed, hand-picked layout, not
 // something that should shift on its own as apps are added.
-const TILE_GROUPS = ["Accounts", "FOH", "Weddings and events"];
+const TILE_GROUPS = ["Accounts", "FOH", "Office", "Weddings and events"];
 const TILE_GROUP_FOR = {
   "forecast-dashboard":  "Accounts",
   "po-tracker":          "Accounts",
+  "financial-reporting": "Accounts",
   "till-reports":        "FOH",
   "restaurant-ordering": "FOH",
+  "financial-reporting-cashup": "FOH",
+  "financial-reporting-safe":   "Office",
+  "financial-reporting-float":  "Office",
   "wedding-admin":       "Weddings and events",
 };
 
@@ -545,6 +550,13 @@ const AUTOLOGIN = {
   "forecast-dashboard": { store:"local",   key:"bhb_forecast_key",  value:(p)=>p.app_password },
   "till-reports":       { store:"session", key:"bhb_portal_ok",     value:()=>"1" },
   "restaurant-ordering":{ store:"session", key:"bhb_restaurant_ok", value:()=>"1" },
+  // All four financial-reporting tiles are the same physical page (kiosk
+  // views deep-link via their own ?view= baked into the portal_apps url),
+  // so they share one door-password check.
+  "financial-reporting":       { store:"session", key:"bhb_financial_ok", value:()=>"1" },
+  "financial-reporting-cashup":{ store:"session", key:"bhb_financial_ok", value:()=>"1" },
+  "financial-reporting-safe":  { store:"session", key:"bhb_financial_ok", value:()=>"1" },
+  "financial-reporting-float": { store:"session", key:"bhb_financial_ok", value:()=>"1" },
 };
 
 async function openPortal(key, ref){
