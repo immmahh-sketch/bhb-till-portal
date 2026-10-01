@@ -774,10 +774,15 @@ $("#vframe").addEventListener("load", function(){
   // password - wedding-admin's bonus tracker uses it to tell the GM's
   // account apart from everyone else's for edit access.
   try { this.contentWindow.sessionStorage.setItem("bhb_staff_email", S.user.email || ""); } catch(e){}
-  if (cfg && cfg.store === "session" && this.dataset.injected !== "1") {
+  // The app's own script has already run by the time this load event
+  // fires, so it booted before it could see who's signed in. One reload
+  // after the first injection fixes that for every same-origin app - the
+  // identity (and any door flag) is there from the start of the second
+  // load, which is the one the person actually sees.
+  if (this.dataset.injected !== "1") {
     this.dataset.injected = "1";
     try {
-      this.contentWindow.sessionStorage.setItem(cfg.key, cfg.value(p));
+      if (cfg && cfg.store === "session") this.contentWindow.sessionStorage.setItem(cfg.key, cfg.value(p));
       this.contentWindow.location.reload();
       return; // restrictions applied on the reload's own load event
     } catch(e){}

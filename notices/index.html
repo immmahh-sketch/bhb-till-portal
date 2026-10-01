@@ -88,7 +88,9 @@ table.grid td{padding:8px 10px; border-top:1px solid var(--mist)}
 </head>
 <body>
 <div id="gate"><div class="gatecard"><h1>Staff Notices</h1><div class="sub">Black Horse Beamish</div>
-  <input id="gpw" type="password" placeholder="Password" autocomplete="current-password"><button id="gbtn">Open</button><div class="gateerr" id="gerr"></div></div></div>
+  <p style="margin:0 0 16px;font-size:14px;color:var(--sage-70)">This opens from the Staff Portal, which knows who you are and what you can see.</p>
+  <a href="https://app.blackhorsebeamish.co.uk/portal/app.html" style="display:block;padding:12px;border-radius:8px;background:var(--sage);color:#fff;text-decoration:none;font-weight:600;letter-spacing:var(--track-label);text-transform:uppercase;font-size:12px">Open the Staff Portal</a>
+  <div class="gateerr" id="gerr"></div></div></div>
 <div id="app" hidden>
   <header class="top"><div class="topin"><div class="brand">Staff Notices<small>Black Horse Beamish</small></div>
     <div class="who"><span id="whoname"></span><button id="signout">Sign out</button></div></div></header>
@@ -240,11 +242,10 @@ async function editNotice(id){
 }
 
 /* --------------------------------------------------------- gate/boot */
+// No password of its own: who you are comes from the Staff Portal login,
+// and notices-api checks that identity and its grants on every call.
 function openGate(msg){ $("#gate").hidden = false; $("#app").hidden = true; if (msg) $("#gerr").textContent = msg; }
-function tryOpen(pw){ $("#gerr").textContent = ""; if (!pw) return $("#gerr").textContent = "Enter the password."; if (pw !== CFG.PORTAL_PASSWORD) return $("#gerr").textContent = "Wrong password."; try { sessionStorage.setItem(CFG.KEY, "1"); } catch(e){} $("#gate").hidden = true; boot(); }
-$("#gbtn").addEventListener("click", ()=> tryOpen($("#gpw").value));
-$("#gpw").addEventListener("keydown", e=>{ if (e.key==="Enter") tryOpen($("#gpw").value); });
-$("#signout").addEventListener("click", ()=>{ try { sessionStorage.removeItem(CFG.KEY); } catch(e){} openGate(); });
+$("#signout").addEventListener("click", ()=>{ try { sessionStorage.removeItem("bhb_staff_email"); } catch(e){} openGate(); });
 async function boot(){
   $("#app").hidden = false; $("#views").innerHTML = `<div class="loading">Loading…</div>`;
   let d;
@@ -256,7 +257,7 @@ async function boot(){
   $$(".tabbtn").forEach(b => b.setAttribute("aria-current", b.dataset.view === "read" ? "page" : "false"));
   renderList(false);
 }
-(function(){ let saved = null; try { saved = sessionStorage.getItem(CFG.KEY); } catch(e){} if (saved === "1") { $("#gate").hidden = true; boot(); } else openGate(); })();
+(function(){ if (staffEmail()) { $("#gate").hidden = true; boot(); } else openGate(); })();
 </script>
 </body>
 </html>

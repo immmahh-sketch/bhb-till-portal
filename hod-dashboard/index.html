@@ -95,7 +95,9 @@ i{color:var(--sage-70)}
 </head>
 <body>
 <div id="gate"><div class="gatecard"><h1>HOD Dashboard</h1><div class="sub">Black Horse Beamish</div>
-  <input id="gpw" type="password" placeholder="Password" autocomplete="current-password"><button id="gbtn">Open</button><div class="gateerr" id="gerr"></div></div></div>
+  <p style="margin:0 0 16px;font-size:14px;color:var(--sage-70)">This opens from the Staff Portal, which knows who you are and which figures you can see.</p>
+  <a href="https://app.blackhorsebeamish.co.uk/portal/app.html" style="display:block;padding:12px;border-radius:8px;background:var(--sage);color:#fff;text-decoration:none;font-weight:600;letter-spacing:var(--track-label);text-transform:uppercase;font-size:12px">Open the Staff Portal</a>
+  <div class="gateerr" id="gerr"></div></div></div>
 
 <div id="app" hidden>
   <header class="top"><div class="topin">
@@ -345,9 +347,11 @@ function viewPL(d){
     </tbody></table></div></div>`;
 }
 
+// The forecast workbook's own constants - what "Reset to workbook" puts back.
+const WORKBOOK_DEFAULTS = { oncost_factor:1.1207, holiday_factor:1.15, fb_cost_pct:0.35, boh_ni_allowance_week:149.668, foh_ni_allowance_week:81.4725, hk_ni_allowance_week:65.178, hk_hourly_rate:12.71, hk_fixed_minutes_day:750, function_boh_hours:16, function_boh_rate:14 };
 function viewSettings(){
   const s = S.settings;
-  const f = (k, l, step) => `<div class="field"><label>${l}</label><input id="s_${k}" type="number" step="${step||"any"}" value="${isNil(s[k])?"":s[k]}"></div>`;
+  const f = (k, l, step) => `<div class="field"><label>${l}${k in WORKBOOK_DEFAULTS ? ` <span class="muted" style="text-transform:none;letter-spacing:0">(workbook: ${WORKBOOK_DEFAULTS[k]})</span>` : ""}</label><input id="s_${k}" type="number" step="${step||"any"}" value="${isNil(s[k])?"":s[k]}"></div>`;
   return `
   <div class="pagehead"><h2>Settings</h2><div class="hint">The forecast workbook's labour constants, and the targets the dashboard measures against.</div></div>
   <div class="card"><h3>Targets</h3><div class="row">${f("target_foh_wage_pct","FOH wage % target")}${f("target_boh_wage_pct","BOH wage % target")}${f("target_labour_pct","Total labour % target")}</div><div class="note">Leave blank for no target. These drive the green/red on the Wages tiles and the forecast wage allowance.</div></div>
@@ -357,9 +361,13 @@ function viewSettings(){
     ${f("hk_hourly_rate","Housekeeping hourly rate £")}${f("hk_fixed_minutes_day","HK fixed minutes / day (reception, public areas)")}
     ${f("function_boh_hours","Kitchen hours given to a function day")}${f("function_boh_rate","at hourly rate £")}
   </div><div class="note">Defaults match the Forecast workbook exactly. Changing a figure here changes every day shown, past and future - it doesn't change the workbook.</div></div>
-  <button class="btn" id="s_save">Save settings</button>`;
+  <button class="btn" id="s_save">Save settings</button> <button class="btn ghost" id="s_reset">Reset labour model to workbook</button>`;
 }
 function wireSettings(){
+  $("#s_reset").onclick = ()=>{
+    for (const k in WORKBOOK_DEFAULTS) { const i = $("#s_" + k); if (i) i.value = WORKBOOK_DEFAULTS[k]; }
+    toast("Workbook values put back - press Save settings to keep them.");
+  };
   $("#s_save").onclick = async ()=>{
     const payload = {};
     $$("#views input[id^=s_]").forEach(i => { const k = i.id.slice(2); payload[k] = i.value === "" ? null : Number(i.value); });
@@ -370,17 +378,10 @@ function wireSettings(){
 }
 
 /* ---------------------------------------------------------- gate/boot */
+// No password of its own: who you are comes from the Staff Portal login,
+// and hod-api checks that identity and its section grants on every call.
 function openGate(msg){ $("#gate").hidden = false; $("#app").hidden = true; if (msg) $("#gerr").textContent = msg; }
-function tryOpen(pw){
-  $("#gerr").textContent = "";
-  if (!pw){ $("#gerr").textContent = "Enter the password."; return; }
-  if (pw !== CFG.PORTAL_PASSWORD){ $("#gerr").textContent = "Wrong password."; return; }
-  try { sessionStorage.setItem(CFG.KEY, "1"); } catch(e){}
-  $("#gate").hidden = true; boot();
-}
-$("#gbtn").addEventListener("click", ()=> tryOpen($("#gpw").value));
-$("#gpw").addEventListener("keydown", e=>{ if (e.key==="Enter") tryOpen($("#gpw").value); });
-$("#signout").addEventListener("click", ()=>{ try { sessionStorage.removeItem(CFG.KEY); } catch(e){} openGate(); });
+$("#signout").addEventListener("click", ()=>{ try { sessionStorage.removeItem("bhb_staff_email"); } catch(e){} openGate(); });
 
 async function boot(){
   $("#app").hidden = false;
@@ -401,7 +402,7 @@ async function boot(){
   const first = S.sections[0] || "revenue";
   goView(first);
 }
-(function(){ let saved = null; try { saved = sessionStorage.getItem(CFG.KEY); } catch(e){} if (saved === "1") { $("#gate").hidden = true; boot(); } else openGate(); })();
+(function(){ if (staffEmail()) { $("#gate").hidden = true; boot(); } else openGate(); })();
 </script>
 </body>
 </html>
