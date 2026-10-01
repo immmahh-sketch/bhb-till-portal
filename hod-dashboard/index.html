@@ -388,7 +388,7 @@ function viewPL(d){
 }
 
 // The forecast workbook's own constants - what "Reset to workbook" puts back.
-const WORKBOOK_DEFAULTS = { oncost_factor:1.1207, holiday_factor:1.15, fb_cost_pct:0.35, boh_ni_allowance_week:149.668, foh_ni_allowance_week:81.4725, hk_ni_allowance_week:65.178, hk_hourly_rate:12.71, hk_fixed_minutes_day:750, function_boh_hours:16, function_boh_rate:14 };
+const WORKBOOK_DEFAULTS = { oncost_factor:1.15, holiday_factor:1.1207, fb_cost_pct:0.35, hk_hourly_rate:12.71, hk_fixed_minutes_day:750, function_boh_hours:16, function_boh_rate:14 };
 function viewSettings(){
   const s = S.settings;
   const f = (k, l, step) => `<div class="field"><label>${l}${k in WORKBOOK_DEFAULTS ? ` <span class="muted" style="text-transform:none;letter-spacing:0">(workbook: ${WORKBOOK_DEFAULTS[k]})</span>` : ""}</label><input id="s_${k}" type="number" step="${step||"any"}" value="${isNil(s[k])?"":s[k]}"></div>`;
@@ -396,11 +396,10 @@ function viewSettings(){
   <div class="pagehead"><h2>Settings</h2><div class="hint">The forecast workbook's labour constants, and the targets the dashboard measures against.</div></div>
   <div class="card"><h3>Targets</h3><div class="row">${f("target_foh_wage_pct","FOH wage % target")}${f("target_boh_wage_pct","BOH wage % target")}${f("target_labour_pct","Total labour % target")}</div><div class="note">Leave blank for no target. These drive the green/red on the Wages tiles and the forecast wage allowance.</div></div>
   <div class="card"><h3>Labour model</h3><div class="row">
-    ${f("oncost_factor","Employer on-cost factor")}${f("holiday_factor","Holiday accrual factor")}${f("fb_cost_pct","F&B cost of sales (0.35 = 35%)")}
-    ${f("boh_ni_allowance_week","BOH NI allowance / week £")}${f("foh_ni_allowance_week","FOH NI allowance / week £")}${f("hk_ni_allowance_week","HK NI allowance / week £")}
+    ${f("holiday_factor","Holiday accrual factor")}${f("oncost_factor","NI estimate factor")}${f("fb_cost_pct","F&B cost of sales (0.35 = 35%)")}
     ${f("hk_hourly_rate","Housekeeping hourly rate £")}${f("hk_fixed_minutes_day","HK fixed minutes / day (reception, public areas)")}
     ${f("function_boh_hours","Kitchen hours given to a function day")}${f("function_boh_rate","at hourly rate £")}
-  </div><div class="note">Defaults match the Forecast workbook exactly. Changing a figure here changes every day shown, past and future - it doesn't change the workbook.</div></div>
+  </div><div class="note">Wages = gross pay × holiday accrual × NI estimate (office: NI only). Changing a figure here changes every day shown, past and future - it doesn't change the workbook.</div></div>
   <button class="btn" id="s_save">Save settings</button> <button class="btn ghost" id="s_reset">Reset labour model to workbook</button>`;
 }
 function wireSettings(){
