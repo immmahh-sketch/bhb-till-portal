@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Staff Notices — Black Horse Beamish</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --sage:#4E5F4F; --sage-70:#7B887C; --sage-10:#EDEFED; --sage-dark:#3B483C;
+  --bone:#F7F7F7; --celadon:#C1C8B4; --mist:#E7E7E7; --white:#fff; --ink:#262626; --gold:#C9A56B;
+  --attention:#B08D57; --attention-bg:#F7F0E4; --alert:#8C4A3F; --alert-bg:#F6EAE8; --good:#4F6B4F; --good-bg:#EDF2ED;
+  --display:"Cormorant Garamond",Georgia,serif; --body:Raleway,"Helvetica Neue",Arial,sans-serif;
+  --track-label:.18em; --radius:10px; --shadow:0 1px 2px rgba(38,38,38,.06),0 8px 24px rgba(38,38,38,.07); --maxw:900px;
+}
+*{box-sizing:border-box} html,body{margin:0;padding:0}
+body{font-family:var(--body); color:var(--ink); background:var(--bone); font-size:15px; line-height:1.5; -webkit-text-size-adjust:100%}
+h1,h2,h3{font-family:var(--display); font-weight:600; margin:0; letter-spacing:.01em}
+button,input,textarea{font:inherit; color:inherit}
+a{color:var(--sage)}
+.shell{max-width:var(--maxw); margin:0 auto; padding:0 20px 64px}
+#gate{position:fixed; inset:0; background:var(--sage); z-index:100; display:flex; align-items:center; justify-content:center; padding:24px}
+#gate[hidden]{display:none}
+.gatecard{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); width:100%; max-width:380px; padding:32px 28px; text-align:center}
+.gatecard h1{font-size:26px; color:var(--sage); line-height:1.15}
+.gatecard .sub{font-size:11px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); margin:6px 0 22px}
+.gatecard input{width:100%; padding:12px 14px; border:1px solid var(--mist); border-radius:8px; background:var(--bone); margin-bottom:10px; text-align:center}
+.gatecard button{width:100%; padding:12px; border:0; border-radius:8px; cursor:pointer; background:var(--sage); color:var(--white); font-weight:600; letter-spacing:var(--track-label); text-transform:uppercase; font-size:12px}
+.gateerr{color:var(--alert); font-size:13px; min-height:18px; margin-top:8px}
+header.top{background:var(--sage); color:var(--white)}
+.topin{max-width:var(--maxw); margin:0 auto; padding:14px 20px; display:flex; align-items:center; gap:18px; flex-wrap:wrap}
+.brand{font-family:var(--display); font-size:21px; line-height:1.1}
+.brand small{display:block; font-family:var(--body); font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; opacity:.75}
+.who{margin-left:auto; display:flex; align-items:center; gap:10px; font-size:12px; opacity:.9}
+.who button{background:transparent; border:1px solid rgba(255,255,255,.4); color:var(--white); border-radius:6px; padding:5px 10px; cursor:pointer; font-size:11px; letter-spacing:.06em; text-transform:uppercase}
+nav.tabs{background:var(--sage-dark)}
+.tabsin{max-width:var(--maxw); margin:0 auto; padding:0 20px; display:flex; gap:2px; overflow-x:auto}
+.tabbtn{background:transparent; border:0; cursor:pointer; color:rgba(255,255,255,.72); padding:12px 16px; font-size:12px; font-weight:600; white-space:nowrap; letter-spacing:var(--track-label); text-transform:uppercase; border-bottom:3px solid transparent}
+.tabbtn[aria-current="page"]{color:var(--white); border-bottom-color:var(--gold)}
+.tabbtn[hidden]{display:none}
+.pagehead{display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; margin:24px 0 16px}
+.pagehead h2{font-size:26px; color:var(--sage)}
+.pagehead .hint{font-size:13px; color:var(--sage-70)}
+.spacer{margin-left:auto}
+.btn{border:1px solid var(--sage); background:var(--sage); color:var(--white); border-radius:8px; padding:9px 16px; cursor:pointer; font-size:12px; font-weight:600; letter-spacing:var(--track-label); text-transform:uppercase; min-height:44px}
+.btn.ghost{background:var(--white); color:var(--sage)} .btn.ghost:hover{background:var(--sage-10)}
+.btn.good{background:var(--good); border-color:var(--good)}
+.btn.small{min-height:36px; padding:6px 12px; font-size:11px}
+.btn:disabled{opacity:.5; cursor:default}
+.card{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); padding:18px 20px; margin-bottom:14px}
+.notice{cursor:pointer; border-left:4px solid var(--celadon); display:flex; gap:14px; align-items:flex-start}
+.notice.pinned{border-left-color:var(--gold)}
+.notice.needsack{border-left-color:var(--alert)}
+.notice .t{font-family:var(--display); font-size:22px; color:var(--sage); line-height:1.15}
+.notice .m{font-size:12px; color:var(--sage-70); margin-top:4px}
+.notice .p{margin-top:8px; color:var(--ink); max-height:3.1em; overflow:hidden}
+.notice .side{margin-left:auto; text-align:right; flex:none; display:flex; flex-direction:column; gap:6px; align-items:flex-end}
+.tag{display:inline-block; border-radius:999px; padding:3px 10px; font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; background:var(--sage-10); color:var(--sage); white-space:nowrap}
+.tag.new{background:var(--attention-bg); color:var(--attention)}
+.tag.ack{background:var(--alert-bg); color:var(--alert)}
+.tag.done{background:var(--good-bg); color:var(--good)}
+.tag.pin{background:#F7F2E4; color:#8A6D2B}
+.body{white-space:pre-wrap; font-size:16px; line-height:1.6}
+.doc{display:flex; align-items:center; gap:12px; background:var(--sage-10); border-radius:8px; padding:12px 14px; margin:14px 0}
+.doc .ic{font-size:26px}
+.doc a{font-weight:600}
+.ackbox{background:var(--alert-bg); border-radius:8px; padding:14px 16px; margin:14px 0; display:flex; gap:12px; align-items:center; flex-wrap:wrap}
+.ackbox.done{background:var(--good-bg)}
+.replies{margin-top:18px}
+.reply{border-top:1px solid var(--mist); padding:12px 0}
+.reply .by{font-size:12px; color:var(--sage-70); margin-bottom:3px}
+.reply .by b{color:var(--ink)}
+.field{margin-bottom:12px} .field label{display:block; font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); margin-bottom:4px}
+.field input[type=text],.field textarea{width:100%; padding:11px 12px; border:1px solid var(--mist); border-radius:8px; font-size:16px}
+.field textarea{min-height:120px; resize:vertical}
+.field.check{display:flex; align-items:center; gap:10px} .field.check input{width:22px;height:22px;margin:0} .field.check label{margin:0; text-transform:none; letter-spacing:0; font-size:14px; color:var(--ink)}
+table.grid{width:100%; border-collapse:collapse; font-size:14px}
+table.grid th{text-align:left; padding:8px 10px; background:var(--sage-10); color:var(--sage); font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; font-weight:700}
+table.grid td{padding:8px 10px; border-top:1px solid var(--mist)}
+.muted{color:var(--sage-70)} .empty{padding:40px 20px; text-align:center; color:var(--sage-70)} .loading{padding:60px; text-align:center; color:var(--sage-70)}
+.toast{position:fixed; left:50%; bottom:26px; transform:translate(-50%,20px); background:var(--ink); color:var(--white); padding:12px 20px; border-radius:8px; z-index:200; opacity:0; transition:.2s; pointer-events:none; font-size:14px; max-width:90vw}
+.toast.on{opacity:1; transform:translate(-50%,0)} .toast.bad{background:var(--alert)}
+@media (max-width:640px){ .shell{padding:0 12px 48px} .topin,.tabsin{padding-left:12px;padding-right:12px} .pagehead h2{font-size:22px} .notice{flex-direction:column} .notice .side{margin-left:0; flex-direction:row; align-items:center} .btn{width:100%} .btn.small{width:auto} }
+</style>
+</head>
+<body>
+<div id="gate"><div class="gatecard"><h1>Staff Notices</h1><div class="sub">Black Horse Beamish</div>
+  <input id="gpw" type="password" placeholder="Password" autocomplete="current-password"><button id="gbtn">Open</button><div class="gateerr" id="gerr"></div></div></div>
+<div id="app" hidden>
+  <header class="top"><div class="topin"><div class="brand">Staff Notices<small>Black Horse Beamish</small></div>
+    <div class="who"><span id="whoname"></span><button id="signout">Sign out</button></div></div></header>
+  <nav class="tabs"><div class="tabsin" role="tablist">
+    <button class="tabbtn" data-view="read">Notices</button>
+    <button class="tabbtn" data-view="post" id="tabPost" hidden>Post a notice</button>
+    <button class="tabbtn" data-view="archive" id="tabArchive" hidden>Archived</button>
+  </div></nav>
+  <div class="shell"><div id="views"></div></div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+const CFG = { SUPABASE_URL:"https://safcrtrfdzsnftghibot.supabase.co", SUPABASE_KEY:"sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU", PORTAL_PASSWORD:"N0tices#26", KEY:"bhb_notices_ok" };
+const S = { me:null, notices:[], view:"read", open:null, editing:null, doc:null };
+const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
+const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const fmtDT = iso => { if(!iso) return ""; try { return new Date(iso).toLocaleString("en-GB",{ timeZone:"Europe/London", day:"numeric", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit" }).replace(",",""); } catch(e){ return String(iso).slice(0,16); } };
+const kb = n => n ? (n > 1048576 ? (n/1048576).toFixed(1)+" MB" : Math.round(n/1024)+" KB") : "";
+function toast(msg, bad){ const t=$("#toast"); t.textContent=msg; t.className="toast on"+(bad?" bad":""); clearTimeout(toast._t); toast._t=setTimeout(()=>{t.className="toast";}, bad?5200:2600); }
+function staffEmail(){ try { return sessionStorage.getItem("bhb_staff_email") || ""; } catch(e){ return ""; } }
+async function call(action, payload){
+  const r = await fetch(CFG.SUPABASE_URL + "/functions/v1/notices-api", { method:"POST", headers:{ "Content-Type":"application/json", Authorization:"Bearer "+CFG.SUPABASE_KEY, apikey:CFG.SUPABASE_KEY }, body: JSON.stringify({ action, staff_email: staffEmail(), ...(payload||{}) }) });
+  let d = {}; try { d = await r.json(); } catch(e){}
+  if (!r.ok || d.error) throw new Error(d.error || `Request failed (${r.status})`);
+  return d;
+}
+async function put(url, file){
+  for (let i = 0; i < 2; i++) { try { const r = await fetch(url, { method:"PUT", headers:{ "Content-Type": file.type || "application/octet-stream", "x-upsert":"true" }, body:file }); if (r.ok) return; if (i) throw new Error("upload "+r.status); } catch(e){ if (i) throw e; } }
+}
+
+function goView(v){
+  S.view = v; S.open = null; S.editing = null;
+  $$(".tabbtn").forEach(b => b.setAttribute("aria-current", b.dataset.view === v ? "page" : "false"));
+  if (v === "post") { $("#views").innerHTML = viewPost(null); wirePost(null); return; }
+  loadList(v === "archive");
+}
+async function loadList(archived){
+  $("#views").innerHTML = `<div class="loading">Loading…</div>`;
+  try { const d = await call("notices.list", { archived: !!archived }); S.notices = d.notices || []; renderList(archived); }
+  catch(e){ $("#views").innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+function renderList(archived){
+  const list = archived ? S.notices.filter(n => n.archived_at) : S.notices.filter(n => !n.archived_at);
+  const toAck = list.filter(n => n.needs_my_ack).length;
+  let h = `<div class="pagehead"><h2>${archived ? "Archived notices" : "Notices"}</h2><div class="hint">${
+    archived ? "No longer shown to staff." : (toAck ? `<b>${toAck}</b> need${toAck===1?"s":""} your acknowledgement.` : "Pinned first, then newest.")}</div></div>`;
+  if (!list.length) h += `<div class="empty">${archived ? "Nothing archived." : "No notices yet."}</div>`;
+  h += list.map(n => `
+    <div class="card notice${n.pinned?" pinned":""}${n.needs_my_ack?" needsack":""}" onclick="openNotice('${n.id}')">
+      <div style="flex:1;min-width:0">
+        <div class="t">${esc(n.title)}</div>
+        <div class="m">${esc(n.posted_by_name)} · ${esc(fmtDT(n.posted_at))}${n.doc_name ? ` · &#128206; ${esc(n.doc_name)}` : ""}${n.reply_count ? ` · ${n.reply_count} repl${n.reply_count===1?"y":"ies"}` : ""}</div>
+        <div class="p">${esc(n.body)}</div>
+      </div>
+      <div class="side">
+        ${n.pinned ? `<span class="tag pin">Pinned</span>` : ""}
+        ${!n.my_read_at && !archived ? `<span class="tag new">New</span>` : ""}
+        ${n.requires_ack ? (n.my_acked_at ? `<span class="tag done">Acknowledged</span>` : `<span class="tag ack">Please acknowledge</span>`) : ""}
+        ${S.me.canPost && n.requires_ack ? `<span class="muted" style="font-size:12px">${n.ack_count} of ${n.audience_count} acknowledged</span>` : ""}
+      </div>
+    </div>`).join("");
+  $("#views").innerHTML = h;
+}
+
+async function openNotice(id){
+  S.open = id;
+  $("#views").innerHTML = `<div class="loading">Loading…</div>`;
+  try { const d = await call("notices.get", { id }); renderNotice(d); }
+  catch(e){ $("#views").innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+function renderNotice(d){
+  const n = d.notice, me = d.me || {}, canPost = S.me.canPost;
+  const back = n.archived_at ? "archive" : "read";
+  let h = `<div class="pagehead"><button class="btn ghost small" onclick="goView('${back}')">&larr; All notices</button><div class="spacer"></div>
+    ${canPost ? `<button class="btn ghost small" onclick="editNotice('${n.id}')">Edit</button>
+      <button class="btn ghost small" onclick="toggleArchive('${n.id}', ${n.archived_at ? "false" : "true"})">${n.archived_at ? "Restore" : "Archive"}</button>` : ""}</div>
+  <div class="card">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">${n.pinned?`<span class="tag pin">Pinned</span>`:""}${n.requires_ack?`<span class="tag ${me.acked_at?"done":"ack"}">${me.acked_at?"Acknowledged":"Acknowledgement required"}</span>`:""}${n.archived_at?`<span class="tag">Archived</span>`:""}</div>
+    <h2 style="font-size:28px;color:var(--sage)">${esc(n.title)}</h2>
+    <div class="muted" style="font-size:13px;margin:4px 0 14px">${esc(n.posted_by_name)} · ${esc(fmtDT(n.posted_at))}</div>
+    <div class="body">${esc(n.body)}</div>
+    ${n.doc_url ? `<div class="doc"><span class="ic">&#128196;</span><div><a href="${esc(n.doc_url)}" target="_blank" rel="noopener">${esc(n.doc_name||"Document")}</a><div class="muted" style="font-size:12px">${esc(kb(n.doc_size))} · opens in a new tab</div></div></div>` : (n.doc_name ? `<div class="doc"><span class="ic">&#128196;</span><div>${esc(n.doc_name)} <span class="muted">(link expired - reopen the notice)</span></div></div>` : "")}
+    ${n.requires_ack ? (me.acked_at
+        ? `<div class="ackbox done">&#10003; You acknowledged this on ${esc(fmtDT(me.acked_at))}.</div>`
+        : `<div class="ackbox"><div style="flex:1">Please confirm you have read${n.doc_name?" the notice and its document":" this notice"} and understood it.</div><button class="btn good" onclick="ack('${n.id}')">I've read and understood this</button></div>`) : ""}
+  </div>`;
+  if (canPost && d.acks) {
+    const done = d.acks.filter(a => a.acked_at).length;
+    h += `<div class="card"><h3 style="font-size:20px;color:var(--sage);margin-bottom:8px">${n.requires_ack ? `Acknowledgements — ${done} of ${d.acks.length}` : `Read by — ${d.acks.filter(a=>a.read_at).length} of ${d.acks.length}`}</h3>
+      <table class="grid"><thead><tr><th>Name</th><th>Opened</th>${n.requires_ack?"<th>Acknowledged</th>":""}</tr></thead><tbody>
+      ${d.acks.map(a => `<tr><td>${esc(a.name)}</td><td class="muted">${a.read_at ? esc(fmtDT(a.read_at)) : "—"}</td>${n.requires_ack ? `<td>${a.acked_at ? `<span class="tag done">${esc(fmtDT(a.acked_at))}</span>` : `<span class="tag ack">Not yet</span>`}</td>` : ""}</tr>`).join("")}
+      </tbody></table></div>`;
+  }
+  h += `<div class="card replies"><h3 style="font-size:20px;color:var(--sage)">Replies</h3>
+    ${d.replies.length ? d.replies.map(r => `<div class="reply"><div class="by"><b>${esc(r.by_name)}</b> · ${esc(fmtDT(r.at))}</div><div class="body" style="font-size:15px">${esc(r.body)}</div></div>`).join("") : `<div class="muted" style="padding:10px 0">No replies yet.</div>`}
+    ${n.archived_at ? "" : `<div class="field" style="margin-top:12px"><label for="r_body">Reply</label><textarea id="r_body" style="min-height:80px" placeholder="Ask a question or add a comment - everyone with access can see it"></textarea></div>
+    <button class="btn" id="r_send">Send reply</button>`}
+  </div>`;
+  $("#views").innerHTML = h;
+  const send = $("#r_send"); if (send) send.onclick = async ()=>{
+    const body = $("#r_body").value.trim(); if (!body) return toast("Write a reply first.", true);
+    send.disabled = true;
+    try { await call("notices.reply", { id: n.id, body }); toast("Reply posted."); openNotice(n.id); }
+    catch(e){ toast(e.message, true); send.disabled = false; }
+  };
+  window.scrollTo(0,0);
+}
+async function ack(id){ try { await call("notices.ack", { id }); toast("Thank you - acknowledged."); openNotice(id); } catch(e){ toast(e.message, true); } }
+async function toggleArchive(id, archived){ try { await call("notices.update", { id, archived }); toast(archived ? "Archived." : "Restored."); goView(archived ? "read" : "archive"); } catch(e){ toast(e.message, true); } }
+
+/* --------------------------------------------------------- posting */
+function viewPost(n){
+  return `
+  <div class="pagehead"><h2>${n ? "Edit notice" : "Post a notice"}</h2><div class="hint">Everyone with the Staff Notices tile will see it. They can reply underneath.</div></div>
+  <div class="card">
+    <div class="field"><label for="p_title">Title</label><input id="p_title" type="text" value="${esc(n?n.title:"")}" placeholder="e.g. New allergen procedure from Monday"></div>
+    <div class="field"><label for="p_body">Notice</label><textarea id="p_body" placeholder="What staff need to know">${esc(n?n.body:"")}</textarea></div>
+    <div class="field check"><input id="p_pin" type="checkbox" ${n&&n.pinned?"checked":""}><label for="p_pin">Pin to the top</label></div>
+    <div class="field check"><input id="p_ack" type="checkbox" ${n&&n.requires_ack?"checked":""}><label for="p_ack">Staff must acknowledge they've read it (you'll see who has and hasn't)</label></div>
+    ${n ? (n.doc_name ? `<div class="doc"><span class="ic">&#128196;</span><div>${esc(n.doc_name)} <span class="muted">(to change the document, post a new notice)</span></div></div>` : "") : `
+    <div class="field"><label>Document to read (optional)</label>
+      <input id="p_doc" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,image/*">
+      <div class="muted" style="font-size:12px;margin-top:4px">PDF, Word, Excel or an image, up to 25 MB. A policy, a rota, a new procedure.</div></div>`}
+    <button class="btn" id="p_save">${n ? "Save changes" : "Post notice"}</button>
+    ${n ? ` <button class="btn ghost" onclick="openNotice('${n.id}')">Cancel</button>` : ""}
+  </div>`;
+}
+function wirePost(n){
+  $("#p_save").onclick = async ()=>{
+    const btn = $("#p_save"); btn.disabled = true;
+    const payload = { title: $("#p_title").value.trim(), body: $("#p_body").value.trim(), pinned: $("#p_pin").checked, requires_ack: $("#p_ack").checked };
+    try {
+      if (n) { await call("notices.update", { id: n.id, ...payload }); toast("Saved."); openNotice(n.id); return; }
+      const file = $("#p_doc") && $("#p_doc").files[0];
+      if (file) payload.doc = { name: file.name, type: file.type, size: file.size };
+      const d = await call("notices.create", payload);
+      if (d.upload && file) {
+        btn.textContent = "Uploading document…";
+        try { await put(d.upload, file); }
+        catch(e){ try { await call("notices.doc_failed", { id: d.notice.id }); } catch(_){} toast("Posted, but the document didn't upload - edit the notice and try again.", true); }
+      }
+      toast("Notice posted."); goView("read");
+    } catch(e){ toast(e.message, true); btn.disabled = false; btn.textContent = n ? "Save changes" : "Post notice"; }
+  };
+}
+async function editNotice(id){
+  try { const d = await call("notices.get", { id }); $("#views").innerHTML = viewPost(d.notice); wirePost(d.notice); window.scrollTo(0,0); }
+  catch(e){ toast(e.message, true); }
+}
+
+/* --------------------------------------------------------- gate/boot */
+function openGate(msg){ $("#gate").hidden = false; $("#app").hidden = true; if (msg) $("#gerr").textContent = msg; }
+function tryOpen(pw){ $("#gerr").textContent = ""; if (!pw) return $("#gerr").textContent = "Enter the password."; if (pw !== CFG.PORTAL_PASSWORD) return $("#gerr").textContent = "Wrong password."; try { sessionStorage.setItem(CFG.KEY, "1"); } catch(e){} $("#gate").hidden = true; boot(); }
+$("#gbtn").addEventListener("click", ()=> tryOpen($("#gpw").value));
+$("#gpw").addEventListener("keydown", e=>{ if (e.key==="Enter") tryOpen($("#gpw").value); });
+$("#signout").addEventListener("click", ()=>{ try { sessionStorage.removeItem(CFG.KEY); } catch(e){} openGate(); });
+async function boot(){
+  $("#app").hidden = false; $("#views").innerHTML = `<div class="loading">Loading…</div>`;
+  let d;
+  try { d = await call("bootstrap"); } catch(e){ $("#views").innerHTML = `<div class="empty">${esc(e.message)}<br><br><span class="muted">Open this from the Staff Portal so it knows who you are.</span></div>`; return; }
+  S.me = d.me; S.notices = d.notices || [];
+  $("#whoname").textContent = S.me.name;
+  $("#tabPost").hidden = !S.me.canPost; $("#tabArchive").hidden = !S.me.canPost;
+  $$(".tabbtn").forEach(b => b.addEventListener("click", ()=> goView(b.dataset.view)));
+  $$(".tabbtn").forEach(b => b.setAttribute("aria-current", b.dataset.view === "read" ? "page" : "false"));
+  renderList(false);
+}
+(function(){ let saved = null; try { saved = sessionStorage.getItem(CFG.KEY); } catch(e){} if (saved === "1") { $("#gate").hidden = true; boot(); } else openGate(); })();
+</script>
+</body>
+</html>
