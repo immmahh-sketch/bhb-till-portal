@@ -497,12 +497,11 @@ function render(){
   const v = $("#views");
   switch (S.view) {
     case "dashboard":     v.innerHTML = viewDashboard(); loadDashboard(); break;
-    case "cashup":        v.innerHTML = viewCashUpEntry(); wireCashUpEntry(); break;
-    case "cashup-history": v.innerHTML = viewCashUpHistory(); loadCashUpHistory(); break;
-    case "safe":          v.innerHTML = viewSafeEntry(); wireSafeEntry(); break;
-    case "safe-history":  v.innerHTML = viewSafeHistory(); loadSafeHistory(); break;
-    case "float":         v.innerHTML = viewFloatEntry(); wireFloatEntry(); break;
-    case "float-history": v.innerHTML = viewFloatHistory(); loadFloatHistory(); break;
+    // Counts are entered through their own tiles (Daily Cash Up, Daily Safe
+    // Count, Daily Float Count); this full view is for looking at them.
+    case "cashup": case "cashup-history": v.innerHTML = viewCashUpHistory(); loadCashUpHistory(); break;
+    case "safe":   case "safe-history":   v.innerHTML = viewSafeHistory(); loadSafeHistory(); break;
+    case "float":  case "float-history":  v.innerHTML = viewFloatHistory(); loadFloatHistory(); break;
     case "reconciliation": v.innerHTML = viewReconciliation(); wireReconciliation(); break;
     case "pettycash":         v.innerHTML = viewPettyCashEntry(); wirePettyCashEntry(); break;
     case "pettycash-history": v.innerHTML = viewPettyCashHistory(); loadPettyCashHistory(); break;
@@ -692,14 +691,14 @@ function viewDashboard(){
       <div class="hint">Today's snapshot - who's reported in, and any variance worth a look.</div>
     </div>
     <div class="tiles">
-      <button class="tile" style="text-align:left;cursor:pointer" onclick="goView('cashup')">
-        <div class="l">Cash Up</div><div class="n" style="font-size:18px">Enter a till's count</div>
+      <button class="tile" style="text-align:left;cursor:pointer" onclick="goView('cashup-history')">
+        <div class="l">Cash Up</div><div class="n" style="font-size:18px">Every till's count</div>
       </button>
-      <button class="tile" style="text-align:left;cursor:pointer" onclick="goView('safe')">
-        <div class="l">Safe Count</div><div class="n" style="font-size:18px">AM / PM safe count</div>
+      <button class="tile" style="text-align:left;cursor:pointer" onclick="goView('safe-history')">
+        <div class="l">Safe Count</div><div class="n" style="font-size:18px">AM / PM safe counts</div>
       </button>
-      <button class="tile" style="text-align:left;cursor:pointer" onclick="goView('float')">
-        <div class="l">Float Count</div><div class="n" style="font-size:18px">Verify a till's float</div>
+      <button class="tile" style="text-align:left;cursor:pointer" onclick="goView('float-history')">
+        <div class="l">Float Count</div><div class="n" style="font-size:18px">Each till's float checks</div>
       </button>
       <button class="tile" style="text-align:left;cursor:pointer" onclick="goView('reconciliation')">
         <div class="l">Reconciliation</div><div class="n" style="font-size:18px">Today's variances</div>
@@ -718,8 +717,31 @@ async function loadDashboard(){
         info.missing.length ? info.missing.map(k=>`<span class="pill off">${esc(tillLabel(k))}</span>`).join(" ") : "<span class=\"muted\">All done</span>"
       }</td></tr>`;
     const flagged = d.reconciliation.variances.filter(v=>v.flagged);
+    const c = d.cash_on_site || {};
+    const leg = (l, v, sign) => `<tr><td>${l}</td><td class="num">${v === null || v === undefined ? "—" : (sign||"") + gbp(v)}</td></tr>`;
+    const cashBlock = `
+      <div style="padding:0 18px 6px">
+        <div class="tiles" style="margin:0 0 10px">
+          <div class="tile ${c.total === null ? "warn" : "ok"}" style="grid-column:1/-1">
+            <div class="l">Total cash on site — live</div>
+            <div class="n">${c.total === null || c.total === undefined ? "—" : gbp(c.total)}</div>
+            <div class="d">${c.note ? esc(c.note) : `Safe this morning + floats in the tills + cash taken today − petty cash + change in − banking out. ${c.tills_cashed_up} of ${(d.cashup.done.length + d.cashup.missing.length)} tills cashed up so far.`}</div>
+          </div>
+        </div>
+        <details><summary class="muted" style="cursor:pointer;font-size:12px">How that's made up</summary>
+          <table class="grid" style="margin-top:6px">
+            ${leg("Safe count this morning", c.safe_am)}
+            ${leg("Floats counted into tills", c.floats, "+")}
+            ${leg("Cash taken over the tills (cash-ups so far, less their floats)", c.cash_takings, "+")}
+            ${leg("Petty cash spent", c.petty_spend, "−")}
+            ${leg("Change deliveries", c.change_deliveries, "+")}
+            ${leg("Banking collections", c.banking_collections, "−")}
+          </table>
+        </details>
+      </div>`;
     $("#dashSummary").innerHTML = `
       <div style="padding:16px 18px 0"><h3 style="font-size:16px;margin-bottom:6px">Today — ${esc(ukDate(date))}</h3></div>
+      ${cashBlock}
       <div class="tablewrap"><table class="grid">
         <thead><tr><th>Check</th><th>Done</th><th>Missing</th></tr></thead>
         <tbody>
@@ -850,8 +872,8 @@ function tillLabel(key){ const t = S.tills.find(x=>x.key===key); return t ? t.la
 function viewCashUpHistory(){
   return `
     <div class="subnav">
-      <button onclick="goView('cashup')">Add a count</button>
       <button class="on">History</button>
+      <span class="muted" style="align-self:center;font-size:12px">Counts are entered on the Daily Cash Up tile.</span>
     </div>
     <div class="pagehead">
       <h2>Cash Up — History</h2>
@@ -938,10 +960,9 @@ const SAFE_COLS = [
 function viewSafeHistory(){
   return `
     <div class="subnav">
-      <button onclick="goView('safe')">Add a safe count</button>
       <button class="on">Safe History</button>
-      <button onclick="goView('float')">Float Count</button>
       <button onclick="goView('float-history')">Float History</button>
+      <span class="muted" style="align-self:center;font-size:12px">Counts are entered on the Daily Safe Count and Daily Float Count tiles.</span>
     </div>
     <div class="pagehead">
       <h2>Safe Count — History</h2><div class="spacer"></div>
@@ -1018,10 +1039,9 @@ const FLOAT_COLS = [
 function viewFloatHistory(){
   return `
     <div class="subnav">
-      <button onclick="goView('safe')">Safe Count</button>
       <button onclick="goView('safe-history')">Safe History</button>
-      <button onclick="goView('float')">Add a float count</button>
       <button class="on">Float History</button>
+      <span class="muted" style="align-self:center;font-size:12px">Counts are entered on the Daily Safe Count and Daily Float Count tiles.</span>
     </div>
     <div class="pagehead">
       <h2>Float Count — History</h2><div class="spacer"></div>
