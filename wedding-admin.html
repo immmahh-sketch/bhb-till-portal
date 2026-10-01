@@ -1251,7 +1251,16 @@ function stillWanted(view, current){
 async function loadForecast(){
   var want = S.view, cur = S.current;
   try {
-    S.forecast = await call("report.forecast");
+    // The bonus tracker's confirmed weddings ride along so a booking that's
+    // signed and paid but not yet set up in the app still counts on the
+    // Overview. Fetched alongside the (slow) Guestline forward book; if this
+    // person can't see the tracker the Overview just shows the app's own.
+    var pair = await Promise.all([
+      call("report.forecast"),
+      BT.rows.length ? Promise.resolve(null) : call("bonus.list", {}).catch(function(){ return null; }),
+    ]);
+    S.forecast = pair[0];
+    if (pair[1]) { BT.level = pair[1].level; BT.rows = pair[1].rows || []; BT.inApp = pair[1].inApp || {}; }
     if (!stillWanted(want, cur)) return;
     $("views").innerHTML = viewOverview(); showAlbumBeat();
   } catch (e) { if (!stillWanted(want, cur)) return; showErr(e.message); $("views").innerHTML = ""; }
@@ -1337,8 +1346,60 @@ function forecastYears(f, withHeld){
 
 function toggleHeld(on){ S.showHeld = !!on; $("views").innerHTML = viewOverview(); }
 
+/* The Overview counts every confirmed wedding, wherever it is recorded.
+
+   The forward book from Guestline only knows weddings set up in the couples'
+   app. A booking confirmed on the bonus tracker - contract signed, deposit
+   paid - that nobody has set up in the app yet is just as booked, and a 2027
+   wedding sat on the tracker for weeks was not showing anywhere here. Those
+   rows are added in, once each (a tracker row that has become an app
+   wedding is already in the forward book), and only wedding-shaped event
+   types: a wake or a birthday on the tracker is not a wedding. */
+function overviewMerged(f0){
+  if (!f0) return f0;
+  var base = f0.allWeddings || f0.weddings || [];
+  var inApp = {};
+  base.forEach(function(w){ if (w.event_id) inApp[String(w.event_id).toUpperCase()] = true; });
+  var extra = (BT.rows || []).filter(function(r){
+    if (!r.event_date || !bonusSecured(r)) return false;
+    if (!/wedding|dry hire/i.test(String(r.event_type || "wedding"))) return false;
+    var ref = String(r.event_ref || "").toUpperCase().replace(/\s+/g, "");
+    if (ref && (inApp[ref] || (BT.inApp && BT.inApp[r.event_ref]))) return false;
+    return true;
+  }).map(function(r){
+    return { id: null, bonus_id: r.id, source: "tracker", salutation: r.booking_name || (r.partner1_name ? r.partner1_name + (r.partner2_name ? " & " + r.partner2_name : "") : ""),
+             event_id: r.event_ref || "", wedding_date: String(r.event_date).slice(0, 10), guests: null, value: Number(r.revenue) || 0 };
+  });
+  if (!extra.length) return f0;
+  var all = base.concat(extra);
+  var f = {};
+  for (var k in f0) f[k] = f0[k];
+  f.allWeddings = all;
+  f.weddings = all.filter(function(w){ return w.wedding_date >= f0.today; });
+  f.onTheBooks = f.weddings.length;
+  f.alreadyHeld = all.length - f.weddings.length;
+  f.totalRegistered = all.length;
+  f.fromTracker = extra.length;
+  return f;
+}
+function overviewYear(y){
+  S.ovYear = (S.ovYear === y) ? null : y;
+  $("views").innerHTML = viewOverview(); showAlbumBeat();
+  var card = document.getElementById("ovYearCard");
+  if (card) card.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+/* A tracker-only wedding opens on its bonus tracker line, which is where
+   its details live until somebody sets it up in the app. */
+function overviewOpenBonus(id){
+  var r = (BT.rows || []).find(function(x){ return x.id === id; });
+  S.view = "bonus"; markNav();
+  BT.query = r ? (r.event_ref || r.booking_name || "") : ""; BT.type = ""; BT.from = ""; BT.to = "";
+  BT.open = id;
+  $("views").innerHTML = viewBonus();
+}
+
 function viewOverview(){
-  var f = S.forecast;
+  var f = overviewMerged(S.forecast);
   var held = !!S.showHeld;
   var fc = forecastYears(f, held);
   var years = fc.years;
@@ -1402,14 +1463,49 @@ function viewOverview(){
     '<th class="money">Value</th><th style="width:34%"></th></tr></thead><tbody>';
   years.forEach(function(y){
     var pct = Math.round(y.weddings / peak * 100);
-    h += '<tr><td><strong>' + y.year + '</strong></td>' +
+    h += '<tr class="urow' + (S.ovYear === y.year ? ' btopen' : '') + '" style="cursor:pointer" title="See the weddings in ' + y.year + '"' +
+        ' onclick="overviewYear(' + y.year + ')"><td><strong>' + y.year + '</strong></td>' +
       '<td class="num"><strong>' + y.weddings + '</strong></td>' +
       '<td class="money num">' + (y.guests || "—") + '</td>' +
       '<td class="money num">' + (y.value ? money(y.value) : "—") + '</td>' +
       '<td><div style="background:var(--mist);height:10px">' +
         '<div style="background:var(--sage);height:10px;width:' + pct + '%"></div></div></td></tr>';
   });
-  h += '</tbody></table></div>';
+  h += '</tbody></table>' +
+    '<p class="muted" style="margin:10px 0 0;font-size:.8125rem">Click a year for its weddings. ' +
+    (f.fromTracker ? f.fromTracker + ' of these ' + (f.fromTracker === 1 ? 'is' : 'are') +
+      ' confirmed on the bonus tracker (signed and paid) but not yet set up in the app.' : '') +
+    '</p></div>';
+
+  /* ---- one year, wedding by wedding ---- */
+  if (S.ovYear) {
+    var inYear = fc.rows.filter(function(d){ return String(d.wedding_date).slice(0, 4) === String(S.ovYear); })
+      .sort(function(a, b){ return String(a.wedding_date).localeCompare(String(b.wedding_date)); });
+    h += '<div class="card" id="ovYearCard"><div class="split" style="margin-bottom:10px"><h2>' + S.ovYear + '</h2>' +
+      '<button class="btn btn--sm" onclick="overviewYear(null)">Close</button></div>';
+    if (!inYear.length) {
+      h += '<div class="empty">No weddings in ' + S.ovYear + '.</div>';
+    } else {
+      h += '<table><thead><tr><th>Date</th><th>Couple</th><th class="money">Guests</th><th class="money">Value</th><th>Where</th><th></th></tr></thead><tbody>';
+      inYear.forEach(function(x){
+        var go = x.source === "tracker" ? "overviewOpenBonus('" + x.bonus_id + "')" : "open_('" + x.id + "')";
+        h += '<tr class="urow" style="cursor:pointer" onclick="' + go + '">' +
+          '<td class="num">' + esc(ukDate(x.wedding_date)) + '</td>' +
+          '<td><strong>' + esc(x.salutation || x.booking_name || "—") + '</strong>' +
+            (x.event_id ? '<br><span class="muted" style="font-size:.8125rem"><code>' + esc(x.event_id) + '</code></span>' : '') + '</td>' +
+          '<td class="money num">' + (x.guestsDay || x.guestsEvening
+              ? (x.guestsDay ? x.guestsDay + ' day' : '') + (x.guestsDay && x.guestsEvening ? ' / ' : '') + (x.guestsEvening ? x.guestsEvening + ' eve' : '')
+              : (x.guests != null ? x.guests : '—')) + '</td>' +
+          '<td class="money num">' + (x.value ? money(x.value) : '—') + '</td>' +
+          '<td>' + (x.source === "tracker"
+              ? '<span class="pill hold" title="Confirmed on the bonus tracker, not yet set up in the app">Tracker</span>'
+              : '<span class="pill" title="Registered in the wedding app">App</span>') + '</td>' +
+          '<td class="money"><button class="btn btn--sm" onclick="event.stopPropagation();' + go + '">Open</button></td></tr>';
+      });
+      h += '</tbody></table>';
+    }
+    h += '</div>';
+  }
 
   /* ---- month grid: where the gaps are ---- */
   h += '<div class="card"><h2 style="margin-bottom:6px">By month</h2>' +
@@ -1459,7 +1555,9 @@ function viewOverview(){
               (x.guestsDay && x.guestsEvening ? '<br>' : '') +
               (x.guestsEvening ? x.guestsEvening + ' evening' : '')
             : (x.guests != null ? x.guests + ' guests' : '—')) + '</td>' +
-        '<td class="money"><button class="btn btn--sm" onclick="open_(\'' + x.id + '\')">Open</button></td></tr>';
+        '<td class="money"><button class="btn btn--sm" onclick="' +
+          (x.source === "tracker" ? "overviewOpenBonus('" + x.bonus_id + "')" : "open_('" + x.id + "')") +
+          '">Open</button></td></tr>';
     });
     h += '</tbody></table></div>';
   }
