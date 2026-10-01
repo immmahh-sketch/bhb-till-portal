@@ -557,11 +557,24 @@ function monthRow(r, isLastActual){
     <td class="strong">${ukDate(r.date)}<div class="muted" style="font-size:11px">${esc(r.day_of_week||'')}</div></td>
     <td>${eventTag(r)}</td>
     <td class="num">${dayValue(r.rooms_forecast, r.rooms_actual, r.has_actual, v=>num(v))}</td>
+    <td class="num">${dayValue(r.adr_forecast, r.adr_actual, r.has_actual, v=>gbp(v))}</td>
     <td class="num">${dayValue(r.rooms_revenue_forecast, r.rooms_revenue_actual, r.has_actual, v=>gbp(v))}</td>
     <td class="num">${dayValue(r.food_revenue_forecast, r.food_revenue_actual, r.has_actual, v=>gbp(v))}</td>
     <td class="num">${dayValue(r.beverage_revenue_forecast, r.beverage_revenue_actual, r.has_actual, v=>gbp(v))}</td>
     <td class="num strong">${dayValue(r.total_revenue_forecast, r.total_revenue_actual, r.has_actual, v=>gbp(v))}</td>
+    <td class="num muted">${coversCell(r)}</td>
   </tr>`;
+}
+// Breakfast / lunch / dinner covers, forecast or actual to match the row.
+// The workbook's lunch/dinner cells read from OpenTable and can hold an
+// error value on days with no booking data - those come through null.
+function coversCell(r){
+  const side = r.has_actual ? "actual" : "forecast";
+  const g = k => r[`${k}_${side}`];
+  const parts = [["B", g("breakfast_covers")], ["L", g("covers_lunch")], ["D", g("covers_dinner")]]
+    .filter(([,v]) => v !== null && v !== undefined);
+  if (!parts.length) return "—";
+  return parts.map(([l,v]) => `${l}&nbsp;${num(v)}`).join(" · ");
 }
 
 function renderMonthTable(d){
@@ -576,18 +589,20 @@ function renderMonthTable(d){
   d.days.forEach((r,i)=>{ if (r.has_actual) lastActualIdx = i; });
   $("#monthTable").innerHTML = `
     <thead><tr>
-      <th>Date</th><th>Event</th><th class="num">Rooms</th><th class="num">Rooms Revenue</th>
-      <th class="num">Food</th><th class="num">Beverage</th><th class="num">Total Revenue</th>
+      <th>Date</th><th>Event</th><th class="num">Rooms</th><th class="num">ARR</th><th class="num">Rooms Revenue</th>
+      <th class="num">Food</th><th class="num">Beverage</th><th class="num">Total Revenue</th><th class="num">Covers B · L · D</th>
     </tr></thead>
     <tbody>
       ${d.days.map((r,i)=>monthRow(r, i===lastActualIdx)).join("")}
       <tr class="totrow">
         <td colspan="2">Month total</td>
         <td class="num">${fcActual(t.rooms_forecast, t.rooms_actual, !!t.days_with_actual, v=>num(v))}</td>
+        <td class="num">${fcActual(t.adr_forecast, t.adr_actual, !!t.days_with_actual, v=>gbp(v))}</td>
         <td class="num">${fcActual(t.rooms_revenue_forecast, t.rooms_revenue_actual, !!t.days_with_actual, v=>gbp(v))}</td>
         <td class="num">${fcActual(t.food_revenue_forecast, t.food_revenue_actual, !!t.days_with_actual, v=>gbp(v))}</td>
         <td class="num">${fcActual(t.beverage_revenue_forecast, t.beverage_revenue_actual, !!t.days_with_actual, v=>gbp(v))}</td>
         <td class="num">${fcActual(t.total_revenue_forecast, t.total_revenue_actual, !!t.days_with_actual, v=>gbp(v))}</td>
+        <td></td>
       </tr>
     </tbody>
     <caption class="muted" style="caption-side:bottom; text-align:left; padding:8px 12px; font-size:11px;"><i>Forecast</i> until the day's end-of-day report has been processed, then <b>actual</b>. The month total keeps both — actual so far, and forecast for what's left.</caption>`;

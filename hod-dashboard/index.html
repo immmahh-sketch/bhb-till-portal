@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HOD Dashboard — Black Horse Beamish</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --sage:#4E5F4F; --sage-70:#7B887C; --sage-10:#EDEFED; --sage-dark:#3B483C;
+  --bone:#F7F7F7; --celadon:#C1C8B4; --mist:#E7E7E7; --white:#fff; --ink:#262626; --gold:#C9A56B;
+  --attention:#B08D57; --attention-bg:#F7F0E4; --alert:#8C4A3F; --alert-bg:#F6EAE8; --good:#4F6B4F; --good-bg:#EDF2ED;
+  --display:"Cormorant Garamond",Georgia,serif; --body:Raleway,"Helvetica Neue",Arial,sans-serif;
+  --track-label:.18em; --radius:10px; --shadow:0 1px 2px rgba(38,38,38,.06),0 8px 24px rgba(38,38,38,.07); --maxw:1320px;
+}
+*{box-sizing:border-box} html,body{margin:0;padding:0}
+body{font-family:var(--body); color:var(--ink); background:var(--bone); font-size:15px; line-height:1.45; -webkit-text-size-adjust:100%}
+h1,h2,h3{font-family:var(--display); font-weight:600; margin:0; letter-spacing:.01em}
+button,input,select{font:inherit; color:inherit}
+.shell{max-width:var(--maxw); margin:0 auto; padding:0 20px 64px}
+#gate{position:fixed; inset:0; background:var(--sage); z-index:100; display:flex; align-items:center; justify-content:center; padding:24px}
+#gate[hidden]{display:none}
+.gatecard{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); width:100%; max-width:380px; padding:32px 28px; text-align:center}
+.gatecard h1{font-size:26px; color:var(--sage); line-height:1.15}
+.gatecard .sub{font-size:11px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); margin:6px 0 22px}
+.gatecard input{width:100%; padding:12px 14px; border:1px solid var(--mist); border-radius:8px; background:var(--bone); margin-bottom:10px; text-align:center}
+.gatecard button{width:100%; padding:12px; border:0; border-radius:8px; cursor:pointer; background:var(--sage); color:var(--white); font-weight:600; letter-spacing:var(--track-label); text-transform:uppercase; font-size:12px}
+.gateerr{color:var(--alert); font-size:13px; min-height:18px; margin-top:8px}
+header.top{background:var(--sage); color:var(--white)}
+.topin{max-width:var(--maxw); margin:0 auto; padding:14px 20px; display:flex; align-items:center; gap:18px; flex-wrap:wrap}
+.brand{font-family:var(--display); font-size:21px; line-height:1.1}
+.brand small{display:block; font-family:var(--body); font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; opacity:.75}
+.who{margin-left:auto; display:flex; align-items:center; gap:10px; font-size:12px; opacity:.9}
+.who button{background:transparent; border:1px solid rgba(255,255,255,.4); color:var(--white); border-radius:6px; padding:5px 10px; cursor:pointer; font-size:11px; letter-spacing:.06em; text-transform:uppercase}
+nav.tabs{background:var(--sage-dark)}
+.tabsin{max-width:var(--maxw); margin:0 auto; padding:0 20px; display:flex; gap:2px; overflow-x:auto}
+.tabbtn{background:transparent; border:0; cursor:pointer; color:rgba(255,255,255,.72); padding:12px 16px; font-size:12px; font-weight:600; white-space:nowrap; letter-spacing:var(--track-label); text-transform:uppercase; border-bottom:3px solid transparent}
+.tabbtn[aria-current="page"]{color:var(--white); border-bottom-color:var(--gold)}
+.tabbtn[hidden]{display:none}
+
+/* range bar */
+.rangebar{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); padding:12px 16px; margin:22px 0 18px; display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+.pills{display:flex; gap:6px; flex-wrap:wrap}
+.pill{background:var(--white); border:1px solid var(--mist); color:var(--sage); border-radius:999px; padding:7px 14px; cursor:pointer; font-size:12px; font-weight:600; min-height:36px}
+.pill.on{background:var(--sage); border-color:var(--sage); color:var(--white)}
+.rangebar input[type=date]{padding:8px 10px; border:1px solid var(--mist); border-radius:8px; background:var(--white); font-size:14px; min-height:38px}
+.rangebar .nav{display:flex; gap:6px}
+.btn{border:1px solid var(--sage); background:var(--sage); color:var(--white); border-radius:8px; padding:8px 14px; cursor:pointer; font-size:12px; font-weight:600; letter-spacing:var(--track-label); text-transform:uppercase; min-height:38px}
+.btn.ghost{background:var(--white); color:var(--sage)} .btn.ghost:hover{background:var(--sage-10)}
+.btn:disabled{opacity:.5; cursor:default}
+.rangelabel{font-family:var(--display); font-size:22px; color:var(--sage); margin-left:auto}
+.rangelabel small{display:block; font-family:var(--body); font-size:11px; color:var(--sage-70); letter-spacing:.06em; text-transform:uppercase}
+
+.pagehead{display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; margin:6px 0 14px}
+.pagehead h2{font-size:26px; color:var(--sage)}
+.pagehead .hint{font-size:13px; color:var(--sage-70)}
+.tiles{display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:14px; margin-bottom:20px}
+.tile{background:var(--white); border-radius:var(--radius); padding:16px 18px; box-shadow:var(--shadow); border-left:4px solid var(--celadon)}
+.tile .n{font-family:var(--display); font-size:30px; line-height:1; color:var(--sage)}
+.tile .l{font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); margin-top:6px}
+.tile .d{font-size:12px; margin-top:4px; font-weight:600}
+.tile.warn{border-left-color:var(--attention)} .tile.warn .n{color:var(--attention)}
+.tile.bad{border-left-color:var(--alert)} .tile.bad .n{color:var(--alert)}
+.tile.ok{border-left-color:var(--good)} .tile.ok .n{color:var(--good)}
+.card{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); padding:18px 20px; margin-bottom:20px}
+.card h3{font-size:20px; color:var(--sage); margin-bottom:8px}
+.tablewrap{overflow-x:auto}
+table.grid{width:100%; border-collapse:collapse; font-size:14px}
+table.grid th{text-align:left; padding:10px 12px; background:var(--sage-10); color:var(--sage); font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; font-weight:700; white-space:nowrap}
+table.grid th.num{text-align:right}
+table.grid td{padding:9px 12px; border-top:1px solid var(--mist); vertical-align:top; white-space:nowrap}
+table.grid td.num{text-align:right; font-variant-numeric:tabular-nums}
+table.grid tr.totrow td{font-weight:700; background:var(--sage-10); border-top:2px solid var(--celadon)}
+table.grid tr.sub td{color:var(--sage-70)}
+.muted{color:var(--sage-70)} .strong{font-weight:600}
+.up{color:var(--good)} .down{color:var(--alert)}
+i{color:var(--sage-70)}
+.note{font-size:12px; color:var(--sage-70); margin-top:10px; line-height:1.5}
+.field{margin-bottom:12px} .field label{display:block; font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); margin-bottom:4px}
+.field input{width:100%; padding:9px 11px; border:1px solid var(--mist); border-radius:8px; font-size:15px}
+.row{display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px}
+.empty{padding:40px 20px; text-align:center; color:var(--sage-70)} .loading{padding:60px; text-align:center; color:var(--sage-70)}
+.toast{position:fixed; left:50%; bottom:26px; transform:translate(-50%,20px); background:var(--ink); color:var(--white); padding:12px 20px; border-radius:8px; z-index:200; opacity:0; transition:.2s; pointer-events:none; font-size:14px; max-width:90vw}
+.toast.on{opacity:1; transform:translate(-50%,0)} .toast.bad{background:var(--alert)}
+@media (max-width:640px){
+  .shell{padding:0 12px 48px} .topin,.tabsin{padding-left:12px; padding-right:12px}
+  .tabbtn{padding:12px 9px; font-size:11px; letter-spacing:.08em}
+  .pagehead h2{font-size:22px} .rangelabel{margin-left:0; width:100%}
+  .tile .n{font-size:24px} table.grid td, table.grid th{padding:8px 8px}
+}
+</style>
+</head>
+<body>
+<div id="gate"><div class="gatecard"><h1>HOD Dashboard</h1><div class="sub">Black Horse Beamish</div>
+  <input id="gpw" type="password" placeholder="Password" autocomplete="current-password"><button id="gbtn">Open</button><div class="gateerr" id="gerr"></div></div></div>
+
+<div id="app" hidden>
+  <header class="top"><div class="topin">
+    <div class="brand">HOD Dashboard<small>Black Horse Beamish</small></div>
+    <div class="who"><span id="whoname"></span><button id="signout">Sign out</button></div>
+  </div></header>
+  <nav class="tabs"><div class="tabsin" role="tablist">
+    <button class="tabbtn" data-view="revenue">Revenue</button>
+    <button class="tabbtn" data-view="wages">Wages</button>
+    <button class="tabbtn" data-view="housekeeping">Housekeeping</button>
+    <button class="tabbtn" data-view="pl">Profit &amp; loss</button>
+    <button class="tabbtn" data-view="settings" id="tabSettings" hidden>Settings</button>
+  </div></nav>
+  <div class="shell">
+    <div class="rangebar" id="rangebar">
+      <div class="pills" id="modes">
+        <button class="pill" data-mode="day">Day</button>
+        <button class="pill" data-mode="week">Week</button>
+        <button class="pill on" data-mode="month">Month</button>
+        <button class="pill" data-mode="period">Period</button>
+      </div>
+      <input type="date" id="rFrom"><span class="muted" id="rToLbl">to</span><input type="date" id="rTo">
+      <div class="nav"><button class="btn ghost" id="rPrev">&larr;</button><button class="btn ghost" id="rNext">&rarr;</button><button class="btn" id="rGo">Show</button></div>
+      <div class="rangelabel" id="rangeLabel"></div>
+    </div>
+    <div id="views"></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const CFG = {
+  SUPABASE_URL: "https://safcrtrfdzsnftghibot.supabase.co",
+  SUPABASE_KEY: "sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU",
+  PORTAL_PASSWORD: "H0dDash#26",
+  KEY: "bhb_hod_ok",
+};
+const S = { me:null, sections:[], canSettings:false, settings:{}, view:"revenue", mode:"month", from:"", to:"", data:null, loading:false, latest:null };
+const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
+const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const isNil = v => v === null || v === undefined || Number.isNaN(v);
+const gbp = v => isNil(v) ? "—" : (v < 0 ? "-" : "") + "£" + Math.abs(Number(v)).toLocaleString("en-GB", { minimumFractionDigits:0, maximumFractionDigits:0 });
+const gbp2 = v => isNil(v) ? "—" : (v < 0 ? "-" : "") + "£" + Math.abs(Number(v)).toLocaleString("en-GB", { minimumFractionDigits:2, maximumFractionDigits:2 });
+const num = (v, dp) => isNil(v) ? "—" : Number(v).toLocaleString("en-GB", { minimumFractionDigits:dp||0, maximumFractionDigits:dp||0 });
+const pc = v => isNil(v) ? "—" : Number(v).toFixed(1) + "%";
+const signed = v => isNil(v) ? "—" : (v > 0 ? "+" : "") + Number(v).toFixed(1);
+const ukDate = iso => { if(!iso) return ""; const [y,m,d] = String(iso).slice(0,10).split("-"); return `${d}/${m}/${y}`; };
+const addDays = (iso, n) => { const d = new Date(iso+"T12:00:00Z"); d.setUTCDate(d.getUTCDate()+n); return d.toISOString().slice(0,10); };
+const todayIso = () => new Date().toLocaleDateString("en-CA", { timeZone:"Europe/London" });
+const weekStart = iso => { const d = new Date(iso+"T12:00:00Z"); const dow = (d.getUTCDay()+6)%7; d.setUTCDate(d.getUTCDate()-dow); return d.toISOString().slice(0,10); };
+const monthStart = iso => iso.slice(0,8) + "01";
+const monthEnd = iso => { const [y,m] = iso.split("-").map(Number); return `${y}-${String(m).padStart(2,"0")}-${new Date(Date.UTC(y,m,0)).getUTCDate()}`; };
+const longDate = iso => new Date(iso+"T12:00:00Z").toLocaleDateString("en-GB", { weekday:"short", day:"numeric", month:"short", year:"numeric" });
+function toast(msg, bad){ const t=$("#toast"); t.textContent=msg; t.className="toast on"+(bad?" bad":""); clearTimeout(toast._t); toast._t=setTimeout(()=>{t.className="toast";}, bad?5200:2600); }
+function staffEmail(){ try { return sessionStorage.getItem("bhb_staff_email") || ""; } catch(e){ return ""; } }
+async function call(action, payload){
+  const r = await fetch(CFG.SUPABASE_URL + "/functions/v1/hod-api", { method:"POST",
+    headers:{ "Content-Type":"application/json", Authorization:"Bearer "+CFG.SUPABASE_KEY, apikey:CFG.SUPABASE_KEY },
+    body: JSON.stringify({ action, staff_email: staffEmail(), ...(payload||{}) }) });
+  let d = {}; try { d = await r.json(); } catch(e){}
+  if (!r.ok || d.error) throw new Error(d.error || `Request failed (${r.status})`);
+  return d;
+}
+// Forecast in italics until the day is complete, then the actual in bold;
+// a range mixing both shows "forecast / actual" the way the Forecast Dashboard does.
+const dayVal = (d, f, a, fmt) => d.has_actual ? `<b>${fmt(a)}</b>` : `<i>${fmt(f)}</i>`;
+const both = (f, a, fmt) => isNil(a) ? `<i>${fmt(f)}</i>` : (isNil(f) ? `<b>${fmt(a)}</b>` : `<i>${fmt(f)}</i> / <b>${fmt(a)}</b>`);
+const varCell = (f, a, fmt) => { if (isNil(f) || isNil(a)) return `<span class="muted">—</span>`; const d = a - f; return `<span class="${d>=0?"up":"down"}">${d>=0?"+":"-"}${fmt(Math.abs(d))}</span>`; };
+const tile = (l, n, d, cls) => `<div class="tile ${cls||""}"><div class="n">${n}</div><div class="l">${l}</div><div class="d">${d||""}</div></div>`;
+
+/* ---------------------------------------------------------- range */
+function setMode(mode, anchor){
+  S.mode = mode;
+  $$("#modes .pill").forEach(p => p.classList.toggle("on", p.dataset.mode === mode));
+  const a = anchor || S.from || S.latest || todayIso();
+  if (mode === "day") { S.from = a; S.to = a; }
+  else if (mode === "week") { S.from = weekStart(a); S.to = addDays(S.from, 6); }
+  else if (mode === "month") { S.from = monthStart(a); S.to = monthEnd(S.from); }
+  else { if (!S.from) { S.from = monthStart(a); S.to = monthEnd(S.from); } }
+  syncInputs();
+}
+function syncInputs(){
+  $("#rFrom").value = S.from; $("#rTo").value = S.to;
+  const single = S.mode === "day";
+  $("#rTo").hidden = single; $("#rToLbl").hidden = single;
+  $("#rPrev").hidden = S.mode === "period"; $("#rNext").hidden = S.mode === "period";
+}
+function shift(dir){
+  if (S.mode === "day") setMode("day", addDays(S.from, dir));
+  else if (S.mode === "week") setMode("week", addDays(S.from, 7*dir));
+  else if (S.mode === "month") { const [y,m] = S.from.split("-").map(Number); const d = new Date(Date.UTC(y, m-1+dir, 1)); setMode("month", d.toISOString().slice(0,10)); }
+  load();
+}
+function rangeLabel(){
+  if (S.mode === "day") return `${longDate(S.from)}<small>Day</small>`;
+  if (S.mode === "week") return `${ukDate(S.from)} – ${ukDate(S.to)}<small>Week, Mon to Sun</small>`;
+  if (S.mode === "month") return `${new Date(S.from+"T12:00:00Z").toLocaleDateString("en-GB",{month:"long",year:"numeric"})}<small>Month</small>`;
+  return `${ukDate(S.from)} – ${ukDate(S.to)}<small>Period</small>`;
+}
+async function load(){
+  $("#rangeLabel").innerHTML = rangeLabel();
+  $("#views").innerHTML = `<div class="loading">Loading…</div>`;
+  S.loading = true;
+  try { S.data = await call("range", { from:S.from, to:S.to }); render(); }
+  catch(e){ $("#views").innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+  finally { S.loading = false; }
+}
+
+/* ---------------------------------------------------------- views */
+function goView(v){
+  S.view = v;
+  $$(".tabbtn").forEach(b => b.setAttribute("aria-current", b.dataset.view === v ? "page" : "false"));
+  $("#rangebar").hidden = v === "settings";
+  if (v === "settings") { $("#views").innerHTML = viewSettings(); wireSettings(); return; }
+  if (S.data) render(); else load();
+}
+function render(){
+  const d = S.data; if (!d) return;
+  const views = { revenue: viewRevenue, wages: viewWages, housekeeping: viewHK, pl: viewPL };
+  if (!S.sections.includes(S.view)) { $("#views").innerHTML = `<div class="empty">You don't have access to this section.</div>`; return; }
+  $("#views").innerHTML = (views[S.view] || viewRevenue)(d);
+}
+const basis = d => d.totals.days_actual ? `${d.totals.days_actual} of ${d.totals.days} days actual` : "No actuals yet - forecast only";
+
+function viewRevenue(d){
+  const t = d.totals, f = t.revenue.forecast, a = t.revenue.actual;
+  const dept = [
+    ["Rooms", "rooms"], ["Breakfast", "breakfast"], ["Restaurant food", "restaurant_food"], ["Restaurant beverage", "restaurant_bev"],
+    ["Function food", "function_food"], ["Function beverage", "function_bev"], ["Room hire", "room_hire"], ["Other", "other"],
+  ];
+  return `
+  <div class="pagehead"><h2>Revenue by department</h2><div class="hint">${basis(d)}. Forecast in <i>italics</i>, actual in <b>bold</b>.</div></div>
+  <div class="tiles">
+    ${tile("Total revenue", both(f.total, a.total, gbp), varCell(f.total, a.total, gbp) )}
+    ${tile("Rooms sold", both(f.rooms_sold, a.rooms_sold, v=>num(v)), `of ${num(t.rooms_available)} available`)}
+    ${tile("ARR", both(f.adr, a.adr, gbp2), varCell(f.adr, a.adr, gbp2))}
+    ${tile("Food & beverage", both(f.fb, a.fb, gbp), varCell(f.fb, a.fb, gbp))}
+  </div>
+  <div class="card"><h3>Departments</h3><div class="tablewrap"><table class="grid">
+    <thead><tr><th>Department</th><th class="num">Forecast</th><th class="num">Actual</th><th class="num">Variance</th><th class="num">Share of actual</th></tr></thead>
+    <tbody>${dept.map(([l,k]) => `<tr><td>${l}</td><td class="num"><i>${gbp(f[k])}</i></td><td class="num"><b>${gbp(a[k])}</b></td><td class="num">${varCell(f[k], a[k], gbp)}</td><td class="num muted">${isNil(a[k])||!a.total ? "—" : pc(a[k]/a.total*100)}</td></tr>`).join("")}
+      <tr class="totrow"><td>Total revenue</td><td class="num"><i>${gbp(f.total)}</i></td><td class="num"><b>${gbp(a.total)}</b></td><td class="num">${varCell(f.total, a.total, gbp)}</td><td></td></tr>
+      <tr class="sub"><td>Service charge (not in total)</td><td class="num"><i>${gbp(f.service_charge)}</i></td><td class="num"><b>${gbp(a.service_charge)}</b></td><td class="num">${varCell(f.service_charge, a.service_charge, gbp)}</td><td></td></tr>
+    </tbody></table></div></div>
+  <div class="card"><h3>By day</h3><div class="tablewrap"><table class="grid">
+    <thead><tr><th>Date</th><th>Event</th><th class="num">Rooms</th><th class="num">ARR</th><th class="num">Rooms rev</th><th class="num">Restaurant F&amp;B</th><th class="num">Function F&amp;B</th><th class="num">Room hire</th><th class="num">Total</th></tr></thead>
+    <tbody>${d.days.map(x => { const r = x.has_actual ? x.revenue.actual : x.revenue.forecast; const rest = (r.breakfast||0)+(r.restaurant_food||0)+(r.restaurant_bev||0); const fun = (r.function_food||0)+(r.function_bev||0);
+      return `<tr><td class="strong">${ukDate(x.date)}<div class="muted" style="font-size:11px">${esc(x.day_of_week||"")}</div></td><td>${x.wedding_name ? esc(x.wedding_name) : (x.event_type ? esc(x.event_type) : "")}</td>
+      <td class="num">${dayVal(x, x.revenue.forecast.rooms_sold, x.revenue.actual.rooms_sold, v=>num(v))}</td><td class="num">${dayVal(x, x.revenue.forecast.adr, x.revenue.actual.adr, gbp2)}</td>
+      <td class="num">${dayVal(x, x.revenue.forecast.rooms, x.revenue.actual.rooms, gbp)}</td><td class="num">${x.has_actual?`<b>${gbp(rest)}</b>`:`<i>${gbp(rest)}</i>`}</td><td class="num">${x.has_actual?`<b>${gbp(fun)}</b>`:`<i>${gbp(fun)}</i>`}</td>
+      <td class="num">${dayVal(x, x.revenue.forecast.room_hire, x.revenue.actual.room_hire, gbp)}</td><td class="num strong">${dayVal(x, x.revenue.forecast.total, x.revenue.actual.total, gbp)}</td></tr>`; }).join("")}
+    </tbody></table></div></div>`;
+}
+
+function viewWages(d){
+  const w = d.totals.wages, f = d.totals.revenue.forecast, s = S.settings;
+  const tcls = (v, target) => isNil(v) || isNil(target) ? "" : (v <= target ? "ok" : "bad");
+  const tgt = target => isNil(target) ? "no target set" : `target ${pc(target)}`;
+  const futureRev = d.days.filter(x => !x.has_actual).reduce((t,x) => t + (x.revenue.forecast.total||0), 0);
+  const futureFb = d.days.filter(x => !x.has_actual).reduce((t,x) => t + (x.revenue.forecast.fb||0), 0);
+  const futureFood = d.days.filter(x => !x.has_actual).reduce((t,x) => t + (x.revenue.forecast.food||0), 0);
+  const plan = [];
+  if (!isNil(s.target_foh_wage_pct)) plan.push(`FOH ${gbp(futureFb * s.target_foh_wage_pct/100)}`);
+  if (!isNil(s.target_boh_wage_pct)) plan.push(`BOH ${gbp(futureFood * s.target_boh_wage_pct/100)}`);
+  if (!isNil(s.target_labour_pct)) plan.push(`all departments ${gbp(futureRev * s.target_labour_pct/100)}`);
+  return `
+  <div class="pagehead"><h2>Wages</h2><div class="hint">Actual days with payroll in: ${w.days} of ${d.totals.days}. Wage % is wages over revenue for those same days - a sum over a sum, never an average of daily figures.</div></div>
+  <div class="tiles">
+    ${tile("FOH wage %", pc(w.foh_wage_pct), `${gbp(w.foh)} of ${gbp(w.revenue.fb)} food &amp; bev · ${tgt(w.target_foh_wage_pct)}`, tcls(w.foh_wage_pct, w.target_foh_wage_pct))}
+    ${tile("BOH wage %", pc(w.boh_wage_pct), `${gbp(w.boh)} of ${gbp(w.revenue.food)} food · ${tgt(w.target_boh_wage_pct)}`, tcls(w.boh_wage_pct, w.target_boh_wage_pct))}
+    ${tile("Total labour %", pc(w.labour_pct), `${gbp(w.total)} of ${gbp(w.revenue.total)} revenue · ${tgt(w.target_labour_pct)}`, tcls(w.labour_pct, w.target_labour_pct))}
+    ${tile("Wages, all departments", gbp(w.total), "incl. on-costs and holiday")}
+  </div>
+  ${futureRev ? `<div class="card"><h3>Planning the days ahead</h3>
+    <div>Forecast revenue still to come in this range: <b>${gbp(futureRev)}</b> (food &amp; beverage <b>${gbp(futureFb)}</b>, food <b>${gbp(futureFood)}</b>).</div>
+    <div class="note">${plan.length ? "Wage allowance at target: " + plan.join(" · ") + "." : "Set wage % targets in Settings and this shows the wage allowance the forecast supports."}</div></div>` : ""}
+  <div class="card"><h3>By department</h3><div class="tablewrap"><table class="grid">
+    <thead><tr><th>Department</th><th class="num">Wages</th><th class="num">Measured against</th><th class="num">Wage %</th></tr></thead>
+    <tbody>
+      <tr><td>Back of house (kitchen)</td><td class="num">${gbp(w.boh)}</td><td class="num muted">food ${gbp(w.revenue.food)}</td><td class="num strong">${pc(w.boh_wage_pct)}</td></tr>
+      <tr><td>Front of house</td><td class="num">${gbp(w.foh)}</td><td class="num muted">food &amp; bev ${gbp(w.revenue.fb)}</td><td class="num strong">${pc(w.foh_wage_pct)}</td></tr>
+      <tr><td>Housekeeping</td><td class="num">${gbp(w.hk)}</td><td class="num muted">see Housekeeping</td><td class="num"></td></tr>
+      <tr><td>Maintenance</td><td class="num">${gbp(w.maint)}</td><td></td><td></td></tr>
+      <tr><td>Office</td><td class="num">${gbp(w.office)}</td><td></td><td></td></tr>
+      <tr class="totrow"><td>All departments</td><td class="num">${gbp(w.total)}</td><td class="num muted">total revenue ${gbp(w.revenue.total)}</td><td class="num">${pc(w.labour_pct)}</td></tr>
+    </tbody></table></div></div>
+  ${d.weeks.length > 1 ? `<div class="card"><h3>By week</h3><div class="tablewrap"><table class="grid">
+    <thead><tr><th>Week</th><th class="num">Days in</th><th class="num">FOH %</th><th class="num">BOH %</th><th class="num">Labour %</th><th class="num">Wages</th><th class="num">Revenue</th></tr></thead>
+    <tbody>${d.weeks.map(k => `<tr><td class="strong">${ukDate(k.week_start)} – ${ukDate(k.week_end)}</td><td class="num">${k.wages.days}</td><td class="num">${pc(k.wages.foh_wage_pct)}</td><td class="num">${pc(k.wages.boh_wage_pct)}</td><td class="num">${pc(k.wages.labour_pct)}</td><td class="num">${gbp(k.wages.total)}</td><td class="num">${gbp(k.wages.revenue.total)}</td></tr>`).join("")}</tbody></table></div></div>` : ""}
+  <div class="card"><h3>By day</h3><div class="tablewrap"><table class="grid">
+    <thead><tr><th>Date</th><th class="num">BOH</th><th class="num">BOH %</th><th class="num">FOH</th><th class="num">FOH %</th><th class="num">HK</th><th class="num">Maint</th><th class="num">Office</th><th class="num">Total</th><th class="num">Labour %</th><th class="num">Revenue</th></tr></thead>
+    <tbody>${d.days.map(x => { const l = x.labour; return l.has_payroll
+      ? `<tr><td class="strong">${ukDate(x.date)}<div class="muted" style="font-size:11px">${esc(x.day_of_week||"")}</div></td><td class="num">${gbp(l.boh_cost)}</td><td class="num">${pc(l.boh_wage_pct)}</td><td class="num">${gbp(l.foh_cost)}</td><td class="num">${pc(l.foh_wage_pct)}</td><td class="num">${gbp(l.hk_cost)}</td><td class="num">${gbp(l.maint_cost)}</td><td class="num">${gbp(l.office_cost)}</td><td class="num strong">${gbp(l.total_wages)}</td><td class="num strong">${pc(l.labour_pct)}</td><td class="num">${gbp(x.revenue.actual.total)}</td></tr>`
+      : `<tr class="sub"><td class="strong">${ukDate(x.date)}<div class="muted" style="font-size:11px">${esc(x.day_of_week||"")}</div></td><td colspan="9"><i>${x.has_actual ? "payroll not in yet" : "forecast revenue " + gbp(x.revenue.forecast.total)}</i></td><td class="num"><i>${gbp(x.revenue.forecast.total)}</i></td></tr>`; }).join("")}
+    </tbody></table></div>
+    <div class="note">Wages are the payroll export's gross pay with employer on-costs and holiday accrual applied the same way the forecast workbook does. BOH is measured against food revenue, FOH against food and beverage, the total against all revenue.</div></div>`;
+}
+
+function viewHK(d){
+  const h = d.totals.hk;
+  const cls = v => isNil(v) ? "" : (v <= 0 ? "ok" : (v <= 5 ? "warn" : "bad"));
+  return `
+  <div class="pagehead"><h2>Housekeeping</h2><div class="hint">Minutes per room cleaned against the target for the mix of rooms that day. Days with payroll in: ${h.days} of ${d.totals.days}.</div></div>
+  <div class="tiles">
+    ${tile("Minutes per room", num(h.mins_per_room,1), `${num(h.minutes_net)} room minutes · ${num(h.room_count)} rooms`)}
+    ${tile("Target per room", num(h.target_per_room,1), `${num(h.target_total)} target minutes`)}
+    ${tile("Variance to target", signed(h.variance), "minutes per room - under is good", cls(h.variance))}
+    ${tile("Housekeeping wages", gbp(d.totals.wages ? d.totals.wages.hk : null), "incl. on-costs and holiday")}
+  </div>
+  ${d.weeks.length > 1 ? `<div class="card"><h3>By week</h3><div class="tablewrap"><table class="grid">
+    <thead><tr><th>Week</th><th class="num">Rooms</th><th class="num">Room minutes</th><th class="num">Target minutes</th><th class="num">Mins / room</th><th class="num">Target / room</th><th class="num">Variance</th></tr></thead>
+    <tbody>${d.weeks.map(k => `<tr><td class="strong">${ukDate(k.week_start)} – ${ukDate(k.week_end)}</td><td class="num">${num(k.hk.room_count)}</td><td class="num">${num(k.hk.minutes_net)}</td><td class="num">${num(k.hk.target_total)}</td><td class="num">${num(k.hk.mins_per_room,1)}</td><td class="num">${num(k.hk.target_per_room,1)}</td><td class="num ${isNil(k.hk.variance)?"":(k.hk.variance<=0?"up":"down")}">${signed(k.hk.variance)}</td></tr>`).join("")}</tbody></table></div></div>` : ""}
+  <div class="card"><h3>By day</h3><div class="tablewrap"><table class="grid">
+    <thead><tr><th>Date</th><th class="num">Rooms cleaned</th><th class="num">Room minutes</th><th class="num">Target minutes</th><th class="num">Mins / room</th><th class="num">Target / room</th><th class="num">Variance</th></tr></thead>
+    <tbody>${d.days.map(x => { const k = x.hk; return isNil(k.mins_per_room)
+      ? `<tr class="sub"><td class="strong">${ukDate(x.date)}</td><td colspan="6"><i>${x.has_actual ? "payroll or room count not in yet" : "ahead"}</i></td></tr>`
+      : `<tr><td class="strong">${ukDate(x.date)}<div class="muted" style="font-size:11px">${esc(x.day_of_week||"")}</div></td><td class="num">${num(k.room_count)}</td><td class="num">${num(k.minutes_net)}</td><td class="num">${num(k.target_total)}</td><td class="num strong">${num(k.mins_per_room,1)}</td><td class="num">${num(k.target_per_room,1)}</td><td class="num ${k.variance<=0?"up":"down"}">${signed(k.variance)}</td></tr>`; }).join("")}
+    </tbody></table></div>
+    <div class="note">Room minutes are housekeeping hours paid (at the housekeeping hourly rate) less the fixed daily allowance for reception and public areas. Rooms cleaned and targets are the previous night's rooms - a standard room at 40 minutes, a large room at 180 - as the forecast workbook applies them.</div></div>`;
+}
+
+function viewPL(d){
+  const p = d.totals.pl, a = p.actual, f = p.forecast, fb = Math.round((d.settings.fb_cost_pct||0.35)*100);
+  const cls = v => isNil(v) ? "" : (v >= 0 ? "ok" : "bad");
+  return `
+  <div class="pagehead"><h2>Profit &amp; loss</h2><div class="hint">Revenue less wages less ${fb}% food &amp; beverage cost of sales. Actual over the ${a.days} days with payroll in; forecast before wages for the whole range.</div></div>
+  <div class="tiles">
+    ${tile("Gross profit - actual", gbp(a.overall), `${a.days} days with payroll`, cls(a.overall))}
+    ${tile("Forecast, before wages", gbp(f.before_wages), `${f.days} days · revenue less ${fb}% F&amp;B cost`)}
+    ${tile("Forecast at target labour %", gbp(f.at_target), isNil(f.at_target) ? "set a total labour % target in Settings" : `after wage allowance ${gbp(f.wage_allowance)}`)}
+    ${tile("F&B cost of sales - actual", gbp(a.fb_cost), `${fb}% of food &amp; beverage`)}
+  </div>
+  <div class="card"><h3>By department</h3><div class="tablewrap"><table class="grid">
+    <thead><tr><th>Department</th><th class="num">Forecast contribution</th><th class="num">Actual P&amp;L</th><th>What's in it</th></tr></thead>
+    <tbody>
+      <tr><td>Rooms</td><td class="num"><i>${gbp(f.rooms_contrib)}</i></td><td class="num"><b>${gbp(a.rooms)}</b></td><td class="muted">accommodation revenue less housekeeping wages</td></tr>
+      <tr><td>Restaurant</td><td class="num"><i>${gbp(f.restaurant_contrib)}</i></td><td class="num"><b>${gbp(a.restaurant)}</b></td><td class="muted">breakfast + restaurant F&amp;B at ${100-fb}% GP, less kitchen and front of house wages</td></tr>
+      <tr><td>Functions</td><td class="num"><i>${gbp(f.functions_contrib)}</i></td><td class="num"><b>${gbp(a.functions)}</b></td><td class="muted">function F&amp;B at ${100-fb}% GP plus room hire, less the kitchen hours given to a function day</td></tr>
+      <tr><td>Other revenue</td><td class="num"><i>${gbp(d.totals.revenue.forecast.other)}</i></td><td class="num"><b>${gbp(a.other)}</b></td><td class="muted"></td></tr>
+      <tr><td>Overheads</td><td class="num"><i>—</i></td><td class="num"><b>${gbp(isNil(a.overheads) ? null : -a.overheads)}</b></td><td class="muted">maintenance and office wages</td></tr>
+      <tr class="totrow"><td>Overall gross profit</td><td class="num"><i>${gbp(f.before_wages)}</i> <span class="muted">before wages</span></td><td class="num"><b>${gbp(a.overall)}</b></td><td class="muted">total revenue less ${fb}% F&amp;B cost less all wages</td></tr>
+    </tbody></table></div></div>
+  <div class="card"><h3>By day</h3><div class="tablewrap"><table class="grid">
+    <thead><tr><th>Date</th><th class="num">Rooms</th><th class="num">Restaurant</th><th class="num">Functions</th><th class="num">Overheads</th><th class="num">Overall GP</th><th class="num">Forecast before wages</th></tr></thead>
+    <tbody>${d.days.map(x => { const pa = x.pl.actual, pf = x.pl.forecast; return `<tr${pa?"":' class="sub"'}><td class="strong">${ukDate(x.date)}<div class="muted" style="font-size:11px">${esc(x.day_of_week||"")}</div></td>
+      <td class="num">${pa?gbp(pa.rooms):"—"}</td><td class="num">${pa?gbp(pa.restaurant):"—"}</td><td class="num">${pa?gbp(pa.functions):"—"}</td><td class="num">${pa?gbp(-pa.overheads):"—"}</td><td class="num strong ${pa?(pa.overall>=0?"up":"down"):""}">${pa?gbp(pa.overall):(x.has_actual?"<i>payroll not in</i>":"—")}</td><td class="num"><i>${pf?gbp(pf.before_wages):"—"}</i></td></tr>`; }).join("")}
+    </tbody></table></div></div>`;
+}
+
+function viewSettings(){
+  const s = S.settings;
+  const f = (k, l, step) => `<div class="field"><label>${l}</label><input id="s_${k}" type="number" step="${step||"any"}" value="${isNil(s[k])?"":s[k]}"></div>`;
+  return `
+  <div class="pagehead"><h2>Settings</h2><div class="hint">The forecast workbook's labour constants, and the targets the dashboard measures against.</div></div>
+  <div class="card"><h3>Targets</h3><div class="row">${f("target_foh_wage_pct","FOH wage % target")}${f("target_boh_wage_pct","BOH wage % target")}${f("target_labour_pct","Total labour % target")}</div><div class="note">Leave blank for no target. These drive the green/red on the Wages tiles and the forecast wage allowance.</div></div>
+  <div class="card"><h3>Labour model</h3><div class="row">
+    ${f("oncost_factor","Employer on-cost factor")}${f("holiday_factor","Holiday accrual factor")}${f("fb_cost_pct","F&B cost of sales (0.35 = 35%)")}
+    ${f("boh_ni_allowance_week","BOH NI allowance / week £")}${f("foh_ni_allowance_week","FOH NI allowance / week £")}${f("hk_ni_allowance_week","HK NI allowance / week £")}
+    ${f("hk_hourly_rate","Housekeeping hourly rate £")}${f("hk_fixed_minutes_day","HK fixed minutes / day (reception, public areas)")}
+    ${f("function_boh_hours","Kitchen hours given to a function day")}${f("function_boh_rate","at hourly rate £")}
+  </div><div class="note">Defaults match the Forecast workbook exactly. Changing a figure here changes every day shown, past and future - it doesn't change the workbook.</div></div>
+  <button class="btn" id="s_save">Save settings</button>`;
+}
+function wireSettings(){
+  $("#s_save").onclick = async ()=>{
+    const payload = {};
+    $$("#views input[id^=s_]").forEach(i => { const k = i.id.slice(2); payload[k] = i.value === "" ? null : Number(i.value); });
+    for (const k of Object.keys(payload)) if (!k.startsWith("target_") && payload[k] === null) return toast("Only the targets can be blank.", true);
+    try { const d = await call("settings.save", payload); S.settings = d.settings; S.data = null; toast("Saved."); }
+    catch(e){ toast(e.message, true); }
+  };
+}
+
+/* ---------------------------------------------------------- gate/boot */
+function openGate(msg){ $("#gate").hidden = false; $("#app").hidden = true; if (msg) $("#gerr").textContent = msg; }
+function tryOpen(pw){
+  $("#gerr").textContent = "";
+  if (!pw){ $("#gerr").textContent = "Enter the password."; return; }
+  if (pw !== CFG.PORTAL_PASSWORD){ $("#gerr").textContent = "Wrong password."; return; }
+  try { sessionStorage.setItem(CFG.KEY, "1"); } catch(e){}
+  $("#gate").hidden = true; boot();
+}
+$("#gbtn").addEventListener("click", ()=> tryOpen($("#gpw").value));
+$("#gpw").addEventListener("keydown", e=>{ if (e.key==="Enter") tryOpen($("#gpw").value); });
+$("#signout").addEventListener("click", ()=>{ try { sessionStorage.removeItem(CFG.KEY); } catch(e){} openGate(); });
+
+async function boot(){
+  $("#app").hidden = false;
+  $("#views").innerHTML = `<div class="loading">Loading…</div>`;
+  try {
+    const d = await call("bootstrap");
+    S.me = d.me; S.sections = d.sections || []; S.canSettings = !!d.can_settings; S.settings = d.settings || {};
+    S.latest = d.latest_payroll_date || d.latest_date || todayIso();
+  } catch(e){ $("#views").innerHTML = `<div class="empty">${esc(e.message)}<br><br><span class="muted">Open this from the Staff Portal so it knows who you are.</span></div>`; return; }
+  $("#whoname").textContent = S.me.name;
+  $$(".tabbtn").forEach(b => { const v = b.dataset.view; b.hidden = v === "settings" ? !S.canSettings : !S.sections.includes(v); b.addEventListener("click", ()=> goView(v)); });
+  $$("#modes .pill").forEach(p => p.addEventListener("click", ()=>{ setMode(p.dataset.mode, S.from); load(); }));
+  $("#rFrom").addEventListener("change", ()=>{ if (S.mode === "period") { S.from = $("#rFrom").value; } else setMode(S.mode, $("#rFrom").value); });
+  $("#rTo").addEventListener("change", ()=>{ S.to = $("#rTo").value; });
+  $("#rGo").addEventListener("click", ()=>{ if (S.mode === "period") { S.from = $("#rFrom").value; S.to = $("#rTo").value; if (!S.from || !S.to || S.from > S.to) return toast("Pick a from and to date, from first.", true); } load(); });
+  $("#rPrev").addEventListener("click", ()=> shift(-1)); $("#rNext").addEventListener("click", ()=> shift(1));
+  setMode("month", S.latest);
+  const first = S.sections[0] || "revenue";
+  goView(first);
+}
+(function(){ let saved = null; try { saved = sessionStorage.getItem(CFG.KEY); } catch(e){} if (saved === "1") { $("#gate").hidden = true; boot(); } else openGate(); })();
+</script>
+</body>
+</html>
