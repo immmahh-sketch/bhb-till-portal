@@ -187,6 +187,25 @@ table.grid td.num{text-align:right; font-variant-numeric:tabular-nums}
 .toast.on{opacity:1; transform:translate(-50%,0)}
 .toast.bad{background:var(--alert)}
 
+/* ============================================================ signature */
+.sigpad{border:1px dashed var(--sage-70); border-radius:8px; background:var(--white); position:relative; touch-action:none}
+.sigpad canvas{display:block; width:100%; height:150px; border-radius:8px}
+.sigpad .sighint{position:absolute; left:0; right:0; top:50%; transform:translateY(-50%); text-align:center; color:var(--sage-70); font-size:13px; pointer-events:none}
+.sigpad.has .sighint{display:none}
+.sigtools{display:flex; gap:10px; align-items:center; margin-top:6px; font-size:12px; color:var(--sage-70)}
+.sigtools button{background:transparent; border:1px solid var(--mist); border-radius:6px; padding:4px 10px; cursor:pointer; font-size:11px; color:var(--sage)}
+/* Floats & Tills strip */
+.ftstrip{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px}
+.ftcol h3{font-size:12px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); margin-bottom:8px}
+.fttill{display:flex; align-items:center; justify-content:space-between; gap:8px; width:100%; text-align:left; background:var(--white); border:1px solid var(--mist); border-radius:8px; padding:10px 12px; margin-bottom:6px; cursor:pointer; font-size:14px; min-height:44px}
+.fttill.done{border-color:var(--good); background:var(--good-bg)}
+.fttill.locked{opacity:.55; cursor:not-allowed}
+.fttill .st{font-size:11px; color:var(--sage-70); white-space:nowrap}
+.fttill.done .st{color:var(--good); font-weight:600}
+.ftlock{background:var(--attention-bg); color:var(--attention); border-radius:8px; padding:12px 14px; margin-bottom:14px; font-size:14px}
+.ftlock.open{background:var(--good-bg); color:var(--good)}
+@media (max-width:480px){ .ftstrip{grid-template-columns:1fr} }
+
 /* ============================================================ kiosk */
 #kiosk{max-width:640px; margin:0 auto; padding:20px}
 #kiosk header.top{border-radius:var(--radius) var(--radius) 0 0}
@@ -451,7 +470,7 @@ async function boot(){
     S.tills = t.tills || []; S.staff = s.staff || [];
   } catch(e) { toast(e.message, true); }
 
-  if (VIEW === "cashup" || VIEW === "safe" || VIEW === "float" || VIEW === "pettycash") {
+  if (VIEW === "cashup" || VIEW === "safe" || VIEW === "float" || VIEW === "pettycash" || VIEW === "floatstills") {
     $("#kioskApp").hidden = false;
     bootKiosk(VIEW);
   } else {
@@ -834,12 +853,16 @@ async function saveCashUp(){
     staff_name: $("#cu_staff").value,
     notes: $("#cu_notes").value,
   };
-  if (!payload.staff_name){ toast("Pick who completed this.", true); return; }
+  if (VIEW === "floatstills") {
+    // Name comes from the portal login; the signature is required.
+    payload.signature = sigData("cu");
+    if (!payload.signature){ toast("Please sign the cash-up.", true); return; }
+  } else if (!payload.staff_name){ toast("Pick who completed this.", true); return; }
   btn.disabled = true; btn.textContent = "Saving…";
   try {
     const out = await call("cashup.save", payload);
     toast(`Saved — variance ${money(out.cashup.variance)}.`);
-    afterSave("cashup", "cashup-history");
+    if (VIEW === "floatstills") ftBack(); else afterSave("cashup", "cashup-history");
   } catch(e) { toast(e.message, true); }
   finally { btn.disabled = false; btn.textContent = "Save & archive"; }
 }
@@ -1014,12 +1037,16 @@ async function saveFloatCount(){
     business_date: $("#fl_date").value, till_key: $("#fl_till").value,
     ...values, counted_by: $("#fl_staff").value, notes: $("#fl_notes").value,
   };
-  if (!payload.counted_by){ toast("Pick who counted this.", true); return; }
+  if (VIEW === "floatstills") {
+    // Name comes from the portal login; the signature is required.
+    payload.signature = sigData("fl");
+    if (!payload.signature){ toast("Please sign the count.", true); return; }
+  } else if (!payload.counted_by){ toast("Pick who counted this.", true); return; }
   btn.disabled = true; btn.textContent = "Saving…";
   try {
     const out = await call("float.save", payload);
     toast(`Saved — variance ${money(out.float_count.variance)}.`);
-    afterSave("float", "float-history");
+    if (VIEW === "floatstills") ftBack(); else afterSave("float", "float-history");
   } catch(e) { toast(e.message, true); }
   finally { btn.disabled = false; btn.textContent = "Save count"; }
 }
@@ -1623,7 +1650,103 @@ const KIOSK = {
   // Petty cash has no "done" checklist - the strip shows today's entries instead.
   pettycash: { title:"Petty Cash", statusAction:null, entry:viewPettyCashEntry, wire:wirePettyCashEntry,
             doneKey:null, doneLabel:k=>k, checklistOver:()=>[] },
+  // Floats first, cash-ups after, name and signature on both - see below.
+  floatstills: { title:"Floats & Tills", statusAction:null, entry:viewFloatsTills, wire:wireFloatsTills,
+            doneKey:null, doneLabel:k=>k, checklistOver:()=>[] },
 };
+
+/* ------------------------------------------------------ signature pad
+   A finger on a phone or a mouse on a PC; stored as a small PNG with the
+   count it signs for. Pointer events cover both. */
+function sigPadHtml(prefix){
+  return `<div class="field"><label>Signature</label>
+    <div class="sigpad" id="${prefix}_sigpad"><canvas id="${prefix}_sig"></canvas><div class="sighint">Sign here</div></div>
+    <div class="sigtools"><span id="${prefix}_signame"></span><span class="spacer"></span><button type="button" onclick="sigClear('${prefix}')">Clear</button></div></div>`;
+}
+function wireSigPad(prefix, name){
+  const c = $(`#${prefix}_sig`); if (!c) return;
+  const pad = c.parentElement;
+  const dpr = window.devicePixelRatio || 1;
+  const rect = c.getBoundingClientRect();
+  c.width = Math.round((rect.width || 320) * dpr); c.height = Math.round(150 * dpr);
+  const ctx = c.getContext("2d"); ctx.scale(dpr, dpr);
+  ctx.lineWidth = 2.2; ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.strokeStyle = "#262626";
+  let drawing = false, has = false;
+  const pos = e => { const r = c.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+  c.addEventListener("pointerdown", e => { drawing = true; try { c.setPointerCapture(e.pointerId); } catch(_){} const [x,y] = pos(e); ctx.beginPath(); ctx.moveTo(x, y); e.preventDefault(); });
+  c.addEventListener("pointermove", e => { if (!drawing) return; const [x,y] = pos(e); ctx.lineTo(x, y); ctx.stroke(); has = true; pad.classList.add("has"); e.preventDefault(); });
+  const up = () => { drawing = false; };
+  c.addEventListener("pointerup", up); c.addEventListener("pointercancel", up); c.addEventListener("pointerleave", up);
+  c._has = () => has;
+  c._reset = () => { ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0, 0, c.width, c.height); ctx.restore(); has = false; pad.classList.remove("has"); };
+  const nm = $(`#${prefix}_signame`); if (nm && name) nm.textContent = `Signed by ${name}`;
+}
+function sigClear(prefix){ const c = $(`#${prefix}_sig`); if (c && c._reset) c._reset(); }
+function sigData(prefix){ const c = $(`#${prefix}_sig`); if (!c || !c._has || !c._has()) return null; return c.toDataURL("image/png"); }
+
+/* ------------------------------------------------------ Floats & Tills
+   The day's cash handling in order. Floats are a morning check - open
+   07:00-12:00 London, otherwise locked until the GM unlocks the day - and
+   a till can only be cashed up once its float is in. Nothing is typed about
+   who: the portal login's name goes on the record, with a signature. */
+const FT = { tab:null, till:null, status:null };
+function viewFloatsTills(){ return `<div id="ft"><div class="loading">Loading…</div></div>`; }
+async function wireFloatsTills(){ await loadFloatsTills(); }
+async function loadFloatsTills(){
+  const box = $("#ft"); if (!box) return;
+  const t = todayIso();
+  try {
+    const [w, fl, cu] = await Promise.all([
+      call("floats.window", { business_date:t }), call("float.today_status", { business_date:t }), call("cashup.today_status", { business_date:t }),
+    ]);
+    FT.status = { w, floats: fl.done || [], cashups: cu.done || [] };
+    renderFloatsTills();
+  } catch(e){ box.innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+function renderFloatsTills(){
+  const box = $("#ft"); if (!box || !FT.status) return;
+  const st = FT.status, w = st.w;
+  const floatDone = new Set(st.floats.map(r => r.till_key)), cuDone = new Set(st.cashups.map(r => r.till_key));
+  const isAdmin = w.me && w.me.role === "admin";
+  const canFloat = w.open || isAdmin;
+  if (FT.tab === "float" && FT.till) {
+    box.innerHTML = `<p><button class="btn ghost" style="min-height:38px" onclick="ftBack()">&larr; Back to today's list</button></p>` + viewFloatEntry() + sigPadHtml("fl");
+    ftPrepForm("fl", FT.till); wireFloatEntry(); wireSigPad("fl", w.me.name); return;
+  }
+  if (FT.tab === "cashup" && FT.till) {
+    box.innerHTML = `<p><button class="btn ghost" style="min-height:38px" onclick="ftBack()">&larr; Back to today's list</button></p>` + viewCashUpEntry() + sigPadHtml("cu");
+    ftPrepForm("cu", FT.till); wireCashUpEntry(); wireSigPad("cu", w.me.name); return;
+  }
+  const when = w.unlocked && w.unlock ? new Date(w.unlock.unlocked_at).toLocaleTimeString("en-GB", { timeZone:"Europe/London", hour:"2-digit", minute:"2-digit" }) : "";
+  const lock = w.open
+    ? `<div class="ftlock open">Floats are open${w.in_window ? ` until ${esc(w.end)}` : ""}${w.unlocked && w.unlock ? ` - unlocked by ${esc(w.unlock.unlocked_by_name)} at ${when}` : ""}.${isAdmin && w.unlocked ? ` <button class="btn ghost small" onclick="ftUnlock(true)">Lock again</button>` : ""}</div>`
+    : `<div class="ftlock">Floats are counted between ${esc(w.start)} and ${esc(w.end)} - it's ${esc(w.now)}. ${isAdmin ? `<button class="btn small" onclick="ftUnlock(false)">Unlock today</button>` : "Ask the GM to unlock today if a float still needs counting."}</div>`;
+  const tillBtn = (t, kind) => {
+    const done = kind === "float" ? floatDone.has(t.key) : cuDone.has(t.key);
+    const ready = kind === "float" ? canFloat : (floatDone.has(t.key) || isAdmin);
+    const label = done ? (kind === "float" ? "Counted ✓" : "Cashed up ✓") : (ready ? (kind === "float" ? "Count float" : "Cash up") : (kind === "float" ? "Locked" : "Float first"));
+    return `<button class="fttill${done ? " done" : ""}${!ready && !done ? " locked" : ""}" ${!ready && !done ? "disabled" : ""} onclick="ftOpen('${kind}','${esc(t.key)}')"><span>${esc(t.label)}</span><span class="st">${label}</span></button>`;
+  };
+  box.innerHTML = lock + `<div class="ftstrip">
+      <div class="ftcol"><h3>1. Morning floats</h3>${S.tills.map(t => tillBtn(t, "float")).join("")}</div>
+      <div class="ftcol"><h3>2. Cash up</h3>${S.tills.map(t => tillBtn(t, "cashup")).join("")}</div>
+    </div>
+    <p class="muted" style="font-size:12px">Every count is recorded with your name (${esc(w.me.name)}) and your signature. Count again to correct one - the latest count is the one that stands.</p>`;
+}
+function ftPrepForm(prefix, tillKey){
+  const hide = el => { const f = el && el.closest(".field"); if (f) f.style.display = "none"; };
+  const dateEl = $(`#${prefix}_date`), tillEl = $(`#${prefix}_till`), staffEl = $(`#${prefix}_staff`);
+  if (dateEl){ dateEl.value = todayIso(); hide(dateEl); }
+  if (tillEl){ tillEl.value = tillKey; hide(tillEl); }
+  if (staffEl) hide(staffEl);
+  const h = $("#ft .pagehead h2"); if (h) h.textContent = (prefix === "fl" ? "Float: " : "Cash up: ") + tillLabel(tillKey);
+}
+function ftOpen(kind, till){ FT.tab = kind; FT.till = till; renderFloatsTills(); window.scrollTo(0, 0); }
+function ftBack(){ FT.tab = null; FT.till = null; loadFloatsTills(); }
+async function ftUnlock(lock){
+  try { await call("floats.unlock", { business_date: todayIso(), lock: !!lock }); toast(lock ? "Locked again." : "Unlocked for today."); loadFloatsTills(); }
+  catch(e){ toast(e.message, true); }
+}
 async function refreshPettyKiosk(){
   try {
     const t = todayIso();
@@ -1647,6 +1770,7 @@ async function bootKiosk(view){
 }
 async function refreshKioskChecklist(view){
   if (view === "pettycash") return refreshPettyKiosk();
+  if (view === "floatstills") return loadFloatsTills();
   const k = KIOSK[view];
   try {
     const out = await call(k.statusAction, { business_date: todayIso() });
