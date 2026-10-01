@@ -1238,7 +1238,21 @@ function stillWanted(view, current){
   return S.view === view && (S.current || null) === (current || null);
 }
 
-async function loadForecast(){
+/* The Guestline figures behind Overview and Outstanding come from a cache
+   the server keeps topped up; this says how old the oldest one is, and the
+   Refresh button asks for everything to be re-read first. */
+function checkedAgo(isos){
+  var t = (isos || []).filter(Boolean).sort()[0];
+  if (!t) return "";
+  var m = Math.max(0, Math.round((Date.now() - new Date(t).getTime()) / 60000));
+  return ", last checked " + (m < 1 ? "just now" : m < 60 ? m + " min ago" : Math.round(m / 60) + " h ago");
+}
+async function refreshNow(btn, loader){
+  btn.disabled = true; btn.textContent = "Reading Guestline...";
+  await loader(true);
+}
+
+async function loadForecast(fresh){
   var want = S.view, cur = S.current;
   try {
     // The bonus tracker's confirmed weddings ride along so a booking that's
@@ -1246,7 +1260,7 @@ async function loadForecast(){
     // Overview. Fetched alongside the (slow) Guestline forward book; if this
     // person can't see the tracker the Overview just shows the app's own.
     var pair = await Promise.all([
-      call("report.forecast"),
+      call("report.forecast", fresh ? { fresh: true } : {}),
       BT.rows.length ? Promise.resolve(null) : call("bonus.list", {}).catch(function(){ return null; }),
     ]);
     S.forecast = pair[0];
@@ -1397,13 +1411,14 @@ function viewOverview(){
 
   var h = '<div class="split" style="margin-bottom:6px"><h1>Overview</h1>' +
     '<span class="label">' + (held ? f.totalRegistered + ' in the app'
-                                   : f.onTheBooks + ' still to come') + '</span></div>' +
+                                   : f.onTheBooks + ' still to come') + '</span>' +
+    '<button class="btn btn--sm" onclick="refreshNow(this, loadForecast)">Refresh from Guestline</button></div>' +
     '<p class="muted" style="margin:0 0 10px">' +
     (held
-      ? 'Every wedding in the app, held and still to come, with numbers read live from ' +
-        'Guestline. '
+      ? 'Every wedding in the app, held and still to come, with numbers from ' +
+        'Guestline' + checkedAgo([S.forecast && S.forecast.cachedAt]) + '. '
       : 'What is left on the books: weddings still ahead of us, counting couples registered ' +
-        'in this app, with numbers read live from Guestline. ' +
+        'in this app, with numbers from Guestline' + checkedAgo([S.forecast && S.forecast.cachedAt]) + '. ' +
         (f.alreadyHeld
           ? f.alreadyHeld + ' already held ' + (f.alreadyHeld === 1 ? 'is' : 'are') +
             ' left out of every figure below. '
@@ -1579,10 +1594,10 @@ function exportForecast(){
 }
 
 /* ============================ OUTSTANDING PAYMENTS ============================ */
-async function loadOutstanding(){
+async function loadOutstanding(fresh){
   var want = S.view, cur = S.current;
   try {
-    S.outstanding = await call("report.outstanding");
+    S.outstanding = await call("report.outstanding", fresh ? { fresh: true } : {});
     if (!stillWanted(want, cur)) return;
     $("views").innerHTML = viewOutstanding();
   } catch (e) { if (!stillWanted(want, cur)) return; showErr(e.message); $("views").innerHTML = ""; }
@@ -1606,9 +1621,10 @@ function viewOutstanding(){
   var owedTotal = live.reduce(function(s,r){ return s + r.outstanding; }, 0);
 
   var h = '<div class="split" style="margin-bottom:6px"><h1>Outstanding payments</h1>' +
-    '<button class="btn btn--sm" onclick="loadOutstanding()">Refresh</button></div>' +
+    '<button class="btn btn--sm" onclick="refreshNow(this, loadOutstanding)">Refresh from Guestline</button></div>' +
     '<p class="muted" style="margin:0 0 18px">' +
-    'Balances read live from Guestline, plus any app payment not yet posted to Rezlynx. ' +
+    'Balances from Guestline' + checkedAgo(all.filter(function(r){ return !r.past; }).map(function(r){ return r.fetched_at; })) +
+    ', plus any app payment not yet posted to Rezlynx (that part is always live). ' +
     'The schedule is 25% at nine months, 50% at six, 75% at three, and the full balance a month before.</p>';
 
   h += '<div class="stat" style="margin-bottom:18px">' +
