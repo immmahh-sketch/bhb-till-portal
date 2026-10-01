@@ -639,7 +639,10 @@ const AUTOLOGIN = {
   // "Log a check" (log/) reads localStorage, its admin (admin/) reads
   // sessionStorage. Each tile deep-links to its sub-page; the matching
   // flag is what that page's own gate looks for.
-  "checks-log":   { store:"local",   key:"checksUnlocked", value:()=>"1" },
+  // "Who's this?" is answered from the portal login - the log app keeps the
+  // name in localStorage.checksName and skips its name screen when it's set.
+  "checks-log":   { store:"local",   key:"checksUnlocked", value:()=>"1",
+                    extra:{ key:"checksName", value:()=>S.user.name } },
   "checks-admin": { store:"session", key:"checksAdminOk",  value:()=>"1" },
   // Maintenance List: one door, and who you are comes from bhb_staff_email.
   "maintenance":  { store:"session", key:"bhb_maintenance_ok", value:()=>"1" },
@@ -662,10 +665,14 @@ async function openPortal(key, ref){
     // SSO token rather than an embedded iframe. Open the tab synchronously
     // (before the await) so browsers don't treat it as a blocked popup,
     // then point it at the real URL once the token comes back.
-    const win = window.open("", "_blank", "noopener");
+    // No "noopener" here: with it, window.open returns null and there is no
+    // handle to point at the real URL once the token is back - the tab just
+    // sat on about:blank. The opener link is cut by hand instead.
+    const win = window.open("about:blank", "_blank");
+    if (win) { try { win.opener = null; } catch(e){} }
     try {
       const d = await api("po_sso");
-      if (win) win.location = d.url; else window.open(d.url, "_blank", "noopener");
+      if (win) win.location = d.url; else window.open(d.url, "_blank");
     } catch(e) {
       if (win) win.close();
       toast(e.message, true);
