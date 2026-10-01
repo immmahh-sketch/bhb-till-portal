@@ -1546,8 +1546,11 @@ function rezImportedHtml(rez){
   const row = (label, val) => `<tr><td>${label}</td><td class="num">${val}</td></tr>`;
   // GRATUITY arrives as a department row in the file but isn't revenue -
   // the report itself totals it separately, so show it separately below.
+  // jsonb doesn't keep object key order, so sort here: biggest first.
   const depts = isEod && raw.departments
-    ? Object.keys(raw.departments).filter(k => k !== "GRATUITY").map(k => row(esc(k), money(raw.departments[k]))).join("")
+    ? Object.keys(raw.departments).filter(k => k !== "GRATUITY")
+        .sort((a, b) => (Number(raw.departments[b])||0) - (Number(raw.departments[a])||0))
+        .map(k => row(esc(k), money(raw.departments[k]))).join("")
     : "";
   return `
     <p class="muted" style="font-size:12px;margin:0 0 8px">
