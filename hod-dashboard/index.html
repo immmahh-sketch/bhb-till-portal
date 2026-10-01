@@ -222,25 +222,41 @@ function render(){
 }
 const basis = d => d.totals.days_actual ? `${d.totals.days_actual} of ${d.totals.days} days actual` : "No actuals yet - forecast only";
 
+/* One figure per period: the actual for every day that has gone, the
+   forecast for every day still ahead, added together. A head of
+   department plans off what the period will come to, not off how the
+   forecast compared - that comparison lives on the Forecast Dashboard. */
+function blendOf(d){
+  const past = d.days.filter(x => x.has_actual), ahead = d.days.filter(x => !x.has_actual);
+  const sumK = (list, side, k) => list.reduce((t, x) => t + (x.revenue[side][k] || 0), 0);
+  const val = k => sumK(past, "actual", k) + sumK(ahead, "forecast", k);
+  const parts = k => ({ actual: sumK(past, "actual", k), forecast: sumK(ahead, "forecast", k) });
+  const mixed = past.length && ahead.length;
+  const lastPast = past.length ? past[past.length - 1].date : null;
+  const label = !past.length ? "forecast" : (!ahead.length ? "actual" : `actual to ${ukDate(lastPast)}, forecast after`);
+  return { past, ahead, val, parts, mixed, label };
+}
 function viewRevenue(d){
-  const t = d.totals, f = t.revenue.forecast, a = t.revenue.actual;
+  const t = d.totals, b = blendOf(d);
   const dept = [
     ["Rooms", "rooms"], ["Breakfast", "breakfast"], ["Restaurant food", "restaurant_food"], ["Restaurant beverage", "restaurant_bev"],
     ["Function food", "function_food"], ["Function beverage", "function_bev"], ["Room hire", "room_hire"], ["Other", "other"],
   ];
+  const total = b.val("total"), roomsSold = b.val("rooms_sold"), roomsRev = b.val("rooms");
+  const cell = k => { const p = b.parts(k); return `<b>${gbp(b.val(k))}</b>${b.mixed ? `<div class="muted" style="font-size:11px;font-weight:400">${gbp(p.actual)} actual · ${gbp(p.forecast)} forecast</div>` : ""}`; };
   return `
-  <div class="pagehead"><h2>Revenue by department</h2><div class="hint">${basis(d)}. Forecast in <i>italics</i>, actual in <b>bold</b>.</div></div>
+  <div class="pagehead"><h2>Revenue by department</h2><div class="hint">${b.label.charAt(0).toUpperCase() + b.label.slice(1)}. ${b.ahead.length ? "In the day table, <i>italics</i> are days still ahead." : ""}</div></div>
   <div class="tiles">
-    ${tile("Total revenue", both(f.total, a.total, gbp), varCell(f.total, a.total, gbp) )}
-    ${tile("Rooms sold", both(f.rooms_sold, a.rooms_sold, v=>num(v)), `of ${num(t.rooms_available)} available`)}
-    ${tile("ARR", both(f.adr, a.adr, gbp2), varCell(f.adr, a.adr, gbp2))}
-    ${tile("Food & beverage", both(f.fb, a.fb, gbp), varCell(f.fb, a.fb, gbp))}
+    ${tile("Total revenue", gbp(total), b.label)}
+    ${tile("Rooms sold", num(roomsSold), `of ${num(t.rooms_available)} available`)}
+    ${tile("ARR", roomsSold ? gbp2(roomsRev / roomsSold) : "—", gbp(roomsRev) + " rooms revenue")}
+    ${tile("Food & beverage", gbp(b.val("fb")), `${pc(total ? b.val("fb") / total * 100 : null)} of revenue`)}
   </div>
   <div class="card"><h3>Departments</h3><div class="tablewrap"><table class="grid">
-    <thead><tr><th>Department</th><th class="num">Forecast</th><th class="num">Actual</th><th class="num">Variance</th><th class="num">Share of actual</th></tr></thead>
-    <tbody>${dept.map(([l,k]) => `<tr><td>${l}</td><td class="num"><i>${gbp(f[k])}</i></td><td class="num"><b>${gbp(a[k])}</b></td><td class="num">${varCell(f[k], a[k], gbp)}</td><td class="num muted">${isNil(a[k])||!a.total ? "—" : pc(a[k]/a.total*100)}</td></tr>`).join("")}
-      <tr class="totrow"><td>Total revenue</td><td class="num"><i>${gbp(f.total)}</i></td><td class="num"><b>${gbp(a.total)}</b></td><td class="num">${varCell(f.total, a.total, gbp)}</td><td></td></tr>
-      <tr class="sub"><td>Service charge (not in total)</td><td class="num"><i>${gbp(f.service_charge)}</i></td><td class="num"><b>${gbp(a.service_charge)}</b></td><td class="num">${varCell(f.service_charge, a.service_charge, gbp)}</td><td></td></tr>
+    <thead><tr><th>Department</th><th class="num">Revenue</th><th class="num">Share</th></tr></thead>
+    <tbody>${dept.map(([l,k]) => `<tr><td>${l}</td><td class="num">${cell(k)}</td><td class="num muted">${total ? pc(b.val(k)/total*100) : "—"}</td></tr>`).join("")}
+      <tr class="totrow"><td>Total revenue</td><td class="num">${cell("total")}</td><td></td></tr>
+      <tr class="sub"><td>Service charge (not in total)</td><td class="num">${cell("service_charge")}</td><td></td></tr>
     </tbody></table></div></div>
   <div class="card"><h3>By day</h3><div class="tablewrap"><table class="grid">
     <thead><tr><th>Date</th><th>Event</th><th class="num">Rooms</th><th class="num">ARR</th><th class="num">Rooms rev</th><th class="num">Restaurant F&amp;B</th><th class="num">Function F&amp;B</th><th class="num">Room hire</th><th class="num">Total</th></tr></thead>
@@ -320,26 +336,50 @@ function viewHK(d){
 }
 
 function viewPL(d){
-  const p = d.totals.pl, a = p.actual, f = p.forecast, fb = Math.round((d.settings.fb_cost_pct||0.35)*100);
+  const p = d.totals.pl, a = p.actual, fb = Math.round((d.settings.fb_cost_pct||0.35)*100), s = S.settings;
   const cls = v => isNil(v) ? "" : (v >= 0 ? "ok" : "bad");
+  const b = blendOf(d);
+  // Days ahead only: their forecast revenue, less F&B cost, less a wage
+  // allowance at the target labour % where one is set.
+  const aheadRev = b.ahead.reduce((t,x) => t + (x.revenue.forecast.total||0), 0);
+  const aheadFb = b.ahead.reduce((t,x) => t + (x.revenue.forecast.fb||0), 0);
+  const ahead = {
+    days: b.ahead.length, rooms: b.ahead.reduce((t,x) => t + (x.pl.forecast ? x.pl.forecast.rooms_contrib||0 : 0), 0),
+    restaurant: b.ahead.reduce((t,x) => t + (x.pl.forecast ? x.pl.forecast.restaurant_contrib||0 : 0), 0),
+    functions: b.ahead.reduce((t,x) => t + (x.pl.forecast ? x.pl.forecast.functions_contrib||0 : 0), 0),
+    other: b.ahead.reduce((t,x) => t + (x.revenue.forecast.other||0), 0),
+    fb_cost: aheadFb * (d.settings.fb_cost_pct||0.35), before_wages: aheadRev - aheadFb * (d.settings.fb_cost_pct||0.35),
+    allowance: isNil(s.target_labour_pct) ? null : aheadRev * s.target_labour_pct / 100,
+  };
+  ahead.at_target = ahead.allowance === null ? null : ahead.before_wages - ahead.allowance;
+  const hasPast = b.past.length > 0, hasAhead = b.ahead.length > 0;
   return `
-  <div class="pagehead"><h2>Profit &amp; loss</h2><div class="hint">Revenue less wages less ${fb}% food &amp; beverage cost of sales. Actual over the ${a.days} days with payroll in; forecast before wages for the whole range.</div></div>
+  <div class="pagehead"><h2>Profit &amp; loss</h2><div class="hint">Revenue less wages less ${fb}% food &amp; beverage cost of sales. Actual for days gone (${a.days} with payroll in)${hasAhead ? `; forecast for the ${ahead.days} day${ahead.days===1?"":"s"} ahead` : ""}.</div></div>
   <div class="tiles">
-    ${tile("Gross profit - actual", gbp(a.overall), `${a.days} days with payroll`, cls(a.overall))}
-    ${tile("Forecast, before wages", gbp(f.before_wages), `${f.days} days · revenue less ${fb}% F&amp;B cost`)}
-    ${tile("Forecast at target labour %", gbp(f.at_target), isNil(f.at_target) ? "set a total labour % target in Settings" : `after wage allowance ${gbp(f.wage_allowance)}`)}
-    ${tile("F&B cost of sales - actual", gbp(a.fb_cost), `${fb}% of food &amp; beverage`)}
+    ${hasPast ? tile("Gross profit - days gone", gbp(a.overall), `${a.days} days with payroll`, cls(a.overall)) : ""}
+    ${hasAhead ? tile("Days ahead, before wages", gbp(ahead.before_wages), `forecast revenue less ${fb}% F&amp;B cost`) : ""}
+    ${hasAhead ? tile("Days ahead at target labour %", gbp(ahead.at_target), ahead.allowance === null ? "set a total labour % target in Settings" : `after wage allowance ${gbp(ahead.allowance)}`) : ""}
+    ${hasPast ? tile("F&B cost of sales - days gone", gbp(a.fb_cost), `${fb}% of food &amp; beverage`) : ""}
   </div>
-  <div class="card"><h3>By department</h3><div class="tablewrap"><table class="grid">
-    <thead><tr><th>Department</th><th class="num">Forecast contribution</th><th class="num">Actual P&amp;L</th><th>What's in it</th></tr></thead>
+  ${hasPast ? `<div class="card"><h3>Days gone - actual P&amp;L</h3><div class="tablewrap"><table class="grid">
+    <thead><tr><th>Department</th><th class="num">P&amp;L</th><th>What's in it</th></tr></thead>
     <tbody>
-      <tr><td>Rooms</td><td class="num"><i>${gbp(f.rooms_contrib)}</i></td><td class="num"><b>${gbp(a.rooms)}</b></td><td class="muted">accommodation revenue less housekeeping wages</td></tr>
-      <tr><td>Restaurant</td><td class="num"><i>${gbp(f.restaurant_contrib)}</i></td><td class="num"><b>${gbp(a.restaurant)}</b></td><td class="muted">breakfast + restaurant F&amp;B at ${100-fb}% GP, less kitchen and front of house wages</td></tr>
-      <tr><td>Functions</td><td class="num"><i>${gbp(f.functions_contrib)}</i></td><td class="num"><b>${gbp(a.functions)}</b></td><td class="muted">function F&amp;B at ${100-fb}% GP plus room hire, less the kitchen hours given to a function day</td></tr>
-      <tr><td>Other revenue</td><td class="num"><i>${gbp(d.totals.revenue.forecast.other)}</i></td><td class="num"><b>${gbp(a.other)}</b></td><td class="muted"></td></tr>
-      <tr><td>Overheads</td><td class="num"><i>—</i></td><td class="num"><b>${gbp(isNil(a.overheads) ? null : -a.overheads)}</b></td><td class="muted">maintenance and office wages</td></tr>
-      <tr class="totrow"><td>Overall gross profit</td><td class="num"><i>${gbp(f.before_wages)}</i> <span class="muted">before wages</span></td><td class="num"><b>${gbp(a.overall)}</b></td><td class="muted">total revenue less ${fb}% F&amp;B cost less all wages</td></tr>
-    </tbody></table></div></div>
+      <tr><td>Rooms</td><td class="num"><b>${gbp(a.rooms)}</b></td><td class="muted">accommodation revenue less housekeeping wages</td></tr>
+      <tr><td>Restaurant</td><td class="num"><b>${gbp(a.restaurant)}</b></td><td class="muted">breakfast + restaurant F&amp;B at ${100-fb}% GP, less kitchen and front of house wages</td></tr>
+      <tr><td>Functions</td><td class="num"><b>${gbp(a.functions)}</b></td><td class="muted">function F&amp;B at ${100-fb}% GP plus room hire, less the kitchen hours given to a function day</td></tr>
+      <tr><td>Other revenue</td><td class="num"><b>${gbp(a.other)}</b></td><td class="muted"></td></tr>
+      <tr><td>Overheads</td><td class="num"><b>${gbp(isNil(a.overheads) ? null : -a.overheads)}</b></td><td class="muted">maintenance and office wages</td></tr>
+      <tr class="totrow"><td>Overall gross profit</td><td class="num"><b>${gbp(a.overall)}</b></td><td class="muted">total revenue less ${fb}% F&amp;B cost less all wages</td></tr>
+    </tbody></table></div></div>` : ""}
+  ${hasAhead ? `<div class="card"><h3>Days ahead - forecast, before wages</h3><div class="tablewrap"><table class="grid">
+    <thead><tr><th>Department</th><th class="num">Contribution</th><th>What's in it</th></tr></thead>
+    <tbody>
+      <tr><td>Rooms</td><td class="num"><i>${gbp(ahead.rooms)}</i></td><td class="muted">forecast accommodation revenue</td></tr>
+      <tr><td>Restaurant</td><td class="num"><i>${gbp(ahead.restaurant)}</i></td><td class="muted">forecast breakfast + restaurant F&amp;B at ${100-fb}% GP</td></tr>
+      <tr><td>Functions</td><td class="num"><i>${gbp(ahead.functions)}</i></td><td class="muted">forecast function F&amp;B at ${100-fb}% GP plus room hire</td></tr>
+      <tr><td>Other revenue</td><td class="num"><i>${gbp(ahead.other)}</i></td><td class="muted"></td></tr>
+      <tr class="totrow"><td>Before wages</td><td class="num"><i>${gbp(ahead.before_wages)}</i></td><td class="muted">${ahead.allowance === null ? "no labour % target set" : `wage allowance at ${s.target_labour_pct}%: ${gbp(ahead.allowance)} → ${gbp(ahead.at_target)} after wages`}</td></tr>
+    </tbody></table></div></div>` : ""}
   <div class="card"><h3>By day</h3><div class="tablewrap"><table class="grid">
     <thead><tr><th>Date</th><th class="num">Rooms</th><th class="num">Restaurant</th><th class="num">Functions</th><th class="num">Overheads</th><th class="num">Overall GP</th><th class="num">Forecast before wages</th></tr></thead>
     <tbody>${d.days.map(x => { const pa = x.pl.actual, pf = x.pl.forecast; return `<tr${pa?"":' class="sub"'}><td class="strong">${ukDate(x.date)}<div class="muted" style="font-size:11px">${esc(x.day_of_week||"")}</div></td>
