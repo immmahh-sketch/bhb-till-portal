@@ -285,6 +285,22 @@ details summary::-webkit-details-marker{color:var(--sage-70)}
 }
 .btlink{border-color:var(--mist);color:var(--sage)}
 .btlink:hover{background:var(--sage);border-color:var(--sage);color:var(--bone)}
+/* A person's own bonus run, over the By person table. Toggled by adding and
+   removing the element, so there is no hidden attribute for a display rule
+   to quietly override. */
+.btpop-veil{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(38,38,38,.45);z-index:90}
+.btpop{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:91;
+  background:var(--white);border:1px solid var(--mist);width:min(720px,calc(100vw - 32px));
+  max-height:min(85vh,760px);display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(38,38,38,.25)}
+.btpop-head{display:flex;align-items:flex-start;gap:16px;padding:18px 20px 12px;border-bottom:1px solid var(--mist)}
+.btpop-head h2{margin:0;font-size:1.25rem}
+.btpop-head .x{margin-left:auto;background:transparent;border:0;font-size:22px;line-height:1;cursor:pointer;color:var(--sage-70)}
+.btpop-body{overflow-y:auto;padding:4px 20px 18px}
+.btpop-body table{width:100%}
+.btpop-body tr.urow:hover td{background:var(--bone)}
+.btrole{display:inline-block;font-size:.6875rem;letter-spacing:.08em;text-transform:uppercase;
+  padding:2px 8px;border-radius:999px;background:var(--mist);color:var(--sage)}
+.btrole.both{background:var(--sage);color:var(--bone)}
 .btworking{background:var(--sage-10);padding:12px 14px;font-size:.875rem}
 .btworking .label{margin-bottom:6px}
 .btworking li{margin-bottom:3px}
@@ -3222,6 +3238,7 @@ async function loadBonus(){
     if (!stillWanted(want, cur)) return;
     BT.loading = false;
     BT.level = out.level; BT.rows = out.rows || []; BT.inApp = out.inApp || {};
+    BT.person = null; // a popup left open last visit has no business reappearing
 
     /* Open on this month. It is the one being asked about nine times in ten
        — what has come in since the last bonus run — and a table of eighteen
@@ -3692,7 +3709,11 @@ function bonusPeopleTable(st, picker, total, bookings){
     '<th class="num">Show-rounds</th><th class="money">Bonus earned</th></tr></thead><tbody>' +
     people.map(function(p){
       var n = st.secured[p] || 0;
-      return '<tr><td><strong>' + esc(p) + '</strong></td>' +
+      // The whole line opens that person's own run - every booking behind
+      // these three numbers, and which of the two jobs each one paid for.
+      return '<tr class="urow" data-person="' + esc(p) + '" title="See ' + esc(p) + '\'s bookings" ' +
+          'onclick="bonusPerson(this.getAttribute(\'data-person\'))">' +
+        '<td><strong>' + esc(p) + '</strong></td>' +
         '<td><span class="btbar"><i style="width:' + Math.round(n / most * 100) + '%"></i></span>' +
           '<span class="num">' + n + '</span></td>' +
         '<td class="num">' + (st.shown[p] || 0) + '</td>' +
@@ -3713,7 +3734,77 @@ function bonusPeopleTable(st, picker, total, bookings){
       '<td class="num">' +
         (people.reduce(function(a, p){ return a + (st.shown[p] || 0); }, 0) + other.shown) + '</td>' +
       '<td class="money num"><strong>' + money(total) + '</strong></td></tr>' +
-    '</tbody></table>' + bonusWaitingNote() + bonusNamelessNote() + '</div>';
+    '</tbody></table>' + bonusWaitingNote() + bonusNamelessNote() + '</div>' +
+    bonusPersonPopup();
+}
+
+/* ---------- one person's run, over the table ---------- */
+/* The same bookings the By person line counts - the picked month if one is
+   picked, otherwise the lot - so the list under a name always adds up to the
+   three figures beside it. */
+function bonusPersonRows(name){
+  var scoped = bonusScoped();
+  if (BT.month) scoped = scoped.filter(function(r){ return bonusMonthOf(r) === BT.month; });
+  return scoped.filter(function(r){ return r.showround_by === name || r.secured_by === name; })
+    .sort(function(a, b){
+      // Soonest function first; anything undated at the end.
+      var da = a.event_date || "9999", db = b.event_date || "9999";
+      return da < db ? -1 : da > db ? 1 : 0;
+    });
+}
+function bonusPerson(name){ BT.person = name; $("views").innerHTML = viewBonus(); }
+function bonusPersonClose(){ BT.person = null; $("views").innerHTML = viewBonus(); }
+/* Into the Wedding App, on that wedding - the same door the list's "Open in
+   app" button uses, with the nav moved to Weddings so it reads as where you
+   are rather than still saying Bonus. */
+function bonusPersonGo(appId){
+  BT.person = null;
+  S.view = "weddings"; markNav();
+  open_(appId);
+}
+function bonusPersonPopup(){
+  var name = BT.person;
+  if (!name) return "";
+  var rows = bonusPersonRows(name);
+  var total = 0;
+  var body = rows.map(function(r){
+    var showed = r.showround_by === name, took = r.secured_by === name;
+    var paid = (showed ? bonusPaid(name, r) : 0) + (took ? bonusPaid(name, r) : 0);
+    total += paid;
+    var role = showed && took ? '<span class="btrole both">Show-round &amp; booking</span>'
+             : showed ? '<span class="btrole">Show-round</span>'
+             : '<span class="btrole">Secured the booking</span>';
+    var state = bonusSecured(r)
+      ? (paid ? money(paid) : '<span class="muted">&mdash;</span>')
+      : '<span class="pill pill--prov">' + esc(bonusWanting(r) || "not secured yet") + '</span>';
+    var app = bonusApp(r);
+    return '<tr class="urow"' +
+        (app ? ' onclick="bonusPersonGo(\'' + esc(app.id) + '\')" title="Open in the Wedding App"' : '') + '>' +
+      '<td data-label="Booking"><strong>' + esc(r.booking_name || r.event_ref || "—") + '</strong>' +
+        '<br><span class="muted" style="font-size:.8125rem">' +
+          (r.event_date ? esc(ukDate(r.event_date)) : "no date") +
+          (r.event_type ? ' &middot; ' + esc(r.event_type) : '') + '</span></td>' +
+      '<td data-label="For">' + role + '</td>' +
+      '<td data-label="Bonus" class="money num">' + state + '</td>' +
+      '<td class="num">' + (app
+        ? '<span class="btn btn--sm btlink">Open in app</span>'
+        : '<span class="muted" style="font-size:.75rem">not in the app</span>') + '</td>' +
+    '</tr>';
+  }).join("");
+
+  return '<div class="btpop-veil" onclick="bonusPersonClose()"></div>' +
+    '<div class="btpop" role="dialog" aria-label="' + esc(name) + '">' +
+      '<div class="btpop-head"><div><h2>' + esc(name) + '</h2>' +
+        '<p class="muted" style="margin:4px 0 0;font-size:.8125rem">' +
+          rows.length + ' booking' + (rows.length === 1 ? "" : "s") +
+          (BT.month ? ' secured in ' + esc(monthName(BT.month)) : '') +
+          ' &middot; ' + money(total) + ' earned</p></div>' +
+        '<button class="x" onclick="bonusPersonClose()" title="Close">&times;</button></div>' +
+      '<div class="btpop-body">' + (rows.length
+        ? '<table><thead><tr><th>Booking</th><th>For</th><th class="money">Bonus</th><th></th></tr></thead>' +
+            '<tbody>' + body + '</tbody></table>'
+        : '<p class="muted">Nothing here for this month.</p>') +
+      '</div></div>';
 }
 
 /* Show-round bonus with nobody down as having done the show-round.
@@ -4450,7 +4541,7 @@ var TrackerApp = (function(){
     return [
       { label:"To do now",  cls:"warn", view:"todo", test:r => r._todo },
       { label:"Overdue",    cls:"bad",  view:"todo", test:r => r._todo && r.next_due < t },
-      { label:"Live enquiries", cls:"", view:"live", test:r => !isClosed(r) && !r._past },
+      { label:"Live enquiries", cls:"", view:"live", test:r => !isClosed(r) && !r._past && !isBooked(r) },
       { label:`Confirmed ${y}`, cls:"ok", view:"confirmed",
         test:r => isBooked(r) && String(r.event_date||"").slice(0,4) === y },
       { label:"From the app",   cls:"", view:"confirmed", test:r => !!r.guestline_event_id },
@@ -4564,7 +4655,9 @@ var TrackerApp = (function(){
     let rows = S.all;
     if(S.pin) return applySearch(rows.filter(S.pin.test));
     switch(S.view){
-      case "live":      rows = rows.filter(r => !isClosed(r) && !r._past); break;
+      // Booked with the deposit paid and contract signed is a confirmed event,
+      // not a live enquiry - it has its own tab, and it was crowding this one.
+      case "live":      rows = rows.filter(r => !isClosed(r) && !r._past && !isBooked(r)); break;
       case "todo":      rows = rows.filter(r => r._todo); break;
       case "confirmed": rows = rows.filter(r => isBooked(r)); break;
       case "past":      rows = rows.filter(r => r._past); break;
