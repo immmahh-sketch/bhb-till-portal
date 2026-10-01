@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>F&amp;B To-Do — Black Horse Beamish</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --sage:#4E5F4F; --sage-70:#7B887C; --sage-10:#EDEFED; --sage-dark:#3B483C;
+  --bone:#F7F7F7; --celadon:#C1C8B4; --mist:#E7E7E7; --white:#fff; --ink:#262626; --gold:#C9A56B;
+  --attention:#B08D57; --attention-bg:#F7F0E4; --alert:#8C4A3F; --alert-bg:#F6EAE8; --good:#4F6B4F; --good-bg:#EDF2ED;
+  --display:"Cormorant Garamond",Georgia,serif; --body:Raleway,"Helvetica Neue",Arial,sans-serif;
+  --track-label:.18em; --radius:10px; --shadow:0 1px 2px rgba(38,38,38,.06),0 8px 24px rgba(38,38,38,.07); --maxw:900px;
+}
+*{box-sizing:border-box} html,body{margin:0;padding:0}
+body{font-family:var(--body); color:var(--ink); background:var(--bone); font-size:15px; line-height:1.5; -webkit-text-size-adjust:100%}
+h1,h2,h3{font-family:var(--display); font-weight:600; margin:0; letter-spacing:.01em}
+button,input,textarea,select{font:inherit; color:inherit}
+.shell{max-width:var(--maxw); margin:0 auto; padding:0 20px 64px}
+#gate{position:fixed; inset:0; background:var(--sage); z-index:100; display:flex; align-items:center; justify-content:center; padding:24px}
+#gate[hidden]{display:none}
+.gatecard{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); width:100%; max-width:380px; padding:32px 28px; text-align:center}
+.gatecard h1{font-size:26px; color:var(--sage); line-height:1.15}
+.gatecard .sub{font-size:11px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); margin:6px 0 22px}
+.gateerr{color:var(--alert); font-size:13px; min-height:18px; margin-top:8px}
+header.top{background:var(--sage); color:var(--white)}
+.topin{max-width:var(--maxw); margin:0 auto; padding:14px 20px; display:flex; align-items:center; gap:18px; flex-wrap:wrap}
+.brand{font-family:var(--display); font-size:21px; line-height:1.1}
+.brand small{display:block; font-family:var(--body); font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; opacity:.75}
+.who{margin-left:auto; display:flex; align-items:center; gap:10px; font-size:12px; opacity:.9}
+.who button{background:transparent; border:1px solid rgba(255,255,255,.4); color:var(--white); border-radius:6px; padding:5px 10px; cursor:pointer; font-size:11px; letter-spacing:.06em; text-transform:uppercase}
+nav.tabs{background:var(--sage-dark)}
+.tabsin{max-width:var(--maxw); margin:0 auto; padding:0 20px; display:flex; gap:2px; overflow-x:auto}
+.tabbtn{background:transparent; border:0; cursor:pointer; color:rgba(255,255,255,.72); padding:12px 16px; font-size:12px; font-weight:600; white-space:nowrap; letter-spacing:var(--track-label); text-transform:uppercase; border-bottom:3px solid transparent}
+.tabbtn[aria-current="page"]{color:var(--white); border-bottom-color:var(--gold)}
+.pagehead{display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; margin:24px 0 16px}
+.pagehead h2{font-size:26px; color:var(--sage)}
+.pagehead .hint{font-size:13px; color:var(--sage-70)}
+.spacer{margin-left:auto}
+.btn{border:1px solid var(--sage); background:var(--sage); color:var(--white); border-radius:8px; padding:9px 16px; cursor:pointer; font-size:12px; font-weight:600; letter-spacing:var(--track-label); text-transform:uppercase; min-height:44px}
+.btn.ghost{background:var(--white); color:var(--sage)} .btn.ghost:hover{background:var(--sage-10)}
+.btn.small{min-height:36px; padding:6px 12px; font-size:11px}
+.btn:disabled{opacity:.5; cursor:default}
+.card{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); padding:18px 20px; margin-bottom:14px}
+.card h3{font-size:22px; color:var(--sage); margin-bottom:12px}
+.opts{display:flex; gap:8px; flex-wrap:wrap}
+.opt{border:1px solid var(--mist); background:var(--bone); border-radius:999px; padding:9px 16px; cursor:pointer; font-size:14px; min-height:44px}
+.opt:hover{background:var(--sage-10)}
+.opt[aria-pressed="true"]{background:var(--sage); border-color:var(--sage); color:var(--white); font-weight:600}
+.opt.s-cancelled[aria-pressed="true"]{background:var(--sage-70); border-color:var(--sage-70)}
+.opt.s-outstanding[aria-pressed="true"]{background:var(--attention); border-color:var(--attention)}
+.field{margin-bottom:14px} .field label{display:block; font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); margin-bottom:4px}
+.field input,.field textarea,.field select{width:100%; padding:11px 12px; border:1px solid var(--mist); border-radius:8px; font-size:16px; background:var(--white)}
+.field input[type=date]{max-width:200px}
+textarea{min-height:84px; resize:vertical}
+.tag{display:inline-block; border-radius:999px; padding:3px 10px; font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; background:var(--sage-10); color:var(--sage); white-space:nowrap}
+.tag.outstanding{background:var(--attention-bg); color:#6d5320}
+.tag.in_progress{background:#E7EEF5; color:#34546F}
+.tag.completed{background:var(--good-bg); color:var(--good)}
+.tag.cancelled{background:var(--mist); color:var(--sage-70)}
+.tag.late{background:var(--alert-bg); color:var(--alert)}
+.job{border-left:4px solid var(--celadon); cursor:pointer}
+.job.late{border-left-color:var(--alert)}
+.job.done{opacity:.72}
+.job .t{font-family:var(--display); font-size:22px; color:var(--sage); line-height:1.15}
+.job .m{font-size:12px; color:var(--sage-70); margin-top:3px}
+.job .tags{display:flex; gap:6px; flex-wrap:wrap; margin-top:8px}
+.desc{white-space:pre-wrap; font-size:15px; margin:10px 0 0}
+.facts{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-top:14px}
+.facts .k{font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70)}
+.facts .v{font-size:15px}
+.facts .v.late{color:var(--alert); font-weight:600}
+.tl{border-top:1px solid var(--mist); margin-top:6px}
+.ev{padding:10px 0; border-bottom:1px solid var(--mist)}
+.ev:last-child{border-bottom:0}
+.ev .h{font-size:12px; color:var(--sage-70)}
+.ev .b{white-space:pre-wrap; margin-top:2px}
+.ev.sys .b{color:var(--sage-70); font-style:italic}
+.filters{display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; margin-bottom:14px}
+.filters .field{margin:0}
+.filters .field select{min-width:170px}
+.muted{color:var(--sage-70)} .empty{padding:40px 20px; text-align:center; color:var(--sage-70)} .loading{padding:60px; text-align:center; color:var(--sage-70)}
+.sum{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px}
+.sum .pill{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); padding:10px 16px; min-width:110px}
+.sum .pill b{display:block; font-family:var(--display); font-size:28px; line-height:1; color:var(--sage)}
+.sum .pill.late b{color:var(--alert)}
+.sum .pill span{font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70)}
+.toast{position:fixed; left:50%; bottom:26px; transform:translate(-50%,20px); background:var(--ink); color:var(--white); padding:12px 20px; border-radius:8px; z-index:200; opacity:0; transition:.2s; pointer-events:none; font-size:14px; max-width:90vw}
+.toast.on{opacity:1; transform:translate(-50%,0)} .toast.bad{background:var(--alert)}
+@media (max-width:640px){ .shell{padding:0 12px 48px} .topin,.tabsin{padding-left:12px;padding-right:12px} .pagehead h2{font-size:22px} .btn{width:100%} .btn.small{width:auto} .opt{flex:1 1 auto} .filters .field,.filters .field select{width:100%} }
+</style>
+</head>
+<body>
+<div id="gate"><div class="gatecard"><h1>F&amp;B To-Do</h1><div class="sub">Black Horse Beamish</div>
+  <p style="margin:0 0 16px;font-size:14px;color:var(--sage-70)">This opens from the Staff Portal, which knows who you are and what you can see.</p>
+  <a href="https://app.blackhorsebeamish.co.uk/portal/app.html" style="display:block;padding:12px;border-radius:8px;background:var(--sage);color:#fff;text-decoration:none;font-weight:600;letter-spacing:var(--track-label);text-transform:uppercase;font-size:12px">Open the Staff Portal</a>
+  <div class="gateerr" id="gerr"></div></div></div>
+<div id="app" hidden>
+  <header class="top"><div class="topin"><div class="brand">F&amp;B To-Do<small>Black Horse Beamish</small></div>
+    <div class="who"><span id="whoname"></span><button id="signout">Sign out</button></div></div></header>
+  <nav class="tabs"><div class="tabsin" role="tablist">
+    <button class="tabbtn" data-view="mine">My jobs</button>
+    <button class="tabbtn" data-view="manage" id="tab_manage">Set &amp; track jobs</button>
+  </div></nav>
+  <div class="shell"><div id="views"></div></div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+const CFG = { SUPABASE_URL:"https://safcrtrfdzsnftghibot.supabase.co", SUPABASE_KEY:"sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU" };
+const STATUSES = [["outstanding","Outstanding"],["in_progress","In progress"],["completed","Completed"],["cancelled","Cancelled"]];
+const SL = Object.fromEntries(STATUSES);
+const S = { me:null, people:[], view:"mine", todos:[], filt:{ status:"open", assignee:"" }, openId:null, draft:null };
+const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
+const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const fmtDT = iso => { if(!iso) return ""; try { return new Date(iso).toLocaleString("en-GB",{ timeZone:"Europe/London", day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" }).replace(",",""); } catch(e){ return String(iso).slice(0,16); } };
+const fmtDay = d => { try { return new Date(d+"T12:00:00Z").toLocaleDateString("en-GB",{ timeZone:"UTC", weekday:"short", day:"numeric", month:"short", year:"numeric" }); } catch(e){ return d; } };
+const today = () => new Intl.DateTimeFormat("en-CA",{ timeZone:"Europe/London", year:"numeric", month:"2-digit", day:"2-digit" }).format(new Date());
+const isOpen = t => t.status === "outstanding" || t.status === "in_progress";
+const isLate = t => isOpen(t) && !!t.due_date && t.due_date < today();
+function toast(msg, bad){ const t=$("#toast"); t.textContent=msg; t.className="toast on"+(bad?" bad":""); clearTimeout(toast._t); toast._t=setTimeout(()=>{t.className="toast";}, bad?5200:2600); }
+function staffEmail(){ try { return sessionStorage.getItem("bhb_staff_email") || ""; } catch(e){ return ""; } }
+async function call(action, payload){
+  const r = await fetch(CFG.SUPABASE_URL + "/functions/v1/fb-todo-api", { method:"POST", headers:{ "Content-Type":"application/json", Authorization:"Bearer "+CFG.SUPABASE_KEY, apikey:CFG.SUPABASE_KEY }, body: JSON.stringify({ action, staff_email: staffEmail(), ...(payload||{}) }) });
+  let d = {}; try { d = await r.json(); } catch(e){}
+  if (!r.ok || d.error) throw new Error(d.error || `Request failed (${r.status})`);
+  return d;
+}
+
+/* ------------------------------------------------------------- list */
+function jobCard(t, showWho){
+  const late = isLate(t), done = !isOpen(t);
+  const due = t.due_date ? `Due ${fmtDay(t.due_date)}` : "No due date";
+  return `<div class="card job${late?" late":""}${done?" done":""}" data-id="${esc(t.id)}">
+    <div class="t">${esc(t.title)}</div>
+    <div class="m">${showWho ? `For ${esc(t.assigned_to_name)} · ` : ""}${esc(due)} · set by ${esc(t.created_by_name)}</div>
+    <div class="tags"><span class="tag ${esc(t.status)}">${esc(SL[t.status])}</span>${late ? `<span class="tag late">Overdue</span>` : ""}</div>
+  </div>`;
+}
+function sortJobs(a){
+  return a.slice().sort((x, y) => (isOpen(y) - isOpen(x)) || String(x.due_date || "9999").localeCompare(String(y.due_date || "9999")) || String(y.created_at).localeCompare(String(x.created_at)));
+}
+function applyFilter(list){
+  const f = S.filt.status;
+  return list.filter(t => f === "all" ? true : f === "open" ? isOpen(t) : f === "late" ? isLate(t) : t.status === f);
+}
+function bindCards(){ $$(".job").forEach(c => c.onclick = () => openJob(c.dataset.id)); }
+
+async function loadList(){
+  const d = await call("todo.list", { scope: S.view === "mine" ? "mine" : "all", assignee: S.view === "manage" ? S.filt.assignee : "" });
+  S.todos = d.todos || [];
+}
+async function viewMine(){
+  $("#views").innerHTML = `<div class="loading">Loading…</div>`;
+  try { await loadList(); } catch(e){ $("#views").innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+  const open = S.todos.filter(isOpen), late = S.todos.filter(isLate);
+  const shown = sortJobs(applyFilter(S.todos));
+  $("#views").innerHTML = `<div class="pagehead"><h2>My jobs</h2><span class="hint">Jobs set for you by the F&amp;B managers</span></div>
+    <div class="sum"><div class="pill"><b>${open.length}</b><span>Open</span></div><div class="pill late"><b>${late.length}</b><span>Overdue</span></div></div>
+    <div class="filters"><div class="field"><label>Show</label><select id="f_status">${filterOpts()}</select></div></div>
+    ${shown.length ? shown.map(t => jobCard(t, false)).join("") : `<div class="empty">${S.todos.length ? "Nothing matches that filter." : "No jobs have been set for you."}</div>`}`;
+  $("#f_status").value = S.filt.status; $("#f_status").onchange = e => { S.filt.status = e.target.value; viewMine(); };
+  bindCards();
+}
+function filterOpts(){
+  return `<option value="open">Open (outstanding + in progress)</option><option value="late">Overdue</option>` +
+    STATUSES.map(([v,l]) => `<option value="${v}">${l}</option>`).join("") + `<option value="all">Everything</option>`;
+}
+async function viewManage(){
+  $("#views").innerHTML = `<div class="loading">Loading…</div>`;
+  try { await loadList(); } catch(e){ $("#views").innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+  const open = S.todos.filter(isOpen), late = S.todos.filter(isLate);
+  const shown = sortJobs(applyFilter(S.todos));
+  $("#views").innerHTML = `<div class="pagehead"><h2>Set &amp; track jobs</h2><span class="hint">Everything you've handed out</span><span class="spacer"></span><button class="btn" id="newjob">New job</button></div>
+    <div class="sum"><div class="pill"><b>${open.length}</b><span>Open</span></div><div class="pill late"><b>${late.length}</b><span>Overdue</span></div></div>
+    <div class="filters">
+      <div class="field"><label>Person</label><select id="f_who"><option value="">Everyone</option>${S.people.map(p => `<option value="${esc(p.email)}">${esc(p.name)}</option>`).join("")}</select></div>
+      <div class="field"><label>Show</label><select id="f_status">${filterOpts()}</select></div></div>
+    ${shown.length ? shown.map(t => jobCard(t, true)).join("") : `<div class="empty">${S.todos.length ? "Nothing matches that filter." : "No jobs yet. Press New job to set the first one."}</div>`}`;
+  $("#f_status").value = S.filt.status; $("#f_who").value = S.filt.assignee;
+  $("#f_status").onchange = e => { S.filt.status = e.target.value; viewManage(); };
+  $("#f_who").onchange = e => { S.filt.assignee = e.target.value; viewManage(); };
+  $("#newjob").onclick = () => viewNew();
+  bindCards();
+}
+
+/* ------------------------------------------------------------- new job */
+function viewNew(){
+  S.view = "manage"; markTab();
+  const d = S.draft || (S.draft = { title:"", assigned_to_email:"", due_date:"", description:"" });
+  $("#views").innerHTML = `<div class="pagehead"><h2>New job</h2></div>
+    <div class="card">
+      <div class="field"><label>Job</label><input id="n_title" maxlength="200" placeholder="e.g. Re-stock the wine fridges and check dates"></div>
+      <div class="field"><label>Give it to</label><select id="n_who"><option value="">Choose…</option>${S.people.map(p => `<option value="${esc(p.email)}">${esc(p.name)}</option>`).join("")}</select></div>
+      <div class="field"><label>Due date</label><input id="n_due" type="date"></div>
+      <div class="field"><label>Description</label><textarea id="n_desc" maxlength="4000" placeholder="What needs doing, and what does done look like?"></textarea></div>
+      <div class="opts"><button class="btn" id="n_save">Set job</button><button class="btn ghost" id="n_cancel">Cancel</button></div>
+    </div>`;
+  $("#n_title").value = d.title; $("#n_who").value = d.assigned_to_email; $("#n_due").value = d.due_date; $("#n_desc").value = d.description;
+  const keep = () => { d.title = $("#n_title").value; d.assigned_to_email = $("#n_who").value; d.due_date = $("#n_due").value; d.description = $("#n_desc").value; };
+  ["#n_title","#n_who","#n_due","#n_desc"].forEach(s => $(s).addEventListener("input", keep));
+  $("#n_cancel").onclick = () => { S.draft = null; goView("manage"); };
+  $("#n_save").onclick = async () => {
+    keep(); const btn = $("#n_save"); btn.disabled = true;
+    try {
+      if (!d.title.trim()) throw new Error("Give the job a title.");
+      if (!d.assigned_to_email) throw new Error("Choose who it's for.");
+      await call("todo.create", { title:d.title, assigned_to_email:d.assigned_to_email, due_date:d.due_date || null, description:d.description });
+      S.draft = null; toast("Job set."); goView("manage");
+    } catch(e){ toast(e.message, true); btn.disabled = false; }
+  };
+  window.scrollTo(0, 0);
+}
+
+/* ------------------------------------------------------------- one job */
+async function openJob(id){
+  S.openId = id;
+  $("#views").innerHTML = `<div class="loading">Loading…</div>`;
+  let d;
+  try { d = await call("todo.get", { id }); } catch(e){ toast(e.message, true); return goView(S.view); }
+  renderJob(d.todo, d.events);
+  window.scrollTo(0, 0);
+}
+function evHtml(e){
+  const sys = e.kind !== "comment" && e.kind !== "status";
+  let what = "";
+  if (e.kind === "status") what = ` set it to ${esc(SL[e.to_status] || e.to_status)}`;
+  else if (e.kind === "comment") what = " commented";
+  return `<div class="ev${sys ? " sys" : ""}"><div class="h"><b>${esc(e.by_name)}</b>${what} · ${esc(fmtDT(e.at))}</div>${e.body ? `<div class="b">${esc(e.body)}</div>` : ""}</div>`;
+}
+function renderJob(t, events){
+  const late = isLate(t);
+  const canManage = S.me.canManage;
+  $("#views").innerHTML = `<div class="pagehead"><button class="btn ghost small" id="back">&larr; Back</button></div>
+    <div class="card">
+      <h3 style="margin-bottom:6px">${esc(t.title)}</h3>
+      <div class="tags" style="display:flex;gap:6px;flex-wrap:wrap"><span class="tag ${esc(t.status)}">${esc(SL[t.status])}</span>${late ? `<span class="tag late">Overdue</span>` : ""}</div>
+      ${t.description ? `<p class="desc">${esc(t.description)}</p>` : `<p class="desc muted">No description.</p>`}
+      <div class="facts">
+        <div><div class="k">For</div><div class="v">${esc(t.assigned_to_name)}</div></div>
+        <div><div class="k">Due</div><div class="v${late ? " late" : ""}">${t.due_date ? esc(fmtDay(t.due_date)) : "No due date"}</div></div>
+        <div><div class="k">Set by</div><div class="v">${esc(t.created_by_name)}</div></div>
+        <div><div class="k">Set on</div><div class="v">${esc(fmtDT(t.created_at))}</div></div>
+        ${t.closed_at ? `<div><div class="k">Closed</div><div class="v">${esc(fmtDT(t.closed_at))}</div></div>` : ""}
+      </div>
+    </div>
+    <div class="card">
+      <h3>Update this job</h3>
+      <div class="field"><label>Status</label><div class="opts" id="st">${STATUSES.map(([v,l]) => `<button class="opt s-${v}" type="button" data-v="${v}" aria-pressed="${v === t.status}">${l}</button>`).join("")}</div></div>
+      <div class="field"><label>Comment</label><textarea id="u_comment" maxlength="3000" placeholder="What's been done, what's holding it up, anything the managers need to know…"></textarea></div>
+      <button class="btn" id="u_save">Save update</button>
+    </div>
+    ${canManage ? `<div class="card"><h3>Change the job</h3>
+      <div class="field"><label>Job</label><input id="e_title" maxlength="200"></div>
+      <div class="field"><label>Give it to</label><select id="e_who">${S.people.map(p => `<option value="${esc(p.email)}">${esc(p.name)}</option>`).join("")}</select></div>
+      <div class="field"><label>Due date</label><input id="e_due" type="date"></div>
+      <div class="field"><label>Description</label><textarea id="e_desc" maxlength="4000"></textarea></div>
+      <button class="btn ghost" id="e_save">Save changes</button></div>` : ""}
+    <div class="card"><h3>History</h3><div class="tl">${events.map(evHtml).join("") || `<div class="muted">Nothing yet.</div>`}</div></div>`;
+  $("#back").onclick = () => goView(S.view);
+  let chosen = t.status;
+  $$("#st .opt").forEach(b => b.onclick = () => { chosen = b.dataset.v; $$("#st .opt").forEach(x => x.setAttribute("aria-pressed", String(x === b))); });
+  $("#u_save").onclick = async () => {
+    const btn = $("#u_save"); btn.disabled = true;
+    try { const d = await call("todo.respond", { id:t.id, status:chosen, comment:$("#u_comment").value }); toast("Saved."); openJob(t.id); }
+    catch(e){ toast(e.message, true); btn.disabled = false; }
+  };
+  if (canManage) {
+    $("#e_title").value = t.title; $("#e_who").value = t.assigned_to_email; $("#e_due").value = t.due_date || ""; $("#e_desc").value = t.description || "";
+    if (!S.people.some(p => p.email === t.assigned_to_email)) $("#e_who").insertAdjacentHTML("afterbegin", `<option value="${esc(t.assigned_to_email)}">${esc(t.assigned_to_name)}</option>`), $("#e_who").value = t.assigned_to_email;
+    $("#e_save").onclick = async () => {
+      const btn = $("#e_save"); btn.disabled = true;
+      try { await call("todo.update", { id:t.id, title:$("#e_title").value, assigned_to_email:$("#e_who").value, due_date:$("#e_due").value || null, description:$("#e_desc").value }); toast("Changes saved."); openJob(t.id); }
+      catch(e){ toast(e.message, true); btn.disabled = false; }
+    };
+  }
+}
+
+/* ------------------------------------------------------------- shell */
+function markTab(){ $$(".tabbtn").forEach(b => b.setAttribute("aria-current", b.dataset.view === S.view ? "page" : "false")); }
+function goView(v){
+  S.view = v; S.openId = null; S.filt.status = "open"; if (v === "mine") S.filt.assignee = "";
+  markTab();
+  if (v === "manage") viewManage(); else viewMine();
+  window.scrollTo(0, 0);
+}
+function openGate(msg){ $("#gate").hidden = false; $("#app").hidden = true; if (msg) $("#gerr").textContent = msg; }
+$("#signout").addEventListener("click", ()=>{ try { sessionStorage.removeItem("bhb_staff_email"); } catch(e){} openGate(); });
+async function boot(){
+  $("#app").hidden = false; $("#views").innerHTML = `<div class="loading">Loading…</div>`;
+  let d;
+  try { d = await call("bootstrap"); } catch(e){ $("#views").innerHTML = `<div class="empty">${esc(e.message)}<br><br><span class="muted">Open this from the Staff Portal so it knows who you are.</span></div>`; return; }
+  S.me = d.me; S.people = d.people || []; $("#whoname").textContent = S.me.name;
+  if (!S.me.canManage) $("#tab_manage").remove();
+  $$(".tabbtn").forEach(b => b.addEventListener("click", () => goView(b.dataset.view)));
+  goView(S.me.canManage ? "manage" : "mine");
+}
+(function(){ if (staffEmail()) { $("#gate").hidden = true; boot(); } else openGate(); })();
+</script>
+</body>
+</html>
