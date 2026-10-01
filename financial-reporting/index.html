@@ -1250,10 +1250,15 @@ function viewReconciliation(){
     </div>
 
     <div class="card">
-      <h3 style="margin-bottom:10px;font-size:18px">A. Rezlynx Period End import</h3>
-      <p class="muted" style="margin:0 0 12px;font-size:13px">Choose the Period End export Rezlynx produces (.xls/.xlsx) - figures are read off it automatically. Check them before saving.</p>
-      <div class="field"><input type="file" id="rc_file" accept=".xls,.xlsx"></div>
-      <div id="rc_rezPreview"></div>
+      <h3 style="margin-bottom:10px;font-size:18px">A. Rezlynx revenue</h3>
+      <p class="muted" style="margin:0 0 12px;font-size:13px">Read automatically from the processed End of Day report for this date (pushed by <strong>Update Forecast Portal</strong>). Nothing to upload day to day.</p>
+      <div id="rc_rezImported"><div class="loading">Loading…</div></div>
+      <details style="margin-top:14px">
+        <summary class="muted" style="font-size:13px;cursor:pointer">Upload a full Period End export instead (only needed for the EPOS cash / card / voucher split)</summary>
+        <p class="muted" style="margin:10px 0 12px;font-size:13px">The End of Day report carries revenue by department (nett) but not the EPOS payment split, so the two Worldpay-vs-Rezlynx card checks stay "not available" until a full Period End (.xls/.xlsx) is uploaded for this date. A Period End is gross and supersedes the End of Day figures for its date.</p>
+        <div class="field"><input type="file" id="rc_file" accept=".xls,.xlsx"></div>
+        <div id="rc_rezPreview"></div>
+      </details>
     </div>
 
     <div class="card">
@@ -1522,10 +1527,40 @@ async function loadReconciliationDay(date){
       : `<p class="muted" style="font-size:13px">Nothing added for this date yet.</p>`;
 
     $("#rc_sumup").value = rec.sumup_total || 0;
+    $("#rc_rezImported").innerHTML = rezImportedHtml(rec.rezlynx);
     $("#rc_summary").innerHTML = reconciliationSummaryHtml(rec);
   } catch(e) {
     $("#rc_summary").innerHTML = `<p style="color:var(--alert)">${esc(e.message)}</p>`;
   }
+}
+
+// Section A. Two possible sources for a date's Rezlynx row: the End of Day
+// "Combined" report pushed by push_forecast_dashboard.ps1 (revenue by
+// department, nett, no EPOS split) or a full Period End uploaded here
+// (gross, with the EPOS split). Say which one it is - they're different
+// bases and the variance checks read differently against each.
+function rezImportedHtml(rez){
+  if (!rez) return `<p class="muted" style="font-size:13px;margin:0">No End of Day report has been pushed for this date yet - press <strong>Update Forecast Portal</strong> in the forecast workbook once that day's report has been processed.</p>`;
+  const raw = rez.raw_parse_json || {};
+  const isEod = raw.source === "eod_combined";
+  const row = (label, val) => `<tr><td>${label}</td><td class="num">${val}</td></tr>`;
+  const depts = isEod && raw.departments
+    ? Object.keys(raw.departments).map(k => row(esc(k), money(raw.departments[k]))).join("")
+    : "";
+  return `
+    <p class="muted" style="font-size:12px;margin:0 0 8px">
+      ${isEod
+        ? `Imported from End of Day report <strong>${esc(rez.source_filename||"")}</strong> · nett (ex VAT) · revenue only`
+        : `Imported from Period End upload <strong>${esc(rez.source_filename||"")}</strong> · gross · includes EPOS split`}
+    </p>
+    <div class="tablewrap"><table class="grid"><tbody>
+      ${depts}
+      ${row("<strong>Accommodation</strong>", `<strong>${money(rez.accommodation_revenue)}</strong>`)}
+      ${row("<strong>F&amp;B / Events (everything except accommodation)</strong>", `<strong>${money(rez.fnb_events_revenue)}</strong>`)}
+      ${row("<strong>Revenue total</strong>", `<strong>${money(rez.grand_total)}</strong>`)}
+      ${isEod && raw.gratuity_total != null ? row("Gratuity (not revenue)", money(raw.gratuity_total)) : ""}
+      ${!isEod ? row("EPOS Cash", money(rez.epos_cash)) + row("EPOS Card", money(rez.epos_card)) + row("EPOS Vouchers", money(rez.epos_vouchers)) : ""}
+    </tbody></table></div>`;
 }
 
 function reconciliationSummaryHtml(rec){
