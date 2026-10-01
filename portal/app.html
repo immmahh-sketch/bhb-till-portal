@@ -511,7 +511,7 @@ function enterApp(){
 
 function iconFor(k){
   const m = { heart:"&#10084;", chart:"&#128200;", calendar:"&#128197;", receipt:"&#128179;", till:"&#128176;",
-              ledger:"&#128209;", safe:"&#128274;", checks:"&#9989;" };
+              ledger:"&#128209;", safe:"&#128274;", checks:"&#9989;", wrench:"&#128295;" };
   return m[k] || "&#9679;";
 }
 
@@ -531,6 +531,7 @@ const TILE_GROUP_FOR = {
   "financial-reporting-float":  "Office",
   "checks-log":          "FOH",
   "checks-admin":        "Office",
+  "maintenance":         "FOH",
   "wedding-admin":       "Weddings and events",
 };
 
@@ -639,6 +640,8 @@ const AUTOLOGIN = {
   // flag is what that page's own gate looks for.
   "checks-log":   { store:"local",   key:"checksUnlocked", value:()=>"1" },
   "checks-admin": { store:"session", key:"checksAdminOk",  value:()=>"1" },
+  // Maintenance List: one door, and who you are comes from bhb_staff_email.
+  "maintenance":  { store:"session", key:"bhb_maintenance_ok", value:()=>"1" },
 };
 
 async function openPortal(key, ref){
@@ -711,6 +714,7 @@ const TAB_SELECTORS = {
   "till-reports":       k => `button[data-tab="${k}"]`,
   "restaurant-ordering":k => `button[data-tab="${k}"]`,
   "checks-admin":       k => `button[data-tab="${k}"]`,
+  "maintenance":        k => `button[data-view="${k}"]`,
 };
 
 // Soft enforcement, not a security boundary - the real data access is still

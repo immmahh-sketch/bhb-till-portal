@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Maintenance List — Black Horse Beamish</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+/* ============================================================ tokens
+   Same values as every other app in this portal. */
+:root{
+  --sage:#4E5F4F; --sage-70:#7B887C; --sage-10:#EDEFED; --sage-dark:#3B483C;
+  --bone:#F7F7F7; --celadon:#C1C8B4; --mist:#E7E7E7; --white:#fff; --ink:#262626;
+  --gold:#C9A56B;
+  --attention:#B08D57; --attention-bg:#F7F0E4;
+  --alert:#8C4A3F;     --alert-bg:#F6EAE8;
+  --good:#4F6B4F;      --good-bg:#EDF2ED;
+  --display:"Cormorant Garamond",Georgia,serif;
+  --body:Raleway,"Helvetica Neue",Arial,sans-serif;
+  --track-label:.18em;
+  --radius:10px;
+  --shadow:0 1px 2px rgba(38,38,38,.06),0 8px 24px rgba(38,38,38,.07);
+  --maxw:1100px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{font-family:var(--body); color:var(--ink); background:var(--bone); font-size:15px; line-height:1.45; -webkit-text-size-adjust:100%}
+h1,h2,h3{font-family:var(--display); font-weight:600; margin:0; letter-spacing:.01em}
+button,input,select,textarea{font:inherit; color:inherit}
+a{color:var(--sage)}
+.shell{max-width:var(--maxw); margin:0 auto; padding:0 20px 64px}
+
+/* ============================================================ gate */
+#gate{position:fixed; inset:0; background:var(--sage); z-index:100; display:flex; align-items:center; justify-content:center; padding:24px}
+#gate[hidden]{display:none}
+.gatecard{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); width:100%; max-width:380px; padding:32px 28px; text-align:center}
+.gatecard h1{font-size:26px; color:var(--sage); line-height:1.15}
+.gatecard .sub{font-size:11px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); margin:6px 0 22px}
+.gatecard input{width:100%; padding:12px 14px; border:1px solid var(--mist); border-radius:8px; background:var(--bone); margin-bottom:10px; text-align:center}
+.gatecard button{width:100%; padding:12px; border:0; border-radius:8px; cursor:pointer; background:var(--sage); color:var(--white); font-weight:600; letter-spacing:var(--track-label); text-transform:uppercase; font-size:12px}
+.gateerr{color:var(--alert); font-size:13px; min-height:18px; margin-top:8px}
+
+/* ============================================================ header */
+header.top{background:var(--sage); color:var(--white)}
+.topin{max-width:var(--maxw); margin:0 auto; padding:14px 20px; display:flex; align-items:center; gap:18px; flex-wrap:wrap}
+.brand{font-family:var(--display); font-size:21px; line-height:1.1}
+.brand small{display:block; font-family:var(--body); font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; opacity:.75}
+.who{margin-left:auto; display:flex; align-items:center; gap:10px; font-size:12px; opacity:.9}
+.who button{background:transparent; border:1px solid rgba(255,255,255,.4); color:var(--white); border-radius:6px; padding:5px 10px; cursor:pointer; font-size:11px; letter-spacing:.06em; text-transform:uppercase}
+
+nav.tabs{background:var(--sage-dark)}
+.tabsin{max-width:var(--maxw); margin:0 auto; padding:0 20px; display:flex; gap:2px; overflow-x:auto}
+.tabbtn{background:transparent; border:0; cursor:pointer; color:rgba(255,255,255,.72); padding:12px 16px; font-size:12px; font-weight:600; white-space:nowrap; letter-spacing:var(--track-label); text-transform:uppercase; border-bottom:3px solid transparent}
+.tabbtn[aria-current="page"]{color:var(--white); border-bottom-color:var(--gold)}
+.tabbtn[hidden]{display:none}
+
+/* ============================================================ layout */
+.pagehead{display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; margin:26px 0 18px}
+.pagehead h2{font-size:26px; color:var(--sage)}
+.pagehead .hint{font-size:13px; color:var(--sage-70)}
+.spacer{margin-left:auto}
+.btn{border:1px solid var(--sage); background:var(--sage); color:var(--white); border-radius:8px; padding:9px 16px; cursor:pointer; font-size:12px; font-weight:600; letter-spacing:var(--track-label); text-transform:uppercase; min-height:44px}
+.btn.ghost{background:var(--white); color:var(--sage)}
+.btn.ghost:hover{background:var(--sage-10)}
+.btn.warn{background:var(--attention); border-color:var(--attention)}
+.btn.good{background:var(--good); border-color:var(--good)}
+.btn.small{min-height:36px; padding:6px 12px; font-size:11px}
+.btn:disabled{opacity:.5; cursor:default}
+
+.card{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px; margin-bottom:20px}
+.field{margin-bottom:14px}
+.field label{display:block; font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); margin-bottom:5px}
+.field input,.field select,.field textarea{width:100%; padding:11px 12px; border:1px solid var(--mist); border-radius:8px; background:var(--white); font-size:16px; min-height:44px}
+.field textarea{min-height:110px; resize:vertical}
+.field .ro{padding:11px 12px; background:var(--sage-10); border-radius:8px; font-size:15px}
+.field.check{display:flex; align-items:center; gap:10px}
+.field.check input{width:22px; height:22px; min-height:0; padding:0; margin:0}
+.field.check label{margin:0; text-transform:none; letter-spacing:0; font-size:14px; color:var(--ink)}
+.row{display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:14px}
+
+/* photo picker */
+.photo{display:flex; gap:14px; align-items:center; flex-wrap:wrap}
+.photo .pv{width:120px; height:120px; border-radius:8px; background:var(--sage-10); object-fit:cover; display:none}
+.photo .pv.on{display:block}
+.photo input[type=file]{display:none}
+
+/* ============================================================ list */
+.filters{display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:14px}
+.filters select,.filters input{padding:9px 10px; border:1px solid var(--mist); border-radius:8px; background:var(--white); font-size:14px; min-height:40px}
+.filters input[type=search]{min-width:180px}
+.pills{display:flex; gap:6px; flex-wrap:wrap}
+.pill{background:var(--white); border:1px solid var(--mist); color:var(--sage); border-radius:999px; padding:7px 14px; cursor:pointer; font-size:12px; font-weight:600; min-height:36px}
+.pill.on{background:var(--sage); border-color:var(--sage); color:var(--white)}
+.count{font-size:13px; color:var(--sage-70); margin-left:auto}
+
+.jobs{display:grid; gap:12px}
+.job{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); padding:14px 16px; display:grid; grid-template-columns:92px 1fr; gap:14px; border-left:4px solid var(--attention)}
+.job.room_offline{border-left-color:var(--alert)}
+.job.completed{border-left-color:var(--good); opacity:.88}
+.job .th{width:92px; height:92px; border-radius:8px; object-fit:cover; background:var(--sage-10); cursor:zoom-in; display:block}
+.job .noth{width:92px; height:92px; border-radius:8px; background:var(--sage-10); display:flex; align-items:center; justify-content:center; color:var(--sage-70); font-size:11px; text-align:center; padding:6px; letter-spacing:.06em; text-transform:uppercase}
+.job .head{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+.job .loc{font-family:var(--display); font-size:21px; color:var(--sage); line-height:1.1}
+.job .no{font-size:11px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70)}
+.tag{display:inline-block; border-radius:999px; padding:3px 10px; font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; background:var(--sage-10); color:var(--sage)}
+.tag.outstanding{background:var(--attention-bg); color:var(--attention)}
+.tag.room_offline{background:var(--alert-bg); color:var(--alert)}
+.tag.completed{background:var(--good-bg); color:var(--good)}
+.job .desc{margin:6px 0; white-space:pre-wrap}
+.job .meta{font-size:12px; color:var(--sage-70)}
+.job .meta strong{color:var(--ink); font-weight:600}
+.job .acts{display:flex; gap:8px; flex-wrap:wrap; margin-top:10px}
+
+.empty{padding:40px 20px; text-align:center; color:var(--sage-70)}
+.loading{padding:60px; text-align:center; color:var(--sage-70)}
+
+/* table (settings) */
+table.grid{width:100%; border-collapse:collapse; font-size:14px}
+table.grid th{text-align:left; padding:9px 10px; background:var(--sage-10); color:var(--sage); font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; font-weight:700}
+table.grid td{padding:8px 10px; border-top:1px solid var(--mist); vertical-align:middle}
+table.grid input{padding:7px 9px; border:1px solid var(--mist); border-radius:6px; width:100%; font-size:14px}
+table.grid input.n{width:64px}
+.muted{color:var(--sage-70)}
+
+/* ============================================================ modal */
+.veil{position:fixed; inset:0; background:rgba(38,38,38,.55); z-index:150; display:flex; align-items:center; justify-content:center; padding:18px}
+.veil[hidden]{display:none}
+.modal{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); width:100%; max-width:480px; padding:22px; max-height:92vh; overflow:auto}
+.modal h3{font-size:22px; color:var(--sage); margin-bottom:4px}
+.modal .acts{display:flex; gap:8px; justify-content:flex-end; margin-top:14px; flex-wrap:wrap}
+.lightbox{position:fixed; inset:0; background:rgba(0,0,0,.88); z-index:160; display:flex; align-items:center; justify-content:center; cursor:zoom-out}
+.lightbox[hidden]{display:none}
+.lightbox img{max-width:96vw; max-height:92vh; border-radius:6px}
+
+.toast{position:fixed; left:50%; bottom:26px; transform:translate(-50%,20px); background:var(--ink); color:var(--white); padding:12px 20px; border-radius:8px; z-index:200; opacity:0; transition:.2s; pointer-events:none; font-size:14px; max-width:90vw}
+.toast.on{opacity:1; transform:translate(-50%,0)}
+.toast.bad{background:var(--alert)}
+
+@media (max-width:640px){
+  .shell{padding:0 12px 48px}
+  .topin,.tabsin{padding-left:12px; padding-right:12px}
+  .pagehead h2{font-size:22px}
+  .row{grid-template-columns:1fr}
+  .btn{width:100%}
+  .btn.small{width:auto}
+  .job{grid-template-columns:72px 1fr; padding:12px}
+  .job .th,.job .noth{width:72px; height:72px}
+  .filters select,.filters input[type=search]{flex:1 1 140px}
+  .count{width:100%; margin-left:0}
+}
+</style>
+</head>
+<body>
+
+<div id="gate">
+  <div class="gatecard">
+    <h1>Maintenance List</h1>
+    <div class="sub">Black Horse Beamish</div>
+    <input id="gpw" type="password" placeholder="Password" autocomplete="current-password">
+    <button id="gbtn">Open</button>
+    <div class="gateerr" id="gerr"></div>
+  </div>
+</div>
+
+<div id="app" hidden>
+  <header class="top">
+    <div class="topin">
+      <div class="brand">Maintenance List<small>Black Horse Beamish</small></div>
+      <div class="who"><span id="whoname"></span><button id="signout">Sign out</button></div>
+    </div>
+  </header>
+  <nav class="tabs">
+    <div class="tabsin" role="tablist">
+      <button class="tabbtn" data-view="log">Log a job</button>
+      <button class="tabbtn" data-view="list">Job list</button>
+      <button class="tabbtn" data-view="export">Export</button>
+      <button class="tabbtn" data-view="settings" id="tabSettings" hidden>Settings</button>
+    </div>
+  </nav>
+  <div class="shell"><div id="views"></div></div>
+</div>
+
+<div class="veil" id="modal" hidden><div class="modal" id="modalBody"></div></div>
+<div class="lightbox" id="lightbox" hidden onclick="this.hidden=true"><img id="lightboxImg" alt=""></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const CFG = {
+  SUPABASE_URL: "https://safcrtrfdzsnftghibot.supabase.co",
+  SUPABASE_KEY: "sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU",
+  PORTAL_PASSWORD: "Ma1ntain#26",
+  KEY: "bhb_maintenance_ok",
+};
+
+const STATUS_LABEL = { outstanding:"Outstanding", room_offline:"Room offline", completed:"Completed" };
+
+const S = {
+  view: "log", me: null, types: [], locations: [], raisers: [], jobs: [],
+  filters: { status:"open", location:"", job_type:"", raised_by:"", search:"" },
+  photo: null,            // { full: Blob, thumb: Blob } waiting to be logged
+  loadingJobs: false,
+};
+
+const $  = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const typeLabel = k => (S.types.find(t => t.key === k) || {}).label || k;
+
+// Always London time, whatever the phone thinks it is in.
+function fmtDT(iso){
+  if (!iso) return "";
+  try {
+    return new Date(iso).toLocaleString("en-GB", { timeZone:"Europe/London", day:"2-digit", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit" }).replace(",", "");
+  } catch(e){ return String(iso).slice(0,16).replace("T"," "); }
+}
+function csvDT(iso){
+  if (!iso) return "";
+  try {
+    const p = new Intl.DateTimeFormat("en-GB", { timeZone:"Europe/London", day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit", hour12:false }).formatToParts(new Date(iso));
+    const g = t => (p.find(x => x.type === t) || {}).value || "";
+    return `${g("day")}/${g("month")}/${g("year")} ${g("hour")}:${g("minute")}`;
+  } catch(e){ return String(iso).slice(0,16).replace("T"," "); }
+}
+function daysOpen(j){
+  const end = j.completed_at ? new Date(j.completed_at) : new Date();
+  return Math.max(0, Math.round((end - new Date(j.raised_at)) / 864e5 * 10) / 10);
+}
+function toast(msg, bad){
+  const t = $("#toast");
+  t.textContent = msg;
+  t.className = "toast on" + (bad ? " bad" : "");
+  clearTimeout(toast._t);
+  toast._t = setTimeout(()=>{ t.className = "toast"; }, bad ? 5200 : 2600);
+}
+
+// Set by the Staff Portal when this page is opened from there - the real
+// identity every job is stamped with, on top of the shared door password.
+function staffEmail(){ try { return sessionStorage.getItem("bhb_staff_email") || ""; } catch(e){ return ""; } }
+
+async function call(action, payload){
+  const r = await fetch(CFG.SUPABASE_URL + "/functions/v1/maintenance-api", {
+    method: "POST",
+    headers: { "Content-Type":"application/json", Authorization:"Bearer "+CFG.SUPABASE_KEY, apikey: CFG.SUPABASE_KEY },
+    body: JSON.stringify({ action, staff_email: staffEmail(), ...(payload||{}) }),
+  });
+  let d = {};
+  try { d = await r.json(); } catch(e){}
+  if (!r.ok || d.error) throw new Error(d.error || `Request failed (${r.status})`);
+  return d;
+}
+
+/* ------------------------------------------------------------- CSV
+   Client-side only - same downloadCsv/csvCell as the other apps here. */
+function csvCell(v){
+  if (v === null || v === undefined) return "";
+  const s = String(v);
+  return /[",\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
+}
+function downloadCsv(filename, columns, rows){
+  if (!rows || !rows.length){ toast("Nothing to export for those filters.", true); return; }
+  const header = columns.map(c => csvCell(c.label)).join(",");
+  const body = rows.map(r => columns.map(c => csvCell(typeof c.value==="function" ? c.value(r) : r[c.value])).join(",")).join("\n");
+  const blob = new Blob(["﻿" + header + "\n" + body], { type:"text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/* ------------------------------------------------------ photo shrinking
+   A phone photo is 3-8 MB; the job needs a picture, not a print. Decoded
+   with the camera's orientation so sideways shots don't arrive sideways,
+   then written out as JPEG at 1600px for the full view and 360px for the
+   list thumbnail. Same approach as the wedding album. */
+const MAX_EDGE = 1600, MAX_Q = .82, THUMB_EDGE = 360, THUMB_Q = .72;
+function decode(file){
+  if (window.createImageBitmap) return createImageBitmap(file, { imageOrientation:"from-image" }).catch(viaImg);
+  return viaImg();
+  function viaImg(){
+    return new Promise((res, rej)=>{
+      const url = URL.createObjectURL(file); const img = new Image();
+      img.onload = ()=>{ URL.revokeObjectURL(url); res(img); };
+      img.onerror = ()=>{ URL.revokeObjectURL(url); rej(new Error("That file isn't a photo.")); };
+      img.src = url;
+    });
+  }
+}
+function scaleTo(bmp, edge, quality){
+  const w = bmp.width, h = bmp.height, f = Math.min(1, edge / Math.max(w, h));
+  const cw = Math.max(1, Math.round(w*f)), ch = Math.max(1, Math.round(h*f));
+  const c = document.createElement("canvas"); c.width = cw; c.height = ch;
+  c.getContext("2d").drawImage(bmp, 0, 0, cw, ch);
+  return new Promise(res => c.toBlob(b => res(b), "image/jpeg", quality));
+}
+async function preparePhoto(file){
+  const bmp = await decode(file);
+  const [full, thumb] = await Promise.all([ scaleTo(bmp, MAX_EDGE, MAX_Q), scaleTo(bmp, THUMB_EDGE, THUMB_Q) ]);
+  if (bmp.close) bmp.close();
+  return { full, thumb };
+}
+async function put(url, blob){
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const r = await fetch(url, { method:"PUT", headers:{ "Content-Type":"image/jpeg", "x-upsert":"true" }, body: blob });
+      if (r.ok) return;
+      if (attempt) throw new Error("upload " + r.status);
+    } catch(e){ if (attempt) throw e; }
+  }
+}
+async function uploadPhoto(upload, photo){
+  await Promise.all([ put(upload.photo_url, photo.full), put(upload.thumb_url, photo.thumb) ]);
+}
+
+/* ------------------------------------------------------------- views */
+function goView(v){
+  S.view = v;
+  $$(".tabbtn").forEach(b => b.setAttribute("aria-current", b.dataset.view === v ? "page" : "false"));
+  const views = { log: viewLog, list: viewList, export: viewExport, settings: viewSettings };
+  $("#views").innerHTML = (views[v] || viewLog)();
+  if (v === "log") wireLog();
+  if (v === "list") { wireList(); loadJobs(); }
+  if (v === "export") wireExport();
+  if (v === "settings") wireSettings();
+  window.scrollTo(0, 0);
+}
+
+function locationOptions(selected){
+  const seen = new Set();
+  const names = [];
+  S.locations.filter(l => l.active !== false).forEach(l => { if (!seen.has(l.label.toLowerCase())) { seen.add(l.label.toLowerCase()); names.push(l.label); } });
+  S.jobs.forEach(j => { const k = (j.location||"").toLowerCase(); if (k && !seen.has(k)) { seen.add(k); names.push(j.location); } });
+  return names.map(n => `<option value="${esc(n)}"${n === selected ? " selected" : ""}>${esc(n)}</option>`).join("");
+}
+function typeOptions(selected, includeInactive){
+  return S.types.filter(t => includeInactive || t.active !== false || t.key === selected)
+    .map(t => `<option value="${esc(t.key)}"${t.key === selected ? " selected" : ""}>${esc(t.label)}</option>`).join("");
+}
+
+/* ---------------------------------------------------------------- log */
+function viewLog(){
+  const canEdit = S.me && S.me.canEdit;
+  return `
+  <div class="pagehead"><h2>Log a maintenance job</h2><div class="hint">Stamped with your name and the time it's logged.</div></div>
+  <div class="card">
+    ${canEdit ? "" : `<div class="empty">Your access to Maintenance is view-only - you can see the list but not log jobs.</div>`}
+    <div class="row">
+      <div class="field">
+        <label for="f_loc">Room number / location</label>
+        <input id="f_loc" list="locList" placeholder="e.g. Room 12, Bar, Marquee" autocomplete="off" ${canEdit?"":"disabled"}>
+        <datalist id="locList">${S.locations.filter(l=>l.active!==false).map(l=>`<option value="${esc(l.label)}">`).join("")}</datalist>
+      </div>
+      <div class="field">
+        <label for="f_type">Type of job</label>
+        <select id="f_type" ${canEdit?"":"disabled"}><option value="">Choose…</option>${typeOptions("")}</select>
+      </div>
+    </div>
+    <div class="field">
+      <label for="f_desc">What's the job?</label>
+      <textarea id="f_desc" placeholder="What's wrong, where exactly, anything the maintenance team should know" ${canEdit?"":"disabled"}></textarea>
+    </div>
+    <div class="field check">
+      <input id="f_offline" type="checkbox" ${canEdit?"":"disabled"}>
+      <label for="f_offline">Room / area is out of service until this is fixed</label>
+    </div>
+    <div class="field">
+      <label>Photo</label>
+      <div class="photo">
+        <img id="f_pv" class="pv" alt="">
+        <input id="f_cam" type="file" accept="image/*" capture="environment">
+        <input id="f_file" type="file" accept="image/*">
+        <button type="button" class="btn ghost small" id="f_take" ${canEdit?"":"disabled"}>Take a photo</button>
+        <button type="button" class="btn ghost small" id="f_choose" ${canEdit?"":"disabled"}>Choose from gallery</button>
+        <button type="button" class="btn ghost small" id="f_clear" hidden>Remove</button>
+        <span class="muted" id="f_pstat"></span>
+      </div>
+    </div>
+    <div class="row">
+      <div class="field"><label>Logged by</label><div class="ro">${esc(S.me ? S.me.name : "")}</div></div>
+      <div class="field"><label>Date &amp; time</label><div class="ro">Now, when you press Log job</div></div>
+    </div>
+    <button class="btn" id="f_submit" ${canEdit?"":"disabled"}>Log job</button>
+  </div>`;
+}
+function wireLog(){
+  S.photo = null;
+  const onFile = async (inp)=>{
+    const f = inp.files && inp.files[0]; if (!f) return;
+    $("#f_pstat").textContent = "Preparing photo…";
+    try {
+      S.photo = await preparePhoto(f);
+      const pv = $("#f_pv"); pv.src = URL.createObjectURL(S.photo.thumb); pv.classList.add("on");
+      $("#f_clear").hidden = false;
+      $("#f_pstat").textContent = Math.round(S.photo.full.size/1024) + " KB";
+    } catch(e){ S.photo = null; $("#f_pstat").textContent = ""; toast(e.message, true); }
+    inp.value = "";
+  };
+  $("#f_take").onclick = ()=> $("#f_cam").click();
+  $("#f_choose").onclick = ()=> $("#f_file").click();
+  $("#f_cam").onchange = e => onFile(e.target);
+  $("#f_file").onchange = e => onFile(e.target);
+  $("#f_clear").onclick = ()=>{ S.photo = null; $("#f_pv").classList.remove("on"); $("#f_pv").src = ""; $("#f_clear").hidden = true; $("#f_pstat").textContent = ""; };
+  $("#f_submit").onclick = submitJob;
+}
+async function submitJob(){
+  const btn = $("#f_submit");
+  const payload = {
+    location: $("#f_loc").value.trim(), job_type: $("#f_type").value, description: $("#f_desc").value.trim(),
+    room_offline: $("#f_offline").checked, with_photo: !!S.photo,
+  };
+  if (!payload.location) return toast("Where is the job? Enter a room number or location.", true);
+  if (!payload.job_type) return toast("Pick the type of job.", true);
+  if (!payload.description) return toast("Describe the job.", true);
+  btn.disabled = true; btn.textContent = "Logging…";
+  try {
+    const d = await call("jobs.create", payload);
+    if (d.upload && S.photo) {
+      btn.textContent = "Uploading photo…";
+      try { await uploadPhoto(d.upload, S.photo); }
+      catch(e){ try { await call("jobs.photo_failed", { id: d.job.id }); } catch(_){} toast("Job logged, but the photo didn't upload - add it from the list when you have signal.", true); }
+    }
+    if (!S.raisers.includes(S.me.name)) S.raisers.push(S.me.name);
+    toast(`Logged as job #${d.job.job_no}.`);
+    goView("log");
+  } catch(e){ toast(e.message, true); }
+  finally { btn.disabled = false; btn.textContent = "Log job"; }
+}
+
+/* --------------------------------------------------------------- list */
+function viewList(){
+  const f = S.filters;
+  const pills = [["open","Open"],["outstanding","Outstanding"],["room_offline","Room offline"],["completed","Completed"],["","All"]];
+  return `
+  <div class="pagehead"><h2>Job list</h2><div class="hint">Newest first. Tap a photo to see it full size.</div>
+    <div class="spacer"></div><button class="btn ghost small" id="l_refresh">Refresh</button></div>
+  <div class="filters">
+    <div class="pills">${pills.map(([k,l])=>`<button class="pill${f.status===k?" on":""}" data-status="${k}">${l}</button>`).join("")}</div>
+  </div>
+  <div class="filters">
+    <select id="l_loc"><option value="">Any location</option>${locationOptions(f.location)}</select>
+    <select id="l_type"><option value="">Any type</option>${typeOptions(f.job_type, true)}</select>
+    <select id="l_by"><option value="">Raised by anyone</option>${S.raisers.map(n=>`<option${f.raised_by===n?" selected":""}>${esc(n)}</option>`).join("")}</select>
+    <input id="l_q" type="search" placeholder="Search…" value="${esc(f.search)}">
+    <span class="count" id="l_count"></span>
+  </div>
+  <div id="l_jobs" class="jobs"><div class="loading">Loading…</div></div>`;
+}
+function wireList(){
+  $$(".pill[data-status]").forEach(b => b.onclick = ()=>{ S.filters.status = b.dataset.status; $$(".pill").forEach(x=>x.classList.toggle("on", x===b)); loadJobs(); });
+  $("#l_loc").onchange = e => { S.filters.location = e.target.value; loadJobs(); };
+  $("#l_type").onchange = e => { S.filters.job_type = e.target.value; loadJobs(); };
+  $("#l_by").onchange = e => { S.filters.raised_by = e.target.value; loadJobs(); };
+  let t; $("#l_q").oninput = e => { S.filters.search = e.target.value; clearTimeout(t); t = setTimeout(loadJobs, 350); };
+  $("#l_refresh").onclick = loadJobs;
+}
+async function loadJobs(){
+  const box = $("#l_jobs"); if (!box) return;
+  S.loadingJobs = true;
+  try {
+    const d = await call("jobs.list", { ...S.filters, limit: 500 });
+    S.jobs = d.jobs || [];
+    renderJobs();
+  } catch(e){ box.innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+  finally { S.loadingJobs = false; }
+}
+function renderJobs(){
+  const box = $("#l_jobs"); if (!box) return;
+  const c = $("#l_count"); if (c) c.textContent = S.jobs.length ? `${S.jobs.length} job${S.jobs.length===1?"":"s"}` : "";
+  if (!S.jobs.length){ box.innerHTML = `<div class="empty">No jobs match.</div>`; return; }
+  box.innerHTML = S.jobs.map(jobCard).join("");
+}
+function jobCard(j){
+  const canEdit = S.me && S.me.canEdit;
+  const acts = [];
+  if (canEdit) {
+    if (j.status !== "completed") {
+      acts.push(`<button class="btn good small" onclick="completeJob('${j.id}')">Mark completed</button>`);
+      if (j.status === "room_offline") acts.push(`<button class="btn ghost small" onclick="setStatus('${j.id}','outstanding')">Room back in service</button>`);
+      else acts.push(`<button class="btn ghost small" onclick="setStatus('${j.id}','room_offline')">Room offline</button>`);
+    } else {
+      acts.push(`<button class="btn ghost small" onclick="setStatus('${j.id}','outstanding')">Reopen</button>`);
+    }
+    acts.push(`<button class="btn ghost small" onclick="editJob('${j.id}')">Edit</button>`);
+    acts.push(`<button class="btn ghost small" onclick="addPhoto('${j.id}')">${j.photo_url ? "Replace photo" : "Add photo"}</button>`);
+  }
+  return `
+  <div class="job ${esc(j.status)}" id="job-${j.id}">
+    <div>${j.thumb_url
+      ? `<img class="th" src="${esc(j.thumb_url)}" alt="" loading="lazy" onclick="showPhoto('${esc(j.photo_url||j.thumb_url)}')">`
+      : `<div class="noth">No photo</div>`}</div>
+    <div>
+      <div class="head">
+        <span class="loc">${esc(j.location)}</span>
+        <span class="no">Job #${j.job_no}</span>
+        <span class="tag">${esc(typeLabel(j.job_type))}</span>
+        <span class="tag ${esc(j.status)}">${STATUS_LABEL[j.status] || j.status}</span>
+      </div>
+      <div class="desc">${esc(j.description)}</div>
+      <div class="meta">Raised by <strong>${esc(j.raised_by_name)}</strong> · ${esc(fmtDT(j.raised_at))}
+        ${j.status === "completed"
+          ? `<br>Completed by <strong>${esc(j.completed_by_name||"")}</strong> · ${esc(fmtDT(j.completed_at))}${j.completion_note ? ` · <em>${esc(j.completion_note)}</em>` : ""}`
+          : ` · open ${daysOpen(j)} day${daysOpen(j)===1?"":"s"}`}
+      </div>
+      ${acts.length ? `<div class="acts">${acts.join("")}</div>` : ""}
+    </div>
+  </div>`;
+}
+function showPhoto(url){ $("#lightboxImg").src = url; $("#lightbox").hidden = false; }
+
+function modal(html){ $("#modalBody").innerHTML = html; $("#modal").hidden = false; }
+function closeModal(){ $("#modal").hidden = true; $("#modalBody").innerHTML = ""; }
+$("#modal").addEventListener("click", e => { if (e.target === $("#modal")) closeModal(); });
+
+function patchJob(job){
+  const i = S.jobs.findIndex(x => x.id === job.id);
+  if (i < 0) return;
+  S.jobs[i] = { ...S.jobs[i], ...job };
+  // A status that no longer matches the active filter drops off the list.
+  const f = S.filters.status;
+  const keep = !f || (f === "open" ? job.status !== "completed" : job.status === f);
+  if (!keep) S.jobs.splice(i, 1);
+  renderJobs();
+}
+async function setStatus(id, status, note){
+  try {
+    const d = await call("jobs.set_status", { id, status, note });
+    patchJob(d.job);
+    toast(status === "completed" ? "Marked completed." : status === "room_offline" ? "Room marked offline." : "Back to outstanding.");
+  } catch(e){ toast(e.message, true); }
+}
+function completeJob(id){
+  const j = S.jobs.find(x => x.id === id); if (!j) return;
+  modal(`<h3>Mark job #${j.job_no} completed</h3>
+    <div class="muted" style="margin-bottom:12px">${esc(j.location)} · ${esc(typeLabel(j.job_type))}<br>Completed by <strong>${esc(S.me.name)}</strong>, stamped with the time now.</div>
+    <div class="field"><label for="m_note">What was done (optional)</label><textarea id="m_note" style="min-height:80px"></textarea></div>
+    <div class="acts"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn good" id="m_ok">Mark completed</button></div>`);
+  $("#m_ok").onclick = async ()=>{ const note = $("#m_note").value.trim(); closeModal(); await setStatus(id, "completed", note); };
+}
+function editJob(id){
+  const j = S.jobs.find(x => x.id === id); if (!j) return;
+  modal(`<h3>Edit job #${j.job_no}</h3>
+    <div class="field"><label for="m_loc">Room number / location</label><input id="m_loc" list="locList2" value="${esc(j.location)}">
+      <datalist id="locList2">${S.locations.filter(l=>l.active!==false).map(l=>`<option value="${esc(l.label)}">`).join("")}</datalist></div>
+    <div class="field"><label for="m_type">Type of job</label><select id="m_type">${typeOptions(j.job_type)}</select></div>
+    <div class="field"><label for="m_desc">What's the job?</label><textarea id="m_desc">${esc(j.description)}</textarea></div>
+    <div class="acts"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn" id="m_ok">Save</button></div>`);
+  $("#m_ok").onclick = async ()=>{
+    const payload = { id, location: $("#m_loc").value.trim(), job_type: $("#m_type").value, description: $("#m_desc").value.trim() };
+    try { const d = await call("jobs.update", payload); closeModal(); patchJob(d.job); toast("Saved."); }
+    catch(e){ toast(e.message, true); }
+  };
+}
+function addPhoto(id){
+  const inp = document.createElement("input");
+  inp.type = "file"; inp.accept = "image/*";
+  inp.onchange = async ()=>{
+    const f = inp.files && inp.files[0]; if (!f) return;
+    toast("Uploading photo…");
+    try {
+      const photo = await preparePhoto(f);
+      const d = await call("jobs.photo_sign", { id });
+      await uploadPhoto(d.upload, photo);
+      toast("Photo added.");
+      loadJobs();
+    } catch(e){ toast(e.message, true); }
+  };
+  inp.click();
+}
+
+/* ------------------------------------------------------------- export */
+function viewExport(){
+  const today = new Date(); const from = new Date(today); from.setDate(from.getDate() - 30);
+  const iso = d => d.toISOString().slice(0,10);
+  return `
+  <div class="pagehead"><h2>Export to CSV</h2><div class="hint">Every job matching the filters, with who raised and completed it and when.</div></div>
+  <div class="card">
+    <div class="row">
+      <div class="field"><label for="x_from">Raised from</label><input id="x_from" type="date" value="${iso(from)}"></div>
+      <div class="field"><label for="x_to">Raised to</label><input id="x_to" type="date" value="${iso(today)}"></div>
+      <div class="field"><label for="x_status">Status</label><select id="x_status">
+        <option value="">All</option><option value="open">Open (outstanding + room offline)</option>
+        <option value="outstanding">Outstanding</option><option value="room_offline">Room offline</option><option value="completed">Completed</option></select></div>
+      <div class="field"><label for="x_loc">Location</label><select id="x_loc"><option value="">Any</option>${locationOptions("")}</select></div>
+      <div class="field"><label for="x_type">Type of job</label><select id="x_type"><option value="">Any</option>${typeOptions("", true)}</select></div>
+    </div>
+    <div class="field check"><input id="x_alltime" type="checkbox"><label for="x_alltime">Ignore the dates - every job ever logged</label></div>
+    <button class="btn" id="x_go">Download CSV</button>
+  </div>`;
+}
+const CSV_COLS = [
+  { label:"Job no", value:"job_no" },
+  { label:"Raised", value: r => csvDT(r.raised_at) },
+  { label:"Raised by", value:"raised_by_name" },
+  { label:"Location", value:"location" },
+  { label:"Type", value: r => typeLabel(r.job_type) },
+  { label:"Description", value:"description" },
+  { label:"Status", value: r => STATUS_LABEL[r.status] || r.status },
+  { label:"Completed", value: r => csvDT(r.completed_at) },
+  { label:"Completed by", value:"completed_by_name" },
+  { label:"Completion note", value:"completion_note" },
+  { label:"Days open", value: r => daysOpen(r) },
+  { label:"Photo", value: r => r.photo_path ? "Yes" : "No" },
+];
+function wireExport(){
+  $("#x_go").onclick = async ()=>{
+    const btn = $("#x_go"); btn.disabled = true;
+    const all = $("#x_alltime").checked;
+    const p = { status: $("#x_status").value, location: $("#x_loc").value, job_type: $("#x_type").value, with_photos: false, limit: 2000 };
+    if (!all) { p.from = $("#x_from").value; p.to = $("#x_to").value; }
+    try {
+      const d = await call("jobs.list", p);
+      const tag = all ? "all" : `${p.from}_to_${p.to}`;
+      downloadCsv(`maintenance-jobs-${tag}.csv`, CSV_COLS, d.jobs || []);
+      if (d.jobs && d.jobs.length) toast(`${d.jobs.length} job${d.jobs.length===1?"":"s"} exported.`);
+    } catch(e){ toast(e.message, true); }
+    finally { btn.disabled = false; }
+  };
+}
+
+/* ----------------------------------------------------------- settings */
+function viewSettings(){
+  const rows = (list, kind) => list.map(t => `
+    <tr data-key="${esc(t.key)}" data-kind="${kind}">
+      <td><input class="lbl" value="${esc(t.label)}"></td>
+      <td><input class="n srt" type="number" value="${Number(t.sort_order)||0}"></td>
+      <td style="text-align:center"><input class="act" type="checkbox" ${t.active!==false?"checked":""}></td>
+      <td><button class="btn ghost small save">Save</button></td>
+    </tr>`).join("");
+  return `
+  <div class="pagehead"><h2>Settings</h2><div class="hint">The pick-lists on the Log a job form. Untick to retire one without losing its history.</div></div>
+  <div class="card">
+    <h3 style="font-size:20px;color:var(--sage);margin-bottom:10px">Types of job</h3>
+    <table class="grid"><thead><tr><th>Label</th><th>Order</th><th>Active</th><th></th></tr></thead>
+      <tbody id="s_types">${rows(S.types, "type")}
+        <tr data-kind="type" data-key=""><td><input class="lbl" placeholder="New type…"></td><td><input class="n srt" type="number" value="${S.types.length+1}"></td><td style="text-align:center"><input class="act" type="checkbox" checked></td><td><button class="btn ghost small save">Add</button></td></tr>
+      </tbody></table>
+  </div>
+  <div class="card">
+    <h3 style="font-size:20px;color:var(--sage);margin-bottom:10px">Suggested locations</h3>
+    <div class="muted" style="margin-bottom:10px">Any room number can be typed on a job; these are the suggestions that pop up. Add rooms here so they're spelt the same way every time.</div>
+    <table class="grid"><thead><tr><th>Label</th><th>Order</th><th>Active</th><th></th></tr></thead>
+      <tbody id="s_locs">${rows(S.locations, "location")}
+        <tr data-kind="location" data-key=""><td><input class="lbl" placeholder="New location, e.g. Room 14…"></td><td><input class="n srt" type="number" value="${S.locations.length+1}"></td><td style="text-align:center"><input class="act" type="checkbox" checked></td><td><button class="btn ghost small save">Add</button></td></tr>
+      </tbody></table>
+  </div>`;
+}
+function wireSettings(){
+  $$("#views tr[data-kind] .save").forEach(b => b.onclick = async ()=>{
+    const tr = b.closest("tr");
+    const payload = { key: tr.dataset.key || undefined, label: tr.querySelector(".lbl").value.trim(), sort_order: Number(tr.querySelector(".srt").value)||0, active: tr.querySelector(".act").checked };
+    if (!payload.label) return toast("Give it a name.", true);
+    if (!payload.key) payload.key = payload.label;
+    try {
+      const d = await call(tr.dataset.kind === "type" ? "types.save" : "locations.save", payload);
+      if (d.types) S.types = d.types; if (d.locations) S.locations = d.locations;
+      toast("Saved."); goView("settings");
+    } catch(e){ toast(e.message, true); }
+  });
+}
+
+/* --------------------------------------------------------------- gate */
+function openGate(msg){
+  $("#gate").hidden = false; $("#app").hidden = true;
+  if (msg) $("#gerr").textContent = msg;
+}
+function tryOpen(pw){
+  $("#gerr").textContent = "";
+  if (!pw){ $("#gerr").textContent = "Enter the password."; return; }
+  if (pw !== CFG.PORTAL_PASSWORD){ $("#gerr").textContent = "Wrong password."; return; }
+  try { sessionStorage.setItem(CFG.KEY, "1"); } catch(e){}
+  $("#gate").hidden = true;
+  boot();
+}
+$("#gbtn").addEventListener("click", ()=> tryOpen($("#gpw").value));
+$("#gpw").addEventListener("keydown", e=>{ if (e.key==="Enter") tryOpen($("#gpw").value); });
+$("#signout").addEventListener("click", ()=>{ try { sessionStorage.removeItem(CFG.KEY); } catch(e){} openGate(); });
+
+/* --------------------------------------------------------------- boot */
+async function boot(){
+  $("#app").hidden = false;
+  $("#views").innerHTML = `<div class="loading">Loading…</div>`;
+  try {
+    const d = await call("bootstrap");
+    S.me = d.me; S.types = d.types || []; S.locations = d.locations || []; S.raisers = d.raisers || [];
+  } catch(e) {
+    $("#views").innerHTML = `<div class="empty">${esc(e.message)}<br><br><span class="muted">Open this from the Staff Portal so it knows who you are.</span></div>`;
+    return;
+  }
+  $("#whoname").textContent = S.me.name;
+  $("#tabSettings").hidden = S.me.role !== "admin";
+  $$(".tabbtn").forEach(b => b.addEventListener("click", ()=> goView(b.dataset.view)));
+  goView(new URLSearchParams(location.search).get("view") === "list" ? "list" : "log");
+}
+(function(){
+  let saved = null;
+  try { saved = sessionStorage.getItem(CFG.KEY); } catch(e){}
+  if (saved === "1") { $("#gate").hidden = true; boot(); }
+  else { openGate(); }
+})();
+</script>
+</body>
+</html>
