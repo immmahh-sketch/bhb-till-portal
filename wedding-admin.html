@@ -4582,6 +4582,19 @@ var TrackerApp = (function(){
       ? ' <span class="applink" title="Kept in step with the wedding app">app</span>'
       : "";
   }
+  /* A show-round booked through Calendly, while it's still ahead. */
+  function tourWhen(iso){
+    if(!iso) return "";
+    try {
+      return new Date(iso).toLocaleString("en-GB", { timeZone:"Europe/London", weekday:"short", day:"numeric", month:"short", hour:"numeric", minute:"2-digit" }).replace(",", "");
+    } catch(e){ return String(iso).slice(0,16); }
+  }
+  function tourTag(r){
+    if(!r.showround_at || r.calendly_status === "canceled") return "";
+    const day = String(new Date(r.showround_at).toLocaleDateString("en-CA", { timeZone:"Europe/London" }));
+    if(day < S.today) return "";
+    return ' <span class="pill hold" title="Show-round booked through Calendly">Tour ' + esc(tourWhen(r.showround_at)) + '</span>';
+  }
 
   function statusPill(r){
     let c = "";
@@ -4616,7 +4629,7 @@ var TrackerApp = (function(){
       <tbody>${rows.map(r => `
         <tr class="${dueClass(r)}" data-id="${r.id}">
           <td class="nowrap strong">${r._needsAppSetup && !r.next_due ? "Now" : ukDate(r.next_due)}</td>
-          <td class="strong">${esc(r.name)}${appTag(r)}</td>
+          <td class="strong">${esc(r.name)}${appTag(r)}${tourTag(r)}</td>
           <td class="nowrap">${ukDate(r.event_date)}</td>
           <td>${esc(r.event_type)}</td>
           <td>${esc(r.venue)}</td>
@@ -4695,7 +4708,7 @@ var TrackerApp = (function(){
       <tbody>${rows.map(r => `
         <tr class="${dueClass(r)} ${isClosed(r)?"closed":""}" data-id="${r.id}">
           <td class="nowrap strong">${ukDate(r.event_date)}</td>
-          <td class="strong">${esc(r.name)}${appTag(r)}</td>
+          <td class="strong">${esc(r.name)}${appTag(r)}${tourTag(r)}</td>
           <td>${esc(r.event_type)}</td>
           <td>${esc(r.venue)}</td>
           <td>${statusPill(r)}</td>
@@ -4781,6 +4794,13 @@ var TrackerApp = (function(){
       </div>
 
       <div class="sect">Where it stands</div>
+
+      ${r.showround_at ? `<div class="syncnote">
+        <strong>${r.calendly_status === "canceled" ? "Show-round cancelled" : "Show-round booked"}</strong>
+        through Calendly${r.calendly_status === "canceled" ? "" : ": " + esc(tourWhen(r.showround_at))}.
+        Their answers from the booking form are in the notes below.
+        ${r.calendly_status === "canceled" ? "The notes say when and why; follow up to rebook." : "A cancellation or new time comes through on its own."}
+      </div>` : ""}
 
       <div class="field"><label>Current status</label><select id="f_status">${opts("status", r.status)}</select></div>
 
