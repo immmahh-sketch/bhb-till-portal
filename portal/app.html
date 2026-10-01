@@ -338,9 +338,18 @@ table.grid td{padding:10px 12px; border-top:1px solid var(--mist); vertical-alig
       <div class="pagehead">
         <h2>Settings — Users</h2>
         <div class="spacer2"></div>
+        <button class="btn ghost" id="csvUsersBtn" title="Create several users from a CSV of name, email and profile">Add from CSV</button>
+        <input type="file" id="csvUsersFile" accept=".csv,text/csv" style="display:none">
         <button class="btn" id="addUserBtn">Add user</button>
       </div>
       <div class="card"><div style="overflow-x:auto"><table class="grid" id="usersTable"></table></div></div>
+      <div class="pagehead" style="margin-top:28px">
+        <h2>Profiles</h2>
+        <div class="spacer2"></div>
+        <button class="btn ghost" id="addProfileBtn">New profile</button>
+      </div>
+      <p class="hint" style="margin:-8px 0 12px">A profile is the access a type of team member gets - pick it when adding someone and every tile, tab and edit right is set for them in one go. Their access can still be changed person by person afterwards.</p>
+      <div class="card"><div style="overflow-x:auto"><table class="grid" id="profilesTable"></table></div></div>
     </section>
   </div>
 </div>
@@ -800,35 +809,246 @@ function closeViewer(){
 $("#vHome").addEventListener("click", ()=>{ closeViewer(); showLanding(); });
 
 /* ------------------------------------------------------------ settings */
+const profileLabel = k => { const p = (S.profiles||[]).find(x => x.key === k); return p ? p.label : (k || ""); };
+
 async function loadUsers(){
   $("#usersTable").innerHTML = `<tr><td style="padding:20px">Loading…</td></tr>`;
   try{
     const d = await api("list_users");
-    S.users = d.users; S.apps = d.apps; S.tabCatalogue = d.tabCatalogue || [];
+    S.users = d.users; S.apps = d.apps; S.tabCatalogue = d.tabCatalogue || []; S.profiles = d.profiles || [];
     $("#usersTable").innerHTML = `
-      <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Portals</th><th>Last login</th><th></th></tr></thead>
+      <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Profile</th><th>Portals</th><th>Last login</th><th></th></tr></thead>
       <tbody>
         ${S.users.map(u => `
           <tr data-id="${u.id}" style="cursor:pointer">
             <td class="strong">${esc(u.display_name)}</td>
             <td>${esc(u.email)}</td>
             <td>${u.role==="admin" ? '<span class="pill admin">Admin</span>' : '<span class="pill">Staff</span>'}</td>
+            <td class="muted">${esc(profileLabel(u.profile_key))}</td>
             <td>${u.apps.length} of ${S.apps.length}</td>
             <td>${u.last_login_at ? new Date(u.last_login_at).toLocaleDateString('en-GB') : '<span class="muted">Never</span>'}</td>
-            <td>${u.active ? '' : '<span class="pill off">Inactive</span>'}</td>
+            <td style="white-space:nowrap">${u.active ? '' : '<span class="pill off">Inactive</span> '}${u.active ? `<button class="btn ghost reinvite" data-id="${u.id}" style="padding:5px 10px;font-size:11px" title="Send ${esc(u.display_name)} a fresh set-your-password email">${u.last_login_at ? "Reset link" : "Re-invite"}</button>` : ''}</td>
           </tr>`).join("")}
       </tbody>`;
     $$("#usersTable tbody tr").forEach(tr => tr.addEventListener("click", ()=> openUserDrawer(tr.dataset.id)));
+    $$("#usersTable .reinvite").forEach(b => b.addEventListener("click", async ev => {
+      ev.stopPropagation();
+      b.disabled = true;
+      try { await api("reinvite_user", { id: b.dataset.id }); toast("Email sent."); }
+      catch(e){ toast(e.message, true); }
+      finally { b.disabled = false; }
+    }));
+    renderProfiles();
   }catch(e){
     $("#usersTable").innerHTML = `<tr><td style="padding:20px">${esc(e.message)}</td></tr>`;
   }
 }
 $("#addUserBtn").addEventListener("click", ()=> openUserDrawer(null));
+$("#addProfileBtn").addEventListener("click", ()=> openProfileDrawer(null));
+$("#csvUsersBtn").addEventListener("click", ()=> $("#csvUsersFile").click());
+$("#csvUsersFile").addEventListener("change", ev => { const f = ev.target.files[0]; if (f) importUsersCsv(f); ev.target.value = ""; });
+
+/* ---- profiles table ---- */
+function renderProfiles(){
+  const t = $("#profilesTable");
+  if (!S.profiles.length){ t.innerHTML = `<tr><td style="padding:20px" class="muted">No profiles yet.</td></tr>`; return; }
+  t.innerHTML = `
+    <thead><tr><th>Profile</th><th>What they get</th><th>Role</th><th>People</th><th></th></tr></thead>
+    <tbody>${S.profiles.map(p => `
+      <tr data-key="${esc(p.key)}" style="cursor:pointer${p.active===false?';opacity:.55':''}">
+        <td class="strong">${esc(p.label)}<div class="muted" style="font-size:11.5px;font-weight:400">${esc(p.description||"")}</div></td>
+        <td class="muted" style="font-size:12.5px">${(p.apps||[]).map(a => { const app = S.apps.find(x => x.key === a.key); return esc(app ? app.label : a.key); }).join(", ") || "—"}</td>
+        <td>${p.role==="admin" ? '<span class="pill admin">Admin</span>' : '<span class="pill">Staff</span>'}</td>
+        <td>${S.users.filter(u => u.profile_key === p.key).length}</td>
+        <td>${p.active===false ? '<span class="pill off">Retired</span>' : ''}</td>
+      </tr>`).join("")}</tbody>`;
+  $$("#profilesTable tbody tr").forEach(tr => tr.addEventListener("click", ()=> openProfileDrawer(tr.dataset.key)));
+}
+
+/* ---- CSV upload: name, email, profile (header row optional) ---- */
+function parseCsv(text){
+  const rows = []; let row = [], cell = "", q = false;
+  for (let i = 0; i < text.length; i++){
+    const c = text[i];
+    if (q){ if (c === '"'){ if (text[i+1] === '"'){ cell += '"'; i++; } else q = false; } else cell += c; }
+    else if (c === '"') q = true;
+    else if (c === ","){ row.push(cell); cell = ""; }
+    else if (c === "\n" || c === "\r"){ if (c === "\r" && text[i+1] === "\n") i++; row.push(cell); rows.push(row); row = []; cell = ""; }
+    else cell += c;
+  }
+  if (cell.length || row.length){ row.push(cell); rows.push(row); }
+  return rows.filter(r => r.some(x => String(x).trim()));
+}
+function importUsersCsv(file){
+  const reader = new FileReader();
+  reader.onload = () => {
+    let rows = parseCsv(String(reader.result || "").replace(/^﻿/, ""));
+    if (!rows.length){ toast("That file is empty.", true); return; }
+    // Header row: find name / email / profile (or role) columns by name;
+    // without a header, assume name, email, profile in that order.
+    let iName = 0, iEmail = 1, iProfile = 2;
+    const head = rows[0].map(h => String(h).trim().toLowerCase());
+    const looksLikeHeader = head.some(h => /name|email|profile|role/.test(h)) && !head.some(h => h.includes("@"));
+    if (looksLikeHeader){
+      iName = head.findIndex(h => /name/.test(h)); iEmail = head.findIndex(h => /e-?mail/.test(h)); iProfile = head.findIndex(h => /profile|role|type/.test(h));
+      rows = rows.slice(1);
+    }
+    const byLabel = {}; S.profiles.forEach(p => { byLabel[p.label.toLowerCase()] = p.key; byLabel[p.key] = p.key; });
+    const parsed = rows.map(r => {
+      const rawProfile = iProfile >= 0 ? String(r[iProfile] ?? "").trim() : "";
+      const key = rawProfile ? (byLabel[rawProfile.toLowerCase()] || null) : null;
+      return { display_name: String(r[iName] ?? "").trim(), email: String(r[iEmail] ?? "").trim().toLowerCase(), profile_raw: rawProfile, profile_key: key,
+               problem: !String(r[iName] ?? "").trim() ? "no name" : !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(r[iEmail] ?? "").trim()) ? "not an email" : (rawProfile && !key) ? `no profile called "${rawProfile}"` : "" };
+    });
+    S.csvRows = parsed;
+    $("#dTitle").textContent = "Add users from CSV";
+    const ok = parsed.filter(r => !r.problem).length;
+    $("#dBody").innerHTML = `
+      <p class="hint" style="margin:0 0 12px">${ok} of ${parsed.length} row${parsed.length===1?"":"s"} can be created. Each gets an invite email to set their own password. A row with a problem is skipped - fix it in the file and upload again.</p>
+      <div class="field"><label>Profile for rows that don't name one</label>
+        <select id="csvDefaultProfile"><option value="">— none (no tiles until set) —</option>${S.profiles.filter(p=>p.active!==false).map(p => `<option value="${esc(p.key)}">${esc(p.label)}</option>`).join("")}</select></div>
+      <div style="overflow-x:auto"><table class="grid" style="font-size:12.5px">
+        <thead><tr><th>Name</th><th>Email</th><th>Profile</th><th></th></tr></thead>
+        <tbody>${parsed.map(r => `<tr${r.problem?' style="opacity:.6"':''}><td>${esc(r.display_name)}</td><td>${esc(r.email)}</td><td>${esc(r.profile_raw || "(default)")}</td><td class="${r.problem?'':'muted'}" style="color:${r.problem?'var(--alert)':''}">${esc(r.problem || "ok")}</td></tr>`).join("")}</tbody></table></div>`;
+    $("#dSave").textContent = `Create ${ok} user${ok===1?"":"s"}`;
+    $("#dSave").onclick = async ()=>{
+      const def = $("#csvDefaultProfile").value;
+      const rowsToSend = S.csvRows.filter(r => !r.problem).map(r => ({ display_name: r.display_name, email: r.email, profile_key: r.profile_key || def || null }));
+      if (!rowsToSend.length) return toast("Nothing to create.", true);
+      $("#dSave").disabled = true;
+      try {
+        const d = await api("bulk_create_users", { rows: rowsToSend });
+        const failed = d.results.filter(r => !r.ok);
+        $("#dBody").innerHTML = `<p><b>${d.created}</b> created and emailed${failed.length ? `, <b>${failed.length}</b> not:` : "."}</p>` +
+          (failed.length ? `<ul>${failed.map(r => `<li>${esc(r.email)} — ${esc(r.error)}</li>`).join("")}</ul>` : "");
+        $("#dSave").textContent = "Done"; $("#dSave").onclick = closeDrawer;
+        loadUsers();
+      } catch(e){ toast(e.message, true); }
+      finally { $("#dSave").disabled = false; }
+    };
+    $("#veil").classList.add("on"); $("#drawer").classList.add("on");
+  };
+  reader.readAsText(file);
+}
 
 function openUserDrawer(id){
   const u = id ? S.users.find(x => x.id === id) : null;
   $("#dTitle").textContent = u ? "Edit user" : "Add user";
+  $("#dSave").textContent = "Save";
 
+  const portalBlocks = portalBlocksHtml(u ? u.apps : [], !!u);
+  const profileOpts = `<option value="">— pick a profile, or tick tiles below —</option>` +
+    S.profiles.filter(p => p.active !== false || (u && u.profile_key === p.key)).map(p => `<option value="${esc(p.key)}" ${u && u.profile_key===p.key ? "selected" : ""}>${esc(p.label)}</option>`).join("");
+
+  $("#dBody").innerHTML = `
+    <div class="field"><label>Name</label><input id="fName" value="${u?esc(u.display_name):''}"></div>
+    <div class="field"><label>Email</label><input id="fEmail" type="email" value="${u?esc(u.email):''}" ${u?'readonly':''}></div>
+    ${u
+      ? `<div class="field"><label>New password (leave blank to keep)</label><input id="fPw" type="password" autocomplete="new-password"></div>`
+      : `<p class="hint" style="margin:0 0 14px">An email will be sent to them to set their own password.</p>`}
+    <div class="field"><label>Profile</label>
+      <select id="fProfile">${profileOpts}</select>
+      <div class="hint" style="font-size:11.5px;color:var(--sage-70);margin-top:6px">Picking a profile sets the role and the tiles below to that profile's. Change anything after - this person keeps their own settings.</div>
+    </div>
+    <div class="field"><label>Role</label>
+      <select id="fRole">
+        <option value="staff" ${!u || u.role==="staff"?"selected":""}>Staff</option>
+        <option value="admin" ${u && u.role==="admin"?"selected":""}>Admin (can manage users)</option>
+      </select>
+    </div>
+    ${u ? `<div class="field"><label>Account</label><select id="fActive">
+        <option value="1" ${u.active?"selected":""}>Active</option>
+        <option value="0" ${!u.active?"selected":""}>Inactive (blocks sign-in)</option>
+      </select></div>` : ""}
+    <div class="field"><label>Portal access</label>${portalBlocks}</div>
+  `;
+  wirePortalBlocks();
+  $("#fProfile").addEventListener("change", ()=>{
+    const p = S.profiles.find(x => x.key === $("#fProfile").value);
+    if (!p) return;
+    $("#fRole").value = p.role === "admin" ? "admin" : "staff";
+    applyGrantsToBlocks(p.apps || []);
+  });
+  $("#dSave").onclick = ()=> saveUser(u ? u.id : null);
+  $("#veil").classList.add("on"); $("#drawer").classList.add("on");
+}
+
+/* Tick the portal blocks to match a list of grants (a profile's, or a
+   person's) - everything else unticked. */
+function applyGrantsToBlocks(grants){
+  $$("#dBody .portal-block").forEach(b => {
+    const g = grants.find(x => x.key === b.dataset.key);
+    const cb = b.querySelector(".portalGrant");
+    cb.checked = !!g;
+    b.querySelector(".portal-detail").style.display = g ? "" : "none";
+    const tabs = Array.from(b.querySelectorAll(".tabCheck"));
+    tabs.forEach(t => { t.checked = !g || g.tabs === null || g.tabs === undefined || (Array.isArray(g.tabs) && g.tabs.includes(t.value)); });
+    const e = b.querySelector(".editCheck"); if (e) e.checked = !g || g.can_edit !== false;
+  });
+}
+function wirePortalBlocks(){
+  $$("#dBody .portalGrant").forEach(cb => cb.addEventListener("change", ()=>{
+    cb.closest(".portal-block").querySelector(".portal-detail").style.display = cb.checked ? "" : "none";
+  }));
+}
+/* Read the portal blocks back into the grants list Settings sends. */
+function collectApps(){
+  return $$("#dBody .portal-block").filter(b => b.querySelector(".portalGrant").checked).map(b => {
+    const allTabs = Array.from(b.querySelectorAll(".tabCheck"));
+    const checked = allTabs.filter(c => c.checked).map(c => c.value);
+    const editCb = b.querySelector(".editCheck");
+    const entry = {
+      key: b.dataset.key,
+      can_edit: editCb ? editCb.checked : true,
+      tabs: checked.length === allTabs.length ? null : checked, // every box ticked = unrestricted
+    };
+    if (b.dataset.key === "po-tracker" && b.querySelector(".poProfile")) {
+      const limitEl = b.querySelector(".poSpendingLimit");
+      entry.po = {
+        profile: b.querySelector(".poProfile").value || null,
+        department: b.querySelector(".poDepartment").value || null,
+        spending_limit: limitEl.value === "" ? null : Number(limitEl.value),
+      };
+    }
+    return entry;
+  });
+}
+
+/* ---- a profile, in the same drawer ---- */
+function openProfileDrawer(key){
+  const p = key ? S.profiles.find(x => x.key === key) : null;
+  $("#dTitle").textContent = p ? "Edit profile" : "New profile";
+  $("#dSave").textContent = "Save profile";
+  $("#dBody").innerHTML = `
+    <div class="field"><label>Profile name</label><input id="pLabel" value="${p?esc(p.label):''}" placeholder="e.g. FOH team member"></div>
+    <div class="field"><label>Description</label><input id="pDesc" value="${p?esc(p.description||''):''}" placeholder="What this kind of team member needs"></div>
+    <div class="field"><label>Role</label><select id="pRole">
+      <option value="staff" ${!p || p.role==="staff"?"selected":""}>Staff</option>
+      <option value="admin" ${p && p.role==="admin"?"selected":""}>Admin (can manage users)</option></select></div>
+    ${p ? `<div class="field"><label>Status</label><select id="pActive">
+      <option value="1" ${p.active!==false?"selected":""}>Available when adding people</option>
+      <option value="0" ${p.active===false?"selected":""}>Retired (kept for the record)</option></select></div>` : ""}
+    <div class="field"><label>Portal access this profile gives</label>${portalBlocksHtml(p ? (p.apps||[]) : [], false)}</div>
+    <p class="hint" style="margin:0">Changing a profile doesn't change people already created from it - edit them individually, or re-pick the profile on their record to re-apply it.</p>
+    ${p ? `<p style="margin:12px 0 0"><button class="btn ghost" id="pDelete" style="color:var(--alert);border-color:var(--alert)">Delete this profile</button></p>` : ""}`;
+  wirePortalBlocks();
+  const del = $("#pDelete"); if (del) del.onclick = async ()=>{
+    if (!confirm(`Delete the profile "${p.label}"? People created from it keep their access.`)) return;
+    try { const d = await api("delete_profile", { key: p.key }); S.profiles = d.profiles || []; toast("Profile deleted."); closeDrawer(); loadUsers(); }
+    catch(e){ toast(e.message, true); }
+  };
+  $("#dSave").onclick = async ()=>{
+    const payload = { key: p ? p.key : undefined, label: $("#pLabel").value.trim(), description: $("#pDesc").value.trim(), role: $("#pRole").value, apps: collectApps(), active: $("#pActive") ? $("#pActive").value === "1" : true, sort_order: p ? p.sort_order : (S.profiles.length + 1) };
+    if (!payload.label) return toast("Give the profile a name.", true);
+    try { const d = await api("save_profile", payload); S.profiles = d.profiles || []; toast("Profile saved."); closeDrawer(); loadUsers(); }
+    catch(e){ toast(e.message, true); }
+  };
+  $("#veil").classList.add("on"); $("#drawer").classList.add("on");
+}
+
+/* The tile tick-boxes (with their tabs, can-edit and PO Tracker fields),
+   from a list of grants. Shared by the user and profile drawers. */
+function portalBlocksHtml(grants, showPo){
   const PO_PROFILES = [
     ["Staff", "Raises orders, sees only their own orders, own department only."],
     ["Head of Department", "As Staff, plus sees all orders in their department and can manage suppliers."],
@@ -839,8 +1059,8 @@ function openUserDrawer(id){
   const PO_DEPARTMENTS = ["Admin","FOH","Kitchen","Maintenance","Rooms","Weddings"];
 
   const portalBlocks = S.apps.map(a => {
-    const grant = u ? u.apps.find(x => x.key === a.key) : null;
-    const isPo = a.key === "po-tracker";
+    const grant = (grants || []).find(x => x.key === a.key) || null;
+    const isPo = a.key === "po-tracker" && showPo;
     const tabs = (S.tabCatalogue || []).filter(t => t.app_key === a.key);
     const hasEditableTab = tabs.some(t => t.editable);
     const grantedTabs = grant ? grant.tabs : null; // null = every tab
@@ -886,30 +1106,7 @@ function openUserDrawer(id){
         </div>
       </div>`;
   }).join("");
-
-  $("#dBody").innerHTML = `
-    <div class="field"><label>Name</label><input id="fName" value="${u?esc(u.display_name):''}"></div>
-    <div class="field"><label>Email</label><input id="fEmail" type="email" value="${u?esc(u.email):''}" ${u?'readonly':''}></div>
-    ${u
-      ? `<div class="field"><label>New password (leave blank to keep)</label><input id="fPw" type="password" autocomplete="new-password"></div>`
-      : `<p class="hint" style="margin:0 0 14px">An email will be sent to them to set their own password.</p>`}
-    <div class="field"><label>Role</label>
-      <select id="fRole">
-        <option value="staff" ${u && u.role==="staff"?"selected":""}>Staff</option>
-        <option value="admin" ${u && u.role==="admin"?"selected":""}>Admin (can manage users)</option>
-      </select>
-    </div>
-    ${u ? `<div class="field"><label>Account</label><select id="fActive">
-        <option value="1" ${u.active?"selected":""}>Active</option>
-        <option value="0" ${!u.active?"selected":""}>Inactive (blocks sign-in)</option>
-      </select></div>` : ""}
-    <div class="field"><label>Portal access</label>${portalBlocks}</div>
-  `;
-  $$("#dBody .portalGrant").forEach(cb => cb.addEventListener("change", ()=>{
-    cb.closest(".portal-block").querySelector(".portal-detail").style.display = cb.checked ? "" : "none";
-  }));
-  $("#dSave").onclick = ()=> saveUser(u ? u.id : null);
-  $("#veil").classList.add("on"); $("#drawer").classList.add("on");
+  return portalBlocks;
 }
 function closeDrawer(){ $("#veil").classList.remove("on"); $("#drawer").classList.remove("on"); }
 $("#dClose").addEventListener("click", closeDrawer);
@@ -917,33 +1114,16 @@ $("#dCancel").addEventListener("click", closeDrawer);
 $("#veil").addEventListener("click", closeDrawer);
 
 async function saveUser(id){
-  const apps = $$("#dBody .portal-block").filter(b => b.querySelector(".portalGrant").checked).map(b => {
-    const allTabs = Array.from(b.querySelectorAll(".tabCheck"));
-    const checked = allTabs.filter(c => c.checked).map(c => c.value);
-    const editCb = b.querySelector(".editCheck");
-    const entry = {
-      key: b.dataset.key,
-      can_edit: editCb ? editCb.checked : true,
-      tabs: checked.length === allTabs.length ? null : checked, // every box ticked = unrestricted
-    };
-    if (b.dataset.key === "po-tracker") {
-      const limitEl = b.querySelector(".poSpendingLimit");
-      entry.po = {
-        profile: b.querySelector(".poProfile").value || null,
-        department: b.querySelector(".poDepartment").value || null,
-        spending_limit: limitEl.value === "" ? null : Number(limitEl.value),
-      };
-    }
-    return entry;
-  });
+  const apps = collectApps();
   const poEntry = apps.find(a => a.key === "po-tracker");
-  if (poEntry && !poEntry.po.profile) {
+  if (poEntry && poEntry.po && !poEntry.po.profile) {
     toast("Pick a PO Tracker role for this user, or untick PO Tracker access.", true);
     return;
   }
   const payload = {
     display_name: $("#fName").value.trim(),
     role: $("#fRole").value,
+    profile_key: $("#fProfile").value || null,
     apps,
   };
   try{
