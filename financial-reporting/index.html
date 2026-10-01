@@ -1544,8 +1544,10 @@ function rezImportedHtml(rez){
   const raw = rez.raw_parse_json || {};
   const isEod = raw.source === "eod_combined";
   const row = (label, val) => `<tr><td>${label}</td><td class="num">${val}</td></tr>`;
+  // GRATUITY arrives as a department row in the file but isn't revenue -
+  // the report itself totals it separately, so show it separately below.
   const depts = isEod && raw.departments
-    ? Object.keys(raw.departments).map(k => row(esc(k), money(raw.departments[k]))).join("")
+    ? Object.keys(raw.departments).filter(k => k !== "GRATUITY").map(k => row(esc(k), money(raw.departments[k]))).join("")
     : "";
   return `
     <p class="muted" style="font-size:12px;margin:0 0 8px">
