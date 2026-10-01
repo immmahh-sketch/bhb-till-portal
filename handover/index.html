@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Daily Hand Over — Black Horse Beamish</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --sage:#4E5F4F; --sage-70:#7B887C; --sage-10:#EDEFED; --sage-dark:#3B483C;
+  --bone:#F7F7F7; --celadon:#C1C8B4; --mist:#E7E7E7; --white:#fff; --ink:#262626; --gold:#C9A56B;
+  --attention:#B08D57; --attention-bg:#F7F0E4; --alert:#8C4A3F; --alert-bg:#F6EAE8; --good:#4F6B4F; --good-bg:#EDF2ED;
+  --display:"Cormorant Garamond",Georgia,serif; --body:Raleway,"Helvetica Neue",Arial,sans-serif;
+  --track-label:.18em; --radius:10px; --shadow:0 1px 2px rgba(38,38,38,.06),0 8px 24px rgba(38,38,38,.07); --maxw:900px;
+}
+*{box-sizing:border-box} html,body{margin:0;padding:0}
+body{font-family:var(--body); color:var(--ink); background:var(--bone); font-size:15px; line-height:1.5; -webkit-text-size-adjust:100%}
+h1,h2,h3{font-family:var(--display); font-weight:600; margin:0; letter-spacing:.01em}
+button,input,textarea{font:inherit; color:inherit}
+.shell{max-width:var(--maxw); margin:0 auto; padding:0 20px 64px}
+#gate{position:fixed; inset:0; background:var(--sage); z-index:100; display:flex; align-items:center; justify-content:center; padding:24px}
+#gate[hidden]{display:none}
+.gatecard{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); width:100%; max-width:380px; padding:32px 28px; text-align:center}
+.gatecard h1{font-size:26px; color:var(--sage); line-height:1.15}
+.gatecard .sub{font-size:11px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); margin:6px 0 22px}
+.gateerr{color:var(--alert); font-size:13px; min-height:18px; margin-top:8px}
+header.top{background:var(--sage); color:var(--white)}
+.topin{max-width:var(--maxw); margin:0 auto; padding:14px 20px; display:flex; align-items:center; gap:18px; flex-wrap:wrap}
+.brand{font-family:var(--display); font-size:21px; line-height:1.1}
+.brand small{display:block; font-family:var(--body); font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; opacity:.75}
+.who{margin-left:auto; display:flex; align-items:center; gap:10px; font-size:12px; opacity:.9}
+.who button{background:transparent; border:1px solid rgba(255,255,255,.4); color:var(--white); border-radius:6px; padding:5px 10px; cursor:pointer; font-size:11px; letter-spacing:.06em; text-transform:uppercase}
+nav.tabs{background:var(--sage-dark)}
+.tabsin{max-width:var(--maxw); margin:0 auto; padding:0 20px; display:flex; gap:2px; overflow-x:auto}
+.tabbtn{background:transparent; border:0; cursor:pointer; color:rgba(255,255,255,.72); padding:12px 16px; font-size:12px; font-weight:600; white-space:nowrap; letter-spacing:var(--track-label); text-transform:uppercase; border-bottom:3px solid transparent}
+.tabbtn[aria-current="page"]{color:var(--white); border-bottom-color:var(--gold)}
+.pagehead{display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; margin:24px 0 16px}
+.pagehead h2{font-size:26px; color:var(--sage)}
+.pagehead .hint{font-size:13px; color:var(--sage-70)}
+.spacer{margin-left:auto}
+.btn{border:1px solid var(--sage); background:var(--sage); color:var(--white); border-radius:8px; padding:9px 16px; cursor:pointer; font-size:12px; font-weight:600; letter-spacing:var(--track-label); text-transform:uppercase; min-height:44px}
+.btn.ghost{background:var(--white); color:var(--sage)} .btn.ghost:hover{background:var(--sage-10)}
+.btn.small{min-height:36px; padding:6px 12px; font-size:11px}
+.btn:disabled{opacity:.5; cursor:default}
+.card{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); padding:18px 20px; margin-bottom:14px}
+.card h3{font-size:22px; color:var(--sage); margin-bottom:12px}
+.q{margin-bottom:20px}
+.q:last-child{margin-bottom:0}
+.q .ql{font-weight:600; font-size:15px; margin-bottom:2px}
+.q .qh{font-size:12px; color:var(--sage-70); margin-bottom:8px}
+.opts{display:flex; gap:8px; flex-wrap:wrap}
+.opt{border:1px solid var(--mist); background:var(--bone); border-radius:999px; padding:9px 16px; cursor:pointer; font-size:14px; min-height:44px; min-width:64px}
+.opt:hover{background:var(--sage-10)}
+.opt[aria-pressed="true"]{background:var(--sage); border-color:var(--sage); color:var(--white); font-weight:600}
+.opt.bad[aria-pressed="true"]{background:var(--alert); border-color:var(--alert)}
+.opts.rating .opt{min-width:48px; padding:9px 0; width:48px; text-align:center}
+.ratinghint{display:flex; justify-content:space-between; max-width:268px; font-size:11px; color:var(--sage-70); margin-top:4px}
+.note{margin-top:10px}
+.note label{display:block; font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--alert); margin-bottom:4px}
+.field{margin-bottom:14px} .field label{display:block; font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); margin-bottom:4px}
+.field input,.note textarea,.field textarea{width:100%; padding:11px 12px; border:1px solid var(--mist); border-radius:8px; font-size:16px; background:var(--white)}
+.field input[type=number]{max-width:140px}
+.field input[type=date]{max-width:200px}
+textarea{min-height:84px; resize:vertical}
+.ctx{background:var(--sage-10); border-radius:8px; padding:10px 14px; margin-bottom:14px; font-size:13px; color:var(--sage-dark)}
+.ctx.bad{background:var(--attention-bg); color:#6d5320}
+.tag{display:inline-block; border-radius:999px; padding:3px 10px; font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; background:var(--sage-10); color:var(--sage); white-space:nowrap}
+.tag.flag{background:var(--alert-bg); color:var(--alert)}
+.tag.ok{background:var(--good-bg); color:var(--good)}
+.tag.wed{background:#F7F2E4; color:#8A6D2B}
+.ho{border-left:4px solid var(--celadon); cursor:pointer}
+.ho.flagged{border-left-color:var(--alert)}
+.ho .t{font-family:var(--display); font-size:22px; color:var(--sage); line-height:1.15}
+.ho .m{font-size:12px; color:var(--sage-70); margin-top:3px}
+.ho .tags{display:flex; gap:6px; flex-wrap:wrap; margin-top:8px}
+.ans{padding:10px 0; border-top:1px solid var(--mist)}
+.ans:first-child{border-top:0; padding-top:0}
+.ans .al{font-size:12px; color:var(--sage-70)}
+.ans .av{font-size:15px; white-space:pre-wrap}
+.ans .av.bad{color:var(--alert); font-weight:600}
+.ans .an{font-size:14px; color:var(--ink); white-space:pre-wrap; margin-top:2px; padding-left:10px; border-left:3px solid var(--mist)}
+.filters{display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; margin-bottom:14px}
+.filters .field{margin:0}
+.filters .field.check{display:flex; align-items:center; gap:8px; padding-bottom:10px} .filters .field.check input{width:20px; height:20px; margin:0} .filters .field.check label{margin:0; text-transform:none; letter-spacing:0; font-size:14px; color:var(--ink)}
+.missing{background:var(--attention-bg); color:#6d5320; border-radius:8px; padding:10px 14px; margin-bottom:14px; font-size:13px}
+.muted{color:var(--sage-70)} .empty{padding:40px 20px; text-align:center; color:var(--sage-70)} .loading{padding:60px; text-align:center; color:var(--sage-70)}
+.toast{position:fixed; left:50%; bottom:26px; transform:translate(-50%,20px); background:var(--ink); color:var(--white); padding:12px 20px; border-radius:8px; z-index:200; opacity:0; transition:.2s; pointer-events:none; font-size:14px; max-width:90vw}
+.toast.on{opacity:1; transform:translate(-50%,0)} .toast.bad{background:var(--alert)}
+@media (max-width:640px){ .shell{padding:0 12px 48px} .topin,.tabsin{padding-left:12px;padding-right:12px} .pagehead h2{font-size:22px} .btn{width:100%} .btn.small{width:auto} .opt{flex:1 1 auto} .opts.rating .opt{flex:0 0 auto} }
+</style>
+</head>
+<body>
+<div id="gate"><div class="gatecard"><h1>Daily Hand Over</h1><div class="sub">Black Horse Beamish</div>
+  <p style="margin:0 0 16px;font-size:14px;color:var(--sage-70)">This opens from the Staff Portal, which knows who you are and what you can see.</p>
+  <a href="https://app.blackhorsebeamish.co.uk/portal/app.html" style="display:block;padding:12px;border-radius:8px;background:var(--sage);color:#fff;text-decoration:none;font-weight:600;letter-spacing:var(--track-label);text-transform:uppercase;font-size:12px">Open the Staff Portal</a>
+  <div class="gateerr" id="gerr"></div></div></div>
+<div id="app" hidden>
+  <header class="top"><div class="topin"><div class="brand">Daily Hand Over<small>Black Horse Beamish</small></div>
+    <div class="who"><span id="whoname"></span><button id="signout">Sign out</button></div></div></header>
+  <nav class="tabs"><div class="tabsin" role="tablist">
+    <button class="tabbtn" data-view="new">Write a hand over</button>
+    <button class="tabbtn" data-view="read">Hand overs</button>
+    <button class="tabbtn" data-view="export">Export CSV</button>
+  </div></nav>
+  <div class="shell"><div id="views"></div></div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+const CFG = { SUPABASE_URL:"https://safcrtrfdzsnftghibot.supabase.co", SUPABASE_KEY:"sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU" };
+const S = { me:null, view:"new", f:null, list:[], editing:null, ctxFor:"" };
+const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
+const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const fmtDT = iso => { if(!iso) return ""; try { return new Date(iso).toLocaleString("en-GB",{ timeZone:"Europe/London", day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" }).replace(",",""); } catch(e){ return String(iso).slice(0,16); } };
+const fmtDay = d => { try { return new Date(d+"T12:00:00Z").toLocaleDateString("en-GB",{ timeZone:"UTC", weekday:"short", day:"numeric", month:"short", year:"numeric" }); } catch(e){ return d; } };
+const iso = d => d.toISOString().slice(0,10);
+function londonToday(){ const p = new Intl.DateTimeFormat("en-CA",{ timeZone:"Europe/London", year:"numeric", month:"2-digit", day:"2-digit" }).format(new Date()); return p; }
+function defaultDate(){
+  // Written after midnight for the night before? Before 5am counts as yesterday.
+  const hour = +new Intl.DateTimeFormat("en-GB",{ timeZone:"Europe/London", hour:"2-digit", hour12:false }).format(new Date());
+  const t = londonToday(); if (hour >= 5) return t;
+  const d = new Date(t+"T12:00:00Z"); d.setUTCDate(d.getUTCDate()-1); return iso(d);
+}
+function toast(msg, bad){ const t=$("#toast"); t.textContent=msg; t.className="toast on"+(bad?" bad":""); clearTimeout(toast._t); toast._t=setTimeout(()=>{t.className="toast";}, bad?5200:2600); }
+function staffEmail(){ try { return sessionStorage.getItem("bhb_staff_email") || ""; } catch(e){ return ""; } }
+async function call(action, payload){
+  const r = await fetch(CFG.SUPABASE_URL + "/functions/v1/handover-api", { method:"POST", headers:{ "Content-Type":"application/json", Authorization:"Bearer "+CFG.SUPABASE_KEY, apikey:CFG.SUPABASE_KEY }, body: JSON.stringify({ action, staff_email: staffEmail(), ...(payload||{}) }) });
+  let d = {}; try { d = await r.json(); } catch(e){}
+  if (!r.ok || d.error) throw new Error(d.error || `Request failed (${r.status})`);
+  return d;
+}
+
+/* ------------------------------------------------------------- questions
+   type: choice | rating | number | text.  bad = the answers that get the
+   hand over flagged (and need a note saying what happened).  note = a note
+   box is offered under the question; noteOn = the answers that require it. */
+const STAFF = [{v:"ok",l:"Right level"},{v:"short",l:"Too few",bad:1},{v:"over",l:"Too many",bad:1}];
+const YN_BAD_YES = [{v:"no",l:"No"},{v:"yes",l:"Yes",bad:1}];
+const SECTIONS = [
+  { id:"wedding", title:"The wedding", when: f => f.had_wedding === true, qs:[
+    { k:"w_couple", t:"text", label:"Which wedding?", hint:"Couple's names", ph:"e.g. Millie & Andrew" },
+    { k:"w_staffing", t:"choice", label:"Was the staffing level correct?", opts:STAFF, note:true },
+    { k:"w_food", t:"rating", label:"How was the food?", lo:"Poor", hi:"Excellent", note:true, lowBad:2 },
+    { k:"w_service", t:"rating", label:"How was the service?", lo:"Poor", hi:"Excellent", note:true, lowBad:2 },
+    { k:"w_upset", t:"choice", label:"Were the Bride and Groom upset or disappointed in any way?", opts:YN_BAD_YES, note:true },
+    { k:"w_wrong", t:"choice", label:"Did anything go wrong?", opts:YN_BAD_YES, note:true },
+  ]},
+  { id:"restaurant", title:"Restaurant service", when: f => f.restaurant_open !== false, qs:[
+    { k:"r_covers", t:"number", label:"Number of covers", hint:"Total for the day" },
+    { k:"r_staffing", t:"choice", label:"Was the staffing level correct?", opts:STAFF, note:true },
+    { k:"r_complaints", t:"choice", label:"Any complaints?", opts:YN_BAD_YES, note:true },
+    { k:"r_checkback", t:"choice", label:"Did all customers get a check back at the table?", opts:[{v:"all",l:"All of them"},{v:"most",l:"Most"},{v:"few",l:"Only a few",bad:1}], note:true },
+    { k:"r_upsell", t:"choice", label:"Was the team actively upselling beverage?", hint:"Pouring the wine for guests, offering drinks when a guest had a third left, large glasses or bottles, doubles", opts:[{v:"yes",l:"Yes"},{v:"some",l:"Some of the time"},{v:"no",l:"No",bad:1}], note:true },
+    { k:"r_times", t:"text", label:"Comment on food service times", ph:"Starters, mains, desserts - anything slow?" },
+  ]},
+  { id:"common", title:"The whole house", when: () => true, qs:[
+    { k:"c_cashup", t:"choice", label:"Was the cash up correct?", opts:[{v:"yes",l:"Yes"},{v:"no",l:"No",bad:1}], note:true, ctx:"cash" },
+    { k:"c_bedrooms", t:"choice", label:"Any issues with bedrooms?", opts:YN_BAD_YES, note:true },
+    { k:"c_functions", t:"choice", label:"Have all functions been checked in and out?", opts:[{v:"yes",l:"Yes"},{v:"no",l:"No",bad:1},{v:"na",l:"No functions"}], note:true },
+    { k:"c_other", t:"text", label:"Anything else the next team needs to know?", ph:"Maintenance, stock, guests to look after, jobs left over..." },
+  ]},
+];
+const ALLQ = SECTIONS.flatMap(s => s.qs);
+const isBad = (q, v) => {
+  if (v === undefined || v === "") return false;
+  if (q.t === "rating") return +v <= (q.lowBad || 0);
+  if (q.t === "choice") return !!(q.opts.find(o => o.v === v) || {}).bad;
+  return false;
+};
+function labelFor(q, v){
+  if (v === undefined || v === "") return "";
+  if (q.t === "choice") return (q.opts.find(o => o.v === v) || {}).l || v;
+  if (q.t === "rating") return v + " / 5";
+  return String(v);
+}
+
+/* ------------------------------------------------------------- form */
+function blankForm(){ return { id:null, business_date:defaultDate(), had_wedding:null, restaurant_open:true, answers:{} }; }
+function formHtml(){
+  const f = S.f;
+  let h = `<div class="pagehead"><h2>${f.id ? "Edit hand over" : "Write a hand over"}</h2><div class="hint">Tap an answer. Anything that went wrong gets a note so the next team can pick it up.</div></div>
+  <div class="card"><div class="field"><label for="f_date">Which day is this for?</label><input id="f_date" type="date" value="${esc(f.business_date)}"></div>
+    <div id="ctxline"></div>
+    <div class="q"><div class="ql">Was there a wedding?</div><div class="opts">
+      <button class="opt" data-set="had_wedding" data-val="yes" aria-pressed="${f.had_wedding === true}">Yes</button>
+      <button class="opt" data-set="had_wedding" data-val="no" aria-pressed="${f.had_wedding === false}">No</button></div></div>
+    <div class="q"><div class="ql">Was the restaurant open for service?</div><div class="opts">
+      <button class="opt" data-set="restaurant_open" data-val="yes" aria-pressed="${f.restaurant_open !== false}">Yes</button>
+      <button class="opt" data-set="restaurant_open" data-val="no" aria-pressed="${f.restaurant_open === false}">No</button></div></div>
+  </div>`;
+  if (f.had_wedding === null) return h + `<div class="empty">Answer the first question to carry on.</div>`;
+  for (const sec of SECTIONS) {
+    if (!sec.when(f)) continue;
+    h += `<div class="card"><h3>${esc(sec.title)}</h3>`;
+    for (const q of sec.qs) h += qHtml(q);
+    h += `</div>`;
+  }
+  h += `<button class="btn" id="f_save">${f.id ? "Save changes" : "Submit hand over"}</button>${f.id ? ` <button class="btn ghost" id="f_cancel">Cancel</button>` : ""}`;
+  return h;
+}
+function qHtml(q){
+  const f = S.f, v = f.answers[q.k], note = f.answers[q.k + "_note"] || "";
+  let h = `<div class="q" data-q="${q.k}"><div class="ql">${esc(q.label)}</div>${q.hint ? `<div class="qh">${esc(q.hint)}</div>` : ""}`;
+  if (q.t === "choice") h += `<div class="opts">${q.opts.map(o => `<button class="opt${o.bad ? " bad" : ""}" data-ans="${q.k}" data-val="${esc(o.v)}" aria-pressed="${v === o.v}">${esc(o.l)}</button>`).join("")}</div>`;
+  else if (q.t === "rating") h += `<div class="opts rating">${[1,2,3,4,5].map(n => `<button class="opt${n <= (q.lowBad||0) ? " bad" : ""}" data-ans="${q.k}" data-val="${n}" aria-pressed="${v === n}">${n}</button>`).join("")}</div><div class="ratinghint"><span>${esc(q.lo)}</span><span>${esc(q.hi)}</span></div>`;
+  else if (q.t === "number") h += `<div class="field"><input type="number" inputmode="numeric" min="0" data-text="${q.k}" value="${esc(v ?? "")}"></div>`;
+  else h += `<div class="field"><textarea data-text="${q.k}" placeholder="${esc(q.ph || "")}">${esc(v ?? "")}</textarea></div>`;
+  if (q.ctx === "cash" && S.ctx && S.ctx.cash_ups && S.ctx.cash_ups.length) {
+    const off = S.ctx.cash_ups.filter(c => Math.abs(c.variance) >= 1);
+    h += `<div class="ctx${off.length ? " bad" : ""}">${off.length ? "Cash ups with a variance: " + off.map(c => `${esc(c.till)} ${c.variance > 0 ? "+" : "-"}£${Math.abs(c.variance).toFixed(2)}`).join(", ") : "All " + S.ctx.cash_ups.length + " cash ups on the system balance."}</div>`;
+  }
+  if (q.note && v !== undefined && (isBad(q, v) || note)) {
+    h += `<div class="note"><label>${isBad(q, v) ? "What happened? (needed)" : "Note"}</label><textarea data-note="${q.k}" placeholder="Details for the next team">${esc(note)}</textarea></div>`;
+  } else if (q.note && v !== undefined) {
+    h += `<div class="note"><button class="btn ghost small" data-addnote="${q.k}">Add a note</button></div>`;
+  }
+  return h + `</div>`;
+}
+function renderForm(){
+  const w = S.ctx && S.ctx.weddings;
+  if (S.f.had_wedding && !S.f.answers.w_couple && w && w.length) S.f.answers.w_couple = w.join(" / ");
+  $("#views").innerHTML = formHtml();
+  paintCtx();
+  const d = $("#f_date"); if (d) d.onchange = () => { S.f.business_date = d.value; loadCtx(); };
+  $$("[data-set]").forEach(b => b.onclick = () => {
+    const yes = b.dataset.val === "yes";
+    if (b.dataset.set === "had_wedding") S.f.had_wedding = yes; else S.f.restaurant_open = yes;
+    renderForm();
+  });
+  $$("[data-ans]").forEach(b => b.onclick = () => {
+    const k = b.dataset.ans, q = ALLQ.find(x => x.k === k), val = q.t === "rating" ? +b.dataset.val : b.dataset.val;
+    S.f.answers[k] = val;
+    if (!isBad(q, val) && !S.f.answers[k + "_note"]) delete S.f.answers[k + "_note"];
+    keepScroll(renderForm);
+  });
+  $$("[data-text]").forEach(el => el.oninput = () => { S.f.answers[el.dataset.text] = el.value; });
+  $$("[data-note]").forEach(el => el.oninput = () => { S.f.answers[el.dataset.note + "_note"] = el.value; });
+  $$("[data-addnote]").forEach(b => b.onclick = () => { S.f.answers[b.dataset.addnote + "_note"] = " "; keepScroll(renderForm); });
+  const save = $("#f_save"); if (save) save.onclick = submitForm;
+  const cancel = $("#f_cancel"); if (cancel) cancel.onclick = () => { S.f = null; goView("read"); };
+}
+function keepScroll(fn){ const y = window.scrollY; fn(); window.scrollTo(0, y); }
+async function loadCtx(){
+  const date = S.f && S.f.business_date; if (!date) return;
+  S.ctxFor = date; S.ctx = null; paintCtx();
+  try { const c = await call("context", { date }); if (S.ctxFor !== date) return; S.ctx = c; const ae = document.activeElement; if (ae && /^(TEXTAREA|INPUT)$/.test(ae.tagName)) paintCtx(); else keepScroll(renderForm); } catch(e){}
+}
+function paintCtx(){
+  const el = $("#ctxline"); if (!el) return;
+  const w = S.ctx && S.ctx.weddings;
+  el.innerHTML = w && w.length ? `<div class="ctx">On the system for this day: wedding of <b>${w.map(esc).join(" and ")}</b>.</div>` : "";
+}
+async function submitForm(){
+  const f = S.f, a = {};
+  for (const [k, v] of Object.entries(f.answers)) { const t = typeof v === "string" ? v.trim() : v; if (t !== "") a[k] = t; }
+  if (!f.business_date) return toast("Pick the date.", true);
+  const missing = [];
+  for (const sec of SECTIONS) {
+    if (!sec.when(f)) continue;
+    for (const q of sec.qs) {
+      const v = a[q.k];
+      if ((q.t === "choice" || q.t === "rating") && v === undefined) missing.push(q.label);
+      else if (q.k === "w_couple" && !v) missing.push(q.label);
+      else if (q.t === "number" && (v === undefined || v === "")) missing.push(q.label);
+      else if (isBad(q, v) && !a[q.k + "_note"]) missing.push("What happened: " + q.label);
+    }
+  }
+  if (missing.length) return toast("Still to answer: " + missing[0] + (missing.length > 1 ? ` (and ${missing.length-1} more)` : ""), true);
+  const btn = $("#f_save"); btn.disabled = true;
+  try {
+    const payload = { business_date: f.business_date, had_wedding: f.had_wedding, restaurant_open: f.restaurant_open !== false, answers: a };
+    if (f.id) await call("handover.update", { id: f.id, ...payload }); else await call("handover.create", payload);
+    toast(f.id ? "Saved." : "Hand over submitted - thank you.");
+    S.f = null; goView("read");
+  } catch(e){ toast(e.message, true); btn.disabled = false; }
+}
+
+/* ------------------------------------------------------------- reading */
+function detailHtml(h){
+  const a = h.answers || {}; let out = "";
+  for (const sec of SECTIONS) {
+    const rows = sec.qs.filter(q => a[q.k] !== undefined && a[q.k] !== "");
+    if (!rows.length) continue;
+    out += `<div style="font-family:var(--display);font-size:18px;color:var(--sage);margin:12px 0 6px">${esc(sec.title)}</div>`;
+    out += rows.map(q => `<div class="ans"><div class="al">${esc(q.label)}</div><div class="av${isBad(q, a[q.k]) ? " bad" : ""}">${esc(labelFor(q, a[q.k]))}</div>${a[q.k + "_note"] ? `<div class="an">${esc(a[q.k + "_note"])}</div>` : ""}</div>`).join("");
+  }
+  return out || `<div class="muted">No answers recorded.</div>`;
+}
+function missingDays(list){
+  // Days in the last fortnight (not today) with no hand over at all.
+  // Only counts from the first hand over on record, so launch day isn't a wall of gaps.
+  const have = new Set(list.map(h => h.business_date)), first = list.reduce((m, h) => h.business_date < m ? h.business_date : m, "9999"), out = [], t = new Date(londonToday()+"T12:00:00Z");
+  for (let i = 1; i <= 14; i++) { const d = new Date(t); d.setUTCDate(d.getUTCDate()-i); if (iso(d) > first && !have.has(iso(d))) out.push(iso(d)); }
+  return out;
+}
+function listHtml(){
+  const L = S.list, flaggedOnly = $("#flt_flag") ? $("#flt_flag").checked : false;
+  let h = "";
+  if (!S.filtered) { const m = missingDays(L); if (m.length) h += `<div class="missing"><b>No hand over for:</b> ${m.slice(0,7).map(fmtDay).join(" · ")}${m.length > 7 ? ` · and ${m.length-7} more` : ""}</div>`; }
+  if (!L.length) return h + `<div class="empty">No hand overs found.</div>`;
+  return h + L.map(x => {
+    const mine = x.submitted_by_email === S.me.email || S.me.isAdmin;
+    return `<div class="card ho${x.flagged ? " flagged" : ""}" data-open="${x.id}">
+      <div style="display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap">
+        <div style="flex:1;min-width:0"><div class="t">${esc(fmtDay(x.business_date))}</div>
+        <div class="m">${esc(x.submitted_by_name)} · written ${esc(fmtDT(x.submitted_at))}${x.edited_at ? ` · edited ${esc(fmtDT(x.edited_at))}` : ""}</div>
+        <div class="tags">${x.had_wedding ? `<span class="tag wed">Wedding${x.answers.w_couple ? " — " + esc(x.answers.w_couple) : ""}</span>` : ""}${x.restaurant_open ? `<span class="tag">${x.covers ?? "?"} covers</span>` : `<span class="tag">Restaurant closed</span>`}${x.flagged ? x.flag_reasons.map(r => `<span class="tag flag">${esc(r)}</span>`).join("") : `<span class="tag ok">Nothing flagged</span>`}</div></div>
+        ${mine ? `<button class="btn ghost small" data-edit="${x.id}">Edit</button>` : ""}
+      </div>
+      <div class="detail" id="d_${x.id}" hidden style="margin-top:12px;border-top:1px solid var(--mist);padding-top:6px">${detailHtml(x)}</div></div>`;
+  }).join("");
+}
+async function loadList(){
+  const from = $("#flt_from") ? $("#flt_from").value : "", to = $("#flt_to") ? $("#flt_to").value : "", flag = $("#flt_flag") ? $("#flt_flag").checked : false;
+  S.filtered = !!(from || to || flag);
+  $("#list").innerHTML = `<div class="loading">Loading…</div>`;
+  try {
+    const d = await call("handover.list", { from, to, flagged_only: flag, limit: 120 });
+    S.list = d.handovers || []; $("#list").innerHTML = listHtml(); wireList();
+  } catch(e){ $("#list").innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+function wireList(){
+  $$("[data-open]").forEach(c => c.onclick = e => {
+    if (e.target.closest("[data-edit]")) return;
+    const d = $("#d_" + c.dataset.open); d.hidden = !d.hidden;
+  });
+  $$("[data-edit]").forEach(b => b.onclick = () => {
+    const x = S.list.find(h => h.id === b.dataset.edit);
+    S.f = { id:x.id, business_date:x.business_date, had_wedding:x.had_wedding, restaurant_open:x.restaurant_open, answers:{ ...x.answers } };
+    goView("new", true);
+  });
+}
+function viewList(){
+  $("#views").innerHTML = `<div class="pagehead"><h2>Hand overs</h2><div class="hint">Newest first. Tap one to read it.</div></div>
+  <div class="filters">
+    <div class="field"><label for="flt_from">From</label><input id="flt_from" type="date"></div>
+    <div class="field"><label for="flt_to">To</label><input id="flt_to" type="date"></div>
+    <div class="field check"><input id="flt_flag" type="checkbox"><label for="flt_flag">Only ones with something flagged</label></div>
+    <button class="btn small" id="flt_go">Show</button>
+  </div><div id="list"></div>`;
+  $("#flt_go").onclick = loadList; $("#flt_flag").onchange = loadList;
+  loadList();
+}
+
+/* ------------------------------------------------------------- export */
+const csvCell = v => { const s = String(v ?? ""); return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+function viewExport(){
+  const t = londonToday(), d = new Date(t+"T12:00:00Z"); d.setUTCDate(d.getUTCDate()-30);
+  $("#views").innerHTML = `<div class="pagehead"><h2>Export CSV</h2><div class="hint">One row per hand over, every answer and note in its own column.</div></div>
+  <div class="card"><div class="filters"><div class="field"><label for="x_from">From</label><input id="x_from" type="date" value="${iso(d)}"></div>
+  <div class="field"><label for="x_to">To</label><input id="x_to" type="date" value="${t}"></div></div>
+  <button class="btn" id="x_go">Download CSV</button></div>`;
+  $("#x_go").onclick = async () => {
+    const btn = $("#x_go"); btn.disabled = true;
+    try {
+      const d = await call("handover.list", { from: $("#x_from").value, to: $("#x_to").value, limit: 1000 });
+      const rows = (d.handovers || []).slice().reverse();
+      if (!rows.length) { toast("Nothing in that date range.", true); return; }
+      const cols = [["Date", h => h.business_date], ["Written by", h => h.submitted_by_name], ["Written at", h => h.submitted_at], ["Wedding", h => h.had_wedding ? "Yes" : "No"], ["Restaurant open", h => h.restaurant_open ? "Yes" : "No"], ["Covers", h => h.covers ?? ""], ["Flagged", h => (h.flag_reasons || []).join("; ")]];
+      for (const q of ALLQ) { cols.push([q.label, h => labelFor(q, (h.answers || {})[q.k])]); if (q.note) cols.push([q.label + " (note)", h => (h.answers || {})[q.k + "_note"] || ""]); }
+      const csv = [cols.map(c => csvCell(c[0])).join(","), ...rows.map(h => cols.map(c => csvCell(c[1](h))).join(","))].join("\r\n");
+      const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["﻿" + csv], { type:"text/csv" }));
+      a.download = `hand-overs-${$("#x_from").value}-to-${$("#x_to").value}.csv`; document.body.appendChild(a); a.click(); a.remove();
+      toast(`${rows.length} hand over${rows.length === 1 ? "" : "s"} downloaded.`);
+    } catch(e){ toast(e.message, true); } finally { btn.disabled = false; }
+  };
+}
+
+/* ------------------------------------------------------------- shell */
+function goView(v, keepForm){
+  S.view = v;
+  $$(".tabbtn").forEach(b => b.setAttribute("aria-current", b.dataset.view === v ? "page" : "false"));
+  if (v === "new") { if (!(keepForm && S.f)) S.f = blankForm(); renderForm(); loadCtx(); }
+  else if (v === "read") viewList();
+  else viewExport();
+  window.scrollTo(0, 0);
+}
+function openGate(msg){ $("#gate").hidden = false; $("#app").hidden = true; if (msg) $("#gerr").textContent = msg; }
+$("#signout").addEventListener("click", ()=>{ try { sessionStorage.removeItem("bhb_staff_email"); } catch(e){} openGate(); });
+async function boot(){
+  $("#app").hidden = false; $("#views").innerHTML = `<div class="loading">Loading…</div>`;
+  let d;
+  try { d = await call("bootstrap"); } catch(e){ $("#views").innerHTML = `<div class="empty">${esc(e.message)}<br><br><span class="muted">Open this from the Staff Portal so it knows who you are.</span></div>`; return; }
+  S.me = d.me; $("#whoname").textContent = S.me.name;
+  $$(".tabbtn").forEach(b => b.addEventListener("click", ()=> goView(b.dataset.view, b.dataset.view === "new" && !!S.f)));
+  S.f = blankForm(); goView("new", true);
+}
+(function(){ if (staffEmail()) { $("#gate").hidden = true; boot(); } else openGate(); })();
+</script>
+</body>
+</html>
