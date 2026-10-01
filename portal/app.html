@@ -689,8 +689,14 @@ async function openPortal(key, ref){
       const d = await api("po_sso");
       if (win) win.location = d.url; else window.open(d.url, "_blank");
     } catch(e) {
-      if (win) win.close();
-      toast(e.message, true);
+      const PO_LOGIN = "https://po.blackhorsebeamish.co.uk/PO-Tracker/login";
+      if (/not set|not configured/i.test(e.message || "")) {
+        if (win) win.location = PO_LOGIN; else window.open(PO_LOGIN, "_blank");
+        toast("PO Tracker opened at its own login - one-click sign-in isn't switched on yet.");
+      } else {
+        if (win) win.close();
+        toast(e.message, true);
+      }
     }
     return;
   }
