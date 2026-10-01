@@ -3698,12 +3698,21 @@ function bonusMonthChart(st){
       total += n;
       var hgt = (n / tall) * (base - top);
       y -= hgt;
+      // Each colour opens that person's bookings for the month; the number on
+      // top opens everyone's. Names go through data attributes, not inline
+      // JS strings, so an apostrophe in a name can't break the handler.
       svg += '<rect x="' + x + '" y="' + y.toFixed(1) + '" width="30" height="' + hgt.toFixed(1) +
-        '" fill="' + BT_COLOURS[pi % BT_COLOURS.length] + '"><title>' + esc(p) + ' — ' + n +
-        ' in ' + esc((MONTHS[+m.slice(5, 7) - 1] || "") + " " + m.slice(0, 4)) + '</title></rect>';
+        '" fill="' + BT_COLOURS[pi % BT_COLOURS.length] + '" style="cursor:pointer" ' +
+        'data-person="' + esc(p) + '" data-month="' + esc(m) + '" ' +
+        'onclick="bonusPerson(this.getAttribute(\'data-person\'), this.getAttribute(\'data-month\'))">' +
+        '<title>' + esc(p) + ' — ' + n +
+        ' in ' + esc((MONTHS[+m.slice(5, 7) - 1] || "") + " " + m.slice(0, 4)) + ' (click to see them)</title></rect>';
     });
     svg += '<text x="' + (x + 15) + '" y="' + (y - 6).toFixed(1) + '" text-anchor="middle" ' +
-        'font-size="11" fill="#4E5F4F">' + total + '</text>' +
+        'font-size="11" fill="#4E5F4F" style="cursor:pointer" data-month="' + esc(m) + '" ' +
+        'onclick="bonusPerson(\'*\', this.getAttribute(\'data-month\'))">' +
+        '<title>Every booking taken in ' + esc((MONTHS[+m.slice(5, 7) - 1] || "") + " " + m.slice(0, 4)) + '</title>' +
+        total + '</text>' +
       '<text x="' + (x + 15) + '" y="' + (base + 15) + '" text-anchor="middle" font-size="10" ' +
         'fill="#7B887C">' + esc(MONTHS[+m.slice(5, 7) - 1] || "") + '</text>' +
       '<text x="' + (x + 15) + '" y="' + (base + 27) + '" text-anchor="middle" font-size="9" ' +
@@ -3816,7 +3825,8 @@ function bonusPeopleTable(st, picker, total, bookings){
         '<td class="num">' + other.shown + '</td>' +
         '<td class="money num"><span class="muted">&mdash;</span></td></tr>'
       : '') +
-    '<tr class="bttotal"><td><strong>Total</strong></td>' +
+    '<tr class="bttotal urow" style="cursor:pointer" title="See every booking counted here" onclick="bonusPerson(\'*\')">' +
+      '<td><strong>Total</strong></td>' +
       '<td class="num">' +
         (people.reduce(function(a, p){ return a + (st.secured[p] || 0); }, 0) + other.secured) + '</td>' +
       '<td class="num">' +
@@ -3830,18 +3840,22 @@ function bonusPeopleTable(st, picker, total, bookings){
 /* The same bookings the By person line counts - the picked month if one is
    picked, otherwise the lot - so the list under a name always adds up to the
    three figures beside it. */
+/* The popup's month: a month handed in from the chart beats the picker's. */
+function bonusPersonMonth(){ return BT.personMonth || BT.month || ""; }
 function bonusPersonRows(name){
   var scoped = bonusScoped();
-  if (BT.month) scoped = scoped.filter(function(r){ return bonusMonthOf(r) === BT.month; });
-  return scoped.filter(function(r){ return r.showround_by === name || r.secured_by === name; })
-    .sort(function(a, b){
+  var month = bonusPersonMonth();
+  if (month) scoped = scoped.filter(function(r){ return bonusMonthOf(r) === month; });
+  // "*" is everyone - the Total line, or the number on top of a bar.
+  if (name !== "*") scoped = scoped.filter(function(r){ return r.showround_by === name || r.secured_by === name; });
+  return scoped.sort(function(a, b){
       // Soonest function first; anything undated at the end.
       var da = a.event_date || "9999", db = b.event_date || "9999";
       return da < db ? -1 : da > db ? 1 : 0;
     });
 }
-function bonusPerson(name){ BT.person = name; $("views").innerHTML = viewBonus(); }
-function bonusPersonClose(){ BT.person = null; $("views").innerHTML = viewBonus(); }
+function bonusPerson(name, month){ BT.person = name; BT.personMonth = month || null; $("views").innerHTML = viewBonus(); }
+function bonusPersonClose(){ BT.person = null; BT.personMonth = null; $("views").innerHTML = viewBonus(); }
 /* Into the Wedding App, on that wedding - the same door the list's "Open in
    app" button uses, with the nav moved to Weddings so it reads as where you
    are rather than still saying Bonus. */
@@ -3853,15 +3867,25 @@ function bonusPersonGo(appId){
 function bonusPersonPopup(){
   var name = BT.person;
   if (!name) return "";
+  var everyone = name === "*";
+  var month = bonusPersonMonth();
   var rows = bonusPersonRows(name);
   var total = 0;
   var body = rows.map(function(r){
-    var showed = r.showround_by === name, took = r.secured_by === name;
-    var paid = (showed ? bonusPaid(name, r) : 0) + (took ? bonusPaid(name, r) : 0);
+    var showed, took, paid, role;
+    if (everyone) {
+      // Everyone's: say who did each job, and count the bonus to whoever it goes to.
+      paid = bonusPaid(r.secured_by, r) + bonusPaid(r.showround_by, r);
+      role = '<span class="btrole">Secured: ' + esc(r.secured_by || "—") + '</span> ' +
+             '<span class="btrole">Show-round: ' + esc(r.showround_by || "—") + '</span>';
+    } else {
+      showed = r.showround_by === name; took = r.secured_by === name;
+      paid = (showed ? bonusPaid(name, r) : 0) + (took ? bonusPaid(name, r) : 0);
+      role = showed && took ? '<span class="btrole both">Show-round &amp; booking</span>'
+           : showed ? '<span class="btrole">Show-round</span>'
+           : '<span class="btrole">Secured the booking</span>';
+    }
     total += paid;
-    var role = showed && took ? '<span class="btrole both">Show-round &amp; booking</span>'
-             : showed ? '<span class="btrole">Show-round</span>'
-             : '<span class="btrole">Secured the booking</span>';
     var state = bonusSecured(r)
       ? (paid ? money(paid) : '<span class="muted">&mdash;</span>')
       : '<span class="pill pill--prov">' + esc(bonusWanting(r) || "not secured yet") + '</span>';
@@ -3880,13 +3904,14 @@ function bonusPersonPopup(){
     '</tr>';
   }).join("");
 
+  var title = everyone ? "All bookings" + (month ? " in " + monthName(month) : "") : name;
   return '<div class="btpop-veil" onclick="bonusPersonClose()"></div>' +
-    '<div class="btpop" role="dialog" aria-label="' + esc(name) + '">' +
-      '<div class="btpop-head"><div><h2>' + esc(name) + '</h2>' +
+    '<div class="btpop" role="dialog" aria-label="' + esc(title) + '">' +
+      '<div class="btpop-head"><div><h2>' + esc(title) + '</h2>' +
         '<p class="muted" style="margin:4px 0 0;font-size:.8125rem">' +
           rows.length + ' booking' + (rows.length === 1 ? "" : "s") +
-          (BT.month ? ' secured in ' + esc(monthName(BT.month)) : '') +
-          ' &middot; ' + money(total) + ' earned</p></div>' +
+          (month ? ' secured in ' + esc(monthName(month)) : '') +
+          ' &middot; ' + money(total) + (everyone ? ' bonus across the team' : ' earned') + '</p></div>' +
         '<button class="x" onclick="bonusPersonClose()" title="Close">&times;</button></div>' +
       '<div class="btpop-body">' + (rows.length
         ? '<table><thead><tr><th>Booking</th><th>For</th><th class="money">Bonus</th><th></th></tr></thead>' +
