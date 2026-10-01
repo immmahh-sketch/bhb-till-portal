@@ -451,7 +451,7 @@ async function boot(){
     S.tills = t.tills || []; S.staff = s.staff || [];
   } catch(e) { toast(e.message, true); }
 
-  if (VIEW === "cashup" || VIEW === "safe" || VIEW === "float") {
+  if (VIEW === "cashup" || VIEW === "safe" || VIEW === "float" || VIEW === "pettycash") {
     $("#kioskApp").hidden = false;
     bootKiosk(VIEW);
   } else {
@@ -496,8 +496,8 @@ function render(){
     case "safe":   case "safe-history":   v.innerHTML = viewSafeHistory(); loadSafeHistory(); break;
     case "float":  case "float-history":  v.innerHTML = viewFloatHistory(); loadFloatHistory(); break;
     case "reconciliation": v.innerHTML = viewReconciliation(); wireReconciliation(); break;
-    case "pettycash":         v.innerHTML = viewPettyCashEntry(); wirePettyCashEntry(); break;
-    case "pettycash-history": v.innerHTML = viewPettyCashHistory(); loadPettyCashHistory(); break;
+    // Entries go on through the Petty Cash tile (?view=pettycash); here is the history and balance.
+    case "pettycash": case "pettycash-history": v.innerHTML = viewPettyCashHistory(); loadPettyCashHistory(); break;
     case "adjustments":         v.innerHTML = viewAdjustmentsEntry(); wireAdjustmentsEntry(); break;
     case "adjustments-history": v.innerHTML = viewAdjustmentsHistory(); loadAdjustmentsHistory(); break;
     case "trends": v.innerHTML = viewTrends(); wireTrends(); break;
@@ -1077,11 +1077,7 @@ async function ensurePettyCategories(){
 
 function viewPettyCashEntry(){
   return `
-    <div class="subnav">
-      <button class="on">Add an entry</button>
-      <button onclick="goView('pettycash-history')">History</button>
-    </div>
-    <div class="pagehead"><h2>Petty Cash</h2><div class="hint">Spend and float top-ups, with a running balance.</div></div>
+    <div class="pagehead"><h2>Petty Cash</h2><div class="hint">Put your spend on as you go - a receipt in the tin, an entry here.</div></div>
     <div class="card">
       <div class="row">
         <div class="field"><label>Date</label><input type="date" id="pc_date" value="${todayIso()}"></div>
@@ -1112,8 +1108,14 @@ async function savePettyCash(){
   btn.disabled = true; btn.textContent = "Saving…";
   try {
     await call("pettycash.save", payload);
-    toast("Saved.");
-    goView("pettycash-history");
+    toast("Saved - thank you.");
+    if (VIEW === "pettycash") {
+      // Kiosk: clear the form for the next entry and refresh today's list.
+      $("#pc_amount").value = "0"; $("#pc_desc").value = ""; $("#pc_receipt").checked = false;
+      refreshKioskChecklist("pettycash");
+    } else {
+      goView("pettycash-history");
+    }
   } catch(e) { toast(e.message, true); }
   finally { btn.disabled = false; btn.textContent = "Save entry"; }
 }
@@ -1130,8 +1132,8 @@ const PETTYCASH_COLS = [
 function viewPettyCashHistory(){
   return `
     <div class="subnav">
-      <button onclick="goView('pettycash')">Add an entry</button>
       <button class="on">History</button>
+      <span class="muted" style="align-self:center;font-size:12px">Entries are added on the Petty Cash tile.</span>
     </div>
     <div class="pagehead">
       <h2>Petty Cash — History</h2>
@@ -1618,7 +1620,22 @@ const KIOSK = {
             doneKey:"session", doneLabel:k=>k, checklistOver:()=>[{key:"AM"},{key:"PM"}] },
   float:  { title:"Daily Float Count", statusAction:"float.today_status", entry:viewFloatEntry, wire:wireFloatEntry,
             doneKey:"till_key", doneLabel:tillLabel, checklistOver:()=>S.tills },
+  // Petty cash has no "done" checklist - the strip shows today's entries instead.
+  pettycash: { title:"Petty Cash", statusAction:null, entry:viewPettyCashEntry, wire:wirePettyCashEntry,
+            doneKey:null, doneLabel:k=>k, checklistOver:()=>[] },
 };
+async function refreshPettyKiosk(){
+  try {
+    const t = todayIso();
+    const d = await call("pettycash.list", { start:t, end:t });
+    const rows = d.entries || [];
+    const spent = rows.reduce((s, r) => s + (Number(r.amount)||0), 0);
+    $("#kioskChecklist").innerHTML = rows.length
+      ? rows.map(r => `<span class="checkpill done">${esc(categoryLabel(r.category_key))} ${money(r.amount)}${r.staff_name?" · "+esc(r.staff_name):""}</span>`).join("") +
+        `<span class="checkpill">Today: ${rows.length} entr${rows.length===1?"y":"ies"}, ${money(spent)} · balance ${money(d.current_balance)}</span>`
+      : `<span class="checkpill">Nothing entered today yet · balance ${money(d.current_balance)}</span>`;
+  } catch(e) { /* the strip is a nicety */ }
+}
 async function bootKiosk(view){
   const k = KIOSK[view];
   $("#kioskTitle").innerHTML = `${esc(k.title)}<small>Black Horse Beamish</small>`;
@@ -1629,6 +1646,7 @@ async function bootKiosk(view){
   await refreshKioskChecklist(view);
 }
 async function refreshKioskChecklist(view){
+  if (view === "pettycash") return refreshPettyKiosk();
   const k = KIOSK[view];
   try {
     const out = await call(k.statusAction, { business_date: todayIso() });
