@@ -511,7 +511,7 @@ function enterApp(){
 
 function iconFor(k){
   const m = { heart:"&#10084;", chart:"&#128200;", calendar:"&#128197;", receipt:"&#128179;", till:"&#128176;",
-              ledger:"&#128209;", safe:"&#128274;" };
+              ledger:"&#128209;", safe:"&#128274;", checks:"&#9989;" };
   return m[k] || "&#9679;";
 }
 
@@ -529,6 +529,8 @@ const TILE_GROUP_FOR = {
   "financial-reporting-cashup": "FOH",
   "financial-reporting-safe":   "Office",
   "financial-reporting-float":  "Office",
+  "checks-log":          "FOH",
+  "checks-admin":        "Office",
   "wedding-admin":       "Weddings and events",
 };
 
@@ -631,6 +633,12 @@ const AUTOLOGIN = {
   "financial-reporting-cashup":{ store:"session", key:"bhb_financial_ok", value:()=>"1" },
   "financial-reporting-safe":  { store:"session", key:"bhb_financial_ok", value:()=>"1" },
   "financial-reporting-float": { store:"session", key:"bhb_financial_ok", value:()=>"1" },
+  // Daily Checks: one app, two doors with different flags and stores -
+  // "Log a check" (log/) reads localStorage, its admin (admin/) reads
+  // sessionStorage. Each tile deep-links to its sub-page; the matching
+  // flag is what that page's own gate looks for.
+  "checks-log":   { store:"local",   key:"checksUnlocked", value:()=>"1" },
+  "checks-admin": { store:"session", key:"checksAdminOk",  value:()=>"1" },
 };
 
 async function openPortal(key, ref){
@@ -702,6 +710,7 @@ const TAB_SELECTORS = {
   "forecast-dashboard": k => `.tabbtn[data-page="${k}"]`,
   "till-reports":       k => `button[data-tab="${k}"]`,
   "restaurant-ordering":k => `button[data-tab="${k}"]`,
+  "checks-admin":       k => `button[data-tab="${k}"]`,
 };
 
 // Soft enforcement, not a security boundary - the real data access is still
