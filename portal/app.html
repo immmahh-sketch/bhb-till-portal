@@ -680,27 +680,20 @@ async function openPortal(key, ref){
   S.current = key;
 
   if (key === "po-tracker") {
-    // Separate app on its own infrastructure, reached via a freshly-minted
-    // SSO token rather than an embedded iframe. Open the tab synchronously
-    // (before the await) so browsers don't treat it as a blocked popup,
-    // then point it at the real URL once the token comes back.
-    // No "noopener" here: with it, window.open returns null and there is no
-    // handle to point at the real URL once the token is back - the tab just
-    // sat on about:blank. The opener link is cut by hand instead.
-    const win = window.open("about:blank", "_blank");
+    // Separate app on its own infrastructure, reached via a token minted at
+    // this click (one use, 60 s) - never pre-fetched, cached or put in a
+    // link. Open the tab synchronously (before the await) so browsers don't
+    // treat it as a blocked popup, then point it at the URL once it comes
+    // back. No "noopener": with it window.open returns null and there is no
+    // handle to point at the URL later; the opener link is cut by hand.
+    const win = window.open("", "_blank");
     if (win) { try { win.opener = null; } catch(e){} }
     try {
       const d = await api("po_sso");
-      if (win) win.location = d.url; else window.open(d.url, "_blank");
+      if (win) win.location = d.url; else window.location.assign(d.url);
     } catch(e) {
-      const PO_LOGIN = "https://po.blackhorsebeamish.co.uk/PO-Tracker/login";
-      if (/not set|not configured/i.test(e.message || "")) {
-        if (win) win.location = PO_LOGIN; else window.open(PO_LOGIN, "_blank");
-        toast("PO Tracker opened at its own login - one-click sign-in isn't switched on yet.");
-      } else {
-        if (win) win.close();
-        toast(e.message, true);
-      }
+      if (win) win.close();
+      toast(e.message, true);
     }
     return;
   }
@@ -950,7 +943,7 @@ function openUserDrawer(id){
   $("#dTitle").textContent = u ? "Edit user" : "Add user";
   $("#dSave").textContent = "Save";
 
-  const portalBlocks = portalBlocksHtml(u ? u.apps : [], !!u);
+  const portalBlocks = portalBlocksHtml(u ? u.apps : [], true, u ? u.email : "");
   const profileOpts = `<option value="">— pick a profile, or tick tiles below —</option>` +
     S.profiles.filter(p => p.active !== false || (u && u.profile_key === p.key)).map(p => `<option value="${esc(p.key)}" ${u && u.profile_key===p.key ? "selected" : ""}>${esc(p.label)}</option>`).join("");
 
@@ -1062,7 +1055,7 @@ function openProfileDrawer(key){
 
 /* The tile tick-boxes (with their tabs, can-edit and PO Tracker fields),
    from a list of grants. Shared by the user and profile drawers. */
-function portalBlocksHtml(grants, showPo){
+function portalBlocksHtml(grants, showPo, email){
   const PO_PROFILES = [
     ["Staff", "Raises orders, sees only their own orders, own department only."],
     ["Head of Department", "As Staff, plus sees all orders in their department and can manage suppliers."],
@@ -1071,6 +1064,7 @@ function portalBlocksHtml(grants, showPo){
     ["Administrator", "Everything, including PO Tracker settings. Their own orders never need approval."],
   ];
   const PO_DEPARTMENTS = ["Admin","FOH","Kitchen","Maintenance","Rooms","Weddings"];
+  const isGm = String(email || "").toLowerCase() === "gm@blackhorsebeamish.co.uk";
 
   const portalBlocks = S.apps.map(a => {
     const grant = (grants || []).find(x => x.key === a.key) || null;
@@ -1088,9 +1082,10 @@ function portalBlocksHtml(grants, showPo){
         <label>PO Tracker role</label>
         <select class="poProfile">
           <option value="">— choose a role —</option>
-          ${PO_PROFILES.map(([name]) => `<option value="${esc(name)}" ${po.profile===name?"selected":""}>${esc(name)}</option>`).join("")}
+          ${PO_PROFILES.filter(([name]) => !isGm || name === "Administrator").map(([name]) => `<option value="${esc(name)}" ${po.profile===name?"selected":""}>${esc(name)}</option>`).join("")}
         </select>
         <div class="hint" style="font-size:11.5px; color:var(--sage-70); margin-top:6px; line-height:1.5">
+          Leave unset and PO Tracker keeps whatever role this person already has there (a person with no PO Tracker account yet needs one set).<br>
           ${PO_PROFILES.map(([name,desc]) => `<div><b>${esc(name)}</b> — ${esc(desc)}</div>`).join("")}
         </div>
       </div>
@@ -1129,11 +1124,6 @@ $("#veil").addEventListener("click", closeDrawer);
 
 async function saveUser(id){
   const apps = collectApps();
-  const poEntry = apps.find(a => a.key === "po-tracker");
-  if (poEntry && poEntry.po && !poEntry.po.profile) {
-    toast("Pick a PO Tracker role for this user, or untick PO Tracker access.", true);
-    return;
-  }
   const payload = {
     display_name: $("#fName").value.trim(),
     role: $("#fRole").value,
