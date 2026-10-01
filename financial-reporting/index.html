@@ -150,7 +150,7 @@ input[type=number]{ -moz-appearance:textfield; }
 }
 .denomrow input{flex:1; text-align:center; min-height:48px; font-size:17px}
 .denomrow .lineval{
-  width:76px; flex:none; text-align:right; color:var(--sage-70);
+  width:92px; flex:none; text-align:right; color:var(--sage-70);
   font-variant-numeric:tabular-nums; font-size:13px;
 }
 
@@ -408,10 +408,10 @@ function denomGridHtml(prefix){
   return `<div class="denomlist">` + DENOMS.map(d => `
     <div class="denomrow">
       <span class="dlabel">${d.label}</span>
-      <input type="number" min="0" step="1" inputmode="numeric" autocomplete="off" id="${prefix}_${d.key}" value="0"
+      <input type="number" min="0" step="0.01" inputmode="decimal" autocomplete="off" id="${prefix}_${d.key}" value="0"
              oninput="updateDenomTotal('${prefix}')"
              onkeydown="denomKeydown(event)" onfocus="this.select()">
-      <span class="lineval" id="${prefix}_line_${d.key}">£0.00</span>
+      <span class="lineval" id="${prefix}_line_${d.key}">0 × ${d.label}</span>
     </div>`).join("") + `</div>
     <p class="muted" style="margin:4px 0 0">Total counted: <strong id="${prefix}_total">£0.00</strong></p>`;
 }
@@ -429,19 +429,37 @@ function denomKeydown(e){
   const j = all.indexOf(e.target);
   if (j > -1 && j < all.length - 1) all[j+1].focus();
 }
+// Each box holds the POUNDS counted in that denomination (5.00 in the 20p
+// box = £5.00 = 25 coins). The API still takes whole-coin quantities, so the
+// amount is divided back down; an amount that isn't a whole number of that
+// note/coin (e.g. £5.10 of 20p) is reported in `bad` and blocks the save.
+function denomQty(d, raw){
+  const amt = Math.max(0, Number(raw) || 0);
+  const qty = Math.round(amt / d.value);
+  const ok = Math.abs(qty * d.value - amt) < 0.005;
+  return { amt, qty, ok };
+}
 function readDenoms(prefix){
-  const out = {}; let total = 0;
+  const out = {}; const bad = []; let total = 0;
   DENOMS.forEach(d => {
-    const n = Math.max(0, Math.floor(Number($(`#${prefix}_${d.key}`)?.value) || 0));
-    out[d.key] = n; total += n * d.value;
+    const r = denomQty(d, $(`#${prefix}_${d.key}`)?.value);
+    out[d.key] = r.qty; total += r.qty * d.value;
+    if (!r.ok) bad.push(d.label);
   });
-  return { values: out, total: Math.round(total * 100) / 100 };
+  return { values: out, total: Math.round(total * 100) / 100, bad };
+}
+function denomsBad(prefix){
+  const { bad } = readDenoms(prefix);
+  if (!bad.length) return false;
+  toast(`Check ${bad.join(", ")}: the amount isn't a whole number of those notes/coins.`, true);
+  return true;
 }
 function updateDenomTotal(prefix){
   DENOMS.forEach(d => {
-    const n = Math.max(0, Math.floor(Number($(`#${prefix}_${d.key}`)?.value) || 0));
+    const inp = $(`#${prefix}_${d.key}`);
+    const r = denomQty(d, inp?.value);
     const el = $(`#${prefix}_line_${d.key}`);
-    if (el) el.textContent = money(n * d.value);
+    if (el) { el.textContent = r.ok ? `${r.qty} × ${d.label}` : "not a whole no."; el.style.color = r.ok ? "" : "#b3261e"; }
   });
   const { total } = readDenoms(prefix);
   const t = $(`#${prefix}_total`); if (t) t.textContent = money(total);
@@ -837,6 +855,7 @@ function afterSave(kioskView, historyView){
 
 async function saveCashUp(){
   const btn = $("#cu_save");
+  if (denomsBad("cu")) return;
   const { values } = readDenoms("cu");
   const payload = {
     business_date: $("#cu_date").value,
@@ -952,6 +971,7 @@ function viewSafeEntry(){
 function wireSafeEntry(){ $("#sf_save").addEventListener("click", saveSafeCount); }
 async function saveSafeCount(){
   const btn = $("#sf_save");
+  if (denomsBad("sf")) return;
   const { values } = readDenoms("sf");
   const payload = {
     business_date: $("#sf_date").value, session: $("#sf_session").value,
@@ -1032,6 +1052,7 @@ function viewFloatEntry(){
 function wireFloatEntry(){ $("#fl_save").addEventListener("click", saveFloatCount); }
 async function saveFloatCount(){
   const btn = $("#fl_save");
+  if (denomsBad("fl")) return;
   const { values } = readDenoms("fl");
   const payload = {
     business_date: $("#fl_date").value, till_key: $("#fl_till").value,
