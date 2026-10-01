@@ -104,10 +104,9 @@
   <div class="card">
     <div style="background:#141414;border-radius:8px;padding:14px;text-align:center;margin-bottom:16px"><img src="../assets/logo.png" alt="Black Horse Beamish" style="height:28px"></div>
     <h1 style="font-family:'Playfair Display',Georgia,serif;text-align:center">Checks — Admin</h1>
-    <p class="muted">Enter the portal password</p>
-    <input id="gPw" type="password" placeholder="Password" autofocus>
+    <p class="muted" style="text-align:center">This opens from the Staff Portal (Checks Admin tile), which knows who you are.</p>
+    <a class="primary" style="display:block;width:100%;text-align:center;text-decoration:none;padding:10px 12px;border-radius:8px;background:#9c7a3c;color:#fff;font-weight:700" href="https://app.blackhorsebeamish.co.uk/portal/app.html">Open the Staff Portal</a>
     <div class="err" id="gErr"></div>
-    <button class="primary" style="width:100%" id="gGo">Unlock</button>
   </div>
 </div>
 
@@ -146,13 +145,9 @@ function $(id){ return document.getElementById(id); }
 function toast(m){ var t=$("toast"); t.textContent=m; t.classList.add("show"); clearTimeout(toast._t); toast._t=setTimeout(function(){t.classList.remove("show");},2800); }
 
 /* ---------------- gate ---------------- */
+/* No password of its own: the Staff Portal sets checksAdminOk when it
+   opens this page for someone it has signed in (Checks Admin tile). */
 try{ if(sessionStorage.getItem("checksAdminOk")==="1") showApp(); }catch(e){}
-$("gGo").onclick = tryGate;
-$("gPw").addEventListener("keydown", function(e){ if(e.key==="Enter") tryGate(); });
-function tryGate(){
-  if($("gPw").value===CFG.PASSWORD_PORTAL){ try{sessionStorage.setItem("checksAdminOk","1");}catch(e){} showApp(); }
-  else $("gErr").textContent = "Incorrect password";
-}
 function showApp(){
   $("gate").classList.add("hidden"); $("app").classList.remove("hidden");
   Array.prototype.forEach.call(document.querySelectorAll("#tabs button"), function(b){ b.onclick=function(){ setTab(b.getAttribute("data-tab")); }; });

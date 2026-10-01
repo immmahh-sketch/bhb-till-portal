@@ -610,12 +610,11 @@ details summary::-webkit-details-marker{color:var(--sage-70)}
     <h1>Wedding Admin</h1>
     <p class="muted">Black Horse Beamish</p>
   </div>
-  <form id="gateForm" class="card">
+  <div class="card" style="text-align:center">
     <div id="gateErr" class="err hide"></div>
-    <div class="field"><span class="label">Password</span>
-      <input id="pw" type="password" autocomplete="current-password" required></div>
-    <button class="btn btn--primary" style="width:100%" type="submit">Enter</button>
-  </form>
+    <p class="muted" style="margin:0 0 14px">This opens from the Staff Portal, which knows who you are and what you can see.</p>
+    <a class="btn btn--primary" style="width:100%;display:block;text-decoration:none" href="https://app.blackhorsebeamish.co.uk/portal/app.html">Open the Staff Portal</a>
+  </div>
 </section>
 
 <div id="app" class="hide">
@@ -936,18 +935,9 @@ function lock(){
   S.pw = null; $("app").classList.add("hide"); $("gate").classList.remove("hide");
 }
 
-$("gateForm").onsubmit = function(ev){
-  ev.preventDefault();
-  if ($("pw").value !== CFG.PASSWORD) {
-    $("gateErr").textContent = "That password isn't right.";
-    $("gateErr").classList.remove("hide");
-    return;
-  }
-  S.pw = $("pw").value;
-  try { sessionStorage.setItem(CFG.KEY, S.pw); } catch(e){}
-  $("gate").classList.add("hide"); $("app").classList.remove("hide");
-  boot();
-};
+/* No password typed here any more: the Staff Portal writes the app
+   password into sessionStorage (CFG.KEY) when it opens this page for
+   someone it has signed in, and the boot check below picks it up. */
 
 $("nav").addEventListener("click", function(ev){
   var b = ev.target.closest("button[data-view]"); if (!b) return;

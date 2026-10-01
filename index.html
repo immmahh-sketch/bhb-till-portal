@@ -169,10 +169,10 @@
 <div id="gate">
   <div class="card">
     <div style="font-size:13px;letter-spacing:3px;color:var(--brass);font-weight:700">BLACK HORSE BEAMISH</div>
-    <h2 style="margin:8px 0 0">Till Portal</h2>
-    <input id="pw" type="password" placeholder="Password" autofocus />
+    <h2 style="margin:8px 0 0">Till Reports</h2>
+    <p style="margin:10px 0 14px;font-size:14px;opacity:.75">This opens from the Staff Portal, which knows who you are.</p>
+    <a class="primary" style="display:block;width:100%;text-align:center;text-decoration:none;padding:10px 12px;border-radius:8px;background:var(--brass);color:#fff;font-weight:700" href="https://app.blackhorsebeamish.co.uk/portal/app.html">Open the Staff Portal</a>
     <div class="err" id="gateErr"></div>
-    <button class="primary" style="width:100%" onclick="tryUnlock()">View</button>
   </div>
 </div>
 
@@ -320,14 +320,10 @@ const isFood = c => c === "food";
 const CATORDER = ["draft","bottle","soft","hot","food"];
 let ST = { sales:[], sessions:[], voids:[], menu:[], tab:"overview", sessById:{} };
 
-/* ---------- gate ---------- */
-function tryUnlock(){
-  if(document.getElementById("pw").value === CFG.PORTAL_PASSWORD){
-    try{ sessionStorage.setItem("bhb_portal_ok","1"); }catch(e){}
-    showApp();
-  } else document.getElementById("gateErr").textContent = "Incorrect password";
-}
-document.getElementById("pw").addEventListener("keydown",e=>{ if(e.key==="Enter") tryUnlock(); });
+/* ---------- gate ----------
+   No password of its own any more: the Staff Portal sets bhb_portal_ok
+   when it opens this page for someone it has signed in. Opened any other
+   way, the page just points at the portal. */
 try{ if(sessionStorage.getItem("bhb_portal_ok")==="1") showApp(); }catch(e){}
 
 function showApp(){

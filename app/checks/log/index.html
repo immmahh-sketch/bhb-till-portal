@@ -96,10 +96,9 @@
   <div class="card">
     <div class="logobar"><img src="../assets/logo.png" alt="Black Horse Beamish"></div>
     <h1>Checks</h1>
-    <p class="sub">Enter the password to continue</p>
-    <div class="fld"><input id="gPw" type="password" placeholder="Password" autocomplete="off"></div>
+    <p class="sub">This opens from the Staff Portal, which knows who you are.</p>
+    <p style="margin:12px 0 0"><a class="btn" style="display:block;text-align:center;text-decoration:none" href="https://app.blackhorsebeamish.co.uk/portal/app.html">Open the Staff Portal</a></p>
     <div class="err" id="gErr"></div>
-    <button id="gGo" class="btn">Unlock</button>
   </div>
 </section>
 
@@ -150,10 +149,8 @@ function show(id){ ["gate","name","home","fill","accident"].forEach(function(n){
 function ls(k,v){ try{ if(v===undefined) return localStorage.getItem(k); localStorage.setItem(k,v); }catch(e){ return null; } }
 
 /* ---------------- gate + name ---------------- */
-function tryGate(){
-  if(CFG.PASSWORD_LOG.indexOf($("gPw").value) > -1){ ls("checksUnlocked","1"); afterGate(); }
-  else $("gErr").textContent = "Incorrect password";
-}
+/* No password of its own: the Staff Portal sets checksUnlocked (and
+   checksName) when it opens this page for someone it has signed in. */
 function afterGate(){
   var nm = ls("checksName");
   if(nm){ S.name = nm; enterHome(); } else show("name");
@@ -163,8 +160,6 @@ function enterHome(){
   show("home");
   loadAll();
 }
-$("gGo").onclick = tryGate;
-$("gPw").addEventListener("keydown", function(e){ if(e.key==="Enter") tryGate(); });
 $("nmInput").addEventListener("input", function(){ $("nmGo").disabled = !this.value.trim(); });
 $("nmGo").onclick = function(){ S.name = $("nmInput").value.trim(); ls("checksName", S.name); enterHome(); };
 $("btnChangeName").onclick = function(){ $("nmInput").value = S.name; show("name"); };
@@ -455,7 +450,7 @@ function submitAccident(){
 $("accBack").onclick = function(){ if(confirm("Discard this report?")) show("home"); };
 
 /* ---------------- boot ---------------- */
-if(ls("checksUnlocked")==="1") afterGate(); else { show("gate"); setTimeout(function(){ $("gPw").focus(); }, 60); }
+if(ls("checksUnlocked")==="1") afterGate(); else { show("gate"); }
 </script>
 </body>
 </html>

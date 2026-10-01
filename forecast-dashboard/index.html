@@ -220,8 +220,8 @@ tr.lastactual td{border-bottom:3px solid var(--ink)}
   <div class="gatecard">
     <h1>Forecast Dashboard</h1>
     <div class="sub">Black Horse Beamish</div>
-    <input id="gpw" type="password" placeholder="Password" autocomplete="current-password">
-    <button id="gbtn">Open dashboard</button>
+    <p style="margin:0 0 16px;font-size:14px;color:var(--sage-70)">This opens from the Staff Portal, which knows who you are.</p>
+    <a href="https://app.blackhorsebeamish.co.uk/portal/app.html" style="display:block;padding:12px;border-radius:8px;background:var(--sage);color:#fff;text-decoration:none;font-weight:600;letter-spacing:var(--track-label);text-transform:uppercase;font-size:12px">Open the Staff Portal</a>
     <div class="gateerr" id="gerr"></div>
   </div>
 </div>
@@ -479,8 +479,9 @@ async function tryOpen(pw){
     $("#gerr").textContent = /password/i.test(e.message) ? "Wrong password." : e.message;
   }
 }
-$("#gbtn").addEventListener("click", ()=> tryOpen($("#gpw").value));
-$("#gpw").addEventListener("keydown", e=>{ if(e.key==="Enter") tryOpen($("#gpw").value); });
+// No password typed here: the Staff Portal writes the dashboard key into
+// localStorage (LS_KEY) when it opens this page for someone it has signed
+// in; the boot check below picks it up and tryOpen() runs with it.
 $("#signout").addEventListener("click", ()=>{
   try{ localStorage.removeItem(LS_KEY); }catch(e){}
   S.key = "";

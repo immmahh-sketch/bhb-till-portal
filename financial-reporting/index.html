@@ -226,8 +226,8 @@ table.grid td.num{text-align:right; font-variant-numeric:tabular-nums}
   <div class="gatecard">
     <h1>Financial Reporting</h1>
     <div class="sub">Black Horse Beamish</div>
-    <input id="gpw" type="password" placeholder="Password" autocomplete="current-password">
-    <button id="gbtn">Open</button>
+    <p style="margin:0 0 16px;font-size:14px;color:var(--sage-70)">This opens from the Staff Portal, which knows who you are and what you can see.</p>
+    <a href="https://app.blackhorsebeamish.co.uk/portal/app.html" style="display:block;padding:12px;border-radius:8px;background:var(--sage);color:#fff;text-decoration:none;font-weight:600;letter-spacing:var(--track-label);text-transform:uppercase;font-size:12px">Open the Staff Portal</a>
     <div class="gateerr" id="gerr"></div>
   </div>
 </div>
@@ -436,16 +436,9 @@ function openGate(msg){
   $("#kioskApp").hidden = true;
   if (msg) $("#gerr").textContent = msg;
 }
-function tryOpen(pw){
-  $("#gerr").textContent = "";
-  if (!pw){ $("#gerr").textContent = "Enter the password."; return; }
-  if (pw !== CFG.PORTAL_PASSWORD){ $("#gerr").textContent = "Wrong password."; return; }
-  try { sessionStorage.setItem(CFG.KEY, "1"); } catch(e){}
-  $("#gate").style.display = "none";
-  boot();
-}
-$("#gbtn").addEventListener("click", ()=> tryOpen($("#gpw").value));
-$("#gpw").addEventListener("keydown", e=>{ if (e.key==="Enter") tryOpen($("#gpw").value); });
+// No password of its own: the Staff Portal sets bhb_financial_ok when it
+// opens this page for someone it has signed in, and financial-api checks
+// that person's grants on every call.
 $("#signout").addEventListener("click", ()=>{
   try { sessionStorage.removeItem(CFG.KEY); } catch(e){}
   openGate();
