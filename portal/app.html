@@ -954,15 +954,19 @@ function devicePlatform(){
   if (/Android/i.test(ua)) return "android";
   return "desktop";
 }
-// Was previously also a coarse-pointer/touch-point/screen-size heuristic
-// on top of devicePlatform() - dropped entirely after a night of it
-// showing this gate on confirmed-desktop machines with no reproducible
-// cause. devicePlatform() alone (pure user-agent string matching) is
-// deterministic and can't misfire the way a hardware-heuristic can: a PC
-// is never iOS/Android no matter what pointer/touch capabilities it
-// reports, so this is the only signal that matters.
+// Disabled again, this time for good. Re-enabling it (pure devicePlatform()
+// detection, no touch/pointer heuristic) fixed the "shows on a confirmed
+// desktop" failure mode from earlier, but isStandalone() then proved
+// unreliable on at least one real iPhone: a screen recording showed the
+// gate still showing even after genuinely adding to the home screen and
+// launching from that icon - no browser chrome at all, so real standalone
+// mode, yet navigator.standalone/matchMedia("display-mode: standalone")
+// both apparently still read false. That needs a real iOS device and its
+// developer console to debug, which isn't available here. Signing in has
+// to work on every device over a "nice to have" home-screen prompt, so
+// the gate stays off rather than risk blocking real sign-ins again.
 function hasHomeScreen(){ return devicePlatform() !== "desktop"; }
-function mustInstall(){ return hasHomeScreen() && !isStandalone(); }
+function mustInstall(){ return false; }
 
 // Chrome hands over a real install prompt, but only if this is kept from
 // the moment it fires.
