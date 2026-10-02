@@ -642,6 +642,7 @@ details summary::-webkit-details-marker{color:var(--sage-70)}
         <button data-view="weddings" data-group="weddings,usage,add,bulk">Wedding App</button>
         <button data-view="outstanding" data-group="outstanding,reconcile">Payments <span id="recBadge"></span></button>
         <button data-view="todo" data-group="todo,enq,bonus">Trackers</button>
+        <button data-view="tickets" data-group="tickets">Ticket sales</button>
       </nav>
     </div>
   </header>
@@ -1221,7 +1222,195 @@ function render(){
     case "add":         v.innerHTML = viewAdd(); break;
     case "bulk":        v.innerHTML = viewBulk(); break;
     case "bonus":       v.innerHTML = '<div class="empty"><span class="spin"></span></div>'; loadBonus(); break;
+    case "tickets":     v.innerHTML = '<div class="empty"><span class="spin"></span>' +
+                          '<p style="margin-top:14px">Reading ticket sales…</p></div>';
+                        loadTickets(); break;
   }
+}
+
+/* ============================ TICKET SALES ============================
+   Live tickets-sold per TicketSource event. The server (ticketsource-api)
+   keeps the counts topped up; while it is still working through the dates
+   this page asks again every few seconds. Capacity is typed in here because
+   TicketSource's API doesn't expose it. */
+var TK = { data:null, tab:"upcoming", timer:null };
+
+async function callTickets(action, payload){
+  var body = Object.assign({ staff_email: staffEmail() }, payload || {});
+  var r = await fetch(CFG.SUPABASE_URL + "/functions/v1/ticketsource-api", {
+    method:"POST",
+    headers:{ "Content-Type":"application/json",
+              Authorization:"Bearer "+CFG.SUPABASE_KEY, apikey:CFG.SUPABASE_KEY },
+    body: JSON.stringify({ password:S.pw, action:action, payload:body })
+  });
+  var data = await r.json().catch(function(){ return {}; });
+  if (!r.ok) throw new Error(data.error || ("Request failed ("+r.status+")"));
+  return data;
+}
+
+function tkStop(){ if (TK.timer) { clearTimeout(TK.timer); TK.timer = null; } }
+
+async function loadTickets(){
+  tkStop();
+  try {
+    var d = await callTickets("tickets.list");
+    if (!stillWanted("tickets")) return;
+    TK.data = d; clearErr();
+    var ae = document.activeElement;
+    // Don't rebuild the page under someone who is typing a capacity.
+    if (!(ae && ae.classList && ae.classList.contains("tk-cap"))) $("views").innerHTML = viewTickets();
+    if (d.working) TK.timer = setTimeout(function(){ if (S.view === "tickets") loadTickets(); }, 8000);
+  } catch (e) {
+    if (stillWanted("tickets")) { $("views").innerHTML = ""; showErr(e.message); }
+  }
+}
+
+async function tkRefresh(btn){
+  btn.disabled = true; btn.textContent = "Asking TicketSource...";
+  try { await callTickets("tickets.refresh"); } catch (e) { showErr(e.message); }
+  loadTickets();
+}
+
+async function tkCapacity(inp){
+  var id = inp.dataset.id, raw = inp.value.trim();
+  var row = (TK.data.dates || []).filter(function(x){ return x.date_id === id; })[0];
+  if (!row) return;
+  var cap = raw === "" ? null : Math.max(0, Math.round(Number(raw)));
+  if (cap !== null && !isFinite(cap)) { showErr("Capacity must be a whole number."); return; }
+  if (cap === row.capacity) { $("views").innerHTML = viewTickets(); return; }
+  try {
+    await callTickets("tickets.capacity", { date_id:id, capacity:cap });
+    row.capacity = cap; clearErr();
+  } catch (e) { showErr(e.message); }
+  $("views").innerHTML = viewTickets();
+}
+
+function tkSetTab(t){ TK.tab = t; $("views").innerHTML = viewTickets(); }
+
+function tkWhen(iso){
+  if (!iso) return "";
+  var d = new Date(iso);
+  return new Intl.DateTimeFormat("en-GB", { weekday:"short", day:"numeric", month:"short", year:"numeric",
+           hour:"2-digit", minute:"2-digit", timeZone:"Europe/London" }).format(d);
+}
+
+function tkRows(){
+  var cut = Date.now() - 6 * 3600 * 1000;
+  var all = (TK.data && TK.data.dates) || [];
+  var up = TK.tab === "upcoming";
+  var rows = all.filter(function(r){
+    var t = r.starts_at ? new Date(r.starts_at).getTime() : Infinity;
+    return up ? t >= cut : t < cut;
+  });
+  rows.sort(function(a, b){
+    var x = new Date(a.starts_at || 0).getTime(), y = new Date(b.starts_at || 0).getTime();
+    return up ? x - y : y - x;
+  });
+  return rows;
+}
+
+function tkCats(c){
+  var parts = [];
+  Object.keys(c || {}).sort().forEach(function(k){ if (Number(c[k])) parts.push(esc(k) + " " + c[k]); });
+  return parts.join(" · ");
+}
+
+function viewTickets(){
+  var d = TK.data || {};
+  var h = '<div class="split" style="margin-bottom:6px"><h1>Ticket sales</h1>' +
+    (d.configured ? '<span><button class="btn btn--sm" onclick="tkCsv()">Export CSV</button> ' +
+    '<button class="btn btn--sm" onclick="tkRefresh(this)">Refresh from TicketSource</button></span>' : '') + '</div>';
+
+  if (!d.configured) {
+    return h + '<div class="card"><h2 style="margin-bottom:10px">Not connected yet</h2>' +
+      '<p style="margin:0 0 12px">This page reads live ticket numbers from TicketSource, but it has no API key yet. ' +
+      'Create an API key in your TicketSource account, then save it as a secret by running this in a terminal ' +
+      '(replace <b>YOUR-KEY</b> with the key):</p>' +
+      '<div class="sheet" style="max-height:none;user-select:all">npx supabase secrets set TICKETSOURCE_API_KEY=YOUR-KEY --project-ref safcrtrfdzsnftghibot</div>' +
+      '<p class="muted" style="margin:12px 0 0">The key is stored on the server only, never on this page. ' +
+      'Once it is saved, reload this tab and the numbers will fill in within a minute or two.</p></div>';
+  }
+
+  var rows = tkRows(), up = TK.tab === "upcoming";
+  var live = rows.filter(function(r){ return !r.cancelled; });
+  var events = {}; live.forEach(function(r){ events[r.event_id] = 1; });
+  var sold = live.reduce(function(s, r){ return s + (Number(r.tickets_sold) || 0); }, 0);
+  var value = live.reduce(function(s, r){ return s + (Number(r.gross) || 0); }, 0);
+
+  h += '<p class="muted" style="margin:0 0 12px">Tickets sold per show, counted from TicketSource bookings' +
+    checkedAgo([d.finishedAt]) + '. Cancelled tickets and refunds are left out.</p>';
+  if (d.error) h += '<div class="notice notice--late">TicketSource said: ' + esc(d.error) + '</div>';
+  if (d.working) h += '<div class="notice notice--due"><span class="spin" style="width:14px;height:14px;margin-right:8px"></span>' +
+    'Still counting' + (d.pending ? ' - ' + d.pending + ' date' + (d.pending === 1 ? '' : 's') + ' left' : '') +
+    '. This page updates by itself.</div>';
+
+  h += '<div class="subnav" style="margin-top:0">' +
+    '<button class="btn btn--sm' + (up ? ' on' : '') + '" onclick="tkSetTab(\'upcoming\')">Upcoming</button>' +
+    '<button class="btn btn--sm' + (up ? '' : ' on') + '" onclick="tkSetTab(\'past\')">Past 30 days</button></div>';
+
+  h += '<div class="stat" style="margin-bottom:18px">' +
+    '<div><span class="label">' + (up ? 'Upcoming events' : 'Events') + '</span><div class="v">' + Object.keys(events).length + '</div></div>' +
+    '<div><span class="label">Tickets sold</span><div class="v">' + sold.toLocaleString("en-GB") + '</div></div>' +
+    '<div><span class="label">Booked value</span><div class="v">' + money(value) + '</div></div>' +
+    '<div><span class="label">Shows</span><div class="v">' + live.length + '</div></div></div>';
+
+  if (!rows.length) {
+    return h + '<div class="card empty">' + (d.working ? 'Reading TicketSource...' :
+      (up ? 'No upcoming shows found.' : 'Nothing in the last 30 days.')) + '</div>';
+  }
+
+  var groups = [], byName = {};
+  rows.forEach(function(r){
+    var k = r.event_id;
+    if (!byName[k]) { byName[k] = { name:r.event_name, rows:[] }; groups.push(byName[k]); }
+    byName[k].rows.push(r);
+  });
+
+  groups.forEach(function(g){
+    var gl = g.rows.filter(function(r){ return !r.cancelled; });
+    var gs = gl.reduce(function(s, r){ return s + (Number(r.tickets_sold) || 0); }, 0);
+    h += '<div class="card card--flush" style="margin-bottom:16px"><div class="split" style="padding:16px 20px 6px">' +
+      '<h2>' + esc(g.name) + '</h2><span class="label">' + gs.toLocaleString("en-GB") + ' sold</span></div>' +
+      '<div style="overflow-x:auto"><table><thead><tr><th>Show</th><th class="money">Sold</th>' +
+      '<th class="money">Capacity</th><th class="money">Bookings</th><th class="money">Value</th><th></th></tr></thead><tbody>';
+    g.rows.forEach(function(r){
+      var cap = r.capacity, soldN = Number(r.tickets_sold) || 0;
+      var left = (cap != null && !r.cancelled) ? cap - soldN : null;
+      var status = r.cancelled ? '<span class="pill pill--late">Cancelled</span>'
+        : (r.on_sale === false ? '<span class="pill pill--prov">Off sale</span>'
+        : (left !== null && left <= 0 ? '<span class="pill pill--due">Sold out</span>'
+        : '<span class="pill pill--ok">On sale</span>'));
+      var cats = tkCats(r.categories);
+      h += '<tr><td>' + esc(tkWhen(r.starts_at)) +
+        (cats ? '<div class="muted" style="font-size:.8125rem;margin-top:3px">' + cats + '</div>' : '') + '</td>' +
+        '<td class="money"><b>' + soldN.toLocaleString("en-GB") + '</b>' +
+        (r.bookings_synced_at ? '' : '<div class="muted" style="font-size:.75rem">counting...</div>') + '</td>' +
+        '<td class="money"><input class="tk-cap" type="number" min="0" inputmode="numeric" data-id="' + esc(r.date_id) +
+        '" value="' + (cap == null ? '' : cap) + '" placeholder="-" onchange="tkCapacity(this)" ' +
+        'style="width:76px;text-align:right;padding:6px 8px">' +
+        (left !== null ? '<div class="muted" style="font-size:.8125rem;margin-top:3px">' +
+          (left >= 0 ? left + ' left' : (-left) + ' over') + '</div>' : '') + '</td>' +
+        '<td class="money">' + (Number(r.bookings) || 0) + '</td>' +
+        '<td class="money">' + money(r.gross) + '</td><td>' + status + '</td></tr>';
+    });
+    h += '</tbody></table></div></div>';
+  });
+  return h;
+}
+
+function tkCsv(){
+  var rows = tkRows();
+  var cell = function(v){ v = String(v == null ? "" : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+  var out = [["Event","Show","Tickets sold","Capacity","Bookings","Value","Status"]];
+  rows.forEach(function(r){
+    out.push([r.event_name, tkWhen(r.starts_at), r.tickets_sold, r.capacity == null ? "" : r.capacity,
+      r.bookings, Number(r.gross || 0).toFixed(2), r.cancelled ? "Cancelled" : (r.on_sale === false ? "Off sale" : "On sale")]);
+  });
+  var csv = out.map(function(r){ return r.map(cell).join(","); }).join("\r\n");
+  var a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob(["\ufeff" + csv], { type:"text/csv" }));
+  a.download = "ticket-sales-" + TK.tab + "-" + new Date().toISOString().slice(0, 10) + ".csv";
+  document.body.appendChild(a); a.click(); a.remove();
 }
 
 /* ============================ OVERVIEW / FORWARD BOOK ============================ */
