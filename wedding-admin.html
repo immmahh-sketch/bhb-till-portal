@@ -1319,7 +1319,7 @@ function tkDetailHtml(id){
   var paid = live.reduce(function(s, b){ return s + (Number(b.gross) || 0); }, 0);
   var h = '<div class="split" style="margin-bottom:8px"><span class="label">' + live.length + ' booking' +
     (live.length === 1 ? '' : 's') + ' &middot; ' + tk + ' ticket' + (tk === 1 ? '' : 's') + ' &middot; ' + money(paid) +
-    '</span><button class="btn btn--sm" onclick="tkCsvBookings(\'' + esc(id) + '\')">Export names</button></div>' +
+    '</span><button class="btn btn--sm" onclick="tkCsvBookings(\'date\',\'' + esc(id) + '\',this)">Export</button></div>' +
     '<table><thead><tr><th>Booked by</th><th>Booked</th><th class="money">Tickets</th><th class="money">Paid</th><th>Ref</th></tr></thead><tbody>';
   rows.forEach(function(b){
     var gone = !(b.tickets > 0 || Number(b.gross) > 0);
@@ -1334,21 +1334,41 @@ function tkDetailHtml(id){
   return h + '</tbody></table>';
 }
 
-function tkCsvBookings(id){
-  var d = TK.detail[id]; if (!d || !d.rows) return;
-  var show = ((TK.data.dates || []).filter(function(x){ return x.date_id === id; })[0]) || {};
-  var cell = function(v){ v = String(v == null ? "" : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
-  var out = [["Booked by","Email","Booked","Tickets","Ticket types","Paid","Ref"]];
-  d.rows.forEach(function(b){
-    out.push([b.customer_name, b.customer_email, tkBooked(b.booked_at), b.tickets,
-      tkCats(b.categories).replace(/&amp;/g, "&"), Number(b.gross || 0).toFixed(2), b.booking_ref]);
-  });
-  var csv = out.map(function(r){ return r.map(cell).join(","); }).join("\r\n");
-  var a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob(["﻿" + csv], { type:"text/csv" }));
-  a.download = "bookings-" + String(show.event_name || "show").replace(/[^a-z0-9]+/gi, "-").toLowerCase() + "-" +
-    String(show.starts_at || "").slice(0, 10) + ".csv";
-  document.body.appendChild(a); a.click(); a.remove();
+async function tkCsvBookings(key, id, btn){
+  var label = btn ? btn.textContent : "";
+  if (btn) { btn.disabled = true; btn.textContent = "Preparing..."; }
+  try {
+    var d = await callTickets("tickets.export", key === "event" ? { event_id:id } : { date_id:id });
+    var shows = {}; (d.dates || []).forEach(function(x){ shows[x.date_id] = x; });
+    var cell = function(v){ v = String(v == null ? "" : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+    var yn = function(v){ return v === true ? "Yes" : (v === false ? "No" : ""); };
+    var out = [["Event","Show","Booking ref","Status","Booked","Booked by","Email","Telephone","Address","Postcode",
+      "Tickets","Ticket types","Paid","Attendees","Consent email","Consent post","Consent SMS","Consent third party","Booked by (staff)"]];
+    (d.bookings || []).forEach(function(b){
+      var sh = shows[b.date_id] || {}, by = b.buyer || {}, c = by.consent || {};
+      var gone = !(b.tickets > 0 || Number(b.gross) > 0);
+      var who = (b.attendees || []).map(function(a){
+        var bits = [a.name || "(no name)"];
+        if (a.email) bits.push(a.email);
+        if (a.telephone) bits.push(a.telephone);
+        if (a.company) bits.push(a.company);
+        return bits.join(", ") + " [" + a.type + (a.seat ? " " + a.seat : "") + "]";
+      }).join("; ");
+      out.push([sh.event_name, tkWhen(sh.starts_at), b.booking_ref, gone ? "Cancelled" : "Booked", tkBooked(b.booked_at),
+        b.customer_name, b.customer_email || by.email, by.telephone, by.address, by.postcode,
+        b.tickets, tkCats(b.categories).replace(/&amp;/g, "&"), Number(b.gross || 0).toFixed(2), who,
+        yn(c.email), yn(c.post), yn(c.sms), c.third_party, by.booked_by]);
+    });
+    var csv = out.map(function(r){ return r.map(cell).join(","); }).join("\r\n");
+    var first = (d.dates || [])[0] || {};
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob(["\ufeff" + csv], { type:"text/csv" }));
+    a.download = "bookings-" + String(first.event_name || "event").replace(/[^a-z0-9]+/gi, "-").toLowerCase() +
+      (key === "event" ? "" : "-" + String(first.starts_at || "").slice(0, 10)) + ".csv";
+    document.body.appendChild(a); a.click(); a.remove();
+    clearErr();
+  } catch (e) { showErr(e.message); }
+  if (btn) { btn.disabled = false; btn.textContent = label; }
 }
 
 function tkSetTab(t){ TK.tab = t; $("views").innerHTML = viewTickets(); }
@@ -1428,7 +1448,7 @@ function viewTickets(){
   var groups = [], byName = {};
   rows.forEach(function(r){
     var k = r.event_id;
-    if (!byName[k]) { byName[k] = { name:r.event_name, rows:[] }; groups.push(byName[k]); }
+    if (!byName[k]) { byName[k] = { id:k, name:r.event_name, rows:[] }; groups.push(byName[k]); }
     byName[k].rows.push(r);
   });
 
@@ -1436,7 +1456,8 @@ function viewTickets(){
     var gl = g.rows.filter(function(r){ return !r.cancelled; });
     var gs = gl.reduce(function(s, r){ return s + (Number(r.tickets_sold) || 0); }, 0);
     h += '<div class="card card--flush" style="margin-bottom:16px"><div class="split" style="padding:16px 20px 6px">' +
-      '<h2>' + esc(g.name) + '</h2><span class="label">' + gs.toLocaleString("en-GB") + ' sold</span></div>' +
+      '<h2>' + esc(g.name) + '</h2><span><span class="label">' + gs.toLocaleString("en-GB") + ' sold</span> ' +
+      '<button class="btn btn--sm" onclick="tkCsvBookings(\'event\',\'' + esc(g.id) + '\',this)">Export</button></span></div>' +
       '<div style="overflow-x:auto"><table><thead><tr><th>Show</th><th class="money">Sold</th>' +
       '<th class="money">Capacity</th><th class="money">Bookings</th><th class="money">Value</th><th></th></tr></thead><tbody>';
     g.rows.forEach(function(r){
