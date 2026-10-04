@@ -1324,7 +1324,7 @@ function tkDetailHtml(id){
   rows.forEach(function(b){
     var gone = !(b.tickets > 0 || Number(b.gross) > 0);
     var cats = tkCats(b.categories);
-    h += '<tr' + (gone ? ' style="opacity:.55"' : '') + '><td>' + (b.customer_name ? esc(b.customer_name) : '<span class="muted">Name not read yet</span>') +
+    h += '<tr style="cursor:pointer' + (gone ? ';opacity:.55' : '') + '" onclick="tkBooking(\'' + esc(id) + '\',\'' + esc(b.booking_id) + '\')"><td>' + (b.customer_name ? esc(b.customer_name) : '<span class="muted">Name not read yet</span>') +
       (b.customer_email ? '<div class="muted" style="font-size:.8125rem">' + esc(b.customer_email) + '</div>' : '') + '</td>' +
       '<td>' + esc(tkBooked(b.booked_at)) + '</td>' +
       '<td class="money">' + (gone ? 'Cancelled' : b.tickets) +
@@ -1332,6 +1332,79 @@ function tkDetailHtml(id){
       '<td class="money">' + money(b.gross) + '</td><td>' + esc(b.booking_ref || '') + '</td></tr>';
   });
   return h + '</tbody></table>';
+}
+
+/* Pop-up with everything held about one booking. Built on first use so it can't clash with the Tracker's own overlays. */
+function tkModal(){
+  var m = $("tkv");
+  if (m) return m;
+  var st = document.createElement("style");
+  st.textContent = "#tkv{position:fixed;inset:0;z-index:90;display:none;background:rgba(38,38,38,.45);align-items:center;justify-content:center;padding:16px}" +
+    "#tkv.on{display:flex}#tkv .tkb{background:var(--bone);border-radius:var(--radius,8px);box-shadow:0 20px 60px rgba(38,38,38,.3);" +
+    "width:min(680px,100%);max-height:90vh;display:flex;flex-direction:column}" +
+    "#tkv .tkh{background:var(--sage);color:var(--white);padding:14px 20px;display:flex;gap:12px;align-items:flex-start;border-radius:var(--radius,8px) var(--radius,8px) 0 0}" +
+    "#tkv .tkh h3{font-family:var(--display);font-size:1.25rem;line-height:1.2;margin:0}" +
+    "#tkv .tkh .x{margin-left:auto;background:transparent;border:0;color:var(--white);font-size:26px;line-height:1;cursor:pointer}" +
+    "#tkv .tkc{padding:16px 20px 20px;overflow:auto}" +
+    "#tkv h4{margin:16px 0 6px;font-size:.75rem;letter-spacing:.08em;text-transform:uppercase;color:var(--sage-70)}#tkv h4:first-child{margin-top:0}" +
+    "#tkv dl{display:grid;grid-template-columns:130px 1fr;gap:5px 14px;margin:0}#tkv dt{color:var(--sage-70)}#tkv dd{margin:0;word-break:break-word}" +
+    "#tkv table{width:100%}@media(max-width:520px){#tkv dl{grid-template-columns:1fr}#tkv dt{margin-top:6px}}";
+  document.head.appendChild(st);
+  m = document.createElement("div");
+  m.id = "tkv"; m.setAttribute("role", "dialog"); m.setAttribute("aria-modal", "true");
+  m.innerHTML = '<div class="tkb"><div class="tkh"><div><h3 id="tkvT"></h3><div id="tkvS" style="font-size:.8125rem;opacity:.85;margin-top:2px"></div></div>' +
+    '<button class="x" title="Close" onclick="tkBookingClose()">&times;</button></div><div class="tkc" id="tkvB"></div></div>';
+  m.addEventListener("click", function(e){ if (e.target === m) tkBookingClose(); });
+  document.addEventListener("keydown", function(e){ if (e.key === "Escape") tkBookingClose(); });
+  document.body.appendChild(m);
+  return m;
+}
+
+function tkBookingClose(){ var m = $("tkv"); if (m) m.classList.remove("on"); }
+
+function tkBooking(dateId, bookingId){
+  var d = TK.detail[dateId] || {};
+  var b = (d.rows || []).filter(function(x){ return x.booking_id === bookingId; })[0];
+  if (!b) return;
+  var show = (TK.data.dates || []).filter(function(x){ return x.date_id === dateId; })[0] || {};
+  var by = b.buyer, c = (by && by.consent) || {};
+  var gone = !(b.tickets > 0 || Number(b.gross) > 0);
+  var row = function(k, v){ return v ? '<dt>' + k + '</dt><dd>' + v + '</dd>' : ''; };
+  var yn = function(v){ return v === true ? "Yes" : (v === false ? "No" : "Not recorded"); };
+  var email = b.customer_email || (by && by.email);
+  var h = '<h4>Buyer</h4><dl>' +
+    row("Name", esc(b.customer_name || "")) +
+    row("Email", email ? '<a href="mailto:' + esc(email) + '">' + esc(email) + '</a>' : "") +
+    row("Telephone", by && by.telephone ? '<a href="tel:' + esc(String(by.telephone).replace(/\s+/g, "")) + '">' + esc(by.telephone) + '</a>' : "") +
+    row("Address", by && by.address ? esc(by.address) : "") +
+    row("Postcode", by && by.postcode ? esc(by.postcode) : "");
+  if (!by) h += '<dt></dt><dd class="muted">Full contact details have not been read from TicketSource yet - they fill in on the next sync.</dd>';
+  h += '</dl><h4>Booking</h4><dl>' +
+    row("Reference", esc(b.booking_ref || "")) +
+    row("Status", gone ? "Cancelled" : "Booked") +
+    row("Booked", esc(tkBooked(b.booked_at))) +
+    row("Booked via", by && by.booked_by ? esc(by.booked_by) : "") +
+    row("Tickets", gone ? "Cancelled" + (b.cancelled_tickets ? " (" + b.cancelled_tickets + ")" : "") : String(b.tickets)) +
+    row("Ticket types", tkCats(b.categories)) +
+    row("Paid", esc(money(b.gross))) +
+    row("Show", esc((show.event_name || "") + (show.starts_at ? " - " + tkWhen(show.starts_at) : ""))) +
+    '</dl>';
+  if (b.attendees && b.attendees.length) {
+    h += '<h4>Attendees</h4><div style="overflow-x:auto"><table><thead><tr><th>Name</th><th>Ticket</th><th>Email</th><th>Telephone</th><th>Company</th><th>Seat</th></tr></thead><tbody>' +
+      b.attendees.map(function(a){
+        return '<tr><td>' + (a.name ? esc(a.name) : '<span class="muted">Not given</span>') + '</td><td>' + esc(a.type || "") + '</td><td>' +
+          esc(a.email || "") + '</td><td>' + esc(a.telephone || "") + '</td><td>' + esc(a.company || "") + '</td><td>' + esc(a.seat || "") + '</td></tr>';
+      }).join("") + '</tbody></table></div>';
+  }
+  if (by) {
+    h += '<h4>Marketing consent</h4><dl><dt>Email</dt><dd>' + yn(c.email) + '</dd><dt>Post</dt><dd>' + yn(c.post) + '</dd><dt>SMS</dt><dd>' + yn(c.sms) +
+      '</dd>' + row("Third party", esc(c.third_party || "")) + '</dl>';
+  }
+  tkModal();
+  $("tkvT").textContent = b.customer_name || "Booking " + (b.booking_ref || "");
+  $("tkvS").textContent = "Booking " + (b.booking_ref || "") + (gone ? " - cancelled" : "");
+  $("tkvB").innerHTML = h;
+  $("tkv").classList.add("on");
 }
 
 async function tkCsvBookings(key, id, btn){
