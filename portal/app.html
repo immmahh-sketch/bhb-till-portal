@@ -705,19 +705,21 @@ async function openPortal(key, ref){
   S.current = key;
 
   if (key === "po-tracker") {
-    // Separate app on its own infrastructure, reached via a token minted at
-    // this click (one use, 60 s) - never pre-fetched, cached or put in a
-    // link. Open the tab synchronously (before the await) so browsers don't
-    // treat it as a blocked popup, then point it at the URL once it comes
-    // back. No "noopener": with it window.open returns null and there is no
-    // handle to point at the URL later; the opener link is cut by hand.
-    const win = window.open("", "_blank");
-    if (win) { try { win.opener = null; } catch(e){} }
+    // Separate app on its own infrastructure (same site, so its session cookie
+    // works in a frame), reached via a token minted at this click (one use,
+    // 60 s) - never pre-fetched, cached or put in a link. It opens in the same
+    // viewer as every other tile, so it gets the same Portals / menu band.
     try {
       const d = await api("po_sso");
-      if (win) win.location = d.url; else window.location.assign(d.url);
+      $("#vname").textContent = p.label;
+      $("#vband").style.background = p.color || "#4E5F4F";
+      const frame = $("#vframe");
+      frame.dataset.key = key;
+      frame.dataset.injected = "1";
+      frame.src = d.url;
+      $("#viewer").classList.add("on");
     } catch(e) {
-      if (win) win.close();
+      S.current = null;
       toast(e.message, true);
     }
     return;
