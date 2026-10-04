@@ -1233,7 +1233,7 @@ function render(){
    keeps the counts topped up; while it is still working through the dates
    this page asks again every few seconds. Capacity is typed in here because
    TicketSource's API doesn't expose it. */
-var TK = { data:null, tab:"upcoming", timer:null };
+var TK = { data:null, tab:"upcoming", timer:null, open:null, detail:{} };
 
 async function callTickets(action, payload){
   var body = Object.assign({ staff_email: staffEmail() }, payload || {});
@@ -1256,6 +1256,8 @@ async function loadTickets(){
     var d = await callTickets("tickets.list");
     if (!stillWanted("tickets")) return;
     TK.data = d; clearErr();
+    if (TK.open) await tkLoadDetail(TK.open);
+    if (!stillWanted("tickets")) return;
     var ae = document.activeElement;
     // Don't rebuild the page under someone who is typing a capacity.
     if (!(ae && ae.classList && ae.classList.contains("tk-cap"))) $("views").innerHTML = viewTickets();
@@ -1283,6 +1285,70 @@ async function tkCapacity(inp){
     row.capacity = cap; clearErr();
   } catch (e) { showErr(e.message); }
   $("views").innerHTML = viewTickets();
+}
+
+async function tkLoadDetail(id){
+  try { TK.detail[id] = { rows:(await callTickets("tickets.date", { date_id:id })).bookings || [] }; }
+  catch (e) { TK.detail[id] = { error:e.message }; }
+}
+
+/* Opening a show lists its bookings: who bought, how many, what they paid. */
+async function tkToggle(id){
+  if (TK.open === id) { TK.open = null; $("views").innerHTML = viewTickets(); return; }
+  TK.open = id;
+  if (!TK.detail[id]) TK.detail[id] = { loading:true };
+  $("views").innerHTML = viewTickets();
+  await tkLoadDetail(id);
+  if (stillWanted("tickets") && TK.open === id) $("views").innerHTML = viewTickets();
+}
+
+function tkBooked(iso){
+  if (!iso) return "";
+  return new Intl.DateTimeFormat("en-GB", { day:"numeric", month:"short", hour:"2-digit", minute:"2-digit",
+           timeZone:"Europe/London" }).format(new Date(iso));
+}
+
+function tkDetailHtml(id){
+  var d = TK.detail[id] || {};
+  if (d.loading) return '<div class="empty" style="padding:14px"><span class="spin"></span></div>';
+  if (d.error) return '<div class="err" style="margin:0">' + esc(d.error) + '</div>';
+  var rows = d.rows || [];
+  if (!rows.length) return '<p class="muted" style="margin:0">No bookings counted for this show yet.</p>';
+  var live = rows.filter(function(b){ return b.tickets > 0 || Number(b.gross) > 0; });
+  var tk = live.reduce(function(s, b){ return s + (b.tickets || 0); }, 0);
+  var paid = live.reduce(function(s, b){ return s + (Number(b.gross) || 0); }, 0);
+  var h = '<div class="split" style="margin-bottom:8px"><span class="label">' + live.length + ' booking' +
+    (live.length === 1 ? '' : 's') + ' &middot; ' + tk + ' ticket' + (tk === 1 ? '' : 's') + ' &middot; ' + money(paid) +
+    '</span><button class="btn btn--sm" onclick="tkCsvBookings(\'' + esc(id) + '\')">Export names</button></div>' +
+    '<table><thead><tr><th>Booked by</th><th>Booked</th><th class="money">Tickets</th><th class="money">Paid</th><th>Ref</th></tr></thead><tbody>';
+  rows.forEach(function(b){
+    var gone = !(b.tickets > 0 || Number(b.gross) > 0);
+    var cats = tkCats(b.categories);
+    h += '<tr' + (gone ? ' style="opacity:.55"' : '') + '><td>' + (b.customer_name ? esc(b.customer_name) : '<span class="muted">Name not read yet</span>') +
+      (b.customer_email ? '<div class="muted" style="font-size:.8125rem">' + esc(b.customer_email) + '</div>' : '') + '</td>' +
+      '<td>' + esc(tkBooked(b.booked_at)) + '</td>' +
+      '<td class="money">' + (gone ? 'Cancelled' : b.tickets) +
+      (cats && !gone ? '<div class="muted" style="font-size:.8125rem">' + cats + '</div>' : '') + '</td>' +
+      '<td class="money">' + money(b.gross) + '</td><td>' + esc(b.booking_ref || '') + '</td></tr>';
+  });
+  return h + '</tbody></table>';
+}
+
+function tkCsvBookings(id){
+  var d = TK.detail[id]; if (!d || !d.rows) return;
+  var show = ((TK.data.dates || []).filter(function(x){ return x.date_id === id; })[0]) || {};
+  var cell = function(v){ v = String(v == null ? "" : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+  var out = [["Booked by","Email","Booked","Tickets","Ticket types","Paid","Ref"]];
+  d.rows.forEach(function(b){
+    out.push([b.customer_name, b.customer_email, tkBooked(b.booked_at), b.tickets,
+      tkCats(b.categories).replace(/&amp;/g, "&"), Number(b.gross || 0).toFixed(2), b.booking_ref]);
+  });
+  var csv = out.map(function(r){ return r.map(cell).join(","); }).join("\r\n");
+  var a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob(["﻿" + csv], { type:"text/csv" }));
+  a.download = "bookings-" + String(show.event_name || "show").replace(/[^a-z0-9]+/gi, "-").toLowerCase() + "-" +
+    String(show.starts_at || "").slice(0, 10) + ".csv";
+  document.body.appendChild(a); a.click(); a.remove();
 }
 
 function tkSetTab(t){ TK.tab = t; $("views").innerHTML = viewTickets(); }
@@ -1381,7 +1447,9 @@ function viewTickets(){
         : (left !== null && left <= 0 ? '<span class="pill pill--due">Sold out</span>'
         : '<span class="pill pill--ok">On sale</span>'));
       var cats = tkCats(r.categories);
-      h += '<tr><td>' + esc(tkWhen(r.starts_at)) +
+      var isOpen = TK.open === r.date_id;
+      h += '<tr style="cursor:pointer" onclick="if(!event.target.closest(\'input\'))tkToggle(\'' + esc(r.date_id) + '\')">' +
+        '<td><span style="color:var(--sage-70)">' + (isOpen ? '&#9662;' : '&#9656;') + '</span> ' + esc(tkWhen(r.starts_at)) +
         (cats ? '<div class="muted" style="font-size:.8125rem;margin-top:3px">' + cats + '</div>' : '') + '</td>' +
         '<td class="money"><b>' + soldN.toLocaleString("en-GB") + '</b>' +
         (r.bookings_synced_at ? '' : '<div class="muted" style="font-size:.75rem">counting...</div>') + '</td>' +
@@ -1392,6 +1460,7 @@ function viewTickets(){
           (left >= 0 ? left + ' left' : (-left) + ' over') + '</div>' : '') + '</td>' +
         '<td class="money">' + (Number(r.bookings) || 0) + '</td>' +
         '<td class="money">' + money(r.gross) + '</td><td>' + status + '</td></tr>';
+      if (isOpen) h += '<tr class="tk-detail"><td colspan="6" style="background:var(--bone)">' + tkDetailHtml(r.date_id) + '</td></tr>';
     });
     h += '</tbody></table></div></div>';
   });
