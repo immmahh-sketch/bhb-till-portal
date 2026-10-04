@@ -335,6 +335,29 @@ table.grid td{padding:10px 12px; border-top:1px solid var(--mist); vertical-alig
     </section>
 
     <section class="page" id="page-settings">
+      <div class="settabs" style="display:flex; gap:8px; margin-bottom:18px">
+        <button class="btn" id="tabUsers">Users &amp; profiles</button>
+        <button class="btn ghost" id="tabPo">PO Tracker</button>
+      </div>
+      <div id="setPo" style="display:none">
+        <div class="pagehead"><h2>Settings — PO Tracker</h2></div>
+        <p class="hint" style="margin:-8px 0 12px">The one place PO Tracker roles, departments, nominal codes and reminder emails are set. The tracker copies them from here every few minutes and whenever someone signs in. Suppliers stay in the tracker itself.</p>
+        <div class="card" id="poSync" style="padding:12px 16px; margin-bottom:18px"></div>
+
+        <div class="pagehead"><h2>Roles</h2><div class="spacer2"></div><button class="btn ghost" id="addRoleBtn">New role</button></div>
+        <div class="card"><div style="overflow-x:auto"><table class="grid" id="poRolesTable"></table></div></div>
+
+        <div class="pagehead" style="margin-top:28px"><h2>Departments</h2><div class="spacer2"></div><button class="btn ghost" id="addDeptBtn">New department</button></div>
+        <div class="card"><div style="overflow-x:auto"><table class="grid" id="poDeptsTable"></table></div></div>
+
+        <div class="pagehead" style="margin-top:28px"><h2>Nominal codes</h2><div class="spacer2"></div><button class="btn ghost" id="addNomBtn">New nominal code</button></div>
+        <p class="hint" style="margin:-8px 0 12px">The auto-approve limit is the value up to which an order on this code needs no approval. Codes are retired rather than deleted, so old orders keep their code.</p>
+        <div class="card"><div style="overflow-x:auto"><table class="grid" id="poNomsTable"></table></div></div>
+
+        <div class="pagehead" style="margin-top:28px"><h2>Email &amp; reminders</h2></div>
+        <div class="card" style="padding:16px"><div id="poEmailForm"></div></div>
+      </div>
+      <div id="setUsers">
       <div class="pagehead">
         <h2>Settings — Users</h2>
         <div class="spacer2"></div>
@@ -350,6 +373,7 @@ table.grid td{padding:10px 12px; border-top:1px solid var(--mist); vertical-alig
       </div>
       <p class="hint" style="margin:-8px 0 12px">A profile is the access a type of team member gets - pick it when adding someone and every tile, tab and edit right is set for them in one go. Their access can still be changed person by person afterwards.</p>
       <div class="card"><div style="overflow-x:auto"><table class="grid" id="profilesTable"></table></div></div>
+      </div>
     </section>
   </div>
 </div>
@@ -615,6 +639,7 @@ function showLanding(){
 function showSettings(){
   $$(".page").forEach(p=>p.classList.remove("on"));
   $("#page-settings").classList.add("on");
+  setSettingsTab("users");
   loadUsers();
 }
 
@@ -823,6 +848,7 @@ async function loadUsers(){
   try{
     const d = await api("list_users");
     S.users = d.users; S.apps = d.apps; S.tabCatalogue = d.tabCatalogue || []; S.profiles = d.profiles || [];
+    S.poRoles = d.poRoles || []; S.poDepartments = d.poDepartments || [];
     $("#usersTable").innerHTML = `
       <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Profile</th><th>Portals</th><th>Last login</th><th></th></tr></thead>
       <tbody>
@@ -854,6 +880,167 @@ $("#addUserBtn").addEventListener("click", ()=> openUserDrawer(null));
 $("#addProfileBtn").addEventListener("click", ()=> openProfileDrawer(null));
 $("#csvUsersBtn").addEventListener("click", ()=> $("#csvUsersFile").click());
 $("#csvUsersFile").addEventListener("change", ev => { const f = ev.target.files[0]; if (f) importUsersCsv(f); ev.target.value = ""; });
+
+/* ---- PO Tracker settings ---- */
+const PO_PERM_LABELS = {
+  can_raise: ["Raise purchase orders", ""],
+  can_self_approve: ["Own orders never need approval", "Every order they raise is approved automatically, whatever its value."],
+  can_approve: ["Approve / reject orders", "Approval emails go to the approver addresses below."],
+  can_confirm_delivery: ["Confirm delivery on others' orders", "Everyone can confirm delivery of their own orders."],
+  can_upload_invoice: ["Upload invoices to others' orders", "Everyone can upload invoices to their own orders."],
+  can_process: ["Process orders (accounts)", "Mark invoiced orders as processed into Xero, remove invoices, export to Xero."],
+  can_override_variance: ["Accept invoice variances", "Process orders where the invoice total differs from the PO."],
+  can_edit_approved: ["Edit approved orders", "Increases above the approved value go back for approval."],
+  can_manage_suppliers: ["Add and edit suppliers", ""],
+  can_view_reports: ["View reports", ""],
+  is_admin: ["Administrator", "Includes every permission, and is the role the gm@ account must hold."],
+};
+const POS = { data:null };
+const fmtGBP = v => v === null || v === undefined || v === "" ? "—" : "£" + Number(v).toLocaleString("en-GB", { minimumFractionDigits:0, maximumFractionDigits:2 });
+
+function setSettingsTab(which){
+  const po = which === "po";
+  $("#setPo").style.display = po ? "" : "none";
+  $("#setUsers").style.display = po ? "none" : "";
+  $("#tabPo").className = "btn" + (po ? "" : " ghost");
+  $("#tabUsers").className = "btn" + (po ? " ghost" : "");
+  if (po) loadPoSettings();
+}
+$("#tabUsers").addEventListener("click", ()=> setSettingsTab("users"));
+$("#tabPo").addEventListener("click", ()=> setSettingsTab("po"));
+
+async function loadPoSettings(){
+  try { POS.data = await api("po_settings_get"); renderPoSettings(); }
+  catch(e){ $("#poSync").textContent = e.message; }
+}
+async function poCall(action, params, okMsg){
+  try { POS.data = await api(action, params); renderPoSettings(); if (okMsg) toast(okMsg); closeDrawer(); return true; }
+  catch(e){ toast(e.message, true); return false; }
+}
+
+function renderPoSettings(){
+  const d = POS.data;
+  const sy = d.sync || {};
+  const when = sy.last_pulled_at ? new Date(sy.last_pulled_at).toLocaleString("en-GB", { day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" }) : null;
+  const warn = (sy.last_warnings || []);
+  $("#poSync").innerHTML = !when
+    ? `<b>Not picked up yet.</b> <span class="muted">PO Tracker has not collected these settings. Once the tracker is set up to sync, it will take them within ten minutes.</span>`
+    : `${sy.last_ok ? '<span class="pill">Synced</span>' : '<span class="pill off" style="background:var(--alert);color:#fff">Failed</span>'}
+       <span class="muted">PO Tracker last collected these settings on ${esc(when)}.</span>
+       ${sy.last_ok ? "" : `<div style="margin-top:6px">${esc(sy.last_error || "")}</div>`}
+       ${warn.length ? `<div class="muted" style="margin-top:6px;font-size:12.5px">${warn.map(w => "• " + esc(w)).join("<br>")}</div>` : ""}`;
+
+  $("#poRolesTable").innerHTML = `
+    <thead><tr><th>Role</th><th>Spending limit</th><th>Sees</th><th>Can</th><th>People</th></tr></thead>
+    <tbody>${d.roles.map(r => `
+      <tr data-id="${r.id}" style="cursor:pointer">
+        <td class="strong">${esc(r.name)}${r.is_admin ? ' <span class="pill admin">Admin</span>' : ""}<div class="muted" style="font-size:11.5px;font-weight:400">${esc(r.description || "")}</div></td>
+        <td>${fmtGBP(r.spending_limit)}</td>
+        <td class="muted">${esc(r.view_scope)}</td>
+        <td class="muted" style="font-size:12.5px">${d.perms.filter(p => r[p] && p !== "is_admin").map(p => esc(PO_PERM_LABELS[p][0])).join(", ") || "—"}</td>
+        <td>${r.users}</td>
+      </tr>`).join("")}</tbody>`;
+  $$("#poRolesTable tbody tr").forEach(tr => tr.addEventListener("click", ()=> openRoleDrawer(tr.dataset.id)));
+
+  $("#poDeptsTable").innerHTML = `
+    <thead><tr><th>Department</th><th>Monthly budget</th><th>People</th><th></th></tr></thead>
+    <tbody>${d.departments.map(x => `
+      <tr data-id="${x.id}" style="cursor:pointer${x.active ? "" : ";opacity:.55"}">
+        <td class="strong">${esc(x.name)}</td><td>${fmtGBP(x.monthly_budget)}</td><td>${x.users}</td>
+        <td>${x.active ? "" : '<span class="pill off">Retired</span>'}</td>
+      </tr>`).join("")}</tbody>`;
+  $$("#poDeptsTable tbody tr").forEach(tr => tr.addEventListener("click", ()=> openDeptDrawer(tr.dataset.id)));
+
+  $("#poNomsTable").innerHTML = d.nominals.length ? `
+    <thead><tr><th>Code</th><th>Name</th><th>Auto-approve up to</th><th></th></tr></thead>
+    <tbody>${d.nominals.map(n => `
+      <tr data-code="${esc(n.code)}" style="cursor:pointer${n.active ? "" : ";opacity:.55"}">
+        <td class="strong">${esc(n.code)}</td><td>${esc(n.name)}</td><td>${fmtGBP(n.auto_approve_limit)}</td>
+        <td>${n.active ? "" : '<span class="pill off">Retired</span>'}</td>
+      </tr>`).join("")}</tbody>` : `<tr><td style="padding:20px" class="muted">No nominal codes yet.</td></tr>`;
+  $$("#poNomsTable tbody tr").forEach(tr => tr.addEventListener("click", ()=> openNomDrawer(tr.dataset.code)));
+
+  const s = d.settings || {};
+  const num = (k, lo, hi, label) => `<div class="field"><label>${label}</label><input type="number" min="${lo}" max="${hi}" id="pos_${k}" value="${esc(s[k] ?? "")}"></div>`;
+  $("#poEmailForm").innerHTML = `
+    <div class="field"><label>Business name (shown in emails)</label><input id="pos_business_name" value="${esc(s.business_name ?? "")}"></div>
+    <div class="field"><label>Approver emails (comma separated)</label><input id="pos_approver_emails" value="${esc(s.approver_emails ?? "")}"></div>
+    <div class="field"><label>Accounts emails (comma separated)</label><input id="pos_accounts_emails" value="${esc(s.accounts_emails ?? "")}"></div>
+    ${num("approval_reminder_days", 1, 90, "Remind approvers after (days)")}
+    ${num("invoice_reminder_days", 1, 90, "Remind about missing invoices after (days)")}
+    ${num("approval_link_days", 1, 90, "Approval email links last (days)")}
+    ${num("reminder_hour", 0, 23, "Send reminders at (hour, 0–23)")}
+    <button class="btn" id="posSave">Save email settings</button>`;
+  $("#posSave").onclick = ()=> {
+    const keys = ["business_name","approver_emails","accounts_emails","approval_reminder_days","invoice_reminder_days","approval_link_days","reminder_hour"];
+    const settings = Object.fromEntries(keys.map(k => [k, $("#pos_" + k).value]));
+    poCall("po_settings_save", { settings }, "Email settings saved.");
+  };
+}
+
+function openRoleDrawer(id){
+  const d = POS.data;
+  const r = id ? d.roles.find(x => String(x.id) === String(id)) : null;
+  const v = r || { name:"", description:"", spending_limit:null, view_scope:"own", all_nominals:false, any_department:false, nominal_codes:[], users:0 };
+  $("#dTitle").textContent = r ? "Edit role" : "New role";
+  $("#dBody").innerHTML = `
+    <div class="field"><label>Name</label><input id="rName" value="${esc(v.name)}" autocomplete="off"></div>
+    <div class="field"><label>What it's for</label><input id="rDesc" value="${esc(v.description || "")}"></div>
+    <div class="field"><label>Spending limit (£, blank = none)</label><input id="rLimit" type="number" min="0" step="1" value="${v.spending_limit ?? ""}"></div>
+    <div class="field"><label>Orders they can see</label>
+      <select id="rScope">${[["own","Only their own"],["department","Their department's"],["all","Everyone's"]].map(([k,l]) => `<option value="${k}" ${v.view_scope===k?"selected":""}>${l}</option>`).join("")}</select></div>
+    <div class="field"><label>Can do</label><div class="checks">
+      ${d.perms.map(p => `<label><input type="checkbox" class="rPerm" value="${p}" ${v[p]?"checked":""}> ${esc(PO_PERM_LABELS[p][0])}${PO_PERM_LABELS[p][1] ? `<div class="muted" style="font-size:11.5px;font-weight:400;margin-left:24px">${esc(PO_PERM_LABELS[p][1])}</div>` : ""}</label>`).join("")}
+    </div></div>
+    <div class="field"><label>Departments</label><div class="checks"><label><input type="checkbox" id="rAnyDept" ${v.any_department?"checked":""}> Can raise orders for any department</label></div></div>
+    <div class="field"><label>Nominal codes</label><div class="checks">
+      <label><input type="checkbox" id="rAllNoms" ${v.all_nominals?"checked":""}> Every nominal code</label>
+      <div id="rNoms" style="display:${v.all_nominals?"none":"flex"}; flex-direction:column; gap:8px; margin-left:24px">
+        ${d.nominals.map(n => `<label><input type="checkbox" class="rNom" value="${esc(n.code)}" ${v.nominal_codes.includes(n.code)?"checked":""}> ${esc(n.code)} — ${esc(n.name)}</label>`).join("") || '<span class="muted">No nominal codes yet.</span>'}
+      </div>
+    </div></div>
+    ${r ? `<p style="margin:12px 0 0"><button class="btn ghost" id="rDelete" style="color:var(--alert);border-color:var(--alert)">Delete this role</button> <span class="muted" style="font-size:12px">${r.users ? r.users + " person(s) have it" : ""}</span></p>` : ""}`;
+  $("#rAllNoms").onchange = e => { $("#rNoms").style.display = e.target.checked ? "none" : "flex"; };
+  const del = $("#rDelete"); if (del) del.onclick = ()=> { if (confirm(`Delete the role "${r.name}"?`)) poCall("po_role_delete", { id:r.id }, "Role deleted."); };
+  $("#dSave").onclick = ()=> {
+    const p = { id: r ? r.id : undefined, name: $("#rName").value, description: $("#rDesc").value, spending_limit: $("#rLimit").value,
+      view_scope: $("#rScope").value, any_department: $("#rAnyDept").checked, all_nominals: $("#rAllNoms").checked,
+      nominal_codes: $$(".rNom:checked").map(c => c.value) };
+    $$(".rPerm").forEach(c => { p[c.value] = c.checked; });
+    poCall("po_role_save", p, "Role saved.");
+  };
+  $("#veil").classList.add("on"); $("#drawer").classList.add("on");
+}
+
+function openDeptDrawer(id){
+  const x = id ? POS.data.departments.find(d => String(d.id) === String(id)) : null;
+  const v = x || { name:"", monthly_budget:null, active:true, users:0 };
+  $("#dTitle").textContent = x ? "Edit department" : "New department";
+  $("#dBody").innerHTML = `
+    <div class="field"><label>Name</label><input id="dName" value="${esc(v.name)}" autocomplete="off"></div>
+    <div class="field"><label>Monthly budget (£, blank = none)</label><input id="dBudget" type="number" min="0" step="1" value="${v.monthly_budget ?? ""}"></div>
+    <div class="field"><div class="checks"><label><input type="checkbox" id="dActive" ${v.active?"checked":""}> Active</label></div></div>
+    ${x ? `<p style="margin:12px 0 0"><button class="btn ghost" id="dDelete" style="color:var(--alert);border-color:var(--alert)">Delete this department</button> <span class="muted" style="font-size:12px">${x.users ? x.users + " person(s) are in it" : ""}</span></p>` : ""}`;
+  const del = $("#dDelete"); if (del) del.onclick = ()=> { if (confirm(`Delete the department "${x.name}"?`)) poCall("po_dept_delete", { id:x.id }, "Department deleted."); };
+  $("#dSave").onclick = ()=> poCall("po_dept_save", { id: x ? x.id : undefined, name: $("#dName").value, monthly_budget: $("#dBudget").value, active: $("#dActive").checked }, "Department saved.");
+  $("#veil").classList.add("on"); $("#drawer").classList.add("on");
+}
+
+function openNomDrawer(code){
+  const n = code ? POS.data.nominals.find(x => x.code === code) : null;
+  const v = n || { code:"", name:"", auto_approve_limit:0, active:true };
+  $("#dTitle").textContent = n ? "Edit nominal code" : "New nominal code";
+  $("#dBody").innerHTML = `
+    <div class="field"><label>Code${n ? " (cannot be changed)" : ""}</label><input id="nCode" value="${esc(v.code)}" ${n ? "disabled" : ""} autocomplete="off"></div>
+    <div class="field"><label>Name</label><input id="nName" value="${esc(v.name)}"></div>
+    <div class="field"><label>Auto-approve up to (£)</label><input id="nLimit" type="number" min="0" step="1" value="${v.auto_approve_limit ?? 0}"></div>
+    <div class="field"><div class="checks"><label><input type="checkbox" id="nActive" ${v.active?"checked":""}> Active</label></div></div>`;
+  $("#dSave").onclick = ()=> poCall("po_nominal_save", { code: $("#nCode").value, name: $("#nName").value, auto_approve_limit: $("#nLimit").value, active: $("#nActive").checked }, "Nominal code saved.");
+  $("#veil").classList.add("on"); $("#drawer").classList.add("on");
+}
+$("#addRoleBtn").addEventListener("click", ()=> openRoleDrawer(null));
+$("#addDeptBtn").addEventListener("click", ()=> openDeptDrawer(null));
+$("#addNomBtn").addEventListener("click", ()=> openNomDrawer(null));
 
 /* ---- profiles table ---- */
 function renderProfiles(){
@@ -1056,14 +1243,8 @@ function openProfileDrawer(key){
 /* The tile tick-boxes (with their tabs, can-edit and PO Tracker fields),
    from a list of grants. Shared by the user and profile drawers. */
 function portalBlocksHtml(grants, showPo, email){
-  const PO_PROFILES = [
-    ["Staff", "Raises orders, sees only their own orders, own department only."],
-    ["Head of Department", "As Staff, plus sees all orders in their department and can manage suppliers."],
-    ["Accounts", "Sees all orders, uploads invoices, processes orders into Xero, manages suppliers."],
-    ["Manager", "Sees all orders, approves/rejects orders, accepts invoice variances, edits approved orders, manages suppliers."],
-    ["Administrator", "Everything, including PO Tracker settings. Their own orders never need approval."],
-  ];
-  const PO_DEPARTMENTS = ["Admin","FOH","Kitchen","Maintenance","Rooms","Weddings"];
+  const PO_ROLES = S.poRoles || [];
+  const PO_DEPARTMENTS = S.poDepartments || [];
   const isGm = String(email || "").toLowerCase() === "gm@blackhorsebeamish.co.uk";
 
   const portalBlocks = S.apps.map(a => {
@@ -1082,11 +1263,11 @@ function portalBlocksHtml(grants, showPo, email){
         <label>PO Tracker role</label>
         <select class="poProfile">
           <option value="">— choose a role —</option>
-          ${PO_PROFILES.filter(([name]) => !isGm || name === "Administrator").map(([name]) => `<option value="${esc(name)}" ${po.profile===name?"selected":""}>${esc(name)}</option>`).join("")}
+          ${PO_ROLES.filter(r => !isGm || r.is_admin).map(r => `<option value="${esc(r.name)}" ${po.profile===r.name?"selected":""}>${esc(r.name)}</option>`).join("")}
         </select>
         <div class="hint" style="font-size:11.5px; color:var(--sage-70); margin-top:6px; line-height:1.5">
-          Leave unset and PO Tracker keeps whatever role this person already has there (a person with no PO Tracker account yet needs one set).<br>
-          ${PO_PROFILES.map(([name,desc]) => `<div><b>${esc(name)}</b> — ${esc(desc)}</div>`).join("")}
+          Leave unset and PO Tracker keeps whatever role this person already has there (a person with no PO Tracker account yet needs one set). Roles are edited under Settings &rarr; PO Tracker.<br>
+          ${PO_ROLES.map(r => `<div><b>${esc(r.name)}</b>${r.description ? " — " + esc(r.description) : ""}</div>`).join("")}
         </div>
       </div>
       <div class="field" style="margin-bottom:10px">
