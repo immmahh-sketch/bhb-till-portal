@@ -641,7 +641,7 @@ details summary::-webkit-details-marker{color:var(--sage-70)}
         <button data-view="overview" aria-current="page" data-group="overview,cal,tot">Overview</button>
         <button data-view="weddings" data-group="weddings,usage,add,bulk">Wedding App</button>
         <button data-view="outstanding" data-group="outstanding,reconcile">Payments <span id="recBadge"></span></button>
-        <button data-view="todo" data-group="todo,enq,bonus">Trackers</button>
+        <button data-view="todo" data-group="todo,enq,bonus,showrounds">Trackers</button>
         <button data-view="tickets" data-group="tickets">Ticket sales</button>
       </nav>
     </div>
@@ -1182,7 +1182,7 @@ var NAV_GROUPS = [
   { items:[["overview","Overview"],["cal","Calendar"],["tot","Year totals"]] },
   { items:[["weddings","Registered Weddings"],["usage","App Usage"],["add","Add a wedding"]] },
   { items:[["outstanding","Outstanding"],["reconcile","Payments to post"]] },
-  { items:[["todo","To Do"],["enq","Enquiries"],["bonus","Bonus"]] },
+  { items:[["todo","To Do"],["enq","Enquiries"],["showrounds","Show-rounds"],["bonus","Bonus"]] },
 ];
 function groupSubnavFor(view){
   var v = view === "bulk" ? "add" : view;
@@ -1222,6 +1222,7 @@ function render(){
     case "add":         v.innerHTML = viewAdd(); break;
     case "bulk":        v.innerHTML = viewBulk(); break;
     case "bonus":       v.innerHTML = '<div class="empty"><span class="spin"></span></div>'; loadBonus(); break;
+    case "showrounds":  v.innerHTML = '<div class="empty"><span class="spin"></span></div>'; loadShowrounds(); break;
     case "tickets":     v.innerHTML = '<div class="empty"><span class="spin"></span>' +
                           '<p style="margin-top:14px">Reading ticket sales…</p></div>';
                         loadTickets(); break;
@@ -1574,6 +1575,105 @@ function tkCsv(){
   a.href = URL.createObjectURL(new Blob(["\ufeff" + csv], { type:"text/csv" }));
   a.download = "ticket-sales-" + TK.tab + "-" + new Date().toISOString().slice(0, 10) + ".csv";
   document.body.appendChild(a); a.click(); a.remove();
+}
+
+/* ============================ CALENDLY SHOW-ROUNDS ============================
+   Every tour booked through Calendly (Wedding Tour and Event Show around),
+   upcoming and past, with everything Calendly told us. Rows are kept by the
+   calendly-webhook function; click one to open it. */
+var SR = { rows:null, tab:"upcoming", open:null };
+
+async function loadShowrounds(){
+  try {
+    var d = await call("showrounds.list");
+    if (!stillWanted("showrounds")) return;
+    SR.rows = d.rows || []; clearErr();
+    $("views").innerHTML = viewShowrounds();
+  } catch (e) {
+    if (stillWanted("showrounds")) { $("views").innerHTML = ""; showErr(e.message); }
+  }
+}
+
+function srSetTab(t){ SR.tab = t; SR.open = null; $("views").innerHTML = viewShowrounds(); }
+function srToggle(id){ SR.open = SR.open === id ? null : id; $("views").innerHTML = viewShowrounds(); }
+
+function srDay(iso){
+  return iso ? new Intl.DateTimeFormat("en-GB", { weekday:"short", day:"numeric", month:"short", year:"numeric", timeZone:"Europe/London" }).format(new Date(iso)) : "";
+}
+function srTime(iso){
+  return iso ? new Intl.DateTimeFormat("en-GB", { hour:"2-digit", minute:"2-digit", timeZone:"Europe/London" }).format(new Date(iso)) : "";
+}
+
+function srRows(){
+  var cut = Date.now() - 2 * 3600 * 1000, up = SR.tab === "upcoming";
+  var rows = (SR.rows || []).filter(function(r){
+    var t = r.start_time ? new Date(r.start_time).getTime() : 0;
+    return up ? t >= cut : t < cut;
+  });
+  rows.sort(function(a, b){
+    var x = new Date(a.start_time || 0).getTime(), y = new Date(b.start_time || 0).getTime();
+    return up ? x - y : y - x;
+  });
+  return rows;
+}
+
+function srDetail(r){
+  var row = function(k, v){ return v ? '<dt>' + k + '</dt><dd>' + v + '</dd>' : ''; };
+  var loc = r.location || {};
+  var where = loc.location || loc.join_url || loc.type || "";
+  var h = '<dl style="display:grid;grid-template-columns:150px 1fr;gap:5px 14px;margin:0">' +
+    row("Name", esc(r.invitee_name || "")) +
+    row("Email", r.email ? '<a href="mailto:' + esc(r.email) + '">' + esc(r.email) + '</a>' : "") +
+    row("Telephone", r.phone ? '<a href="tel:' + esc(String(r.phone).replace(/\s+/g, "")) + '">' + esc(r.phone) + '</a>' : "") +
+    row("Tour", esc(r.event_name || "")) +
+    row("When", esc(srDay(r.start_time) + ", " + srTime(r.start_time) + (r.end_time ? "-" + srTime(r.end_time) : ""))) +
+    row("Where", esc(where)) +
+    row("Booked", r.booked_at ? esc(tkBooked(r.booked_at)) : "") +
+    row("Status", r.status === "canceled"
+      ? 'Cancelled' + (r.canceled_at ? ' ' + esc(tkBooked(r.canceled_at)) : '') + (r.canceler ? ' by the ' + esc(r.canceler) : '')
+      : 'Booked') +
+    row("Cancel reason", esc(r.cancel_reason || "")) +
+    row("On the tracker", r.enquiry_id ? 'Yes - see Enquiries' : '<span class="muted">Not on the enquiries tracker</span>') +
+    '</dl>';
+  var qa = Array.isArray(r.questions) ? r.questions.filter(function(x){ return x && String(x.answer || "").trim(); }) : [];
+  if (qa.length) {
+    h += '<h4 style="margin:16px 0 6px;font-size:.75rem;letter-spacing:.08em;text-transform:uppercase;color:var(--sage-70)">Their answers</h4>' +
+      '<dl style="display:grid;grid-template-columns:150px 1fr;gap:5px 14px;margin:0">' +
+      qa.map(function(x){ return '<dt>' + esc(x.question || "") + '</dt><dd style="margin:0;white-space:pre-wrap">' + esc(x.answer) + '</dd>'; }).join("") + '</dl>';
+  }
+  var links = [];
+  if (r.reschedule_url && r.status !== "canceled") links.push('<a href="' + esc(r.reschedule_url) + '" target="_blank" rel="noopener">Reschedule</a>');
+  if (r.cancel_url && r.status !== "canceled") links.push('<a href="' + esc(r.cancel_url) + '" target="_blank" rel="noopener">Cancel</a>');
+  if (links.length) h += '<p style="margin:14px 0 0">' + links.join(' &middot; ') + '</p>';
+  return h;
+}
+
+function viewShowrounds(){
+  var up = SR.tab === "upcoming", rows = srRows();
+  var all = SR.rows || [];
+  var h = '<div class="split" style="margin-bottom:6px"><h1>Calendly show-rounds</h1></div>' +
+    '<p class="muted" style="margin:0 0 12px">Tours booked at calendly.com/bookaviewing (Wedding Tour and Event Show around). ' +
+    'Click a line for the full booking.</p>' +
+    '<div class="subnav" style="margin-top:0">' +
+    '<button class="btn btn--sm' + (up ? ' on' : '') + '" onclick="srSetTab(\'upcoming\')">Upcoming</button>' +
+    '<button class="btn btn--sm' + (up ? '' : ' on') + '" onclick="srSetTab(\'past\')">Past</button></div>';
+  if (!rows.length) {
+    return h + '<div class="card empty">' + (all.length
+      ? (up ? 'No upcoming show-rounds.' : 'No past show-rounds.')
+      : 'Nothing recorded yet. New Calendly bookings appear here as they are made.') + '</div>';
+  }
+  h += '<div class="card card--flush"><div style="overflow-x:auto"><table><thead><tr><th>Date</th><th>Time</th><th>Name</th><th>Tour</th><th></th></tr></thead><tbody>';
+  rows.forEach(function(r){
+    var gone = r.status === "canceled", isOpen = SR.open === r.invitee_uri;
+    h += '<tr style="cursor:pointer' + (gone ? ';opacity:.6' : '') + '" onclick="srToggle(\'' + esc(r.invitee_uri) + '\')">' +
+      '<td><span style="color:var(--sage-70)">' + (isOpen ? '&#9662;' : '&#9656;') + '</span> ' + esc(srDay(r.start_time)) + '</td>' +
+      '<td>' + esc(srTime(r.start_time)) + '</td>' +
+      '<td>' + esc(r.invitee_name || r.email || "") + '</td>' +
+      '<td>' + esc(r.event_name || "") + '</td>' +
+      '<td>' + (gone ? '<span class="pill pill--late">Cancelled</span>' : '') + '</td></tr>';
+    if (isOpen) h += '<tr><td colspan="5" style="background:var(--bone)">' + srDetail(r) + '</td></tr>';
+  });
+  return h + '</tbody></table></div></div>';
 }
 
 /* ============================ OVERVIEW / FORWARD BOOK ============================ */
