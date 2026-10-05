@@ -189,11 +189,13 @@ table.tk tr.det td{background:var(--bone)}
     <button class="tabbtn" data-view="mine">My actions<span class="badge" id="b_mine" hidden></span></button>
     <button class="tabbtn" data-view="tickets">Ticket sales</button>
     <button class="tabbtn" data-view="chat">Chat<span class="badge" id="b_chat" hidden></span></button>
+    <button class="tabbtn" data-view="files">File share<span class="badge" id="b_files" hidden></span></button>
   </div></nav>
   <div class="shell"><div id="views"></div></div>
 </div>
 <div id="modalroot"></div>
 <div class="toast" id="toast"></div>
+<script src="../shared/fileshare.js?v=1"></script>
 <script>
 const CFG = { SUPABASE_URL:"https://safcrtrfdzsnftghibot.supabase.co", SUPABASE_KEY:"sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU" };
 const STATUSES = [["outstanding","Outstanding"],["in_progress","In Progress"],["completed","Completed"],["parked","Parked"]];
@@ -645,16 +647,26 @@ function attachMentions(ta){
   ta.addEventListener("blur", () => setTimeout(hide, 150));
 }
 
+/* ============================================================ file share */
+const fsCall = (action, payload) => post("file-share-api", { action, staff_email: staffEmail(), app_key: "marketing-actions", ...(payload || {}) });
+let fsHandle = null;
+function viewFiles(){
+  $("#views").innerHTML = `<div class="pagehead"><h2>File share</h2><span class="hint">Send a file to people in the team. They see it here and can download it.</span></div><div id="fsmount"></div>`;
+  fsHandle = FileShare.mount($("#fsmount"), { call: fsCall, toast, onUnread: n => setBadge("#b_files", n) });
+}
+function fsStop(){ if (fsHandle) { fsHandle.unmount(); fsHandle = null; } }
+
 /* ============================================================ shell */
 function setBadge(sel, n){ const b = $(sel); if (!b) return; b.hidden = !n; b.textContent = n || ""; }
 async function refreshBadges(){
   try { const d = await call("bootstrap"); setBadge("#b_mine", d.myOpen); setBadge("#b_chat", d.chatTagged); } catch(e){}
+  try { setBadge("#b_files", (await fsCall("bootstrap")).unread); } catch(e){}
 }
 function markTab(){ $$(".tabbtn").forEach(b => b.setAttribute("aria-current", b.dataset.view === S.view ? "page" : "false")); }
 function goView(v){
-  chatStop(); tkStop();
+  chatStop(); tkStop(); fsStop();
   S.view = v; markTab(); closeModal();
-  if (v === "plan") viewPlan(); else if (v === "mine") viewMine(); else if (v === "tickets") viewTickets(); else viewChat();
+  if (v === "plan") viewPlan(); else if (v === "mine") viewMine(); else if (v === "tickets") viewTickets(); else if (v === "files") viewFiles(); else viewChat();
   window.scrollTo(0, 0);
 }
 function openGate(msg){ $("#gate").hidden = false; $("#app").hidden = true; if (msg) $("#gerr").textContent = msg; }
