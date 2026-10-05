@@ -298,6 +298,7 @@ table.grid td.num{text-align:right; font-variant-numeric:tabular-nums}
      Deno-side binary spreadsheet parsing precedent anywhere on this
      stack, and the browser already does this well. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="docscan.js"></script>
 <script>
 /* ==================================================================
    Financial Reporting
@@ -1135,7 +1136,14 @@ function viewPettyCashEntry(){
       <div class="field"><label>Description (optional)</label><input type="text" id="pc_desc"></div>
       <div class="row">
         <div class="field"><label>Staff</label><select id="pc_staff">${staffOptions()}</select></div>
-        <div class="field"><label>Receipt kept?</label><input type="checkbox" id="pc_receipt"></div>
+      </div>
+      <div class="field">
+        <label>Receipt</label>
+        <input type="file" id="pc_file" accept="image/*" capture="environment" data-scan="receipt" hidden>
+        <div class="receipt-box" id="pc_rbox">
+          <button type="button" class="btn ghost" id="pc_scan">Scan the receipt</button>
+          <span class="muted" style="font-size:12px">Lay it flat - it is straightened and saved as a black and white copy against this entry.</span>
+        </div>
       </div>
     </div>
     <button class="btn" id="pc_save">Save entry</button>`;
@@ -1144,22 +1152,61 @@ async function wirePettyCashEntry(){
   await ensurePettyCategories();
   $("#pc_category").innerHTML = categoryOptions();
   $("#pc_save").addEventListener("click", savePettyCash);
+  const file = $("#pc_file");
+  $("#pc_scan").addEventListener("click", ()=> file.click());
+  file.addEventListener("change", showPettyReceipt);
+  file.addEventListener("ds-cancel", showPettyReceipt);
+}
+function showPettyReceipt(){
+  const f = $("#pc_file").files[0], box = $("#pc_rbox");
+  if (box.dataset.url) { URL.revokeObjectURL(box.dataset.url); box.dataset.url = ""; }
+  if (!f){
+    box.innerHTML = `<button type="button" class="btn ghost" id="pc_scan">Scan the receipt</button>
+      <span class="muted" style="font-size:12px">Lay it flat - it is straightened and saved as a black and white copy against this entry.</span>`;
+    $("#pc_scan").addEventListener("click", ()=> $("#pc_file").click());
+    return;
+  }
+  const url = URL.createObjectURL(f); box.dataset.url = url;
+  box.innerHTML = `<a href="${url}" target="_blank" rel="noopener"><img src="${url}" alt="Scanned receipt" style="height:84px;border:1px solid var(--line,#ddd);border-radius:6px;vertical-align:middle"></a>
+    <span class="checkpill done">Receipt scanned</span>
+    <button type="button" class="btn ghost" id="pc_rescan">Scan again</button>
+    <button type="button" class="btn ghost" id="pc_rdel">Remove</button>`;
+  $("#pc_rescan").addEventListener("click", ()=> $("#pc_file").click());
+  $("#pc_rdel").addEventListener("click", ()=>{ $("#pc_file").value = ""; showPettyReceipt(); });
+}
+async function putReceipt(url, file){
+  const r = await fetch(url, { method:"PUT", headers:{ "Content-Type": file.type || "image/png", "x-upsert":"true" }, body: file });
+  if (!r.ok) throw new Error("upload " + r.status);
 }
 async function savePettyCash(){
   const btn = $("#pc_save");
   const payload = {
     business_date: $("#pc_date").value, category_key: $("#pc_category").value,
     description: $("#pc_desc").value, amount: $("#pc_amount").value,
-    has_receipt: $("#pc_receipt").checked, staff_name: $("#pc_staff").value,
+    staff_name: $("#pc_staff").value,
   };
   if (!payload.category_key){ toast("Pick a category.", true); return; }
+  const receipt = $("#pc_file").files[0] || null;
+  if (!receipt && !confirm("No receipt scanned. Save this entry without one?")) return;
+  if (receipt){ payload.with_receipt = true; payload.receipt_ext = /jpe?g/i.test(receipt.type) ? "jpg" : "png"; }
   btn.disabled = true; btn.textContent = "Saving…";
   try {
-    await call("pettycash.save", payload);
-    toast("Saved - thank you.");
+    const saved = await call("pettycash.save", payload);
+    if (receipt){
+      btn.textContent = "Uploading receipt…";
+      let url = saved.receipt_upload_url, ok = false;
+      for (let i = 0; i < 3 && !ok; i++){
+        try {
+          if (!url) url = (await call("pettycash.receipt_sign", { id: saved.entry.id })).receipt_upload_url;
+          await putReceipt(url, receipt); ok = true;
+        } catch(e) { url = null; }
+      }
+      if (!ok) toast("Entry saved, but the receipt did not upload. Please tell the GM - keep the paper receipt.", true);
+      else toast("Saved with receipt - thank you.");
+    } else toast("Saved - thank you.");
     if (VIEW === "pettycash") {
       // Kiosk: clear the form for the next entry and refresh today's list.
-      $("#pc_amount").value = "0"; $("#pc_desc").value = ""; $("#pc_receipt").checked = false;
+      $("#pc_amount").value = "0"; $("#pc_desc").value = ""; $("#pc_file").value = ""; showPettyReceipt();
       refreshKioskChecklist("pettycash");
     } else {
       goView("pettycash-history");
@@ -1208,7 +1255,7 @@ async function loadPettyCashHistory(){
       <thead><tr><th>Date</th><th>Category</th><th>Description</th><th class="num">Amount</th><th>Receipt</th><th>Staff</th><th class="num">Balance</th></tr></thead>
       <tbody>${S.lastPettyCash.map(r => `<tr>
         <td class="strong">${ukDate(r.business_date)}</td><td>${esc(categoryLabel(r.category_key))}</td><td>${esc(r.description||"")}</td>
-        <td class="num">${money(r.amount)}</td><td>${r.has_receipt?"Yes":"No"}</td><td>${esc(r.staff_name||"")}</td>
+        <td class="num">${money(r.amount)}</td><td>${r.receipt_url?`<a href="${esc(r.receipt_url)}" target="_blank" rel="noopener">View receipt</a>`:(r.has_receipt?"Yes (paper)":"No")}</td><td>${esc(r.staff_name||"")}</td>
         <td class="num">${money(r.balance_after)}</td>
       </tr>`).join("")}</tbody>`;
   } catch(e) { $("#pch_table").innerHTML = `<tr><td class="empty">${esc(e.message)}</td></tr>`; }
