@@ -572,10 +572,14 @@ function monthRow(r, isLastActual){
 function coversCell(r){
   const side = r.has_actual ? "actual" : "forecast";
   const g = k => r[`${k}_${side}`];
-  const parts = [["B", g("breakfast_covers")], ["L", g("covers_lunch")], ["D", g("covers_dinner")]]
-    .filter(([,v]) => v !== null && v !== undefined);
+  // A finished day's lunch / dinner cells in the workbook are often empty, so fall back to the covers ResDiary had booked
+  // for that day (from the Archive); those show with a dotted underline and a tooltip.
+  const booked = (actual, k) => (actual === null || actual === undefined) && r.has_actual && r[`${k}_booked`] !== null && r[`${k}_booked`] !== undefined
+    ? { v: r[`${k}_booked`], b: true } : { v: actual, b: false };
+  const parts = [["B", { v: g("breakfast_covers"), b: false }], ["L", booked(g("covers_lunch"), "covers_lunch")], ["D", booked(g("covers_dinner"), "covers_dinner")]]
+    .filter(([,x]) => x.v !== null && x.v !== undefined);
   if (!parts.length) return "—";
-  return parts.map(([l,v]) => `${l}&nbsp;${num(v)}`).join(" · ");
+  return parts.map(([l,x]) => x.b ? `${l}&nbsp;<span title="Booked in ResDiary" style="border-bottom:1px dotted currentColor">${num(x.v)}</span>` : `${l}&nbsp;${num(x.v)}`).join(" · ");
 }
 
 function renderMonthTable(d){
