@@ -71,7 +71,8 @@
   }
 
   // Cut the file into the planned parts and send four at a time, retrying each part.
-  async function sendParts(plan, file, onProgress) {
+  const CORS_HINT = "This website can't reach the file store. The storage needs https://app.blackhorsebeamish.co.uk added to its allowed websites (Cloudflare R2, bucket CORS). Ask the administrator.";
+  async function sendParts(plan, file, onProgress, onRetry) {
     const size = file.size, count = plan.urls.length;
     const sent = new Array(count).fill(0), parts = [];
     const report = () => onProgress(Math.min(1, sent.reduce((a, b) => a + b, 0) / size));
@@ -86,7 +87,10 @@
           sent[i] = blob.size; report(); parts.push({ n: i + 1, etag }); return;
         } catch (e) {
           sent[i] = 0; report();
+          // A refused connection before any part has gone through means the site is not allowed to upload (CORS).
+          if (!parts.length && e.message === 'connection lost' && attempt >= 2) throw new Error(CORS_HINT);
           if (attempt >= 5) throw e;
+          if (onRetry) onRetry(attempt);
           await wait(1000 * attempt * attempt);
         }
       }
@@ -100,7 +104,7 @@
   function mount(el, opts) {
     if (!document.getElementById('fs-css')) { const s = document.createElement('style'); s.id = 'fs-css'; s.textContent = CSS; document.head.appendChild(s); }
     const call = opts.call;
-    const st = { me: null, people: [], files: [], chosen: new Set(), note: '', inbox: [], sent: [], ready: true, keepDays: 7, maxBytes: 0, busy: false, progress: null, msg: '' };
+    const st = { me: null, people: [], files: [], chosen: new Set(), note: '', inbox: [], sent: [], ready: true, keepDays: 7, maxBytes: 0, busy: false, progress: null, err: '' };
     let timer = null, dead = false;
 
     const toast = (m, bad) => { if (opts.toast) opts.toast(m, bad); };
@@ -140,6 +144,7 @@
             ${st.people.length ? `<div class="who">${st.people.map(p => `<label><input type="checkbox" data-to="${esc(p.email)}"${st.chosen.has(p.email) ? ' checked' : ''}${st.busy ? ' disabled' : ''}>${esc(p.name)}</label>`).join('')}</div>
             <div class="quick"><a data-all="1">Everyone</a><a data-all="0">No one</a></div>` : `<div class="muted">No one else has this tile yet.</div>`}</div>
           <div class="field"><label>Message (optional)</label><input id="fs_note" maxlength="500" placeholder="e.g. Latest menu, please check the prices"${st.busy ? ' disabled' : ''}></div>
+          ${st.err ? `<div style="background:var(--alert-bg,#F6EAE8);color:var(--alert,#8C4A3F);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:14px">${esc(st.err)}</div>` : ''}
           ${st.progress ? `<div class="muted" style="font-size:13px">${esc(st.progress.label)}</div><div class="prog"><i style="width:${Math.round(st.progress.pct * 100)}%"></i></div>` : ''}
           <button class="btn" id="fs_send"${st.busy || !st.files.length ? ' disabled' : ''}>${st.busy ? 'Sending…' : 'Send'}</button>
         </div>
@@ -196,6 +201,7 @@
       if (!st.files.length) return;
       if (!st.chosen.size) return toast('Choose who to send it to.', true);
       const to = Array.from(st.chosen), files = st.files.slice(), total = files.length;
+      st.err = '';
       st.busy = true; uploading++; render();
       let done = 0;
       try {
@@ -208,6 +214,9 @@
               st.progress = { label: 'Uploading ' + label + ' (' + Math.round(pct * 100) + '%)', pct };
               const bar = el.querySelector('.prog i'); if (bar) bar.style.width = Math.round(pct * 100) + '%';
               const lab = bar && bar.parentElement.previousElementSibling; if (lab) lab.textContent = st.progress.label;
+            }, attempt => {
+              st.progress = { label: 'Connection problem, trying again (' + attempt + ' of 4)...', pct: st.progress ? st.progress.pct : 0 };
+              const bar = el.querySelector('.prog i'); const lab = bar && bar.parentElement.previousElementSibling; if (lab) lab.textContent = st.progress.label;
             });
             st.progress = { label: 'Finishing ' + file.name, pct: 1 };
             await call('upload.complete', { id: plan.id, uploadId: plan.uploadId, ticket: plan.ticket, parts });
@@ -219,7 +228,7 @@
         }
         toast(total === 1 ? 'Sent.' : total + ' files sent.');
         st.chosen = new Set(); st.note = '';
-      } catch (e) { toast(e.message || 'The upload failed.', true); }
+      } catch (e) { st.err = e.message || 'The upload failed.'; toast(st.err, true); }
       st.busy = false; uploading--; st.progress = null;
       await refresh(false); render();
     }
