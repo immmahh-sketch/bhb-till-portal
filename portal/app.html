@@ -227,6 +227,7 @@ table.grid td{padding:10px 12px; border-top:1px solid var(--mist); vertical-alig
 .pill.admin{background:var(--attention-bg); color:var(--attention)}
 .pill.off{background:var(--mist); color:var(--sage-70)}
 .btn:disabled{opacity:.45; cursor:not-allowed}
+.dotbadge{display:inline-block; min-width:16px; padding:0 4px; margin-left:6px; border-radius:99px; background:var(--gold,#C9A56B); color:var(--ink); font-size:10px; line-height:16px; text-align:center; font-weight:700; vertical-align:middle}
 
 /* ============================================================ drawer (user edit) */
 #veil{position:fixed; inset:0; background:rgba(38,38,38,.45); z-index:80; display:none}
@@ -375,6 +376,7 @@ table.grid td{padding:10px 12px; border-top:1px solid var(--mist); vertical-alig
         <input type="file" id="csvUsersFile" accept=".csv,text/csv" style="display:none">
         <button class="btn" id="addUserBtn">Add user</button>
       </div>
+      <div id="plBox"></div>
       <div class="card"><div style="overflow-x:auto"><table class="grid" id="usersTable"></table></div></div>
       <div class="pagehead" style="margin-top:28px">
         <h2>Profiles</h2>
@@ -550,6 +552,7 @@ function enterApp(){
   renderTiles();
   renderNav();
   if (S.user.role !== "admin") $("#page-settings").remove();
+  else plCheck(true);
 }
 
 function iconFor(k){
@@ -632,7 +635,7 @@ function renderNav(){
     </button>
   `).join("");
   const settingsItem = S.user && S.user.role==="admin"
-    ? `<button class="nitem" data-goto="settings"><span class="dot" style="background:#8C4A3F"></span>Settings</button>`
+    ? `<button class="nitem" data-goto="settings"><span class="dot" style="background:#8C4A3F"></span>Settings${S.plNew ? `<span class="dotbadge">${S.plNew}</span>` : ""}</button>`
     : "";
   $("#navList").innerHTML = `
     <button class="nitem" data-goto="landing"><span class="dot" style="background:#7B887C"></span>All Portals</button>
@@ -875,19 +878,30 @@ async function loadUsers(){
     const d = await api("list_users");
     S.users = d.users; S.apps = d.apps; S.tabCatalogue = d.tabCatalogue || []; S.profiles = d.profiles || [];
     S.poRoles = d.poRoles || []; S.poDepartments = d.poDepartments || [];
+    renderUsersTable();
+    renderPlanday();
+    loadPlanday(false).then(() => { renderUsersTable(); renderPlanday(); plBadgeRefresh(); });
+  }catch(e){
+    $("#usersTable").innerHTML = `<tr><td style="padding:20px">${esc(e.message)}</td></tr>`;
+  }
+}
+const plFor = u => (S.pl && S.pl.by_email && S.pl.by_email[String(u.email).toLowerCase()]) || null;
+function renderUsersTable(){
+  try{
     $("#usersTable").innerHTML = `
-      <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Profile</th><th>Portals</th><th>Last login</th><th></th></tr></thead>
+      <thead><tr><th>Name</th><th>Email</th><th>Job title (Planday)</th><th>Role</th><th>Profile</th><th>Portals</th><th>Last login</th><th></th></tr></thead>
       <tbody>
-        ${S.users.map(u => `
+        ${S.users.map(u => { const pl = plFor(u); return `
           <tr data-id="${u.id}" style="cursor:pointer">
             <td class="strong">${esc(u.display_name)}</td>
             <td>${esc(u.email)}</td>
+            <td>${pl ? esc(plTitle(pl)) + (pl.planday_active === false ? ' <span class="pill off" title="No longer an active employee in Planday - check whether they should still have access">Left Planday</span>' : "") : `<span class="muted">${S.pl && S.pl.configured ? "Not in Planday" : "—"}</span>`}</td>
             <td>${u.role==="admin" ? '<span class="pill admin">Admin</span>' : '<span class="pill">Staff</span>'}</td>
             <td class="muted">${esc(profileLabel(u.profile_key))}</td>
             <td>${u.apps.length} of ${S.apps.length}</td>
             <td>${u.last_login_at ? new Date(u.last_login_at).toLocaleDateString('en-GB') : '<span class="muted">Never</span>'}</td>
             <td style="white-space:nowrap">${u.active ? '' : '<span class="pill off">Inactive</span> '}${u.active ? `<button class="btn ghost reinvite" data-id="${u.id}" style="padding:5px 10px;font-size:11px" title="Send ${esc(u.display_name)} a fresh set-your-password email">${u.last_login_at ? "Reset link" : "Re-invite"}</button>` : ''}</td>
-          </tr>`).join("")}
+          </tr>`; }).join("")}
       </tbody>`;
     $$("#usersTable tbody tr").forEach(tr => tr.addEventListener("click", ()=> openUserDrawer(tr.dataset.id)));
     $$("#usersTable .reinvite").forEach(b => b.addEventListener("click", async ev => {
@@ -902,6 +916,73 @@ async function loadUsers(){
     $("#usersTable").innerHTML = `<tr><td style="padding:20px">${esc(e.message)}</td></tr>`;
   }
 }
+/* ---- Staff from Planday: who is not a portal user yet ---- */
+async function loadPlanday(force){
+  try {
+    S.pl = await api("planday_staff", { force: !!force });
+  } catch(e) {
+    if (/Unknown action/i.test(e.message)) { S.pl = { configured: false, pending: [], dismissed: [], by_email: {} }; S.plNew = 0; return S.pl; }
+    S.pl = { configured: true, error: e.message, pending: (S.pl && S.pl.pending) || [], dismissed: (S.pl && S.pl.dismissed) || [], by_email: (S.pl && S.pl.by_email) || {} };
+  }
+  S.plNew = S.pl.configured ? (S.pl.pending || []).length : 0;
+  return S.pl;
+}
+function plBadgeRefresh(){
+  const b = $("#hamBtn"); if (b) b.innerHTML = "&#9776;" + (S.plNew ? `<span class="dotbadge">${S.plNew}</span>` : "");
+  if (typeof renderNav === "function") renderNav();
+}
+async function plCheck(announce){
+  await loadPlanday(false);
+  plBadgeRefresh();
+  if (announce && S.plNew) toast(`${S.plNew} ${S.plNew === 1 ? "person" : "people"} in Planday ${S.plNew === 1 ? "isn't" : "aren't"} in the portal yet. See Settings.`);
+}
+const plTitle = p => (p.job_titles && p.job_titles.length ? p.job_titles.join(", ") : "—");
+function renderPlanday(){
+  const box = $("#plBox"); if (!box) return;
+  const d = S.pl;
+  if (!d) { box.innerHTML = ""; return; }
+  if (!d.configured) {
+    box.innerHTML = `<div class="card" style="padding:14px 16px; margin-bottom:18px"><b>Planday</b> <span class="muted">isn't connected yet. Once the Planday App ID and token are saved on the server, new staff will be listed here to review and invite.</span></div>`;
+    return;
+  }
+  const when = d.synced_at ? new Date(d.synced_at).toLocaleString("en-GB", { day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" }) : "not yet";
+  const rows = (d.pending || []).map(p => `<tr>
+      <td class="strong">${esc(p.name)}</td>
+      <td>${p.has_email ? esc(p.email) : '<span class="muted">No email in Planday</span>'}</td>
+      <td>${esc(plTitle(p))}</td><td class="muted">${esc((p.departments || []).join(", ") || "—")}</td>
+      <td style="white-space:nowrap; text-align:right"><button class="btn" data-plinvite="${p.planday_id}" style="padding:6px 12px; font-size:12px">Add &amp; invite</button>
+        <button class="btn ghost" data-pldismiss="${p.planday_id}" style="padding:6px 12px; font-size:12px" title="Take them off this list, and don't offer them again">Remove from list</button></td></tr>`).join("");
+  const gone = (d.dismissed || []).map(p => `<tr><td class="strong">${esc(p.name)}</td><td>${esc(p.email || "—")}</td><td>${esc(plTitle(p))}</td>
+      <td class="muted">${p.dismissed_by ? "removed by " + esc(p.dismissed_by) : ""}</td><td style="text-align:right"><button class="btn ghost" data-plrestore="${p.planday_id}" style="padding:6px 12px; font-size:12px">Put back</button></td></tr>`).join("");
+  box.innerHTML = `
+    <div class="pagehead" style="margin-top:0"><h2>New from Planday${d.pending.length ? ` <span class="pill admin" style="vertical-align:middle">${d.pending.length}</span>` : ""}</h2><div class="spacer2"></div>
+      <span class="muted" style="font-size:12px">Checked ${esc(when)}</span><button class="btn ghost" id="plCheckNow">Check now</button></div>
+    ${d.error ? `<div class="notice" style="background:var(--alert-bg); color:var(--alert); border-radius:8px; padding:10px 14px; margin-bottom:10px">Couldn't reach Planday just now: ${esc(String(d.error).replace(/\.+$/, ''))}. Showing the list as it was last checked.</div>` : ""}
+    <div class="card"><div style="overflow-x:auto">${d.pending.length ? `<table class="grid"><thead><tr><th>Name</th><th>Email</th><th>Job title</th><th>Department</th><th></th></tr></thead><tbody>${rows}</tbody></table>`
+      : `<div style="padding:18px; color:var(--sage-70)">Everyone in Planday is already a portal user, or has been removed from this list.</div>`}</div></div>
+    ${d.dismissed.length ? `<details style="margin:0 0 22px"><summary class="muted" style="cursor:pointer; font-size:13px">Removed from the list (${d.dismissed.length})</summary>
+      <div class="card" style="margin-top:8px"><div style="overflow-x:auto"><table class="grid"><tbody>${gone}</tbody></table></div></div></details>` : ""}
+    <div class="pagehead" style="margin-top:6px"><h2>Portal users</h2></div>`;
+  $("#plCheckNow").onclick = async e => {
+    e.target.disabled = true; e.target.textContent = "Checking…";
+    await loadPlanday(true); plBadgeRefresh(); renderPlanday(); renderUsersTable();
+    toast(S.pl.error ? "Couldn't reach Planday." : (S.plNew ? `${S.plNew} not in the portal yet.` : "Everyone is accounted for."), !!S.pl.error);
+  };
+  box.querySelectorAll("[data-plinvite]").forEach(b => b.onclick = () => openUserDrawer(null, (S.pl.pending || []).find(p => String(p.planday_id) === b.dataset.plinvite)));
+  box.querySelectorAll("[data-pldismiss]").forEach(b => b.onclick = async () => {
+    const p = (S.pl.pending || []).find(x => String(x.planday_id) === b.dataset.pldismiss); if (!p) return;
+    if (!confirm(`Remove ${p.name} from this list?\n\nThey won't be offered again, even if Planday is checked later. You can put them back from "Removed from the list".`)) return;
+    b.disabled = true;
+    try { S.pl = await api("planday_dismiss", { id: p.planday_id }); S.plNew = S.pl.configured ? S.pl.pending.length : 0; plBadgeRefresh(); renderPlanday(); toast("Removed from the list."); }
+    catch(err){ toast(err.message, true); b.disabled = false; }
+  });
+  box.querySelectorAll("[data-plrestore]").forEach(b => b.onclick = async () => {
+    b.disabled = true;
+    try { S.pl = await api("planday_restore", { id: Number(b.dataset.plrestore) }); S.plNew = S.pl.configured ? S.pl.pending.length : 0; plBadgeRefresh(); renderPlanday(); toast("Put back on the list."); }
+    catch(err){ toast(err.message, true); b.disabled = false; }
+  });
+}
+
 $("#addUserBtn").addEventListener("click", ()=> openUserDrawer(null));
 $("#addProfileBtn").addEventListener("click", ()=> openProfileDrawer(null));
 $("#csvUsersBtn").addEventListener("click", ()=> $("#csvUsersFile").click());
@@ -1255,18 +1336,21 @@ function wireRemoveAccount(u){
   };
 }
 
-function openUserDrawer(id){
+function openUserDrawer(id, prefill){
   const u = id ? S.users.find(x => x.id === id) : null;
-  $("#dTitle").textContent = u ? "Edit user" : "Add user";
+  $("#dTitle").textContent = u ? "Edit user" : (prefill ? "Add from Planday" : "Add user");
   $("#dSave").textContent = "Save";
 
   const portalBlocks = portalBlocksHtml(u ? u.apps : [], true, u ? u.email : "");
   const profileOpts = `<option value="">— pick a profile, or tick tiles below —</option>` +
     S.profiles.filter(p => p.active !== false || (u && u.profile_key === p.key)).map(p => `<option value="${esc(p.key)}" ${u && u.profile_key===p.key ? "selected" : ""}>${esc(p.label)}</option>`).join("");
 
+  const plInfo = u ? plFor(u) : prefill;
+  const plNote = plInfo ? `<div class="notice" style="background:var(--sage-10); border-radius:8px; padding:10px 12px; margin-bottom:14px; font-size:13px; line-height:1.5"><b>In Planday:</b> ${esc(plTitle(plInfo))}${(plInfo.departments || []).length ? " · " + esc(plInfo.departments.join(", ")) : ""}${plInfo.planday_active === false ? ' <b style="color:var(--alert)">- no longer active in Planday</b>' : ""}${!u && prefill && !prefill.has_email ? '<br><span style="color:var(--alert)">Planday has no email for them, so type one below.</span>' : ""}<br><span class="muted">${u ? "Check the tiles below suit this job." : "Pick a profile or tick the tiles they need, then save to send their invite."}</span></div>` : "";
   $("#dBody").innerHTML = `
-    <div class="field"><label>Name</label><input id="fName" value="${u?esc(u.display_name):''}"></div>
-    <div class="field"><label>Email</label><input id="fEmail" type="email" value="${u?esc(u.email):''}" ${u?'readonly':''}></div>
+    ${plNote}
+    <div class="field"><label>Name</label><input id="fName" value="${u?esc(u.display_name):(prefill?esc(prefill.name):'')}"></div>
+    <div class="field"><label>Email</label><input id="fEmail" type="email" value="${u?esc(u.email):(prefill?esc(prefill.email||''):'')}" ${u?'readonly':''}></div>
     ${u
       ? `<div class="field"><label>New password (leave blank to keep)</label><input id="fPw" type="password" autocomplete="new-password"></div>`
       : `<p class="hint" style="margin:0 0 14px">An email will be sent to them to set their own password.</p>`}
