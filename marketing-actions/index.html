@@ -190,13 +190,15 @@ table.tk tr.det td{background:var(--bone)}
     <button class="tabbtn" data-view="tickets">Ticket sales</button>
     <button class="tabbtn" data-view="chat">Chat<span class="badge" id="b_chat" hidden></span></button>
     <button class="tabbtn" data-view="files">File share<span class="badge" id="b_files" hidden></span></button>
+    <button class="tabbtn" data-view="social">Social Posts</button>
     <button class="tabbtn" data-view="call">Marketing Call</button>
   </div></nav>
   <div class="shell"><div id="views"></div></div>
 </div>
 <div id="modalroot"></div>
 <div class="toast" id="toast"></div>
-<script src="../shared/fileshare.js?v=1"></script>
+<script src="../shared/fileshare.js?v=2"></script>
+<script src="social.js?v=1"></script>
 <script>
 const CFG = { SUPABASE_URL:"https://safcrtrfdzsnftghibot.supabase.co", SUPABASE_KEY:"sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU" };
 const STATUSES = [["outstanding","Outstanding"],["in_progress","In Progress"],["completed","Completed"],["parked","Parked"]];
@@ -657,6 +659,15 @@ function viewFiles(){
 }
 function fsStop(){ if (fsHandle) { fsHandle.unmount(); fsHandle = null; } }
 
+/* ============================================================ social posts */
+const socialCall = (action, payload) => post("social-api", { action, staff_email: staffEmail(), ...(payload || {}) });
+let socialHandle = null;
+function viewSocial(){
+  $("#views").innerHTML = `<div id="socialmount"></div>`;
+  socialHandle = Social.mount($("#socialmount"), { call: socialCall, me: S.me, people: S.people, toast, openModal, closeModal });
+}
+function socialStop(){ if (socialHandle) { socialHandle.unmount(); socialHandle = null; } }
+
 /* ============================================================ marketing call */
 function viewCall(){
   $("#views").innerHTML = `<div class="pagehead"><h2>Marketing Call</h2><span class="hint">The marketing team's video room</span></div>
@@ -698,9 +709,9 @@ async function refreshBadges(){
 }
 function markTab(){ $$(".tabbtn").forEach(b => b.setAttribute("aria-current", b.dataset.view === S.view ? "page" : "false")); }
 function goView(v){
-  chatStop(); tkStop(); fsStop();
+  chatStop(); tkStop(); fsStop(); socialStop();
   S.view = v; markTab(); closeModal();
-  if (v === "plan") viewPlan(); else if (v === "mine") viewMine(); else if (v === "tickets") viewTickets(); else if (v === "files") viewFiles(); else if (v === "call") viewCall(); else viewChat();
+  if (v === "plan") viewPlan(); else if (v === "mine") viewMine(); else if (v === "tickets") viewTickets(); else if (v === "files") viewFiles(); else if (v === "call") viewCall(); else if (v === "social") viewSocial(); else viewChat();
   window.scrollTo(0, 0);
 }
 function openGate(msg){ $("#gate").hidden = false; $("#app").hidden = true; if (msg) $("#gerr").textContent = msg; }

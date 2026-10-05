@@ -237,5 +237,5 @@
     return { unmount() { dead = true; if (timer) clearInterval(timer); }, refresh: () => refresh(false) };
   }
 
-  global.FileShare = { mount };
+  global.FileShare = { mount, sendParts };
 })(window);
