@@ -128,27 +128,54 @@ function day(){
   S.sr = null;
   const d = S.data.days[S.idx];
   const title = S.idx === 0 ? "Today at the Black Horse Beamish" : S.idx === 1 ? "Tomorrow at the Black Horse Beamish" : "At the Black Horse Beamish";
-  const ev = d.events.length ? d.events.map(e => {
+  const ev = d.events.length ? d.events.map((e,i) => {
     const g = e.guests !== null && e.guests !== undefined ? `${num(e.guests)} guests` : "Guests not set";
     const eve = e.evening_guests ? ` · ${num(e.evening_guests)} in the evening` : "";
-    return `<div class="row"><div class="main"><div class="t">${esc(e.name)}</div><div class="m">${esc(e.type ? e.type + " · " : "")}${g}${eve}</div></div>${venueTag(e.venue)}</div>`;
+    return `<button class="row" data-ev="${i}"><div class="main"><div class="t">${esc(e.name)}</div><div class="m">${esc(e.type ? e.type + " · " : "")}${g}${eve}</div></div>${venueTag(e.venue)}<div class="go">›</div></button>`;
   }).join("") : `<div class="empty">No events.</div>`;
   const sr = d.showrounds.length ? d.showrounds.map((s,i) =>
-    `<button class="row" data-sr="${i}"><div class="time">${esc(s.time)}</div><div class="main"><div class="t">${esc(s.name)}</div><div class="m">Drink: ${esc(s.drink || "not given")}</div></div><div class="go">›</div></button>`
+    `<button class="row" data-sr="${i}"><div class="time">${esc(s.time)}</div><div class="main"><div class="t">${esc(s.name)}</div><div class="m">Drink: ${esc(s.drink || "not given")}</div><div class="m">Song: ${esc(s.song || "not given")}</div></div><div class="go">›</div></button>`
   ).join("") : `<div class="empty">No show-rounds.</div>`;
   const when = S.idx === 0 ? "today" : S.idx === 1 ? "tomorrow" : "on " + longDay(d.date).split(" ")[0];
   $("#view").innerHTML = `
     <div class="pagehead"><h2>${title}</h2><div class="date">${longDay(d.date)}</div></div>
     <div class="grid">
       ${stat("Rooms to clean", d.rooms_to_clean)}
-      ${stat("Rooms sold", d.rooms_sold)}
+      ${stat("Rooms sold tonight", d.rooms_sold)}
       ${stat("Breakfast covers expected", d.breakfast)}
-      ${stat("Lunch covers expected", d.lunch)}
-      ${stat("Dinner covers expected", d.dinner)}
+      ${stat("Lunch covers booked", d.lunch)}
+      ${stat("Dinner covers booked", d.dinner)}
     </div>
     <div class="card"><h3>Events ${when}</h3>${ev}</div>
     <div class="card"><h3>Show-rounds ${when}</h3>${sr}</div>
     <div class="muted" style="font-size:12px">${S.data.forecast_updated ? "Rooms and covers last updated " + new Date(S.data.forecast_updated).toLocaleString("en-GB",{ timeZone:"Europe/London", weekday:"short", day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" }) + "." : "No forecast figures loaded yet."}</div>`;
+}
+
+function eventView(i){
+  const d = S.data.days[S.idx], e = d.events[i]; if (!e) return;
+  const log = e.notes_log || [];
+  const when = iso => new Date(iso).toLocaleString("en-GB",{ timeZone:"Europe/London", day:"numeric", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit" });
+  const line = (l, v) => v ? `<div class="ans"><div class="al">${esc(l)}</div><div class="av">${v}</div></div>` : "";
+  const g = e.guests !== null && e.guests !== undefined ? `${num(e.guests)}${e.evening_guests ? " day, " + num(e.evening_guests) + " evening" : ""}` : "";
+  $("#view").innerHTML = `
+    <div class="pagehead"><button class="btn" id="back">‹ Back to ${esc(longDay(d.date))}</button></div>
+    <div class="card">
+      <h3>${esc(e.name)}</h3>
+      <div class="dl">
+        ${line("When", esc(longDay(d.date)))}
+        ${line("Type", esc(e.type))}
+        ${line("Venue", esc(e.venue))}
+        ${line("Guests", esc(g))}
+        ${line("Status", esc(e.status))}
+        ${line("Next action", esc(e.next_action))}
+      </div>
+    </div>
+    <div class="card"><h3>Booking notes</h3><div class="dl">
+      ${e.notes ? `<div class="ans"><div class="av">${esc(e.notes)}</div></div>` : ""}
+      ${log.map(n => `<div class="ans"><div class="al">${esc(n.author || "Note")} · ${esc(when(n.at))}</div><div class="av">${esc(n.body)}</div></div>`).join("")}
+      ${!e.notes && !log.length ? `<div class="empty">No notes on this booking.</div>` : ""}
+    </div></div>`;
+  window.scrollTo(0, 0);
 }
 
 function showround(i){
@@ -181,6 +208,7 @@ function showround(i){
 document.addEventListener("click", e => {
   const c = e.target.closest(".daybtn"); if (c) { S.idx = +c.dataset.i; chips(); day(); return; }
   const r = e.target.closest("[data-sr]"); if (r) { showround(+r.dataset.sr); return; }
+  const v = e.target.closest("[data-ev]"); if (v) { eventView(+v.dataset.ev); return; }
   if (e.target.closest("#back")) day();
 });
 
