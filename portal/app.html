@@ -338,6 +338,15 @@ table.grid td{padding:10px 12px; border-top:1px solid var(--mist); vertical-alig
       <div class="settabs" style="display:flex; gap:8px; margin-bottom:18px">
         <button class="btn" id="tabUsers">Users &amp; profiles</button>
         <button class="btn ghost" id="tabPo">PO Tracker</button>
+        <button class="btn ghost" id="tabView">View as</button>
+      </div>
+      <div id="setView" style="display:none">
+        <div class="pagehead"><h2>Settings — View as</h2></div>
+        <p class="hint" style="margin:-8px 0 12px">Pick a person to see the portal the way they see it: their tiles, the tabs inside each, and whether they can only look. This is a preview. It does not sign you in as them, so nothing you do here is recorded under their name.</p>
+        <div class="card" style="padding:16px">
+          <div class="field" style="margin:0; max-width:420px"><label>Person</label><select id="vaPerson"></select></div>
+        </div>
+        <div id="vaOut"></div>
       </div>
       <div id="setPo" style="display:none">
         <div class="pagehead"><h2>Settings — PO Tracker</h2></div>
@@ -916,15 +925,80 @@ const POS = { data:null };
 const fmtGBP = v => v === null || v === undefined || v === "" ? "—" : "£" + Number(v).toLocaleString("en-GB", { minimumFractionDigits:0, maximumFractionDigits:2 });
 
 function setSettingsTab(which){
-  const po = which === "po";
+  const po = which === "po", view = which === "view";
   $("#setPo").style.display = po ? "" : "none";
-  $("#setUsers").style.display = po ? "none" : "";
+  $("#setView").style.display = view ? "" : "none";
+  $("#setUsers").style.display = (po || view) ? "none" : "";
   $("#tabPo").className = "btn" + (po ? "" : " ghost");
-  $("#tabUsers").className = "btn" + (po ? " ghost" : "");
+  $("#tabView").className = "btn" + (view ? "" : " ghost");
+  $("#tabUsers").className = "btn" + (po || view ? " ghost" : "");
   if (po) loadPoSettings();
+  if (view) loadViewAs();
 }
 $("#tabUsers").addEventListener("click", ()=> setSettingsTab("users"));
 $("#tabPo").addEventListener("click", ()=> setSettingsTab("po"));
+$("#tabView").addEventListener("click", ()=> setSettingsTab("view"));
+
+/* ---- View as: the portal as one person sees it, worked out from their grants ---- */
+async function loadViewAs(){
+  if (!S.users) { $("#vaOut").innerHTML = `<div class="card" style="padding:20px">Loading…</div>`; await loadUsers(); }
+  if (!S.users) return;
+  const sel = $("#vaPerson");
+  const people = S.users.slice().sort((a, b) => (Number(b.active) - Number(a.active)) || String(a.display_name).localeCompare(String(b.display_name)));
+  let keep = ""; try { keep = sessionStorage.getItem("bhb_viewas") || ""; } catch(e){}
+  sel.innerHTML = `<option value="">Choose a person…</option>` + people.map(u => `<option value="${esc(u.id)}">${esc(u.display_name)}${u.active ? "" : " (inactive)"}${u.role === "admin" ? " - admin" : ""}</option>`).join("");
+  sel.value = people.some(u => String(u.id) === keep) ? keep : "";
+  sel.onchange = () => { try { sessionStorage.setItem("bhb_viewas", sel.value); } catch(e){} renderViewAs(); };
+  renderViewAs();
+}
+function renderViewAs(){
+  const out = $("#vaOut"), id = $("#vaPerson").value;
+  const u = (S.users || []).find(x => String(x.id) === id);
+  if (!u) { out.innerHTML = `<div class="card" style="padding:20px; margin-top:14px; color:var(--sage-70)">Choose someone above to see their portal.</div>`; return; }
+  const catalogue = S.tabCatalogue || [];
+  const live = S.apps.filter(a => a.active !== false);
+  const grants = new Map((u.apps || []).map(g => [g.key, g]));
+  const mine = live.filter(a => grants.has(a.key));
+  const missing = live.filter(a => !grants.has(a.key));
+  const tileHtml = a => {
+    const g = grants.get(a.key), tabs = catalogue.filter(t => t.app_key === a.key);
+    const allowed = g.tabs === null || g.tabs === undefined ? null : g.tabs;
+    const shown = tabs.filter(t => !allowed || allowed.includes(t.tab_key)), hidden = tabs.filter(t => allowed && !allowed.includes(t.tab_key));
+    const editable = tabs.some(t => t.editable);
+    const po = a.key === "po-tracker" && g.po ? g.po : null;
+    return `<div class="tile" style="border-top-color:${esc(a.color || "#4E5F4F")}; cursor:default">
+      <div class="ic" style="color:${esc(a.color || "#4E5F4F")}">${iconFor(a.icon)}</div>
+      <h3>${esc(a.label)}</h3>${a.description ? `<p>${esc(a.description)}</p>` : ""}
+      <div style="margin-top:10px; font-size:12px; line-height:1.6; border-top:1px solid var(--mist); padding-top:8px; text-align:left">
+        ${tabs.length ? `<div><b>Tabs:</b> ${allowed ? (shown.length ? shown.map(t => esc(t.label)).join(", ") : '<span style="color:var(--alert)">none</span>') : "all"}</div>` : ""}
+        ${hidden.length ? `<div class="muted"><b>Hidden:</b> ${hidden.map(t => esc(t.label)).join(", ")}</div>` : ""}
+        ${g.can_edit === false && editable ? `<div style="color:var(--attention); font-weight:600">View only - can look but not change anything</div>` : (editable ? `<div class="muted">Can make changes</div>` : "")}
+        ${po ? `<div><b>PO role:</b> ${esc(po.profile || "not set")}${po.department ? " · " + esc(po.department) : ""}${po.spending_limit != null ? " · limit £" + esc(po.spending_limit) : ""}</div>` : ""}
+      </div></div>`;
+  };
+  const groups = new Map();
+  mine.forEach(a => { const gname = TILE_GROUP_FOR[a.key] || "Other"; (groups.get(gname) || groups.set(gname, []).get(gname)).push(a); });
+  const order = TILE_GROUPS.concat([...groups.keys()].filter(g => !TILE_GROUPS.includes(g)));
+  const frontPage = mine.length
+    ? order.filter(g => groups.has(g)).map(g => `<div class="tile-group"><h3>${esc(g)}</h3><div class="tiles">${groups.get(g).map(tileHtml).join("")}</div></div>`).join("")
+    : `<div class="empty">${esc(u.display_name)} has no portals yet.</div>`;
+  out.innerHTML = `
+    <div class="card" style="padding:16px; margin-top:14px">
+      <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap">
+        <div style="min-width:220px"><div class="strong" style="font-size:17px">${esc(u.display_name)}</div><div class="muted">${esc(u.email)}</div></div>
+        <div>${u.role === "admin" ? '<span class="pill admin">Admin</span>' : '<span class="pill">Staff</span>'} ${u.active ? "" : '<span class="pill off">Inactive</span>'}</div>
+        <div class="muted">${u.profile_key ? "Profile: " + esc(profileLabel(u.profile_key)) + " · " : ""}${mine.length} of ${live.length} portals · ${u.last_login_at ? "last signed in " + new Date(u.last_login_at).toLocaleDateString("en-GB") : "has never signed in"}</div>
+        <div class="spacer2"></div>
+        <button class="btn ghost" id="vaEdit">Change their access</button>
+      </div>
+      ${u.active ? "" : `<div class="notice" style="margin-top:12px; background:var(--attention-bg); border-radius:8px; padding:10px 12px">This account is switched off, so they cannot sign in at the moment.</div>`}
+    </div>
+    <div class="landing-head" style="margin-top:22px"><h2>Their front page</h2><div class="hint">What ${esc(String(u.display_name).split(" ")[0])} sees after signing in, under "Your Portals".</div></div>
+    ${frontPage}
+    ${u.role === "admin" ? `<div class="card" style="padding:14px 16px; margin-top:18px"><b>Also has Settings:</b> <span class="muted">as an admin they can manage users, profiles and the PO Tracker settings, and use this View as page.</span></div>` : ""}
+    ${missing.length ? `<div class="card" style="padding:14px 16px; margin-top:18px"><div class="strong" style="margin-bottom:8px">Not given access to (${missing.length})</div><div style="display:flex; gap:6px; flex-wrap:wrap">${missing.map(a => `<span class="pill off">${esc(a.label)}</span>`).join("")}</div></div>` : ""}`;
+  $("#vaEdit").onclick = () => openUserDrawer(u.id);
+}
 
 async function loadPoSettings(){
   try { POS.data = await api("po_settings_get"); renderPoSettings(); }
