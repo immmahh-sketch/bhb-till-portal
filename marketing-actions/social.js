@@ -51,6 +51,15 @@
 .spm .resgrid .field{margin:0}
 .spm .err{background:var(--alert-bg,#F6EAE8); color:var(--alert,#8C4A3F); border-radius:8px; padding:10px 12px; margin-bottom:12px; font-size:14px}
 .spm h4{font-family:var(--display,Georgia,serif); font-size:20px; color:var(--sage,#4E5F4F); margin:20px 0 8px; font-weight:600}
+.sp .strip{display:flex; gap:12px; flex-wrap:wrap; align-items:center; background:var(--white,#fff); border-radius:10px; box-shadow:var(--shadow); padding:12px 16px; margin-bottom:14px; font-size:14px}
+.sp .strip .dotc{display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:6px; background:var(--sage-70,#7B887C)}
+.sp .strip .dotc.on{background:var(--good,#4F6B4F)} .sp .strip .dotc.bad{background:var(--alert,#8C4A3F)}
+.sp .chip.auto{background:var(--good-bg,#EDF2ED); color:var(--good,#4F6B4F)}
+.sp .failline{margin-top:8px; font-size:13px; color:var(--alert,#8C4A3F)}
+.spm .autobox{border:1px solid var(--mist,#e7e7e7); border-radius:10px; padding:14px; background:var(--bone,#f7f7f7)}
+.spm .autobox.ok{border-color:var(--good,#4F6B4F); background:var(--good-bg,#EDF2ED)}
+.spm .autobox.bad{border-color:var(--alert,#8C4A3F); background:var(--alert-bg,#F6EAE8)}
+.spm .warn{background:var(--attention-bg,#F7F0E4); border-radius:8px; padding:9px 12px; margin:8px 0; font-size:13px}
 @media (max-width:760px){ .sp .item{gap:12px} .sp .when{width:52px} .spm .row2{grid-template-columns:1fr} }
 `;
 
@@ -68,13 +77,34 @@
   function mount(el, ctx) {
     if (!document.getElementById('sp-css')) { const s = document.createElement('style'); s.id = 'sp-css'; s.textContent = CSS; document.head.appendChild(s); }
     const call = ctx.call, toast = ctx.toast;
-    const st = { kind: 'post', scope: 'upcoming', mine: false, posts: [], info: { ready: true }, loaded: false, dead: false };
+    const st = { kind: 'post', scope: 'upcoming', mine: false, posts: [], info: { ready: true }, loaded: false, dead: false, meta: null };
     el.classList.add('sp');
 
     async function boot() {
       el.innerHTML = `<div class="loading">Loading…</div>`;
       try { st.info = await call('bootstrap'); } catch (e) { el.innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+      call('meta.status').then(m => { st.meta = m; const s = el.querySelector('#sp_strip'); if (s && !st.dead) { s.innerHTML = stripHtml(); wireStrip(); } }).catch(() => {});
       await load();
+    }
+
+    function stripHtml() {
+      const m = st.meta, on = !!(m && m.enabled);
+      const conn = !m ? '<span class="muted">Checking the Meta connection…</span>'
+        : m.connected ? `<span><span class="dotc on"></span>Connected: <b>${esc((m.page && m.page.name) || 'Facebook Page')}</b>${m.instagram ? ' · Instagram <b>@' + esc(m.instagram.username || '?') + '</b>' + (m.instagram.error ? ' <span style="color:var(--alert,#8C4A3F)">(' + esc(m.instagram.error) + ')</span>' : '') : ' · <span class="muted">Instagram not connected</span>'}</span>`
+        : `<span><span class="dotc bad"></span>Meta isn't connected${m.error ? ': ' + esc(m.error) : (m.missing && m.missing.length ? ' (missing ' + esc(m.missing.join(', ')) + ')' : '')}. Posts can still be made by hand.</span>`;
+      return `${conn}<span class="spacer"></span><span><span class="dotc ${on ? 'on' : ''}"></span>Automatic posting is <b>${on ? 'ON' : 'OFF'}</b></span>
+        ${ctx.me.isAdmin ? `<button class="btn ghost small" id="sp_master">${on ? 'Turn off' : 'Turn on'}</button>` : ''}`;
+    }
+    function wireStrip() {
+      const b = el.querySelector('#sp_master'); if (!b) return;
+      b.onclick = async () => {
+        const turningOn = !(st.meta && st.meta.enabled);
+        if (turningOn && !confirm('Turn on automatic posting?\n\nPosts that someone has approved will go out to your Facebook Page and Instagram account by themselves at their scheduled time.')) return;
+        b.disabled = true;
+        try { const r = await call('settings.set', { auto_post_enabled: turningOn }); st.meta = Object.assign({}, st.meta, { enabled: r.enabled }); toast(r.enabled ? 'Automatic posting is on.' : 'Automatic posting is off.'); }
+        catch (e) { toast(e.message, true); }
+        el.querySelector('#sp_strip').innerHTML = stripHtml(); wireStrip();
+      };
     }
     async function load() {
       try { st.posts = (await call('posts.list', { kind: st.kind, scope: st.scope })).posts || []; st.loaded = true; }
@@ -95,7 +125,9 @@
     }
     function card(p) {
       const d = day(p.post_date), late = p.status === 'scheduled' && p.post_date < today();
-      const statusTag = p.status === 'posted' ? `<span class="tag completed">Posted</span>` : p.status === 'cancelled' ? `<span class="tag parked">Cancelled</span>` : (late ? `<span class="tag late">Overdue</span>` : `<span class="tag outstanding">Scheduled</span>`);
+      const statusTag = p.status === 'posted' ? `<span class="tag completed">Posted</span>` : p.status === 'cancelled' ? `<span class="tag parked">Cancelled</span>`
+        : p.publish_state === 'publishing' ? `<span class="tag in_progress">Posting…</span>` : p.publish_state === 'failed' ? `<span class="tag late">Failed</span>`
+        : (late ? `<span class="tag late">Overdue</span>` : `<span class="tag outstanding">Scheduled</span>`);
       return `<div class="card item" data-id="${esc(p.id)}">
         <div class="when${late ? ' late' : ''}"><small>${esc(d.toLocaleDateString('en-GB', { weekday: 'short', timeZone: 'UTC' }))}</small><b>${d.getUTCDate()}</b><span>${esc(d.toLocaleDateString('en-GB', { month: 'short', timeZone: 'UTC' }))}</span></div>
         <div class="main">
@@ -103,10 +135,12 @@
           ${mediaThumbs(p)}
           <div class="meta">${statusTag}${p.post_time ? `<span>${esc(String(p.post_time).slice(0, 5))}</span>` : ''}
             ${(p.platforms || []).map(x => `<span class="chip">${esc(PLAT[x] || x)}</span>`).join('')}
+            ${p.status === 'scheduled' && p.auto_post && p.publish_state !== 'failed' ? `<span class="chip auto">Posts automatically</span>` : ''}
             ${p.ad_spend != null ? `<span class="chip">${money(p.ad_spend)} ad budget</span>` : ''}
             ${p.poster_name ? `<span>To post: <b style="color:var(--ink,#262626)">${esc(p.poster_name)}</b></span>` : '<span>No one assigned</span>'}
             ${p.comment_count ? `<span class="chip note">${p.comment_count} note${p.comment_count === 1 ? '' : 's'}</span>` : ''}
             ${p.posted_url ? `<a href="${esc(p.posted_url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">View live post</a>` : ''}</div>
+          ${p.publish_state === 'failed' && p.status === 'scheduled' && p.publish_error ? `<div class="failline">Did not go out: ${esc(p.publish_error)}</div>` : ''}
           ${p.status === 'posted' ? resultsLine(p) : ''}
         </div></div>`;
     }
@@ -119,11 +153,13 @@
       el.innerHTML = `
         <div class="pagehead"><h2>Social Posts</h2><span class="hint">Plan posts and reels, leave notes for whoever posts them, and keep a history to review</span><span class="spacer"></span><button class="btn" id="sp_new">New ${k.one}</button></div>
         ${st.info.ready ? '' : `<div class="notice" style="background:var(--attention-bg);border-radius:8px;padding:10px 14px;margin-bottom:12px">Picture and video storage isn't connected yet, so uploads won't work until it is.</div>`}
+        <div class="strip" id="sp_strip">${stripHtml()}</div>
         <div class="opts" style="margin-bottom:12px"><button class="opt" data-kind="post" aria-pressed="${st.kind === 'post'}">Posts</button><button class="opt" data-kind="reel" aria-pressed="${st.kind === 'reel'}">Reels</button></div>
         <div class="scope">${scopes.map(([v, l]) => `<button class="opt" data-scope="${v}" aria-pressed="${st.scope === v}">${l}</button>`).join('')}
           <label class="mine"><input type="checkbox" id="sp_mine" ${st.mine ? 'checked' : ''}> Mine to post</label>
           <span class="spacer"></span>${list.some(p => p.status === 'posted') ? `<button class="btn ghost small" id="sp_csv">Export CSV</button>` : ''}</div>
         ${list.length ? list.map(card).join('') : `<div class="card empty">${st.scope === 'upcoming' ? `Nothing scheduled. Press New ${k.one} to plan one.` : st.scope === 'history' ? `No ${k.many.toLowerCase()} have been marked as posted yet.` : `Nothing here.`}</div>`}`;
+      wireStrip();
       el.querySelectorAll('[data-kind]').forEach(b => b.onclick = () => { st.kind = b.dataset.kind; st.loaded = false; load(); });
       el.querySelectorAll('[data-scope]').forEach(b => b.onclick = () => { st.scope = b.dataset.scope; load(); });
       el.querySelector('#sp_mine').onchange = e => { st.mine = e.target.checked; render(); };
@@ -157,14 +193,14 @@
         <div class="field"><label>Text <span id="spm_count" style="float:right;letter-spacing:0;text-transform:none"></span></label><textarea id="spm_body" maxlength="5000" style="min-height:130px" placeholder="What the ${k.one} should say, with any hashtags"></textarea></div>
         <div class="field"><label>Images / ${d.kind === 'reel' ? 'reel' : 'video'}</label><div class="mediabox" id="spm_media"></div>
           <div class="drop" id="spm_drop">Upload image/reel<br><span style="font-size:12px">Tap to choose, or drop files here</span><input type="file" id="spm_file" multiple hidden accept="image/*,video/*"></div>
-          <div id="spm_prog"></div></div>
+          <div id="spm_igwarn"></div><div id="spm_prog"></div></div>
         <div class="field"><label>Ad spend budget (£, optional)</label><input id="spm_spend" type="number" min="0" step="0.01" inputmode="decimal" placeholder="e.g. 50" style="max-width:220px"></div>
         ${isNew ? `<div class="field"><label>Note for whoever posts it (optional)</label><textarea id="spm_note0" maxlength="3000" placeholder="Anything they should read before posting"></textarea></div>` : ''}
         <div class="opts"><button class="btn" id="spm_save">${isNew ? 'Save ' + k.one : 'Save changes'}</button><button class="btn ghost" id="spm_cancel">Close</button></div>
         ${isNew ? '' : `<div id="spm_more"></div>`}</div>`);
       const $ = s => document.querySelector('#modalroot ' + s);
       $('#spm_date').value = post ? post.post_date : today();
-      $('#spm_time').value = post && post.post_time ? String(post.post_time).slice(0, 5) : '';
+      $('#spm_time').value = post ? (post.post_time ? String(post.post_time).slice(0, 5) : '') : '12:00';
       $('#spm_poster').value = post && post.poster_email ? post.poster_email : '';
       $('#spm_body').value = post ? post.body : '';
       $('#spm_spend').value = post && post.ad_spend != null ? post.ad_spend : '';
@@ -174,12 +210,20 @@
       $('#spm_body').addEventListener('input', count); count();
       const showErr = m => { $('#spm_err').innerHTML = m ? `<div class="err">${esc(m)}</div>` : ''; if (m) $('#spm_err').scrollIntoView({ block: 'nearest' }); };
 
+      function igWarning() {
+        const ig = document.querySelector('#modalroot #spm_plat input[value=instagram]');
+        const files = d.media.map(m => ({ name: m.name, mime: m.mime })).concat(d.pending.map(f => ({ name: f.name, mime: f.type })));
+        const bad = files.filter(f => /^image\//.test(f.mime || '') && !/jpe?g/i.test(f.mime || '') && !/\.jpe?g$/i.test(f.name || ''));
+        const box = $('#spm_igwarn'); if (!box) return;
+        box.innerHTML = ig && ig.checked && bad.length ? `<div class="warn">Instagram only accepts JPEG pictures, and ${bad.length === 1 ? esc(bad[0].name) + ' is not one' : bad.length + ' of these are not JPEGs'}. Use a JPEG (.jpg) or untick Instagram, otherwise automatic posting will not be allowed.</div>` : '';
+      }
       function drawMedia() {
         const box = $('#spm_media');
         box.innerHTML = d.media.map(m => `<div class="m">${m.kind === 'image' ? `<a href="${esc(m.url)}" target="_blank" rel="noopener"><img src="${esc(m.url)}" alt=""></a>` : `<video src="${esc(m.url)}#t=0.5" controls preload="metadata"></video>`}
             <button type="button" data-rmm="${esc(m.id)}" title="Remove">&times;</button><div class="nm">${esc(m.name)}</div></div>`).join('') +
           d.pending.map((f, i) => `<div class="m pending">${f.type.startsWith('image/') ? `<img src="${esc(f._url || (f._url = URL.createObjectURL(f)))}" alt="">` : `<video src="${esc(f._url || (f._url = URL.createObjectURL(f)))}#t=0.5" preload="metadata"></video>`}
             <button type="button" data-rmp="${i}" title="Remove">&times;</button><div class="nm">${esc(f.name)} (${esc(sizeLabel(f.size))}) - not uploaded yet</div></div>`).join('');
+        igWarning();
         box.querySelectorAll('[data-rmp]').forEach(b => b.onclick = () => { d.pending.splice(Number(b.dataset.rmp), 1); drawMedia(); });
         box.querySelectorAll('[data-rmm]').forEach(b => b.onclick = async () => {
           if (!confirm('Remove this file from the post?')) return;
@@ -187,6 +231,7 @@
         });
       }
       drawMedia();
+      document.querySelectorAll('#modalroot #spm_plat input').forEach(i => i.addEventListener('change', igWarning));
       const drop = $('#spm_drop'), inp = $('#spm_file');
       const addFiles = list => { for (const f of list) { if (!/^(image|video)\//.test(f.type)) { showErr(f.name + ' is not a picture or a video.'); continue; } d.pending.push(f); } drawMedia(); };
       drop.onclick = () => { if (!d.busy) inp.click(); };
@@ -230,7 +275,7 @@
           const note0 = $('#spm_note0'); if (note0 && note0.value.trim()) { await call('comment.add', { post_id: d.id, body: note0.value }); note0.value = ''; }
           if (d.pending.length) { btn.textContent = 'Uploading…'; await uploadPending(); }
           const full = await call('post.get', { id: d.id });
-          toast('Saved.');
+          toast(saved.approval_cleared ? 'Saved. The approval was removed because you changed it: approve it again when it is ready.' : 'Saved.');
           if (isNew) { ctx.closeModal(); load(); return; }
           d.post = full.post; d.media = full.post.media; d.comments = full.comments; drawMedia(); drawMore(); await load();
           btn.disabled = false; btn.textContent = 'Save changes'; d.busy = false;
@@ -239,6 +284,36 @@
           showErr((d.id ? 'The ' + k.one + ' was saved, but: ' : '') + e.message);
         }
       };
+
+      const platNames = pl => (pl || []).map(x => PLAT[x] || x).join(' and ') || 'nowhere yet';
+      function logLinks(p) {
+        const l = p.publish_log || {};
+        const bits = ['facebook', 'instagram'].filter(x => l[x] && l[x].ok && l[x].url).map(x => ` <a href="${esc(l[x].url)}" target="_blank" rel="noopener">${PLAT[x]}</a>`);
+        return bits.length ? ' Links:' + bits.join(' ·') : '';
+      }
+      function autoSection(p) {
+        const meta = st.meta, masterOn = !!(meta && meta.enabled), conn = !!(meta && meta.connected);
+        const when = p.post_time ? day(p.post_date).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }) + ' at ' + String(p.post_time).slice(0, 5) : '';
+        let inner;
+        if (p.publish_state === 'publishing') {
+          inner = `<div class="autobox"><b>Being posted now.</b> ${p.publish_log && p.publish_log.instagram && !p.publish_log.instagram.ok ? 'Instagram is still processing the video; it will finish by itself in a few minutes.' : 'This will take a moment.'}</div>`;
+        } else if (p.publish_state === 'failed') {
+          inner = `<div class="autobox bad"><b>It did not go out.</b><div style="margin:6px 0 10px">${esc(p.publish_error || 'Something went wrong.')}</div>
+            ${p.auto_post ? `<div class="opts"><button class="btn small" id="spm_retry">Try again now</button><button class="btn ghost small" id="spm_unapprove">Take approval away</button></div>`
+              : `<p class="muted" style="margin:0;font-size:13px">Fix what it says, then approve it again.</p>`}</div>
+            ${p.auto_post ? '' : `<div style="margin-top:10px"><button class="btn small" id="spm_approve">Approve for automatic posting</button></div>`}`;
+        } else if (p.auto_post) {
+          inner = `<div class="autobox ok"><b>Approved by ${esc(p.approved_by_name || 'someone')}</b>${p.approved_at ? ' · ' + esc(fmtDT(p.approved_at)) : ''}
+            <div style="margin:6px 0 10px">${masterOn ? `It will be posted automatically to <b>${esc(platNames(p.platforms))}</b> on <b>${esc(when)}</b>.` : `<b>Automatic posting is switched off,</b> so this will not go out by itself until an admin turns it on.`}
+            If you change the text, date, time, platforms or pictures, the approval is removed.</div>
+            <div class="opts"><button class="btn small" id="spm_now"${conn ? '' : ' disabled'}>Post now</button><button class="btn ghost small" id="spm_unapprove">Take approval away</button></div></div>`;
+        } else {
+          inner = `<div class="autobox"><p style="margin:0 0 10px;font-size:14px">Approving means the notes have been read and the text and pictures are final. It will then go out by itself to <b>${esc(platNames(p.platforms))}</b>${when ? ' on <b>' + esc(when) + '</b>' : ''}. If you change it afterwards, the approval is removed.</p>
+            ${masterOn ? '' : `<p class="muted" style="margin:0 0 10px;font-size:13px">Automatic posting is currently switched off, so approving will not post it until an admin turns it on.</p>`}
+            <button class="btn small" id="spm_approve">Approve for automatic posting</button></div>`;
+        }
+        return `<div class="field"><label>Automatic posting</label>${inner}</div>`;
+      }
 
       // ---- everything below the form (edit only): notes, posting, results
       function drawMore() {
@@ -250,15 +325,16 @@
           <div class="notes">${d.comments.length ? d.comments.map(c => `<div class="note"><div class="h"><b>${esc(c.by_name)}</b> · ${esc(fmtDT(c.at))}</div><div class="b">${esc(c.body)}</div></div>`).join('') : `<div class="muted" style="padding:8px 0">No notes yet.</div>`}</div>
           <div class="field" style="margin-top:10px"><textarea id="spm_note" maxlength="3000" style="min-height:70px" placeholder="Add a note about this ${k.one}, for the person posting it to read first"></textarea></div>
           <button class="btn ghost small" id="spm_addnote">Add note</button>
-          <h4>${posted ? 'Posted' : cancelled ? 'Cancelled' : 'Ready to go?'}</h4>
-          ${posted ? `<p class="muted" style="margin:0 0 10px">Posted ${esc(fmtDT(p.posted_at))}${p.posted_by_name ? ' by ' + esc(p.posted_by_name) : ''}.${p.posted_url ? ` <a href="${esc(p.posted_url)}" target="_blank" rel="noopener">View live post</a>` : ''}</p>
+          <h4>${posted ? 'Posted' : cancelled ? 'Cancelled' : 'Posting'}</h4>
+          ${posted ? `<p class="muted" style="margin:0 0 10px">Posted ${esc(fmtDT(p.posted_at))}${p.posted_by_name ? ' by ' + esc(p.posted_by_name) : ''}.${p.posted_url ? ` <a href="${esc(p.posted_url)}" target="_blank" rel="noopener">View live post</a>` : ''}${logLinks(p)}</p>
             <div class="opts"><button class="btn ghost small" id="spm_unpost">Put back on the schedule</button></div>
             <h4>Results</h4><p class="muted" style="margin:0 0 10px;font-size:13px">Typed in by hand for now. When the Meta (Facebook and Instagram) connection is set up, these fill in by themselves.${p.results_at ? ` Last updated ${esc(fmtDT(p.results_at))}${p.results_source === 'meta' ? ' from Meta' : ''}.` : ''}</p>
             <div class="resgrid">${RESULTS.map(([key, label]) => `<div class="field"><label>${esc(label)}</label><input data-res="${key}" type="number" min="0" ${key === 'spend_actual' ? 'step="0.01"' : 'step="1"'} inputmode="decimal" value="${r[key] ?? ''}"></div>`).join('')}</div>
             <button class="btn small" id="spm_saveres" style="margin-top:10px">Save results</button>`
           : cancelled ? `<div class="opts"><button class="btn ghost small" id="spm_resched">Put back on the schedule</button></div>`
-          : `<div id="spm_postform" hidden></div>
-            <div class="opts" id="spm_actions"><button class="btn small" id="spm_posted">Mark as posted</button><button class="btn danger small" id="spm_cancelpost" style="background:var(--white);color:var(--alert);border-color:var(--alert)">Cancel this ${k.one}</button></div>`}`;
+          : `${autoSection(p)}
+            <div id="spm_postform" hidden></div>
+            <div class="opts" id="spm_actions" style="margin-top:12px"><button class="btn ghost small" id="spm_posted">I posted it by hand</button><button class="btn danger small" id="spm_cancelpost" style="background:var(--white);color:var(--alert);border-color:var(--alert)">Cancel this ${k.one}</button></div>`}`;
         const add = $('#spm_addnote');
         if (add) add.onclick = async () => {
           const t = $('#spm_note'); if (!t.value.trim()) return;
@@ -266,6 +342,16 @@
           try { await call('comment.add', { post_id: d.id, body: t.value }); d.comments = (await call('post.get', { id: d.id })).comments; drawMore(); load(); } catch (e) { showErr(e.message); add.disabled = false; }
         };
         const act = (id, fn) => { const b = $(id); if (b) b.onclick = fn; };
+        const autoCall = async (action, extra, doneMsg, btnId) => {
+          const b = $(btnId); if (b) b.disabled = true;
+          showErr('');
+          try { const r = await call(action, Object.assign({ id: d.id }, extra || {})); d.post = Object.assign(d.post, r.post); toast(doneMsg(r)); await load(); if (d.post.status === 'posted') { ctx.closeModal(); return; } drawMore(); }
+          catch (e) { showErr(e.message); if (b) b.disabled = false; await load(); }
+        };
+        act('#spm_approve', () => autoCall('post.approve', { approve: true }, () => 'Approved. It will be posted automatically.', '#spm_approve'));
+        act('#spm_unapprove', () => autoCall('post.approve', { approve: false }, () => 'Approval removed.', '#spm_unapprove'));
+        act('#spm_now', () => { if (confirm('Post this to ' + (p.platforms || []).map(x => PLAT[x] || x).join(' and ') + ' right now?')) { const b = $('#spm_now'); if (b) b.textContent = 'Posting… this can take a minute'; autoCall('post.publish_now', {}, r => r.post.status === 'posted' ? 'Posted.' : (r.post.publish_state === 'publishing' ? 'Started. Instagram is still processing it; it will finish by itself.' : 'It did not go out.'), '#spm_now'); } });
+        act('#spm_retry', () => { if (confirm('Try posting it again now?')) autoCall('post.publish_now', {}, r => r.post.status === 'posted' ? 'Posted.' : 'It did not go out.', '#spm_retry'); });
         const status = async s => { try { await call('post.status', { id: d.id, status: s }); toast('Done.'); ctx.closeModal(); load(); } catch (e) { showErr(e.message); } };
         act('#spm_cancelpost', () => { if (confirm('Cancel this ' + k.one + '? It stays in the history as cancelled.')) status('cancelled'); });
         act('#spm_resched', () => status('scheduled'));
