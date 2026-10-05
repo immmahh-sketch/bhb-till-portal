@@ -226,6 +226,7 @@ table.grid td{padding:10px 12px; border-top:1px solid var(--mist); vertical-alig
 .pill{display:inline-block; padding:3px 9px; border-radius:999px; font-size:11px; font-weight:600; background:var(--sage-10); color:var(--sage)}
 .pill.admin{background:var(--attention-bg); color:var(--attention)}
 .pill.off{background:var(--mist); color:var(--sage-70)}
+.btn:disabled{opacity:.45; cursor:not-allowed}
 
 /* ============================================================ drawer (user edit) */
 #veil{position:fixed; inset:0; background:rgba(38,38,38,.45); z-index:80; display:none}
@@ -1216,6 +1217,44 @@ function importUsersCsv(file){
   reader.readAsText(file);
 }
 
+/* ---- Remove account: type their surname to confirm, then they are gone ---- */
+const surnameOf = u => { const p = String(u.display_name || "").trim().split(/\s+/).filter(Boolean); return p[p.length - 1] || ""; };
+function removeAccountHtml(u){
+  const isGm = String(u.email).toLowerCase() === "gm@blackhorsebeamish.co.uk";
+  const isMe = !!(S.user && String(S.user.email || "").toLowerCase() === String(u.email).toLowerCase());
+  const wrap = inner => `<div class="field" style="margin-top:26px; padding-top:18px; border-top:1px solid var(--mist)"><label>Remove account</label>${inner}</div>`;
+  if (isGm) return wrap(`<p class="hint" style="margin:0">The General Manager account can't be removed.</p>`);
+  if (isMe) return wrap(`<p class="hint" style="margin:0">You can't remove your own account.</p>`);
+  return wrap(`
+    <button class="btn ghost" id="rmStart" type="button" style="color:var(--alert); border-color:var(--alert)">Remove account…</button>
+    <div id="rmBox" style="display:none; border:1px solid var(--alert); border-radius:8px; padding:14px; background:var(--alert-bg)">
+      <p style="margin:0 0 10px; font-size:13.5px; line-height:1.5"><b>This removes ${esc(u.display_name)} for good.</b> They can no longer sign in, and their access to every tile ends straight away. Things they wrote (notes, comments, history) stay on record under their name. It can't be undone, though you could add them again as a new user.</p>
+      <label style="display:block; font-size:12px; margin-bottom:4px">Type their surname, <b>${esc(surnameOf(u))}</b>, to confirm</label>
+      <input id="rmType" autocomplete="off" autocapitalize="off" spellcheck="false" style="width:100%; padding:10px 12px; border:1px solid var(--mist); border-radius:8px; font-size:16px">
+      <div style="display:flex; gap:8px; margin-top:12px">
+        <button class="btn" id="rmGo" type="button" disabled style="background:var(--alert); border-color:var(--alert)">Remove account</button>
+        <button class="btn ghost" id="rmCancel" type="button">Keep them</button>
+      </div>
+    </div>`);
+}
+function wireRemoveAccount(u){
+  const start = $("#rmStart"); if (!start) return;
+  const box = $("#rmBox"), type = $("#rmType"), go = $("#rmGo");
+  const matches = () => type.value.trim().toLowerCase() === surnameOf(u).toLowerCase() && !!surnameOf(u);
+  start.onclick = () => { start.style.display = "none"; box.style.display = ""; type.focus(); };
+  $("#rmCancel").onclick = () => { box.style.display = "none"; start.style.display = ""; type.value = ""; go.disabled = true; };
+  type.oninput = () => { go.disabled = !matches(); };
+  go.onclick = async () => {
+    if (!matches()) return;
+    go.disabled = true; go.textContent = "Removing…";
+    try {
+      await api("delete_user", { id: u.id, confirm_surname: type.value.trim() });
+      toast(`${u.display_name} has been removed.`);
+      closeDrawer(); loadUsers();
+    } catch(e){ toast(e.message, true); go.disabled = false; go.textContent = "Remove account"; }
+  };
+}
+
 function openUserDrawer(id){
   const u = id ? S.users.find(x => x.id === id) : null;
   $("#dTitle").textContent = u ? "Edit user" : "Add user";
@@ -1246,8 +1285,10 @@ function openUserDrawer(id){
         <option value="0" ${!u.active?"selected":""}>Inactive (blocks sign-in)</option>
       </select></div>` : ""}
     <div class="field"><label>Portal access</label>${portalBlocks}</div>
+    ${u ? removeAccountHtml(u) : ""}
   `;
   wirePortalBlocks();
+  if (u) wireRemoveAccount(u);
   $("#fProfile").addEventListener("change", ()=>{
     const p = S.profiles.find(x => x.key === $("#fProfile").value);
     if (!p) return;
