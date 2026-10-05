@@ -190,6 +190,7 @@ table.tk tr.det td{background:var(--bone)}
     <button class="tabbtn" data-view="tickets">Ticket sales</button>
     <button class="tabbtn" data-view="chat">Chat<span class="badge" id="b_chat" hidden></span></button>
     <button class="tabbtn" data-view="files">File share<span class="badge" id="b_files" hidden></span></button>
+    <button class="tabbtn" data-view="call">Marketing Call</button>
   </div></nav>
   <div class="shell"><div id="views"></div></div>
 </div>
@@ -656,6 +657,39 @@ function viewFiles(){
 }
 function fsStop(){ if (fsHandle) { fsHandle.unmount(); fsHandle = null; } }
 
+/* ============================================================ marketing call */
+function viewCall(){
+  $("#views").innerHTML = `<div class="pagehead"><h2>Marketing Call</h2><span class="hint">The marketing team's video room</span></div>
+    <div class="card" style="text-align:center; padding:34px 22px">
+      <h3 style="margin-bottom:6px">Join the call</h3>
+      <p class="muted" style="margin:0 auto 20px; max-width:520px">You will join as <b style="color:var(--ink)">${esc(S.me.name)}</b>, straight into the room, in a new window. Allow your camera and microphone when your browser asks. Use <b style="color:var(--ink)">Share</b> in the call to show your screen or a photo or video.</p>
+      <button class="btn" id="callgo" style="min-width:240px">Join the Marketing call</button>
+      <p id="callmsg" class="muted" style="margin:16px 0 0; font-size:13px"></p>
+    </div>
+    <div class="card"><h3>Good to know</h3>
+      <ul style="margin:0; padding-left:20px; color:var(--sage-70); line-height:1.8">
+        <li>Everyone who joins from here is in the same room, so there is nothing to set up or send round.</li>
+        <li>If you leave the call, press Join again to come back in.</li>
+        <li>Your join link works for 12 hours after you press the button, so don't forward it. Anyone else joins from this page with their own name.</li>
+        <li>On a phone, sharing your screen isn't possible in any browser, but you can share photos or live video instead.</li>
+      </ul></div>`;
+  $("#callgo").onclick = joinCall;
+}
+async function joinCall(){
+  const btn = $("#callgo"), msg = $("#callmsg");
+  btn.disabled = true; msg.textContent = "Opening the call…";
+  // Open the window now, inside the click, so the browser doesn't block it; point it at the room once the pass is back.
+  const w = window.open("about:blank", "_blank");
+  try {
+    if (w) w.opener = null;
+    const d = await call("call.pass");
+    const url = d.page + "?room=" + encodeURIComponent(d.room) + "&name=" + encodeURIComponent(d.name) + "&autojoin=1#pass=" + d.pass;
+    if (w) { w.location.href = url; msg.textContent = "The call has opened in a new window."; }
+    else { msg.innerHTML = `Your browser blocked the new window. <a href="${esc(url)}" target="_blank" rel="noopener">Open the call</a>.`; }
+  } catch(e){ if (w) w.close(); msg.textContent = ""; toast(e.message, true); }
+  btn.disabled = false;
+}
+
 /* ============================================================ shell */
 function setBadge(sel, n){ const b = $(sel); if (!b) return; b.hidden = !n; b.textContent = n || ""; }
 async function refreshBadges(){
@@ -666,7 +700,7 @@ function markTab(){ $$(".tabbtn").forEach(b => b.setAttribute("aria-current", b.
 function goView(v){
   chatStop(); tkStop(); fsStop();
   S.view = v; markTab(); closeModal();
-  if (v === "plan") viewPlan(); else if (v === "mine") viewMine(); else if (v === "tickets") viewTickets(); else if (v === "files") viewFiles(); else viewChat();
+  if (v === "plan") viewPlan(); else if (v === "mine") viewMine(); else if (v === "tickets") viewTickets(); else if (v === "files") viewFiles(); else if (v === "call") viewCall(); else viewChat();
   window.scrollTo(0, 0);
 }
 function openGate(msg){ $("#gate").hidden = false; $("#app").hidden = true; if (msg) $("#gerr").textContent = msg; }
