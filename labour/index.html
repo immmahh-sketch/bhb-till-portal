@@ -487,10 +487,11 @@ const STATUS = [
   ["new","New","Nothing in Planday yet for these.",true],
   ["no_target","No wage % target","Set the wage % targets in the HOD Dashboard settings first.",true],
   ["same","Already matches","Nothing to send.",false],
+  ["no_split","Food and drink not split","Older days only hold food and drink combined, so they are not sent to a food-only or drink-only unit.",false],
   ["no_shift","No shift that day","Planday has no shift in that department on that day, so nothing is sent.",false],
   ["no_data","No figure yet","The workbook has no figure for these.",false],
 ];
-const STATUS_TAG = { new:"ok", update:"ok", differs:"warn", no_target:"warn", same:"off", no_shift:"off", no_data:"off" };
+const STATUS_TAG = { new:"ok", update:"ok", differs:"warn", no_target:"warn", same:"off", no_shift:"off", no_data:"off", no_split:"off" };
 const SWITCHES = [
   ["push_actuals_enabled","Send actual revenue to Planday every night","Each night the portal writes the last few days' actual revenue into Planday's revenue figures, so Planday's own labour reports use real takings. Figures already in Planday that differ are left alone.","This writes to Planday."],
   ["push_forecast_enabled","Send the forecast to Planday every night","Each night the next 14 days' forecast revenue goes into Planday as budgets, with the wage % target worked back to raw pay. Budgets already there for those days are replaced.","This writes to Planday and replaces its budgets."],
@@ -498,6 +499,7 @@ const SWITCHES = [
 ];
 function rDefaults(what){ const t = today(); return what === "forecast" ? [t, addDays(t, 13)] : [addDays(t, -7), addDays(t, -1)]; }
 function rInit(){ const r = S.r; if (!r.from) [r.from, r.to] = rDefaults(r.what); }
+function chunkRange(from, to, size = 14){ const out = []; for (let a = from; a <= to; a = addDays(a, size)) { const b = addDays(a, size - 1); out.push([a, b < to ? b : to]); } return out; }
 function rInvalidate(){ const r = S.r; r.preview = null; r.previewErr = null; r.armed = false; r.result = null; r.pushErr = null; }
 function sendCount(){
   const r = S.r, c = (r.preview && r.preview.counts) || {};
@@ -506,9 +508,20 @@ function sendCount(){
 async function rPreview(quiet){
   const r = S.r, n = ++r.n;
   if (!r.from || !r.to || r.from > r.to) return toast("Pick a from and to date, from first.", true);
-  if (daysIn(r.from, r.to) > 60) return toast("Pick 60 days or fewer.", true);
-  if (!quiet) { r.previewing = true; r.previewErr = null; r.armed = false; r.result = null; r.pushErr = null; render(); }
-  try { const d = await call("revenue.preview", { what:r.what, from:r.from, to:r.to }); if (n !== r.n) return; r.preview = d; r.previewErr = null; }
+  if (daysIn(r.from, r.to) > 400) return toast("Pick 400 days or fewer.", true);
+  if (!quiet) { r.previewing = true; r.progress = null; r.previewErr = null; r.armed = false; r.result = null; r.pushErr = null; render(); }
+  try {
+    // Long ranges are checked 14 days at a time so each request stays quick.
+    const chunks = chunkRange(r.from, r.to), items = [], counts = {}; let log = [], units = [];
+    for (let i = 0; i < chunks.length; i++) {
+      if (!quiet && chunks.length > 1) { r.progress = `Checking ${i + 1} of ${chunks.length}…`; if (S.view === "revenue") render(); }
+      const d = await call("revenue.preview", { what:r.what, from:chunks[i][0], to:chunks[i][1] });
+      if (n !== r.n) return;
+      items.push(...d.items); log = d.log; units = d.units;
+      for (const [k, v] of Object.entries(d.counts || {})) counts[k] = (counts[k] || 0) + v;
+    }
+    r.preview = { what:r.what, from:r.from, to:r.to, items, counts, units, log }; r.previewErr = null;
+  }
   catch(e){ if (n !== r.n) return; if (!quiet) { r.preview = null; r.previewErr = e; } }
   r.previewing = false; if (S.view === "revenue") render();
 }
@@ -517,11 +530,19 @@ async function rSend(){
   if (!canPush() || !r.preview || r.sending || !sendCount()) return;
   if (!r.armed) { r.armed = true; S.focus = "send"; render(); clearTimeout(rSend._t); rSend._t = setTimeout(() => { if (r.armed && !r.sending) { r.armed = false; if (S.view === "revenue") render(); } }, 8000); return; }
   clearTimeout(rSend._t); r.armed = false; r.sending = true; r.result = null; r.pushErr = null; render();
-  const p = r.preview;
+  const p = r.preview, total = { sent:0, skipped:0, failed:0, errors:[] };
+  // Send 14 days at a time, and only the chunks that have something to send.
+  const sendable = it => it.status === "new" || it.status === "update" || (p.what === "actuals" && r.overwrite && it.status === "differs");
+  const chunks = chunkRange(p.from, p.to).filter(([a, b]) => p.items.some(it => it.date >= a && it.date <= b && sendable(it)));
   try {
-    r.result = await call("revenue.push", { what:p.what, from:p.from, to:p.to, confirm:true, ...(p.what === "actuals" ? { overwrite: !!r.overwrite } : {}) });
-    r.sending = false; await rPreview(true);
-  } catch(e){ r.pushErr = e; r.sending = false; }
+    for (let i = 0; i < chunks.length; i++) {
+      r.progress = `Sending ${i + 1} of ${chunks.length}…`; if (S.view === "revenue") render();
+      const x = await call("revenue.push", { what:p.what, from:chunks[i][0], to:chunks[i][1], confirm:true, ...(p.what === "actuals" ? { overwrite: !!r.overwrite } : {}) });
+      total.sent += x.sent; total.skipped += x.skipped; total.failed += x.failed; total.errors.push(...(x.errors || []));
+      r.result = { ...total, errors: total.errors.slice(0, 20) };
+    }
+    r.progress = null; r.sending = false; await rPreview(true);
+  } catch(e){ r.pushErr = e; r.sending = false; r.progress = null; }
   if (S.view === "revenue") render();
 }
 async function rSync(){
@@ -577,9 +598,9 @@ function rPush(){
   const r = S.r, p = r.preview, n = sendCount(), admin = canPush();
   const what = `<div class="opts" role="group" aria-label="What to send">${[["actuals","Actual revenue → Planday revenue"],["forecast","Forecast → Planday budgets"]].map(([k, l]) => `<button class="opt" data-act="r-what" data-v="${k}" aria-pressed="${r.what === k}">${l}</button>`).join("")}</div>`;
   const dates = `<div class="toolrow" style="margin:14px 0"><div><span class="lbl">From</span><input class="inp" type="date" data-b="r.from" value="${esc(r.from)}"></div><div><span class="lbl">To</span><input class="inp" type="date" data-b="r.to" value="${esc(r.to)}"></div>
-    <div style="align-self:flex-end"><button class="btn" data-act="r-preview"${r.previewing ? " disabled" : ""}>${r.previewing ? "Checking…" : "Preview"}</button></div></div>`;
+    <div style="align-self:flex-end"><button class="btn" data-act="r-preview"${r.previewing ? " disabled" : ""}>${r.previewing ? (r.progress || "Checking…") : "Preview"}</button></div></div>`;
   let body = "";
-  if (r.previewing) body = loadingBox("Checking Planday…");
+  if (r.previewing) body = loadingBox(r.progress || "Checking Planday…");
   else if (r.previewErr) body = errCard(r.previewErr);
   else if (p) body = previewTable(p);
   let send = "";
@@ -589,7 +610,7 @@ function rPush(){
       ${r.what === "actuals" ? `<label class="tick" style="min-height:40px;padding:0"><input type="checkbox" data-b="r.overwrite"${r.overwrite ? " checked" : ""}><span>Overwrite values that differ</span></label>` : ""}
       <span class="spacer"></span>
       ${r.armed ? `<button class="btn ghost small" data-act="r-cancel">Cancel</button>` : ""}
-      <button class="btn${r.armed ? " sure" : ""}" id="sendbtn" data-act="r-send"${!n || r.sending ? " disabled" : ""}>${r.sending ? "Sending…" : r.armed ? `${esc(armedTxt)} Tap again` : "Send to Planday"}</button></div>
+      <button class="btn${r.armed ? " sure" : ""}" id="sendbtn" data-act="r-send"${!n || r.sending ? " disabled" : ""}>${r.sending ? (r.progress || "Sending…") : r.armed ? `${esc(armedTxt)} Tap again` : "Send to Planday"}</button></div>
       ${!n ? `<p class="note">Nothing to send for this range${r.what === "actuals" && !r.overwrite && p.counts && p.counts.differs ? ". Tick Overwrite to replace the figures that differ" : ""}.</p>` : `<p class="note">${r.what === "actuals" ? `Sends ${plural(n, "value")} to Planday's revenue figures.` : `Sends ${plural(n, "budget")} to Planday.`} You will be asked to confirm.</p>`}`;
   } else if (!admin && p) send = `<p class="note">Only an administrator can send values to Planday. This is a preview.</p>`;
   let res = "";
