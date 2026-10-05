@@ -166,6 +166,33 @@ header.top{background:var(--sage); color:var(--white)}
 .tile .lockNote{font-size:11px; font-weight:600; color:var(--attention); margin-top:8px; letter-spacing:.02em}
 .empty{padding:60px 20px; text-align:center; color:var(--sage-70)}
 
+/* ---- personal tile order */
+.landing-head{display:flex; justify-content:space-between; align-items:flex-end; gap:12px 20px; flex-wrap:wrap}
+.layout-tools{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
+.layout-tools .lbtn{
+  border:1px solid var(--sage); background:var(--white); color:var(--sage); border-radius:8px; padding:8px 14px; cursor:pointer;
+  font:inherit; font-size:12px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; min-height:40px;
+}
+.layout-tools .lbtn:hover{background:var(--sage-10)}
+.layout-tools .lbtn.main{background:var(--sage); color:var(--white)}
+.layout-tools .lbtn.quiet{border-color:transparent; color:var(--sage-70)}
+.layout-note{flex-basis:100%; font-size:13px; color:var(--sage-70); margin:4px 0 0}
+.tile.editing{cursor:grab; user-select:none; -webkit-user-select:none}
+.tile.editing:hover{transform:none}
+.tile.editing.dragging{opacity:.4}
+.tile.editing.over{outline:2px dashed var(--sage); outline-offset:3px}
+.tile.editing{display:grid; grid-template-columns:44px minmax(0,1fr) 44px; align-items:center; gap:10px; padding:10px 12px}
+.tile.editing .mid{display:flex; align-items:center; gap:10px; min-width:0}
+.tile.editing .mid .ic{font-size:22px; margin:0}
+.tile.editing .mid h3{font-size:18px; overflow-wrap:anywhere}
+.tile .mv{
+  width:44px; height:44px; border-radius:8px; border:1px solid var(--mist); background:var(--bone); color:var(--sage);
+  cursor:pointer; font-size:16px; line-height:1; display:flex; align-items:center; justify-content:center; padding:0;
+}
+.tile .mv:hover:not(:disabled){background:var(--sage-10)}
+.tile .mv:disabled{opacity:.3; cursor:default}
+.tile .mv:focus-visible{outline:2px solid var(--sage); outline-offset:2px}
+
 /* ============================================================ viewer */
 #viewer{position:fixed; inset:0; z-index:60; display:none; flex-direction:column; background:var(--bone)}
 #viewer.on{display:flex}
@@ -330,8 +357,11 @@ table.grid td{padding:10px 12px; border-top:1px solid var(--mist); vertical-alig
   <div class="shell">
     <section class="page on" id="page-landing">
       <div class="landing-head">
-        <h2>Your Portals</h2>
-        <div class="hint">Signed in once, everything below opens without asking again.</div>
+        <div>
+          <h2>Your Portals</h2>
+          <div class="hint">Signed in once, everything below opens without asking again.</div>
+        </div>
+        <div class="layout-tools" id="layoutTools"></div>
       </div>
       <div id="tiles"></div>
     </section>
@@ -433,7 +463,7 @@ const FN   = "https://safcrtrfdzsnftghibot.supabase.co/functions/v1/portal-gatew
 const ANON = "sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU";
 const LS_TOKEN = "bhb_portal_token";
 
-const S = { token:"", user:null, portals:[], current:null, users:[], apps:[] };
+const S = { token:"", user:null, portals:[], current:null, users:[], apps:[], layout:null, editing:false, draft:[], serverLayout:undefined };
 
 const $  = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
@@ -477,7 +507,7 @@ async function trySignIn(email, password){
   if(!email || !password){ $("#gerr").textContent = "Enter your email and password."; return; }
   try{
     const d = await api("login", { email, password });
-    S.token = d.token; S.user = d.user; S.portals = d.portals || [];
+    S.token = d.token; S.user = d.user; S.portals = d.portals || []; S.serverLayout = d.layout;
     localStorage.setItem(LS_TOKEN, S.token);
     enterApp();
   }catch(e){
@@ -538,7 +568,7 @@ $("#rsPw2").addEventListener("keydown", e=>{ if(e.key==="Enter") submitReset(); 
 function signOut(){
   api("logout").catch(()=>{});
   try{ localStorage.removeItem(LS_TOKEN); }catch(e){}
-  S.token = ""; S.user = null; S.portals = [];
+  S.token = ""; S.user = null; S.portals = []; S.layout = null; S.editing = false; S.serverLayout = undefined;
   closeViewer();
   openGate();
 }
@@ -549,6 +579,7 @@ function enterApp(){
   $("#gate").style.display = "none";
   $("#app").hidden = false;
   $("#whoName").textContent = S.user.name;
+  loadLayout(S.serverLayout);
   renderTiles();
   renderNav();
   if (S.user.role !== "admin") $("#page-settings").remove();
@@ -597,6 +628,7 @@ const TILE_GROUP_FOR = {
 };
 
 function renderTiles(){
+  renderLayoutTools();
   if(!S.portals.length){
     $("#tiles").innerHTML = `<div class="empty">No portals assigned to your account yet — ask an admin to give you access.</div>`;
     return;
@@ -612,9 +644,48 @@ function renderTiles(){
     </button>`;
   };
 
+  if (S.editing) {                          // arranging: a flat grid with move controls
+    $("#tiles").innerHTML = editTilesHtml();
+    wireEditTiles();
+    return;
+  }
+  if (S.layout) {                           // this person's own order: a flat grid, no headings
+    $("#tiles").innerHTML = `<div class="tiles" style="margin-top:6px">${orderedPortals().map(tileHtml).join("")}</div>`;
+    $$("#tiles .tile").forEach(b => b.addEventListener("click", ()=> openPortal(b.dataset.key)));
+    return;
+  }
+
   // Keep each app's own order within its group. An app not in
   // TILE_GROUP_FOR (a new one, not yet categorised) gets its own "Other"
   // group at the end rather than silently disappearing.
+  $("#tiles").innerHTML = groupedPortals().map(([g, list]) => `
+    <div class="tile-group">
+      <h3>${esc(g)}</h3>
+      <div class="tiles">${list.map(tileHtml).join("")}</div>
+    </div>
+  `).join("");
+  $$("#tiles .tile").forEach(b => b.addEventListener("click", ()=> openPortal(b.dataset.key)));
+}
+
+/* ---- personal tile order -------------------------------------------------
+   Each person can put their tiles in any order. The saved order lives on the server (portal_user_layout, one row per
+   person) so it follows them to other devices; a copy is kept in this browser too, which is what is used until the
+   server knows about layouts. No saved order = the grouped headings below. A tile granted later that is not in the
+   saved order shows at the end. */
+const LS_LAYOUT = () => "bhb_layout_" + String((S.user && S.user.email) || "").toLowerCase();
+
+function loadLayout(fromServer){
+  S.layout = null; S.editing = false; S.draft = [];
+  const valid = l => l && Array.isArray(l.order) && l.order.length ? { order: l.order.map(String) } : null;
+  if (fromServer !== undefined) {           // the server knows about layouts: it is the truth (null = none saved)
+    S.layout = valid(fromServer);
+    try{ localStorage.removeItem(LS_LAYOUT()); }catch(e){}
+    return;
+  }
+  try{ const raw = localStorage.getItem(LS_LAYOUT()); if (raw) S.layout = valid(JSON.parse(raw)); }catch(e){}
+}
+
+function groupedPortals(){
   const groups = new Map();
   S.portals.forEach(p => {
     const g = TILE_GROUP_FOR[p.key] || "Other";
@@ -622,18 +693,95 @@ function renderTiles(){
     groups.get(g).push(p);
   });
   const order = TILE_GROUPS.concat([...groups.keys()].filter(g => !TILE_GROUPS.includes(g)));
-
-  $("#tiles").innerHTML = order.filter(g => groups.has(g)).map(g => `
-    <div class="tile-group">
-      <h3>${esc(g)}</h3>
-      <div class="tiles">${groups.get(g).map(tileHtml).join("")}</div>
-    </div>
-  `).join("");
-  $$("#tiles .tile").forEach(b => b.addEventListener("click", ()=> openPortal(b.dataset.key)));
+  return order.filter(g => groups.has(g)).map(g => [g, groups.get(g)]);
 }
 
+/* Tiles in the order this person has chosen (or being chosen), else the default reading order. */
+function orderedPortals(){
+  const order = S.editing ? S.draft : (S.layout && S.layout.order);
+  if (!order || !order.length) return groupedPortals().flatMap(x => x[1]);
+  const pos = new Map(order.map((k, i) => [k, i]));
+  return S.portals.map((p, i) => [p, i])
+    .sort((a, b) => (pos.has(a[0].key) ? pos.get(a[0].key) : 1e6 + a[1]) - (pos.has(b[0].key) ? pos.get(b[0].key) : 1e6 + b[1]))
+    .map(x => x[0]);
+}
+
+async function persistLayout(layout){       // layout = { order: [...] } or null to go back to the default
+  try{ if (layout) localStorage.setItem(LS_LAYOUT(), JSON.stringify(layout)); else localStorage.removeItem(LS_LAYOUT()); }catch(e){}
+  try{ await api("save_layout", { layout }); return true; }
+  catch(e){
+    toast(/Unknown action|404/i.test(e.message)
+      ? "Saved on this device. It will follow you to your other devices once the portal is updated."
+      : "Saved on this device only: " + e.message, true);
+    return false;
+  }
+}
+
+function startEditLayout(){
+  S.draft = orderedPortals().map(p => p.key);
+  S.editing = true; renderTiles(); renderNav();
+}
+async function finishEditLayout(){
+  const order = S.draft.slice();
+  S.editing = false; S.layout = { order }; renderTiles(); renderNav();
+  if (await persistLayout(S.layout)) toast("Layout saved.");
+}
+function cancelEditLayout(){ S.editing = false; renderTiles(); renderNav(); }
+async function resetLayout(){
+  S.editing = false; S.layout = null; renderTiles(); renderNav();
+  if (await persistLayout(null)) toast("Back to the standard layout.");
+}
+function moveDraft(key, to){                // put `key` at index `to`
+  const from = S.draft.indexOf(key); if (from < 0 || to < 0 || to >= S.draft.length || from === to) return;
+  S.draft.splice(from, 1); S.draft.splice(to, 0, key);
+}
+
+function renderLayoutTools(){
+  const el = $("#layoutTools"); if (!el) return;
+  if (!S.portals.length) { el.innerHTML = ""; return; }
+  el.innerHTML = S.editing
+    ? `<button class="lbtn main" data-lay="done">Save layout</button><button class="lbtn quiet" data-lay="cancel">Cancel</button><button class="lbtn quiet" data-lay="reset">Reset to standard</button>
+       <p class="layout-note">Use the arrows to move a tile earlier or later${window.matchMedia && matchMedia("(hover:hover)").matches ? ", or drag a tile to where you want it" : ""}. Your order is saved to your account.</p>`
+    : `<button class="lbtn" data-lay="edit">${S.layout ? "Change layout" : "Customise layout"}</button>${S.layout ? `<button class="lbtn quiet" data-lay="reset">Reset</button>` : ""}`;
+  el.querySelectorAll("[data-lay]").forEach(b => b.addEventListener("click", () => {
+    const a = b.dataset.lay;
+    if (a === "edit") startEditLayout(); else if (a === "done") finishEditLayout(); else if (a === "cancel") cancelEditLayout(); else if (a === "reset") resetLayout();
+  }));
+}
+
+function editTilesHtml(){
+  const list = orderedPortals();
+  return `<div class="tiles" id="editGrid">${list.map((p, i) => `
+    <div class="tile editing" draggable="true" style="border-top-color:${esc(p.color||'#4E5F4F')}" data-key="${esc(p.key)}">
+      <button type="button" class="mv" data-mv="-1" aria-label="Move ${esc(p.label)} earlier"${i === 0 ? " disabled" : ""}>&#9664;</button>
+      <div class="mid"><div class="ic" style="color:${esc(p.color||'#4E5F4F')}">${iconFor(p.icon)}</div><h3>${esc(p.label)}</h3></div>
+      <button type="button" class="mv" data-mv="1" aria-label="Move ${esc(p.label)} later"${i === list.length - 1 ? " disabled" : ""}>&#9654;</button>
+    </div>`).join("")}</div>`;
+}
+function wireEditTiles(){
+  const grid = $("#editGrid"); if (!grid) return;
+  grid.querySelectorAll(".mv").forEach(b => b.addEventListener("click", () => {
+    const key = b.closest(".tile").dataset.key, i = S.draft.indexOf(key);
+    moveDraft(key, i + Number(b.dataset.mv)); renderTiles();
+    const again = $(`#editGrid .tile[data-key="${CSS.escape(key)}"] .mv[data-mv="${b.dataset.mv}"]`) || $(`#editGrid .tile[data-key="${CSS.escape(key)}"] .mv:not(:disabled)`);
+    if (again) again.focus();
+  }));
+  let dragKey = null;
+  grid.querySelectorAll(".tile").forEach(t => {
+    t.addEventListener("dragstart", e => { dragKey = t.dataset.key; t.classList.add("dragging"); try{ e.dataTransfer.setData("text/plain", dragKey); e.dataTransfer.effectAllowed = "move"; }catch(x){} });
+    t.addEventListener("dragend", () => { t.classList.remove("dragging"); grid.querySelectorAll(".over").forEach(x => x.classList.remove("over")); });
+    t.addEventListener("dragover", e => { if (dragKey && dragKey !== t.dataset.key) { e.preventDefault(); t.classList.add("over"); } });
+    t.addEventListener("dragleave", () => t.classList.remove("over"));
+    t.addEventListener("drop", e => {
+      e.preventDefault(); const to = S.draft.indexOf(t.dataset.key);
+      if (dragKey && to >= 0) { moveDraft(dragKey, to); dragKey = null; renderTiles(); }
+    });
+  });
+}
+
+
 function renderNav(){
-  const items = S.portals.map(p => `
+  const items = orderedPortals().map(p => `
     <button class="nitem ${S.current===p.key?'active':''}" data-key="${esc(p.key)}">
       <span class="dot" style="background:${esc(p.color||'#4E5F4F')}"></span>${esc(p.label)}
     </button>
@@ -1675,7 +1823,7 @@ function proceedPastInstallGate(){
   if(saved){
     S.token = saved;
     api("me").then(d=>{
-      S.user = d.user; S.portals = d.portals || [];
+      S.user = d.user; S.portals = d.portals || []; S.serverLayout = d.layout;
       enterApp();
     }).catch(()=>{
       try{ localStorage.removeItem(LS_TOKEN); }catch(e){}
