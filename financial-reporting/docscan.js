@@ -7,26 +7,38 @@
 (function (global) {
   'use strict';
 
+  const VERSION = 'v4';
   const MAX_SRC = 2600;
   const MAX_OUT = 2200;
   const PAD = 26;
 
   // ---- image loading -------------------------------------------------------------
 
-  async function loadCanvas(file) {
-    let src = null, url = null;
+  function readDataUrl(file) {
+    return new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => res(r.result);
+      r.onerror = () => rej(new Error('Could not read that file'));
+      r.readAsDataURL(file);
+    });
+  }
+
+  async function decode(file) {
     if (global.createImageBitmap) {
-      try { src = await createImageBitmap(file, { imageOrientation: 'from-image' }); } catch (e) { src = null; }
+      try { return await createImageBitmap(file, { imageOrientation: 'from-image' }); } catch (e) { /* older browsers reject the options */ }
+      try { return await createImageBitmap(file); } catch (e) { /* fall through */ }
     }
-    if (!src) {
-      url = URL.createObjectURL(file);
-      src = await new Promise((res, rej) => {
-        const im = new Image();
-        im.onload = () => res(im);
-        im.onerror = () => rej(new Error('Could not read that image'));
-        im.src = url;
-      });
-    }
+    const url = await readDataUrl(file);
+    return await new Promise((res, rej) => {
+      const im = new Image();
+      im.onload = () => res(im);
+      im.onerror = () => rej(new Error('This photo format cannot be read here (iPhone HEIC photos sometimes cannot)'));
+      im.src = url;
+    });
+  }
+
+  async function loadCanvas(file) {
+    const src = await decode(file);
     const w = src.width || src.naturalWidth, h = src.height || src.naturalHeight;
     if (!w || !h) throw new Error('Could not read that image');
     const k = Math.min(1, MAX_SRC / Math.max(w, h));
@@ -35,7 +47,6 @@
     c.height = Math.max(1, Math.round(h * k));
     c.getContext('2d').drawImage(src, 0, 0, c.width, c.height);
     if (src.close) src.close();
-    if (url) URL.revokeObjectURL(url);
     return c;
   }
 
@@ -298,13 +309,17 @@
       }
     }
 
-    if (!cands.length) return defaultCorners(W, H);
+    if (!cands.length) return guess(W, H);
     cands.sort((a, b) => b.score - a.score);
     const best = cands[0];
-    if (best.score < 5) return defaultCorners(W, H);
+    if (best.score < 5) return guess(W, H);
     const inv = 1 / s;
-    return best.quad.map(p => [Math.min(W, Math.max(0, p[0] * inv)), Math.min(H, Math.max(0, p[1] * inv))]);
+    const found = best.quad.map(p => [Math.min(W, Math.max(0, p[0] * inv)), Math.min(H, Math.max(0, p[1] * inv))]);
+    found.auto = true;
+    return found;
   }
+
+  function guess(W, H) { const p = defaultCorners(W, H); p.auto = false; return p; }
 
   // ---- perspective correction ----------------------------------------------------------
 
@@ -450,8 +465,7 @@
   async function scan(file, opts) {
     opts = opts || {};
     injectCss();
-    let src;
-    try { src = await loadCanvas(file); } catch (e) { return file; }
+    let src = null;
 
     return new Promise(resolve => {
       const ov = el('div', 'ds-ov');
@@ -460,7 +474,10 @@
       const top = el('div', 'ds-top');
       const title = el('b', '', 'Line up the corners');
       const hint = el('span', '', 'Drag the four dots onto the corners of the page.');
-      top.append(title, hint);
+      const ver = el('span', '', 'Scanner ' + VERSION);
+      ver.style.cssText = 'position:absolute;top:10px;right:14px;font-size:11px;opacity:.55';
+      top.style.position = 'relative';
+      top.append(title, hint, ver);
       const stage = el('div', 'ds-stage');
       const bar = el('div', 'ds-bar');
       ov.append(top, stage, bar);
@@ -468,7 +485,7 @@
       const prevOverflow = document.documentElement.style.overflow;
       document.documentElement.style.overflow = 'hidden';
 
-      let pts = detectCorners(src);
+      let pts = null, autoFound = false;
       let scale = 1, mode = 'adjust', result = null, bw = true, dragging = -1;
       const cv = el('canvas');
       const ctx = cv.getContext('2d');
@@ -557,7 +574,9 @@
       function showAdjust() {
         mode = 'adjust';
         title.textContent = 'Line up the corners';
-        hint.textContent = 'Drag the four dots onto the corners of the page.';
+        hint.textContent = autoFound
+          ? 'Page found. Check the four dots sit on its corners, then tap Scan.'
+          : "Couldn't see the page edges on this photo. Drag the four dots onto its corners, then tap Scan.";
         stage.replaceChildren(cv);
         bar.replaceChildren(
           btn('Cancel', () => done(null)),
@@ -574,11 +593,18 @@
       }
 
       function showPreview() {
-        const img = warp(src, pts);
-        if (!img) { hint.textContent = 'Those corners are too close together - move them apart.'; return; }
+        let img, colour, mono;
+        try {
+          img = warp(src, pts);
+          if (!img) { hint.textContent = 'Those corners are too close together - move them apart.'; return; }
+          colour = toCanvas(img);
+          mono = toCanvas(blackAndWhite(img));
+        } catch (err) {
+          console.error('DocScan scan', err);
+          hint.textContent = 'Could not process this photo (' + (err && err.message || 'error') + '). Tap Use original photo.';
+          return;
+        }
         mode = 'preview';
-        const colour = toCanvas(img);
-        const mono = toCanvas(blackAndWhite(img));
         title.textContent = 'Check the scan';
         hint.textContent = 'If it looks wrong, go back and move the corners.';
         const view = el('img', 'ds-prev');
@@ -602,8 +628,27 @@
         );
       }
 
+      title.textContent = 'Preparing your photo...';
+      hint.textContent = 'One moment.';
+      stage.replaceChildren(el('div', 'ds-msg', 'Opening the scanner'));
+      bar.replaceChildren(btn('Cancel', () => done(null)));
       window.addEventListener('resize', layout);
-      showAdjust();
+
+      // let the screen paint before the heavy work starts
+      setTimeout(() => {
+        loadCanvas(file).then(c => {
+          src = c;
+          try { pts = detectCorners(src); } catch (err) { console.error('DocScan detect', err); pts = guess(src.width, src.height); }
+          autoFound = !!pts.auto;
+          showAdjust();
+        }).catch(err => {
+          console.error('DocScan load', err);
+          title.textContent = "Can't scan this photo";
+          hint.textContent = (err && err.message) || 'Unknown problem';
+          stage.replaceChildren(el('div', 'ds-msg', 'You can still attach the original photo.'));
+          bar.replaceChildren(btn('Cancel', () => done(null)), btn('Use original photo', () => done(file), 'ds-go'));
+        });
+      }, 30);
     });
   }
 
@@ -617,7 +662,15 @@
     const f = input.files && input.files[0];
     if (!isImage(f)) return;
     e.stopImmediatePropagation();
-    const out = await scan(f, { name: input.getAttribute('data-scan') || 'scan' });
+    let out;
+    try { out = await scan(f, { name: input.getAttribute('data-scan') || 'scan' }); }
+    catch (err) {
+      console.error('DocScan', err);
+      document.querySelectorAll('.ds-ov').forEach(o => o.remove());
+      document.documentElement.style.overflow = '';
+      alert('The scanner hit a problem (' + (err && err.message || 'error') + '). The original photo will be used.');
+      out = f;
+    }
     if (!out) { input.value = ''; input.dispatchEvent(new Event('ds-cancel', { bubbles: true })); return; }
     if (out !== f) {
       const dt = new DataTransfer();
@@ -628,5 +681,5 @@
     input.dispatchEvent(new Event('change', { bubbles: true }));
   }, true);
 
-  global.DocScan = { scan, detectCorners, warp, blackAndWhite };
+  global.DocScan = { version: VERSION,  scan, detectCorners, warp, blackAndWhite };
 })(window);
