@@ -52,44 +52,53 @@
   // ---- corner detection ------------------------------------------------------------
 
   function defaultCorners(w, h) {
-    const mx = w * 0.06, my = h * 0.06;
+    const mx = w * 0.04, my = h * 0.04;
     return [[mx, my], [w - mx, my], [w - mx, h - my], [mx, h - my]];
   }
 
   function polyArea(p) {
     let a = 0;
-    for (let i = 0; i < 4; i++) { const j = (i + 1) % 4; a += p[i][0] * p[j][1] - p[j][0] * p[i][1]; }
+    for (let i = 0; i < p.length; i++) { const j = (i + 1) % p.length; a += p[i][0] * p[j][1] - p[j][0] * p[i][1]; }
     return Math.abs(a) / 2;
   }
 
-  function detectCorners(c) {
-    const W = c.width, H = c.height;
-    const s = 320 / Math.max(W, H);
-    const w = Math.max(16, Math.round(W * s)), h = Math.max(16, Math.round(H * s));
-    const t = document.createElement('canvas');
-    t.width = w; t.height = h;
-    const tx = t.getContext('2d', { willReadFrequently: true });
-    tx.drawImage(c, 0, 0, w, h);
-    const d = tx.getImageData(0, 0, w, h).data;
-    const n = w * h;
-    let g = new Uint8Array(n);
-    for (let i = 0; i < n; i++) g[i] = (d[i * 4] * 77 + d[i * 4 + 1] * 150 + d[i * 4 + 2] * 29) >> 8;
-
-    // 3x3 box blur to calm paper texture and print
-    const b = new Uint8Array(n);
+  function boxBlur(src, w, h) {
+    const out = new Float32Array(w * h);
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
       let sum = 0, cnt = 0;
       for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
         const xx = x + dx, yy = y + dy;
-        if (xx >= 0 && yy >= 0 && xx < w && yy < h) { sum += g[yy * w + xx]; cnt++; }
+        if (xx >= 0 && yy >= 0 && xx < w && yy < h) { sum += src[yy * w + xx]; cnt++; }
       }
-      b[y * w + x] = sum / cnt;
+      out[y * w + x] = sum / cnt;
     }
-    g = b;
+    return out;
+  }
 
-    // Otsu threshold: paper is brighter than whatever it is lying on
+  // grey-scale closing: wipes out thin dark marks (printed text) but keeps where the page ends
+  function closeThin(src, w, h, r) {
+    const pass = (a, horizontal, takeMax) => {
+      const out = new Float32Array(w * h);
+      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+        let v = takeMax ? -1e9 : 1e9;
+        for (let k = -r; k <= r; k++) {
+          const xx = horizontal ? x + k : x, yy = horizontal ? y : y + k;
+          if (xx < 0 || yy < 0 || xx >= w || yy >= h) continue;
+          const u = a[yy * w + xx];
+          if (takeMax ? u > v : u < v) v = u;
+        }
+        out[y * w + x] = v;
+      }
+      return out;
+    };
+    const dil = pass(pass(src, true, true), false, true);
+    return pass(pass(dil, true, false), false, false);
+  }
+
+  function otsu(vals) {
     const hist = new Array(256).fill(0);
-    for (let i = 0; i < n; i++) hist[g[i]]++;
+    for (let i = 0; i < vals.length; i++) hist[Math.max(0, Math.min(255, vals[i] | 0))]++;
+    const n = vals.length;
     let sumAll = 0;
     for (let i = 0; i < 256; i++) sumAll += i * hist[i];
     let wB = 0, sumB = 0, best = -1, thr = 128;
@@ -101,46 +110,200 @@
       const v = wB * wF * (mB - mF) * (mB - mF);
       if (v > best) { best = v; thr = i; }
     }
+    return thr;
+  }
 
-    // largest bright blob
-    const label = new Int32Array(n);
-    const stack = new Int32Array(n);
-    let bestLabel = 0, bestSize = 0, next = 0;
-    for (let i = 0; i < n; i++) {
-      if (g[i] <= thr || label[i]) continue;
-      next++;
-      let sp = 0, size = 0;
-      stack[sp++] = i; label[i] = next;
-      while (sp) {
-        const p = stack[--sp]; size++;
-        const x = p % w, y = (p - x) / w;
-        if (x > 0 && g[p - 1] > thr && !label[p - 1]) { label[p - 1] = next; stack[sp++] = p - 1; }
-        if (x < w - 1 && g[p + 1] > thr && !label[p + 1]) { label[p + 1] = next; stack[sp++] = p + 1; }
-        if (y > 0 && g[p - w] > thr && !label[p - w]) { label[p - w] = next; stack[sp++] = p - w; }
-        if (y < h - 1 && g[p + w] > thr && !label[p + w]) { label[p + w] = next; stack[sp++] = p + w; }
+  // convex hull (monotone chain) of [x,y] points
+  function convexHull(pts) {
+    pts.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    const cr = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+    const lo = [];
+    for (const p of pts) { while (lo.length >= 2 && cr(lo[lo.length - 2], lo[lo.length - 1], p) <= 0) lo.pop(); lo.push(p); }
+    const up = [];
+    for (let i = pts.length - 1; i >= 0; i--) { const p = pts[i]; while (up.length >= 2 && cr(up[up.length - 2], up[up.length - 1], p) <= 0) up.pop(); up.push(p); }
+    lo.pop(); up.pop();
+    return lo.concat(up);
+  }
+
+  // drop the least significant hull vertices until at most `max` remain
+  function thinHull(h, max) {
+    h = h.slice();
+    while (h.length > max) {
+      let bi = 0, ba = Infinity;
+      for (let i = 0; i < h.length; i++) {
+        const a = h[(i + h.length - 1) % h.length], b = h[i], c = h[(i + 1) % h.length];
+        const ar = Math.abs((b[0] - a[0]) * (c[1] - a[1]) - (c[0] - a[0]) * (b[1] - a[1]));
+        if (ar < ba) { ba = ar; bi = i; }
       }
-      if (size > bestSize) { bestSize = size; bestLabel = next; }
+      h.splice(bi, 1);
     }
-    if (!bestLabel || bestSize < n * 0.12 || bestSize > n * 0.96) return defaultCorners(W, H);
+    return h;
+  }
 
-    // extreme points along the four diagonals, averaged over the last couple of pixels to ignore specks
-    const score = [(x, y) => -(x + y), (x, y) => x - y, (x, y) => x + y, (x, y) => y - x];
-    const max = [-1e9, -1e9, -1e9, -1e9];
-    for (let i = 0; i < n; i++) {
-      if (label[i] !== bestLabel) continue;
-      const x = i % w, y = (i - x) / w;
-      for (let k = 0; k < 4; k++) { const v = score[k](x, y); if (v > max[k]) max[k] = v; }
+  // the four hull vertices enclosing the most area = the page corners, whatever its tilt
+  function bestQuad(h) {
+    const m = h.length;
+    if (m < 4) return null;
+    let best = -1, q = null;
+    for (let i = 0; i < m - 3; i++) for (let j = i + 1; j < m - 2; j++) for (let k = j + 1; k < m - 1; k++) for (let l = k + 1; l < m; l++) {
+      const p = [h[i], h[j], h[k], h[l]];
+      const a = (p[0][0] * p[1][1] - p[1][0] * p[0][1]) + (p[1][0] * p[2][1] - p[2][0] * p[1][1]) +
+                (p[2][0] * p[3][1] - p[3][0] * p[2][1]) + (p[3][0] * p[0][1] - p[0][0] * p[3][1]);
+      if (Math.abs(a) > best) { best = Math.abs(a); q = p; }
     }
-    const acc = [[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]];
-    for (let i = 0; i < n; i++) {
-      if (label[i] !== bestLabel) continue;
-      const x = i % w, y = (i - x) / w;
-      for (let k = 0; k < 4; k++) if (score[k](x, y) >= max[k] - 2) { acc[k][0] += x; acc[k][1] += y; acc[k][2]++; }
+    return q;
+  }
+
+  // clockwise from the corner nearest the top-left
+  function orderQuad(q) {
+    const cx = q.reduce((s, p) => s + p[0], 0) / 4, cy = q.reduce((s, p) => s + p[1], 0) / 4;
+    const o = q.slice().sort((a, b) => Math.atan2(a[1] - cy, a[0] - cx) - Math.atan2(b[1] - cy, b[0] - cx));
+    let s = 0, si = 1e18;
+    o.forEach((p, i) => { const v = p[0] + p[1]; if (v < si) { si = v; s = i; } });
+    return [o[s], o[(s + 1) % 4], o[(s + 2) % 4], o[(s + 3) % 4]];
+  }
+
+  // How different is the inside of each quad edge from the outside?
+  function edgeContrasts(quad, g, w, h) {
+    const cx = quad.reduce((s, p) => s + p[0], 0) / 4, cy = quad.reduce((s, p) => s + p[1], 0) / 4;
+    const at = (x, y) => (x < 0 || y < 0 || x > w - 1 || y > h - 1) ? NaN : g[(Math.round(y)) * w + Math.round(x)];
+    const res = [];
+    for (let e = 0; e < 4; e++) {
+      const a = quad[e], b = quad[(e + 1) % 4];
+      const L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      if (L < 6) { res.push(0); continue; }
+      let nx = -(b[1] - a[1]) / L, ny = (b[0] - a[0]) / L;
+      if ((cx - a[0]) * nx + (cy - a[1]) * ny < 0) { nx = -nx; ny = -ny; }
+      const diffs = [];
+      const steps = Math.max(8, Math.round(L / 3));
+      for (let i = 1; i < steps; i++) {
+        const t = i / steps, px = a[0] + (b[0] - a[0]) * t, py = a[1] + (b[1] - a[1]) * t;
+        let inn = 0, out = 0, ni = 0, no = 0;
+        for (const off of [2.5, 4.5]) {
+          const vi = at(px + nx * off, py + ny * off), vo = at(px - nx * off, py - ny * off);
+          if (!isNaN(vi)) { inn += vi; ni++; }
+          if (!isNaN(vo)) { out += vo; no++; }
+        }
+        diffs.push(ni && no ? Math.abs(inn / ni - out / no) : 0);
+      }
+      diffs.sort((p, q) => p - q);
+      res.push(diffs[Math.floor(diffs.length * 0.4)]);
     }
+    return res;
+  }
+
+  function detectCorners(c) {
+    const W = c.width, H = c.height;
+    const s = 360 / Math.max(W, H);
+    const w = Math.max(16, Math.round(W * s)), h = Math.max(16, Math.round(H * s));
+    const t = document.createElement('canvas');
+    t.width = w; t.height = h;
+    const tx = t.getContext('2d', { willReadFrequently: true });
+    tx.drawImage(c, 0, 0, w, h);
+    const d = tx.getImageData(0, 0, w, h).data;
+    const n = w * h;
+    const g0 = new Float32Array(n), sat0 = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const r = d[i * 4], gg = d[i * 4 + 1], b = d[i * 4 + 2];
+      g0[i] = (r * 77 + gg * 150 + b * 29) / 256;
+      sat0[i] = Math.max(r, gg, b) - Math.min(r, gg, b);
+    }
+    const g = boxBlur(g0, w, h);
+    const sat = boxBlur(sat0, w, h);
+    // paper is bright and colourless; tables, hands and shadows are one or the other
+    const P0 = new Float32Array(n);
+    for (let i = 0; i < n; i++) P0[i] = Math.max(0, Math.min(255, g[i] - 0.6 * sat[i]));
+    const P = closeThin(P0, w, h, 4);
+
+    const sorted = Float32Array.from(P).sort();
+    const pct = p => sorted[Math.min(n - 1, Math.floor(n * p))];
+    const minArea = n * 0.015;
+    const cands = [];
+
+    const consider = inRegion => {
+      const minX = new Int32Array(h).fill(1e9), maxX = new Int32Array(h).fill(-1);
+      let area = 0;
+      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (inRegion(y * w + x)) {
+        area++; if (x < minX[y]) minX[y] = x; if (x > maxX[y]) maxX[y] = x;
+      }
+      if (area < minArea) return;
+      const pts = []; let span = 0;
+      for (let y = 0; y < h; y++) if (maxX[y] >= 0) {
+        pts.push([minX[y], y], [maxX[y] + 1, y], [minX[y], y + 1], [maxX[y] + 1, y + 1]);
+        span += maxX[y] - minX[y] + 1;
+      }
+      let hull = convexHull(pts);
+      if (hull.length < 4) return;
+      const hullArea = polyArea(hull);
+      hull = thinHull(hull, 36);
+      const q = bestQuad(hull);
+      if (!q) return;
+      const quad = orderQuad(q);
+      const qa = polyArea(quad);
+      if (qa < n * 0.03 || qa > n * 0.985) return;
+      const ec = edgeContrasts(quad, P, w, h).map(v => Math.min(v, 45));
+      const mean = ec.reduce((a, b) => a + b, 0) / 4;
+      const weakest = Math.min(...ec);
+      const solid = Math.min(1, span / hullArea);
+      const quadness = Math.min(1, qa / hullArea);
+      const size = 0.55 + 0.45 * Math.min(1, (qa / n) / 0.25);
+      const score = (0.6 * mean + 0.4 * weakest) * Math.pow(solid, 2) * Math.pow(quadness, 3) * size;
+      cands.push({ quad, score });
+    };
+
+    // 1. brightness cut-offs at several levels
+    const levels = [otsu(P), pct(0.2), pct(0.3), pct(0.4), pct(0.5), pct(0.6), pct(0.7), pct(0.8), pct(0.88), pct(0.93)];
+    const done = new Set();
+    for (const raw of levels) {
+      const thr = Math.round(raw);
+      if (done.has(thr)) continue;
+      done.add(thr);
+      const label = new Int32Array(n), stack = new Int32Array(n);
+      const comps = [];
+      let next = 0;
+      for (let i = 0; i < n; i++) {
+        if (P[i] <= thr || label[i]) continue;
+        next++;
+        let sp = 0, size = 0;
+        stack[sp++] = i; label[i] = next;
+        while (sp) {
+          const p = stack[--sp]; size++;
+          const x = p % w;
+          if (x > 0 && P[p - 1] > thr && !label[p - 1]) { label[p - 1] = next; stack[sp++] = p - 1; }
+          if (x < w - 1 && P[p + 1] > thr && !label[p + 1]) { label[p + 1] = next; stack[sp++] = p + 1; }
+          if (p >= w && P[p - w] > thr && !label[p - w]) { label[p - w] = next; stack[sp++] = p - w; }
+          if (p < n - w && P[p + w] > thr && !label[p + w]) { label[p + w] = next; stack[sp++] = p + w; }
+        }
+        if (size >= minArea) comps.push([size, next]);
+      }
+      comps.sort((a, b) => b[0] - a[0]);
+      for (const [, id] of comps.slice(0, 3)) consider(i => label[i] === id);
+    }
+
+    // 2. grow outwards from the middle of the frame until a real edge stops it
+    for (const tol of [4, 8]) {
+      for (const [fx, fy] of [[0.5, 0.5], [0.4, 0.4], [0.6, 0.4], [0.4, 0.6], [0.6, 0.6], [0.5, 0.35], [0.5, 0.65]]) {
+        const seed = Math.floor(h * fy) * w + Math.floor(w * fx);
+        const seen = new Uint8Array(n), stack = new Int32Array(n);
+        let sp = 0, size = 0;
+        stack[sp++] = seed; seen[seed] = 1;
+        const sv = P[seed];
+        while (sp) {
+          const p = stack[--sp]; size++;
+          const x = p % w;
+          const nb = [x > 0 ? p - 1 : -1, x < w - 1 ? p + 1 : -1, p >= w ? p - w : -1, p < n - w ? p + w : -1];
+          for (const q of nb) if (q >= 0 && !seen[q] && Math.abs(P[q] - P[p]) <= tol && Math.abs(P[q] - sv) <= 70) { seen[q] = 1; stack[sp++] = q; }
+        }
+        if (size >= minArea && size < n * 0.97) consider(i => seen[i] === 1);
+      }
+    }
+
+    if (!cands.length) return defaultCorners(W, H);
+    cands.sort((a, b) => b.score - a.score);
+    const best = cands[0];
+    if (best.score < 5) return defaultCorners(W, H);
     const inv = 1 / s;
-    const pts = acc.map(a => [(a[0] / a[2] + 0.5) * inv, (a[1] / a[2] + 0.5) * inv]);
-    if (polyArea(pts) < W * H * 0.1) return defaultCorners(W, H);
-    return pts.map(p => [Math.min(W, Math.max(0, p[0])), Math.min(H, Math.max(0, p[1]))]);
+    return best.quad.map(p => [Math.min(W, Math.max(0, p[0] * inv)), Math.min(H, Math.max(0, p[1] * inv))]);
   }
 
   // ---- perspective correction ----------------------------------------------------------
