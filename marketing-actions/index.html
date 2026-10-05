@@ -199,7 +199,7 @@ const CFG = { SUPABASE_URL:"https://safcrtrfdzsnftghibot.supabase.co", SUPABASE_
 const STATUSES = [["outstanding","Outstanding"],["in_progress","In Progress"],["completed","Completed"],["parked","Parked"]];
 const SL = Object.fromEntries(STATUSES);
 const S = { me:null, people:[], view:"plan", objectives:[], actions:[], filt:{ who:"", status:"open", q:"", archived:false },
-            mine:[], mineObj:{}, mineStatus:"open", collapsed:new Set(), chat:{ topics:[], open:null, msgs:{}, filter:"all", timer:null, newOpen:false } };
+            mine:[], mineObj:{}, mineStatus:"open", collapsed:new Set(), chat:{ topics:[], open:null, msgs:{}, filter:"all", timer:null, newOpen:false, ntObj:"" } };
 const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
 const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 const fmtDT = iso => { if(!iso) return ""; try { return new Date(iso).toLocaleString("en-GB",{ timeZone:"Europe/London", day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" }).replace(",",""); } catch(e){ return String(iso).slice(0,16); } };
@@ -521,6 +521,7 @@ function chatStop(){ if (S.chat.timer) { clearInterval(S.chat.timer); S.chat.tim
 async function viewChat(){
   chatStop();
   if (!S.chat.topics.length) $("#views").innerHTML = `<div class="loading">Loading…</div>`;
+  if (!S.objectives.length) { try { S.objectives = (await call("plan.list", {})).objectives || []; } catch(e){} }
   await loadTopics();
   S.chat.timer = setInterval(async () => {
     if (S.view !== "chat") return chatStop();
@@ -556,6 +557,18 @@ function topicBody(t){
       <div class="opts" style="margin-top:8px"><button class="btn small" data-send="${esc(t.id)}">Send</button>
       ${(S.me.isAdmin || t.created_by_email === S.me.email) ? `<span class="spacer"></span><button class="btn ghost small" data-archive="${esc(t.id)}">Archive topic</button>` : ""}</div></div></div>`;
 }
+function newTopicForm(){
+  const c = S.chat, objs = S.objectives.filter(o => o.status === "active");
+  const picked = objs.find(o => o.id === c.ntObj), other = c.ntObj === "__other";
+  const existing = picked && c.topics.find(t => t.objective_id === picked.id);
+  return `<div class="card"><h3>New topic</h3>
+    <div class="field"><label>What is it about?</label><select id="nt_obj"><option value="">Choose…</option>
+      ${objs.map(o => `<option value="${esc(o.id)}">${esc(o.title)}</option>`).join("")}<option value="__other">Other - start your own topic</option></select></div>
+    ${other ? `<div class="field"><label>Topic</label><input id="nt_title" maxlength="200" placeholder="e.g. Christmas party leaflets"></div>` : ""}
+    ${picked ? `<p class="muted" style="margin:-4px 0 14px;font-size:13px">${existing ? "This objective already has a topic. Your message is added to it." : "Everything about this objective is kept in one topic."}</p>` : ""}
+    ${(picked || other) ? `<div class="field compose"><label>${existing ? "Message" : "First message (optional)"}</label><textarea class="mentionable" id="nt_body" maxlength="4000" placeholder="Start the discussion. Type @ to tag someone."></textarea></div>
+      <div class="opts"><button class="btn" id="nt_go">${existing ? "Add to topic" : "Start topic"}</button></div>` : ""}</div>`;
+}
 function renderChat(keepScroll){
   const c = S.chat, f = c.filter;
   const draft = {}; $$(".compose textarea").forEach(t => { draft[t.id] = t.value; });
@@ -563,9 +576,7 @@ function renderChat(keepScroll){
   const list = c.topics.filter(t => f === "all" ? true : f === "tagged" ? t.tagged_you : t.unread);
   const scrollTop = window.scrollY;
   $("#views").innerHTML = `<div class="pagehead"><h2>Chat</h2><span class="hint">One topic per conversation. Tag someone with @name and they get an email</span><span class="spacer"></span><button class="btn" id="newtopic">${c.newOpen ? "Close" : "New topic"}</button></div>
-    ${c.newOpen ? `<div class="card"><h3>New topic</h3><div class="field"><label>Topic</label><input id="nt_title" maxlength="200" placeholder="e.g. Christmas party leaflets"></div>
-      <div class="field compose"><label>First message (optional)</label><textarea class="mentionable" id="nt_body" maxlength="4000" placeholder="Start the discussion. Type @ to tag someone."></textarea></div>
-      <div class="opts"><button class="btn" id="nt_go">Start topic</button></div></div>` : ""}
+    ${c.newOpen ? newTopicForm() : ""}
     <div class="opts" style="margin-bottom:14px"><button class="opt" data-f="all" aria-pressed="${f === "all"}">All topics</button><button class="opt" data-f="unread" aria-pressed="${f === "unread"}">Unread</button><button class="opt" data-f="tagged" aria-pressed="${f === "tagged"}">Tagged me</button></div>
     ${list.length ? list.map(t => `<div class="card topic" data-topic="${esc(t.id)}"><div class="thead" data-open="${esc(t.id)}">
         <div style="min-width:0"><div class="tt">${t.unread ? `<span class="dot"></span>` : ""}${esc(t.title)}${t.tagged_you ? `<span class="tagged">Tagged you</span>` : ""}</div>
@@ -574,8 +585,9 @@ function renderChat(keepScroll){
         ${c.open === t.id ? topicBody(t) : ""}</div>`).join("")
       : `<div class="empty">${c.topics.length ? "No topics match that filter." : "No topics yet. Start one with New topic."}</div>`}`;
   if (newDraft.t && $("#nt_title")) $("#nt_title").value = newDraft.t; if (newDraft.b && $("#nt_body")) $("#nt_body").value = newDraft.b;
+  if ($("#nt_obj")) { $("#nt_obj").value = c.ntObj; $("#nt_obj").onchange = e => { c.ntObj = e.target.value; renderChat(); const t = $("#nt_title") || $("#nt_body"); if (t) t.focus(); }; }
   Object.entries(draft).forEach(([id, v]) => { const el = document.getElementById(id); if (el && v) el.value = v; });
-  $("#newtopic").onclick = () => { c.newOpen = !c.newOpen; renderChat(); };
+  $("#newtopic").onclick = () => { c.newOpen = !c.newOpen; if (!c.newOpen) c.ntObj = ""; renderChat(); };
   $$("[data-f]").forEach(b => b.onclick = () => { c.filter = b.dataset.f; renderChat(); });
   $$("[data-open]").forEach(h => h.onclick = async () => { const id = h.dataset.open; if (c.open === id) { c.open = null; renderChat(); return; } c.open = id; renderChat(); await loadTopic(id); });
   $$("[data-send]").forEach(b => b.onclick = async () => {
@@ -587,8 +599,13 @@ function renderChat(keepScroll){
   $$("[data-archive]").forEach(b => b.onclick = async () => { if (!confirm("Archive this topic? It leaves the list.")) return; try { await call("topic.archive", { id:b.dataset.archive }); c.open = null; toast("Archived."); loadTopics(); } catch(e){ toast(e.message, true); } });
   if ($("#nt_go")) $("#nt_go").onclick = async () => {
     const btn = $("#nt_go"); btn.disabled = true;
-    try { const d = await call("topic.create", { title:$("#nt_title").value, body:$("#nt_body").value }); c.newOpen = false; c.open = d.topic.id; await loadTopics(true); await loadTopic(d.topic.id); toast("Topic started."); }
-    catch(e){ toast(e.message, true); btn.disabled = false; }
+    try {
+      const body = $("#nt_body").value, payload = c.ntObj === "__other" ? { title:($("#nt_title").value || ""), body } : { objective_id:c.ntObj, body };
+      if (c.ntObj === "__other" && !payload.title.trim()) throw new Error("Give the topic a title.");
+      const d = await call("topic.create", payload);
+      c.newOpen = false; c.ntObj = ""; c.open = d.topic.id; await loadTopics(true); await loadTopic(d.topic.id);
+      toast(d.existing ? "Added to the existing topic." : "Topic started.");
+    } catch(e){ toast(e.message, true); btn.disabled = false; }
   };
   $$("textarea.mentionable").forEach(attachMentions);
   $$("textarea.mentionable").forEach(t => t.addEventListener("keydown", e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { const b = t.closest(".compose").querySelector("[data-send]"); if (b) b.click(); } }));
