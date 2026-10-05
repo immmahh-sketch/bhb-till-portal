@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Rota — Black Horse Beamish</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --sage:#4E5F4F; --sage-70:#7B887C; --sage-10:#EDEFED; --sage-dark:#3B483C;
+  --bone:#F7F7F7; --celadon:#C1C8B4; --mist:#E7E7E7; --white:#fff; --ink:#262626; --gold:#C9A56B;
+  --attention:#B08D57; --attention-bg:#F7F0E4; --alert:#8C4A3F; --alert-bg:#F6EAE8; --good:#4F6B4F; --good-bg:#EDF2ED;
+  --display:"Cormorant Garamond",Georgia,serif; --body:Raleway,"Helvetica Neue",Arial,sans-serif;
+  --track-label:.18em; --radius:10px; --shadow:0 1px 2px rgba(38,38,38,.06),0 8px 24px rgba(38,38,38,.07); --maxw:900px;
+}
+*{box-sizing:border-box} html,body{margin:0;padding:0}
+body{font-family:var(--body); color:var(--ink); background:var(--bone); font-size:15px; line-height:1.5; -webkit-text-size-adjust:100%; overflow-x:hidden}
+h1,h2,h3{font-family:var(--display); font-weight:600; margin:0; letter-spacing:.01em}
+button,input,textarea,select{font:inherit; color:inherit}
+.shell{max-width:var(--maxw); margin:0 auto; padding:0 20px 64px}
+#gate{position:fixed; inset:0; background:var(--sage); z-index:100; display:flex; align-items:center; justify-content:center; padding:24px}
+#gate[hidden]{display:none}
+.gatecard{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); width:100%; max-width:380px; padding:32px 28px; text-align:center}
+.gatecard h1{font-size:26px; color:var(--sage); line-height:1.15}
+.gatecard .sub{font-size:11px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); margin:6px 0 22px}
+.gateerr{color:var(--alert); font-size:13px; min-height:18px; margin-top:8px}
+header.top{background:var(--sage); color:var(--white)}
+.topin{max-width:var(--maxw); margin:0 auto; padding:14px 20px; display:flex; align-items:center; gap:18px; flex-wrap:wrap}
+.brand{font-family:var(--display); font-size:21px; line-height:1.1}
+.brand small{display:block; font-family:var(--body); font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; opacity:.75}
+.who{margin-left:auto; display:flex; align-items:center; gap:10px; font-size:12px; opacity:.9; min-width:0}
+.who #whoname{overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:46vw}
+.who button{background:transparent; border:1px solid rgba(255,255,255,.4); color:var(--white); border-radius:6px; padding:5px 10px; cursor:pointer; font-size:11px; letter-spacing:.06em; text-transform:uppercase; min-height:36px}
+nav.tabs{background:var(--sage-dark)}
+nav.tabs.gone{display:none}
+.tabsin{max-width:var(--maxw); margin:0 auto; padding:0 20px; display:flex; gap:2px; overflow-x:auto}
+.tabbtn{background:transparent; border:0; cursor:pointer; color:rgba(255,255,255,.72); padding:12px 16px; font-size:12px; font-weight:600; white-space:nowrap; letter-spacing:var(--track-label); text-transform:uppercase; border-bottom:3px solid transparent; min-height:44px}
+.tabbtn[aria-current="page"]{color:var(--white); border-bottom-color:var(--gold)}
+.pagehead{display:flex; align-items:flex-end; gap:6px 16px; flex-wrap:wrap; margin:24px 0 12px}
+.pagehead h2{font-size:26px; color:var(--sage)}
+.pagehead .hint{font-size:13px; color:var(--sage-70)}
+.spacer{margin-left:auto}
+.btn{border:1px solid var(--sage); background:var(--sage); color:var(--white); border-radius:8px; padding:9px 16px; cursor:pointer; font-size:12px; font-weight:600; letter-spacing:var(--track-label); text-transform:uppercase; min-height:44px}
+.btn.ghost{background:var(--white); color:var(--sage)} .btn.ghost:hover{background:var(--sage-10)}
+.btn:disabled{opacity:.5; cursor:default}
+.card{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); padding:18px 20px; margin-bottom:14px}
+.card h3{font-size:22px; color:var(--sage); margin-bottom:12px}
+.opts{display:flex; gap:8px; flex-wrap:wrap}
+.opt{border:1px solid var(--mist); background:var(--bone); border-radius:999px; padding:9px 16px; cursor:pointer; font-size:14px; min-height:44px; max-width:100%; overflow-wrap:anywhere}
+.opt:hover{background:var(--sage-10)}
+.opt[aria-pressed="true"]{background:var(--sage); border-color:var(--sage); color:var(--white); font-weight:600}
+.tag{display:inline-block; border-radius:999px; padding:3px 10px; font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; background:var(--sage-10); color:var(--sage); white-space:nowrap}
+.tag.draft{background:var(--attention-bg); color:#6d5320}
+.tag.open{background:var(--alert-bg); color:var(--alert)}
+.tag.you{background:var(--sage); color:var(--white)}
+.muted{color:var(--sage-70)} .empty{padding:40px 20px; text-align:center; color:var(--sage-70)} .loading{padding:60px; text-align:center; color:var(--sage-70)}
+.sum{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px}
+.sum .pill{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); padding:10px 16px; min-width:110px}
+.sum .pill b{display:block; font-family:var(--body); font-weight:700; font-size:26px; line-height:1; color:var(--sage)}
+.sum .pill span{font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70)}
+.toast{position:fixed; left:50%; bottom:26px; transform:translate(-50%,20px); background:var(--ink); color:var(--white); padding:12px 20px; border-radius:8px; z-index:200; opacity:0; transition:.2s; pointer-events:none; font-size:14px; max-width:90vw}
+.toast.on{opacity:1; transform:translate(-50%,0)} .toast.bad{background:var(--alert)}
+
+/* ---- Rota specifics ---- */
+.bar{display:flex; align-items:center; gap:8px 10px; flex-wrap:wrap; margin:0 0 14px}
+.bar .btn{width:auto; padding:9px 14px}
+.bar .upd{font-size:12px; color:var(--sage-70)}
+.range{font-family:var(--display); font-size:22px; color:var(--sage); font-weight:600; line-height:1.1; flex:1 1 auto; min-width:0; text-align:center}
+.notice{background:var(--attention-bg); border-radius:var(--radius); padding:12px 16px; margin-bottom:14px; font-size:14px; color:#5b4619}
+.errcard{background:var(--alert-bg); color:var(--alert); border-radius:var(--radius); padding:14px 16px; margin-bottom:14px; font-size:14px; display:flex; gap:10px 14px; align-items:center; flex-wrap:wrap}
+.errcard span{flex:1 1 200px; min-width:0; overflow-wrap:anywhere}
+.filters{margin-bottom:14px}
+.day{padding:0; overflow:hidden}
+.day.today{border-left:4px solid var(--gold)}
+.dayhead{display:flex; align-items:baseline; gap:2px 12px; flex-wrap:wrap; padding:14px 20px 10px}
+.dayhead h3{margin:0; font-size:24px}
+.dayhead .dd{font-size:13px; color:var(--sage-70)}
+.dayhead .cnt{margin-left:auto; font-size:11px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); font-weight:600}
+.dayhead .cnt.zero{font-weight:500}
+.daybody{border-top:1px solid var(--mist); padding:2px 20px 10px}
+.dayempty{border-top:1px solid var(--mist); padding:12px 20px; color:var(--sage-70); font-size:14px}
+.dept{font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); font-weight:600; margin:14px 0 4px}
+.shift{display:grid; grid-template-columns:104px minmax(0,1fr); gap:2px 12px; padding:9px 10px; margin:0 -10px; border-radius:8px; align-items:start}
+.shift + .shift{border-top:1px solid var(--sage-10)}
+.shift.mine{background:var(--sage-10); border-top-color:transparent; box-shadow:inset 3px 0 0 var(--sage)}
+.shift.mine + .shift{margin-top:3px}
+.shift .tm{font-variant-numeric:tabular-nums; font-weight:600; font-size:14px; white-space:nowrap}
+.shift .tm small{display:block; font-weight:500; font-size:11px; color:var(--sage-70); white-space:normal}
+.shift .nm{font-weight:600; overflow-wrap:anywhere}
+.shift .jb{font-size:13px; color:var(--sage-70); overflow-wrap:anywhere}
+.shift .tags{display:inline-flex; gap:6px; flex-wrap:wrap; margin-left:6px; vertical-align:middle}
+.shift .cm{font-size:13px; font-style:italic; color:var(--sage-70); margin-top:2px; overflow-wrap:anywhere; white-space:pre-wrap}
+.mday{margin:20px 0 8px}
+.mday h3{font-size:24px; color:var(--sage); line-height:1.1}
+.mday h3.today{color:var(--ink)}
+.mday .dd{font-size:13px; color:var(--sage-70); margin-left:8px; font-family:var(--body); font-weight:500}
+.big{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); padding:16px 18px; margin-bottom:10px; border-left:4px solid var(--sage)}
+.big.draft{border-left-color:var(--attention)}
+.big .bt{font-family:var(--body); font-size:28px; font-weight:700; letter-spacing:-.01em; line-height:1.1; color:var(--sage); font-variant-numeric:tabular-nums}
+.big .bt small{font-family:var(--body); font-size:12px; font-weight:500; color:var(--sage-70); margin-left:6px}
+.big .bm{display:flex; gap:4px 14px; flex-wrap:wrap; margin-top:6px; font-size:15px; align-items:center}
+.big .bm .hrs{font-weight:700; color:var(--sage)}
+.big .bm .dp{overflow-wrap:anywhere}
+.big .cm{font-size:14px; font-style:italic; color:var(--sage-70); margin-top:6px; overflow-wrap:anywhere; white-space:pre-wrap}
+.strip{display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:6px; margin-bottom:16px}
+.cell{background:var(--white); border-radius:8px; box-shadow:var(--shadow); text-align:center; padding:8px 2px 6px; min-height:64px}
+.cell .w{font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--sage-70); font-weight:600}
+.cell .n{font-size:20px; line-height:1.2; color:var(--ink); font-weight:600}
+.cell .c{font-size:11px; font-weight:700; margin-top:2px; min-height:16px; color:var(--sage-70)}
+.cell.has{background:var(--attention-bg)} .cell.has .c{color:#6d5320}
+.cell.today{box-shadow:inset 0 0 0 2px var(--gold),var(--shadow)}
+.cell.wk .n{color:var(--sage-70)}
+.off{display:flex; gap:4px 16px; flex-wrap:wrap; align-items:baseline; padding:12px 0; border-bottom:1px solid var(--mist)}
+.off:last-child{border-bottom:0}
+.off .who2{flex:1 1 200px; min-width:0}
+.off .who2 b{font-family:var(--display); font-size:21px; color:var(--sage); font-weight:600; overflow-wrap:anywhere}
+.off .who2 div{font-size:13px; color:var(--sage-70); overflow-wrap:anywhere}
+.off .when{flex:1 1 200px; min-width:0; font-weight:600; font-size:14px}
+.off .when small{display:block; font-weight:500; color:var(--sage-70); font-size:12px}
+.off .nt{flex:1 1 100%; font-size:13px; font-style:italic; color:var(--sage-70); overflow-wrap:anywhere; white-space:pre-wrap}
+.off.mineoff{background:var(--sage-10); margin:0 -10px; padding-left:10px; padding-right:10px; border-radius:8px}
+@media (max-width:640px){
+  .shell{padding:0 12px 48px} .topin,.tabsin{padding-left:12px;padding-right:12px} .pagehead h2{font-size:22px}
+  .card{padding:16px 14px}
+  .dayhead{padding:12px 14px 8px} .daybody{padding:2px 14px 8px} .dayempty{padding:12px 14px}
+  .shift{grid-template-columns:92px minmax(0,1fr); gap:2px 10px}
+  .range{font-size:19px; flex:1 1 100%; order:-1; text-align:left}
+  .bar .btn{flex:1 1 auto}
+  .big .bt{font-size:26px}
+}
+</style>
+</head>
+<body>
+<div id="gate"><div class="gatecard"><h1>Rota</h1><div class="sub">Black Horse Beamish</div>
+  <p style="margin:0 0 16px;font-size:14px;color:var(--sage-70)">This opens from the Staff Portal, which knows who you are and what you can see.</p>
+  <a href="https://app.blackhorsebeamish.co.uk/portal/app.html" style="display:block;padding:12px;border-radius:8px;background:var(--sage);color:#fff;text-decoration:none;font-weight:600;letter-spacing:var(--track-label);text-transform:uppercase;font-size:12px">Open the Staff Portal</a>
+  <div class="gateerr" id="gerr"></div></div></div>
+<div id="app" hidden>
+  <header class="top"><div class="topin"><div class="brand">Rota<small>Black Horse Beamish</small></div>
+    <div class="who"><span id="whoname"></span><button id="signout">Sign out</button></div></div></header>
+  <nav class="tabs" id="tabnav"><div class="tabsin" role="tablist">
+    <button class="tabbtn" data-view="week" id="tab_week">Next 7 days</button>
+    <button class="tabbtn" data-view="mine" id="tab_mine">My shifts</button>
+    <button class="tabbtn" data-view="off" id="tab_off">Who's off</button>
+  </div></nav>
+  <div class="shell"><div id="views"></div></div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+const CFG = { SUPABASE_URL:"https://safcrtrfdzsnftghibot.supabase.co", SUPABASE_KEY:"sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU" };
+const TAB_ORDER = ["week","mine","off"];
+const REFRESH_MS = 5 * 60 * 1000;
+// S.me: { name, email, admin }. cache is keyed "from|to" -> { d, at }.
+const S = { me:null, tabs:null, view:"week", weekFrom:"", dept:"", cache:{}, err:"", busy:false, seq:0, configured:true, ready:false };
+const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
+const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const today = () => new Intl.DateTimeFormat("en-CA",{ timeZone:"Europe/London", year:"numeric", month:"2-digit", day:"2-digit" }).format(new Date());
+function toast(msg, bad){ const t=$("#toast"); t.textContent=msg; t.className="toast on"+(bad?" bad":""); clearTimeout(toast._t); toast._t=setTimeout(()=>{t.className="toast";}, bad?5200:2600); }
+function staffEmail(){ try { return sessionStorage.getItem("bhb_staff_email") || ""; } catch(e){ return ""; } }
+async function call(action, payload){
+  const r = await fetch(CFG.SUPABASE_URL + "/functions/v1/planday-api", { method:"POST", headers:{ "Content-Type":"application/json", Authorization:"Bearer "+CFG.SUPABASE_KEY, apikey:CFG.SUPABASE_KEY }, body: JSON.stringify({ action, app_key:"rota", staff_email: staffEmail(), ...(payload||{}) }) });
+  let d = {}; try { d = await r.json(); } catch(e){}
+  if (!r.ok || d.error) throw new Error(d.error || `Request failed (${r.status})`);
+  return d;
+}
+
+/* ------------------------------------------------------------- date helpers */
+const addDays = (d, n) => { const t = new Date(d + "T12:00:00Z"); t.setUTCDate(t.getUTCDate() + n); return t.toISOString().slice(0, 10); };
+const dateObj = d => new Date(d + "T12:00:00Z");
+const fmt = (d, o) => dateObj(d).toLocaleDateString("en-GB", { timeZone:"UTC", ...o });
+const fmtShort = d => fmt(d, { weekday:"short", day:"numeric", month:"short" });
+const dayHeading = d => { const t = today(); return d === t ? "Today" : d === addDays(t, 1) ? "Tomorrow" : fmt(d, { weekday:"long" }); };
+const daysBetween = (a, b) => { const out = []; for (let d = a; d <= b && out.length < 400; d = addDays(d, 1)) out.push(d); return out; };
+// Planday gives local times as "YYYY-MM-DDTHH:mm:ss"; read the parts so the browser's own time zone never shifts them.
+function parseLocal(s){ const m = /^(\d{4})-(\d\d)-(\d\d)[T ](\d\d):(\d\d)/.exec(String(s || "")); return m ? Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]) : null; }
+const hhmm = s => { const m = /[T ](\d\d:\d\d)/.exec(String(s || "")); return m ? m[1] : ""; };
+function timeRange(s){
+  const a = hhmm(s.start), b = hhmm(s.end);
+  if (!a && !b) return { main:"Time not set", note:"" };
+  const next = s.end && s.start && String(s.end).slice(0, 10) > String(s.start).slice(0, 10);
+  return { main: `${a}–${b}`, note: next ? "ends next day" : "" };
+}
+function hoursOf(s){ const a = parseLocal(s.start), b = parseLocal(s.end); return a !== null && b !== null && b > a ? (b - a) / 3600000 : 0; }
+const fmtHrs = h => { const v = +h.toFixed(2); return `${v} ${v === 1 ? "hr" : "hrs"}`; };
+const clock = at => new Date(at).toLocaleTimeString("en-GB", { timeZone:"Europe/London", hour:"2-digit", minute:"2-digit" });
+const plural = (n, one, many) => `${n} ${n === 1 ? one : (many || one + "s")}`;
+
+/* ------------------------------------------------------------- data */
+function range(){
+  if (S.view === "week") return [S.weekFrom, addDays(S.weekFrom, 6)];
+  const t = today(); return [t, addDays(t, 13)];
+}
+const keyOf = r => r[0] + "|" + r[1];
+async function load(force){
+  if (!S.configured) return;
+  const r = range(), key = keyOf(r), my = ++S.seq;
+  S.busy = true; S.err = ""; render();
+  try {
+    const d = await call("rota.week", { from: r[0], to: r[1], ...(force ? { force:true } : {}) });
+    S.cache[key] = { d, at: Date.now() };
+  } catch(e){ if (my === S.seq) S.err = e.message || "Something went wrong."; }
+  if (my === S.seq) { S.busy = false; render(); }
+}
+const entry = () => S.cache[keyOf(range())] || null;
+
+/* ------------------------------------------------------------- shared bits */
+function updBar(extra){
+  const e = entry();
+  return `<div class="bar">${extra || ""}<span class="${extra ? "spacer " : ""}upd">${e ? "Updated " + esc(clock(e.at)) : ""}</span><button class="btn ghost" id="refresh"${S.busy ? " disabled" : ""}>${S.busy ? "Refreshing…" : "Refresh"}</button></div>`;
+}
+function errCard(){
+  return S.err ? `<div class="errcard" role="alert"><span>${esc(S.err)}</span><button class="btn ghost" id="retry">Try again</button></div>` : "";
+}
+const deptOf = s => s.dept_name || "Other";
+function sortShifts(a){ return a.slice().sort((x, y) => String(x.start).localeCompare(String(y.start)) || String(x.name).localeCompare(String(y.name))); }
+const sortDepts = ks => ks.slice().sort((a, b) => (a === "Other") - (b === "Other") || a.localeCompare(b));
+function shiftTags(s, admin){
+  const t = [];
+  if (s.mine) t.push(`<span class="tag you">You</span>`);
+  if (!s.employee && s.name === "Open shift") t.push(`<span class="tag open">Open</span>`);
+  if (s.draft && admin) t.push(`<span class="tag draft">Unpublished</span>`);
+  return t.length ? `<span class="tags">${t.join("")}</span>` : "";
+}
+
+/* ------------------------------------------------------------- week view */
+function shiftRow(s, admin){
+  const tr = timeRange(s);
+  return `<div class="shift${s.mine ? " mine" : ""}">
+    <div class="tm">${esc(tr.main)}${tr.note ? `<small>${esc(tr.note)}</small>` : ""}</div>
+    <div><span class="nm">${esc(s.name)}</span>${shiftTags(s, admin)}${s.job ? `<div class="jb">${esc(s.job)}</div>` : ""}${s.comment ? `<div class="cm">${esc(s.comment)}</div>` : ""}</div>
+  </div>`;
+}
+function dayCard(date, shifts, admin){
+  const t = today();
+  const people = new Set(shifts.filter(s => s.employee !== null && s.employee !== undefined).map(s => s.employee));
+  const open = shifts.filter(s => s.employee === null || s.employee === undefined).length;
+  const cnt = shifts.length ? `${people.size} on${open ? `, ${open} open` : ""}` : "Nobody on";
+  const by = {}; sortShifts(shifts).forEach(s => (by[deptOf(s)] = by[deptOf(s)] || []).push(s));
+  const dd = date === t || date === addDays(t, 1) ? fmtShort(date) : fmt(date, { day:"numeric", month:"short" });
+  return `<section class="card day${date === t ? " today" : ""}">
+    <div class="dayhead"><h3>${esc(dayHeading(date))}</h3><span class="dd">${esc(dd)}</span><span class="cnt${shifts.length ? "" : " zero"}">${esc(cnt)}</span></div>
+    ${shifts.length ? `<div class="daybody">${sortDepts(Object.keys(by)).map(k => `<div class="dept">${esc(k)}</div>${by[k].map(s => shiftRow(s, admin)).join("")}`).join("")}</div>` : `<div class="dayempty">No shifts.</div>`}
+  </section>`;
+}
+function renderWeek(){
+  const e = entry(), v = $("#views");
+  const from = S.weekFrom, to = addDays(from, 6), t = today();
+  const nav = `<button class="btn ghost" data-step="-7" aria-label="Previous 7 days">&larr; Prev</button><button class="btn ghost" data-step="0"${from === t ? " disabled" : ""}>Today</button><button class="btn ghost" data-step="7" aria-label="Next 7 days">Next &rarr;</button>`;
+  let h = `<div class="pagehead"><h2>${from === t ? "Next 7 days" : "Week view"}</h2></div>
+    <div class="bar"><div class="range">${esc(fmtShort(from))} – ${esc(fmtShort(to))}</div>${nav}</div>
+    ${updBar()}${errCard()}`;
+  if (!e) { v.innerHTML = h + (S.busy ? `<div class="loading">Loading…</div>` : ""); return; }
+  const d = e.d, admin = !!(S.me && S.me.admin);
+  const all = (d.shifts || []).filter(s => s.date >= from && s.date <= to);
+  const depts = sortDepts([...new Set(all.map(deptOf))]);
+  if (S.dept && !depts.includes(S.dept)) S.dept = "";
+  if (admin && d.drafts_shown > 0) h += `<div class="notice">${esc(plural(d.drafts_shown, "shift is", "shifts are"))} unpublished - staff can't see them yet.</div>`;
+  else if (!admin && d.drafts_hidden > 0) h += `<p class="muted" style="font-size:13px;margin:0 0 14px">Later shifts appear once they're published.</p>`;
+  if (depts.length > 1) h += `<div class="filters opts" role="group" aria-label="Filter by department"><button class="opt" data-dept="" aria-pressed="${!S.dept}">All</button>${depts.map(k => `<button class="opt" data-dept="${esc(k)}" aria-pressed="${S.dept === k}">${esc(k)}</button>`).join("")}</div>`;
+  const shown = S.dept ? all.filter(s => deptOf(s) === S.dept) : all;
+  h += daysBetween(from, to).map(day => dayCard(day, shown.filter(s => s.date === day), admin)).join("");
+  v.innerHTML = h;
+}
+
+/* ------------------------------------------------------------- my shifts */
+function renderMine(){
+  const e = entry(), v = $("#views");
+  let h = `<div class="pagehead"><h2>My shifts</h2><span class="hint">The next 14 days</span></div>${updBar()}${errCard()}`;
+  if (!e) { v.innerHTML = h + (S.busy ? `<div class="loading">Loading…</div>` : ""); return; }
+  const d = e.d, admin = !!(S.me && S.me.admin);
+  if (!d.matched) { v.innerHTML = h + `<div class="card empty">We couldn't match your portal email to a Planday profile, so we can't show your own shifts. Ask the GM to check your email address in Planday.</div>`; return; }
+  const [from, to] = range();
+  const mine = sortShifts((d.shifts || []).filter(s => s.mine && s.date >= from && s.date <= to));
+  if (!mine.length) { v.innerHTML = h + `<div class="card empty">No shifts in the next 14 days.</div>`; return; }
+  const total = mine.reduce((n, s) => n + hoursOf(s), 0);
+  h += `<div class="sum"><div class="pill"><b>${mine.length}</b><span>${mine.length === 1 ? "Shift" : "Shifts"}</span></div><div class="pill"><b>${esc(+total.toFixed(2))}</b><span>Total hours</span></div></div>`;
+  const days = [...new Set(mine.map(s => s.date))];
+  h += days.map(day => {
+    const t = today();
+    return `<div class="mday"><h3 class="${day === t ? "today" : ""}">${esc(dayHeading(day))}<span class="dd">${esc(fmtShort(day))}</span></h3></div>` +
+      mine.filter(s => s.date === day).map(s => {
+        const tr = timeRange(s), hrs = hoursOf(s);
+        return `<div class="big${s.draft && admin ? " draft" : ""}"><div class="bt">${esc(tr.main)}${tr.note ? `<small>${esc(tr.note)}</small>` : ""}</div>
+          <div class="bm">${s.dept_name ? `<span class="dp">${esc(s.dept_name)}</span>` : ""}${s.job ? `<span class="dp muted">${esc(s.job)}</span>` : ""}${hrs ? `<span class="hrs">${esc(fmtHrs(hrs))}</span>` : ""}${s.draft && admin ? `<span class="tag draft">Unpublished</span>` : ""}</div>
+          ${s.comment ? `<div class="cm">${esc(s.comment)}</div>` : ""}</div>`;
+      }).join("");
+  }).join("");
+  v.innerHTML = h;
+}
+
+/* ------------------------------------------------------------- who's off */
+function absDays(a){ return (a.days && a.days.length) ? a.days.slice() : daysBetween(a.start, a.end || a.start); }
+function whenText(a){
+  const days = absDays(a), s = a.start || days[0] || "", e = a.end || days[days.length - 1] || s;
+  if (!s) return { main:"Dates not given", sub:"" };
+  const main = s === e ? fmtShort(s) : `${fmtShort(s)} – ${fmtShort(e)}`;
+  return { main, sub: days.length ? plural(days.length, "day") : "" };
+}
+function renderOff(){
+  const e = entry(), v = $("#views");
+  let h = `<div class="pagehead"><h2>Who's off</h2><span class="hint">Approved leave, next 14 days</span></div>${updBar()}${errCard()}`;
+  if (!e) { v.innerHTML = h + (S.busy ? `<div class="loading">Loading…</div>` : ""); return; }
+  const [from, to] = range(), t = today();
+  const abs = (e.d.absences || []).filter(a => absDays(a).some(x => x >= from && x <= to) || (a.start <= to && (a.end || a.start) >= from));
+  if (!abs.length) { v.innerHTML = h + `<div class="card empty">Nobody is booked off in the next 14 days.</div>`; return; }
+  const counts = {};
+  abs.forEach(a => { const set = new Set(absDays(a)); const ps = a.employee ?? a.name; set.forEach(x => { (counts[x] = counts[x] || new Set()).add(ps); }); });
+  h += `<div class="strip" role="list">${daysBetween(from, to).map(day => {
+    const n = counts[day] ? counts[day].size : 0, wk = [0, 6].includes(dateObj(day).getUTCDay());
+    return `<div class="cell${n ? " has" : ""}${day === t ? " today" : ""}${wk ? " wk" : ""}" role="listitem" aria-label="${esc(fmtShort(day))}: ${n} off"><div class="w">${esc(fmt(day, { weekday:"short" }))}</div><div class="n">${esc(fmt(day, { day:"numeric" }))}</div><div class="c">${n ? n + " off" : ""}</div></div>`;
+  }).join("")}</div>`;
+  const me = e.d.me && e.d.me.planday_id;
+  abs.sort((a, b) => String(a.start).localeCompare(String(b.start)) || String(a.name).localeCompare(String(b.name)));
+  h += `<div class="card" style="padding-top:6px;padding-bottom:6px">${abs.map(a => {
+    const w = whenText(a);
+    return `<div class="off${me && a.employee === me ? " mineoff" : ""}"><div class="who2"><b>${esc(a.name)}</b>${me && a.employee === me ? ` <span class="tag you">You</span>` : ""}${a.job ? `<div>${esc(a.job)}</div>` : ""}</div><div class="when">${esc(w.main)}${w.sub ? `<small>${esc(w.sub)}</small>` : ""}</div>${a.note ? `<div class="nt">${esc(a.note)}</div>` : ""}</div>`;
+  }).join("")}</div>`;
+  v.innerHTML = h;
+}
+
+/* ------------------------------------------------------------- shell */
+function render(){
+  if (!S.configured) return;
+  const y = window.scrollY;
+  if (S.view === "week") renderWeek(); else if (S.view === "mine") renderMine(); else renderOff();
+  window.scrollTo(0, y);
+}
+document.addEventListener("click", e => {
+  const t = e.target.closest("#refresh,#retry,[data-step],[data-dept]");
+  if (!t || !$("#views").contains(t)) return;
+  if (t.id === "refresh") return load(true);
+  if (t.id === "retry") return load(false);
+  if (t.dataset.step !== undefined) { const n = +t.dataset.step; S.weekFrom = n === 0 ? today() : addDays(S.weekFrom, n); S.dept = ""; render(); if (!entry()) load(false); else if (Date.now() - entry().at > 60000) load(false); return; }
+  if (t.dataset.dept !== undefined) { S.dept = t.dataset.dept; render(); }
+});
+function markTab(){ $$(".tabbtn").forEach(b => b.setAttribute("aria-current", b.dataset.view === S.view ? "page" : "false")); }
+function goView(v){
+  S.view = v; S.err = ""; S.dept = ""; markTab(); window.scrollTo(0, 0);
+  if (v === "week") S.weekFrom = today();
+  render();
+  const e = entry();
+  if (!e || Date.now() - e.at > 60000) load(false);
+}
+function openGate(msg){ $("#gate").hidden = false; $("#app").hidden = true; if (msg) $("#gerr").textContent = msg; }
+$("#signout").addEventListener("click", ()=>{ try { sessionStorage.removeItem("bhb_staff_email"); } catch(e){} openGate(); });
+function autoRefresh(){
+  if (document.hidden || !S.ready || !S.configured || S.busy) return;
+  const e = entry();
+  if (!e || Date.now() - e.at >= REFRESH_MS - 1000) load(false);
+}
+setInterval(autoRefresh, REFRESH_MS);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) autoRefresh(); });
+async function boot(){
+  $("#app").hidden = false; $("#views").innerHTML = `<div class="loading">Loading…</div>`;
+  let d;
+  try { d = await call("bootstrap"); } catch(e){ $("#views").innerHTML = `<div class="empty">${esc(e.message)}<br><br><span class="muted">Open this from the Staff Portal so it knows who you are.</span></div>`; return; }
+  S.me = d.me || {}; S.tabs = Array.isArray(d.tabs) ? d.tabs : null; S.configured = d.configured !== false;
+  $("#whoname").textContent = S.me.name || "";
+  if (!S.configured) {
+    $("#tabnav").classList.add("gone");
+    $("#views").innerHTML = `<div class="card empty" style="margin-top:24px"><h3 style="margin-bottom:6px">Planday isn't connected yet</h3>Come back once it's been set up.</div>`;
+    return;
+  }
+  const allowed = TAB_ORDER.filter(k => !S.tabs || S.tabs.includes(k));
+  TAB_ORDER.forEach(k => { if (!allowed.includes(k)) { const b = $("#tab_" + k); if (b) b.remove(); } });
+  $$(".tabbtn").forEach(b => b.addEventListener("click", () => goView(b.dataset.view)));
+  if (!allowed.length) { $("#tabnav").classList.add("gone"); $("#views").innerHTML = `<div class="card empty" style="margin-top:24px">You don't have access to any part of the rota yet. Ask the GM.</div>`; return; }
+  S.ready = true; goView(allowed[0]);
+}
+(function(){ if (staffEmail()) { $("#gate").hidden = true; boot(); } else openGate(); })();
+</script>
+</body>
+</html>

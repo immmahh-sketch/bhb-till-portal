@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Fire Report — Black Horse Beamish</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --sage:#4E5F4F; --sage-70:#7B887C; --sage-10:#EDEFED; --sage-dark:#3B483C;
+  --bone:#F7F7F7; --celadon:#C1C8B4; --mist:#E7E7E7; --white:#fff; --ink:#262626; --gold:#C9A56B;
+  --attention:#B08D57; --attention-bg:#F7F0E4; --alert:#8C4A3F; --alert-bg:#F6EAE8; --good:#4F6B4F; --good-bg:#EDF2ED;
+  --display:"Cormorant Garamond",Georgia,serif; --body:Raleway,"Helvetica Neue",Arial,sans-serif;
+  --track-label:.18em; --radius:10px; --shadow:0 1px 2px rgba(38,38,38,.06),0 8px 24px rgba(38,38,38,.07); --maxw:900px;
+}
+*{box-sizing:border-box} html,body{margin:0;padding:0}
+body{font-family:var(--body); color:var(--ink); background:var(--bone); font-size:16px; line-height:1.5; -webkit-text-size-adjust:100%}
+h1,h2,h3{font-family:var(--display); font-weight:600; margin:0; letter-spacing:.01em}
+button,input,textarea,select{font:inherit; color:inherit}
+.shell{max-width:var(--maxw); margin:0 auto; padding:0 20px 64px}
+#gate{position:fixed; inset:0; background:var(--sage); z-index:100; display:flex; align-items:center; justify-content:center; padding:24px}
+#gate[hidden]{display:none}
+.gatecard{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); width:100%; max-width:380px; padding:32px 28px; text-align:center}
+.gatecard h1{font-size:26px; color:var(--sage); line-height:1.15}
+.gatecard .sub{font-size:11px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); margin:6px 0 22px}
+.gateerr{color:var(--alert); font-size:13px; min-height:18px; margin-top:8px}
+header.top{background:var(--sage); color:var(--white)}
+.topin{max-width:var(--maxw); margin:0 auto; padding:14px 20px; display:flex; align-items:center; gap:18px; flex-wrap:wrap}
+.brand{font-family:var(--display); font-size:21px; line-height:1.1}
+.brand small{display:block; font-family:var(--body); font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; opacity:.75}
+.who{margin-left:auto; display:flex; align-items:center; gap:10px; font-size:12px; opacity:.9}
+.who button{background:transparent; border:1px solid rgba(255,255,255,.4); color:var(--white); border-radius:6px; padding:5px 10px; cursor:pointer; font-size:11px; letter-spacing:.06em; text-transform:uppercase; min-height:32px}
+nav.tabs{background:var(--sage-dark)}
+.tabsin{max-width:var(--maxw); margin:0 auto; padding:0 20px; display:flex; gap:2px; overflow-x:auto}
+.tabbtn{background:transparent; border:0; cursor:pointer; color:rgba(255,255,255,.72); padding:12px 16px; font-size:12px; font-weight:600; white-space:nowrap; letter-spacing:var(--track-label); text-transform:uppercase; border-bottom:3px solid transparent}
+.tabbtn[aria-current="page"]{color:var(--white); border-bottom-color:var(--gold)}
+.btn{border:1px solid var(--sage); background:var(--sage); color:var(--white); border-radius:8px; padding:9px 16px; cursor:pointer; font-size:12px; font-weight:600; letter-spacing:var(--track-label); text-transform:uppercase; min-height:48px}
+.btn.ghost{background:var(--white); color:var(--sage)} .btn.ghost:hover{background:var(--sage-10)}
+.btn.danger{background:var(--white); color:var(--alert); border-color:var(--alert)} .btn.danger.sure{background:var(--alert); color:var(--white)}
+.btn:disabled{opacity:.5; cursor:default}
+.card{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); padding:18px 20px; margin-bottom:14px}
+.tag{display:inline-block; border-radius:999px; padding:4px 10px; font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; background:var(--sage-10); color:var(--sage); white-space:nowrap}
+.tag.late{background:var(--alert-bg); color:var(--alert)}
+.tag.warn{background:var(--attention-bg); color:#6d5320}
+.tag.ok{background:var(--good-bg); color:var(--good)}
+.tag.gone{background:var(--mist); color:#5b655c}
+.muted{color:var(--sage-70)} .empty{padding:32px 20px; text-align:center; color:var(--sage-70)} .loading{padding:60px; text-align:center; color:var(--sage-70)}
+.toast{position:fixed; left:50%; bottom:26px; transform:translate(-50%,20px); background:var(--ink); color:var(--white); padding:12px 20px; border-radius:8px; z-index:200; opacity:0; transition:.2s; pointer-events:none; font-size:15px; max-width:90vw}
+.toast.on{opacity:1; transform:translate(-50%,0)} .toast.bad{background:var(--alert)}
+.err{color:var(--alert); font-size:14px}
+
+/* ---- Fire report specifics ---- */
+.headcard{margin-top:20px}
+.big{font-family:var(--display); font-weight:600; color:var(--sage); font-size:44px; line-height:1.05}
+.big b{font-size:64px; font-weight:700}
+.asat{font-size:17px; font-weight:600; margin-top:6px}
+.asat .muted{font-weight:500; font-size:14px}
+.tools{display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-top:16px}
+.tools .btn{width:100%; padding:9px 8px}
+.prog{margin-top:18px}
+.prog .pt{font-size:19px; font-weight:700; color:var(--sage)}
+.bar{height:16px; border-radius:999px; background:var(--mist); overflow:hidden; margin-top:8px}
+.bar i{display:block; height:100%; background:var(--good); border-radius:999px; transition:width .2s}
+.bar.done i{background:var(--good)}
+.stale{background:var(--alert-bg); border-left:6px solid var(--alert); color:var(--alert); font-weight:600; font-size:17px; padding:14px 16px; border-radius:var(--radius); margin:16px 0 0; display:flex; gap:12px; align-items:center; flex-wrap:wrap}
+.stale span{flex:1 1 220px}
+.stale .btn{min-height:44px; background:var(--white); color:var(--alert); border-color:var(--alert)}
+.sec{margin:26px 0 8px}
+.sec h2{font-size:30px; color:var(--sage); line-height:1.1}
+.sec .hint{font-size:15px; color:#5b655c; margin:6px 0 0}
+.grp{font-size:12px; font-weight:700; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); margin:18px 0 8px; padding-bottom:4px; border-bottom:2px solid var(--mist)}
+.prow{display:grid; grid-template-columns:56px minmax(0,1fr); gap:4px 12px; align-items:start; background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); padding:12px 14px 12px 8px; margin-bottom:10px; border-left:6px solid var(--sage)}
+.prow.out{border-left-color:var(--attention)}
+.prow.ok{background:var(--good-bg); border-left-color:var(--good); box-shadow:none}
+.prow.ok .nm{color:var(--sage-70)}
+.chk{width:56px; height:56px; background:transparent; border:0; cursor:pointer; padding:0; display:flex; align-items:center; justify-content:center}
+.chk i{display:flex; width:40px; height:40px; border-radius:50%; border:3px solid var(--sage-70); align-items:center; justify-content:center; color:transparent; background:var(--white)}
+.chk:hover i{border-color:var(--sage)}
+.chk[aria-pressed="true"] i{background:var(--good); border-color:var(--good); color:var(--white)}
+.pinfo{min-width:0; padding-top:4px}
+.nm{font-size:23px; font-weight:700; line-height:1.2; overflow-wrap:anywhere}
+.mt{font-size:16px; color:#444; margin-top:2px; overflow-wrap:anywhere}
+.ok .mt{color:var(--sage-70)}
+.tags{display:flex; gap:6px; flex-wrap:wrap; margin-top:8px}
+.ph{display:inline-flex; align-items:center; min-height:48px; padding:0 16px; border:2px solid var(--sage); border-radius:8px; font-size:20px; font-weight:700; color:var(--sage); text-decoration:none; margin-top:10px; background:var(--white); max-width:100%}
+.ph:hover{background:var(--sage-10)}
+.nophone{margin-top:8px; font-size:14px; color:var(--sage-70)}
+.foot{font-size:13px; color:var(--sage-70); margin:24px 0 0}
+.copybox{margin-top:14px}
+.copybox textarea{width:100%; min-height:160px; padding:10px; border:1px solid var(--mist); border-radius:8px; font-size:14px; font-family:ui-monospace,Menlo,Consolas,monospace}
+.printonly{display:none}
+@media (max-width:640px){
+  .shell{padding:0 12px 48px} .topin,.tabsin{padding-left:12px;padding-right:12px}
+  .card{padding:16px 14px}
+  .big{font-size:34px} .big b{font-size:56px}
+  .tools{grid-template-columns:1fr 1fr}
+  .nm{font-size:22px}
+  .sec h2{font-size:28px}
+}
+
+/* ---- Print ---- */
+@page{margin:12mm}
+@media print{
+  html,body{background:#fff !important; color:#000 !important; font-size:12pt}
+  header.top,nav.tabs,#gate,.toast,.screenonly{display:none !important}
+  .printonly{display:block !important}
+  .shell{max-width:none; padding:0}
+  .ptitle{font-family:Arial,Helvetica,sans-serif; font-size:20pt; font-weight:700; margin:0 0 2pt}
+  .psub{font-family:Arial,Helvetica,sans-serif; font-size:12pt; margin:0 0 12pt}
+  .printonly h2{font-family:Arial,Helvetica,sans-serif; font-size:14pt; margin:14pt 0 4pt; color:#000}
+  .ptable{width:100%; border-collapse:collapse; font-family:Arial,Helvetica,sans-serif; font-size:12pt; color:#000}
+  .ptable th{text-align:left; border-bottom:2px solid #000; padding:4pt 6pt; font-size:10pt; text-transform:uppercase; letter-spacing:.04em}
+  .ptable td{border-bottom:1px solid #666; padding:7pt 6pt; vertical-align:middle}
+  .ptable tr{page-break-inside:avoid}
+  .ptable td.bx{width:34pt; text-align:center}
+  .ptable .box{display:inline-block; width:18pt; height:18pt; border:1.5pt solid #000; line-height:16pt; font-size:15pt; font-weight:700; text-align:center}
+  .ptable .sm{font-size:10pt; color:#333}
+}
+</style>
+</head>
+<body>
+<div id="gate"><div class="gatecard"><h1>Fire Report</h1><div class="sub">Black Horse Beamish</div>
+  <p style="margin:0 0 16px;font-size:14px;color:var(--sage-70)">This opens from the Staff Portal, which knows who you are and what you can see.</p>
+  <a href="https://app.blackhorsebeamish.co.uk/portal/app.html" style="display:block;padding:14px;border-radius:8px;background:var(--sage);color:#fff;text-decoration:none;font-weight:600;letter-spacing:var(--track-label);text-transform:uppercase;font-size:12px">Open the Staff Portal</a>
+  <div class="gateerr" id="gerr"></div></div></div>
+<div id="app" hidden>
+  <header class="top"><div class="topin"><div class="brand">Fire Report<small>Black Horse Beamish</small></div>
+    <div class="who"><span id="whoname"></span><button id="signout">Sign out</button></div></div></header>
+  <nav class="tabs"><div class="tabsin" role="tablist">
+    <button class="tabbtn" data-view="now" id="tab_now" aria-current="page">On site now</button>
+  </div></nav>
+  <div class="shell"><div id="views"></div></div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+const CFG = { SUPABASE_URL:"https://safcrtrfdzsnftghibot.supabase.co", SUPABASE_KEY:"sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU" };
+const REFRESH_MS = 30000;
+// data: last good fire.now response. err: message from the last failed refresh (data kept).
+const S = { me:null, configured:true, data:null, err:"", busy:false, ticks:{}, tickDay:"", clearSure:false, fallback:"", lastTry:0, booted:false };
+const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
+const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+function toast(msg, bad){ const t=$("#toast"); t.textContent=msg; t.className="toast on"+(bad?" bad":""); clearTimeout(toast._t); toast._t=setTimeout(()=>{t.className="toast";}, bad?5200:2600); }
+function staffEmail(){ try { return sessionStorage.getItem("bhb_staff_email") || ""; } catch(e){ return ""; } }
+async function call(action, payload){
+  const r = await fetch(CFG.SUPABASE_URL + "/functions/v1/planday-api", { method:"POST", headers:{ "Content-Type":"application/json", Authorization:"Bearer "+CFG.SUPABASE_KEY, apikey:CFG.SUPABASE_KEY }, body: JSON.stringify({ action, app_key:"fire-report", staff_email: staffEmail(), ...(payload||{}) }) });
+  let d = {}; try { d = await r.json(); } catch(e){}
+  if (!r.ok || d.error) throw new Error(d.error || `Request failed (${r.status})`);
+  return d;
+}
+
+/* ------------------------------------------------------------- helpers */
+const hhmm = iso => iso ? String(iso).slice(11, 16) : "";
+const dayOf = iso => String(iso || "").slice(0, 10);
+const addDay = (d, n) => { const t = new Date(d + "T12:00:00Z"); t.setUTCDate(t.getUTCDate() + n); return t.toISOString().slice(0, 10); };
+const fmtDay = d => { try { return new Date(d + "T12:00:00Z").toLocaleDateString("en-GB", { timeZone:"UTC", weekday:"short", day:"numeric", month:"short", year:"numeric" }); } catch(e){ return d; } };
+const fmtShort = d => { try { return new Date(d + "T12:00:00Z").toLocaleDateString("en-GB", { timeZone:"UTC", day:"numeric", month:"short" }); } catch(e){ return d; } };
+function sinceTxt(since, atDay){
+  const t = hhmm(since); if (!t) return "";
+  const d = dayOf(since);
+  if (!d || d === atDay) return `since ${t}`;
+  if (d === addDay(atDay, -1)) return `since ${t} yesterday`;
+  return `since ${t} on ${fmtShort(d)}`;
+}
+const NODEPT = "No department";
+const deptOf = p => String(p.dept_name || "").trim() || NODEPT;
+const byName = (a, b) => String(a.name || "").localeCompare(String(b.name || ""), "en-GB", { sensitivity:"base" });
+function groups(list){
+  const m = new Map();
+  for (const p of list) { const k = deptOf(p); if (!m.has(k)) m.set(k, []); m.get(k).push(p); }
+  return [...m.entries()].sort((a, b) => (a[0] === NODEPT) - (b[0] === NODEPT) || a[0].localeCompare(b[0], "en-GB", { sensitivity:"base" }))
+    .map(([dept, people]) => ({ dept, people: people.slice().sort(byName) }));
+}
+const flat = list => groups(list).flatMap(g => g.people);
+const phoneHref = p => "tel:" + String(p).replace(/[^\d+]/g, "");
+
+/* ------------------------------------------------------------- ticks (roll call) */
+const tkey = day => "bhb_fire_ticks_" + day;
+function loadTicks(day){
+  S.tickDay = day; S.ticks = {};
+  try { const raw = sessionStorage.getItem(tkey(day)); if (raw) { const o = JSON.parse(raw); if (o && typeof o === "object") S.ticks = o; } } catch(e){}
+}
+function saveTicks(){ try { sessionStorage.setItem(tkey(S.tickDay), JSON.stringify(S.ticks)); } catch(e){} }
+const keyIn = p => "in|" + p.name + "|" + (p.since || "");
+const keyOut = p => "out|" + p.name + "|" + (p.shift_start || "");
+function counts(){
+  const d = S.data; if (!d) return { total:0, done:0, any:0 };
+  const keys = [...(d.clocked_in || []).map(keyIn), ...(d.rostered_not_in || []).map(keyOut)];
+  return { total: keys.length, done: keys.filter(k => S.ticks[k]).length, any: Object.keys(S.ticks).length };
+}
+
+/* ------------------------------------------------------------- load */
+function setBusy(b){ S.busy = b; const r = $("#refbtn"); if (r) { r.disabled = b; r.textContent = b ? "Refreshing…" : "Refresh"; } }
+async function load(force, quiet){
+  if (S.busy || !S.configured) return;
+  S.lastTry = Date.now(); setBusy(true);
+  try {
+    const d = await call("fire.now", force ? { force:true } : {});
+    d.clocked_in = Array.isArray(d.clocked_in) ? d.clocked_in : [];
+    d.rostered_not_in = Array.isArray(d.rostered_not_in) ? d.rostered_not_in : [];
+    const day = dayOf(d.at);
+    if (day && day !== S.tickDay) loadTicks(day);
+    S.data = d; S.err = "";
+    if (force && !quiet) toast("Refreshed.");
+  } catch(e){
+    S.err = e.message || "Request failed";
+    if (!S.data && !quiet) { /* shown in the view */ } else if (force) toast("Couldn't refresh.", true);
+  }
+  setBusy(false);
+  render();
+}
+
+/* ------------------------------------------------------------- render */
+function personRow(p, kind){
+  const out = kind === "out", key = out ? keyOut(p) : keyIn(p), ok = !!S.ticks[key];
+  const atDay = dayOf(S.data.at);
+  const meta = out
+    ? `${esc(p.job || "No job title")} · Shift ${esc(hhmm(p.shift_start))}${p.shift_end ? "–" + esc(hhmm(p.shift_end)) : ""}`
+    : `${esc(p.job || "No job title")} · ${esc(sinceTxt(p.since, atDay))}${p.shift_end ? ` · shift ends ${esc(hhmm(p.shift_end))}` : ""}`;
+  const tags = [];
+  if (ok) tags.push(`<span class="tag ok">Accounted for</span>`);
+  if (!out && p.no_shift) tags.push(`<span class="tag warn">No rostered shift</span>`);
+  if (out && p.left) tags.push(`<span class="tag gone">Left</span>`);
+  else if (out && Number(p.minutes_late) > 0) tags.push(`<span class="tag late">${esc(Math.round(Number(p.minutes_late)))} min late</span>`);
+  return `<div class="prow${out ? " out" : ""}${ok ? " ok" : ""}">
+    <button class="chk" data-tick="${esc(key)}" aria-pressed="${ok}" aria-label="${ok ? "Accounted for. Tap to undo: " : "Mark as accounted for: "}${esc(p.name)}"><i><svg viewBox="0 0 16 16" width="22" height="22" aria-hidden="true"><path d="M3 8.5l3.2 3.2L13 5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></i></button>
+    <div class="pinfo"><div class="nm">${esc(p.name)}</div><div class="mt">${meta}</div>
+      ${tags.length ? `<div class="tags">${tags.join("")}</div>` : ""}
+      ${p.phone ? `<a class="ph" href="${esc(phoneHref(p.phone))}">${esc(p.phone)}</a>` : `<div class="nophone">No phone number held</div>`}
+    </div></div>`;
+}
+function groupedRows(list, kind){
+  return groups(list).map(g => `<div class="grp">${esc(g.dept)} · ${esc(g.people.length)}</div>${g.people.map(p => personRow(p, kind)).join("")}`).join("");
+}
+function printTable(list, kind){
+  if (!list.length) return `<p class="psub">Nobody.</p>`;
+  return `<table class="ptable"><thead><tr><th>Name</th><th>Department</th><th>Phone</th><th style="text-align:center">Here</th></tr></thead><tbody>${flat(list).map(p => {
+    const ok = !!S.ticks[kind === "out" ? keyOut(p) : keyIn(p)];
+    const sub = kind === "out" ? `Shift ${hhmm(p.shift_start)}${p.shift_end ? "–" + hhmm(p.shift_end) : ""}${p.left ? " · left" : ""}` : sinceTxt(p.since, dayOf(S.data.at));
+    return `<tr><td><b>${esc(p.name)}</b><div class="sm">${esc(sub)}</div></td><td>${esc(deptOf(p))}</td><td>${esc(p.phone || "")}</td><td class="bx"><span class="box">${ok ? "&#10003;" : ""}</span></td></tr>`;
+  }).join("")}</tbody></table>`;
+}
+function render(){
+  const v = $("#views"); if (!v) return;
+  if (!S.configured) { v.innerHTML = `<div class="card empty" style="margin-top:20px"><b style="font-size:20px;color:var(--sage)">Planday isn't connected yet</b><br><br>The fire report reads who is clocked in from Planday. It will work once the connection is set up.</div>`; return; }
+  const d = S.data;
+  if (!d) {
+    if (S.err) v.innerHTML = `<div class="card" style="margin-top:20px"><div class="err" style="font-size:16px"><b>Couldn't load the list.</b><br>${esc(S.err)}</div><div style="margin-top:14px"><button class="btn" id="retrybtn" data-act="retry">Try again</button></div></div>`;
+    else v.innerHTML = `<div class="loading">Loading…</div>`;
+    return;
+  }
+  const cin = d.clocked_in, out = d.rostered_not_in, c = counts();
+  const at = hhmm(d.at), atDay = dayOf(d.at);
+  const pct = c.total ? Math.round(c.done / c.total * 100) : 0;
+  v.innerHTML = `
+    <div class="screenonly">
+    ${S.err ? `<div class="stale" role="alert"><span>Couldn't refresh - showing ${esc(at)}</span><button class="btn" data-act="retry">Try again</button></div>` : ""}
+    <div class="card headcard">
+      <div class="big"><b>${esc(cin.length)}</b> ${cin.length === 1 ? "person" : "people"} clocked in</div>
+      <div class="asat">as at ${esc(at)} <span class="muted">· ${esc(fmtDay(atDay))}</span></div>
+      <div class="tools">
+        <button class="btn" id="refbtn" data-act="refresh"${S.busy ? " disabled" : ""}>${S.busy ? "Refreshing…" : "Refresh"}</button>
+        <button class="btn ghost" data-act="copy">Copy list</button>
+        <button class="btn ghost" data-act="print">Print</button>
+        <button class="btn danger${S.clearSure ? " sure" : ""}" data-act="clear"${c.any ? "" : " disabled"}>${S.clearSure ? "Tap again to clear" : "Clear ticks"}</button>
+      </div>
+      ${S.fallback ? `<div class="copybox"><div class="muted" style="font-size:14px;margin-bottom:6px">Copying didn't work here. Select the text below and copy it.</div><textarea id="fallbackbox" readonly>${esc(S.fallback)}</textarea></div>` : ""}
+      ${c.total ? `<div class="prog"><div class="pt">${esc(c.done)} of ${esc(c.total)} accounted for</div><div class="bar${c.done === c.total ? " done" : ""}" role="progressbar" aria-valuemin="0" aria-valuemax="${esc(c.total)}" aria-valuenow="${esc(c.done)}" aria-label="Accounted for"><i style="width:${pct}%"></i></div></div>` : ""}
+    </div>
+    <div class="sec"><h2>Clocked in</h2></div>
+    ${cin.length ? groupedRows(cin, "in") : `<div class="card empty">Nobody is clocked in right now.</div>`}
+    ${out.length ? `<div class="sec"><h2>Rostered but not clocked in</h2><p class="hint">These people are on today's rota but haven't clocked in. They may still be on site - check them too.</p></div>${groupedRows(out, "out")}` : ""}
+    ${d.note ? `<p class="foot">${esc(d.note)}</p>` : ""}
+    </div>
+    <div class="printonly">
+      <p class="ptitle">Fire report - Black Horse Beamish</p>
+      <p class="psub">${esc(fmtDay(atDay))} at ${esc(at)} · ${esc(cin.length)} clocked in · ${esc(out.length)} rostered, not clocked in · ${esc(c.done)} of ${esc(c.total)} accounted for</p>
+      <h2>Clocked in (${esc(cin.length)})</h2>${printTable(cin, "in")}
+      ${out.length ? `<h2>Rostered but not clocked in (${esc(out.length)})</h2>${printTable(out, "out")}` : ""}
+    </div>`;
+}
+
+/* ------------------------------------------------------------- list as text */
+function listText(){
+  const d = S.data; if (!d) return "";
+  const line = p => [p.name, deptOf(p), p.phone || "no phone"].join(" – ");
+  const L = [`Fire report – Black Horse Beamish`, `As at ${hhmm(d.at)} on ${fmtDay(dayOf(d.at))}`, "", `CLOCKED IN (${d.clocked_in.length})`];
+  if (d.clocked_in.length) flat(d.clocked_in).forEach(p => L.push(line(p))); else L.push("Nobody is clocked in right now.");
+  if (d.rostered_not_in.length) { L.push("", `ROSTERED BUT NOT CLOCKED IN (${d.rostered_not_in.length})`); flat(d.rostered_not_in).forEach(p => L.push(line(p))); }
+  return L.join("\n");
+}
+async function copyList(){
+  const text = listText(); if (!text) return;
+  let ok = false;
+  try { if (navigator.clipboard && window.isSecureContext) { await navigator.clipboard.writeText(text); ok = true; } } catch(e){}
+  if (!ok) {
+    try {
+      const ta = document.createElement("textarea"); ta.value = text; ta.setAttribute("readonly", ""); ta.style.cssText = "position:fixed;top:0;left:0;opacity:0";
+      document.body.appendChild(ta); ta.select(); ta.setSelectionRange(0, text.length);
+      ok = document.execCommand && document.execCommand("copy"); ta.remove();
+    } catch(e){ ok = false; }
+  }
+  if (ok) { S.fallback = ""; toast("List copied."); render(); }
+  else { S.fallback = text; render(); const b = $("#fallbackbox"); if (b) { b.focus(); b.select(); } toast("Couldn't copy automatically.", true); }
+}
+
+/* ------------------------------------------------------------- events */
+document.addEventListener("click", e => {
+  const t = e.target.closest("[data-tick],[data-act]");
+  if (!t || !$("#views").contains(t)) return;
+  if (t.dataset.tick) {
+    const k = t.dataset.tick;
+    if (S.ticks[k]) delete S.ticks[k]; else S.ticks[k] = 1;
+    saveTicks(); return render();
+  }
+  const a = t.dataset.act;
+  if (a === "refresh" || a === "retry") return load(true);
+  if (a === "copy") return copyList();
+  if (a === "print") { render(); return window.print(); }
+  if (a === "clear") {
+    if (!S.clearSure) { S.clearSure = true; render(); clearTimeout(S._ct); S._ct = setTimeout(() => { if (S.clearSure) { S.clearSure = false; render(); } }, 5000); return; }
+    clearTimeout(S._ct); S.clearSure = false; S.ticks = {}; saveTicks(); toast("Ticks cleared."); render();
+  }
+});
+
+/* ------------------------------------------------------------- shell */
+function openGate(msg){ $("#gate").hidden = false; $("#app").hidden = true; if (msg) $("#gerr").textContent = msg; }
+$("#signout").addEventListener("click", () => { try { sessionStorage.removeItem("bhb_staff_email"); } catch(e){} openGate(); });
+function autoRefresh(){
+  setInterval(() => { if (document.visibilityState === "visible") load(false, true); }, REFRESH_MS);
+  const wake = () => { if (document.visibilityState === "visible" && Date.now() - S.lastTry > 5000) load(false, true); };
+  document.addEventListener("visibilitychange", wake);
+  window.addEventListener("focus", wake);
+}
+async function boot(){
+  $("#app").hidden = false; $("#views").innerHTML = `<div class="loading">Loading…</div>`;
+  let d;
+  try { d = await call("bootstrap"); } catch(e){ $("#views").innerHTML = `<div class="card empty" style="margin-top:20px">${esc(e.message)}<br><br><span class="muted">Open this from the Staff Portal so it knows who you are.</span></div>`; return; }
+  S.me = d.me; $("#whoname").textContent = (S.me && S.me.name) || "";
+  S.configured = d.configured !== false;
+  if (d.today) loadTicks(String(d.today).slice(0, 10));
+  S.booted = true;
+  if (!S.configured) return render();
+  await load(false, true);
+  autoRefresh();
+}
+(function(){ if (staffEmail()) { $("#gate").hidden = true; boot(); } else openGate(); })();
+</script>
+</body>
+</html>

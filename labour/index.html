@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Labour — Black Horse Beamish</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --sage:#4E5F4F; --sage-70:#7B887C; --sage-10:#EDEFED; --sage-dark:#3B483C;
+  --bone:#F7F7F7; --celadon:#C1C8B4; --mist:#E7E7E7; --white:#fff; --ink:#262626; --gold:#C9A56B;
+  --attention:#B08D57; --attention-bg:#F7F0E4; --alert:#8C4A3F; --alert-bg:#F6EAE8; --good:#4F6B4F; --good-bg:#EDF2ED;
+  --display:"Cormorant Garamond",Georgia,serif; --body:Raleway,"Helvetica Neue",Arial,sans-serif;
+  --track-label:.18em; --radius:10px; --shadow:0 1px 2px rgba(38,38,38,.06),0 8px 24px rgba(38,38,38,.07); --maxw:1100px;
+}
+*{box-sizing:border-box} html,body{margin:0;padding:0}
+[hidden]{display:none !important}
+body{font-family:var(--body); color:var(--ink); background:var(--bone); font-size:15px; line-height:1.5; -webkit-text-size-adjust:100%; overflow-x:hidden}
+h1,h2,h3{font-family:var(--display); font-weight:600; margin:0; letter-spacing:.01em}
+button,input,textarea,select{font:inherit; color:inherit}
+.shell{max-width:var(--maxw); margin:0 auto; padding:0 20px 64px}
+#gate{position:fixed; inset:0; background:var(--sage); z-index:100; display:flex; align-items:center; justify-content:center; padding:24px}
+.gatecard{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); width:100%; max-width:380px; padding:32px 28px; text-align:center}
+.gatecard h1{font-size:26px; color:var(--sage); line-height:1.15}
+.gatecard .sub{font-size:11px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); margin:6px 0 22px}
+.gateerr{color:var(--alert); font-size:13px; min-height:18px; margin-top:8px}
+header.top{background:var(--sage); color:var(--white)}
+.topin{max-width:var(--maxw); margin:0 auto; padding:14px 20px; display:flex; align-items:center; gap:18px; flex-wrap:wrap}
+.brand{font-family:var(--display); font-size:21px; line-height:1.1}
+.brand small{display:block; font-family:var(--body); font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; opacity:.75}
+.who{margin-left:auto; display:flex; align-items:center; gap:10px; font-size:12px; opacity:.9}
+.who button{background:transparent; border:1px solid rgba(255,255,255,.4); color:var(--white); border-radius:6px; padding:5px 10px; cursor:pointer; font-size:11px; letter-spacing:.06em; text-transform:uppercase}
+nav.tabs{background:var(--sage-dark)}
+.tabsin{max-width:var(--maxw); margin:0 auto; padding:0 20px; display:flex; gap:2px; overflow-x:auto}
+.tabbtn{background:transparent; border:0; cursor:pointer; color:rgba(255,255,255,.72); padding:12px 16px; font-size:12px; font-weight:600; white-space:nowrap; letter-spacing:var(--track-label); text-transform:uppercase; border-bottom:3px solid transparent}
+.tabbtn[aria-current="page"]{color:var(--white); border-bottom-color:var(--gold)}
+.pagehead{display:flex; align-items:flex-end; gap:6px 16px; flex-wrap:wrap; margin:24px 0 14px}
+.pagehead h2{font-size:26px; color:var(--sage)}
+.pagehead .hint{font-size:13px; color:var(--sage-70)}
+.spacer{margin-left:auto}
+.btn{border:1px solid var(--sage); background:var(--sage); color:var(--white); border-radius:8px; padding:9px 16px; cursor:pointer; font-size:12px; font-weight:600; letter-spacing:var(--track-label); text-transform:uppercase; min-height:44px}
+.btn.ghost{background:var(--white); color:var(--sage)} .btn.ghost:hover{background:var(--sage-10)}
+.btn.danger{background:var(--white); color:var(--alert); border-color:var(--alert)}
+.btn.sure{background:var(--alert); color:var(--white); border-color:var(--alert)}
+.btn.small{min-height:36px; padding:6px 12px; font-size:11px}
+.btn:disabled{opacity:.5; cursor:default}
+.card{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); padding:18px 20px; margin-bottom:16px}
+.card h3{font-size:22px; color:var(--sage); margin-bottom:10px}
+.card h3 small{font-family:var(--body); font-size:12px; font-weight:400; color:var(--sage-70); letter-spacing:0; margin-left:8px}
+.card.calm{background:var(--sage-10); box-shadow:none}
+.card.bad{background:var(--alert-bg); box-shadow:none}
+.card.bad h3{color:var(--alert)}
+.opts{display:flex; gap:8px; flex-wrap:wrap}
+.opt{border:1px solid var(--mist); background:var(--bone); border-radius:999px; padding:8px 16px; cursor:pointer; font-size:14px; min-height:40px}
+.opt:hover{background:var(--sage-10)}
+.opt[aria-pressed="true"]{background:var(--sage); border-color:var(--sage); color:var(--white); font-weight:600}
+.field{margin-bottom:12px} .field label,.lbl{display:block; font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); margin-bottom:4px}
+.field input,.field select,.inp{width:100%; padding:10px 11px; border:1px solid var(--mist); border-radius:8px; font-size:16px; background:var(--white); min-height:42px}
+.field input[type=date],input[type=date].inp{max-width:200px}
+.tag{display:inline-block; border-radius:999px; padding:3px 10px; font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; background:var(--sage-10); color:var(--sage); white-space:nowrap}
+.tag.warn{background:var(--attention-bg); color:#6d5320}
+.tag.bad{background:var(--alert-bg); color:var(--alert)}
+.tag.ok{background:var(--good-bg); color:var(--good)}
+.tag.off{background:var(--mist); color:var(--sage-70)}
+.muted{color:var(--sage-70)} .strong{font-weight:600}
+.empty{padding:36px 20px; text-align:center; color:var(--sage-70)} .loading{padding:50px 20px; text-align:center; color:var(--sage-70)}
+.note{font-size:13px; color:var(--sage-70); margin:10px 0 0; line-height:1.55}
+.note.first{margin-top:0}
+.err{color:var(--alert); font-size:13px}
+.up{color:var(--good)} .down{color:var(--alert)}
+.toast{position:fixed; left:50%; bottom:26px; transform:translate(-50%,20px); background:var(--ink); color:var(--white); padding:12px 20px; border-radius:8px; z-index:200; opacity:0; transition:.2s; pointer-events:none; font-size:14px; max-width:90vw}
+.toast.on{opacity:1; transform:translate(-50%,0)} .toast.bad{background:var(--alert)}
+
+/* ---- Labour specifics ---- */
+.rangebar{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); padding:12px 16px; margin-bottom:16px; display:flex; gap:10px 14px; align-items:center; flex-wrap:wrap}
+.pills{display:flex; gap:6px; flex-wrap:wrap}
+.pill{background:var(--white); border:1px solid var(--mist); color:var(--sage); border-radius:999px; padding:7px 14px; cursor:pointer; font-size:12px; font-weight:600; min-height:38px}
+.pill[aria-pressed="true"]{background:var(--sage); border-color:var(--sage); color:var(--white)}
+.rangebar input[type=date]{padding:8px 10px; border:1px solid var(--mist); border-radius:8px; background:var(--white); font-size:14px; min-height:38px; max-width:100%}
+.rangebar .sep{width:1px; align-self:stretch; background:var(--mist)}
+.rangelabel{font-family:var(--display); font-size:20px; color:var(--sage); margin:0 0 12px}
+.rangelabel small{font-family:var(--body); font-size:12px; color:var(--sage-70); margin-left:8px}
+.tiles{display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:14px; margin-bottom:16px}
+.tile{background:var(--white); border-radius:var(--radius); padding:16px 18px; box-shadow:var(--shadow); border-left:4px solid var(--celadon); min-width:0}
+.tile .n{font-family:var(--display); font-size:32px; line-height:1; color:var(--sage)}
+.tile .l{font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); margin-top:6px}
+.tile .d{font-size:12px; margin-top:4px; color:var(--sage-70); overflow-wrap:anywhere}
+.tile.warn{border-left-color:var(--attention)} .tile.warn .n{color:var(--attention)}
+.tile.bad{border-left-color:var(--alert)} .tile.bad .n{color:var(--alert)}
+.tile.ok{border-left-color:var(--good)} .tile.ok .n{color:var(--good)}
+.tablewrap{overflow-x:auto; max-width:100%}
+table.grid{width:100%; border-collapse:collapse; font-size:14px}
+table.grid th{text-align:left; padding:10px 12px; background:var(--sage-10); color:var(--sage); font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; font-weight:700; white-space:nowrap}
+table.grid th.num{text-align:right}
+table.grid th.grp{text-align:center; border-left:2px solid var(--white)}
+table.grid td{padding:9px 12px; border-top:1px solid var(--mist); vertical-align:top; white-space:nowrap}
+table.grid td.num{text-align:right; font-variant-numeric:tabular-nums}
+table.grid td.wrap{white-space:normal; min-width:180px}
+table.grid tr.totrow td{font-weight:700; background:var(--sage-10); border-top:2px solid var(--celadon)}
+table.grid tr.sub td{color:var(--sage-70)}
+table.grid tr.hl td{background:var(--attention-bg)}
+table.grid td.s1,table.grid th.s1{position:sticky; left:0; background:var(--white); z-index:1}
+table.grid th.s1{background:var(--sage-10)}
+table.grid tr.sub td.s1{background:var(--white)}
+table.grid td.gl,table.grid th.gl{border-left:2px solid var(--mist)}
+table.grid td small,table.grid th small{display:block; font-weight:400; color:var(--sage-70); font-size:11px; letter-spacing:0; text-transform:none}
+.src{font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--sage-70)}
+.chartwrap{overflow-x:auto; max-width:100%}
+.chartwrap svg{display:block}
+.chartwrap text{font-family:var(--body); fill:var(--sage-70); font-size:10px}
+.chartwrap .bar{fill:var(--celadon)} .chartwrap .bar.good{fill:var(--good)} .chartwrap .bar.warn{fill:var(--attention)} .chartwrap .bar.bad{fill:var(--alert)}
+.chartwrap .grid{stroke:var(--mist); stroke-width:1}
+.chartwrap .tgt{stroke:var(--ink); stroke-width:1.5; stroke-dasharray:5 4}
+.chartwrap text.tl{fill:var(--ink); font-weight:600; paint-order:stroke; stroke:#fff; stroke-width:3px; stroke-linejoin:round}
+.chartwrap text.vl{fill:var(--ink); font-size:9px; text-anchor:middle}
+.toolrow{display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin:0 0 12px}
+.sumrow{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px}
+.sumrow .pl{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); padding:10px 16px; min-width:130px}
+.sumrow .pl b{display:block; font-family:var(--display); font-size:26px; line-height:1.05; color:var(--sage)}
+.sumrow .pl.bad b{color:var(--alert)}
+.sumrow .pl span{font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70)}
+.alertgrp{margin-bottom:16px}
+.alertgrp h3 .tag{vertical-align:middle; margin-left:8px}
+.arow{display:grid; grid-template-columns:190px 150px 170px 1fr; gap:2px 16px; align-items:baseline; padding:10px 0; border-top:1px solid var(--mist)}
+.arow .an{font-weight:600; overflow-wrap:anywhere}
+.arow .ad{color:var(--sage-70); font-size:13px}
+.arow .at{font-variant-numeric:tabular-nums; font-size:13px}
+.arow .ax{font-size:14px}
+.tick{display:flex; align-items:flex-start; gap:12px; cursor:pointer; min-height:44px; font-size:15px; padding:6px 0}
+.tick input{width:22px; height:22px; accent-color:var(--sage); flex:0 0 auto; margin:2px 0 0}
+.tick b{display:block; font-weight:600}
+.tick span.d{display:block; font-size:13px; color:var(--sage-70); font-weight:400}
+.warnline{font-size:12px; color:#6d5320; background:var(--attention-bg); border-radius:6px; padding:8px 10px; margin:6px 0 4px}
+.sw{border-top:1px solid var(--mist); padding:8px 0 6px}
+.sw:first-of-type{border-top:0}
+details.grp{border-top:1px solid var(--mist); padding:6px 0}
+details.grp summary{cursor:pointer; padding:8px 0; min-height:40px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; list-style:none}
+details.grp summary::-webkit-details-marker{display:none}
+details.grp summary::before{content:""; width:8px; height:8px; border-right:2px solid var(--sage-70); border-bottom:2px solid var(--sage-70); transform:rotate(-45deg); transition:.15s; margin-right:4px}
+details.grp[open] summary::before{transform:rotate(45deg)}
+details.grp summary b{font-family:var(--display); font-size:19px; color:var(--sage); font-weight:600}
+details.grp .gm{font-size:13px; color:var(--sage-70); margin:0 0 8px}
+.kv{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px 20px; margin:6px 0 10px}
+.kv .k{font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70)}
+.kv .v{font-size:17px; font-weight:600}
+.umrow{display:grid; grid-template-columns:1.2fr 1.2fr 1.4fr 1fr 92px; gap:8px; align-items:end; padding:10px 0; border-top:1px solid var(--mist)}
+.umrow .field{margin:0} .umrow .field input,.umrow .field select{font-size:15px}
+.umhead{display:grid; grid-template-columns:1.2fr 1.2fr 1.4fr 1fr 92px; gap:8px; font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70)}
+.umrow .field label{display:none}
+.row2{display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px}
+@media (max-width:760px){
+  .umhead{display:none}
+  .umrow{grid-template-columns:1fr 1fr; padding:14px 0}
+  .umrow .field label{display:block}
+  .umrow .field.wide{grid-column:1 / -1}
+}
+@media (max-width:640px){
+  .shell{padding:0 12px 48px} .topin,.tabsin{padding-left:12px;padding-right:12px} .pagehead h2{font-size:22px}
+  .tabbtn{padding:12px 11px; font-size:11px; letter-spacing:.1em}
+  .card{padding:16px 14px} .rangebar{padding:12px}
+  .tile .n{font-size:26px} .tiles{grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px}
+  .tile{padding:12px 12px} .tile .d{font-size:11px}
+  .tiles .tile:last-child:nth-child(odd){grid-column:1 / -1}
+  table.grid td,table.grid th{padding:8px 8px}
+  .rangebar .sep{display:none}
+  .btn.fullm{width:100%}
+  .arow{grid-template-columns:1fr auto} .arow .an{grid-column:1} .arow .at{grid-column:2; text-align:right} .arow .ad{grid-column:1 / -1} .arow .ax{grid-column:1 / -1}
+}
+</style>
+</head>
+<body>
+<div id="gate"><div class="gatecard"><h1>Labour</h1><div class="sub">Black Horse Beamish</div>
+  <p style="margin:0 0 16px;font-size:14px;color:var(--sage-70)">This opens from the Staff Portal, which knows who you are and what you can see.</p>
+  <a href="https://app.blackhorsebeamish.co.uk/portal/app.html" style="display:block;padding:12px;border-radius:8px;background:var(--sage);color:#fff;text-decoration:none;font-weight:600;letter-spacing:var(--track-label);text-transform:uppercase;font-size:12px">Open the Staff Portal</a>
+  <div class="gateerr" id="gerr"></div></div></div>
+<div id="app" hidden>
+  <header class="top"><div class="topin"><div class="brand">Labour<small>Black Horse Beamish</small></div>
+    <div class="who"><span id="whoname"></span><button id="signout">Sign out</button></div></div></header>
+  <nav class="tabs"><div class="tabsin" role="tablist">
+    <button class="tabbtn" data-view="wages" id="tab_wages">Wage %</button>
+    <button class="tabbtn" data-view="ahead" id="tab_ahead">Rota ahead</button>
+    <button class="tabbtn" data-view="attendance" id="tab_attendance">Attendance</button>
+    <button class="tabbtn" data-view="revenue" id="tab_revenue">Revenue push</button>
+    <button class="tabbtn" data-view="checks" id="tab_checks">Checks</button>
+  </div></nav>
+  <div class="shell"><div id="views"></div></div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+const CFG = { SUPABASE_URL:"https://safcrtrfdzsnftghibot.supabase.co", SUPABASE_KEY:"sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU" };
+const TABS = ["wages","ahead","attendance","revenue","checks"];
+const SRC = [["food","Food"],["fb","Food + drink"],["beverage","Drink"],["rooms","Rooms"],["other","Other"],["total","Total"]];
+const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
+const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const isNil = v => v === null || v === undefined || Number.isNaN(v);
+
+/* ---- formatting: £1,234 on large figures, pence under £100, one decimal on percentages ---- */
+const gbp = v => { if (isNil(v)) return "—"; const a = Math.abs(Number(v)), dp = a < 100 ? 2 : 0; return (v < 0 && a >= (dp ? 0.005 : 0.5) ? "-" : "") + "£" + a.toLocaleString("en-GB", { minimumFractionDigits:dp, maximumFractionDigits:dp }); };
+const gbp2 = v => isNil(v) ? "—" : (v < 0 ? "-" : "") + "£" + Math.abs(Number(v)).toLocaleString("en-GB", { minimumFractionDigits:2, maximumFractionDigits:2 });
+const gbpDiff = v => isNil(v) ? "—" : (v > 0 ? "+" : v < 0 ? "-" : "") + gbp2(Math.abs(v)).replace("-", "");
+const pc = v => isNil(v) ? "—" : Number(v).toFixed(1) + "%";
+const num1 = v => isNil(v) ? "—" : Number(v).toLocaleString("en-GB", { minimumFractionDigits:1, maximumFractionDigits:1 });
+const DOW = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"], MON = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const dt = iso => new Date(String(iso).slice(0,10) + "T12:00:00Z");
+const ukDate = iso => iso ? `${iso.slice(8,10)}/${iso.slice(5,7)}/${iso.slice(0,4)}` : "";
+const dayShort = iso => { if (!iso) return ""; const d = dt(iso); return `${DOW[d.getUTCDay()]} ${d.getUTCDate()} ${MON[d.getUTCMonth()]}`; };
+const dayLong = iso => { if (!iso) return ""; const d = dt(iso); return `${DOW[d.getUTCDay()]} ${d.getUTCDate()} ${MON[d.getUTCMonth()]} ${d.getUTCFullYear()}`; };
+const addDays = (iso, n) => { const d = dt(iso); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0,10); };
+const daysIn = (a, b) => Math.round((dt(b) - dt(a)) / 86400000) + 1;
+const weekStart = iso => { const d = dt(iso); d.setUTCDate(d.getUTCDate() - (d.getUTCDay() + 6) % 7); return d.toISOString().slice(0,10); };
+const monthStart = iso => iso.slice(0,8) + "01";
+const monthEnd = iso => { const y = +iso.slice(0,4), m = +iso.slice(5,7); return `${y}-${String(m).padStart(2,"0")}-${String(new Date(Date.UTC(y, m, 0)).getUTCDate()).padStart(2,"0")}`; };
+const londonToday = () => new Intl.DateTimeFormat("en-CA", { timeZone:"Europe/London", year:"numeric", month:"2-digit", day:"2-digit" }).format(new Date());
+const fmtStamp = iso => { if (!iso) return ""; try { return new Date(iso).toLocaleString("en-GB", { timeZone:"Europe/London", day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" }).replace(", ", " at "); } catch(e){ return String(iso).slice(0,16); } };
+const plural = (n, one, many) => `${n} ${n === 1 ? one : (many || one + "s")}`;
+function toast(msg, bad){ const t=$("#toast"); t.textContent=msg; t.className="toast on"+(bad?" bad":""); clearTimeout(toast._t); toast._t=setTimeout(()=>{t.className="toast";}, bad?5200:2600); }
+function staffEmail(){ try { return sessionStorage.getItem("bhb_staff_email") || ""; } catch(e){ return ""; } }
+async function call(action, payload){
+  const r = await fetch(CFG.SUPABASE_URL + "/functions/v1/planday-api", { method:"POST", headers:{ "Content-Type":"application/json", Authorization:"Bearer "+CFG.SUPABASE_KEY, apikey:CFG.SUPABASE_KEY }, body: JSON.stringify({ action, app_key:"labour", staff_email: staffEmail(), ...(payload||{}) }) });
+  let d = {}; try { d = await r.json(); } catch(e){}
+  if (!r.ok || d.error) { const err = new Error(d.error || `Request failed (${r.status})`); err.status = r.status; throw err; }
+  return d;
+}
+
+/* ------------------------------------------------------------- state */
+// S.boot is the bootstrap reply. Each tab keeps its own state object; every counter n guards against a slow reply landing after a newer request.
+const S = {
+  boot:null, me:null, view:null, focus:null,
+  w:{ preset:"week", from:"", to:"", source:"planday", data:null, err:null, loading:false, n:0 },
+  a:{ data:null, err:null, loading:false, n:0 },
+  t:{ data:null, err:null, loading:false, n:0 },
+  r:{ what:"actuals", from:"", to:"", overwrite:false, preview:null, previewErr:null, previewing:false, armed:false, sending:false, result:null, pushErr:null, syncing:false,
+      set:null, setErr:null, setLoading:false, units:[], opt:null, savingSw:{}, og:{}, savingUm:false, savingOpt:false, umErr:"", optErr:"", n:0 },
+  c:{ from:"", to:"", codes:null, compare:null, codesErr:null, compareErr:null, loading:false, ran:false, n:0 },
+};
+const today = () => (S.boot && S.boot.today) || londonToday();
+const isAdmin = () => !!(S.me && S.me.admin);
+const canPush = () => !!(S.me && S.me.admin && S.me.canEdit !== false);
+const tabOk = k => !S.boot || S.boot.tabs === null || S.boot.tabs === undefined || S.boot.tabs.includes(k);
+const targets = () => (S.boot && S.boot.targets) || {};
+const factors = () => (S.boot && S.boot.factors) || {};
+
+/* ------------------------------------------------------------- shared pieces */
+function errCard(e, retry){
+  const denied = e && e.status === 403;
+  const msg = (e && e.message) || String(e || "");
+  return `<div class="card bad"><h3>${denied ? "No access" : "That didn't load"}</h3><div>${esc(msg)}</div>
+    ${denied ? `<div class="note">Open this tile from the Staff Portal, or ask the GM to give you access.</div>` : (retry ? `<div class="toolrow" style="margin:12px 0 0"><button class="btn ghost small" data-act="retry">Try again</button></div>` : "")}</div>`;
+}
+const notConnectedCard = () => `<div class="card calm"><h3>Planday isn't connected yet</h3>
+  <div>${isAdmin() ? "The Planday App ID and token need to be set in Supabase before this page can read the rota, attendance or revenue." : "This page needs Planday, which hasn't been connected yet. Ask the GM."}</div></div>`;
+const loadingBox = t => `<div class="loading">${esc(t || "Loading…")}</div>`;
+const pageHead = (title, hint, right) => `<div class="pagehead"><h2>${esc(title)}</h2>${hint ? `<span class="hint">${hint}</span>` : ""}${right ? `<span class="spacer"></span>${right}` : ""}</div>`;
+const tile = (label, n, d, cls) => `<div class="tile ${cls||""}"><div class="n">${n}</div><div class="l">${label}</div><div class="d">${d||""}</div></div>`;
+// Green at or under target, amber up to one point over, red beyond.
+const tone = (v, t) => isNil(v) || isNil(t) ? "" : (v <= t ? "ok" : (v <= t + 1 ? "warn" : "bad"));
+const toneBar = (v, t) => { const c = tone(v, t); return c === "ok" ? "good" : c; };
+const tgtTxt = t => isNil(t) ? "no target set" : `target ${pc(t)}`;
+const toneText = (v, t) => { const c = tone(v, t); return c === "bad" ? "down" : c === "ok" ? "up" : ""; };
+const upliftLine = (hol, onc, source) =>
+  source === "workbook"
+    ? `Wages are the workbook's payroll figures with holiday pay (×${hol}) and employer NI and pension (×${onc}) added. Office pay carries the NI and pension uplift only.`
+    : `Wages include holiday pay (×${hol}) and employer NI and pension (×${onc}) added to Planday's raw pay; pay Planday has already coded as holiday isn't uplifted twice. Office pay carries the NI and pension uplift only.`;
+
+/* ---- bar chart: plain SVG, drawn at the width it will be shown at ---- */
+function chart(items, target, label){
+  const vals = items.filter(i => !isNil(i.v));
+  if (!vals.length) return `<p class="note first">Nothing to chart yet.</p>`;
+  const avail = Math.max(260, ($("#views").clientWidth || 640) - 42);
+  const n = items.length, padL = 40, padR = 8, padT = 18, padB = 38, H = 230;
+  const slot = Math.min(140, Math.max(5, (avail - padL - padR) / n));
+  const W = Math.round(padL + padR + slot * n);
+  const maxV = Math.max(...vals.map(i => i.v), isNil(target) ? 0 : target) * 1.12;
+  const step = [1,2,5,10,20,25,50,100,200,500].find(s => maxV / s <= 5) || 1000;
+  const top = Math.ceil(maxV / step) * step || step;
+  const y = v => padT + (H - padT - padB) * (1 - v / top);
+  const bw = Math.min(56, Math.max(3, slot * 0.68)), every = Math.max(1, Math.ceil(34 / slot));
+  let g = "";
+  for (let t = 0; t <= top; t += step) g += `<line class="grid" x1="${padL}" x2="${W - padR}" y1="${y(t)}" y2="${y(t)}"/><text x="${padL - 6}" y="${y(t) + 3}" text-anchor="end">${t}%</text>`;
+  items.forEach((it, i) => {
+    const x = padL + i * slot + (slot - bw) / 2;
+    if (!isNil(it.v)) {
+      g += `<g><title>${esc(it.tip)}</title><rect class="bar ${it.cls || ""}" x="${x.toFixed(1)}" y="${y(it.v).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1, y(0) - y(it.v)).toFixed(1)}" rx="2"/></g>`;
+      if (slot >= 30) g += `<text class="vl" x="${(x + bw / 2).toFixed(1)}" y="${(y(it.v) - 4).toFixed(1)}">${it.v.toFixed(1)}</text>`;
+    }
+    if (i % every === 0) {
+      const cx = (padL + i * slot + slot / 2).toFixed(1);
+      if (slot * every >= 28 && n <= 31) g += `<text x="${cx}" y="${H - padB + 13}" text-anchor="middle">${esc(it.l1 || "")}</text>`;
+      g += `<text x="${cx}" y="${H - padB + (n <= 31 && slot * every >= 28 ? 25 : 14)}" text-anchor="middle">${esc(it.l2 || "")}</text>`;
+    }
+  });
+  if (!isNil(target)) g += `<line class="tgt" x1="${padL}" x2="${W - padR}" y1="${y(target)}" y2="${y(target)}"/><text class="tl" x="${W - padR}" y="${y(target) - 5}" text-anchor="end">Target ${pc(target)}</text>`;
+  return `<div class="chartwrap"><svg role="img" aria-label="${esc(label)}" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${g}</svg></div>`;
+}
+
+/* ---- CSV: built client-side from exactly the rows on screen ---- */
+function csvCell(v){
+  if (v === null || v === undefined) return "";
+  const s = String(v);
+  return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+function csvText(columns, rows){
+  return columns.map(c => csvCell(c.label)).join(",") + "\n" + rows.map(r => columns.map(c => csvCell(typeof c.value === "function" ? c.value(r) : r[c.value])).join(",")).join("\n");
+}
+function downloadCsv(filename, columns, rows){
+  if (!rows || !rows.length) { toast("Nothing to export.", true); return; }
+  const blob = new Blob([csvText(columns, rows)], { type:"text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/* ============================================================= 1. WAGE % */
+const PRESETS = [["yesterday","Yesterday"],["week","This week"],["lastweek","Last week"],["month","This month"],["lastmonth","Last month"],["custom","Custom"]];
+function presetRange(p){
+  const t = today();
+  if (p === "yesterday") return [addDays(t, -1), addDays(t, -1)];
+  if (p === "week") return [weekStart(t), t];
+  if (p === "lastweek") { const m = addDays(weekStart(t), -7); return [m, addDays(m, 6)]; }
+  if (p === "month") return [monthStart(t), t];
+  if (p === "lastmonth") { const prev = addDays(monthStart(t), -1); return [monthStart(prev), prev]; }
+  return null;
+}
+async function loadWages(){
+  const w = S.w, n = ++w.n;
+  w.loading = true; w.err = null; render();
+  try { const d = await call("labour.wages", { from:w.from, to:w.to, source:w.source }); if (n !== w.n) return; w.data = d; }
+  catch(e){ if (n !== w.n) return; w.err = e; w.data = null; }
+  w.loading = false; if (S.view === "wages") render();
+}
+function wagesRows(d){
+  return d.days.map(x => {
+    const l = x.labour || {};
+    const sourceTxt = l.has_payroll ? (S.w.source === "planday" && x.from_planday ? "Planday" : "Workbook") : "";
+    let note = "";
+    if (!x.has_actual) note = "No actual revenue yet";
+    else if (!l.has_payroll) note = "No pay in yet";
+    return { ...x, l, sourceTxt, note };
+  });
+}
+const WAGE_COLS = [
+  { label:"Date", value:r => r.date }, { label:"Day", value:r => r.day_of_week },
+  { label:"Revenue total", value:r => r.has_actual ? r.revenue_total : "" }, { label:"Food revenue", value:r => r.has_actual ? r.revenue_food : "" }, { label:"Food and drink revenue", value:r => r.has_actual ? r.revenue_fb : "" },
+  { label:"BOH wages", value:r => r.l.boh_cost }, { label:"FOH wages", value:r => r.l.foh_cost }, { label:"Housekeeping wages", value:r => r.l.hk_cost },
+  { label:"Maintenance wages", value:r => r.l.maint_cost }, { label:"Office wages", value:r => r.l.office_cost }, { label:"Total wages", value:r => r.l.total_wages },
+  { label:"BOH wage %", value:r => r.l.boh_wage_pct }, { label:"FOH wage %", value:r => r.l.foh_wage_pct }, { label:"Labour %", value:r => r.l.labour_pct },
+  { label:"Pay source", value:r => r.sourceTxt }, { label:"Note", value:r => r.note },
+];
+function exportWages(){
+  const d = S.w.data; if (!d) return toast("Nothing loaded yet.", true);
+  downloadCsv(`labour-wages-${d.from}-to-${d.to}.csv`, WAGE_COLS, wagesRows(d));
+}
+function viewWages(){
+  const w = S.w, d = w.data, hol = (d && d.factors || factors()).holiday, onc = (d && d.factors || factors()).oncost;
+  const head = pageHead("Wage %", "Wages against actual revenue, from Planday pay or the workbook's payroll figures");
+  const bar = `<div class="rangebar">
+    <div class="pills" role="group" aria-label="Date range">${PRESETS.map(([k,l]) => `<button class="pill" data-act="w-preset" data-v="${k}" aria-pressed="${w.preset === k}">${l}</button>`).join("")}</div>
+    <span class="sep"></span>
+    <div class="pills" role="group" aria-label="Pay source">${[["planday","Planday pay"],["workbook","Workbook pay"]].map(([k,l]) => `<button class="pill" data-act="w-source" data-v="${k}" aria-pressed="${w.source === k}">${l}</button>`).join("")}</div>
+    <div class="toolrow" style="margin:0" ${w.preset === "custom" ? "" : "hidden"}><input type="date" data-b="w.from" value="${esc(w.from)}" aria-label="From"><span class="muted">to</span><input type="date" data-b="w.to" value="${esc(w.to)}" aria-label="To"><button class="btn small" data-act="w-show">Show</button></div>
+  </div>`;
+  const label = (S.boot.configured ? "" : `<p class="note first" style="margin-bottom:12px">Planday isn't connected yet, so wages come from the workbook's payroll figures.</p>`) + `<div class="rangelabel">${w.from === w.to ? esc(dayLong(w.from)) : `${esc(dayShort(w.from))} – ${esc(dayLong(w.to))}`}<small>${plural(daysIn(w.from, w.to), "day")}</small></div>`;
+  if (w.loading) return head + bar + label + loadingBox();
+  if (w.err) return head + bar + errCard(w.err, true);
+  if (!d) return head + bar;
+  const t = d.totals, wg = t.wages || {}, rev = wg.revenue || {};
+  const tg = { boh: isNil(wg.target_boh_wage_pct) ? targets().boh : wg.target_boh_wage_pct, foh: isNil(wg.target_foh_wage_pct) ? targets().foh : wg.target_foh_wage_pct, labour: isNil(wg.target_labour_pct) ? targets().labour : wg.target_labour_pct };
+  const rows = wagesRows(d);
+  const havePay = rows.filter(r => r.l.has_payroll && r.has_actual).length;
+  const fromPlanday = rows.filter(r => r.sourceTxt === "Planday" && r.has_actual).length;
+  let cover;
+  if (!havePay) cover = `No day in this range has both actual revenue and pay yet, so there is no wage % to show.`;
+  else {
+    cover = `${plural(havePay, "day")} of ${daysIn(d.from, d.to)} ha${havePay === 1 ? "s" : "ve"} actual revenue and pay. Days without both are left out of the percentages, which are wages over revenue for the same days.`;
+    if (w.source === "planday") cover += ` Pay comes from Planday on ${fromPlanday} of ${havePay === 1 ? "that day" : "those days"}${havePay - fromPlanday > 0 ? ` and from the workbook on the other ${havePay - fromPlanday}` : ""}.`;
+  }
+  const tiles = `<div class="tiles">
+    ${tile("Labour %", pc(wg.labour_pct), `${gbp(wg.total)} of ${gbp(rev.total)} revenue · ${tgtTxt(tg.labour)}`, tone(wg.labour_pct, tg.labour))}
+    ${tile("BOH wage %", pc(wg.boh_wage_pct), `${gbp(wg.boh)} of ${gbp(rev.food)} food · ${tgtTxt(tg.boh)}`, tone(wg.boh_wage_pct, tg.boh))}
+    ${tile("FOH wage %", pc(wg.foh_wage_pct), `${gbp(wg.foh)} of ${gbp(rev.fb)} food + drink · ${tgtTxt(tg.foh)}`, tone(wg.foh_wage_pct, tg.foh))}
+    ${tile("Total wages", gbp(wg.total), "all five departments")}
+    ${tile("Revenue", gbp(rev.total), `${plural(havePay, "day")} with pay in`)}
+  </div>
+  <p class="note first" style="margin-bottom:16px">${esc(cover)} Amber is up to one point over target.</p>
+  <p class="note first" style="margin-bottom:16px">${esc(upliftLine(hol, onc, d.source))}</p>`;
+  const share = v => !isNil(v) && wg.total ? pc(v / wg.total * 100) : "";
+  const dept = `<div class="card"><h3>Cost by department</h3><div class="tablewrap"><table class="grid">
+    <thead><tr><th>Department</th><th class="num">Wages</th><th class="num">Share</th><th>Measured against</th><th class="num">Wage %</th></tr></thead><tbody>
+    <tr><td>Back of house</td><td class="num">${gbp(wg.boh)}</td><td class="num muted">${share(wg.boh)}</td><td class="muted">food ${gbp(rev.food)}</td><td class="num strong ${toneText(wg.boh_wage_pct, tg.boh)}">${pc(wg.boh_wage_pct)}</td></tr>
+    <tr><td>Front of house</td><td class="num">${gbp(wg.foh)}</td><td class="num muted">${share(wg.foh)}</td><td class="muted">food + drink ${gbp(rev.fb)}</td><td class="num strong ${toneText(wg.foh_wage_pct, tg.foh)}">${pc(wg.foh_wage_pct)}</td></tr>
+    <tr><td>Housekeeping</td><td class="num">${gbp(wg.hk)}</td><td class="num muted">${share(wg.hk)}</td><td></td><td></td></tr>
+    <tr><td>Maintenance</td><td class="num">${gbp(wg.maint)}</td><td class="num muted">${share(wg.maint)}</td><td></td><td></td></tr>
+    <tr><td>Office</td><td class="num">${gbp(wg.office)}</td><td class="num muted">${share(wg.office)}</td><td></td><td></td></tr>
+    <tr class="totrow"><td>All departments</td><td class="num">${gbp(wg.total)}</td><td></td><td>total revenue ${gbp(rev.total)}</td><td class="num ${toneText(wg.labour_pct, tg.labour)}">${pc(wg.labour_pct)}</td></tr>
+  </tbody></table></div></div>`;
+  const items = rows.map(r => ({ v: r.l.has_payroll && r.has_actual && !isNil(r.l.labour_pct) ? r.l.labour_pct : null, cls: toneBar(r.l.labour_pct, tg.labour), l1: DOW[dt(r.date).getUTCDay()], l2: String(+r.date.slice(8,10)),
+    tip: `${dayShort(r.date)}: ${r.l.has_payroll && r.has_actual ? `${pc(r.l.labour_pct)} labour, ${gbp(r.l.total_wages)} of ${gbp(r.revenue_total)}` : (r.note || "no data")}` }));
+  const chartCard = `<div class="card"><h3>Labour % by day</h3>${chart(items, tg.labour, "Labour percentage for each day, with the target line")}<p class="note">Days with no actual revenue or no pay in are left blank.</p></div>`;
+  const weeks = daysIn(d.from, d.to) >= 7 && d.weeks && d.weeks.length ? `<div class="card"><h3>By week</h3><div class="tablewrap"><table class="grid">
+    <thead><tr><th>Week (Mon–Sun)</th><th class="num">Days in</th><th class="num">Labour %</th><th class="num">BOH %</th><th class="num">FOH %</th><th class="num">Wages</th><th class="num">Revenue</th></tr></thead>
+    <tbody>${d.weeks.map(k => { const kw = k.wages || {}; return `<tr><td class="strong">${esc(ukDate(k.week_start))} – ${esc(ukDate(k.week_end))}</td><td class="num">${kw.days ?? ""}</td><td class="num strong ${toneText(kw.labour_pct, tg.labour)}">${pc(kw.labour_pct)}</td><td class="num ${toneText(kw.boh_wage_pct, tg.boh)}">${pc(kw.boh_wage_pct)}</td><td class="num ${toneText(kw.foh_wage_pct, tg.foh)}">${pc(kw.foh_wage_pct)}</td><td class="num">${gbp(kw.total)}</td><td class="num">${gbp(kw.revenue && kw.revenue.total)}</td></tr>`; }).join("")}</tbody></table></div>
+    <p class="note">Days in is the number of days with both revenue and pay. Revenue is for those days only.</p></div>` : "";
+  const dayTable = `<div class="card"><div class="toolrow" style="justify-content:space-between;margin-bottom:6px"><h3 style="margin:0">By day</h3><button class="btn ghost small" data-act="w-csv">Export CSV</button></div><div class="tablewrap"><table class="grid">
+    <thead><tr><th>Date</th><th class="num">Revenue</th><th class="num">BOH</th><th class="num">FOH</th><th class="num">HK</th><th class="num">Maint</th><th class="num">Office</th><th class="num">Wages</th><th class="num">Labour %</th><th>Pay</th></tr></thead>
+    <tbody>${rows.map(r => { const l = r.l, cell = (v, f) => `<td class="num">${f(v)}</td>`;
+      const dcell = `<td class="strong">${esc(dayShort(r.date))}</td>`;
+      if (!r.has_actual) return `<tr class="sub">${dcell}<td colspan="9"><i>No actual revenue yet</i></td></tr>`;
+      if (!l.has_payroll) return `<tr class="sub">${dcell}<td class="num">${gbp(r.revenue_total)}</td><td colspan="8"><i>No pay in yet</i></td></tr>`;
+      return `<tr>${dcell}${cell(r.revenue_total, gbp)}${cell(l.boh_cost, gbp)}${cell(l.foh_cost, gbp)}${cell(l.hk_cost, gbp)}${cell(l.maint_cost, gbp)}${cell(l.office_cost, gbp)}<td class="num strong">${gbp(l.total_wages)}</td><td class="num strong ${toneText(l.labour_pct, tg.labour)}">${pc(l.labour_pct)}</td><td><span class="src">${esc(r.sourceTxt)}</span></td></tr>`; }).join("")}</tbody></table></div></div>`;
+  if (!havePay) return head + bar + label + `<div class="card empty">${esc(cover)}<br>Try another range.</div>` + dayTable;
+  return head + bar + label + tiles + dept + chartCard + weeks + dayTable;
+}
+
+/* ============================================================= 2. ROTA AHEAD */
+async function loadAhead(refresh){
+  const a = S.a, n = ++a.n;
+  a.loading = true; a.err = null; render();
+  try { const d = await call("labour.ahead", { days:14, ...(refresh ? { refresh:true } : {}) }); if (n !== a.n) return; a.data = d; if (refresh) toast("Refreshed from Planday."); }
+  catch(e){ if (n !== a.n) return; a.err = e; if (refresh) toast(e.message, true); }
+  a.loading = false; if (S.view === "ahead") render();
+}
+function viewAhead(){
+  const a = S.a, d = a.data;
+  const btn = `<button class="btn ghost small" data-act="a-refresh"${a.loading ? " disabled" : ""}>Refresh from Planday</button>`;
+  const head = pageHead("Rota ahead", "The next 14 days: what the rota costs against the forecast", btn);
+  if (a.loading && !d) return head + loadingBox();
+  if (a.err && !d) return head + errCard(a.err, true);
+  if (!d) return head;
+  const tg = d.targets || targets(), fx = d.factors || factors();
+  const days = d.days || [];
+  const withRota = days.filter(x => x.has_rota);
+  if (!withRota.length) return head + `<div class="card empty">No rota is published for the next ${days.length || 14} days.<br>Once shifts are on the rota in Planday, press Refresh from Planday.</div>` + (d.note ? `<p class="note">${esc(d.note)}</p>` : "");
+  const over = x => !isNil(x.labour_pct) && !isNil(tg.labour) && x.labour_pct > tg.labour;
+  const nOver = withRota.filter(over).length;
+  const hours = withRota.reduce((t, x) => t + (x.hours || 0), 0), cost = withRota.reduce((t, x) => t + (x.cost || 0), 0);
+  const sum = `<div class="sumrow"><div class="pl"><b>${num1(hours)}</b><span>Rostered hours</span></div><div class="pl"><b>${gbp(cost)}</b><span>Rostered cost</span></div><div class="pl${nOver ? " bad" : ""}"><b>${nOver}</b><span>${nOver === 1 ? "Day over target" : "Days over target"}</span></div></div>`;
+  const items = days.map(x => ({ v: x.has_rota && !isNil(x.labour_pct) ? x.labour_pct : null, cls: over(x) ? "bad" : "good", l1: DOW[dt(x.date).getUTCDay()], l2: String(+x.date.slice(8,10)),
+    tip: `${dayShort(x.date)}: ${x.has_rota ? (isNil(x.labour_pct) ? "no forecast revenue" : `${pc(x.labour_pct)} projected labour, ${gbp(x.cost)} on ${gbp(x.forecast_revenue)}`) : "no rota"}` }));
+  return head + (a.err ? errCard(a.err) : "") + sum + `<div class="card"><h3>Projected labour % by day</h3>${chart(items, tg.labour, "Projected labour percentage for each day, with the target line")}
+      <p class="note">Rostered cost over forecast revenue. Red bars are over the labour target.</p></div>
+    <div class="card"><h3>Day by day</h3><div class="tablewrap"><table class="grid">
+    <thead><tr><th>Date</th><th class="num">Hours</th><th class="num">Rostered cost</th><th class="num">Forecast revenue</th><th class="num">Labour %</th><th class="num">BOH %</th><th class="num">FOH %</th><th></th></tr></thead>
+    <tbody>${days.map(x => !x.has_rota ? `<tr class="sub"><td class="strong">${esc(dayShort(x.date))}</td><td colspan="7"><i>No rota</i></td></tr>`
+      : `<tr><td class="strong">${esc(dayShort(x.date))}</td><td class="num">${num1(x.hours)}</td><td class="num">${gbp(x.cost)}</td><td class="num">${isNil(x.forecast_revenue) ? `<span class="muted">no forecast</span>` : gbp(x.forecast_revenue)}</td>
+      <td class="num strong ${toneText(x.labour_pct, tg.labour)}">${pc(x.labour_pct)}</td><td class="num ${toneText(x.boh_wage_pct, tg.boh)}">${pc(x.boh_wage_pct)}</td><td class="num ${toneText(x.foh_wage_pct, tg.foh)}">${pc(x.foh_wage_pct)}</td>
+      <td>${over(x) ? `<span class="tag bad">Over target</span>` : ""}</td></tr>`).join("")}</tbody></table></div>
+    <p class="note">Targets: labour ${esc(tgtTxt(tg.labour))}, BOH ${esc(tgtTxt(tg.boh))}, FOH ${esc(tgtTxt(tg.foh))}. Cost includes holiday pay (×${esc(fx.holiday)}) and employer NI and pension (×${esc(fx.oncost)}).</p>
+    ${d.note ? `<p class="note">${esc(d.note)}</p>` : ""}</div>`;
+}
+
+/* ============================================================= 3. ATTENDANCE */
+const ALERT_GROUPS = [["late","Late today","Rostered, not clocked in"],["missing_clock_out","Still clocked in after shift end",""],["unapproved","Clock-ins not approved",""],["no_shift","Clocked in with no shift",""]];
+async function loadAtt(force){
+  const t = S.t, n = ++t.n;
+  t.loading = true; t.err = null; render();
+  try { const d = await call("attendance.alerts", force ? { force:true } : {}); if (n !== t.n) return; t.data = d; }
+  catch(e){ if (n !== t.n) return; t.err = e; if (force) toast(e.message, true); }
+  t.loading = false; if (S.view === "attendance") render();
+}
+function whenLabel(w){ const day = String(w).slice(0,10), tm = String(w).slice(11,16); return day === today() ? tm : `${dayShort(day)} ${tm}`; }
+function viewAttendance(){
+  const t = S.t, d = t.data;
+  const btn = `<button class="btn ghost small" data-act="t-refresh"${t.loading ? " disabled" : ""}>Refresh</button>`;
+  const head = pageHead("Attendance", d ? `Updated ${esc(String(d.at).slice(11,16))}` : "", btn);
+  if (t.loading && !d) return head + loadingBox();
+  if (t.err && !d) return head + errCard(t.err, true);
+  if (!d) return head;
+  const list = d.alerts || [];
+  const known = ALERT_GROUPS.map(g => g[0]);
+  const groups = ALERT_GROUPS.map(([k, title]) => [title, list.filter(a => a.type === k), k]);
+  const other = list.filter(a => !known.includes(a.type)); if (other.length) groups.push(["Other", other, "other"]);
+  const body = list.length ? groups.filter(g => g[1].length).map(([title, items, k]) => `<div class="card alertgrp"><h3>${esc(title)}<span class="tag ${k === "late" || k === "missing_clock_out" ? "bad" : "warn"}">${items.length}</span></h3>
+      ${items.map(a => `<div class="arow"><div class="an">${esc(a.name)}</div><div class="ad">${esc(a.dept_name || "")}</div><div class="at">${esc(whenLabel(a.when))}${a.type === "late" && !isNil(a.minutes) ? ` · ${esc(a.minutes)} min late` : ""}</div><div class="ax">${esc(a.detail || "")}</div></div>`).join("")}</div>`).join("")
+    : `<div class="card empty">Nothing to chase.</div>`;
+  return head + (t.err ? errCard(t.err) : "") + body + `<p class="note">Someone counts as late when they are ${esc(d.late_minutes)} minutes or more past the start of a published shift with no clock-in. A clock-in is flagged when it is still open some time after the shift end, when it has not been approved a day after it closed, or when it has no rostered shift.</p>`;
+}
+
+/* ============================================================= 4. REVENUE PUSH */
+const STATUS = [
+  ["differs","Differs from Planday","Planday already has a different figure. These are only sent if you tick Overwrite.",true],
+  ["update","Budgets to update","Planday has a budget for the day. It is replaced.",true],
+  ["new","New","Nothing in Planday yet for these.",true],
+  ["no_target","No wage % target","Set the wage % targets in the HOD Dashboard settings first.",true],
+  ["same","Already matches","Nothing to send.",false],
+  ["no_shift","No shift that day","Planday has no shift in that department on that day, so nothing is sent.",false],
+  ["no_data","No figure yet","The workbook has no figure for these.",false],
+];
+const STATUS_TAG = { new:"ok", update:"ok", differs:"warn", no_target:"warn", same:"off", no_shift:"off", no_data:"off" };
+const SWITCHES = [
+  ["push_actuals_enabled","Send actual revenue to Planday every night","Each night the portal writes the last few days' actual revenue into Planday's revenue figures, so Planday's own labour reports use real takings. Figures already in Planday that differ are left alone.","This writes to Planday."],
+  ["push_forecast_enabled","Send the forecast to Planday every night","Each night the next 14 days' forecast revenue goes into Planday as budgets, with the wage % target worked back to raw pay. Budgets already there for those days are replaced.","This writes to Planday and replaces its budgets."],
+  ["payroll_to_workbook","Planday pay replaces the workbook's payroll figures","When pay is synced from Planday, it is written over the payroll figures in the forecast data, so the Forecast workbook and the HOD Dashboard use Planday pay.","This changes figures that the Forecast workbook and the HOD Dashboard show."],
+];
+function rDefaults(what){ const t = today(); return what === "forecast" ? [t, addDays(t, 13)] : [addDays(t, -7), addDays(t, -1)]; }
+function rInit(){ const r = S.r; if (!r.from) [r.from, r.to] = rDefaults(r.what); }
+function rInvalidate(){ const r = S.r; r.preview = null; r.previewErr = null; r.armed = false; r.result = null; r.pushErr = null; }
+function sendCount(){
+  const r = S.r, c = (r.preview && r.preview.counts) || {};
+  return (c.new || 0) + (c.update || 0) + (r.what === "actuals" && r.overwrite ? (c.differs || 0) : 0);
+}
+async function rPreview(quiet){
+  const r = S.r, n = ++r.n;
+  if (!r.from || !r.to || r.from > r.to) return toast("Pick a from and to date, from first.", true);
+  if (daysIn(r.from, r.to) > 60) return toast("Pick 60 days or fewer.", true);
+  if (!quiet) { r.previewing = true; r.previewErr = null; r.armed = false; r.result = null; r.pushErr = null; render(); }
+  try { const d = await call("revenue.preview", { what:r.what, from:r.from, to:r.to }); if (n !== r.n) return; r.preview = d; r.previewErr = null; }
+  catch(e){ if (n !== r.n) return; if (!quiet) { r.preview = null; r.previewErr = e; } }
+  r.previewing = false; if (S.view === "revenue") render();
+}
+async function rSend(){
+  const r = S.r;
+  if (!canPush() || !r.preview || r.sending || !sendCount()) return;
+  if (!r.armed) { r.armed = true; S.focus = "send"; render(); clearTimeout(rSend._t); rSend._t = setTimeout(() => { if (r.armed && !r.sending) { r.armed = false; if (S.view === "revenue") render(); } }, 8000); return; }
+  clearTimeout(rSend._t); r.armed = false; r.sending = true; r.result = null; r.pushErr = null; render();
+  const p = r.preview;
+  try {
+    r.result = await call("revenue.push", { what:p.what, from:p.from, to:p.to, confirm:true, ...(p.what === "actuals" ? { overwrite: !!r.overwrite } : {}) });
+    r.sending = false; await rPreview(true);
+  } catch(e){ r.pushErr = e; r.sending = false; }
+  if (S.view === "revenue") render();
+}
+async function rSync(){
+  const r = S.r; if (!isAdmin() || r.syncing) return;
+  r.syncing = true; render();
+  try {
+    const d = await call("payroll.sync", {});
+    S.boot.pay_synced = { at: new Date().toISOString(), actual_days:d.actual_days, scheduled_days:d.scheduled_days, unmapped:d.unmapped || [], workbook_days:d.workbook_days };
+    toast(`Pay synced: ${plural(d.actual_days, "day")} of actual pay, ${plural(d.scheduled_days, "day")} rostered.`);
+  } catch(e){ toast(e.message, true); }
+  r.syncing = false; if (S.view === "revenue") render();
+}
+async function loadSettings(){
+  const r = S.r;
+  r.setLoading = true; r.setErr = null; render();
+  try { const d = await call("settings.get"); r.set = d; seedSettings(d.settings); }
+  catch(e){ r.setErr = e; }
+  r.setLoading = false; if (S.view === "revenue") render();
+}
+function seedSettings(s){
+  const r = S.r;
+  r.units = (s.unit_map || []).map(u => ({ label:u.label, department_id:u.department_id, revenue_unit_id:u.revenue_unit_id, source:u.source }));
+  r.opt = { include_salaried: !!s.include_salaried, late_minutes: s.late_minutes, clockout_grace_hours: s.clockout_grace_hours };
+}
+const unitsFor = dep => { const all = (S.r.set && S.r.set.revenue_units) || []; const m = all.filter(u => String(u.department) === String(dep)); return m.length ? m : all; };
+function rStatus(){
+  const b = S.boot, ps = b.pay_synced, sw = b.switches || {};
+  const synced = ps ? `<div class="v">${esc(fmtStamp(ps.at))}</div><div class="muted" style="font-size:13px">${plural(ps.actual_days || 0, "day")} of actual pay, ${plural(ps.scheduled_days || 0, "day")} rostered${ps.workbook_days ? `, ${plural(ps.workbook_days, "day")} written to the workbook` : ""}</div>` : `<div class="v">Not yet</div><div class="muted" style="font-size:13px">Pay has not been synced from Planday.</div>`;
+  const un = ps && ps.unmapped && ps.unmapped.length ? `<div class="warnline">Pay in these Planday departments isn't counted, because they aren't grouped as kitchen, front of house, housekeeping, maintenance or office: ${esc(ps.unmapped.join(", "))}.</div>` : "";
+  const state = on => `<span class="tag ${on ? "ok" : "off"}">${on ? "On" : "Off"}</span>`;
+  return `<div class="card"><h3>Status</h3>
+    <div class="kv"><div><div class="k">Pay last synced</div>${synced}</div>
+      <div><div class="k">Nightly actuals push</div><div class="v">${state(sw.push_actuals_enabled)}</div></div>
+      <div><div class="k">Nightly forecast push</div><div class="v">${state(sw.push_forecast_enabled)}</div></div>
+      <div><div class="k">Planday pay in the workbook</div><div class="v">${state(sw.payroll_to_workbook)}</div></div></div>
+    ${un}
+    ${isAdmin() ? `<div class="toolrow" style="margin:6px 0 0"><button class="btn ghost small" data-act="r-sync"${S.r.syncing ? " disabled" : ""}>${S.r.syncing ? "Syncing…" : "Sync pay now"}</button><span class="muted" style="font-size:13px">Pulls Planday pay for the last and next 14 days.</span></div>`
+      : `<p class="note">Only an administrator can change these or sync pay.</p>`}</div>`;
+}
+function previewTable(p){
+  const unit = p.what === "forecast" ? "Forecast revenue" : "Actual revenue";
+  const by = {}; for (const i of p.items) (by[i.status] = by[i.status] || []).push(i);
+  const known = STATUS.map(s => s[0]);
+  const rest = Object.keys(by).filter(k => !known.includes(k)).map(k => [k, k, "", true]);
+  const groups = STATUS.concat(rest).filter(s => by[s[0]]);
+  if (!groups.length) return `<div class="empty" style="padding:24px 10px">No days in this range have ${p.what === "forecast" ? "a forecast" : "actual revenue"} in the workbook.</div>`;
+  const counts = groups.map(([k, l]) => `<span class="tag ${STATUS_TAG[k] || ""}">${by[k].length} ${esc(l)}</span>`).join(" ");
+  return `<div class="toolrow" style="margin:6px 0 8px">${counts}</div>` + groups.map(([k, l, m, open]) => `<details class="grp" data-g="${esc(k)}"${(S.r.og[k] ?? open) ? " open" : ""}><summary><b>${esc(l)}</b><span class="tag ${STATUS_TAG[k] || ""}">${by[k].length}</span></summary>
+    ${m ? `<p class="gm">${esc(m)}</p>` : ""}<div class="tablewrap"><table class="grid"><thead><tr><th>Date</th><th>Unit</th><th class="num">${esc(unit)}</th><th class="num">In Planday now</th><th>Note</th></tr></thead>
+    <tbody>${by[k].map(i => `<tr><td>${esc(dayShort(i.date))}</td><td>${esc(i.label)}</td><td class="num">${gbp2(i.value)}</td><td class="num">${isNil(i.existing) ? `<span class="muted">—</span>` : gbp2(i.existing)}</td><td class="wrap muted">${esc(i.note || "")}</td></tr>`).join("")}</tbody></table></div></details>`).join("");
+}
+function rPush(){
+  const r = S.r, p = r.preview, n = sendCount(), admin = canPush();
+  const what = `<div class="opts" role="group" aria-label="What to send">${[["actuals","Actual revenue → Planday revenue"],["forecast","Forecast → Planday budgets"]].map(([k, l]) => `<button class="opt" data-act="r-what" data-v="${k}" aria-pressed="${r.what === k}">${l}</button>`).join("")}</div>`;
+  const dates = `<div class="toolrow" style="margin:14px 0"><div><span class="lbl">From</span><input class="inp" type="date" data-b="r.from" value="${esc(r.from)}"></div><div><span class="lbl">To</span><input class="inp" type="date" data-b="r.to" value="${esc(r.to)}"></div>
+    <div style="align-self:flex-end"><button class="btn" data-act="r-preview"${r.previewing ? " disabled" : ""}>${r.previewing ? "Checking…" : "Preview"}</button></div></div>`;
+  let body = "";
+  if (r.previewing) body = loadingBox("Checking Planday…");
+  else if (r.previewErr) body = errCard(r.previewErr);
+  else if (p) body = previewTable(p);
+  let send = "";
+  if (admin && p && !r.previewing) {
+    const armedTxt = `Send ${plural(n, "value")} to Planday?`;
+    send = `<div class="toolrow" style="margin:16px 0 0">
+      ${r.what === "actuals" ? `<label class="tick" style="min-height:40px;padding:0"><input type="checkbox" data-b="r.overwrite"${r.overwrite ? " checked" : ""}><span>Overwrite values that differ</span></label>` : ""}
+      <span class="spacer"></span>
+      ${r.armed ? `<button class="btn ghost small" data-act="r-cancel">Cancel</button>` : ""}
+      <button class="btn${r.armed ? " sure" : ""}" id="sendbtn" data-act="r-send"${!n || r.sending ? " disabled" : ""}>${r.sending ? "Sending…" : r.armed ? `${esc(armedTxt)} Tap again` : "Send to Planday"}</button></div>
+      ${!n ? `<p class="note">Nothing to send for this range${r.what === "actuals" && !r.overwrite && p.counts && p.counts.differs ? ". Tick Overwrite to replace the figures that differ" : ""}.</p>` : `<p class="note">${r.what === "actuals" ? `Sends ${plural(n, "value")} to Planday's revenue figures.` : `Sends ${plural(n, "budget")} to Planday.`} You will be asked to confirm.</p>`}`;
+  } else if (!admin && p) send = `<p class="note">Only an administrator can send values to Planday. This is a preview.</p>`;
+  let res = "";
+  if (r.pushErr) res = errCard(r.pushErr);
+  else if (r.result) { const x = r.result; res = `<div class="card ${x.failed ? "bad" : "calm"}" style="margin:16px 0 0"><h3>${x.failed ? "Sent, with problems" : "Sent"}</h3><div class="kv"><div><div class="k">Sent</div><div class="v">${x.sent}</div></div><div><div class="k">Skipped</div><div class="v">${x.skipped}</div></div><div><div class="k">Failed</div><div class="v${x.failed ? " down" : ""}">${x.failed}</div></div></div>
+    ${x.errors && x.errors.length ? `<ul style="margin:6px 0 0;padding-left:20px;font-size:13px">${x.errors.map(e => `<li>${esc(e)}</li>`).join("")}</ul>` : ""}</div>`; }
+  return `<div class="card"><h3>Preview and send</h3>${what}${dates}
+    <p class="note first">${r.what === "actuals" ? "Writes each day's actual revenue from the workbook into Planday's revenue units, so its own labour reports can use it. Preview shows what would be written. Nothing is sent until you confirm." : "Writes the workbook's forecast into Planday as a budget for each department and day, with the wage % target worked back to raw pay. Preview shows what would be written. Nothing is sent until you confirm."}</p>
+    ${body}${send}${res}</div>`;
+}
+function rLog(){
+  const log = S.r.preview && S.r.preview.log;
+  const wh = { actuals:"Actual revenue", forecast:"Forecast budgets" };
+  return `<div class="card"><h3>Recent pushes</h3>${!S.r.preview ? `<p class="note first">The log appears when you run a preview.</p>` : !log || !log.length ? `<p class="note first">Nothing has been pushed yet.</p>` : `<div class="tablewrap"><table class="grid"><thead><tr><th>When</th><th>By</th><th>What</th><th class="num">Sent</th><th class="num">Skipped</th><th class="num">Failed</th></tr></thead>
+    <tbody>${log.map(x => `<tr><td>${esc(fmtStamp(x.at))}</td><td>${esc(x.by_email === "nightly" ? "Nightly run" : x.by_email)}</td><td>${esc(wh[x.what] || x.what)}</td><td class="num">${x.sent}</td><td class="num">${x.skipped}</td><td class="num ${x.failed ? "down strong" : ""}">${x.failed}</td></tr>`).join("")}</tbody></table></div>`}</div>`;
+}
+function rSettings(){
+  const r = S.r;
+  if (r.setLoading && !r.set) return `<div class="card"><h3>Settings</h3>${loadingBox()}</div>`;
+  if (r.setErr && !r.set) return `<div class="card"><h3>Settings</h3><div class="err">${esc(r.setErr.message)}</div><div class="toolrow" style="margin:10px 0 0"><button class="btn ghost small" data-act="r-setload">Try again</button></div></div>`;
+  if (!r.set) return "";
+  const sw = S.boot.switches || {};
+  const switches = SWITCHES.map(([k, l, d, w]) => `<div class="sw"><label class="tick"><input type="checkbox" data-sw="${k}"${sw[k] ? " checked" : ""}${r.savingSw[k] ? " disabled" : ""}><span><b>${esc(l)}</b><span class="d">${esc(d)}</span></span></label><div class="warnline">${esc(w)} It changes what is written outside the portal.</div></div>`).join("");
+  const deptName = id => { const d = (r.set.departments || []).find(x => String(x.id) === String(id)); return d ? d.name : `Department ${id}`; };
+  const depts = r.set.departments || [];
+  const rows = r.units.map((u, i) => {
+    const us = unitsFor(u.department_id);
+    return `<div class="umrow"><div class="field wide"><label>Label</label><input data-um="label" data-i="${i}" maxlength="60" value="${esc(u.label)}" placeholder="e.g. Restaurant food"></div>
+      <div class="field"><label>Planday department</label><select data-um="department_id" data-i="${i}">${depts.map(d => `<option value="${esc(d.id)}"${String(d.id) === String(u.department_id) ? " selected" : ""}>${esc(d.name)}</option>`).join("")}${depts.some(d => String(d.id) === String(u.department_id)) ? "" : `<option value="${esc(u.department_id)}" selected>${esc(deptName(u.department_id))}</option>`}</select></div>
+      <div class="field"><label>Revenue unit</label><select data-um="revenue_unit_id" data-i="${i}">${us.map(x => `<option value="${esc(x.id)}"${String(x.id) === String(u.revenue_unit_id) ? " selected" : ""}>${esc(x.name)}</option>`).join("")}${us.some(x => String(x.id) === String(u.revenue_unit_id)) ? "" : `<option value="${esc(u.revenue_unit_id)}" selected>Unit ${esc(u.revenue_unit_id)}</option>`}</select></div>
+      <div class="field"><label>Takes its figure from</label><select data-um="source" data-i="${i}">${SRC.map(([k, l]) => `<option value="${k}"${u.source === k ? " selected" : ""}>${l}</option>`).join("")}</select></div>
+      <div class="field"><button class="btn danger small" data-act="um-del" data-v="${i}" aria-label="Remove ${esc(u.label || "row")}">Remove</button></div></div>`;
+  }).join("");
+  const o = r.opt;
+  return `<div class="card"><h3>Settings <small>administrators only</small></h3>
+    <div class="lbl" style="margin-bottom:2px">Switches</div>${switches}
+    <p class="note">Each switch saves as soon as you tick it.</p></div>
+  <div class="card"><h3>Revenue units</h3><p class="note first">Which Planday revenue unit each figure goes into. Departments and units come from Planday. Forecast budgets send one value per department, using the first row for that department.</p>
+    <div class="umhead" style="margin-top:12px"><span>Label</span><span>Planday department</span><span>Revenue unit</span><span>Takes its figure from</span><span></span></div>
+    ${rows || `<p class="note">No units are set up yet.</p>`}
+    <div class="toolrow" style="margin:12px 0 0"><button class="btn ghost small" data-act="um-add"${depts.length ? "" : " disabled"}>Add a unit</button><button class="btn small" data-act="um-save"${r.savingUm ? " disabled" : ""}>${r.savingUm ? "Saving…" : "Save units"}</button></div>
+    ${r.umErr ? `<p class="err" style="margin:8px 0 0">${esc(r.umErr)}</p>` : ""}</div>
+  <div class="card"><h3>Pay and attendance</h3>
+    <label class="tick"><input type="checkbox" data-b="opt.include_salaried"${o.include_salaried ? " checked" : ""}><span><b>Include salaried staff in pay</b><span class="d">Adds salaried staff's pay to the figures. It takes effect the next time pay is synced.</span></span></label>
+    <div class="row2" style="margin-top:12px"><div class="field"><label>Late after (minutes)</label><input type="number" min="1" max="240" step="1" data-b="opt.late_minutes" value="${esc(o.late_minutes)}"></div>
+      <div class="field"><label>Still clocked in after shift end (hours)</label><input type="number" min="0.25" max="24" step="0.25" data-b="opt.clockout_grace_hours" value="${esc(o.clockout_grace_hours)}"></div></div>
+    <div class="toolrow" style="margin:0"><button class="btn small" data-act="opt-save"${r.savingOpt ? " disabled" : ""}>${r.savingOpt ? "Saving…" : "Save"}</button></div>
+    ${r.optErr ? `<p class="err" style="margin:8px 0 0">${esc(r.optErr)}</p>` : ""}</div>`;
+}
+function viewRevenue(){
+  rInit();
+  return pageHead("Revenue push", "What the portal writes to Planday") + rStatus() + rPush() + rLog() + (isAdmin() ? rSettings() : "");
+}
+async function saveSwitch(k, want, cb){
+  const r = S.r; r.savingSw[k] = true; cb.disabled = true;
+  try { const d = await call("settings.set", { [k]: want }); S.boot.switches = { ...S.boot.switches, [k]: !!(d.settings ? d.settings[k] : want) }; if (r.set && d.settings) r.set.settings = d.settings; toast("Saved."); }
+  catch(e){ toast(e.message, true); }
+  delete r.savingSw[k]; if (S.view === "revenue") render();
+}
+async function saveUnits(){
+  const r = S.r; r.umErr = "";
+  for (const u of r.units) if (isNil(u.department_id) || isNil(u.revenue_unit_id) || u.department_id === "" || u.revenue_unit_id === "") { r.umErr = "Each unit needs a department and a revenue unit."; return render(); }
+  r.savingUm = true; render();
+  try {
+    const d = await call("settings.set", { unit_map: r.units.map(u => ({ label:String(u.label || "").trim(), department_id:Number(u.department_id), revenue_unit_id:Number(u.revenue_unit_id), source:u.source })) });
+    if (d.settings) { r.set.settings = d.settings; r.units = (d.settings.unit_map || []).map(u => ({ label:u.label, department_id:u.department_id, revenue_unit_id:u.revenue_unit_id, source:u.source })); }
+    r.preview = null; toast("Units saved.");
+  } catch(e){ r.umErr = e.message; toast(e.message, true); }
+  r.savingUm = false; if (S.view === "revenue") render();
+}
+async function saveOpts(){
+  const r = S.r; r.optErr = ""; const o = r.opt;
+  r.savingOpt = true; render();
+  try {
+    const d = await call("settings.set", { include_salaried: !!o.include_salaried, late_minutes: Number(o.late_minutes), clockout_grace_hours: Number(o.clockout_grace_hours) });
+    if (d.settings) { r.set.settings = d.settings; seedSettings(d.settings); }
+    toast("Saved.");
+  } catch(e){ r.optErr = e.message; toast(e.message, true); }
+  r.savingOpt = false; if (S.view === "revenue") render();
+}
+
+/* ============================================================= 5. CHECKS */
+async function loadChecks(){
+  const c = S.c, n = ++c.n;
+  if (!c.from || !c.to || c.from > c.to) return toast("Pick a from and to date, from first.", true);
+  if (daysIn(c.from, c.to) > 120) return toast("Pick 120 days or fewer.", true);
+  c.loading = true; c.ran = true; c.codesErr = c.compareErr = null; render();
+  const [a, b] = await Promise.allSettled([call("labour.codes", { from:c.from, to:c.to }), call("labour.compare", { from:c.from, to:c.to })]);
+  if (n !== c.n) return;
+  if (a.status === "fulfilled") c.codes = a.value; else { c.codes = null; c.codesErr = a.reason; }
+  if (b.status === "fulfilled") c.compare = b.value; else { c.compare = null; c.compareErr = b.reason; }
+  c.loading = false; if (S.view === "checks") render();
+}
+const BKT = [["boh","BOH"],["foh","FOH"],["hk","Housekeeping"],["maint","Maintenance"],["office","Office"]];
+function viewChecks(){
+  const c = S.c;
+  const intro = `<div class="card calm"><p class="note first" style="color:var(--ink)"><b>Pay by code</b> lists Planday's raw pay by pay code and flags any code that looks like holiday pay; that pay is not uplifted again. <b>Planday vs workbook</b> sets Planday's raw pay beside the workbook's raw payroll for the same days. If Planday is about 12% above the workbook, Planday probably already includes holiday pay, and the holiday accrual factor (Labour model, in the HOD Dashboard's settings) is adding it a second time.</p></div>`;
+  const bar = `<div class="rangebar"><div class="toolrow" style="margin:0"><input type="date" data-b="c.from" value="${esc(c.from)}" aria-label="From"><span class="muted">to</span><input type="date" data-b="c.to" value="${esc(c.to)}" aria-label="To"><button class="btn small" data-act="c-run"${c.loading ? " disabled" : ""}>${c.loading ? "Checking…" : "Run checks"}</button></div><span class="muted" style="font-size:13px">120 days at most</span></div>`;
+  const head = pageHead("Checks", "Confirm the maths against real figures");
+  if (!c.ran) return head + intro + bar;
+  if (c.loading) return head + intro + bar + loadingBox();
+  let codes = "";
+  if (c.codesErr) codes = errCard(c.codesErr, true);
+  else if (c.codes) {
+    const d = c.codes, tot = d.total_raw || 0;
+    codes = `<div class="card"><h3>Pay by code</h3>
+      <div class="kv"><div><div class="k">Days with pay</div><div class="v">${d.days}</div></div><div><div class="k">Raw pay</div><div class="v">${gbp(d.total_raw)}</div></div><div><div class="k">Coded as holiday</div><div class="v">${gbp(d.holiday_coded)}</div></div><div><div class="k">Salaried</div><div class="v">${gbp(d.salaried)}</div></div></div>
+      <p class="note first" style="margin-bottom:12px"><b>${esc(d.reading || "")}</b></p>
+      ${d.codes && d.codes.length ? `<div class="tablewrap"><table class="grid"><thead><tr><th>Pay code</th><th class="num">Raw pay</th><th class="num">Share</th><th class="num">Hours</th><th class="num">Per hour</th><th></th></tr></thead>
+      <tbody>${d.codes.map(x => `<tr${x.holiday ? ' class="hl"' : ""}><td class="strong">${esc(x.code)}</td><td class="num">${gbp(x.pay)}</td><td class="num muted">${tot ? pc(x.pay / tot * 100) : "—"}</td><td class="num">${num1(x.hours)}</td><td class="num">${x.hours ? gbp2(x.pay / x.hours) : "—"}</td><td>${x.holiday ? `<span class="tag warn">Holiday pay</span>` : ""}</td></tr>`).join("")}</tbody></table></div>` : `<p class="note">No pay has been synced for these dates.</p>`}</div>`;
+  }
+  let cmp = "";
+  if (c.compareErr) cmp = errCard(c.compareErr, true);
+  else if (c.compare) {
+    const d = c.compare, diff = isNil(d.planday_total) || isNil(d.workbook_total) ? null : d.planday_total - d.workbook_total;
+    const both = d.days.filter(x => x.workbook !== null).length;
+    const dayRow = x => { const miss = x.workbook === null;
+      return `<tr${miss ? ' class="sub"' : ""}><td class="strong s1">${esc(dayShort(x.date))}</td>${BKT.map(([k]) => { const b = x.buckets && x.buckets[k] || {}; return `<td class="num gl">${gbp2(b.planday)}</td><td class="num">${isNil(b.workbook) ? "—" : gbp2(b.workbook)}</td><td class="num">${isNil(b.diff) ? "—" : gbpDiff(b.diff)}</td>`; }).join("")}<td class="num gl strong">${gbp2(x.planday)}</td><td class="num strong">${miss ? "—" : gbp2(x.workbook)}</td><td class="num strong">${isNil(x.diff) ? "—" : gbpDiff(x.diff)}</td></tr>`; };
+    cmp = `<div class="card"><h3>Planday vs workbook <small>raw pay, before any uplift</small></h3>
+      <div class="kv"><div><div class="k">Planday</div><div class="v">${gbp(d.planday_total)}</div></div><div><div class="k">Workbook</div><div class="v">${gbp(d.workbook_total)}</div></div><div><div class="k">Difference</div><div class="v">${diff === null ? "—" : (diff > 0 ? "+" : diff < 0 ? "-" : "") + esc(gbp(Math.abs(diff)))}</div></div><div><div class="k">Planday ÷ workbook</div><div class="v">${isNil(d.ratio) ? "—" : esc(d.ratio.toFixed(3))}</div></div><div><div class="k">Days compared</div><div class="v">${both}</div></div></div>
+      <p class="note first" style="margin-bottom:12px"><b>${esc(d.reading || "")}</b></p>
+      ${d.days.length ? `<div class="tablewrap"><table class="grid"><thead><tr><th class="s1" rowspan="2">Date</th>${BKT.map(([, l]) => `<th class="grp gl" colspan="3">${l}</th>`).join("")}<th class="grp gl" colspan="3">Total</th></tr>
+      <tr>${BKT.concat([["all"]]).map(() => `<th class="num gl">Planday</th><th class="num">Workbook</th><th class="num">Diff</th>`).join("")}</tr></thead><tbody>${d.days.map(dayRow).join("")}</tbody></table></div>
+      <p class="note">Totals above only count days where the workbook has pay too. A positive difference means Planday is higher.</p>` : `<p class="note">No pay has been synced for these dates.</p>`}</div>`;
+  }
+  return head + intro + bar + codes + cmp;
+}
+
+/* ------------------------------------------------------------- shell */
+const VIEWS = { wages:viewWages, ahead:viewAhead, attendance:viewAttendance, revenue:viewRevenue, checks:viewChecks };
+const NEEDS_PLANDAY = ["ahead","attendance","revenue","checks"];
+function render(){
+  const v = S.view; if (!v || !S.boot) return;
+  $("#views").innerHTML = (NEEDS_PLANDAY.includes(v) && !S.boot.configured) ? notConnectedCard() : VIEWS[v]();
+  if (S.focus) { const f = S.focus === "send" ? $("#sendbtn") : null; S.focus = null; if (f && !f.disabled) f.focus({ preventScroll:true }); }
+}
+function markTab(){ $$(".tabbtn").forEach(b => b.setAttribute("aria-current", b.dataset.view === S.view ? "page" : "false")); }
+function goView(v){
+  S.view = v; markTab(); window.scrollTo(0, 0);
+  if (!tabOk(v)) { $("#views").innerHTML = `<div class="card bad"><h3>No access</h3><div>You don't have access to this tab. Ask the GM if you need it.</div></div>`; return; }
+  if (NEEDS_PLANDAY.includes(v) && !S.boot.configured) return render();
+  if (v === "wages") { if (!S.w.from) { [S.w.from, S.w.to] = presetRange(S.w.preset); } if (!S.w.data && !S.w.loading) return loadWages(); return render(); }
+  if (v === "ahead") { if (!S.a.data) return loadAhead(); return render(); }
+  if (v === "attendance") { loadAtt(); return; }
+  if (v === "revenue") { render(); if (isAdmin() && !S.r.set && !S.r.setLoading) loadSettings(); return; }
+  if (v === "checks") { if (!S.c.from) { S.c.to = addDays(today(), -1); S.c.from = addDays(today(), -28); } if (!S.c.ran) return loadChecks(); return render(); }
+}
+function retry(){
+  const v = S.view;
+  if (v === "wages") loadWages(); else if (v === "ahead") loadAhead(); else if (v === "attendance") loadAtt(); else if (v === "checks") loadChecks(); else if (v === "revenue") rPreview();
+}
+
+/* ---- events ---- */
+function setPath(path, value){
+  const [root, key] = path.split(".");
+  const o = root === "opt" ? S.r.opt : S[root]; if (o) o[key] = value;
+}
+document.addEventListener("input", e => {
+  const t = e.target; if (!t.dataset) return;
+  if (t.dataset.um === "label") { S.r.units[+t.dataset.i].label = t.value; return; }
+  if (t.dataset.b && (t.type === "number" || t.type === "text")) setPath(t.dataset.b, t.value);
+});
+document.addEventListener("change", e => {
+  const t = e.target; if (!t.dataset || !$("#views").contains(t)) return;
+  if (t.dataset.sw) { saveSwitch(t.dataset.sw, t.checked, t); return; }
+  if (t.dataset.um) {
+    const u = S.r.units[+t.dataset.i], f = t.dataset.um; if (!u || f === "label") return;
+    if (f === "source") u.source = t.value;
+    else if (f === "revenue_unit_id") u.revenue_unit_id = Number(t.value);
+    else if (f === "department_id") { u.department_id = Number(t.value); const us = unitsFor(u.department_id); if (!us.some(x => String(x.id) === String(u.revenue_unit_id))) u.revenue_unit_id = us.length ? us[0].id : ""; render(); }
+    return;
+  }
+  const b = t.dataset.b; if (!b) return;
+  setPath(b, t.type === "checkbox" ? t.checked : t.value);
+  if (b === "r.from" || b === "r.to") { rInvalidate(); render(); }
+  else if (b === "r.overwrite") { S.r.armed = false; render(); }
+});
+document.addEventListener("click", e => {
+  const t = e.target.closest("[data-act]"); if (!t || !$("#views").contains(t)) return;
+  const a = t.dataset.act, v = t.dataset.v, r = S.r;
+  switch (a) {
+    case "retry": return retry();
+    case "w-preset": { S.w.preset = v; const rg = presetRange(v); if (rg) { [S.w.from, S.w.to] = rg; return loadWages(); } return render(); }
+    case "w-source": if (S.w.source !== v) { S.w.source = v; loadWages(); } return;
+    case "w-show": if (!S.w.from || !S.w.to || S.w.from > S.w.to) return toast("Pick a from and to date, from first.", true); if (daysIn(S.w.from, S.w.to) > 400) return toast("Pick 400 days or fewer.", true); return loadWages();
+    case "w-csv": return exportWages();
+    case "a-refresh": return loadAhead(true);
+    case "t-refresh": return loadAtt(true);
+    case "r-what": if (r.what !== v) { r.what = v; [r.from, r.to] = rDefaults(v); r.overwrite = false; rInvalidate(); render(); } return;
+    case "r-preview": return rPreview();
+    case "r-send": return rSend();
+    case "r-cancel": clearTimeout(rSend._t); r.armed = false; return render();
+    case "r-sync": return rSync();
+    case "r-setload": return loadSettings();
+    case "um-add": { const dep = (r.set.departments || [])[0]; const us = dep ? unitsFor(dep.id) : []; r.units.push({ label:"", department_id: dep ? dep.id : "", revenue_unit_id: us.length ? us[0].id : "", source:"food" }); return render(); }
+    case "um-del": r.units.splice(+v, 1); return render();
+    case "um-save": return saveUnits();
+    case "opt-save": return saveOpts();
+    case "c-run": return loadChecks();
+  }
+});
+document.addEventListener("toggle", e => { const t = e.target; if (t && t.dataset && t.dataset.g) S.r.og[t.dataset.g] = t.open; }, true);
+let _rw = 0;
+window.addEventListener("resize", () => { const w = window.innerWidth; if (w === _rw) return; _rw = w; clearTimeout(window._rt); window._rt = setTimeout(() => { if (S.view === "wages" || S.view === "ahead") render(); }, 150); });
+
+function openGate(msg){ $("#gate").hidden = false; $("#app").hidden = true; if (msg) $("#gerr").textContent = msg; }
+$("#signout").addEventListener("click", ()=>{ try { sessionStorage.removeItem("bhb_staff_email"); } catch(e){} openGate(); });
+async function boot(){
+  $("#app").hidden = false; $("#views").innerHTML = loadingBox();
+  let d;
+  try { d = await call("bootstrap"); } catch(e){ $("nav.tabs").hidden = true; $("#views").innerHTML = errCard(e) + (e.status === 403 ? "" : `<p class="note">Open this from the Staff Portal so it knows who you are.</p>`); return; }
+  S.boot = d; S.me = d.me; $("#whoname").textContent = d.me.name; _rw = window.innerWidth;
+  if (!d.configured) S.w.source = "workbook";
+  const shown = TABS.filter(tabOk);
+  $$(".tabbtn").forEach(b => { b.hidden = !tabOk(b.dataset.view); b.addEventListener("click", () => goView(b.dataset.view)); });
+  if (!shown.length) { $("#views").innerHTML = `<div class="card calm"><h3>Nothing to show yet</h3><div>You have the Labour tile but no tabs inside it. Ask the GM which tabs you should have.</div></div>`; return; }
+  goView(shown[0]);
+}
+(function(){ if (staffEmail()) { $("#gate").hidden = true; boot(); } else openGate(); })();
+</script>
+</body>
+</html>
