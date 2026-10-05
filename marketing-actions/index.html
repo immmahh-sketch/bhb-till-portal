@@ -600,7 +600,7 @@ function renderChat(keepScroll){
   if ($("#nt_go")) $("#nt_go").onclick = async () => {
     const btn = $("#nt_go"); btn.disabled = true;
     try {
-      const body = $("#nt_body").value, payload = c.ntObj === "__other" ? { title:($("#nt_title").value || ""), body } : { objective_id:c.ntObj, body };
+      const body = $("#nt_body").value, payload = c.ntObj === "__other" ? { title:($("#nt_title").value || ""), body } : { objective_id:c.ntObj, title:((S.objectives.find(o => o.id === c.ntObj) || {}).title || ""), body };
       if (c.ntObj === "__other" && !payload.title.trim()) throw new Error("Give the topic a title.");
       const d = await call("topic.create", payload);
       c.newOpen = false; c.ntObj = ""; c.open = d.topic.id; await loadTopics(true); await loadTopic(d.topic.id);
