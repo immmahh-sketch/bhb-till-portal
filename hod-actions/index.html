@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HOD Actions — Black Horse Beamish</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --sage:#4E5F4F; --sage-70:#7B887C; --sage-10:#EDEFED; --sage-dark:#3B483C;
+  --bone:#F7F7F7; --celadon:#C1C8B4; --mist:#E7E7E7; --white:#fff; --ink:#262626; --gold:#C9A56B;
+  --attention:#B08D57; --attention-bg:#F7F0E4; --alert:#8C4A3F; --alert-bg:#F6EAE8; --good:#4F6B4F; --good-bg:#EDF2ED;
+  --display:"Cormorant Garamond",Georgia,serif; --body:Raleway,"Helvetica Neue",Arial,sans-serif;
+  --track-label:.18em; --radius:10px; --shadow:0 1px 2px rgba(38,38,38,.06),0 8px 24px rgba(38,38,38,.07); --maxw:900px;
+}
+*{box-sizing:border-box} html,body{margin:0;padding:0}
+body{font-family:var(--body); color:var(--ink); background:var(--bone); font-size:15px; line-height:1.5; -webkit-text-size-adjust:100%}
+h1,h2,h3{font-family:var(--display); font-weight:600; margin:0; letter-spacing:.01em}
+button,input,textarea,select{font:inherit; color:inherit}
+.shell{max-width:var(--maxw); margin:0 auto; padding:0 20px 64px}
+#gate{position:fixed; inset:0; background:var(--sage); z-index:100; display:flex; align-items:center; justify-content:center; padding:24px}
+#gate[hidden]{display:none}
+.gatecard{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); width:100%; max-width:380px; padding:32px 28px; text-align:center}
+.gatecard h1{font-size:26px; color:var(--sage); line-height:1.15}
+.gatecard .sub{font-size:11px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); margin:6px 0 22px}
+.gateerr{color:var(--alert); font-size:13px; min-height:18px; margin-top:8px}
+header.top{background:var(--sage); color:var(--white)}
+.topin{max-width:var(--maxw); margin:0 auto; padding:14px 20px; display:flex; align-items:center; gap:18px; flex-wrap:wrap}
+.brand{font-family:var(--display); font-size:21px; line-height:1.1}
+.brand small{display:block; font-family:var(--body); font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; opacity:.75}
+.who{margin-left:auto; display:flex; align-items:center; gap:10px; font-size:12px; opacity:.9}
+.who button{background:transparent; border:1px solid rgba(255,255,255,.4); color:var(--white); border-radius:6px; padding:5px 10px; cursor:pointer; font-size:11px; letter-spacing:.06em; text-transform:uppercase}
+nav.tabs{background:var(--sage-dark)}
+.tabsin{max-width:var(--maxw); margin:0 auto; padding:0 20px; display:flex; gap:2px; overflow-x:auto}
+.tabbtn{background:transparent; border:0; cursor:pointer; color:rgba(255,255,255,.72); padding:12px 16px; font-size:12px; font-weight:600; white-space:nowrap; letter-spacing:var(--track-label); text-transform:uppercase; border-bottom:3px solid transparent}
+.tabbtn[aria-current="page"]{color:var(--white); border-bottom-color:var(--gold)}
+.pagehead{display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; margin:24px 0 16px}
+.pagehead h2{font-size:26px; color:var(--sage)}
+.pagehead .hint{font-size:13px; color:var(--sage-70)}
+.spacer{margin-left:auto}
+.btn{border:1px solid var(--sage); background:var(--sage); color:var(--white); border-radius:8px; padding:9px 16px; cursor:pointer; font-size:12px; font-weight:600; letter-spacing:var(--track-label); text-transform:uppercase; min-height:44px}
+.btn.ghost{background:var(--white); color:var(--sage)} .btn.ghost:hover{background:var(--sage-10)}
+.btn.danger{background:var(--white); color:var(--alert); border-color:var(--alert)} .btn.danger.sure{background:var(--alert); color:var(--white)}
+.btn.small{min-height:36px; padding:6px 12px; font-size:11px}
+.btn:disabled{opacity:.5; cursor:default}
+.card{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); padding:18px 20px; margin-bottom:14px}
+.card h3{font-size:22px; color:var(--sage); margin-bottom:12px}
+.opts{display:flex; gap:8px; flex-wrap:wrap}
+.opt{border:1px solid var(--mist); background:var(--bone); border-radius:999px; padding:9px 16px; cursor:pointer; font-size:14px; min-height:44px}
+.opt:hover{background:var(--sage-10)}
+.opt[aria-pressed="true"]{background:var(--sage); border-color:var(--sage); color:var(--white); font-weight:600}
+.opt.s-parked[aria-pressed="true"]{background:var(--sage-70); border-color:var(--sage-70)}
+.opt.s-outstanding[aria-pressed="true"]{background:var(--attention); border-color:var(--attention)}
+.field{margin-bottom:14px} .field label{display:block; font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); margin-bottom:4px}
+.field input,.field textarea,.field select{width:100%; padding:11px 12px; border:1px solid var(--mist); border-radius:8px; font-size:16px; background:var(--white)}
+.field input[type=date]{max-width:200px}
+textarea{min-height:84px; resize:vertical}
+.tag{display:inline-block; border-radius:999px; padding:3px 10px; font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; background:var(--sage-10); color:var(--sage); white-space:nowrap}
+.tag.outstanding{background:var(--attention-bg); color:#6d5320}
+.tag.in_progress{background:#E7EEF5; color:#34546F}
+.tag.completed{background:var(--good-bg); color:var(--good)}
+.tag.parked{background:var(--mist); color:var(--sage-70)}
+.tag.late{background:var(--alert-bg); color:var(--alert)}
+.desc{white-space:pre-wrap; font-size:15px; margin:10px 0 0}
+.facts{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-top:14px}
+.facts .k{font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70)}
+.facts .v{font-size:15px}
+.facts .v.late{color:var(--alert); font-weight:600}
+.tl{border-top:1px solid var(--mist); margin-top:6px}
+.ev{padding:10px 0; border-bottom:1px solid var(--mist)}
+.ev:last-child{border-bottom:0}
+.ev .h{font-size:12px; color:var(--sage-70)}
+.ev .b{white-space:pre-wrap; margin-top:2px}
+.ev.sys .b{color:var(--sage-70); font-style:italic}
+.muted{color:var(--sage-70)} .empty{padding:40px 20px; text-align:center; color:var(--sage-70)} .loading{padding:60px; text-align:center; color:var(--sage-70)}
+.sum{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px}
+.sum .pill{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); padding:10px 16px; min-width:110px}
+.sum .pill b{display:block; font-family:var(--display); font-size:28px; line-height:1; color:var(--sage)}
+.sum .pill.late b{color:var(--alert)}
+.sum .pill span{font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70)}
+.toast{position:fixed; left:50%; bottom:26px; transform:translate(-50%,20px); background:var(--ink); color:var(--white); padding:12px 20px; border-radius:8px; z-index:200; opacity:0; transition:.2s; pointer-events:none; font-size:14px; max-width:90vw}
+.toast.on{opacity:1; transform:translate(-50%,0)} .toast.bad{background:var(--alert)}
+
+/* ---- HOD Actions specifics ---- */
+.hod{padding:0; overflow:hidden}
+.hodhead{display:flex; align-items:center; gap:12px; flex-wrap:wrap; width:100%; background:var(--white); border:0; cursor:pointer; text-align:left; padding:16px 20px; min-height:56px}
+.hodhead:hover{background:var(--sage-10)}
+.hodhead .hn{font-family:var(--display); font-weight:600; font-size:24px; color:var(--sage); line-height:1.1}
+.hodhead .hc{display:flex; gap:6px; flex-wrap:wrap}
+.hodhead .chev{margin-left:auto; width:10px; height:10px; border-right:2px solid var(--sage-70); border-bottom:2px solid var(--sage-70); transform:rotate(45deg); transition:.15s}
+.hodhead[aria-expanded="false"] .chev{transform:rotate(-45deg)}
+.hodbody{border-top:1px solid var(--mist); padding:6px 20px 18px}
+.hodtools{display:flex; gap:8px; flex-wrap:wrap; margin:12px 0 4px}
+.addbox{background:var(--bone); border:1px solid var(--mist); border-radius:var(--radius); padding:14px 14px 4px; margin:12px 0}
+.addbox .field input,.addbox .field textarea{background:var(--white)}
+.addbox textarea{min-height:64px}
+.todo-add{margin-bottom:14px}
+.act{border-bottom:1px solid var(--mist); border-left:4px solid transparent; padding:0}
+.act:last-child{border-bottom:0}
+.act.late{border-left-color:var(--alert)}
+.act.done .t{text-decoration:line-through; text-decoration-color:var(--sage-70)}
+.act.done{opacity:.78}
+.actmain{display:flex; gap:6px; align-items:flex-start}
+.chk{flex:0 0 auto; width:44px; height:44px; margin-top:4px; background:transparent; border:0; cursor:pointer; padding:0; display:flex; align-items:center; justify-content:center}
+.chk i{display:flex; width:26px; height:26px; border-radius:50%; border:2px solid var(--sage-70); align-items:center; justify-content:center; color:transparent; background:var(--white)}
+.chk:hover i{border-color:var(--sage)}
+.chk[aria-pressed="true"] i{background:var(--sage); border-color:var(--sage); color:var(--white)}
+.acttxt{flex:1 1 auto; min-width:0; padding:12px 6px 12px 0; cursor:pointer}
+.acttxt .t{font-family:var(--display); font-size:21px; line-height:1.15; color:var(--sage); overflow-wrap:anywhere}
+.acttxt .m{font-size:12px; color:var(--sage-70); margin-top:3px}
+.acttxt .m .over{color:var(--alert); font-weight:600}
+.acttxt .lu{font-size:13px; margin-top:6px; padding:6px 10px; background:var(--bone); border-radius:6px; overflow-wrap:anywhere; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
+.acttxt .lu small{display:block; color:var(--sage-70); font-size:11px}
+.acttxt .tags{display:flex; gap:6px; flex-wrap:wrap; margin-top:8px}
+.actopen{padding:0 4px 16px 50px}
+.actopen .sub{margin-top:14px}
+.actopen .sub > label{display:block; font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); margin-bottom:4px}
+.actopen .opts{margin-bottom:4px}
+.actopen .field{margin-bottom:10px}
+.toggledone{margin-top:12px}
+.person{display:flex; gap:14px 24px; flex-wrap:wrap; align-items:center}
+.person .pn{flex:1 1 220px; min-width:0} .person .pn b{font-family:var(--display); font-size:21px; color:var(--sage); font-weight:600}
+.person .pn div{font-size:12px; color:var(--sage-70); overflow-wrap:anywhere}
+.tick{display:flex; align-items:center; gap:10px; cursor:pointer; min-height:44px; font-size:14px}
+.tick input{width:22px; height:22px; accent-color:var(--sage); flex:0 0 auto; margin:0}
+.tick.off{opacity:.55}
+.note{font-size:13px; color:var(--sage-70); margin:0 0 16px}
+.err{color:var(--alert); font-size:13px}
+@media (max-width:640px){
+  .shell{padding:0 12px 48px} .topin,.tabsin{padding-left:12px;padding-right:12px} .pagehead h2{font-size:22px}
+  .btn{width:100%} .btn.small{width:auto} .opt{flex:1 1 auto}
+  .hodhead{padding:14px 14px} .hodbody{padding:4px 12px 16px}
+  .actopen{padding:0 4px 16px 10px}
+  .card{padding:16px 14px}
+  .hod{padding:0}
+  .addbox .field input[type=date]{max-width:none}
+  .hodtools .btn{width:100%}
+}
+</style>
+</head>
+<body>
+<div id="gate"><div class="gatecard"><h1>HOD Actions</h1><div class="sub">Black Horse Beamish</div>
+  <p style="margin:0 0 16px;font-size:14px;color:var(--sage-70)">This opens from the Staff Portal, which knows who you are and what you can see.</p>
+  <a href="https://app.blackhorsebeamish.co.uk/portal/app.html" style="display:block;padding:12px;border-radius:8px;background:var(--sage);color:#fff;text-decoration:none;font-weight:600;letter-spacing:var(--track-label);text-transform:uppercase;font-size:12px">Open the Staff Portal</a>
+  <div class="gateerr" id="gerr"></div></div></div>
+<div id="app" hidden>
+  <header class="top"><div class="topin"><div class="brand">HOD Actions<small>Black Horse Beamish</small></div>
+    <div class="who"><span id="whoname"></span><button id="signout">Sign out</button></div></div></header>
+  <nav class="tabs"><div class="tabsin" role="tablist">
+    <button class="tabbtn" data-view="actions" id="tab_actions">Actions</button>
+    <button class="tabbtn" data-view="settings" id="tab_settings">Settings</button>
+  </div></nav>
+  <div class="shell"><div id="views"></div></div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+const CFG = { SUPABASE_URL:"https://safcrtrfdzsnftghibot.supabase.co", SUPABASE_KEY:"sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU" };
+const STATUSES = [["outstanding","Outstanding"],["in_progress","In progress"],["completed","Completed"],["parked","Parked"]];
+const SL = Object.fromEntries(STATUSES);
+// S.me: { email, name, isAdmin, included, canAdd }. Everything else is view state.
+const S = { me:null, people:[], view:"actions", hods:[], notIncluded:false, collapsed:{}, showDone:{}, addOpen:{}, openIds:{}, editing:null, rmSure:null, drafts:{}, hist:{}, busy:false };
+const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
+const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const fmtDT = iso => { if(!iso) return ""; try { return new Date(iso).toLocaleString("en-GB",{ timeZone:"Europe/London", day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" }).replace(",",""); } catch(e){ return String(iso).slice(0,16); } };
+const fmtDay = d => { try { return new Date(d+"T12:00:00Z").toLocaleDateString("en-GB",{ timeZone:"UTC", weekday:"short", day:"numeric", month:"short", year:"numeric" }); } catch(e){ return d; } };
+const today = () => new Intl.DateTimeFormat("en-CA",{ timeZone:"Europe/London", year:"numeric", month:"2-digit", day:"2-digit" }).format(new Date());
+const isOpen = t => t.status === "outstanding" || t.status === "in_progress";
+const isLate = t => isOpen(t) && !!t.due_date && t.due_date < today();
+const dv = (key, def) => (key in S.drafts) ? S.drafts[key] : (def ?? "");
+function toast(msg, bad){ const t=$("#toast"); t.textContent=msg; t.className="toast on"+(bad?" bad":""); clearTimeout(toast._t); toast._t=setTimeout(()=>{t.className="toast";}, bad?5200:2600); }
+function staffEmail(){ try { return sessionStorage.getItem("bhb_staff_email") || ""; } catch(e){ return ""; } }
+async function call(action, payload){
+  const r = await fetch(CFG.SUPABASE_URL + "/functions/v1/hod-actions-api", { method:"POST", headers:{ "Content-Type":"application/json", Authorization:"Bearer "+CFG.SUPABASE_KEY, apikey:CFG.SUPABASE_KEY }, body: JSON.stringify({ action, staff_email: staffEmail(), ...(payload||{}) }) });
+  let d = {}; try { d = await r.json(); } catch(e){}
+  if (!r.ok || d.error) throw new Error(d.error || `Request failed (${r.status})`);
+  return d;
+}
+
+/* ------------------------------------------------------------- helpers */
+function sortOpen(a){
+  return a.filter(isOpen).sort((x, y) => String(x.due_date || "9999").localeCompare(String(y.due_date || "9999")) || String(y.created_at).localeCompare(String(x.created_at)));
+}
+function sortDone(a){
+  return a.filter(t => !isOpen(t)).sort((x, y) => String(y.closed_at || y.updated_at).localeCompare(String(x.closed_at || x.updated_at)));
+}
+const first = n => String(n || "").split(" ")[0] || "them";
+function setBy(a, hod){
+  const own = a.created_by_email === a.hod_email;
+  if (!S.me.isAdmin) return own ? "Added by you" : "Set by the GM";
+  return own ? `Added by ${first(hod.name)}` : `Set by ${a.created_by_name}`;
+}
+function openCounts(actions){ return { open: actions.filter(isOpen).length, late: actions.filter(isLate).length }; }
+
+/* ------------------------------------------------------------- load */
+async function loadActions(){
+  const d = await call("actions.list");
+  if (d.me) S.me = { ...S.me, ...d.me };
+  S.hods = d.hods || []; S.notIncluded = !!d.not_included;
+}
+async function refresh(){
+  try { await loadActions(); } catch(e){ toast(e.message, true); }
+  renderActions();
+}
+
+/* ------------------------------------------------------------- actions view */
+function addForm(h, isAdminPanel){
+  const k = "add:" + h.email + ":";
+  return `<div class="addbox" data-addbox="${esc(h.email)}">
+    <div class="field"><label>${isAdminPanel ? "Action for " + esc(first(h.name)) : "New action"}</label><input data-draft="${esc(k)}title" data-enter="${esc(h.email)}" maxlength="200" placeholder="What needs doing?" value="${esc(dv(k+"title"))}" autocomplete="off"></div>
+    <div class="field"><label>Due date (optional)</label><input type="date" data-draft="${esc(k)}due" value="${esc(dv(k+"due"))}"></div>
+    <div class="field"><label>Details (optional)</label><textarea data-draft="${esc(k)}details" maxlength="4000" placeholder="Anything that helps — what done looks like, who to speak to…">${esc(dv(k+"details"))}</textarea></div>
+    <div class="opts" style="margin-bottom:14px"><button class="btn" data-add="${esc(h.email)}">Add action</button>${isAdminPanel ? `<button class="btn ghost" data-addclose="${esc(h.email)}">Cancel</button>` : ""}</div>
+  </div>`;
+}
+function actionRow(a, h){
+  const late = isLate(a), done = !isOpen(a), open = !!S.openIds[a.id];
+  const dueTxt = a.due_date ? (late ? `<span class="over">Overdue · was due ${esc(fmtDay(a.due_date))}</span>` : `Due ${esc(fmtDay(a.due_date))}`) : "No due date";
+  return `<div class="act${late ? " late" : ""}${done ? " done" : ""}" data-id="${esc(a.id)}">
+    <div class="actmain">
+      ${a.can_respond ? `<button class="chk" data-check="${esc(a.id)}" aria-pressed="${a.status === "completed"}" aria-label="${a.status === "completed" ? "Mark as not done" : "Mark as done"}"><i><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M3 8.5l3.2 3.2L13 5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></i></button>` : `<span class="chk"></span>`}
+      <div class="acttxt" data-row="${esc(a.id)}" role="button" tabindex="0" aria-expanded="${open}">
+        <div class="t">${esc(a.title)}</div>
+        <div class="m">${dueTxt} · ${esc(setBy(a, h))}</div>
+        ${a.latest_update ? `<div class="lu">${esc(a.latest_update)}<small>${esc(a.latest_update_by_name || "")} · ${esc(fmtDT(a.latest_update_at))}</small></div>` : ""}
+        <div class="tags"><span class="tag ${esc(a.status)}">${esc(SL[a.status])}</span>${late ? `<span class="tag late">Overdue</span>` : ""}</div>
+      </div>
+    </div>
+    ${open ? actionOpen(a, h) : ""}
+  </div>`;
+}
+function actionOpen(a, h){
+  const late = isLate(a), id = a.id;
+  const editing = S.editing === id;
+  const ek = "edit:" + id + ":";
+  return `<div class="actopen">
+    ${a.details ? `<p class="desc">${esc(a.details)}</p>` : `<p class="desc muted">No further details.</p>`}
+    <div class="facts">
+      ${S.me.isAdmin ? `<div><div class="k">For</div><div class="v">${esc(h.name)}</div></div>` : ""}
+      <div><div class="k">Due</div><div class="v${late ? " late" : ""}">${a.due_date ? esc(fmtDay(a.due_date)) : "No due date"}</div></div>
+      <div><div class="k">Added</div><div class="v">${esc(setBy(a, h))} · ${esc(fmtDT(a.created_at))}</div></div>
+      ${a.closed_at ? `<div><div class="k">Completed</div><div class="v">${esc(fmtDT(a.closed_at))}</div></div>` : ""}
+    </div>
+    ${a.can_respond ? `
+    <div class="sub"><label>Status</label><div class="opts">${STATUSES.map(([v,l]) => `<button class="opt s-${v}" type="button" data-st="${esc(id)}" data-v="${v}" aria-pressed="${v === a.status}">${l}</button>`).join("")}</div></div>
+    <div class="sub"><div class="field"><label>Write an update</label><textarea data-draft="upd:${esc(id)}" maxlength="3000" placeholder="Progress, what's holding it up, anything the GM should know…">${esc(dv("upd:" + id))}</textarea></div>
+      <button class="btn" data-upd="${esc(id)}">Save update</button></div>` : ""}
+    ${(a.can_edit || a.can_remove) && !editing ? `<div class="sub"><div class="opts">
+      ${a.can_edit ? `<button class="btn ghost small" data-edit="${esc(id)}">Edit action</button>` : ""}
+      ${a.can_remove ? `<button class="btn danger small${S.rmSure === id ? " sure" : ""}" data-rm="${esc(id)}">${S.rmSure === id ? "Tap again to remove" : "Remove"}</button>` : ""}
+    </div></div>` : ""}
+    ${editing ? `<div class="sub addbox"><div class="field"><label>Action</label><input data-draft="${esc(ek)}title" maxlength="200" value="${esc(dv(ek+"title", a.title))}"></div>
+      <div class="field"><label>Due date</label><input type="date" data-draft="${esc(ek)}due" value="${esc(dv(ek+"due", a.due_date || ""))}"></div>
+      <div class="field"><label>Details</label><textarea data-draft="${esc(ek)}details" maxlength="4000">${esc(dv(ek+"details", a.details))}</textarea></div>
+      <div class="opts" style="margin-bottom:14px"><button class="btn" data-editsave="${esc(id)}">Save changes</button><button class="btn ghost" data-editcancel="${esc(id)}">Cancel</button></div></div>` : ""}
+    <div class="sub"><label>History</label><div class="tl" id="hist_${esc(id)}"><div class="muted" style="padding:10px 0">Loading…</div></div></div>
+  </div>`;
+}
+function evHtml(e){
+  const sys = e.kind !== "update" && e.kind !== "status";
+  let what = "";
+  if (e.kind === "status") what = ` set it to ${esc(SL[e.to_status] || e.to_status)}`;
+  else if (e.kind === "update") what = " wrote an update";
+  else if (e.kind === "created") what = " added it";
+  return `<div class="ev${sys ? " sys" : ""}"><div class="h"><b>${esc(e.by_name)}</b>${what} · ${esc(fmtDT(e.at))}</div>${e.body ? `<div class="b">${esc(e.body)}</div>` : ""}</div>`;
+}
+async function fillHistory(id){
+  const el = () => document.getElementById("hist_" + id);
+  if (!S.hist[id]) {
+    try { S.hist[id] = (await call("action.get", { id })).events || []; }
+    catch(e){ if (el()) el().innerHTML = `<div class="err" style="padding:10px 0">${esc(e.message)}</div>`; return; }
+  }
+  if (el()) el().innerHTML = S.hist[id].map(evHtml).join("") || `<div class="muted" style="padding:10px 0">Nothing yet.</div>`;
+}
+function listBody(h){
+  const open = sortOpen(h.actions), done = sortDone(h.actions);
+  const shownDone = !!S.showDone[h.email];
+  return `${open.length ? open.map(a => actionRow(a, h)).join("") : `<div class="empty" style="padding:22px 10px">${h.actions.length ? "Nothing outstanding. Nice and clear." : "No actions yet."}</div>`}
+    ${done.length ? `<div class="toggledone"><button class="btn ghost small" data-showdone="${esc(h.email)}">${shownDone ? "Hide" : "Show"} completed and parked (${done.length})</button></div>${shownDone ? done.map(a => actionRow(a, h)).join("") : ""}` : ""}`;
+}
+function hodPanel(h){
+  const c = openCounts(h.actions), collapsed = !!S.collapsed[h.email];
+  return `<section class="card hod" data-hod="${esc(h.email)}">
+    <button class="hodhead" data-toggle="${esc(h.email)}" aria-expanded="${!collapsed}">
+      <span class="hn">${esc(h.name)}</span>
+      <span class="hc"><span class="tag outstanding">${c.open} open</span>${c.late ? `<span class="tag late">${c.late} overdue</span>` : ""}</span>
+      <span class="chev" aria-hidden="true"></span>
+    </button>
+    ${collapsed ? "" : `<div class="hodbody">
+      ${S.addOpen[h.email] ? addForm(h, true) : `<div class="hodtools"><button class="btn small" data-addopen="${esc(h.email)}">Add action</button></div>`}
+      ${listBody(h)}
+    </div>`}
+  </section>`;
+}
+function renderActions(){
+  if (S.view !== "actions") return;
+  const v = $("#views");
+  if (S.me.isAdmin) {
+    const all = S.hods.flatMap(h => h.actions), c = openCounts(all);
+    v.innerHTML = `<div class="pagehead"><h2>HOD actions</h2><span class="hint">A list for each head of department</span></div>
+      <div class="sum"><div class="pill"><b>${c.open}</b><span>Open</span></div><div class="pill late"><b>${c.late}</b><span>Overdue</span></div><div class="pill"><b>${S.hods.length}</b><span>Heads of department</span></div></div>
+      ${S.hods.length ? S.hods.map(hodPanel).join("") : `<div class="card empty">Nobody has an action list yet.<br><br><button class="btn" id="gosettings" style="width:auto">Choose who is included</button></div>`}`;
+    const g = $("#gosettings"); if (g) g.onclick = () => goView("settings");
+  } else if (S.notIncluded || !S.hods.length) {
+    v.innerHTML = `<div class="pagehead"><h2>My actions</h2></div><div class="card empty">No action list has been set up for you yet.<br>The GM chooses who gets one, so ask if you think you should have one.</div>`;
+    return;
+  } else {
+    const h = S.hods[0], c = openCounts(h.actions), canAdd = !!h.can_add;
+    v.innerHTML = `<div class="pagehead"><h2>My actions</h2><span class="hint">${canAdd ? "Your to-do list. The GM can add to it and so can you." : "Your list is kept by the GM. You can update the status and add notes."}</span></div>
+      <div class="sum"><div class="pill"><b>${c.open}</b><span>Open</span></div><div class="pill late"><b>${c.late}</b><span>Overdue</span></div></div>
+      ${canAdd ? `<div class="card todo-add">${addForm(h, false)}</div>` : ""}
+      <div class="card" style="padding:6px 16px 16px">${listBody(h)}</div>`;
+  }
+  $$("#views [id^=hist_]").forEach(el => fillHistory(el.id.slice(5)));
+}
+
+/* ------------------------------------------------------------- actions: events */
+async function doRespond(id, payload, okMsg){
+  try { await call("action.respond", { id, ...payload }); delete S.hist[id]; toast(okMsg || "Saved."); await refresh(); }
+  catch(e){ toast(e.message, true); }
+}
+async function doAdd(email, btn){
+  const k = "add:" + email + ":";
+  const title = (S.drafts[k+"title"] || "").trim();
+  if (!title) return toast("Write the action first.", true);
+  btn.disabled = true;
+  try {
+    await call("action.add", { hod_email: email, title, due_date: S.drafts[k+"due"] || null, details: S.drafts[k+"details"] || "" });
+    ["title","due","details"].forEach(f => delete S.drafts[k+f]);
+    if (S.me.isAdmin) S.addOpen[email] = false;
+    toast("Action added."); await refresh();
+  } catch(e){ toast(e.message, true); btn.disabled = false; }
+}
+async function doEditSave(id, btn){
+  const ek = "edit:" + id + ":";
+  const a = findAction(id); if (!a) return;
+  const title = dv(ek+"title", a.title).trim();
+  if (!title) return toast("The action can't be blank.", true);
+  btn.disabled = true;
+  try {
+    await call("action.update", { id, title, due_date: dv(ek+"due", a.due_date || "") || null, details: dv(ek+"details", a.details) });
+    ["title","due","details"].forEach(f => delete S.drafts[ek+f]);
+    S.editing = null; delete S.hist[id]; toast("Changes saved."); await refresh();
+  } catch(e){ toast(e.message, true); btn.disabled = false; }
+}
+function findAction(id){ for (const h of S.hods) { const a = h.actions.find(x => x.id === id); if (a) return a; } return null; }
+
+const views = () => $("#views");
+document.addEventListener("input", e => { const k = e.target.dataset && e.target.dataset.draft; if (k) S.drafts[k] = e.target.value; });
+document.addEventListener("keydown", e => {
+  if (e.key === "Enter" && e.target.dataset && e.target.dataset.enter && !e.isComposing) { e.preventDefault(); const b = document.querySelector(`[data-add="${CSS.escape(e.target.dataset.enter)}"]`); if (b) b.click(); }
+  else if ((e.key === "Enter" || e.key === " ") && e.target.dataset && e.target.dataset.row) { e.preventDefault(); e.target.click(); }
+});
+document.addEventListener("click", async e => {
+  const t = e.target.closest("[data-toggle],[data-addopen],[data-addclose],[data-add],[data-showdone],[data-check],[data-row],[data-st],[data-upd],[data-edit],[data-editsave],[data-editcancel],[data-rm]");
+  if (!t || !views().contains(t)) return;
+  const d = t.dataset;
+  if (d.toggle) { S.collapsed[d.toggle] = !S.collapsed[d.toggle]; return renderActions(); }
+  if (d.addopen) { S.addOpen[d.addopen] = true; renderActions(); const i = document.querySelector(`[data-addbox="${CSS.escape(d.addopen)}"] input`); if (i) i.focus(); return; }
+  if (d.addclose) { S.addOpen[d.addclose] = false; return renderActions(); }
+  if (d.add) return doAdd(d.add, t);
+  if (d.showdone) { S.showDone[d.showdone] = !S.showDone[d.showdone]; return renderActions(); }
+  if (d.check) { const a = findAction(d.check); if (!a) return; return doRespond(a.id, { status: a.status === "completed" ? "outstanding" : "completed" }, a.status === "completed" ? "Back on the list." : "Done."); }
+  if (d.row) { S.openIds[d.row] = !S.openIds[d.row]; if (!S.openIds[d.row] && S.editing === d.row) S.editing = null; if (S.rmSure === d.row) S.rmSure = null; return renderActions(); }
+  if (d.st) { const a = findAction(d.st); if (!a || a.status === d.v) return; return doRespond(d.st, { status: d.v }, "Set to " + SL[d.v].toLowerCase() + "."); }
+  if (d.upd) {
+    const text = (S.drafts["upd:" + d.upd] || "").trim();
+    if (!text) return toast("Write the update first.", true);
+    t.disabled = true; delete S.drafts["upd:" + d.upd];
+    return doRespond(d.upd, { update: text }, "Update saved.");
+  }
+  if (d.edit) { S.editing = d.edit; return renderActions(); }
+  if (d.editcancel) { const ek = "edit:" + d.editcancel + ":"; ["title","due","details"].forEach(f => delete S.drafts[ek+f]); S.editing = null; return renderActions(); }
+  if (d.editsave) return doEditSave(d.editsave, t);
+  if (d.rm) {
+    if (S.rmSure !== d.rm) { S.rmSure = d.rm; renderActions(); clearTimeout(S._rt); S._rt = setTimeout(() => { if (S.rmSure === d.rm) { S.rmSure = null; renderActions(); } }, 5000); return; }
+    S.rmSure = null;
+    try { await call("action.remove", { id: d.rm }); delete S.openIds[d.rm]; toast("Action removed."); await refresh(); }
+    catch(err){ toast(err.message, true); renderActions(); }
+  }
+});
+
+/* ------------------------------------------------------------- settings view */
+function personCard(p){
+  return `<div class="card person" data-person="${esc(p.email)}">
+    <div class="pn"><b>${esc(p.name)}</b><div>${esc(p.email)}</div></div>
+    <label class="tick"><input type="checkbox" data-member="${esc(p.email)}" data-field="included"${p.included ? " checked" : ""}> Included as a HOD</label>
+    <label class="tick${p.included ? "" : " off"}"><input type="checkbox" data-member="${esc(p.email)}" data-field="can_add"${p.can_add ? " checked" : ""}> Can add to their own list</label>
+  </div>`;
+}
+async function viewSettings(){
+  $("#views").innerHTML = `<div class="loading">Loading…</div>`;
+  try { S.people = (await call("settings.get")).people || []; } catch(e){ $("#views").innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+  if (S.view !== "settings") return;
+  $("#views").innerHTML = `<div class="pagehead"><h2>Settings</h2><span class="hint">Who has an action list</span></div>
+    <p class="note">Everyone with the HOD Actions tile is listed here. Tick <b>Included as a HOD</b> to give someone their own action list; they will only ever see their own. <b>Can add to their own list</b> lets them use it as a to-do list. You can always add to any list. Changes save as you tick.</p>
+    ${S.people.length ? S.people.map(personCard).join("") : `<div class="card empty">Nobody has the HOD Actions tile yet. Give it to people in the portal's user settings first.</div>`}`;
+}
+document.addEventListener("change", async e => {
+  const cb = e.target; if (!cb.dataset || !cb.dataset.member) return;
+  const p = S.people.find(x => x.email === cb.dataset.member); if (!p) return;
+  const field = cb.dataset.field, want = cb.checked;
+  cb.disabled = true;
+  try {
+    const r = await call("settings.member", { email: p.email, [field]: want });
+    Object.assign(p, { included: r.member.included, can_add: r.member.can_add });
+    toast(field === "included" ? (p.included ? `${p.name} now has an action list.` : `${p.name} no longer has an action list.`) : "Saved.");
+    const card = cb.closest(".person"); if (card) card.outerHTML = personCard(p);
+  } catch(err){ cb.checked = !want; cb.disabled = false; toast(err.message, true); }
+});
+
+/* ------------------------------------------------------------- shell */
+function markTab(){ $$(".tabbtn").forEach(b => b.setAttribute("aria-current", b.dataset.view === S.view ? "page" : "false")); }
+async function goView(v){
+  S.view = v; markTab(); window.scrollTo(0, 0);
+  if (v === "settings") return viewSettings();
+  $("#views").innerHTML = `<div class="loading">Loading…</div>`;
+  try { await loadActions(); } catch(e){ $("#views").innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+  renderActions();
+}
+function openGate(msg){ $("#gate").hidden = false; $("#app").hidden = true; if (msg) $("#gerr").textContent = msg; }
+$("#signout").addEventListener("click", ()=>{ try { sessionStorage.removeItem("bhb_staff_email"); } catch(e){} openGate(); });
+async function boot(){
+  $("#app").hidden = false; $("#views").innerHTML = `<div class="loading">Loading…</div>`;
+  let d;
+  try { d = await call("bootstrap"); } catch(e){ $("#views").innerHTML = `<div class="empty">${esc(e.message)}<br><br><span class="muted">Open this from the Staff Portal so it knows who you are.</span></div>`; return; }
+  S.me = d.me; S.people = d.people || []; $("#whoname").textContent = S.me.name;
+  if (!S.me.isAdmin) $("#tab_settings").remove();
+  $$(".tabbtn").forEach(b => b.addEventListener("click", () => goView(b.dataset.view)));
+  goView("actions");
+}
+(function(){ if (staffEmail()) { $("#gate").hidden = true; boot(); } else openGate(); })();
+</script>
+</body>
+</html>

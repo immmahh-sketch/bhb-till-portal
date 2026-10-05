@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>To Order — Black Horse Beamish</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --sage:#4E5F4F; --sage-70:#7B887C; --sage-10:#EDEFED; --sage-dark:#3B483C;
+  --bone:#F7F7F7; --celadon:#C1C8B4; --mist:#E7E7E7; --white:#fff; --ink:#262626; --gold:#C9A56B;
+  --attention:#B08D57; --attention-bg:#F7F0E4; --alert:#8C4A3F; --alert-bg:#F6EAE8; --good:#4F6B4F; --good-bg:#EDF2ED;
+  --display:"Cormorant Garamond",Georgia,serif; --body:Raleway,"Helvetica Neue",Arial,sans-serif;
+  --track-label:.18em; --radius:10px; --shadow:0 1px 2px rgba(38,38,38,.06),0 8px 24px rgba(38,38,38,.07); --maxw:900px;
+}
+*{box-sizing:border-box} html,body{margin:0;padding:0}
+body{font-family:var(--body); color:var(--ink); background:var(--bone); font-size:15px; line-height:1.5; -webkit-text-size-adjust:100%}
+h1,h2,h3{font-family:var(--display); font-weight:600; margin:0; letter-spacing:.01em}
+button,input,textarea,select{font:inherit; color:inherit}
+.shell{max-width:var(--maxw); margin:0 auto; padding:0 20px 64px}
+#gate{position:fixed; inset:0; background:var(--sage); z-index:100; display:flex; align-items:center; justify-content:center; padding:24px}
+#gate[hidden]{display:none}
+.gatecard{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); width:100%; max-width:380px; padding:32px 28px; text-align:center}
+.gatecard h1{font-size:26px; color:var(--sage); line-height:1.15}
+.gatecard .sub{font-size:11px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); margin:6px 0 22px}
+.gateerr{color:var(--alert); font-size:13px; min-height:18px; margin-top:8px}
+header.top{background:var(--sage); color:var(--white)}
+.topin{max-width:var(--maxw); margin:0 auto; padding:14px 20px; display:flex; align-items:center; gap:18px; flex-wrap:wrap}
+.brand{font-family:var(--display); font-size:21px; line-height:1.1}
+.brand small{display:block; font-family:var(--body); font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; opacity:.75}
+.who{margin-left:auto; display:flex; align-items:center; gap:10px; font-size:12px; opacity:.9}
+.who button{background:transparent; border:1px solid rgba(255,255,255,.4); color:var(--white); border-radius:6px; padding:5px 10px; cursor:pointer; font-size:11px; letter-spacing:.06em; text-transform:uppercase}
+nav.tabs{background:var(--sage-dark)}
+.tabsin{max-width:var(--maxw); margin:0 auto; padding:0 20px; display:flex; gap:2px; overflow-x:auto}
+.tabbtn{background:transparent; border:0; cursor:pointer; color:rgba(255,255,255,.72); padding:12px 16px; font-size:12px; font-weight:600; white-space:nowrap; letter-spacing:var(--track-label); text-transform:uppercase; border-bottom:3px solid transparent}
+.tabbtn[aria-current="page"]{color:var(--white); border-bottom-color:var(--gold)}
+.pagehead{display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; margin:24px 0 16px}
+.pagehead h2{font-size:26px; color:var(--sage)}
+.pagehead .hint{font-size:13px; color:var(--sage-70)}
+.spacer{margin-left:auto}
+.btn{border:1px solid var(--sage); background:var(--sage); color:var(--white); border-radius:8px; padding:9px 16px; cursor:pointer; font-size:12px; font-weight:600; letter-spacing:var(--track-label); text-transform:uppercase; min-height:44px}
+.btn.ghost{background:var(--white); color:var(--sage)} .btn.ghost:hover{background:var(--sage-10)}
+.btn.danger{background:var(--white); color:var(--alert); border-color:var(--alert)} .btn.danger:hover{background:var(--alert-bg)}
+.btn.danger.solid{background:var(--alert); color:var(--white)}
+.btn.small{min-height:36px; padding:6px 12px; font-size:11px}
+.btn:disabled{opacity:.5; cursor:default}
+.card{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); padding:18px 20px; margin-bottom:14px}
+.card h3{font-size:22px; color:var(--sage); margin-bottom:12px}
+.field{margin-bottom:14px} .field label{display:block; font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); margin-bottom:4px}
+.field input,.field textarea,.field select{width:100%; padding:11px 12px; border:1px solid var(--mist); border-radius:8px; font-size:16px; background:var(--white)}
+.tag{display:inline-block; border-radius:999px; padding:3px 10px; font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; background:var(--sage-10); color:var(--sage); white-space:nowrap}
+.tag.again{background:var(--attention-bg); color:#6d5320}
+.tag.ordered{background:var(--good-bg); color:var(--good)}
+.tag.removed{background:var(--mist); color:var(--sage-70)}
+.tag.hiddendept{background:var(--mist); color:var(--sage-70)}
+.muted{color:var(--sage-70)} .empty{padding:40px 20px; text-align:center; color:var(--sage-70)} .loading{padding:60px; text-align:center; color:var(--sage-70)}
+.toast{position:fixed; left:50%; bottom:26px; transform:translate(-50%,20px); background:var(--ink); color:var(--white); padding:12px 20px; border-radius:8px; z-index:200; opacity:0; transition:.2s; pointer-events:none; font-size:14px; max-width:90vw}
+.toast.on{opacity:1; transform:translate(-50%,0)} .toast.bad{background:var(--alert)}
+
+/* To Order specific */
+.count{display:inline-block; min-width:30px; padding:2px 10px; border-radius:999px; background:var(--gold); color:var(--ink); font-family:var(--body); font-size:13px; font-weight:700; text-align:center; vertical-align:middle}
+.count.zero{background:var(--mist); color:var(--sage-70)}
+.addcard .row{display:grid; grid-template-columns:180px 1fr; gap:12px}
+.addcard .row2{display:grid; grid-template-columns:1fr auto; gap:12px; align-items:end}
+.addcard .field{margin-bottom:12px}
+.addcard .row2 .field{margin-bottom:0}
+.searchrow{margin-bottom:14px}
+.searchrow input{width:100%; padding:11px 12px; border:1px solid var(--mist); border-radius:8px; font-size:16px; background:var(--white)}
+.dept{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); margin-bottom:12px; overflow:hidden}
+.depthead{width:100%; display:flex; align-items:center; gap:10px; background:transparent; border:0; cursor:pointer; text-align:left; padding:14px 18px; min-height:52px}
+.depthead .nm{font-family:var(--display); font-size:22px; font-weight:600; color:var(--sage); line-height:1.1}
+.depthead .chev{margin-left:auto; color:var(--sage-70); font-size:12px; transition:transform .15s}
+.dept.open .depthead .chev{transform:rotate(90deg)}
+.deptbody{display:none; padding:0 18px 12px}
+.dept.open .deptbody{display:block}
+.none{padding:6px 0 10px; color:var(--sage-70); font-size:14px; font-style:italic}
+.it{border-top:1px solid var(--mist); padding:12px 0}
+.it:first-child{border-top:0}
+.it .t{font-weight:600; font-size:16px; line-height:1.3; word-break:break-word}
+.it .n{font-size:14px; margin-top:2px; word-break:break-word}
+.it .m{font-size:12px; color:var(--sage-70); margin-top:3px}
+.it .tags{display:flex; gap:6px; flex-wrap:wrap; margin-top:6px}
+.it .acts{display:flex; gap:8px; flex-wrap:wrap; margin-top:10px}
+.it .rm{margin-top:10px; background:var(--alert-bg); border-radius:8px; padding:12px}
+.it .rm input{width:100%; padding:10px 12px; border:1px solid var(--mist); border-radius:8px; font-size:16px; background:var(--white); margin-bottom:8px}
+.it .rm .acts{margin-top:0}
+.it.fresh{animation:fresh 1.6s ease-out}
+@keyframes fresh{from{background:var(--attention-bg)} to{background:transparent}}
+.recent{margin-top:22px}
+.people .person{border-top:1px solid var(--mist); padding:12px 0}
+.people .person:first-child{border-top:0}
+.people .pn{font-weight:600}
+.people .pe{font-size:12px; color:var(--sage-70); word-break:break-all}
+.checks{display:flex; gap:6px 20px; flex-wrap:wrap; margin-top:8px}
+.checks label{display:flex; align-items:center; gap:8px; font-size:14px; cursor:pointer; min-height:36px}
+.checks input{width:20px; height:20px; accent-color:var(--sage)}
+.checks input:disabled{cursor:default}
+.drow{display:flex; gap:8px; align-items:center; border-top:1px solid var(--mist); padding:10px 0; flex-wrap:wrap}
+.drow:first-of-type{border-top:0}
+.drow input[type=text]{flex:1 1 160px; min-width:0; padding:10px 12px; border:1px solid var(--mist); border-radius:8px; font-size:16px; background:var(--white)}
+.drow.off input[type=text]{color:var(--sage-70); background:var(--bone)}
+.drow .btn.small{min-width:44px}
+.newdept{display:flex; gap:8px; margin-top:12px; flex-wrap:wrap}
+.newdept input{flex:1 1 160px; min-width:0; padding:10px 12px; border:1px solid var(--mist); border-radius:8px; font-size:16px; background:var(--white)}
+@media (max-width:640px){
+  .shell{padding:0 12px 48px} .topin,.tabsin{padding-left:12px;padding-right:12px} .pagehead h2{font-size:22px}
+  .btn{width:100%} .btn.small{width:auto}
+  .addcard .row{grid-template-columns:1fr; gap:0}
+  .addcard .row2{grid-template-columns:1fr; gap:12px}
+  .depthead{padding:12px 14px} .deptbody{padding:0 14px 10px}
+  .it .acts .btn{flex:1 1 auto}
+  .newdept .btn{width:100%}
+}
+</style>
+</head>
+<body>
+<div id="gate"><div class="gatecard"><h1>To Order</h1><div class="sub">Black Horse Beamish</div>
+  <p style="margin:0 0 16px;font-size:14px;color:var(--sage-70)">This opens from the Staff Portal, which knows who you are and what you can see.</p>
+  <a href="https://app.blackhorsebeamish.co.uk/portal/app.html" style="display:block;padding:12px;border-radius:8px;background:var(--sage);color:#fff;text-decoration:none;font-weight:600;letter-spacing:var(--track-label);text-transform:uppercase;font-size:12px">Open the Staff Portal</a>
+  <div class="gateerr" id="gerr"></div></div></div>
+<div id="app" hidden>
+  <header class="top"><div class="topin"><div class="brand">To Order<small>Black Horse Beamish</small></div>
+    <div class="who"><span id="whoname"></span><button id="signout">Sign out</button></div></div></header>
+  <nav class="tabs"><div class="tabsin" role="tablist">
+    <button class="tabbtn" data-view="list">Order list</button>
+    <button class="tabbtn" data-view="settings" id="tab_settings">Settings</button>
+  </div></nav>
+  <div class="shell"><div id="views"></div></div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+const CFG = { SUPABASE_URL:"https://safcrtrfdzsnftghibot.supabase.co", SUPABASE_KEY:"sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU" };
+const S = { me:null, departments:[], needed:[], recent:[], view:"list", q:"", open:{}, removing:null, recentOpen:false, fresh:null, settings:null, people:[] };
+const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
+const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const fmtDT = iso => { if(!iso) return ""; try { return new Date(iso).toLocaleString("en-GB",{ timeZone:"Europe/London", day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" }).replace(",",""); } catch(e){ return String(iso).slice(0,16); } };
+function toast(msg, bad){ const t=$("#toast"); t.textContent=msg; t.className="toast on"+(bad?" bad":""); clearTimeout(toast._t); toast._t=setTimeout(()=>{t.className="toast";}, bad?5200:2600); }
+function staffEmail(){ try { return sessionStorage.getItem("bhb_staff_email") || ""; } catch(e){ return ""; } }
+function lsGet(k){ try { return localStorage.getItem(k) || ""; } catch(e){ return ""; } }
+function lsSet(k, v){ try { localStorage.setItem(k, v); } catch(e){} }
+async function call(action, payload){
+  const r = await fetch(CFG.SUPABASE_URL + "/functions/v1/to-order-api", { method:"POST", headers:{ "Content-Type":"application/json", Authorization:"Bearer "+CFG.SUPABASE_KEY, apikey:CFG.SUPABASE_KEY }, body: JSON.stringify({ action, staff_email: staffEmail(), ...(payload||{}) }) });
+  let d = {}; try { d = await r.json(); } catch(e){}
+  if (!r.ok || d.error) throw new Error(d.error || `Request failed (${r.status})`);
+  return d;
+}
+const deptName = id => (S.departments.find(d => d.id === id) || {}).name || "Unknown";
+const activeDepts = () => S.departments.filter(d => d.active);
+const norm = s => String(s || "").replace(/\s+/g, " ").trim().toLowerCase();
+
+/* ------------------------------------------------------------- list */
+async function loadList(){
+  const d = await call("list");
+  S.me = d.me || S.me; S.departments = d.departments || []; S.needed = d.needed || []; S.recent = d.recent || [];
+}
+function matches(it){
+  const q = norm(S.q); if (!q) return true;
+  return [it.item, it.note, it.added_by_name, it.ordered_by_name, it.removed_by_name, deptName(it.department_id)].some(v => norm(v).includes(q));
+}
+function itemCard(it){
+  const m = S.me;
+  const again = it.times_reported > 1;
+  const removing = S.removing === it.id;
+  const acts = [];
+  if (m.canConfirm) acts.push(`<button class="btn small" data-act="ordered" data-id="${esc(it.id)}">Ordered</button>`);
+  if (m.canRemove) acts.push(`<button class="btn small danger" data-act="remove" data-id="${esc(it.id)}">Remove</button>`);
+  return `<div class="it${S.fresh === it.id ? " fresh" : ""}" data-id="${esc(it.id)}">
+    <div class="t">${esc(it.item)}</div>
+    ${it.note ? `<div class="n">${esc(it.note)}</div>` : ""}
+    <div class="m">Added by ${esc(it.added_by_name)} · ${esc(fmtDT(it.added_at))}</div>
+    ${again ? `<div class="tags"><span class="tag again">Reported ${esc(it.times_reported)} times</span></div>` : ""}
+    ${removing ? `<div class="rm"><input type="text" maxlength="300" placeholder="Reason (optional)" data-reason="${esc(it.id)}">
+        <div class="acts"><button class="btn small danger solid" data-act="remove-go" data-id="${esc(it.id)}">Remove from list</button><button class="btn small ghost" data-act="remove-cancel">Cancel</button></div></div>`
+      : acts.length ? `<div class="acts">${acts.join("")}</div>` : ""}
+  </div>`;
+}
+function recentCard(it){
+  const ord = it.status === "ordered";
+  const who = ord ? it.ordered_by_name : it.removed_by_name, when = ord ? it.ordered_at : it.removed_at;
+  return `<div class="it" data-id="${esc(it.id)}">
+    <div class="t">${esc(it.item)} <span class="tag ${ord ? "ordered" : "removed"}">${ord ? "Ordered" : "Removed"}</span></div>
+    ${it.note ? `<div class="n">${esc(it.note)}</div>` : ""}
+    <div class="m">${esc(deptName(it.department_id))} · ${ord ? "Ordered" : "Removed"} by ${esc(who || "someone")} · ${esc(fmtDT(when))}</div>
+    ${!ord && it.remove_reason ? `<div class="m">Reason: ${esc(it.remove_reason)}</div>` : ""}
+    ${S.me.canAdd ? `<div class="acts"><button class="btn small ghost" data-act="reopen" data-id="${esc(it.id)}">Put back on the list</button></div>` : ""}
+  </div>`;
+}
+function renderBody(){
+  const searching = !!norm(S.q);
+  const byDept = new Map();
+  S.needed.filter(matches).forEach(it => { if (!byDept.has(it.department_id)) byDept.set(it.department_id, []); byDept.get(it.department_id).push(it); });
+  // Active departments, plus any hidden one that still has things needed.
+  const depts = S.departments.filter(d => d.active || byDept.has(d.id));
+  let html = "";
+  for (const d of depts) {
+    const items = byDept.get(d.id) || [];
+    if (searching && !items.length) continue;
+    const isOpen = d.id in S.open ? S.open[d.id] : (items.length > 0 || searching);
+    html += `<section class="dept${isOpen ? " open" : ""}" data-dept="${esc(d.id)}">
+      <button class="depthead" data-toggle="${esc(d.id)}" aria-expanded="${isOpen}"><span class="nm">${esc(d.name)}</span>
+        <span class="count${items.length ? "" : " zero"}">${items.length}</span>${d.active ? "" : `<span class="tag hiddendept">Hidden</span>`}<span class="chev">&#9654;</span></button>
+      <div class="deptbody">${items.length ? items.map(itemCard).join("") : `<div class="none">${searching ? "No matches" : "Nothing needed"}</div>`}</div></section>`;
+  }
+  if (!depts.length) html = `<div class="empty">No departments have been set up yet.</div>`;
+  else if (searching && !html) html = `<div class="empty">Nothing on the list matches that.</div>`;
+  const rec = S.recent.filter(matches);
+  html += `<section class="dept recent${S.recentOpen ? " open" : ""}"><button class="depthead" data-toggle="__recent" aria-expanded="${S.recentOpen}"><span class="nm">Recently ordered or removed</span>
+      <span class="count${rec.length ? "" : " zero"}">${rec.length}</span><span class="chev">&#9654;</span></button>
+    <div class="deptbody">${rec.length ? rec.map(recentCard).join("") : `<div class="none">Nothing in the last 14 days</div>`}</div></section>`;
+  $("#listbody").innerHTML = html;
+  const n = S.needed.length;
+  const c = $("#totalcount"); if (c) { c.textContent = n; c.className = "count" + (n ? "" : " zero"); }
+  S.fresh = null;
+}
+async function viewList(){
+  $("#views").innerHTML = `<div class="loading">Loading…</div>`;
+  try { await loadList(); } catch(e){ $("#views").innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+  const m = S.me, act = activeDepts();
+  let last = lsGet("bhb_toorder_dept"); if (!act.some(d => d.id === last)) last = act[0] ? act[0].id : "";
+  $("#views").innerHTML = `<div class="pagehead"><h2>Order list</h2><span class="count" id="totalcount">0</span><span class="hint">Items running low, waiting to be ordered</span><span class="spacer"></span><button class="btn ghost small" id="refresh">Refresh</button></div>
+    ${m.canAdd ? `<div class="card addcard"><h3>Running low?</h3>
+      <div class="row"><div class="field"><label for="a_dept">Department</label><select id="a_dept">${act.map(d => `<option value="${esc(d.id)}">${esc(d.name)}</option>`).join("")}</select></div>
+      <div class="field"><label for="a_item">What is running low</label><input id="a_item" maxlength="120" autocomplete="off" placeholder="e.g. Lime cordial"></div></div>
+      <div class="row2"><div class="field"><label for="a_note">Note (optional)</label><input id="a_note" maxlength="300" autocomplete="off" placeholder="e.g. only 2 left"></div>
+      <button class="btn" id="a_add">Add to list</button></div></div>`
+      : `<p class="muted" style="margin:0 0 14px;font-size:14px">You can see what is on the list. Ask the General Manager if you need to be able to add to it.</p>`}
+    <div class="searchrow"><input id="q" type="search" placeholder="Search the list" autocomplete="off"></div>
+    <div id="listbody"></div>`;
+  $("#q").value = S.q;
+  $("#q").addEventListener("input", e => { S.q = e.target.value; renderBody(); });
+  $("#refresh").onclick = async () => { try { await loadList(); renderBody(); toast("List refreshed."); } catch(e){ toast(e.message, true); } };
+  if (m.canAdd) {
+    $("#a_dept").value = last;
+    $("#a_dept").onchange = e => lsSet("bhb_toorder_dept", e.target.value);
+    $("#a_add").onclick = addItem;
+    ["#a_item","#a_note"].forEach(s => $(s).addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); addItem(); } }));
+  }
+  $("#listbody").addEventListener("click", onListClick);
+  renderBody();
+}
+async function addItem(){
+  const btn = $("#a_add"), item = $("#a_item").value.trim(), dept = $("#a_dept").value;
+  if (!dept) return toast("Choose a department.", true);
+  if (!item) return toast("Type what is running low.", true);
+  btn.disabled = true;
+  try {
+    lsSet("bhb_toorder_dept", dept);
+    const d = await call("item.add", { department_id: dept, item, note: $("#a_note").value.trim() });
+    await loadList();
+    S.open[dept] = true; S.fresh = d.item && d.item.id;
+    renderBody();
+    $("#a_item").value = ""; $("#a_note").value = "";
+    toast(d.duplicate ? `Already on the list - added by ${d.added_by_name}; marked as reported again` : `Added to the ${deptName(dept)} list.`);
+    $("#a_item").focus();
+  } catch(e){ toast(e.message, true); }
+  btn.disabled = false;
+}
+async function setStatus(id, status, reason){
+  try {
+    await call("item.status", { id, status, reason });
+    S.removing = null;
+    await loadList();
+    if (status === "reopen") { const it = S.needed.find(x => x.id === id); S.open[it ? it.department_id : ""] = true; S.fresh = id; }
+    renderBody();
+    toast(status === "ordered" ? "Marked as ordered." : status === "removed" ? "Removed from the list." : "Put back on the list.");
+  } catch(e){ toast(e.message, true); try { await loadList(); renderBody(); } catch(_){} }
+}
+function onListClick(e){
+  const tg = e.target.closest("[data-toggle]");
+  if (tg) {
+    const k = tg.dataset.toggle, sec = tg.closest(".dept"), now = !sec.classList.contains("open");
+    sec.classList.toggle("open", now); tg.setAttribute("aria-expanded", String(now));
+    if (k === "__recent") S.recentOpen = now; else S.open[k] = now;
+    return;
+  }
+  const b = e.target.closest("[data-act]"); if (!b) return;
+  const act = b.dataset.act, id = b.dataset.id;
+  if (act === "ordered") return setStatus(id, "ordered");
+  if (act === "reopen") return setStatus(id, "reopen");
+  if (act === "remove") { S.removing = id; renderBody(); const i = $(`[data-reason="${CSS.escape(id)}"]`); if (i) i.focus(); return; }
+  if (act === "remove-cancel") { S.removing = null; return renderBody(); }
+  if (act === "remove-go") { const i = $(`[data-reason="${CSS.escape(id)}"]`); return setStatus(id, "removed", i ? i.value.trim() : ""); }
+}
+
+/* ------------------------------------------------------------- settings */
+async function viewSettings(){
+  $("#views").innerHTML = `<div class="loading">Loading…</div>`;
+  let d;
+  try { d = await call("settings.get"); } catch(e){ $("#views").innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+  S.people = d.people || []; S.departments = d.departments || [];
+  renderSettings();
+}
+function renderSettings(){
+  const depts = S.departments;
+  $("#views").innerHTML = `<div class="pagehead"><h2>Settings</h2><span class="hint">Who can do what, and the departments. Each change saves straight away.</span></div>
+    <div class="card people"><h3>People</h3>
+      <p class="muted" style="margin:-6px 0 8px;font-size:14px">Everyone with this tile can see the whole list. Choose what each person can do. Admins can always do everything.</p>
+      ${S.people.length ? S.people.map(p => `<div class="person" data-email="${esc(p.email)}">
+        <div class="pn">${esc(p.name)}${p.isAdmin ? ` <span class="tag">Admin</span>` : ""}</div><div class="pe">${esc(p.email)}</div>
+        <div class="checks">
+          <label><input type="checkbox" data-flag="can_add"${p.can_add ? " checked" : ""}${p.isAdmin ? " disabled" : ""}> Can add to the list</label>
+          <label><input type="checkbox" data-flag="can_remove"${p.can_remove ? " checked" : ""}${p.isAdmin ? " disabled" : ""}> Can remove from the list</label>
+          <label><input type="checkbox" data-flag="can_confirm"${p.can_confirm ? " checked" : ""}${p.isAdmin ? " disabled" : ""}> Can mark as ordered</label>
+        </div></div>`).join("") : `<div class="empty">Nobody has been given this tile yet. Grant it in the portal under Settings, Users.</div>`}
+    </div>
+    <div class="card"><h3>Departments</h3>
+      <p class="muted" style="margin:-6px 0 8px;font-size:14px">Hidden departments stay out of the add box and the list unless something is still waiting in them.</p>
+      ${depts.map((d, i) => `<div class="drow${d.active ? "" : " off"}" data-id="${esc(d.id)}">
+        <input type="text" maxlength="40" value="${esc(d.name)}" data-orig="${esc(d.name)}" aria-label="Department name">
+        <button class="btn ghost small" data-dact="up" title="Move up"${i === 0 ? " disabled" : ""}>&uarr;</button>
+        <button class="btn ghost small" data-dact="down" title="Move down"${i === depts.length - 1 ? " disabled" : ""}>&darr;</button>
+        <button class="btn ghost small" data-dact="toggle">${d.active ? "Hide" : "Show"}</button></div>`).join("")}
+      <div class="newdept"><input type="text" id="nd_name" maxlength="40" placeholder="New department name" aria-label="New department name"><button class="btn small" id="nd_add">Add department</button></div>
+    </div>`;
+  $$(".people input[data-flag]").forEach(cb => cb.onchange = async () => {
+    const email = cb.closest(".person").dataset.email, flag = cb.dataset.flag, p = S.people.find(x => x.email === email);
+    try { await call("settings.perm", { email, [flag]: cb.checked }); p[flag] = cb.checked; toast(`Saved for ${p.name}.`); }
+    catch(e){ cb.checked = !cb.checked; toast(e.message, true); }
+  });
+  $$(".drow input[type=text]").forEach(inp => inp.onchange = async () => {
+    const id = inp.closest(".drow").dataset.id, v = inp.value.trim();
+    if (!v) { inp.value = inp.dataset.orig; return toast("Give the department a name.", true); }
+    if (v === inp.dataset.orig) return;
+    try { await call("dept.save", { id, name: v }); inp.dataset.orig = v; S.departments.find(d => d.id === id).name = v; toast("Renamed."); }
+    catch(e){ inp.value = inp.dataset.orig; toast(e.message, true); }
+  });
+  $$(".drow [data-dact]").forEach(b => b.onclick = async () => {
+    const id = b.closest(".drow").dataset.id, i = S.departments.findIndex(d => d.id === id), act = b.dataset.dact;
+    try {
+      if (act === "toggle") {
+        const d = S.departments[i]; await call("dept.save", { id, active: !d.active }); d.active = !d.active; toast(d.active ? "Department shown." : "Department hidden.");
+      } else {
+        const j = act === "up" ? i - 1 : i + 1; if (j < 0 || j >= S.departments.length) return;
+        const arr = S.departments.slice(); [arr[i], arr[j]] = [arr[j], arr[i]];
+        for (let k = 0; k < arr.length; k++) if (arr[k].sort_order !== k + 1) { await call("dept.save", { id: arr[k].id, sort_order: k + 1 }); arr[k].sort_order = k + 1; }
+        S.departments = arr; toast("Order saved.");
+      }
+      renderSettings();
+    } catch(e){ toast(e.message, true); }
+  });
+  $("#nd_add").onclick = async () => {
+    const v = $("#nd_name").value.trim(); if (!v) return toast("Give the department a name.", true);
+    const btn = $("#nd_add"); btn.disabled = true;
+    try { const r = await call("dept.save", { name: v }); S.departments.push(r.department); toast("Department added."); renderSettings(); }
+    catch(e){ toast(e.message, true); btn.disabled = false; }
+  };
+  $("#nd_name").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); $("#nd_add").click(); } });
+}
+
+/* ------------------------------------------------------------- shell */
+function markTab(){ $$(".tabbtn").forEach(b => b.setAttribute("aria-current", b.dataset.view === S.view ? "page" : "false")); }
+function goView(v){
+  S.view = v; S.removing = null; markTab();
+  if (v === "settings") viewSettings(); else viewList();
+  window.scrollTo(0, 0);
+}
+function openGate(msg){ $("#gate").hidden = false; $("#app").hidden = true; if (msg) $("#gerr").textContent = msg; }
+$("#signout").addEventListener("click", ()=>{ try { sessionStorage.removeItem("bhb_staff_email"); } catch(e){} openGate(); });
+async function boot(){
+  $("#app").hidden = false; $("#views").innerHTML = `<div class="loading">Loading…</div>`;
+  let d;
+  try { d = await call("bootstrap"); } catch(e){ $("#views").innerHTML = `<div class="empty">${esc(e.message)}<br><br><span class="muted">Open this from the Staff Portal so it knows who you are.</span></div>`; return; }
+  S.me = d.me; S.departments = d.departments || []; $("#whoname").textContent = S.me.name;
+  if (!S.me.isAdmin) $("#tab_settings").remove();
+  $$(".tabbtn").forEach(b => b.addEventListener("click", () => goView(b.dataset.view)));
+  document.addEventListener("visibilitychange", async () => {
+    if (document.visibilityState !== "visible" || S.view !== "list" || !$("#listbody") || S.removing) return;
+    try { await loadList(); renderBody(); } catch(e){}
+  });
+  goView("list");
+}
+(function(){ if (staffEmail()) { $("#gate").hidden = true; boot(); } else openGate(); })();
+</script>
+</body>
+</html>
