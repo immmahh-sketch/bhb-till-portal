@@ -1135,7 +1135,7 @@ function viewPettyCashEntry(){
       </div>
       <div class="field"><label>Description (optional)</label><input type="text" id="pc_desc"></div>
       <div class="row">
-        <div class="field"><label>Staff</label><select id="pc_staff">${staffOptions()}</select></div>
+        <div class="field"><label>Name of the person spending the cash</label><input type="text" id="pc_staff" maxlength="60" autocomplete="name" autocapitalize="words" placeholder="Type a name"></div>
       </div>
       <div class="field">
         <label>Receipt</label>
@@ -1183,9 +1183,10 @@ async function savePettyCash(){
   const payload = {
     business_date: $("#pc_date").value, category_key: $("#pc_category").value,
     description: $("#pc_desc").value, amount: $("#pc_amount").value,
-    staff_name: $("#pc_staff").value,
+    staff_name: $("#pc_staff").value.trim(),
   };
   if (!payload.category_key){ toast("Pick a category.", true); return; }
+  if (!payload.staff_name){ toast("Type the name of the person spending the cash.", true); $("#pc_staff").focus(); return; }
   const receipt = $("#pc_file").files[0] || null;
   if (!receipt && !confirm("No receipt scanned. Save this entry without one?")) return;
   if (receipt){ payload.with_receipt = true; payload.receipt_ext = /jpe?g/i.test(receipt.type) ? "jpg" : "png"; }
@@ -1221,7 +1222,7 @@ const PETTYCASH_COLS = [
   { label:"Description", value:r=>r.description||"" },
   { label:"Amount", value:"amount" },
   { label:"Receipt", value:r=>r.has_receipt?"Yes":"No" },
-  { label:"Staff", value:r=>r.staff_name||"" },
+  { label:"Spent by", value:r=>r.staff_name||"" },
   { label:"Balance After", value:"balance_after" },
 ];
 function viewPettyCashHistory(){
@@ -1252,7 +1253,7 @@ async function loadPettyCashHistory(){
     $("#pch_balance").textContent = `Current balance: ${money(d.current_balance)} (target ${money(d.target_float)})`;
     if (!S.lastPettyCash.length){ $("#pch_table").innerHTML = `<tr><td class="empty">No petty cash entries in this range.</td></tr>`; return; }
     $("#pch_table").innerHTML = `
-      <thead><tr><th>Date</th><th>Category</th><th>Description</th><th class="num">Amount</th><th>Receipt</th><th>Staff</th><th class="num">Balance</th></tr></thead>
+      <thead><tr><th>Date</th><th>Category</th><th>Description</th><th class="num">Amount</th><th>Receipt</th><th>Spent by</th><th class="num">Balance</th></tr></thead>
       <tbody>${S.lastPettyCash.map(r => `<tr>
         <td class="strong">${ukDate(r.business_date)}</td><td>${esc(categoryLabel(r.category_key))}</td><td>${esc(r.description||"")}</td>
         <td class="num">${money(r.amount)}</td><td>${r.receipt_url?`<a href="${esc(r.receipt_url)}" target="_blank" rel="noopener">View receipt</a>`:(r.has_receipt?"Yes (paper)":"No")}</td><td>${esc(r.staff_name||"")}</td>
