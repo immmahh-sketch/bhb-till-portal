@@ -42,6 +42,8 @@ nav.tabs{background:var(--sage-dark)}
 .pagehead{display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; margin:24px 0 16px}
 .pagehead h2{font-size:26px; color:var(--sage)}
 .pagehead .hint{font-size:13px; color:var(--sage-70)}
+.refbar{display:flex; align-items:center; gap:10px}
+.refbar .when{font-size:12px; color:var(--sage-70); white-space:nowrap}
 .spacer{margin-left:auto}
 .btn{border:1px solid var(--sage); background:var(--sage); color:var(--white); border-radius:8px; padding:9px 16px; cursor:pointer; font-size:12px; font-weight:600; letter-spacing:var(--track-label); text-transform:uppercase; min-height:44px}
 .btn.ghost{background:var(--white); color:var(--sage)} .btn.ghost:hover{background:var(--sage-10)}
@@ -238,7 +240,7 @@ function openModal(html){
   document.documentElement.style.overflow = "hidden";
   return bg;
 }
-function closeModal(){ const m = $("#modalbg"); if (m) m.remove(); document.documentElement.style.overflow = ""; }
+function closeModal(){ const m = $("#modalbg"); if (m) m.remove(); document.documentElement.style.overflow = ""; S.modalAction = null; }
 document.addEventListener("keydown", e => { if (e.key === "Escape" && $("#modalbg")) closeModal(); });
 function peoplePick(selected){
   const list = S.people.concat(selected.filter(e => !S.people.some(p => p.email === e)).map(e => ({ email:e, name:e })));
@@ -272,7 +274,7 @@ async function viewPlan(){
   $("#views").innerHTML = `<div class="loading">Loading…</div>`;
   try { const d = await call("plan.list", { include_archived: S.filt.archived }); S.objectives = d.objectives || []; S.actions = d.actions || []; }
   catch(e){ $("#views").innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
-  renderPlan();
+  S.sig.plan = ""; S.lastRefresh = clockNow(); renderPlan();
 }
 function renderPlan(){
   const open = S.actions.filter(isOpen).length, late = S.actions.filter(isLate).length, done = S.actions.filter(a => a.status === "completed").length;
@@ -293,7 +295,7 @@ function renderPlan(){
           : `<div class="empty" style="padding:22px">${total ? "Nothing matches the filters here." : "No actions yet."}</div>`}
         ${o.status === "active" ? `<div class="addrow"><button class="btn small" data-addaction="${esc(o.id)}">+ Add action</button></div>` : ""}</div>`}</div>`;
   }).join("");
-  $("#views").innerHTML = `<div class="pagehead"><h2>Action plan</h2><span class="hint">Objectives, and the actions that will get us there</span><span class="spacer"></span><button class="btn" id="newobj">New objective</button></div>
+  $("#views").innerHTML = `<div class="pagehead"><h2>Action plan</h2><span class="hint">Objectives, and the actions that will get us there</span><span class="spacer"></span>${refreshBar()}<button class="btn" id="newobj">New objective</button></div>
     <div class="sum"><div class="pill"><b>${objs.filter(o => o.status === "active").length}</b><span>Objectives</span></div><div class="pill"><b>${open}</b><span>Open actions</span></div>
       <div class="pill late"><b>${late}</b><span>Overdue</span></div><div class="pill"><b>${done}</b><span>Completed</span></div></div>
     <div class="filters">
@@ -307,7 +309,7 @@ function renderPlan(){
   $("#f_status").onchange = e => { S.filt.status = e.target.value; renderPlan(); };
   let qt; $("#f_q").oninput = e => { clearTimeout(qt); qt = setTimeout(() => { S.filt.q = e.target.value; renderPlan(); const i = $("#f_q"); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }, 250); };
   $("#f_arch").onchange = e => { S.filt.archived = e.target.checked; viewPlan(); };
-  $("#newobj").onclick = () => objectiveModal();
+  $("#newobj").onclick = () => objectiveModal(); wireRefresh();
   $$("[data-toggle]").forEach(h => h.onclick = e => { if (e.target.closest("button")) return; const id = h.dataset.toggle; S.collapsed.has(id) ? S.collapsed.delete(id) : S.collapsed.add(id); saveCollapsed(); renderPlan(); });
   $$("[data-editobj]").forEach(b => b.onclick = () => objectiveModal(S.objectives.find(o => o.id === b.dataset.editobj)));
   $$("[data-addaction]").forEach(b => b.onclick = () => actionModal(null, b.dataset.addaction));
@@ -361,6 +363,7 @@ async function actionModal(a, objectiveId){
     <div class="opts"><button class="btn" id="m_save">${edit ? "Save" : "Add action"}</button><button class="btn ghost" id="m_cancel">Cancel</button>
       ${edit ? `<span class="spacer"></span><button class="btn danger" id="m_rm">Remove</button>` : ""}</div>
     ${edit ? `<h3 style="margin-top:22px">History</h3><div class="tl" id="m_hist"><div class="muted" style="padding:10px 0">Loading…</div></div>` : ""}`);
+  S.modalAction = edit ? a.id : null;
   let status = a ? a.status : "outstanding";
   $("#m_title").value = a ? a.title : ""; $("#m_due").value = a ? (a.due_date || "") : ""; if (edit) $("#m_obj").value = a.objective_id;
   $$("#m_st .opt").forEach(b => b.onclick = () => { status = b.dataset.v; $$("#m_st .opt").forEach(x => x.setAttribute("aria-pressed", String(x === b))); });
@@ -402,7 +405,7 @@ async function viewMine(){
   $("#views").innerHTML = `<div class="loading">Loading…</div>`;
   try { const d = await call("actions.mine"); S.mine = d.actions || []; S.mineObj = Object.fromEntries((d.objectives || []).map(o => [o.id, o])); }
   catch(e){ $("#views").innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
-  renderMine();
+  S.sig.mine = ""; S.lastRefresh = clockNow(); renderMine();
 }
 function renderMine(){
   const f = S.mineStatus;
@@ -413,11 +416,11 @@ function renderMine(){
   const sorted = a => a.slice().sort((x, y) => (isOpen(y) - isOpen(x)) || String(x.due_date || "9999").localeCompare(String(y.due_date || "9999")));
   const groups = [...byObj.entries()].map(([oid, items]) => `<div class="myobj">${esc((S.mineObj[oid] || {}).title || "Objective")}</div>
     <div class="card obj">${sorted(items).map(actionRow).join("")}</div>`).join("");
-  $("#views").innerHTML = `<div class="pagehead"><h2>My actions</h2><span class="hint">Everything with your name against it</span></div>
+  $("#views").innerHTML = `<div class="pagehead"><h2>My actions</h2><span class="hint">Everything with your name against it</span><span class="spacer"></span>${refreshBar()}</div>
     <div class="sum"><div class="pill"><b>${open}</b><span>Open</span></div><div class="pill late"><b>${late}</b><span>Overdue</span></div></div>
     <div class="filters"><div class="field"><label>Show</label><select id="m_f"><option value="open">Open (outstanding + in progress)</option><option value="late">Overdue</option>${STATUSES.map(([v,l]) => `<option value="${v}">${l}</option>`).join("")}<option value="all">Everything</option></select></div></div>
     ${groups || `<div class="empty">${S.mine.length ? "Nothing matches that filter." : "Nothing has your name against it yet."}</div>`}`;
-  $("#m_f").value = f; $("#m_f").onchange = e => { S.mineStatus = e.target.value; renderMine(); };
+  $("#m_f").value = f; $("#m_f").onchange = e => { S.mineStatus = e.target.value; renderMine(); }; wireRefresh();
   $$(".arow").forEach(r => r.onclick = e => { if (e.target.closest("select")) return; actionModal(S.mine.find(a => a.id === r.dataset.id)); });
   $$(".arow .stsel").forEach(s => s.onchange = () => quickStatus(s.dataset.id, s.value, s));
   if (!S.objectives.length) call("plan.list", {}).then(d => { S.objectives = d.objectives || []; }).catch(() => {});
@@ -580,7 +583,7 @@ function renderChat(keepScroll){
   const newDraft = { t:($("#nt_title") || {}).value || "", b:($("#nt_body") || {}).value || "" };
   const list = c.topics.filter(t => f === "all" ? true : f === "tagged" ? t.tagged_you : t.unread);
   const scrollTop = window.scrollY;
-  $("#views").innerHTML = `<div class="pagehead"><h2>Chat</h2><span class="hint">One topic per conversation. Tag someone with @name and they get an email</span><span class="spacer"></span><button class="btn" id="newtopic">${c.newOpen ? "Close" : "New topic"}</button></div>
+  $("#views").innerHTML = `<div class="pagehead"><h2>Chat</h2><span class="hint">One topic per conversation. Tag someone with @name and they get an email</span><span class="spacer"></span>${refreshBar()}<button class="btn" id="newtopic">${c.newOpen ? "Close" : "New topic"}</button></div>
     ${c.newOpen ? newTopicForm() : ""}
     <div class="opts" style="margin-bottom:14px"><button class="opt" data-f="all" aria-pressed="${f === "all"}">All topics</button><button class="opt" data-f="unread" aria-pressed="${f === "unread"}">Unread</button><button class="opt" data-f="tagged" aria-pressed="${f === "tagged"}">Tagged me</button></div>
     ${list.length ? list.map(t => `<div class="card topic" data-topic="${esc(t.id)}"><div class="thead" data-open="${esc(t.id)}">
@@ -592,7 +595,7 @@ function renderChat(keepScroll){
   if (newDraft.t && $("#nt_title")) $("#nt_title").value = newDraft.t; if (newDraft.b && $("#nt_body")) $("#nt_body").value = newDraft.b;
   if ($("#nt_obj")) { $("#nt_obj").value = c.ntObj; $("#nt_obj").onchange = e => { c.ntObj = e.target.value; renderChat(); const t = $("#nt_title") || $("#nt_body"); if (t) t.focus(); }; }
   Object.entries(draft).forEach(([id, v]) => { const el = document.getElementById(id); if (el && v) el.value = v; });
-  $("#newtopic").onclick = () => { c.newOpen = !c.newOpen; if (!c.newOpen) c.ntObj = ""; renderChat(); };
+  $("#newtopic").onclick = () => { c.newOpen = !c.newOpen; if (!c.newOpen) c.ntObj = ""; renderChat(); }; wireRefresh();
   $$("[data-f]").forEach(b => b.onclick = () => { c.filter = b.dataset.f; renderChat(); });
   $$("[data-open]").forEach(h => h.onclick = async () => { const id = h.dataset.open; if (c.open === id) { c.open = null; renderChat(); return; } c.open = id; renderChat(); await loadTopic(id); });
   $$("[data-send]").forEach(b => b.onclick = async () => {
@@ -701,6 +704,56 @@ async function joinCall(){
   btn.disabled = false;
 }
 
+/* ============================================================ refresh */
+// The plan, My actions and Chat refresh themselves every 30 seconds while the page is on screen (and the moment you come back to
+// the tab), and "Refresh now" does it on demand. A refresh never reloads the page: it fetches the latest and redraws in place,
+// keeping your scroll position, filters, collapsed objectives and anything half-typed. An automatic refresh waits while you are
+// typing in, or choosing from, a box on the page, so it never gets in the way.
+S.lastRefresh = ""; S.refreshing = false; S.sig = { plan:"", mine:"" };
+const clockNow = () => new Date().toLocaleTimeString("en-GB", { timeZone:"Europe/London", hour:"2-digit", minute:"2-digit" });
+function refreshBar(){ return `<span class="refbar"><span class="when" id="reftime">${S.lastRefresh ? "Updated " + esc(S.lastRefresh) : ""}</span><button class="btn ghost small" id="refnow" type="button">Refresh now</button></span>`; }
+function wireRefresh(){ const b = $("#refnow"); if (b) b.onclick = () => refreshNow(true); }
+const busyTyping = () => { const ae = document.activeElement; return !!(ae && $("#views").contains(ae) && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)); };
+async function refreshModalHistory(){
+  const id = S.modalAction; if (!id || !$("#m_hist")) return;
+  try { const d = await call("action.get", { id }); if (S.modalAction === id && $("#m_hist")) $("#m_hist").innerHTML = (d.events || []).map(evHtml).join("") || `<div class="muted">Nothing yet.</div>`; } catch(e){ /* keep what is showing */ }
+}
+async function refreshNow(manual){
+  if (S.refreshing || !S.me) return;
+  const view = S.view; if (!["plan", "mine", "chat"].includes(view)) { if (!manual) refreshBadges(); return; }
+  S.refreshing = true;
+  const btn = $("#refnow"); if (btn && manual) { btn.disabled = true; btn.textContent = "Refreshing…"; }
+  let changed = false;
+  try {
+    const y = window.scrollY;
+    if (view === "plan") {
+      const d = await call("plan.list", { include_archived: S.filt.archived });
+      const sig = JSON.stringify(d); changed = sig !== S.sig.plan; S.sig.plan = sig;
+      S.objectives = d.objectives || []; S.actions = d.actions || [];
+      if (S.view === "plan" && (changed || manual) && (manual || !busyTyping())) { renderPlan(); window.scrollTo(0, y); }
+    } else if (view === "mine") {
+      const d = await call("actions.mine");
+      const sig = JSON.stringify(d); changed = sig !== S.sig.mine; S.sig.mine = sig;
+      S.mine = d.actions || []; S.mineObj = Object.fromEntries((d.objectives || []).map(o => [o.id, o]));
+      if (S.view === "mine" && (changed || manual) && (manual || !busyTyping())) { renderMine(); window.scrollTo(0, y); }
+    } else {
+      await loadTopics(true); if (S.chat.open) await loadTopic(S.chat.open, true);
+      changed = true;
+    }
+    await refreshModalHistory();
+    refreshBadges();
+    S.lastRefresh = clockNow();
+    if (manual) toast(changed ? "Updated." : "Already up to date.");
+  } catch(e){ if (manual) toast(e.message, true); }
+  S.refreshing = false;
+  const t = $("#reftime"); if (t) t.textContent = S.lastRefresh ? "Updated " + S.lastRefresh : "";
+  const b2 = $("#refnow"); if (b2) { b2.disabled = false; b2.textContent = "Refresh now"; }
+}
+function startAutoRefresh(){
+  setInterval(() => { if (!document.hidden) refreshNow(false); }, 30000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) refreshNow(false); });
+}
+
 /* ============================================================ shell */
 function setBadge(sel, n){ const b = $(sel); if (!b) return; b.hidden = !n; b.textContent = n || ""; }
 async function refreshBadges(){
@@ -724,6 +777,7 @@ async function boot(){
   setBadge("#b_mine", d.myOpen); setBadge("#b_chat", d.chatTagged);
   $$(".tabbtn").forEach(b => b.addEventListener("click", () => goView(b.dataset.view)));
   goView("plan");
+  startAutoRefresh();
 }
 (function(){ if (staffEmail()) { $("#gate").hidden = true; boot(); } else openGate(); })();
 </script>
