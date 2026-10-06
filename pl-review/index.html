@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>P&amp;L Review — Black Horse Beamish</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --sage:#4E5F4F; --sage-70:#7B887C; --sage-10:#EDEFED; --sage-dark:#3B483C;
+  --bone:#F7F7F7; --celadon:#C1C8B4; --mist:#E7E7E7; --white:#fff; --ink:#262626; --gold:#C9A56B;
+  --attention:#B08D57; --attention-bg:#F7F0E4; --alert:#8C4A3F; --alert-bg:#F6EAE8; --good:#4F6B4F; --good-bg:#EDF2ED;
+  --blue:#34546F; --blue-bg:#E7EEF5;
+  --display:"Cormorant Garamond",Georgia,serif; --body:Raleway,"Helvetica Neue",Arial,sans-serif;
+  --track-label:.18em; --radius:10px; --shadow:0 1px 2px rgba(38,38,38,.06),0 8px 24px rgba(38,38,38,.07); --maxw:1180px;
+}
+*{box-sizing:border-box} html,body{margin:0;padding:0}
+body{font-family:var(--body); color:var(--ink); background:var(--bone); font-size:15px; line-height:1.5; -webkit-text-size-adjust:100%}
+h1,h2,h3{font-family:var(--display); font-weight:600; margin:0; letter-spacing:.01em}
+button,input,textarea,select{font:inherit; color:inherit}
+.shell{max-width:var(--maxw); margin:0 auto; padding:0 20px 64px}
+#gate{position:fixed; inset:0; background:var(--sage); z-index:100; display:flex; align-items:center; justify-content:center; padding:24px}
+#gate[hidden]{display:none}
+.gatecard{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); width:100%; max-width:380px; padding:32px 28px; text-align:center}
+.gatecard h1{font-size:26px; color:var(--sage); line-height:1.15}
+.gatecard .sub{font-size:11px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); margin:6px 0 22px}
+.gateerr{color:var(--alert); font-size:13px; min-height:18px; margin-top:8px}
+header.top{background:var(--sage); color:var(--white)}
+.topin{max-width:var(--maxw); margin:0 auto; padding:14px 20px; display:flex; align-items:center; gap:18px; flex-wrap:wrap}
+.brand{font-family:var(--display); font-size:21px; line-height:1.1}
+.brand small{display:block; font-family:var(--body); font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; opacity:.75}
+.who{margin-left:auto; display:flex; align-items:center; gap:10px; font-size:12px; opacity:.9}
+.who button{background:transparent; border:1px solid rgba(255,255,255,.4); color:var(--white); border-radius:6px; padding:5px 10px; cursor:pointer; font-size:11px; letter-spacing:.06em; text-transform:uppercase}
+nav.tabs{background:var(--sage-dark)}
+.tabsin{max-width:var(--maxw); margin:0 auto; padding:0 20px; display:flex; gap:2px; overflow-x:auto}
+.tabbtn{background:transparent; border:0; cursor:pointer; color:rgba(255,255,255,.72); padding:12px 16px; font-size:12px; font-weight:600; white-space:nowrap; letter-spacing:var(--track-label); text-transform:uppercase; border-bottom:3px solid transparent}
+.tabbtn[aria-current="page"]{color:var(--white); border-bottom-color:var(--gold)}
+.badge{display:inline-block; min-width:18px; padding:0 5px; margin-left:6px; border-radius:999px; background:var(--gold); color:var(--ink); font-size:10px; line-height:18px; text-align:center; letter-spacing:0}
+.badge.off{display:none}
+body.clean header.top, body.clean nav.tabs{display:none}
+.pagehead{display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; margin:24px 0 16px}
+.pagehead h2{font-size:26px; color:var(--sage)}
+.pagehead .hint{font-size:13px; color:var(--sage-70)}
+.spacer{margin-left:auto}
+.btn{border:1px solid var(--sage); background:var(--sage); color:var(--white); border-radius:8px; padding:9px 16px; cursor:pointer; font-size:12px; font-weight:600; letter-spacing:var(--track-label); text-transform:uppercase; min-height:44px}
+.btn.ghost{background:var(--white); color:var(--sage)} .btn.ghost:hover{background:var(--sage-10)}
+.btn.danger{background:var(--white); color:var(--alert); border-color:var(--alert)} .btn.danger.sure{background:var(--alert); color:var(--white)}
+.btn.sure:not(.danger){background:var(--gold); border-color:var(--gold); color:var(--ink)}
+.btn.small{min-height:36px; padding:6px 12px; font-size:11px}
+.btn:disabled{opacity:.5; cursor:default}
+.linkbtn{background:none; border:0; padding:0; color:var(--sage); cursor:pointer; font-size:13px; font-weight:600; text-decoration:underline; min-height:36px}
+.card{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); padding:18px 20px; margin-bottom:14px}
+.card h3{font-size:22px; color:var(--sage); margin-bottom:12px}
+.opts{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
+.field{margin-bottom:14px} .field label{display:block; font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); margin-bottom:4px}
+.field input,.field textarea,.field select{width:100%; padding:11px 12px; border:1px solid var(--mist); border-radius:8px; font-size:16px; background:var(--white)}
+textarea{min-height:84px; resize:vertical}
+.tag{display:inline-block; border-radius:999px; padding:3px 10px; font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; background:var(--sage-10); color:var(--sage); white-space:nowrap}
+.tag.draft{background:var(--attention-bg); color:#6d5320}
+.tag.final{background:var(--good-bg); color:var(--good)}
+.tag.open{background:var(--gold); color:var(--ink)}
+.tag.res{background:var(--good-bg); color:var(--good)}
+.tag.mon{background:var(--blue-bg); color:var(--blue)}
+.muted{color:var(--sage-70)} .empty{padding:40px 20px; text-align:center; color:var(--sage-70)} .loading{padding:60px; text-align:center; color:var(--sage-70)}
+.toast{position:fixed; left:50%; bottom:26px; transform:translate(-50%,20px); background:var(--ink); color:var(--white); padding:12px 20px; border-radius:8px; z-index:400; opacity:0; transition:.2s; pointer-events:none; font-size:14px; max-width:90vw}
+.toast.on{opacity:1; transform:translate(-50%,0)} .toast.bad{background:var(--alert)}
+.err{color:var(--alert); font-size:13px}
+.note{font-size:13px; color:var(--sage-70); margin:0 0 14px}
+.neg{color:var(--alert)}
+
+/* ---- upload ---- */
+.drop{border:2px dashed var(--celadon); border-radius:var(--radius); padding:26px 18px; text-align:center; background:var(--bone); transition:.12s}
+.drop.over{border-color:var(--sage); background:var(--sage-10)}
+.drop p{margin:0 0 12px; color:var(--sage-70); font-size:14px}
+.drop input[type=file]{position:absolute; width:1px; height:1px; opacity:0; pointer-events:none}
+.prev{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin:4px 0 16px}
+.prev .k{font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70)}
+.prev .v{font-family:var(--display); font-size:24px; color:var(--sage); line-height:1.15}
+.prev .v.sm{font-family:var(--body); font-size:15px; color:var(--ink)}
+.row2{display:grid; grid-template-columns:1fr 130px; gap:12px}
+.choice{display:flex; gap:10px; align-items:flex-start; padding:10px 12px; border:1px solid var(--mist); border-radius:8px; margin-bottom:8px; cursor:pointer; background:var(--white)}
+.choice input{width:20px; height:20px; accent-color:var(--sage); margin:2px 0 0; flex:0 0 auto}
+.choice:has(input:checked){border-color:var(--sage); background:var(--sage-10)}
+.choice small{display:block; color:var(--sage-70)}
+.notice{background:var(--attention-bg); border-radius:8px; padding:10px 14px; margin:0 0 12px; font-size:14px}
+
+/* ---- lists ---- */
+.filters{display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; margin-bottom:14px}
+.filters .field{margin:0} .filters .field select{min-width:170px}
+.pcard{display:block; width:100%; text-align:left; border:0; cursor:pointer; padding:16px 20px; background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); margin-bottom:12px}
+.pcard:hover{background:#fbfbf9}
+.pcard .t{font-family:var(--display); font-size:24px; color:var(--sage); line-height:1.15; overflow-wrap:anywhere}
+.pcard .tl1{display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:4px}
+.pcard .m{font-size:12px; color:var(--sage-70); margin-top:3px}
+.pcard .nums{display:flex; gap:10px 28px; flex-wrap:wrap; margin-top:12px}
+.pcard .nums div{min-width:110px} .pcard .nums .k{font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70)}
+.pcard .nums .v{font-size:17px; font-weight:600}
+
+/* ---- review ---- */
+.rvhead h2{font-size:30px; color:var(--sage); line-height:1.1; overflow-wrap:anywhere}
+.rvhead .meta{font-size:13px; color:var(--sage-70); margin-top:6px}
+.rvhead .tl1{display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:8px}
+.rvhead .acts{display:flex; gap:8px; flex-wrap:wrap; margin-top:14px}
+.backrow{margin:18px 0 -6px}
+.kpis{display:grid; grid-template-columns:repeat(auto-fill,minmax(168px,1fr)); gap:12px; margin-bottom:14px}
+.kpi{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); padding:12px 14px}
+.kpi .k{font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70)}
+.kpi .v{font-family:var(--display); font-size:28px; color:var(--sage); line-height:1.1; margin:2px 0}
+.kpi .v.neg{color:var(--alert)}
+.kpi .sub{font-size:12px; color:var(--sage-70)}
+.kpi .chg{font-size:12px; margin-top:4px; color:var(--sage-70)}
+.kpi .chg.good{color:var(--good)} .kpi .chg.bad{color:var(--alert)}
+.sevgrp{margin-bottom:10px}
+.sevgrp > summary{cursor:pointer; list-style:none; display:flex; align-items:center; gap:10px; min-height:40px; font-weight:600}
+.sevgrp > summary::-webkit-details-marker{display:none}
+.sevgrp > summary::before{content:"\25B8"; color:var(--sage-70); width:12px}
+.sevgrp[open] > summary::before{content:"\25BE"}
+.chip{display:inline-block; border-radius:999px; padding:3px 10px; font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; white-space:nowrap}
+.chip.high{background:var(--alert); color:#fff} .chip.medium{background:var(--attention); color:#fff} .chip.low{background:var(--mist); color:var(--sage)} .chip.info{background:var(--blue-bg); color:var(--blue)}
+.find{border-left:4px solid var(--mist); padding:8px 0 8px 12px; margin:6px 0 10px}
+.find.high{border-left-color:var(--alert)} .find.medium{border-left-color:var(--attention)} .find.info{border-left-color:var(--blue)}
+.find .ft{font-weight:600} .find .fd{font-size:14px; color:#444; margin-top:2px}
+.find .fb{display:flex; gap:8px; flex-wrap:wrap; margin-top:8px}
+
+.tbar{display:flex; gap:10px 18px; flex-wrap:wrap; align-items:center; margin-bottom:10px}
+.tbar .tick{display:flex; align-items:center; gap:8px; cursor:pointer; min-height:36px; font-size:14px}
+.tbar .tick input{width:20px; height:20px; accent-color:var(--sage); margin:0}
+.plwrap{overflow:auto; border:1px solid var(--mist); border-radius:var(--radius); background:var(--white); position:relative}
+@media (min-width:900px){ .plwrap{max-height:78vh} }
+table.pl{border-collapse:separate; border-spacing:0; font-size:13px; min-width:100%}
+table.pl th, table.pl td{padding:6px 10px; border-bottom:1px solid #f0f0ee; text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; background:var(--white)}
+table.pl thead th{position:sticky; top:0; z-index:3; background:var(--sage-10); font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--sage); font-weight:700; border-bottom:1px solid var(--celadon)}
+table.pl th.ln, table.pl td.ln{position:sticky; left:0; z-index:2; text-align:left; min-width:150px; max-width:210px; width:190px; white-space:normal; border-right:1px solid var(--mist)}
+table.pl thead th.ln{z-index:4}
+table.pl td.ln{display:table-cell}
+.lnin{display:flex; align-items:center; gap:6px; justify-content:space-between}
+.lnin .nm{overflow-wrap:anywhere; line-height:1.25}
+table.pl th.cur, table.pl td.cur{background:#f5f2ea; font-weight:600}
+table.pl thead th.cur{background:var(--attention-bg); box-shadow:inset 0 -3px 0 var(--gold)}
+table.pl th.plan, table.pl td.plan{font-style:italic; color:var(--sage-70)}
+table.pl th.sep, table.pl td.sep{border-left:1px solid var(--mist)}
+table.pl tr.sec td{background:var(--sage); color:#fff; font-family:var(--display); font-size:17px; font-weight:600; text-align:left; padding:5px 10px; cursor:pointer}
+table.pl tr.sec td.ln{background:var(--sage)}
+table.pl tr.total td{font-weight:700; border-top:1px solid var(--celadon); background:#fafaf8}
+table.pl tr.total td.cur{background:#efe9d8}
+table.pl tr.gp td, table.pl tr.op td{font-weight:700; background:var(--sage-10); border-top:2px solid var(--sage-70); border-bottom:2px solid var(--sage-70)}
+table.pl tr.gp td.cur, table.pl tr.op td.cur{background:#e4e3d6}
+table.pl tr.line:hover td{background:#fbfbf6} table.pl tr.line:hover td.cur{background:#f0ecdf}
+table.pl td.f-low{background:#fbf6e6 !important; box-shadow:inset 0 0 0 1px rgba(176,141,87,.35)}
+table.pl td.f-medium{background:#f5e3bd !important; box-shadow:inset 0 0 0 1px rgba(176,141,87,.8)}
+table.pl td.f-high{background:#efc6bf !important; box-shadow:inset 0 0 0 1px rgba(140,74,63,.7); font-weight:700}
+table.pl tr.pulse td{animation:plpulse 1.5s ease 2}
+@keyframes plpulse{40%{background-color:#e8cf9a}}
+table.pl tr.thr td{padding:0; background:var(--bone); text-align:left; white-space:normal}
+.thread{position:sticky; left:0; width:min(680px, var(--wrapw, calc(100vw - 64px))); padding:12px 14px 14px}
+.bub{flex:0 0 auto; display:inline-flex; align-items:center; gap:3px; border:0; background:transparent; cursor:pointer; color:var(--sage-70); padding:4px 6px; border-radius:6px; min-width:32px; min-height:32px; justify-content:center; font-size:11px; font-weight:700}
+.bub:hover{background:var(--sage-10); color:var(--sage)}
+.bub.has{color:var(--sage)} .bub.hasopen{color:#6d5320; background:var(--attention-bg)}
+.bub svg{width:16px; height:16px}
+.spk{display:block; margin-left:auto}
+.cm{padding:9px 0; border-bottom:1px solid var(--mist)} .cm:last-of-type{border-bottom:0}
+.cm .h{font-size:12px; color:var(--sage-70); display:flex; gap:6px; flex-wrap:wrap; align-items:center}
+.cm .h b{color:var(--ink)}
+.cm .b{white-space:pre-wrap; margin-top:3px; overflow-wrap:anywhere}
+.cm.done .b{color:var(--sage-70)}
+.cm .ca{display:flex; gap:12px; margin-top:4px}
+.compose{margin-top:10px}
+.compose textarea{min-height:70px; width:100%; padding:10px 12px; border:1px solid var(--mist); border-radius:8px; font-size:16px; background:var(--white)}
+.compose textarea:focus{outline:2px solid var(--gold); outline-offset:0}
+.compose .cmrow{display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:8px}
+.compose select{padding:8px 10px; border:1px solid var(--mist); border-radius:8px; font-size:14px; background:var(--white)}
+.gen textarea{min-height:120px; font-size:16px}
+.callbox{text-align:center; padding:30px 22px}
+.callbox .field{max-width:520px; margin:0 auto 14px; text-align:left}
+.cleanfoot{text-align:center; margin-top:18px}
+
+@media (max-width:640px){
+  .shell{padding:0 12px 48px} .topin,.tabsin{padding-left:12px;padding-right:12px} .pagehead h2{font-size:22px}
+  .btn{width:100%} .btn.small{width:auto}
+  .card{padding:16px 14px}
+  .rvhead h2{font-size:25px}
+  .filters .field,.filters .field select{width:100%}
+  .pcard{padding:14px}
+  .row2{grid-template-columns:1fr}
+  .kpis{grid-template-columns:repeat(2,1fr)} .kpi .v{font-size:24px}
+  table.pl th.ln, table.pl td.ln{min-width:140px; width:144px; max-width:150px} .lnin .nm{font-size:12px; overflow-wrap:break-word}
+  table.pl th, table.pl td{padding:6px 8px}
+  .thread{padding:10px 10px 12px}
+  .rvhead .acts .btn{width:100%}
+}
+</style>
+</head>
+<body>
+<div id="gate"><div class="gatecard"><h1>P&amp;L Review</h1><div class="sub">Black Horse Beamish</div>
+  <p style="margin:0 0 16px;font-size:14px;color:var(--sage-70)">This opens from the Staff Portal, which knows who you are and what you can see.</p>
+  <a href="https://app.blackhorsebeamish.co.uk/portal/app.html" style="display:block;padding:12px;border-radius:8px;background:var(--sage);color:#fff;text-decoration:none;font-weight:600;letter-spacing:var(--track-label);text-transform:uppercase;font-size:12px">Open the Staff Portal</a>
+  <div class="gateerr" id="gerr"></div></div></div>
+<div id="app" hidden>
+  <header class="top"><div class="topin"><div class="brand">P&amp;L Review<small>Black Horse Beamish</small></div>
+    <div class="who"><span id="whoname"></span><button id="signout">Sign out</button></div></div></header>
+  <nav class="tabs"><div class="tabsin" role="tablist">
+    <button class="tabbtn" data-view="draft">Draft<span class="badge off" id="b_draft"></span></button>
+    <button class="tabbtn" data-view="final">Final<span class="badge off" id="b_final"></span></button>
+    <button class="tabbtn" data-view="call">P&amp;L Review Call</button>
+  </div></nav>
+  <div class="shell"><div id="views"></div></div>
+</div>
+<div class="toast" id="toast"></div>
+<script src="parse.js"></script>
+<script src="analysis.js"></script>
+<script>
+const CFG = { SUPABASE_URL:"https://safcrtrfdzsnftghibot.supabase.co", SUPABASE_KEY:"sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU", SHEETJS:"https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" };
+const MONTHS_FULL = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const MONTHS3 = MONTHS_FULL.map(m => m.slice(0,3));
+const SEV = [["high","High","What stands out most"],["medium","Medium",""],["low","Low",""],["info","Notes",""]];
+// S.me: { name, email, admin, canEdit }. Everything else is view state.
+const S = { me:null, tabs:null, view:"draft", lists:{ draft:null, final:null }, fy:"", rv:null, an:null, clean:false, direct:false,
+  onlyCommented:false, openThreads:{}, secClosed:{}, sevOpen:{ high:true, medium:true, low:false, info:false }, drafts:{}, sure:null, up:null,
+  pickPresent:"", poll:null, busy:false };
+const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
+const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const fmtDT = iso => { if(!iso) return ""; try { const d = new Date(iso), yr = d.getFullYear() !== new Date().getFullYear(); return d.toLocaleString("en-GB",{ timeZone:"Europe/London", day:"numeric", month:"short", year: yr ? "numeric" : undefined, hour:"2-digit", minute:"2-digit" }).replace(",",""); } catch(e){ return String(iso).slice(0,16); } };
+function toast(msg, bad){ const t=$("#toast"); t.textContent=msg; t.className="toast on"+(bad?" bad":""); clearTimeout(toast._t); toast._t=setTimeout(()=>{t.className="toast";}, bad?5200:2600); }
+function staffEmail(){ try { return sessionStorage.getItem("bhb_staff_email") || ""; } catch(e){ return ""; } }
+async function call(action, payload){
+  const r = await fetch(CFG.SUPABASE_URL + "/functions/v1/pl-review-api", { method:"POST", headers:{ "Content-Type":"application/json", Authorization:"Bearer "+CFG.SUPABASE_KEY, apikey:CFG.SUPABASE_KEY }, body: JSON.stringify({ action, staff_email: staffEmail(), ...(payload||{}) }) });
+  let d = {}; try { d = await r.json(); } catch(e){}
+  if (!r.ok || d.error) throw new Error(d.error || `Request failed (${r.status})`);
+  return d;
+}
+
+/* ------------------------------------------------------------- number formatting */
+const isNum = n => typeof n === "number" && isFinite(n);
+function numTxt(n){ // 1,234 over a thousand; up to 2 decimals under; negatives in brackets
+  if (!isNum(n)) return "";
+  const a = Math.abs(n), s = a >= 1000 ? Math.round(a).toLocaleString("en-GB") : (Math.round(a * 100) / 100).toLocaleString("en-GB", { maximumFractionDigits:2 });
+  if (s === "0") return "0";
+  return n < 0 ? "(" + s + ")" : s;
+}
+const moneyTxt = n => { const t = numTxt(n); return t === "" ? "" : (t[0] === "(" ? "(£" + t.slice(1) : "£" + t); };
+const cellHtml = n => isNum(n) ? (n < 0 && numTxt(n) !== "0" ? `<span class="neg">${numTxt(n)}</span>` : numTxt(n)) : "";
+const moneyHtml = n => isNum(n) ? (n < 0 && numTxt(n) !== "0" ? `<span class="neg">${moneyTxt(n)}</span>` : moneyTxt(n)) : "–";
+const pctTxt = (n, dp = 1) => { if (!isNum(n)) return ""; const s = Math.abs(n).toFixed(dp); return (n < 0 && parseFloat(s) > 0 ? "-" : "") + s + "%"; };
+const pctHtml = (n, dp = 1) => isNum(n) ? (pctTxt(n, dp)[0] === "-" ? `<span class="neg">${pctTxt(n, dp)}</span>` : pctTxt(n, dp)) : "";
+const periodLabel = it => { const m = it.period_month; const nm = isNum(m) && MONTHS_FULL[m] ? MONTHS_FULL[m] : (it.period_label || ""); return nm ? nm + " " + (it.fy || "") : (it.title || ""); };
+const periodRank = it => (it.fy || 0) * 100 + (isNum(it.period_month) ? it.period_month : 0);
+const byNewest = (a, b) => periodRank(b) - periodRank(a) || String(b.uploaded_at || "").localeCompare(String(a.uploaded_at || ""));
+
+/* ------------------------------------------------------------- analysis + data helpers */
+function runAnalysis(data){
+  try {
+    if (!window.PLAnalysis) throw new Error("The checks did not load.");
+    return window.PLAnalysis.analyse(data);
+  } catch(e){ return { error: e.message || String(e), findings:[], kpis:null, cell_flags:{}, ratios:{} }; }
+}
+function headline(data){
+  const last = data.last_month, t = (data.sections || []).find(s => s.key === "turnover");
+  const at = v => (v && v.values && isNum(v.values[last])) ? v.values[last] : null;
+  return { turnover: t ? at(t.total) : null, gross_profit: at(data.gross_profit), operating_profit: at(data.operating_profit) };
+}
+const lineCount = data => (data.sections || []).reduce((n, s) => n + (s.lines || []).length, 0);
+
+/* ------------------------------------------------------------- focus + scroll preservation */
+function keepState(fn){
+  const ae = document.activeElement, k = ae && ae.dataset && ae.dataset.draft;
+  const ss = k && ae.selectionStart != null ? [ae.selectionStart, ae.selectionEnd] : null;
+  const wrap = $(".plwrap"), sl = wrap ? wrap.scrollLeft : null, st = wrap ? wrap.scrollTop : null, wy = window.scrollY;
+  fn();
+  const w2 = $(".plwrap"); if (w2 && sl != null) { w2.scrollLeft = sl; w2.scrollTop = st; }
+  window.scrollTo(window.scrollX, wy);
+  if (k) { const el = document.querySelector(`[data-draft="${CSS.escape(k)}"]`); if (el) { el.focus({ preventScroll:true }); if (ss) try { el.setSelectionRange(ss[0], ss[1]); } catch(e){} } }
+}
+const dv = (k, def) => (k in S.drafts) ? S.drafts[k] : (def ?? "");
+document.addEventListener("input", e => { const k = e.target.dataset && e.target.dataset.draft; if (k) S.drafts[k] = e.target.value; });
+document.addEventListener("change", e => { const k = e.target.dataset && e.target.dataset.draft; if (k) S.drafts[k] = e.target.value; });
+
+/* ------------------------------------------------------------- lists */
+async function loadList(status){
+  try { const d = await call("review.list", { status }); S.lists[status] = { items:(d.items || []).slice().sort(byNewest) }; }
+  catch(e){ S.lists[status] = { error:e.message }; }
+  const l = S.lists[status]; if (l.items) setBadge(status, l.items.length);
+}
+async function refreshCounts(){ try { const c = (await call("bootstrap")).counts || {}; setBadge("draft", c.draft); setBadge("final", c.final); } catch(e){} }
+function setBadge(status, n){ const b = $("#b_" + status); if (!b) return; b.textContent = n || ""; b.classList.toggle("off", !n); }
+function pcard(it){
+  const sm = it.summary || {};
+  return `<button class="pcard" data-open="${esc(it.id)}">
+    <div class="tl1"><span class="tag ${it.status === "final" ? "final" : "draft"}">${it.status === "final" ? "Final" : "Draft"}</span>${it.version > 1 ? `<span class="tag">Version ${esc(it.version)}</span>` : ""}${it.open_comment_count ? `<span class="tag open">${esc(it.open_comment_count)} open comment${it.open_comment_count === 1 ? "" : "s"}</span>` : (it.comment_count ? `<span class="tag">${esc(it.comment_count)} comment${it.comment_count === 1 ? "" : "s"}</span>` : "")}</div>
+    <div class="t">${esc(it.title)}</div>
+    <div class="m">${esc(periodLabel(it))} · uploaded by ${esc(it.uploaded_by_name || "someone")}, ${esc(fmtDT(it.uploaded_at))}${it.status === "final" && it.confirmed_by_name ? ` · confirmed by ${esc(it.confirmed_by_name)}, ${esc(fmtDT(it.confirmed_at))}` : ""}</div>
+    <div class="nums"><div><div class="k">Turnover</div><div class="v">${moneyHtml(sm.turnover)}</div></div><div><div class="k">Gross profit</div><div class="v">${moneyHtml(sm.gross_profit)}</div></div><div><div class="k">Operating profit</div><div class="v">${moneyHtml(sm.operating_profit)}</div></div></div>
+  </button>`;
+}
+async function viewList(status){
+  const box = $("#views");
+  box.innerHTML = (status === "draft" && S.me.canEdit ? `<div id="upbox"></div>` : "") + `<div id="listbox"><div class="loading">Loading…</div></div>`;
+  if (status === "draft" && S.me.canEdit) renderUpload();
+  await loadList(status);
+  if (S.view !== status || S.rv) return;
+  renderList(status);
+}
+function renderList(status){
+  const l = S.lists[status], box = $("#listbox"); if (!box) return;
+  const isF = status === "final";
+  let head = `<div class="pagehead"><h2>${isF ? "Final P&amp;Ls" : "Draft P&amp;Ls"}</h2><span class="hint">${isF ? "Confirmed P&amp;Ls, newest period first. The archive to look back at." : "Uploaded by accounts and open for review and comments."}</span></div>`;
+  if (l.error) { box.innerHTML = head + `<div class="card empty"><span class="err">${esc(l.error)}</span><br><br><button class="btn ghost" style="width:auto" data-retry="${status}">Try again</button></div>`; return; }
+  let items = l.items;
+  let filt = "";
+  if (isF) {
+    const fys = [...new Set(items.map(i => i.fy).filter(Boolean))].sort((a, b) => b - a);
+    if (fys.length > 1 || S.fy) filt = `<div class="filters"><div class="field"><label>Financial year</label><select id="fyf" data-fy><option value="">All years</option>${fys.map(f => `<option value="${f}"${String(f) === String(S.fy) ? " selected" : ""}>FY${String(f).slice(-2)} (${f})</option>`).join("")}</select></div></div>`;
+    if (S.fy) items = items.filter(i => String(i.fy) === String(S.fy));
+  }
+  box.innerHTML = head + filt + (items.length ? items.map(pcard).join("")
+    : `<div class="card empty">${isF ? (S.fy ? "No final P&amp;Ls for that year." : "No final P&amp;Ls yet. They appear here once a draft has been confirmed.") : "No drafts yet. Accounts upload the monthly P&amp;L here."}</div>`);
+}
+
+/* ------------------------------------------------------------- upload */
+let sheetJsPromise = null;
+function loadSheetJS(){
+  if (window.XLSX) return Promise.resolve(window.XLSX);
+  if (sheetJsPromise) return sheetJsPromise;
+  sheetJsPromise = new Promise((res, rej) => {
+    const s = document.createElement("script"); s.src = CFG.SHEETJS; s.async = true;
+    s.onload = () => window.XLSX ? res(window.XLSX) : rej(new Error("The spreadsheet reader did not start."));
+    s.onerror = () => { sheetJsPromise = null; rej(new Error("Could not load the spreadsheet reader. Check your connection and try again.")); };
+    document.head.appendChild(s);
+  });
+  return sheetJsPromise;
+}
+function upHost(){ return S.up && S.up.replaceId ? $("#rv_replace") : $("#upbox"); }
+function cancelUpload(){ const h = upHost(); S.up = null; if (h) h.innerHTML = ""; if (!$("#upbox") && !S.rv) return; if ($("#upbox")) renderUpload(); }
+function startReplace(){ S.up = { phase:"idle", replaceId:S.rv.review.id }; renderUpload(); }
+async function handleFile(file){
+  if (!file) return;
+  const keep = S.up && S.up.replaceId ? { replaceId:S.up.replaceId } : {};
+  if (!/\.(xlsx|xlsm|xls)$/i.test(file.name)) { S.up = { ...keep, phase:"error", err:"That doesn't look like an Excel file. Choose the monthly P&L workbook (.xlsx) from accounts." }; return renderUpload(); }
+  if (file.size > 25 * 1024 * 1024) { S.up = { ...keep, phase:"error", err:"That file is too big to be a P&L. Choose the monthly P&L workbook." }; return renderUpload(); }
+  S.up = { ...keep, phase:"reading", file }; renderUpload();
+  try {
+    const XLSX = await loadSheetJS();
+    const buf = await file.arrayBuffer();
+    if (!window.PLParse) throw new Error("The P&L reader did not load. Refresh the page and try again.");
+    const data = window.PLParse.parse(XLSX, buf, file.name);
+    if (JSON.stringify(data).length > 900000) throw new Error("That P&L is much bigger than expected, so it was not read. Check it is the right file.");
+    const an = runAnalysis(data);
+    if (!S.up || S.up.file !== file) return;
+    S.up = { ...keep, phase:"preview", file, data, findings:(an.findings || []).length, high:(an.findings || []).filter(f => f.severity === "high").length,
+      parsedTitle: data.title || file.name.replace(/\.[^.]+$/, ""), fy: data.fy, mode:"replace" };
+    S.up.title = keep.replaceId ? S.rv.review.title : S.up.parsedTitle;
+    if (!keep.replaceId) { await Promise.all(["draft", "final"].map(s => S.lists[s] && S.lists[s].items ? null : loadList(s))); }
+    const ex = keep.replaceId ? null : (S.lists.draft.items || []).filter(i => i.fy === S.up.fy && i.period_month === data.last_month).sort(byNewest)[0];
+    S.up.existing = ex || null; S.up.mode = ex ? "replace" : "new"; if (ex) S.up.title = ex.title;
+    const fin = (S.lists.final && S.lists.final.items || []).find(i => i.fy === S.up.fy && i.period_month === data.last_month);
+    S.up.hasFinal = fin || null;
+  } catch(e){
+    S.up = { ...keep, phase:"error", err:(e && e.message) || "That file could not be read as a P&L." };
+  }
+  renderUpload();
+}
+function renderUpload(){
+  const host = upHost(); if (!host) return;
+  const u = S.up || { phase:"idle" }, repl = !!u.replaceId;
+  const dropper = (msg) => `<div class="drop" data-drop><p>${msg}</p><input type="file" id="pfile" accept=".xlsx,.xlsm,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"><button class="btn" data-pick>Choose the Excel file</button></div>`;
+  let body = "";
+  if (u.phase === "idle") body = dropper(repl ? "Choose the corrected P&amp;L workbook, or drop it here." : "Choose this month's P&amp;L workbook (.xlsx), or drop it here.");
+  else if (u.phase === "reading") body = `<div class="loading" style="padding:30px">Reading ${esc(u.file.name)}…</div>`;
+  else if (u.phase === "error") body = `<p class="err" style="margin:0 0 12px">${esc(u.err)}</p>` + dropper("Try another file, or drop it here.");
+  else {
+    const d = u.data, h = headline(d), ex = u.existing, mlab = MONTHS_FULL[d.last_month] + " " + u.fy;
+    const rv = repl ? S.rv.review : null;
+    body = `<div class="prev">
+        <div><div class="k">Period ends</div><div class="v">${esc(mlab)}</div></div>
+        <div><div class="k">Turnover</div><div class="v">${moneyHtml(h.turnover)}</div></div>
+        <div><div class="k">Gross profit</div><div class="v">${moneyHtml(h.gross_profit)}</div></div>
+        <div><div class="k">Operating profit</div><div class="v">${moneyHtml(h.operating_profit)}</div></div>
+        <div><div class="k">Lines read</div><div class="v sm">${lineCount(d)} lines, ${(d.sections || []).length} sections</div></div>
+        <div><div class="k">Automatic checks</div><div class="v sm">${u.findings} point${u.findings === 1 ? "" : "s"} raised${u.high ? `, ${u.high} high` : ""}</div></div></div>
+      <div class="row2"><div class="field"><label for="up_title">Title</label><input id="up_title" data-draft="up:title" maxlength="120" value="${esc(dv("up:title", u.title))}"></div>
+        <div class="field"><label for="up_fy">Financial year</label><input id="up_fy" type="number" inputmode="numeric" min="2000" max="2100" data-draft="up:fy" value="${esc(dv("up:fy", u.fy))}"></div></div>
+      ${u.hasFinal && !repl ? `<div class="notice">A final P&amp;L for ${esc(mlab)} already exists. This upload will be a new draft alongside it.</div>` : ""}
+      ${repl ? `<div class="notice">This replaces the figures in <b>${esc(rv.title)}</b> (version ${esc(rv.version)}) and keeps its ${esc(rv.comment_count || 0)} comment${rv.comment_count === 1 ? "" : "s"}.${rv.period_month !== d.last_month ? ` The new file ends at ${esc(MONTHS_FULL[d.last_month])}, the draft was ${esc(periodLabel(rv))}.` : ""}</div>`
+      : ex ? `<label class="choice"><input type="radio" name="upmode" value="replace" data-upmode${u.mode === "replace" ? " checked" : ""}><span><b>Replace the existing draft</b><small>${esc(ex.title)}, version ${esc(ex.version)}, uploaded by ${esc(ex.uploaded_by_name || "someone")} on ${esc(fmtDT(ex.uploaded_at))}. Its comments stay.</small></span></label>
+        <label class="choice"><input type="radio" name="upmode" value="new" data-upmode${u.mode === "new" ? " checked" : ""}><span><b>Save as a separate draft</b><small>Keeps the existing draft as it is.</small></span></label>` : ""}
+      <div class="opts" style="margin-top:6px"><button class="btn" data-upsave>${repl ? "Replace this draft" : (ex && u.mode === "replace" ? "Replace the existing draft" : "Save as draft")}</button><button class="btn ghost" data-upcancel>Choose a different file</button>${repl ? "" : ""}</div>`;
+    if (u.phase === "saving") body = `<div class="loading" style="padding:30px">Saving…</div>`;
+  }
+  host.innerHTML = `<div class="card"><h3>${repl ? "Replace the upload" : "Upload the monthly P&amp;L"}</h3>${body}${repl ? `<div style="margin-top:10px"><button class="linkbtn" data-upclose>Cancel</button></div>` : ""}</div>`;
+}
+async function saveUpload(btn){
+  const u = S.up; if (!u || u.phase !== "preview") return;
+  const title = dv("up:title", u.title).trim(), fy = Number(dv("up:fy", u.fy));
+  if (!title) return toast("Give it a title first.", true);
+  if (!fy || fy < 2000 || fy > 2100) return toast("Enter the financial year as a four-digit year, such as 2026.", true);
+  const payload = { title, fy, period_month:u.data.last_month, source_file:u.file.name, data:u.data };
+  if (u.replaceId) payload.replace_id = u.replaceId; else if (u.existing && u.mode === "replace") payload.replace_id = u.existing.id;
+  btn.disabled = true;
+  try {
+    const d = await call("review.upload", payload);
+    const wasReplace = !!payload.replace_id;
+    S.up = null; delete S.drafts["up:title"]; delete S.drafts["up:fy"]; S.lists.draft = null; S.lists.final = null; refreshCounts();
+    toast(wasReplace ? "Draft replaced." : "Saved as a draft.");
+    await openReview(d.id || payload.replace_id);
+  } catch(e){ toast(e.message, true); btn.disabled = false; }
+}
+
+/* ------------------------------------------------------------- review view */
+const sortC = cs => (cs || []).slice().sort((a, b) => String(a.at || "").localeCompare(String(b.at || "")));
+const lineComments = key => S.rv.comments.filter(c => c.line_key === key);
+const generalComments = () => S.rv.comments.filter(c => !c.line_key);
+const openCount = () => S.rv.comments.filter(c => !c.resolved).length;
+async function openReview(id, opts){
+  opts = opts || {};
+  stopPoll();
+  S.rv = { loading:true }; S.an = null; S.sure = null; S.openThreads = {}; S.onlyCommented = false; S.up = null;
+  if (opts.clean != null) S.clean = !!opts.clean;
+  document.body.classList.toggle("clean", S.clean);
+  $("#views").innerHTML = `<div class="loading">Loading…</div>`;
+  window.scrollTo(0, 0);
+  try {
+    const d = await call("review.get", { id });
+    S.rv = { review:d.review, comments:sortC(d.comments) };
+  } catch(e){
+    S.rv = null;
+    $("#views").innerHTML = `<div class="backrow"><button class="linkbtn" data-back>&larr; Back to the lists</button></div><div class="card empty" style="margin-top:14px"><span class="err">${esc(e.message)}</span></div>`;
+    return;
+  }
+  const r = S.rv.review;
+  S.view = r.status === "final" ? "final" : "draft"; markTab();
+  if (!S.direct || history.state !== "pl") { try { history.replaceState("pl", "", "?open=" + encodeURIComponent(r.id) + (S.clean ? "&clean=1" : "")); } catch(e){} }
+  S.an = runAnalysis(r.data || {});
+  renderReview();
+  startPoll();
+}
+function closeReview(){
+  stopPoll(); S.rv = null; S.an = null;
+  S.clean = false; document.body.classList.remove("clean");
+  try { history.replaceState(null, "", location.pathname); } catch(e){}
+  goView(S.view);
+}
+function renderReview(){
+  const r = S.rv.review;
+  $("#views").innerHTML = `${S.clean ? "" : `<div class="backrow"><button class="linkbtn" data-back>&larr; Back to ${r.status === "final" ? "final" : "draft"} P&amp;Ls</button></div>`}
+    <div class="card rvhead" id="rv_head" style="margin-top:14px"></div>
+    <div id="rv_replace"></div>
+    <div id="rv_kpis"></div>
+    <div id="rv_finds"></div>
+    <div id="rv_table"></div>
+    <div id="rv_general"></div>
+    ${S.clean ? `<div class="cleanfoot"><button class="linkbtn" data-unclean>Show the normal view</button></div>` : ""}`;
+  renderHead(); renderKpis(); renderFinds(); renderTable(); renderGeneral();
+  if (S.up && S.up.replaceId) renderUpload();
+  fitTable();
+}
+function sureBtn(id, label, sureLabel, cls){
+  const on = S.sure === id;
+  return `<button class="btn ${cls || ""}${on ? " sure" : ""}" data-sure="${id}">${on ? sureLabel : label}</button>`;
+}
+function renderHead(){
+  const r = S.rv.review, me = S.me, fin = r.status === "final", box = $("#rv_head"); if (!box) return;
+  const acts = [];
+  if (!S.clean) {
+    if (!fin && me.canEdit) { acts.push(sureBtn("confirm", "Confirm as final", "Tap again to confirm as final")); acts.push(`<button class="btn ghost" data-replace>Replace upload</button>`); }
+    if (!fin && me.canEdit) acts.push(sureBtn("delete", "Delete", "Tap again to delete", "danger"));
+    if (fin && me.admin) { acts.push(sureBtn("reopen", "Reopen as draft", "Tap again to reopen", "ghost")); acts.push(sureBtn("delete", "Delete", "Tap again to delete", "danger")); }
+  }
+  box.innerHTML = `<div class="tl1"><span class="tag ${fin ? "final" : "draft"}">${fin ? "Final" : "Draft"}</span>${r.version > 1 ? `<span class="tag">Version ${esc(r.version)}</span>` : ""}<span class="tag mon">${esc(periodLabel(r))}</span></div>
+    <h2>${esc(r.title)}</h2>
+    <div class="meta">Uploaded by ${esc(r.uploaded_by_name || "someone")}, ${esc(fmtDT(r.uploaded_at))}${r.source_file ? ` · ${esc(r.source_file)}` : ""}${fin && r.confirmed_by_name ? `<br>Confirmed by ${esc(r.confirmed_by_name)}, ${esc(fmtDT(r.confirmed_at))}` : ""}</div>
+    ${acts.length ? `<div class="acts">${acts.join("")}</div>` : ""}`;
+}
+async function doSure(which){
+  const r = S.rv.review;
+  if (S.sure !== which) { S.sure = which; renderHead(); clearTimeout(S._st); S._st = setTimeout(() => { if (S.sure === which) { S.sure = null; if (S.rv) renderHead(); } }, 5000); return; }
+  S.sure = null; clearTimeout(S._st);
+  try {
+    if (which === "confirm") { await call("review.confirm", { id:r.id }); toast("Confirmed as final."); S.lists.draft = S.lists.final = null; refreshCounts(); await openReview(r.id); }
+    else if (which === "reopen") { await call("review.reopen", { id:r.id }); toast("Reopened as a draft."); S.lists.draft = S.lists.final = null; refreshCounts(); await openReview(r.id); }
+    else if (which === "delete") { const st = r.status; await call("review.delete", { id:r.id }); toast("Deleted."); S.lists[st] = null; refreshCounts(); S.view = st; closeReview(); }
+  } catch(e){ toast(e.message, true); if (S.rv) renderHead(); }
+}
+
+/* ---- KPIs ---- */
+const KPIS = [
+  ["turnover","Turnover","money",1], ["gross_profit","Gross profit","money",1,"gp_pct"], ["operating_profit","Operating profit","money",1,"op_pct"],
+  ["wages_pct","Wages","pct",-1], ["food_gp_pct","Food GP","pct",1], ["bev_gp_pct","Beverage GP","pct",1], ["overheads_pct","Overheads","pct",-1]
+];
+function renderKpis(){
+  const box = $("#rv_kpis"); if (!box) return;
+  const k = S.an && S.an.kpis;
+  if (!k) { box.innerHTML = S.an && S.an.error ? `<div class="notice">The headline figures could not be worked out: ${esc(S.an.error)}</div>` : ""; return; }
+  const p = k.prev || {}, lab = S.an.period ? S.an.period.label : "";
+  box.innerHTML = `<div class="kpis">${KPIS.map(([key, name, kind, good, marg]) => {
+    const v = k[key], pv = p[key];
+    let val, chg = "", cls = "";
+    if (kind === "money") {
+      val = `<div class="v${isNum(v) && v < 0 ? " neg" : ""}">${moneyTxt(v) || "–"}</div>`;
+      if (isNum(v) && isNum(pv)) { const d = v - pv, pc = pv ? d / Math.abs(pv) * 100 : null; cls = d === 0 ? "" : (d * good > 0 ? "good" : "bad"); chg = `${d >= 0 ? "Up" : "Down"} ${moneyTxt(Math.abs(d))}${pc != null ? " (" + Math.abs(pc).toFixed(0) + "%)" : ""} on last month`; }
+    } else {
+      val = `<div class="v${isNum(v) && v < 0 ? " neg" : ""}">${isNum(v) ? pctTxt(v) : "–"}</div>`;
+      if (isNum(v) && isNum(pv)) { const d = v - pv; cls = Math.abs(d) < .05 ? "" : (d * good > 0 ? "good" : "bad"); chg = Math.abs(d) < .05 ? "Level with last month" : `${d > 0 ? "Up" : "Down"} ${Math.abs(d).toFixed(1)} points on last month`; }
+    }
+    return `<div class="kpi"><div class="k">${esc(name)}${kind === "pct" && key !== "overheads_pct" && key !== "wages_pct" ? "" : ""}</div>${val}
+      <div class="sub">${marg ? (isNum(k[marg]) ? pctTxt(k[marg]) + " of turnover" : "") : (kind === "pct" ? (key === "food_gp_pct" || key === "bev_gp_pct" ? "gross profit on sales" : "of turnover") : esc(lab))}</div>
+      ${chg ? `<div class="chg ${cls}">${chg}</div>` : ""}</div>`; }).join("")}</div>`;
+}
+
+/* ---- findings ---- */
+function rowKeys(){
+  const set = new Set(); (tableModel(S.rv.review.data).rows).forEach(r => { if (r.kind !== "sec") set.add(r.key); }); return set;
+}
+function rowForFinding(f){
+  const keys = rowKeys();
+  if (f.line_key && keys.has(f.line_key)) return f.line_key;
+  if (f.line_key && keys.has("total:" + f.line_key)) return "total:" + f.line_key;
+  if (f.section && keys.has("total:" + f.section)) return "total:" + f.section;
+  return null;
+}
+function renderFinds(){
+  const box = $("#rv_finds"); if (!box) return;
+  const an = S.an, list = (an && an.findings) || [];
+  const head = `<h3>What stands out</h3><p class="note">These are automatic checks comparing the latest month with the months before. They are there to prompt questions, not to give conclusions: a flag can have a perfectly good reason.</p>`;
+  if (an && an.error) { box.innerHTML = `<div class="card">${head}<p class="err" style="margin:0">The automatic checks could not run: ${esc(an.error)}</p></div>`; return; }
+  const groups = SEV.map(([sv, label]) => ({ sv, label, items:list.filter(f => (f.severity || "info") === sv) })).filter(g => g.items.length);
+  box.innerHTML = `<div class="card">${head}${groups.length ? groups.map(g => `<details class="sevgrp" data-sev="${g.sv}"${S.sevOpen[g.sv] ? " open" : ""}><summary><span class="chip ${g.sv}">${g.label}</span><span class="muted" style="font-weight:400">${g.items.length} point${g.items.length === 1 ? "" : "s"}</span></summary>
+      ${g.items.map(f => { const rk = rowForFinding(f); return `<div class="find ${g.sv}"><div class="ft">${esc(f.title)}</div>${f.detail ? `<div class="fd">${esc(f.detail)}</div>` : ""}
+        <div class="fb"><button class="btn ghost small" data-fcomment="${esc(f.id)}">Comment</button>${rk ? `<button class="btn ghost small" data-show="${esc(rk)}" data-m="${f.month ?? ""}">Show in P&amp;L</button>` : ""}</div></div>`; }).join("")}</details>`).join("")
+    : `<p class="muted" style="margin:0">Nothing unusual was picked up this month.</p>`}</div>`;
+}
+
+/* ---- table ---- */
+function tableModel(data){
+  const rows = [], secs = data.sections || []; let gp = false, op = false;
+  const gpRow = () => rows.push({ kind:"gp", key:"gross_profit", name:(data.gross_profit && data.gross_profit.name) || "Gross Profit", values:data.gross_profit.values });
+  const opRow = () => rows.push({ kind:"op", key:"operating_profit", name:(data.operating_profit && data.operating_profit.name) || "Operating Profit", values:data.operating_profit.values });
+  secs.forEach(s => {
+    rows.push({ kind:"sec", key:"sec:" + s.key, name:s.label, sec:s.key });
+    (s.lines || []).forEach(l => rows.push({ kind:"line", key:l.key, name:l.name, aliases:l.aliases, values:l.values || [], sec:s.key }));
+    if (s.total) rows.push({ kind:"total", key:"total:" + s.key, name:s.total.name, values:s.total.values || [], sec:s.key, plan: s.key === "turnover" });
+    if (s.key === "cost_of_sales" && data.gross_profit) { gpRow(); gp = true; }
+    if (s.key === "admin" && data.operating_profit) { opRow(); op = true; }
+  });
+  if (!gp && data.gross_profit) gpRow();
+  if (!op && data.operating_profit) opRow();
+  return { rows };
+}
+function spark(vals, last){
+  const pts = []; for (let i = 0; i <= last; i++) pts.push(isNum(vals[i]) ? vals[i] : null);
+  const nums = pts.filter(isNum); if (nums.length < 2) return "";
+  const mn = Math.min(...nums), mx = Math.max(...nums), W = 64, H = 18, rg = mx - mn || 1;
+  const x = i => 2 + i * (W - 4) / Math.max(1, last), y = v => mx === mn ? H / 2 : H - 3 - (v - mn) / rg * (H - 6);
+  let d = "", pen = false; pts.forEach((v, i) => { if (v == null) { pen = false; return; } d += (pen ? "L" : "M") + x(i).toFixed(1) + " " + y(v).toFixed(1); pen = true; });
+  const li = pts.map((v, i) => v == null ? -1 : i).filter(i => i >= 0).pop();
+  return `<svg class="spk" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true"><path d="${d}" fill="none" stroke="#7B887C" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"/><circle cx="${x(li).toFixed(1)}" cy="${y(pts[li]).toFixed(1)}" r="2.2" fill="#4E5F4F"/></svg>`;
+}
+const BUB = `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 4.5h13a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H9l-3.5 3v-3h-2a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1z"/></svg>`;
+function flagTitle(key, m, sev){
+  const f = ((S.an && S.an.findings) || []).find(x => x.line_key === key && x.month === m);
+  return `${sev === "high" ? "High" : sev === "medium" ? "Medium" : "Low"} flag${f ? ": " + f.title : ""}`;
+}
+function renderTable(){
+  const box = $("#rv_table"); if (!box) return;
+  const data = S.rv.review.data || {}, last = data.last_month, months = data.months || MONTHS3;
+  if (!isNum(last) || !data.sections) { box.innerHTML = `<div class="card empty">The figures for this P&amp;L could not be read.</div>`; return; }
+  const { rows } = tableModel(data), flags = (S.an && S.an.cell_flags) || {};
+  const plan = data.plan_turnover || [], planCols = []; for (let i = last + 1; i < 12; i++) if (isNum(plan[i])) planCols.push(i);
+  const turn = (data.sections.find(s => s.key === "turnover") || {}).total, tl = turn && turn.values ? turn.values[last] : null;
+  const nCols = 1 + (last + 1) + planCols.length + 4;
+  const cnt = key => lineComments(key).length, opn = key => lineComments(key).filter(c => !c.resolved).length;
+  const filt = S.onlyCommented;
+  let html = "", shown = 0, currentSec = null, secPending = null;
+  for (const r of rows) {
+    if (r.kind === "sec") { secPending = r; currentSec = r.sec; continue; }
+    const closed = r.sec && S.secClosed[r.sec] && (r.kind === "line" || r.kind === "total");
+    if (filt && !cnt(r.key) && !S.openThreads[r.key]) continue;
+    if (secPending) {
+      const s = secPending; secPending = null;
+      html += `<tr class="sec" data-sec="${esc(s.sec)}"><td class="ln">${S.secClosed[s.sec] ? "&#9656;" : "&#9662;"} ${esc(s.name)}</td><td colspan="${nCols - 1}"></td></tr>`;
+    }
+    if (closed && r.kind === "line") continue;
+    shown++;
+    const v = r.values || [], c = cnt(r.key), o = opn(r.key);
+    const prev = last > 0 ? v[last - 1] : null, cur = v[last];
+    const d = isNum(cur) || isNum(prev) ? (cur || 0) - (prev || 0) : null;
+    const dpc = isNum(prev) && prev !== 0 && isNum(cur) ? d / Math.abs(prev) * 100 : null;
+    const pt = isNum(tl) && tl ? (isNum(cur) ? cur / tl * 100 : null) : null;
+    let tds = "";
+    for (let i = 0; i <= last; i++) {
+      const fl = flags[r.key + "|" + i];
+      tds += `<td class="${i === last ? "cur" : ""}${fl ? " f-" + esc(fl) : ""}"${fl ? ` title="${esc(flagTitle(r.key, i, fl))}"` : ""}>${cellHtml(v[i])}</td>`;
+    }
+    const pcolsHtml = planCols.map((i, j) => `<td class="plan${j === 0 ? " sep" : ""}">${r.plan ? cellHtml(plan[i]) : ""}</td>`).join("");
+    const tooltip = r.aliases && r.aliases.length ? ` title="Also appears as: ${esc(r.aliases.join(", "))}"` : "";
+    html += `<tr class="${r.kind}${r.kind === "line" ? " line" : ""}" data-row="${esc(r.key)}"><td class="ln"><div class="lnin"><span class="nm"${tooltip}>${esc(r.name)}</span>
+      <button class="bub${c ? " has" : ""}${o ? " hasopen" : ""}" data-thread="${esc(r.key)}" aria-label="${c ? c + " comment" + (c === 1 ? "" : "s") + " on " : "Comment on "}${esc(r.name)}" aria-expanded="${!!S.openThreads[r.key]}">${BUB}${c ? c : ""}</button></div></td>
+      ${tds}<td class="sep">${pt != null ? pctHtml(pt) : ""}</td><td>${d != null ? (d === 0 ? "0" : (d > 0 ? "+" : "") + (numTxt(Math.abs(d)) && cellHtml(d))) : ""}</td><td>${dpc != null ? (dpc > 0 ? "+" : "") + pctTxt(dpc, 0) : (d != null && d !== 0 && isNum(cur) && !isNum(prev) ? "new" : "")}</td><td>${spark(v, last)}</td>${pcolsHtml}</tr>`;
+    if (S.openThreads[r.key]) html += `<tr class="thr" data-thr="${esc(r.key)}"><td colspan="${nCols}">${threadHtml(r)}</td></tr>`;
+  }
+  const head = `<thead><tr><th class="ln">Line (£)</th>${months.slice(0, last + 1).map((m, i) => `<th class="${i === last ? "cur" : ""}">${esc(m)}</th>`).join("")}<th class="sep">% of turnover</th><th>Change £</th><th>Change %</th><th>Trend</th>${planCols.map((i, j) => `<th class="plan${j === 0 ? " sep" : ""}">${esc(months[i])} plan</th>`).join("")}</tr></thead>`;
+  const open = openCount();
+  box.innerHTML = `<div class="card" style="padding:16px 14px 14px"><h3 style="margin-left:6px">The P&amp;L</h3>
+    <div class="tbar" style="margin-left:6px"><span><b id="opencnt">${open}</b> open comment${open === 1 ? "" : "s"}</span>
+      <label class="tick"><input type="checkbox" data-onlycm${filt ? " checked" : ""}> Show only lines with comments</label>
+      <button class="linkbtn" data-gotodisc>Go to the discussion</button></div>
+    ${shown ? `<div class="plwrap" id="plwrap"><table class="pl">${head}<tbody>${html}</tbody></table></div>`
+      : `<div class="empty" style="padding:26px 10px">No lines have comments yet.</div>`}
+    <p class="note" style="margin:10px 6px 0">Figures in pounds; brackets mean a credit or a loss. Shaded cells were flagged by the checks above. Press the speech bubble on any line to comment on it.</p></div>`;
+  sizeThreads();
+}
+function sizeThreads(){ const w = $("#plwrap"); if (w) document.documentElement.style.setProperty("--wrapw", (w.clientWidth - 2) + "px"); }
+window.addEventListener("resize", sizeThreads);
+function fitTable(){
+  const w = $("#plwrap"); if (!w) return;
+  const th = w.querySelector("thead th.cur"), ln = w.querySelector("thead th.ln"), ths = w.querySelectorAll("thead th");
+  if (!th || !ln) return;
+  const lastAn = ths[(1 + Array.from(ths).indexOf(th)) + 3] || th;
+  const need = Math.min(lastAn.offsetLeft + lastAn.offsetWidth - w.clientWidth, th.offsetLeft - ln.offsetWidth);
+  w.scrollLeft = Math.max(0, need);
+}
+function commentHtml(c){
+  const mine = c.by_email && S.me.email && String(c.by_email).toLowerCase() === String(S.me.email).toLowerCase();
+  const canDel = mine || S.me.admin;
+  return `<div class="cm${c.resolved ? " done" : ""}" data-cid="${esc(c.id)}"><div class="h"><b>${esc(c.by_name || c.by_email || "Someone")}</b><span>${esc(fmtDT(c.at))}</span>${isNum(c.month) && MONTHS3[c.month] ? `<span class="tag mon">${MONTHS3[c.month]}</span>` : ""}${c.resolved ? `<span class="tag res">Resolved${c.resolved_by_name ? " by " + esc(c.resolved_by_name) : ""}</span>` : ""}</div>
+    <div class="b">${esc(c.body)}</div>
+    ${(S.me.canEdit || canDel) && !S.clean ? `<div class="ca">${S.me.canEdit ? `<button class="linkbtn" data-resolve="${esc(c.id)}" data-v="${c.resolved ? "0" : "1"}">${c.resolved ? "Mark as open again" : "Mark as resolved"}</button>` : ""}${canDel ? `<button class="linkbtn" style="color:var(--alert)" data-cdel="${esc(c.id)}">${S.sure === "c:" + c.id ? "Tap again to delete" : "Delete"}</button>` : ""}</div>` : ""}</div>`;
+}
+function threadHtml(r){
+  const key = r.key, cs = lineComments(key), data = S.rv.review.data, last = data.last_month;
+  const mk = "lm:" + key, mv = dv(mk, "");
+  return `<div class="thread"><div class="muted" style="font-size:12px;margin-bottom:4px">Comments on <b style="color:var(--ink)">${esc(r.name)}</b></div>
+    ${cs.length ? cs.map(commentHtml).join("") : `<div class="muted" style="padding:6px 0">No comments on this line yet.</div>`}
+    <div class="compose"><textarea data-draft="l:${esc(key)}" maxlength="4000" placeholder="Ask a question or add a note about this line…" aria-label="Comment on ${esc(r.name)}">${esc(dv("l:" + key))}</textarea>
+      <div class="cmrow"><select data-draft="${esc(mk)}" aria-label="Which month">${`<option value="">About all months</option>` + (data.months || MONTHS3).slice(0, last + 1).map((m, i) => `<option value="${i}"${String(mv) === String(i) ? " selected" : ""}>About ${esc(m)}</option>`).join("")}</select>
+      <button class="btn small" data-post="${esc(key)}">Post comment</button><button class="linkbtn" data-thread="${esc(key)}">Close</button></div></div></div>`;
+}
+function renderGeneral(){
+  const box = $("#rv_general"); if (!box) return;
+  const cs = generalComments();
+  box.innerHTML = `<div class="card gen" id="discussion"><h3>Discussion</h3>
+    ${cs.length ? cs.map(commentHtml).join("") : `<p class="muted" style="margin:0 0 10px">No general comments yet. Start the conversation below.</p>`}
+    <div class="compose"><div class="field" style="margin-bottom:0"><label for="gtext">Leave a comment for the team</label><textarea id="gtext" data-draft="g" maxlength="4000" placeholder="Anything you noticed, want explained, or want the team to follow up…">${esc(dv("g"))}</textarea></div>
+      <div class="cmrow"><button class="btn" data-post="">Post comment</button></div></div></div>`;
+}
+function refreshComments(){
+  keepState(() => { renderHead(); renderFinds(); renderTable(); renderGeneral(); });
+}
+async function postComment(key, btn){
+  const dk = key ? "l:" + key : "g", body = (S.drafts[dk] || "").trim();
+  if (!body) return toast("Write your comment first.", true);
+  let month = null; if (key) { const m = S.drafts["lm:" + key]; month = m === undefined || m === "" ? null : Number(m); }
+  btn.disabled = true;
+  try {
+    const d = await call("comment.add", { review_id:S.rv.review.id, line_key:key || null, month, body });
+    S.rv.comments.push(d.comment); delete S.drafts[dk]; delete S.drafts["lm:" + key];
+    toast("Comment added."); refreshComments();
+  } catch(e){ toast(e.message, true); btn.disabled = false; }
+}
+async function resolveComment(id, v){
+  try { const d = await call("comment.resolve", { id, resolved:v }); const i = S.rv.comments.findIndex(c => c.id === id); if (i >= 0) S.rv.comments[i] = d.comment || { ...S.rv.comments[i], resolved:v }; refreshComments(); }
+  catch(e){ toast(e.message, true); }
+}
+async function deleteComment(id){
+  if (S.sure !== "c:" + id) { S.sure = "c:" + id; refreshComments(); clearTimeout(S._st); S._st = setTimeout(() => { if (S.sure === "c:" + id) { S.sure = null; if (S.rv) refreshComments(); } }, 5000); return; }
+  S.sure = null;
+  try { await call("comment.delete", { id }); S.rv.comments = S.rv.comments.filter(c => c.id !== id); toast("Comment deleted."); refreshComments(); }
+  catch(e){ toast(e.message, true); refreshComments(); }
+}
+function openThread(key, month){
+  S.openThreads[key] = true;
+  if (month != null && month !== "" && !("lm:" + key in S.drafts)) S.drafts["lm:" + key] = String(month);
+  if (S.onlyCommented) { /* keeps the row visible because the thread is open */ }
+  keepState(renderTable);
+  const t = document.querySelector(`[data-draft="l:${CSS.escape(key)}"]`); if (t) { t.focus({ preventScroll:true }); t.scrollIntoView({ block:"nearest", behavior:"smooth" }); }
+}
+function showRow(key){
+  const r = tableModel(S.rv.review.data).rows.find(x => x.key === key); let redraw = false;
+  if (S.onlyCommented && !lineComments(key).length) { S.onlyCommented = false; redraw = true; }
+  if (r && r.sec && S.secClosed[r.sec]) { S.secClosed[r.sec] = false; redraw = true; }
+  if (redraw) keepState(renderTable);
+  const tr = document.querySelector(`tr[data-row="${CSS.escape(key)}"]`); if (!tr) return;
+  tr.scrollIntoView({ block:"center", inline:"nearest", behavior:"smooth" });
+  tr.classList.remove("pulse"); void tr.offsetWidth; tr.classList.add("pulse"); setTimeout(() => tr.classList.remove("pulse"), 3300);
+}
+function commentOnFinding(id){
+  const f = ((S.an && S.an.findings) || []).find(x => x.id === id); if (!f) return;
+  const rk = rowForFinding(f);
+  if (rk) return openThread(rk, f.month);
+  if (!S.drafts.g) S.drafts.g = "Re: " + f.title + " ";
+  keepState(renderGeneral);
+  const t = $("#gtext"); if (t) { t.scrollIntoView({ block:"center", behavior:"smooth" }); t.focus({ preventScroll:true }); t.setSelectionRange(t.value.length, t.value.length); }
+}
+/* polling for other people's comments */
+function startPoll(){ stopPoll(); S.poll = setInterval(pollReview, 25000); }
+function stopPoll(){ if (S.poll) { clearInterval(S.poll); S.poll = null; } }
+async function pollReview(){
+  if (!S.rv || !S.rv.review || document.hidden || S.busy) return;
+  const id = S.rv.review.id;
+  try {
+    const d = await call("review.get", { id });
+    if (!S.rv || S.rv.review.id !== id) return;
+    const sig = cs => cs.map(c => c.id + ":" + (c.resolved ? 1 : 0)).join(",");
+    const changedMeta = d.review.status !== S.rv.review.status || d.review.version !== S.rv.review.version;
+    const changedC = sig(d.comments || []) !== sig(S.rv.comments);
+    if (!changedMeta && !changedC) return;
+    S.rv = { review:d.review, comments:sortC(d.comments) };
+    if (changedMeta) { S.an = runAnalysis(d.review.data || {}); keepState(renderReview); } else refreshComments();
+  } catch(e){ /* quiet: the next poll tries again */ }
+}
+
+/* ------------------------------------------------------------- call tab */
+async function viewCall(){
+  $("#views").innerHTML = `<div class="pagehead"><h2>P&amp;L Review call</h2><span class="hint">The video room for going through the P&amp;L together</span></div><div class="loading">Loading…</div>`;
+  await Promise.all(["draft", "final"].map(s => S.lists[s] && S.lists[s].items ? null : loadList(s)));
+  if (S.view !== "call" || S.rv) return;
+  const all = [].concat(...["final", "draft"].map(s => (S.lists[s] && S.lists[s].items) || [])).sort((a, b) => periodRank(b) - periodRank(a) || (a.status === b.status ? 0 : a.status === "final" ? -1 : 1) || String(b.uploaded_at || "").localeCompare(String(a.uploaded_at || "")));
+  const errs = ["draft", "final"].map(s => S.lists[s] && S.lists[s].error).filter(Boolean);
+  if (!all.some(i => i.id === S.pickPresent)) S.pickPresent = all[0] ? all[0].id : "";
+  $("#views").innerHTML = `<div class="pagehead"><h2>P&amp;L Review call</h2><span class="hint">The video room for going through the P&amp;L together</span></div>
+    <div class="card callbox"><h3 style="margin-bottom:6px">Join the call</h3>
+      <p class="muted" style="margin:0 auto 20px; max-width:520px">You will join as <b style="color:var(--ink)">${esc(S.me.name)}</b>, straight into the room, in a new window. Allow your camera and microphone when your browser asks.</p>
+      <button class="btn" id="calljoin" style="min-width:260px;width:auto">Join the P&amp;L Review call</button></div>
+    <div class="card callbox"><h3 style="margin-bottom:6px">Present the P&amp;L</h3>
+      <p class="muted" style="margin:0 auto 16px; max-width:560px">Opens the call and, in a second window, a clean view of the P&amp;L you choose, ready to share. Your browser always asks you to pick which window or tab to share, and the call window shows a "Share your screen" button the moment you are in. Pick the P&amp;L window. Sharing a screen isn't possible from a phone.</p>
+      ${all.length ? `<div class="field"><label for="pickpl">P&amp;L to present</label><select id="pickpl">${all.map(i => `<option value="${esc(i.id)}"${i.id === S.pickPresent ? " selected" : ""}>${esc(periodLabel(i))} · ${esc(i.title)} (${i.status === "final" ? "Final" : "Draft"})</option>`).join("")}</select></div>
+        <button class="btn" id="callpresent" style="min-width:260px;width:auto">Join and present the P&amp;L</button>` : `<p class="${errs.length ? "err" : "muted"}" style="margin:0">${errs.length ? esc(errs[0]) : "There is no P&amp;L to present yet. Once accounts have uploaded one, it appears here."}</p>`}
+      <p id="callmsg" class="muted" style="margin:16px 0 0; font-size:13px"></p></div>
+    <div class="card"><h3>Good to know</h3><ul style="margin:0; padding-left:20px; color:var(--sage-70); line-height:1.8">
+      <li>Everyone who joins from here is in the same room, so there is nothing to set up or send round.</li>
+      <li>If you leave the call, press Join again to come back in.</li>
+      <li>Your join link works for 12 hours after you press the button, so don't forward it.</li></ul></div>`;
+}
+async function joinCall(present){
+  const msg = $("#callmsg"), b1 = $("#calljoin"), b2 = $("#callpresent");
+  const id = present && $("#pickpl") ? $("#pickpl").value : "";
+  if (present) S.pickPresent = id;
+  [b1, b2].forEach(b => { if (b) b.disabled = true; }); msg.textContent = "Opening the call…";
+  // Windows are opened now, inside the click, so the browser doesn't block them; they are pointed at their pages once ready.
+  let wp = null;
+  if (present && id) { wp = window.open("about:blank", "_blank"); if (wp) wp.opener = null; }
+  const w = window.open("about:blank", "_blank"); if (w) w.opener = null;
+  const plUrl = id ? location.origin + location.pathname + "?open=" + encodeURIComponent(id) + "&clean=1" : "";
+  if (wp) wp.location.href = plUrl;
+  try {
+    const d = await call("call.pass");
+    const url = d.page + "?room=" + encodeURIComponent(d.room) + "&name=" + encodeURIComponent(d.name) + "&autojoin=1" + (present ? "&present=1" : "") + "#pass=" + d.pass;
+    let t = "";
+    if (w) { w.location.href = url; t = present ? "The call and the P&L have opened in new windows. In the call, press Share your screen and choose the P&L window." : "The call has opened in a new window."; msg.textContent = t; }
+    else msg.innerHTML = `Your browser blocked the new window. <a href="${esc(url)}" target="_blank" rel="noopener">Open the call</a>.`;
+    if (present && !wp) msg.innerHTML += ` Your browser also blocked the P&amp;L window. <a href="${esc(plUrl)}" target="_blank" rel="noopener">Open the P&amp;L</a>.`;
+  } catch(e){ if (w) w.close(); if (wp) wp.close(); msg.textContent = ""; toast(e.message, true); }
+  [b1, b2].forEach(b => { if (b) b.disabled = false; });
+}
+
+/* ------------------------------------------------------------- events */
+document.addEventListener("dragover", e => { e.preventDefault(); const z = e.target.closest && e.target.closest("[data-drop]"); $$("[data-drop]").forEach(x => x.classList.toggle("over", x === z)); });
+document.addEventListener("dragleave", e => { if (!e.relatedTarget) $$("[data-drop]").forEach(x => x.classList.remove("over")); });
+document.addEventListener("drop", e => {
+  e.preventDefault(); $$("[data-drop]").forEach(x => x.classList.remove("over"));
+  if (e.target.closest && e.target.closest("[data-drop]")) { const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]; if (f) handleFile(f); }
+});
+document.addEventListener("toggle", e => { const d = e.target; if (d && d.dataset && d.dataset.sev) S.sevOpen[d.dataset.sev] = d.open; }, true);
+document.addEventListener("change", e => {
+  const t = e.target;
+  if (t.id === "pfile") { const f = t.files && t.files[0]; t.value = ""; if (f) handleFile(f); }
+  else if (t.dataset && t.dataset.fy !== undefined) { S.fy = t.value; renderList("final"); }
+  else if (t.dataset && t.dataset.onlycm !== undefined) { S.onlyCommented = t.checked; keepState(renderTable); }
+  else if (t.dataset && t.dataset.upmode !== undefined) { S.up.mode = t.value; if (!("up:title" in S.drafts)) S.up.title = (t.value === "replace" && S.up.existing) ? S.up.existing.title : S.up.parsedTitle; renderUpload(); }
+  else if (t.id === "pickpl") S.pickPresent = t.value;
+});
+document.addEventListener("click", async e => {
+  const t = e.target.closest("[data-open],[data-retry],[data-back],[data-pick],[data-upsave],[data-upcancel],[data-upclose],[data-sure],[data-replace],[data-thread],[data-post],[data-resolve],[data-cdel],[data-show],[data-fcomment],[data-sec],[data-gotodisc],[data-unclean],#calljoin,#callpresent");
+  if (!t) return;
+  const d = t.dataset;
+  if (d.open) return openReview(d.open);
+  if (d.retry) return viewList(d.retry);
+  if (d.back !== undefined) return closeReview();
+  if (d.pick !== undefined) { const f = $("#pfile"); if (f) f.click(); return; }
+  if (d.upsave !== undefined) return saveUpload(t);
+  if (d.upcancel !== undefined) { if (S.up && S.up.replaceId) S.up = { phase:"idle", replaceId:S.up.replaceId }; else S.up = null; delete S.drafts["up:title"]; delete S.drafts["up:fy"]; return renderUpload(); }
+  if (d.upclose !== undefined) { S.up = null; const h = $("#rv_replace"); if (h) h.innerHTML = ""; return; }
+  if (d.replace !== undefined) { S.up = { phase:"idle", replaceId:S.rv.review.id }; renderUpload(); const h = $("#rv_replace"); if (h) h.scrollIntoView({ block:"nearest", behavior:"smooth" }); return; }
+  if (d.sure) return doSure(d.sure);
+  if (d.thread !== undefined) { S.openThreads[d.thread] = !S.openThreads[d.thread]; if (S.openThreads[d.thread]) return openThread(d.thread); return keepState(renderTable); }
+  if (d.post !== undefined) return postComment(d.post, t);
+  if (d.resolve) return resolveComment(d.resolve, d.v === "1");
+  if (d.cdel) return deleteComment(d.cdel);
+  if (d.show) return showRow(d.show);
+  if (d.fcomment) return commentOnFinding(d.fcomment);
+  if (d.sec) { S.secClosed[d.sec] = !S.secClosed[d.sec]; return keepState(renderTable); }
+  if (d.gotodisc !== undefined) { const el = $("#discussion"); if (el) el.scrollIntoView({ behavior:"smooth", block:"start" }); return; }
+  if (d.unclean !== undefined) { S.clean = false; document.body.classList.remove("clean"); try { history.replaceState("pl", "", "?open=" + encodeURIComponent(S.rv.review.id)); } catch(err){} return renderReview(); }
+  if (t.id === "calljoin") return joinCall(false);
+  if (t.id === "callpresent") return joinCall(true);
+});
+document.addEventListener("keydown", e => { if ((e.key === "Enter") && (e.ctrlKey || e.metaKey) && e.target.dataset && e.target.dataset.draft && e.target.tagName === "TEXTAREA") { const b = e.target.closest(".compose").querySelector("[data-post]"); if (b) b.click(); } });
+
+/* ------------------------------------------------------------- shell */
+function markTab(){ $$(".tabbtn").forEach(b => b.setAttribute("aria-current", b.dataset.view === S.view ? "page" : "false")); }
+async function goView(v){
+  S.view = v; S.rv = null; S.an = null; S.up = null; stopPoll(); markTab(); window.scrollTo(0, 0);
+  if (v === "call") return viewCall();
+  return viewList(v);
+}
+function openGate(msg){ $("#gate").hidden = false; $("#app").hidden = true; if (msg) $("#gerr").textContent = msg; }
+$("#signout").addEventListener("click", () => { try { sessionStorage.removeItem("bhb_staff_email"); } catch(e){} openGate(); });
+async function boot(){
+  $("#app").hidden = false; $("#views").innerHTML = `<div class="loading">Loading…</div>`;
+  const q = new URLSearchParams(location.search), openId = q.get("open"), clean = q.get("clean") === "1";
+  if (openId && clean) { S.clean = true; document.body.classList.add("clean"); }
+  let d;
+  try { d = await call("bootstrap"); } catch(e){ $("#views").innerHTML = `<div class="empty">${esc(e.message)}<br><br><span class="muted">Open this from the Staff Portal so it knows who you are.</span></div>`; return; }
+  S.me = d.me; S.tabs = Array.isArray(d.tabs) ? d.tabs : null; $("#whoname").textContent = S.me.name;
+  if (S.tabs) $$(".tabbtn").forEach(b => { if (!S.tabs.includes(b.dataset.view)) b.remove(); });
+  $$(".tabbtn").forEach(b => b.addEventListener("click", () => { if (S.clean) { S.clean = false; document.body.classList.remove("clean"); } if (S.rv) { try { history.replaceState(null, "", location.pathname); } catch(e){} } goView(b.dataset.view); }));
+  const c = d.counts || {}; setBadge("draft", c.draft); setBadge("final", c.final);
+  if (openId) { S.direct = true; return openReview(openId, { clean }); }
+  const first = $(".tabbtn"); goView(first ? first.dataset.view : "draft");
+}
+(function(){ if (staffEmail()) { $("#gate").hidden = true; boot(); } else openGate(); })();
+</script>
+</body>
+</html>
