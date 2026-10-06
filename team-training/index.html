@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en-GB" data-brand="bhb">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Team Training — Black Horse Beamish</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/train.css">
+<style>
+:root{
+  --sage:#4E5F4F; --sage-70:#7B887C; --sage-10:#EDEFED; --sage-dark:#3B483C;
+  --bone:#F7F7F7; --celadon:#C1C8B4; --mist:#E7E7E7; --white:#fff; --ink:#262626; --gold:#C9A56B;
+  --attention:#B08D57; --attention-bg:#F7F0E4; --alert:#8C4A3F; --alert-bg:#F6EAE8; --good:#4F6B4F; --good-bg:#EDF2ED;
+  --display:"Cormorant Garamond",Georgia,serif; --body:Raleway,"Helvetica Neue",Arial,sans-serif;
+  --track-label:.18em; --radius:10px; --shadow:0 1px 2px rgba(38,38,38,.06),0 8px 24px rgba(38,38,38,.07); --maxw:980px;
+}
+*{box-sizing:border-box} html,body{margin:0;padding:0}
+body{font-family:var(--body); color:var(--ink); background:var(--bone); font-size:15px; line-height:1.5; -webkit-text-size-adjust:100%}
+h1,h2,h3,h4{font-family:var(--display); font-weight:600; margin:0; letter-spacing:.01em}
+button,input,textarea,select{font:inherit; color:inherit}
+[hidden]{display:none!important}
+.shell{max-width:var(--maxw); margin:0 auto; padding:0 16px 64px}
+#gate{position:fixed; inset:0; background:var(--sage); z-index:100; display:flex; align-items:center; justify-content:center; padding:24px}
+.gatecard{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); width:100%; max-width:380px; padding:32px 28px; text-align:center}
+.gatecard h1{font-size:26px; color:var(--sage); line-height:1.15}
+.gatecard .sub{font-size:11px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); margin:6px 0 22px}
+.gateerr{color:var(--alert); font-size:13px; min-height:18px; margin-top:8px}
+header.top{background:var(--sage); color:var(--white)}
+.topin{max-width:var(--maxw); margin:0 auto; padding:14px 16px; display:flex; align-items:center; gap:18px; flex-wrap:wrap}
+.brand{font-family:var(--display); font-size:21px; line-height:1.1}
+.brand small{display:block; font-family:var(--body); font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; opacity:.75}
+.who{margin-left:auto; display:flex; align-items:center; gap:10px; font-size:12px; opacity:.9}
+.who button{background:transparent; border:1px solid rgba(255,255,255,.4); color:var(--white); border-radius:6px; padding:5px 10px; cursor:pointer; font-size:11px; letter-spacing:.06em; text-transform:uppercase}
+nav.tabs{background:var(--sage-dark)}
+.tabsin{max-width:var(--maxw); margin:0 auto; padding:0 16px; display:flex; gap:2px; overflow-x:auto}
+.tabbtn{background:transparent; border:0; cursor:pointer; color:rgba(255,255,255,.72); padding:12px 16px; font-size:12px; font-weight:600; white-space:nowrap; letter-spacing:var(--track-label); text-transform:uppercase; border-bottom:3px solid transparent}
+.tabbtn[aria-current="page"]{color:var(--white); border-bottom-color:var(--gold)}
+.btn{border:1px solid var(--sage); background:var(--sage); color:var(--white); border-radius:8px; padding:10px 18px; cursor:pointer; font-size:12px; font-weight:700; letter-spacing:var(--track-label); text-transform:uppercase; min-height:42px}
+.btn:hover{background:var(--sage-dark)} .btn.ghost{background:var(--white); color:var(--sage)} .btn.ghost:hover{background:var(--sage-10)}
+.btn.gold{background:var(--gold); border-color:var(--gold); color:#2b2415} .btn.small{min-height:34px; padding:6px 12px; font-size:11px}
+.btn.danger{background:var(--white); color:var(--alert); border-color:var(--alert)}
+.btn:disabled{opacity:.5; cursor:default}
+.chip{border:1px solid var(--mist); background:var(--white); border-radius:999px; padding:6px 13px; cursor:pointer; font-size:13px; min-height:34px}
+.chip:hover{background:var(--sage-10)} .chip[aria-pressed="true"]{background:var(--sage); border-color:var(--sage); color:var(--white); font-weight:600}
+.card{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); padding:16px 18px; margin-bottom:12px}
+.muted{color:var(--sage-70)} .empty{padding:36px 20px; text-align:center; color:var(--sage-70)} .loading{padding:60px; text-align:center; color:var(--sage-70)}
+.toast{position:fixed; left:50%; bottom:22px; transform:translate(-50%,20px); background:var(--ink); color:#fff; padding:10px 16px; border-radius:8px; font-size:13px; opacity:0; pointer-events:none; transition:.2s; z-index:400; max-width:90vw}
+.toast.on{opacity:1; transform:translate(-50%,0)} .toast.bad{background:var(--alert)}
+
+/* ---- my training ---- */
+.hello{display:grid; gap:14px; grid-template-columns:1fr; margin:16px 0}
+.progress{height:10px; border-radius:99px; background:var(--mist); overflow:hidden; margin:8px 0 4px}
+.progress i{display:block; height:100%; background:linear-gradient(90deg,var(--sage),var(--gold)); border-radius:99px}
+.bigstat{display:flex; align-items:baseline; gap:10px; flex-wrap:wrap} .bigstat b{font-family:var(--display); font-size:44px; line-height:1; color:var(--sage)} .bigstat span{color:var(--sage-70)}
+.sechead{font-size:11px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); font-weight:700; margin:22px 2px 8px; display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+.sess{display:grid; grid-template-columns:auto 1fr auto; gap:14px; align-items:center; background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); padding:14px 16px; margin-bottom:10px; border-left:4px solid var(--celadon)}
+.sess.ok{border-left-color:var(--good)} .sess.soon{border-left-color:var(--attention)} .sess.overdue{border-left-color:var(--alert)} .sess.todo{border-left-color:var(--gold)}
+.sess .ico{font-size:30px; width:46px; height:46px; display:grid; place-items:center; background:var(--sage-10); border-radius:12px}
+.sess h3{font-size:19px; line-height:1.15} .sess p{margin:3px 0 0; font-size:13px; color:var(--sage-70); line-height:1.35}
+.meta{display:flex; gap:6px; flex-wrap:wrap; margin-top:6px; align-items:center}
+.tag{font-size:10.5px; letter-spacing:.1em; text-transform:uppercase; font-weight:700; padding:3px 8px; border-radius:99px; background:var(--sage-10); color:var(--sage)}
+.tag.ok{background:var(--good-bg); color:var(--good)} .tag.soon{background:var(--attention-bg); color:#7a5f2c} .tag.overdue{background:var(--alert-bg); color:var(--alert)} .tag.todo{background:var(--attention-bg); color:#7a5f2c}
+@media (max-width:560px){ .sess{grid-template-columns:auto 1fr} .sess .go{grid-column:1 / -1} .sess .go .btn{width:100%} }
+.picker{display:flex; gap:6px; flex-wrap:wrap; margin-top:8px}
+
+/* ---- the player ---- */
+#player{position:fixed; inset:0; z-index:200; background:var(--bone); display:flex; flex-direction:column}
+#player .ph{background:var(--sage); color:#fff; display:flex; align-items:center; gap:10px; padding:10px 14px; padding-top:max(10px, env(safe-area-inset-top))}
+#player .ph .t{font-family:var(--display); font-size:18px; flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+#player .ph button{background:transparent; border:1px solid rgba(255,255,255,.4); color:#fff; border-radius:6px; padding:5px 10px; cursor:pointer; font-size:11px; letter-spacing:.06em; text-transform:uppercase}
+#player .bar{height:5px; background:rgba(0,0,0,.08)} #player .bar i{display:block; height:100%; background:var(--gold); transition:width .3s}
+#player .pb{flex:1; overflow:auto; -webkit-overflow-scrolling:touch}
+#player .pin{max-width:760px; margin:0 auto; padding:16px 16px 28px}
+#player .pf{background:#fff; border-top:1px solid var(--mist); padding:10px 14px; padding-bottom:max(10px, env(safe-area-inset-bottom)); display:flex; gap:10px}
+#player .pf .btn{flex:1}
+.player .ts-hero{min-height:44vh; background-image:linear-gradient(160deg,#3B483C,#4E5F4F 60%,#6b7a5c)}
+.player .ts-hero .ts-kicker{color:var(--gold)}
+.player .ts-title{color:var(--ink)} .player .ts-hero .ts-title{color:#fff}
+.player .slidebody{color:var(--ink)} .player .ts-hero .slidebody{color:#fff}
+.player .callout{background:var(--attention-bg); border-left-color:var(--gold); color:var(--ink)}
+.player .vis{--vf:1rem}
+.qtype{font-size:11px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); font-weight:700}
+.qtext{font-family:var(--display); font-size:26px; line-height:1.2; font-weight:700; margin:6px 0 16px}
+.opt{display:flex; gap:12px; align-items:flex-start; width:100%; text-align:left; background:#fff; border:2px solid var(--mist); border-radius:12px; padding:14px 14px; margin-bottom:10px; cursor:pointer; font-size:16px; line-height:1.35; font-weight:600}
+.opt:hover{border-color:var(--celadon)} .opt .k{flex:none; width:28px; height:28px; border-radius:50%; background:var(--sage-10); display:grid; place-items:center; font-size:13px; font-weight:800; color:var(--sage)}
+.opt.sel{border-color:var(--sage); background:var(--sage-10)}
+.opt.right{border-color:var(--good); background:var(--good-bg)} .opt.right .k{background:var(--good); color:#fff}
+.opt.wrong{border-color:var(--alert); background:var(--alert-bg)} .opt.wrong .k{background:var(--alert); color:#fff}
+.opt[disabled]{cursor:default}
+.tfrow{display:grid; grid-template-columns:1fr 1fr; gap:10px} .tfrow .opt{justify-content:center; font-size:20px; font-weight:800; margin:0}
+.fb{border-radius:12px; padding:14px 16px; margin-top:6px; font-size:15px; line-height:1.45}
+.fb.good{background:var(--good-bg); border-left:4px solid var(--good)} .fb.bad{background:var(--alert-bg); border-left:4px solid var(--alert)}
+.fb b{display:block; font-size:12px; letter-spacing:var(--track-label); text-transform:uppercase; margin-bottom:3px}
+.result{text-align:center; padding:26px 6px}
+.result .big{font-family:var(--display); font-size:64px; line-height:1; color:var(--sage)} .result.fail .big{color:var(--alert)}
+.result h2{font-size:30px; margin:6px 0}
+.result .notice{margin:16px auto 0; max-width:420px; padding:12px 14px; border-radius:10px; background:var(--sage-10); color:var(--sage-dark); font-size:14px}
+
+/* ---- the record ---- */
+.toolrow{display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:14px 0 8px}
+.toolrow .sp{margin-left:auto}
+.mwrap{overflow:auto; background:#fff; border-radius:var(--radius); box-shadow:var(--shadow); max-height:72vh}
+table.mx{border-collapse:separate; border-spacing:0; font-size:12.5px; min-width:100%}
+.mx th,.mx td{padding:7px 8px; border-bottom:1px solid var(--mist); border-right:1px solid #f1f1f1; text-align:center; white-space:nowrap}
+.mx thead th{position:sticky; top:0; z-index:3; background:var(--sage-10); height:132px; vertical-align:bottom; padding:6px 2px}
+.mx thead th span{display:inline-block; writing-mode:vertical-rl; transform:rotate(180deg); font-size:11px; font-weight:700; max-height:120px; overflow:hidden; text-overflow:ellipsis}
+.mx th.nm,.mx td.nm{position:sticky; left:0; z-index:2; background:#fff; text-align:left; min-width:150px; max-width:190px; overflow:hidden; text-overflow:ellipsis; font-weight:600; cursor:pointer; box-shadow:1px 0 0 var(--mist)}
+.mx thead th.nm{z-index:4; background:var(--sage-10); vertical-align:middle}
+.mx td.sum{font-weight:700; color:var(--sage)}
+.mx td.c{min-width:38px} .c.ok{background:var(--good-bg); color:var(--good); font-weight:700} .c.soon{background:var(--attention-bg); color:#7a5f2c; font-weight:700}
+.c.overdue{background:var(--alert-bg); color:var(--alert); font-weight:700} .c.todo{background:#fff; color:var(--alert)} .c.na{color:#cfd3cf} .c.opt2{color:var(--good); background:#fbfdfb}
+.legend{display:flex; gap:12px; flex-wrap:wrap; font-size:12px; color:var(--sage-70); margin:8px 2px}
+.legend i{display:inline-block; width:14px; height:14px; border-radius:4px; vertical-align:-3px; margin-right:4px}
+.drawer{position:fixed; right:0; top:0; bottom:0; width:min(520px,100%); background:var(--bone); z-index:300; box-shadow:-8px 0 30px rgba(0,0,0,.2); display:flex; flex-direction:column}
+.drawer .dh{background:var(--sage); color:#fff; padding:14px 16px; display:flex; align-items:center; gap:10px} .drawer .dh h3{font-size:22px; flex:1}
+.drawer .dh button{background:transparent; border:1px solid rgba(255,255,255,.4); color:#fff; border-radius:6px; padding:5px 10px; cursor:pointer}
+.drawer .db{overflow:auto; padding:14px 16px 40px; flex:1}
+.drawer table{width:100%; border-collapse:collapse; font-size:13px} .drawer td{padding:7px 4px; border-bottom:1px solid var(--mist); vertical-align:top}
+.field{display:flex; flex-direction:column; gap:4px; margin-bottom:10px} .field label{font-size:11px; letter-spacing:var(--track-label); text-transform:uppercase; font-weight:700; color:var(--sage-70)}
+.field input,.field select{border:1px solid var(--celadon); border-radius:8px; padding:9px 10px; background:#fff}
+.bysess .sess{grid-template-columns:1fr auto}
+details.out{margin-top:6px; font-size:13px} details.out summary{cursor:pointer; color:var(--sage); font-weight:600}
+.rt{width:100%; border-collapse:collapse; font-size:14px} .rt td{padding:7px 8px; border-bottom:1px solid var(--mist); vertical-align:top}
+@media print{
+  body.printing > *:not(#report){display:none!important}
+  body.printing #report{position:static!important; width:100%!important; box-shadow:none; display:block}
+  body.printing #report .dh button{display:none}
+  body.printing #report .dh{background:#fff!important; color:#000!important; border-bottom:2px solid #000}
+  body.printing #report .db{overflow:visible!important}
+  body.printing{background:#fff}
+}
+</style>
+</head>
+<body>
+<div id="gate"><div class="gatecard"><h1>Team Training</h1><div class="sub">Black Horse Beamish</div>
+  <p style="margin:0 0 16px;font-size:14px;color:var(--sage-70)">This opens from the Staff Portal, which knows who you are.</p>
+  <a href="https://app.blackhorsebeamish.co.uk/portal/app.html" style="display:block;padding:12px;border-radius:8px;background:var(--sage);color:#fff;text-decoration:none;font-weight:600;letter-spacing:var(--track-label);text-transform:uppercase;font-size:12px">Open the Staff Portal</a>
+  <div class="gateerr" id="gerr"></div></div></div>
+<div id="app" hidden>
+  <header class="top"><div class="topin"><div class="brand">Team Training<small>Black Horse Beamish</small></div>
+    <div class="who"><span id="whoname"></span><button id="signout">Sign out</button></div></div></header>
+  <nav class="tabs"><div class="tabsin" role="tablist" id="tabs"></div></nav>
+  <div class="shell"><div id="views"></div></div>
+</div>
+<div id="player" class="player" hidden></div>
+<div class="toast" id="toast"></div>
+<script src="assets/lq-lite.js"></script>
+<script src="assets/train-visuals.js"></script>
+<script>
+const CFG = { SUPABASE_URL:"https://safcrtrfdzsnftghibot.supabase.co", SUPABASE_KEY:"sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU" };
+const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
+const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const S = { config:null, me:null, sessions:[], depts:[], myDepts:[], records:[], certs:[], view:"learn", team:null, rv:"person", dept:"", find:"", only:"", open:null, hist:null, cache:{} };
+const LS = "bhb_training_";
+function toast(msg, bad){ const t=$("#toast"); t.textContent=msg; t.className="toast on"+(bad?" bad":""); clearTimeout(toast._t); toast._t=setTimeout(()=>{t.className="toast";}, bad?5200:2600); }
+function staffEmail(){ try { return sessionStorage.getItem("bhb_staff_email") || ""; } catch(e){ return ""; } }
+async function call(action, payload){
+  const r = await fetch(CFG.SUPABASE_URL + "/functions/v1/training-api", { method:"POST", headers:{ "Content-Type":"application/json", Authorization:"Bearer "+CFG.SUPABASE_KEY, apikey:CFG.SUPABASE_KEY }, body: JSON.stringify({ action, staff_email: staffEmail(), ...(payload||{}) }) });
+  let d = {}; try { d = await r.json(); } catch(e){}
+  if (!r.ok || d.error) throw new Error(d.error || `Request failed (${r.status})`);
+  return d;
+}
+const fmtDay = iso => { if(!iso) return ""; try { return new Date(iso).toLocaleDateString("en-GB",{ timeZone:"Europe/London", day:"numeric", month:"short", year:"numeric" }); } catch(e){ return String(iso).slice(0,10); } };
+const fmtShort = iso => { if(!iso) return ""; try { return new Date(iso).toLocaleDateString("en-GB",{ timeZone:"Europe/London", day:"numeric", month:"short" }); } catch(e){ return ""; } };
+const addMonths = (iso, n) => { const d = new Date(iso); d.setMonth(d.getMonth() + n); return d; };
+const deptLabel = k => (S.depts.find(d => d.key === k) || {}).label || k;
+const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+
+/* ------------------------------------------------------------- who needs what */
+// A session is required of someone when its audience says "all", or shares a department with them, and it has been issued.
+const audienceHas = (s, depts) => s.audience.includes("all") || s.audience.some(a => (depts || []).includes(a));
+const required = (s, depts) => !!s.issuedAt && audienceHas(s, depts);
+// Where a person stands on one session. A pass only counts if it was made on or after the date the session was issued.
+//   not passed yet: due by (the later of issue date and the day they joined) + grace days  -> todo, then overdue
+//   passed: renew by pass date + the session's renewal months                              -> ok, soon (30 days), overdue
+function statusOf(s, sess /* { last, lastPass } or undefined */, joined){
+  if (!s.issuedAt) return { st:"notissued", last: sess && sess.last };
+  const lp = sess && sess.lastPass, now = Date.now();
+  if (!lp || lp.completed_at < s.issuedAt) {
+    const start = Math.max(new Date(s.issuedAt).getTime(), joined ? new Date(joined).getTime() : 0), due = new Date(start + (s.graceDays || 7) * 864e5);
+    return { st: now > due ? "overdue" : "todo", due, last: sess && sess.last, tried: !!(sess && sess.last && sess.last.completed_at >= s.issuedAt), first:true };
+  }
+  const due = addMonths(lp.completed_at, s.refreshMonths || 12), days = (due - now) / 864e5;
+  return { st: days < 0 ? "overdue" : days <= 30 ? "soon" : "ok", lp, due };
+}
+// my own latest records per session
+function mySessions(){
+  const m = {};
+  for (const r of S.records) { const c = m[r.session_key] || (m[r.session_key] = { last:null, lastPass:null, attempts:0 }); c.attempts++; if (!c.last) c.last = r; if (r.passed && !c.lastPass) c.lastPass = r; }
+  return m;
+}
+const myDepartments = () => S.myDepts.length ? S.myDepts : ((() => { try { return JSON.parse(localStorage.getItem(LS + "depts") || "[]"); } catch(e){ return []; } })());
+const TAG = { ok:["ok","Done"], soon:["soon","Renewal due soon"], overdue:["overdue","Overdue"], todo:["todo","To do"], notissued:["","Optional"] };
+
+/* ------------------------------------------------------------- my training */
+function renderLearn(){
+  const mine = mySessions(), depts = myDepartments(), joined = S.me.joined;
+  const req = S.sessions.filter(s => required(s, depts)), oth = S.sessions.filter(s => !required(s, depts));
+  const stat = s => statusOf(s, mine[s.key], joined);
+  const done = req.filter(s => ["ok","soon"].includes(stat(s).st)).length;
+  const late = req.filter(s => stat(s).st === "overdue").length, todo = req.filter(s => stat(s).st === "todo").length;
+  const card = s => {
+    const x = stat(s), [cls, label] = TAG[x.st];
+    const note = x.st === "todo" ? `Due by ${fmtDay(x.due)}` : x.st === "overdue" ? (x.first ? `Was due by ${fmtDay(x.due)}` : `Renewal was due ${fmtDay(x.due)}`)
+      : x.lp ? `Done ${fmtDay(x.lp.completed_at)} · renew by ${fmtDay(x.due)}` : (x.last ? `Last try ${x.last.score}/${x.last.total}` : "");
+    const failed = x.tried && x.last && !x.last.passed ? `<span class="tag overdue">Not passed yet</span>` : "";
+    return `<div class="sess ${x.st === "notissued" ? "" : x.st}"><div class="ico">${esc(s.icon)}</div><div><h3>${esc(s.title)}</h3><p>${esc(s.blurb)}</p>
+      <div class="meta"><span class="tag ${cls}">${label}</span>${failed}<span class="tag">${s.mins} min</span>${s.audience.includes("all") ? `<span class="tag">Everyone</span>` : s.audience.map(a => `<span class="tag">${esc(deptLabel(a))}</span>`).join("")}${note ? `<span class="muted" style="font-size:12px;font-weight:${x.st === "todo" || x.st === "overdue" ? 700 : 400}">${esc(note)}</span>` : ""}</div></div>
+      <div class="go"><button class="btn ${x.st === "ok" || x.st === "notissued" ? "ghost" : ""}" data-act="start" data-k="${esc(s.key)}">${x.lp ? "Do it again" : "Start"}</button></div></div>`;
+  };
+  const pick = !S.myDepts.length ? `<div class="card"><b>Where do you work?</b><div class="muted" style="font-size:13px">Pick your areas so the right sessions show as required for you. Your manager can set this for you too.</div>
+    <div class="picker">${S.depts.map(d => `<button class="chip" data-act="mydept" data-k="${d.key}" aria-pressed="${depts.includes(d.key)}">${esc(d.label)}</button>`).join("")}</div></div>` : "";
+  const certs = S.certs.length ? `<div class="sechead">Your certificates</div><div class="card">${S.certs.map(c => `<div style="display:flex;gap:10px;justify-content:space-between;flex-wrap:wrap;padding:4px 0"><b>${esc(c.cert_label)}</b><span class="muted">${c.expires_on ? `expires ${fmtDay(c.expires_on)}` : c.obtained_on ? `obtained ${fmtDay(c.obtained_on)}` : ""}</span></div>`).join("")}</div>` : "";
+  const pct = req.length ? Math.round(done / req.length * 100) : 100;
+  const order = { overdue:0, todo:1, soon:2, ok:3 };
+  req.sort((a, b) => order[stat(a).st] - order[stat(b).st]);
+  const msg = late ? `${late} overdue${todo ? ` and ${todo} more to do` : ""}. Please do ${late === 1 ? "it" : "them"} as soon as you can.` : todo ? `${todo} to do. Each takes 10 to 15 minutes, on your phone.` : req.length ? "You are all up to date. Thank you." : "Nothing has been issued to you yet.";
+  $("#views").innerHTML = `<div class="hello"><div class="card" style="margin:0"><div class="bigstat"><b>${done}</b><span>of ${req.length} required sessions up to date</span></div>
+      <div class="progress"><i style="width:${pct}%"></i></div><div class="${late ? "" : "muted"}" style="font-size:13px;${late ? "color:var(--alert);font-weight:700" : ""}">${msg}</div></div>${pick}</div>
+    ${req.length ? `<div class="sechead">Required for you</div>${req.map(card).join("")}` : ""}
+    ${oth.length ? `<div class="sechead">${req.length ? "Other sessions you can do" : "Sessions"}</div>${oth.map(card).join("")}` : ""}${certs}
+    <p class="muted" style="font-size:12px;margin-top:22px">You do each session on your own, at your own pace: read the slides, then answer 10 questions. The pass mark is 8 out of 10 (80%). If you score less you go back over the slides and do it again; every attempt is saved against your name for the training record. A new session is due within a week of being issued, then renewed on a set date each year.</p>`;
+}
+
+/* ------------------------------------------------------------- the player */
+let P = null;
+async function loadSession(s){
+  if (S.cache[s.key]) return S.cache[s.key];
+  const r = await fetch(s.file + "?v=" + (s.version || 1), { cache:"no-cache" });
+  if (!r.ok) throw new Error("That session could not be loaded. Try again in a moment.");
+  return (S.cache[s.key] = await r.json());
+}
+async function startSession(key){
+  const meta = S.sessions.find(s => s.key === key); if (!meta) return;
+  let data; try { toast("Loading…"); data = await loadSession(meta); } catch(e){ return toast(e.message, true); }
+  const slides = data.cards.filter(c => c.kind === "slide"), checks = data.cards.filter(c => c.kind === "check");
+  P = { meta, data, step:0, slides, checks: checks.map(c => prepCheck(c)), answers:[], started:Date.now(), phase:"learn", sel:[], locked:false, score:0, saved:null };
+  $("#player").hidden = false; document.body.style.overflow = "hidden"; paint();
+}
+function prepCheck(c){
+  if (c.type === "tf") return { ...c, opts:[{ t:"True", v:true },{ t:"False", v:false }] };
+  const idx = c.options.map((t, i) => ({ t, i })); const sh = shuffle(idx);
+  return { ...c, opts: sh.map(o => ({ t:o.t, v:o.i })) };
+}
+function paint(){
+  const total = P.slides.length + P.checks.length;
+  const pos = P.phase === "learn" ? P.step : P.phase === "check" ? P.slides.length + P.step : total;
+  const head = `<div class="ph"><span class="t">${esc(P.meta.icon)} ${esc(P.meta.title)}</span><button data-act="exit">Close</button></div><div class="bar"><i style="width:${Math.round(pos / total * 100)}%"></i></div>`;
+  let body = "", foot = "";
+  if (P.phase === "learn") {
+    const c = P.slides[P.step], first = P.step === 0;
+    body = `<div class="ts-wrap">${LQ.trainSlideHtml({ title: first ? `${P.meta.icon} ${c.title}` : c.title, body:c.body, kicker:c.kicker, visual:c.visual, layout: c.layout || (c.visual ? "visual" : "plain") })}</div>`;
+    const last = P.step === P.slides.length - 1;
+    foot = `<button class="btn ghost" data-act="back" ${first ? "disabled" : ""}>Back</button><button class="btn" data-act="next">${last ? "Start the questions" : "Next"}</button>`;
+  } else if (P.phase === "check") {
+    const c = P.checks[P.step], multi = c.type === "multi", label = c.type === "tf" ? "True or false" : multi ? "Choose all that apply" : "Choose one";
+    const answered = P.locked, right = P.lastRight;
+    const optHtml = c.type === "tf"
+      ? `<div class="tfrow">${c.opts.map((o, i) => optBtn(c, o, i, "")).join("")}</div>`
+      : c.opts.map((o, i) => optBtn(c, o, i, String.fromCharCode(65 + i))).join("");
+    body = `<div class="qtype">Question ${P.step + 1} of ${P.checks.length} · ${label}</div><div class="qtext">${esc(c.q)}</div>${optHtml}
+      ${answered ? `<div class="fb ${right ? "good" : "bad"}"><b>${right ? "Correct" : "Not quite"}</b>${esc(c.why)}</div>` : ""}`;
+    foot = answered ? `<button class="btn" data-act="next">${P.step === P.checks.length - 1 ? "See my result" : "Next question"}</button>`
+      : multi ? `<button class="btn" data-act="submit" ${P.sel.length ? "" : "disabled"}>Check my answer</button>` : `<div class="muted" style="flex:1;text-align:center;font-size:13px;align-self:center">Tap an answer</div>`;
+  } else {
+    const pass = P.score / P.checks.length >= (P.meta.passMark || 0.8) - 1e-9;
+    const dueTxt = pass ? fmtDay(addMonths(new Date(), P.meta.refreshMonths || 12)) : "";
+    body = `<div class="result ${pass ? "" : "fail"}"><div class="big">${P.score}/${P.checks.length}</div><h2>${pass ? "Well done, you passed" : "Not quite there yet"}</h2>
+      <div class="muted">${pass ? `Your result is saved to your training record. Refresh by ${esc(dueTxt)}.` : `You need ${Math.ceil((P.meta.passMark || 0.8) * P.checks.length)} out of ${P.checks.length}. Have another look at the slides, then try again.`}</div>
+      <div class="notice" id="savestate">${P.saved === true ? "Saved to your record." : P.saved === "err" ? "Could not save yet. Check your signal, then press Save again." : "Saving…"}</div>
+      ${pass && P.meta.external ? `<div class="notice" style="background:var(--attention-bg);color:#6a5326;margin-top:10px">${esc(P.meta.external)}</div>` : ""}</div>`;
+    foot = `<button class="btn ghost" data-act="exit">${pass ? "Done" : "Close"}</button>${pass ? "" : `<button class="btn" data-act="retry">Review and try again</button>`}${P.saved === "err" ? `<button class="btn gold" data-act="save">Save again</button>` : ""}`;
+  }
+  $("#player").innerHTML = `${head}<div class="pb"><div class="pin">${body}</div></div><div class="pf">${foot}</div>`;
+  $("#player .pb").scrollTop = 0;
+}
+function optBtn(c, o, i, key){
+  const sel = P.sel.includes(i), locked = P.locked;
+  const isRight = c.type === "multi" ? c.answer.includes(o.v) : c.type === "tf" ? c.answer === o.v : c.answer === o.v;
+  let cls = sel ? "sel" : "";
+  if (locked) cls = isRight ? "right" : sel ? "wrong" : "";
+  return `<button class="opt ${cls}" data-act="opt" data-i="${i}" ${locked ? "disabled" : ""}>${key ? `<span class="k">${key}</span>` : ""}<span>${esc(o.t)}</span></button>`;
+}
+function grade(){
+  const c = P.checks[P.step]; let ok;
+  if (c.type === "multi") { const chosen = P.sel.map(i => c.opts[i].v).sort().join(","), want = c.answer.slice().sort().join(","); ok = chosen === want; }
+  else ok = c.opts[P.sel[0]].v === c.answer;
+  P.lastRight = ok; P.locked = true; if (ok) P.score++;
+  paint();
+}
+async function finishSession(){
+  P.phase = "result"; P.saved = null; paint(); await saveResult();
+}
+async function saveResult(){
+  const rec = { session_key:P.meta.key, session_version:P.meta.version || 1, score:P.score, total:P.checks.length, pass_mark:P.meta.passMark || 0.8, seconds:Math.round((Date.now() - P.started) / 1000) };
+  try {
+    const d = await call("complete", rec); S.records.unshift(d.record); P.saved = true; S.team = null;
+  } catch(e){ P.saved = "err"; toast(e.message, true); }
+  if ($("#player") && !$("#player").hidden) paint();
+  if (P.saved === true) { renderLearn(); }
+}
+function closePlayer(){ $("#player").hidden = true; document.body.style.overflow = ""; P = null; if (S.view === "learn") renderLearn(); }
+
+document.addEventListener("click", async e => {
+  const b = e.target.closest("[data-act]"); if (!b) return;
+  const a = b.dataset.act;
+  try {
+    if (a === "start") return startSession(b.dataset.k);
+    if (a === "exit") { if (P && P.phase !== "result" && !confirm("Leave this session? Your progress will be lost.")) return; return closePlayer(); }
+    if (a === "back") { if (P.step > 0) { P.step--; paint(); } return; }
+    if (a === "next") {
+      if (P.phase === "learn") { if (P.step < P.slides.length - 1) { P.step++; } else { P.phase = "check"; P.step = 0; P.sel = []; P.locked = false; } return paint(); }
+      if (P.phase === "check") { if (P.step < P.checks.length - 1) { P.step++; P.sel = []; P.locked = false; return paint(); } return finishSession(); }
+      return;
+    }
+    if (a === "opt") {
+      const c = P.checks[P.step], i = +b.dataset.i;
+      if (P.locked) return;
+      if (c.type === "multi") { P.sel = P.sel.includes(i) ? P.sel.filter(x => x !== i) : P.sel.concat(i); return paint(); }
+      P.sel = [i]; return grade();
+    }
+    if (a === "submit") return grade();
+    if (a === "retry") { P.checks = P.data.cards.filter(c => c.kind === "check").map(prepCheck); P.phase = "learn"; P.step = 0; P.score = 0; P.sel = []; P.locked = false; P.started = Date.now(); return paint(); }
+    if (a === "save") { P.saved = null; paint(); return saveResult(); }
+    if (a === "mydept") { const k = b.dataset.k; let cur = myDepartments().slice(); cur = cur.includes(k) ? cur.filter(x => x !== k) : cur.concat(k); try { localStorage.setItem(LS + "depts", JSON.stringify(cur)); } catch(e){} return renderLearn(); }
+    return onRecordAct(a, b);
+  } catch(err){ toast(err.message, true); }
+});
+
+/* ------------------------------------------------------------- the training record (managers) */
+async function loadTeam(force){
+  if (S.team && !force) return;
+  $("#views").innerHTML = `<div class="loading">Loading the record…</div>`;
+  S.team = (await call("team")).people;
+}
+const FILTERS = [["","Everyone"],["overdue","Overdue"],["soon","Renewal due soon"],["todo","To do"]];
+// every required, issued session for a person with its status
+function theirs(p){ return S.sessions.filter(s => required(s, p.departments)).map(s => ({ s, x: statusOf(s, p.sessions[s.key], p.joined) })); }
+function personRows(){
+  let rows = S.team.slice();
+  if (S.dept) rows = rows.filter(p => p.departments.includes(S.dept));
+  if (S.find) rows = rows.filter(p => (p.name + " " + p.email).toLowerCase().includes(S.find.toLowerCase()));
+  if (S.only) rows = rows.filter(p => theirs(p).some(t => t.x.st === S.only));
+  return rows;
+}
+function cellFor(s, p){
+  const x = statusOf(s, p.sessions[s.key], p.joined), reqd = required(s, p.departments);
+  if (x.st === "notissued") return { cls:"na", txt:"·", tip:"Not issued yet" };
+  if (x.st === "ok") return { cls: reqd ? "ok" : "opt2", txt:"✔", tip:`Done ${fmtDay(x.lp.completed_at)}, renew by ${fmtDay(x.due)}` };
+  if (x.st === "soon") return { cls:"soon", txt:"✔", tip:`Renew by ${fmtDay(x.due)}` };
+  if (!reqd) return { cls:"na", txt:"–", tip:"Not required of them" };
+  if (x.st === "overdue") return { cls:"overdue", txt:"!", tip: (x.first ? "Overdue, was due " : "Renewal overdue since ") + fmtDay(x.due) };
+  return { cls:"todo", txt: x.tried ? "✗" : "○", tip: (x.tried ? "Tried, not passed. " : "Not done. ") + "Due by " + fmtDay(x.due) };
+}
+function summary(p){
+  const t = theirs(p); let ok = 0, bad = 0;
+  for (const { x } of t) { if (x.st === "ok" || x.st === "soon") ok++; else if (x.st === "overdue") bad++; }
+  return { n:t.length, ok, bad };
+}
+function renderRecord(){
+  if (!S.team) return;
+  const rows = personRows();
+  const chips = `<button class="chip" data-act="rdept" data-k="" aria-pressed="${!S.dept}">All areas</button>${S.depts.map(d => `<button class="chip" data-act="rdept" data-k="${d.key}" aria-pressed="${S.dept === d.key}">${esc(d.label)}</button>`).join("")}`;
+  const nOver = S.team.filter(p => theirs(p).some(t => t.x.st === "overdue")).length;
+  const tools = `<div class="toolrow"><button class="btn gold" data-act="report">Overdue report (${nOver})</button><button class="btn small ghost" data-act="remind">Send reminder emails now</button><span class="sp"></span><button class="btn small ghost" data-act="csv">Download CSV</button><button class="btn small ghost" data-act="refresh">Refresh</button></div>
+    <div class="toolrow" style="margin-top:0"><input id="rfind" type="search" placeholder="Find someone…" value="${esc(S.find)}" style="border:1px solid var(--celadon);border-radius:99px;padding:8px 14px;min-width:170px">
+    <button class="chip" data-act="rview" data-k="person" aria-pressed="${S.rv === "person"}">By person</button><button class="chip" data-act="rview" data-k="session" aria-pressed="${S.rv === "session"}">By session</button><button class="chip" data-act="rview" data-k="settings" aria-pressed="${S.rv === "settings"}">Settings</button></div>
+    ${S.rv === "settings" ? "" : `<div class="picker" style="margin:0 0 6px">${FILTERS.map(([k, l]) => `<button class="chip" data-act="ronly" data-k="${k}" aria-pressed="${S.only === k}">${l}</button>`).join("")}</div><div class="picker" style="margin:0 0 8px">${chips}</div>`}`;
+  const legend = `<div class="legend"><span><i style="background:var(--good-bg);border:1px solid var(--good)"></i>Up to date</span><span><i style="background:var(--attention-bg);border:1px solid var(--attention)"></i>Renewal within 30 days</span><span><i style="background:var(--alert-bg);border:1px solid var(--alert)"></i>Overdue</span><span><i style="background:#fff;border:1px solid var(--alert)"></i>○ to do (not yet due)</span><span>· not issued · – not required</span></div>`;
+  let main = "";
+  if (S.rv === "person") {
+    main = `<div class="mwrap"><table class="mx"><thead><tr><th class="nm">${rows.length} ${rows.length === 1 ? "person" : "people"}</th><th><span>Up to date</span></th>${S.sessions.map(s => `<th title="${esc(s.title)}"><span>${esc(s.icon)} ${esc(s.title)}</span></th>`).join("")}</tr></thead><tbody>
+      ${rows.map(p => { const sm = summary(p); return `<tr><td class="nm" data-act="person" data-k="${esc(p.email)}" title="${esc(p.email)}">${esc(p.name)}</td><td class="sum" style="color:${sm.bad ? "var(--alert)" : "var(--good)"}">${sm.ok}/${sm.n}</td>${S.sessions.map(s => { const c = cellFor(s, p); return `<td class="c ${c.cls}" title="${esc(c.tip)}">${c.txt}</td>`; }).join("")}</tr>`; }).join("")}</tbody></table></div>${legend}
+      <p class="muted" style="font-size:12px">Tap a name for their departments, history and certificates. A person with no departments set is only required to do the "Everyone" sessions.</p>`;
+  } else if (S.rv === "session") {
+    main = `<div class="bysess">${S.sessions.map(s => {
+      if (!s.issuedAt) return `<div class="sess"><div><h3>${esc(s.icon)} ${esc(s.title)}</h3><div class="muted" style="font-size:13px">Not issued yet. Issue it in Settings.</div></div><div class="tag">Not issued</div></div>`;
+      const reqP = S.team.filter(p => required(s, p.departments) && (!S.dept || p.departments.includes(S.dept)) && (!S.find || (p.name + p.email).toLowerCase().includes(S.find.toLowerCase())));
+      const rowsX = reqP.map(p => ({ p, x: statusOf(s, p.sessions[s.key], p.joined) })), okp = rowsX.filter(r => r.x.st === "ok" || r.x.st === "soon"), out = rowsX.filter(r => r.x.st === "overdue" || r.x.st === "todo");
+      const shown = S.only ? rowsX.filter(r => r.x.st === S.only) : out;
+      if (S.only && !shown.length) return "";
+      const pct = reqP.length ? Math.round(okp.length / reqP.length * 100) : 100, lateN = out.filter(r => r.x.st === "overdue").length;
+      return `<div class="sess ${lateN ? "overdue" : out.length ? "todo" : "ok"}"><div><h3>${esc(s.icon)} ${esc(s.title)}</h3><div class="progress"><i style="width:${pct}%"></i></div>
+        <div class="muted" style="font-size:13px">${okp.length} of ${reqP.length} up to date · issued ${fmtDay(s.issuedAt)} · renews every ${s.refreshMonths} months · ${s.audience.includes("all") ? "everyone" : s.audience.map(deptLabel).join(", ")}</div>
+        ${shown.length ? `<details class="out" ${S.only ? "open" : ""}><summary>${shown.length} ${S.only ? FILTERS.find(f => f[0] === S.only)[1].toLowerCase() : "outstanding"}</summary><div>${shown.map(o => `${esc(o.p.name)} <span class="muted">(${o.x.st === "overdue" ? "overdue" : "due " + fmtShort(o.x.due)})</span>`).join(", ")}</div></details>` : ""}</div><div class="tag ${lateN ? "overdue" : out.length ? "todo" : "ok"}">${lateN ? lateN + " overdue" : out.length ? out.length + " to do" : "All done"}</div></div>`; }).join("")}</div>`;
+  } else {
+    main = renderSettings();
+  }
+  $("#views").innerHTML = tools + main;
+  const f = $("#rfind"); if (f) f.addEventListener("input", e => { S.find = e.target.value; clearTimeout(renderRecord._t); renderRecord._t = setTimeout(() => { renderRecord(); const n = $("#rfind"); n.focus(); n.setSelectionRange(n.value.length, n.value.length); }, 200); });
+}
+function renderSettings(){
+  const issuedN = S.sessions.filter(s => s.issuedAt).length, unissued = S.sessions.filter(s => !s.issuedAt).map(s => s.key);
+  return `<div class="card"><b>How it works</b><div class="muted" style="font-size:13px;margin-top:4px">When you <b>issue</b> a session, everyone it is required of has <b>7 days</b> (or the days set below) to pass it; a new starter has that long from the day they joined. After a pass it renews on the date below. <b>Re-issue</b> makes everyone do it again. Sessions that are not issued stay optional and nobody is chased.</div>
+    <div class="toolrow"><button class="btn small" data-act="issueall" ${unissued.length ? "" : "disabled"}>Issue all ${unissued.length ? `${unissued.length} not yet issued` : "(all issued)"}</button>
+    <label class="chip" style="display:inline-flex;gap:8px;align-items:center;cursor:pointer"><input type="checkbox" id="remon" ${S.config && S.config.reminders_on === false ? "" : "checked"} data-act="remtoggle"> Automatic overdue emails (daily, each person at most once a week)</label></div></div>
+    <div class="mwrap"><table class="mx" style="min-width:760px"><thead><tr><th class="nm" style="height:auto">Session</th><th style="height:auto">Who</th><th style="height:auto">Renews every (months)</th><th style="height:auto">Days to complete</th><th style="height:auto">Issued</th><th style="height:auto"></th></tr></thead><tbody>
+    ${S.sessions.map(s => `<tr><td class="nm" style="cursor:default;max-width:260px;white-space:normal">${esc(s.icon)} ${esc(s.title)}</td><td style="white-space:normal;text-align:left;font-size:12px">${s.audience.includes("all") ? "Everyone" : s.audience.map(deptLabel).join(", ")}</td>
+      <td><input type="number" min="1" max="60" value="${s.refreshMonths}" data-set="${esc(s.key)}" data-f="refresh" style="width:64px;padding:5px;border:1px solid var(--celadon);border-radius:6px"></td>
+      <td><input type="number" min="1" max="60" value="${s.graceDays}" data-set="${esc(s.key)}" data-f="grace" style="width:64px;padding:5px;border:1px solid var(--celadon);border-radius:6px"></td>
+      <td>${s.issuedAt ? fmtDay(s.issuedAt) : `<span class="muted">Not issued</span>`}</td>
+      <td style="white-space:nowrap">${s.issuedAt ? `<button class="btn small ghost" data-act="reissue" data-k="${esc(s.key)}">Re-issue</button> <button class="btn small danger" data-act="withdraw" data-k="${esc(s.key)}">Withdraw</button>` : `<button class="btn small" data-act="issue" data-k="${esc(s.key)}">Issue</button>`}</td></tr>`).join("")}</tbody></table></div>
+    <p class="muted" style="font-size:12px">${issuedN} of ${S.sessions.length} sessions issued. Changing months or days saves as you type and applies to everyone straight away.</p>`;
+}
+// ---- the overdue report: one click, grouped by department, ready to print or send to the managers
+function overdueByDept(){
+  const groups = new Map(); const add = (k, p, items) => { const g = groups.get(k) || []; g.push({ p, items }); groups.set(k, g); };
+  for (const p of S.team) {
+    const items = theirs(p).filter(t => t.x.st === "overdue"); if (!items.length) continue;
+    if (!p.departments.length) add("none", p, items); else for (const d of p.departments) add(d, p, items);
+  }
+  const order = S.depts.map(d => d.key).concat("none");
+  return order.filter(k => groups.has(k)).map(k => ({ key:k, label: k === "none" ? "No department set" : deptLabel(k), people: groups.get(k).sort((a, b) => a.p.name.localeCompare(b.p.name)) }));
+}
+const daysLate = d => Math.max(1, Math.round((Date.now() - new Date(d)) / 864e5));
+function openReport(){
+  const g = overdueByDept(), people = new Set(g.flatMap(x => x.people.map(r => r.p.email))).size, today = fmtDay(new Date().toISOString());
+  const body = g.length ? g.map(d => `<h3 style="margin:22px 0 6px;font-size:22px;border-bottom:2px solid var(--sage);padding-bottom:4px">${esc(d.label)} <span class="muted" style="font-size:15px">· ${d.people.length} ${d.people.length === 1 ? "person" : "people"}</span></h3>
+      <table class="rt"><tbody>${d.people.map(r => `<tr><td style="width:30%"><b>${esc(r.p.name)}</b></td><td>${r.items.map(t => `${esc(t.s.title)} <span class="muted">(${daysLate(t.x.due)} day${daysLate(t.x.due) === 1 ? "" : "s"} late, ${t.x.first ? "was due by" : "renewal was"} ${fmtShort(t.x.due)})</span>`).join("<br>")}</td></tr>`).join("")}</tbody></table>`).join("")
+    : `<div class="card empty">Nobody is overdue. Well done.</div>`;
+  const d = document.createElement("div"); d.id = "report"; d.className = "drawer"; d.style.width = "min(820px,100%)";
+  d.innerHTML = `<div class="dh"><h3>Overdue training report</h3><button data-act="rprint">Print / save as PDF</button><button data-act="rcsv">CSV</button><button data-act="rcopy">Copy</button><button data-act="rclose">Close</button></div>
+    <div class="db" id="reportbody"><div class="muted" style="font-size:13px">Black Horse Beamish · ${esc(today)} · ${people} ${people === 1 ? "person" : "people"} overdue. Someone who works in more than one area is listed under each. Only issued sessions required of them are counted.</div>${body}</div>`;
+  $("#report")?.remove(); document.body.appendChild(d);
+}
+function reportRows(){ const rows = [["Department","Name","Email","Session","Was due","Days late"]]; for (const d of overdueByDept()) for (const r of d.people) for (const t of r.items) rows.push([d.label, r.p.name, r.p.email, t.s.title, fmtDay(t.x.due), daysLate(t.x.due)]); return rows; }
+function toCsv(rows){ return rows.map(r => r.map(v => `"${String(v ?? "").replace(/"/g, '""')}"`).join(",")).join("\r\n"); }
+function download(name, text){ const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["\ufeff" + text], { type:"text/csv" })); a.download = name; document.body.appendChild(a); a.click(); a.remove(); }
+function reportText(){
+  const g = overdueByDept(); if (!g.length) return "Nobody is overdue with their training.";
+  return `Overdue team training, ${fmtDay(new Date().toISOString())}\n` + g.map(d => `\n${d.label.toUpperCase()}\n` + d.people.map(r => `- ${r.p.name}: ${r.items.map(t => `${t.s.title} (${daysLate(t.x.due)} days late)`).join("; ")}`).join("\n")).join("\n");
+}
+function csv(){
+  const rows = [["Name","Email","Departments","Session","Required","Status","Last passed","Score","Due or renew by","Attempts"]];
+  for (const p of personRows()) for (const s of S.sessions) {
+    const x = statusOf(s, p.sessions[s.key], p.joined), reqd = required(s, p.departments), cur = p.sessions[s.key] || {};
+    rows.push([p.name, p.email, p.departments.map(deptLabel).join("; "), s.title, reqd ? "Yes" : "No", {ok:"Up to date",soon:"Renewal due soon",overdue:"Overdue",todo:"To do",notissued:"Not issued"}[x.st], x.lp ? fmtDay(x.lp.completed_at) : "", x.lp ? `${x.lp.score}/${x.lp.total}` : "", x.due ? fmtDay(x.due) : "", cur.attempts || 0]);
+  }
+  for (const p of personRows()) for (const c of p.certs) rows.push([p.name, p.email, "", "CERTIFICATE: " + c.cert_label, "", c.expires_on && new Date(c.expires_on) < new Date() ? "Expired" : "Held", c.obtained_on || "", "", c.expires_on || "", ""]);
+  download(`training-record-${new Date().toISOString().slice(0,10)}.csv`, toCsv(rows));
+}
+const CERTS = [["food-hygiene-l2","Food hygiene, Level 2"],["allergen","Allergen awareness certificate"],["first-aid-at-work","First Aid at Work"],["emergency-first-aid","Emergency First Aid at Work"],["personal-licence","Personal licence (alcohol)"],["fire-marshal","Fire marshal"],["other","Other certificate"]];
+async function openPerson(email){
+  const p = S.team.find(x => x.email === email); if (!p) return;
+  let hist = []; try { hist = (await call("history", { email })).records; } catch(e){}
+  const req = S.sessions.filter(s => required(s, p.departments));
+  const d = document.createElement("div"); d.className = "drawer"; d.id = "drawer";
+  d.innerHTML = `<div class="dh"><h3>${esc(p.name)}</h3><button data-act="dclose">Close</button></div><div class="db">
+    <div class="muted" style="font-size:13px;margin-bottom:10px">${esc(p.email)}</div>
+    <div class="sechead" style="margin-top:4px">Works in</div><div class="picker">${S.depts.map(x => `<button class="chip" data-act="pdept" data-e="${esc(email)}" data-k="${x.key}" aria-pressed="${p.departments.includes(x.key)}">${esc(x.label)}</button>`).join("")}</div>
+    <div class="sechead">Required sessions</div>
+    ${req.map(s => { const x = statusOf(s, p.sessions[s.key], p.joined), [cls, label] = TAG[x.st]; return `<div style="display:flex;gap:8px;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--mist)"><span>${esc(s.icon)} ${esc(s.title)}</span><span class="tag ${cls}">${label}${x.due ? (x.st === "overdue" ? " · was due " : x.first ? " · due by " : " · renew by ") + fmtShort(x.due) : ""}</span></div>`; }).join("") || `<div class="muted">Nothing issued and required yet. Pick their departments above, and issue sessions in Settings.</div>`}
+    <div class="sechead">Certificates</div>
+    ${p.certs.map(c => `<div style="padding:6px 0;border-bottom:1px solid var(--mist);display:flex;gap:8px;justify-content:space-between;align-items:center"><div><b>${esc(c.cert_label)}</b><div class="muted" style="font-size:12px">${c.obtained_on ? "Obtained " + fmtDay(c.obtained_on) : ""}${c.expires_on ? " · expires " + fmtDay(c.expires_on) : ""}${c.note ? " · " + esc(c.note) : ""}</div></div><button class="btn small danger" data-act="cdel" data-e="${esc(email)}" data-id="${esc(c.id)}">Remove</button></div>`).join("") || `<div class="muted" style="font-size:13px">None logged.</div>`}
+    <div class="card" style="margin-top:10px"><div class="field"><label>Add a certificate</label><select id="ck">${CERTS.map(c => `<option value="${c[0]}">${esc(c[1])}</option>`).join("")}</select></div>
+      <div class="field"><label>Name, if other</label><input id="cl" placeholder="e.g. Fire marshal course"></div>
+      <div style="display:flex;gap:10px"><div class="field" style="flex:1"><label>Obtained</label><input type="date" id="co"></div><div class="field" style="flex:1"><label>Expires</label><input type="date" id="ce"></div></div>
+      <div class="field"><label>Note</label><input id="cn" placeholder="Provider, certificate number…"></div><button class="btn small" data-act="csave" data-e="${esc(email)}">Save certificate</button></div>
+    <div class="sechead">Every attempt</div>
+    <table>${hist.map(h => `<tr><td>${fmtDay(h.completed_at)}</td><td>${esc((S.sessions.find(s => s.key === h.session_key) || { title:h.session_key }).title)}</td><td>${h.score}/${h.total}</td><td>${h.passed ? "Passed" : "Not passed"}</td></tr>`).join("") || `<tr><td class="muted">No attempts yet.</td></tr>`}</table></div>`;
+  $("#drawer")?.remove(); document.body.appendChild(d);
+}
+async function onRecordAct(a, b){
+  if (a === "rdept") { S.dept = b.dataset.k; return renderRecord(); }
+  if (a === "rview") { S.rv = b.dataset.k; return renderRecord(); }
+  if (a === "ronly") { S.only = b.dataset.k; return renderRecord(); }
+  if (a === "report") return openReport();
+  if (a === "rclose") return $("#report")?.remove();
+  if (a === "rprint") { document.body.classList.add("printing"); window.print(); setTimeout(() => document.body.classList.remove("printing"), 500); return; }
+  if (a === "rcsv") return download(`overdue-training-${new Date().toISOString().slice(0,10)}.csv`, toCsv(reportRows()));
+  if (a === "rcopy") { const t = reportText(); try { await navigator.clipboard.writeText(t); toast("Copied. Paste it into an email or message."); } catch(e){ toast("Copy did not work: use Print or CSV.", true); } return; }
+  if (a === "remind") {
+    const dry = await call("send_reminders", { dry:true });
+    if (!dry.would_email.length) return toast(dry.overdue ? `${dry.overdue} overdue, but all were emailed in the last week.` : "Nobody is overdue.");
+    if (!confirm(`Email ${dry.would_email.length} ${dry.would_email.length === 1 ? "person" : "people"} who are overdue?\n\n` + dry.would_email.map(x => x.name).join(", "))) return;
+    const r = await call("send_reminders", {}); return toast(`Sent ${r.sent} email${r.sent === 1 ? "" : "s"}.${r.failed && r.failed.length ? " " + r.failed.length + " failed." : ""}`, !!(r.failed && r.failed.length));
+  }
+  if (a === "issue" || a === "reissue" || a === "withdraw") {
+    const k = b.dataset.k, s = S.sessions.find(x => x.key === k);
+    if (a === "reissue" && !confirm(`Re-issue "${s.title}"? Everyone it is required of must do it again, and has ${s.graceDays} days from now.`)) return;
+    if (a === "withdraw" && !confirm(`Withdraw "${s.title}"? Nobody will be chased for it. Records are kept.`)) return;
+    await call("issue", { session_keys:[k], reissue: a === "reissue", withdraw: a === "withdraw" }); await reloadSettings(); toast(a === "issue" ? "Issued." : a === "reissue" ? "Re-issued." : "Withdrawn."); return renderRecord();
+  }
+  if (a === "issueall") {
+    const keys = S.sessions.filter(s => !s.issuedAt).map(s => s.key);
+    if (!confirm(`Issue ${keys.length} sessions now? Everyone they are required of has until the date shown in each (7 days by default) to complete them.`)) return;
+    await call("issue", { session_keys:keys }); await reloadSettings(); toast("Issued."); return renderRecord();
+  }
+  if (a === "remtoggle") { return; }
+  if (a === "rprintclose") return;
+  if (a === "refresh") { await loadTeam(true); return renderRecord(); }
+  if (a === "csv") return csv();
+  if (a === "person") return openPerson(b.dataset.k);
+  if (a === "dclose") return $("#drawer")?.remove();
+  if (a === "pdept") {
+    const p = S.team.find(x => x.email === b.dataset.e), k = b.dataset.k;
+    const next = p.departments.includes(k) ? p.departments.filter(x => x !== k) : p.departments.concat(k);
+    await call("set_departments", { email:p.email, departments:next }); p.departments = next; await openPerson(p.email); return renderRecord();
+  }
+  if (a === "csave") {
+    const k = $("#ck").value, label = k === "other" ? $("#cl").value.trim() : (CERTS.find(c => c[0] === k) || [])[1];
+    const r = await call("cert_save", { email:b.dataset.e, cert_key:k, cert_label: $("#cl").value.trim() || label, obtained_on:$("#co").value, expires_on:$("#ce").value, note:$("#cn").value });
+    S.team.find(x => x.email === b.dataset.e).certs.push(r.cert); toast("Certificate saved."); return openPerson(b.dataset.e);
+  }
+  if (a === "cdel") { await call("cert_delete", { id:b.dataset.id }); const p = S.team.find(x => x.email === b.dataset.e); p.certs = p.certs.filter(c => c.id !== b.dataset.id); return openPerson(b.dataset.e); }
+}
+
+document.addEventListener("change", async e => {
+  const t = e.target;
+  try {
+    if (t.dataset && t.dataset.set) {
+      const s = S.sessions.find(x => x.key === t.dataset.set); const v = Math.max(1, Math.min(60, Math.round(+t.value) || 1)); t.value = v;
+      if (t.dataset.f === "refresh") s.refreshMonths = v; else s.graceDays = v;
+      await call("settings_save", { session_key:s.key, refresh_months:s.refreshMonths, grace_days:s.graceDays }); toast("Saved.");
+    } else if (t.id === "remon") { S.config = { reminders_on: t.checked }; await call("config_save", { reminders_on:t.checked }); toast(t.checked ? "Automatic emails on." : "Automatic emails off."); }
+  } catch(err){ toast(err.message, true); }
+});
+async function reloadSettings(){ const d = await call("bootstrap"); applySettings(d.settings || []); S.config = d.config || S.config; S.team = null; await loadTeam(true); }
+function applySettings(rows){
+  const m = new Map(rows.map(r => [r.session_key, r]));
+  for (const s of S.sessions) { const r = m.get(s.key); s.issuedAt = r && r.issued_at || null; s.refreshMonths = r ? r.refresh_months : (s.baseRefresh || 12); s.graceDays = r ? r.grace_days : 7; }
+}
+/* ------------------------------------------------------------- tabs and boot */
+function renderTabs(){
+  const tabs = [["learn","My training"]].concat(S.me.manager ? [["record","Training record"]] : []);
+  $("#tabs").innerHTML = tabs.map(([k, l]) => `<button class="tabbtn" role="tab" data-view="${k}" aria-current="${S.view === k ? "page" : "false"}">${l}</button>`).join("");
+  $$(".tabbtn").forEach(b => b.addEventListener("click", async () => { S.view = b.dataset.view; renderTabs(); await show(); }));
+}
+async function show(){
+  try { if (S.view === "record") { await loadTeam(); renderRecord(); } else renderLearn(); }
+  catch(e){ $("#views").innerHTML = `<div class="card empty">${esc(e.message)}</div>`; }
+}
+function openGate(msg){ $("#gate").style.display = "flex"; $("#app").hidden = true; if (msg) $("#gerr").textContent = msg; }
+$("#signout").addEventListener("click", () => { try { sessionStorage.removeItem("bhb_staff_email"); } catch(e){} openGate(); });
+async function boot(){
+  $("#app").hidden = false; $("#views").innerHTML = `<div class="loading">Loading…</div>`;
+  try {
+    const [idx, d] = await Promise.all([fetch("sessions/index.json", { cache:"no-cache" }).then(r => r.json()), call("bootstrap")]);
+    S.sessions = idx.sessions.map(s => ({ ...s, baseRefresh:s.refreshMonths })); S.depts = idx.departments; S.me = d.me; applySettings(d.settings || []); S.config = d.config || null; S.myDepts = d.departments || []; S.records = d.records || []; S.certs = d.certs || [];
+  } catch(e){ $("#views").innerHTML = `<div class="card empty">${esc(e.message)}<br><br><span class="muted">Open this from the Staff Portal so it knows who you are.</span></div>`; return; }
+  $("#whoname").textContent = S.me.name; renderTabs(); show();
+}
+(function(){ if (staffEmail()) { $("#gate").style.display = "none"; boot(); } else openGate(); })();
+</script>
+</body>
+</html>
