@@ -172,6 +172,9 @@
   <div class="welcome-tag" id="welcomeTag">Room Service</div>
   <div class="big script">Welcome</div>
   <div class="msg" id="welcomeMsg">Order delicious food and drinks straight to your room.</div>
+  <div id="camperWelcomeNote" style="display:none;margin:4px auto 18px;max-width:330px;padding:14px 16px;border:1px solid rgba(255,255,255,.45);border-radius:3px;font-size:14.5px;line-height:1.5;text-align:center">
+    <b>We'll bring your order to your camper van</b>, packed in takeaway packaging. Just enter your vehicle registration when you order.
+  </div>
   <button class="back" onclick="startOrder()">Start your order</button>
 </section>
 
@@ -245,6 +248,9 @@
       <div class="subtotrow minor" id="chargeRow"><span id="chargeLabel">Tray charge</span><span>£<span id="trayCharge">0.00</span></span></div>
       <div class="subtotrow minor" id="discountTotalRow" style="display:none"><span id="discountTotalLabel">Discount</span><span>-£<span id="discountTotalAmt">0.00</span></span></div>
       <div class="subtotrow total"><span>Total</span><span>£<span id="subtotal">0.00</span></span></div>
+    </div>
+    <div id="camperBasketNote" style="display:none;margin:0 0 16px;padding:12px 14px;background:var(--sage-light);border-radius:3px;font-size:14px;line-height:1.5;color:var(--ink)">
+      <b>Delivered to your camper van.</b> We'll bring your order out to your camper in takeaway packaging. Please enter your vehicle registration below so we can find you.
     </div>
     <div class="fld" id="nameFld"><label id="nameLbl">Name the room is booked under</label><input id="gName" placeholder="e.g. Sarah Jones" autocomplete="name"></div>
     <div class="fld" id="roomFld"><label id="roomLbl">Room number</label><input id="gRoom" placeholder="e.g. 12" inputmode="numeric" autocomplete="off"></div>
@@ -427,9 +433,10 @@ function tryStaffUnlock(){
 $("staffGatePw").addEventListener("keydown", function(e){ if(e.key==="Enter") tryStaffUnlock(); });
 function isOutside(){ return S.channel === "outside"; }
 function isStaffFood(){ return S.channel === "staff_food"; }
+function isCamper(){ return S.channel === "camper"; }
 function extraCharge(itemsTotal){
   if(!itemsTotal || isStaffFood()) return 0; // staff food: no tray/service charge, collection not delivery
-  return isOutside() ? Math.round((itemsTotal*SERVICE_CHARGE_PCT + Number.EPSILON)*100)/100 : TRAY_CHARGE;
+  return (isOutside() || isCamper()) ? Math.round((itemsTotal*SERVICE_CHARGE_PCT + Number.EPSILON)*100)/100 : TRAY_CHARGE;
 }
 // Staff Food only orders 06:00-11:00 (Europe/London), collection 12:30 -
 // hard client-side gate; sumup-create-checkout enforces the same window
@@ -455,6 +462,16 @@ function applyChannelCopy(){
     $("roomLbl").textContent = "Table number";
     $("roomLockedLbl").textContent = "Table";
     $("closedHeading").textContent = "Outside table service is currently unavailable";
+  } else if(isCamper()){
+    document.title = "Camper Vans — Black Horse Beamish";
+    $("welcomeTag").textContent = "Camper Van Ordering";
+    $("welcomeMsg").textContent = "Order delicious food and drinks and we'll bring them to your camper.";
+    $("catHeading").textContent = "Order To Your Camper";
+    $("catSub").textContent = "Choose a category to get started";
+    $("chargeLabel").textContent = "Service charge (10%)";
+    $("nameLbl").textContent = "Your name";
+    $("roomLbl").textContent = "Camper van registration";
+    $("closedHeading").textContent = "Camper van service is currently unavailable";
   } else {
     document.title = "Room Service — Black Horse Beamish";
     $("welcomeTag").textContent = "Room Service";
@@ -514,7 +531,7 @@ async function sb(path, opts){
 async function loadMenu(){
   try{
     var scope = isStaffFood() ? "staff" : "main";
-    var field = isOutside() ? "available_outside" : "available";
+    var field = (isOutside() || isCamper()) ? "available_outside" : "available";
     var rows = await sb("roomservice_menu_items?select=*&menu_scope=eq."+scope+"&"+field+"=eq.true&order=sort_order.asc");
     var sunday = isSundayNow();
     S.menu = (rows || []).filter(function(m){ return !m.sunday_only || sunday; });
@@ -1141,22 +1158,33 @@ function removeDiscountCode(){
   renderBasket();
 }
 $("gName").addEventListener("input", function(){ try{ sessionStorage.setItem("rs_name", this.value); }catch(e){} });
-$("gRoom").addEventListener("input", function(){ try{ sessionStorage.setItem("rs_room", this.value); }catch(e){} });
-try{
-  var savedName = sessionStorage.getItem("rs_name"); if(savedName) $("gName").value = savedName;
-  var savedRoom = sessionStorage.getItem("rs_room"); if(savedRoom) $("gRoom").value = savedRoom;
-}catch(e){}
+// Camper vans keep their registration under a separate key so a room/table
+// number typed earlier in the same tab never turns up as a "registration".
+function roomStorageKey(){ return isCamper() ? "rs_reg" : "rs_room"; }
+$("gRoom").addEventListener("input", function(){
+  if(isCamper()) this.value = this.value.toUpperCase();
+  try{ sessionStorage.setItem(roomStorageKey(), this.value); }catch(e){}
+});
+function normaliseReg(v){ return String(v||"").toUpperCase().replace(/[^A-Z0-9 \-]/g,"").replace(/\s+/g," ").trim(); }
+function isPlausibleReg(v){ return /^[A-Z0-9][A-Z0-9 \-]{1,11}$/.test(v) && v.replace(/[^A-Z0-9]/g,"").length >= 2; }
+function restoreSessionFields(){
+  try{
+    var savedName = sessionStorage.getItem("rs_name"); if(savedName) $("gName").value = savedName;
+    var savedRoom = sessionStorage.getItem(roomStorageKey()); if(savedRoom) $("gRoom").value = savedRoom;
+  }catch(e){}
+}
 
 $("payBtn").onclick = async function(){
   var name = S.isComp ? "Bob" : $("gName").value.trim();
-  var room = isStaffFood() ? "-" : (S.lockedRoom || $("gRoom").value.trim());
+  var room = isStaffFood() ? "-" : (S.lockedRoom || (isCamper() ? normaliseReg($("gRoom").value) : $("gRoom").value.trim()));
   $("basketErr").textContent = "";
   if(!cartLines().length) return;
   // Client-side check for immediate feedback - sumup-create-checkout enforces
   // the same window server-side, which is the one that actually matters
   // (a tab left open past 11am, or a wrong device clock, must not still pay).
   if(isStaffFood() && !isStaffFoodWindowNow()){ $("basketErr").textContent = "Staff Food ordering is only open 06:00–11:00. Please try again tomorrow."; return; }
-  if(!name){ $("basketErr").textContent = isStaffFood() ? "Please enter your name." : (isOutside() ? "Please enter your name." : "Please enter the name the room is booked under."); return; }
+  if(!name){ $("basketErr").textContent = (isStaffFood() || isOutside() || isCamper()) ? "Please enter your name." : "Please enter the name the room is booked under."; return; }
+  if(isCamper() && !isPlausibleReg(room)){ $("basketErr").textContent = "Please enter your camper van's registration so we can find you."; return; }
   if(!room && !isStaffFood()){ $("basketErr").textContent = isOutside() ? "Please enter your table number." : "Please enter your room number."; return; }
   var btn = $("payBtn"); btn.disabled = true; var oldHtml = btn.innerHTML; btn.textContent = "Please wait…";
   try{
@@ -1291,6 +1319,7 @@ function beginReceiptFlow(order, kind){
 }
 function orderLocation(o){
   if(o.channel==="staff_food") return "";
+  if(o.channel==="camper") return "camper " + o.room_number;
   return (o.channel==="outside" ? "Table " : "Room ") + o.room_number;
 }
 async function finishReceiptChoice(choice, email){
@@ -1306,6 +1335,8 @@ async function finishReceiptChoice(choice, email){
     msg = "TEST order #" + o.order_no + " for " + orderLocation(o) + " has been sent to the virtual printers. No payment was taken.";
   } else if(S.lastOrderKind === "comp"){
     msg = "Order #" + o.order_no + " has been sent to the kitchen.";
+  } else if(o.channel === "camper"){
+    msg = "Order #" + o.order_no + " for camper " + o.room_number + " is being prepared. We'll bring it out to your camper van in takeaway packaging — please stay with your vehicle.";
   } else {
     msg = "Order #" + o.order_no + " for " + orderLocation(o) + " is on its way. It'll be with you shortly.";
   }
@@ -1349,6 +1380,14 @@ function pollOrder(orderId){
   }, 3000);
 }
 function restart(){
+  // After the SumUp redirect the page reloads as "?order=…" with no channel
+  // in the URL, so it boots as room service - send the guest back to their
+  // own channel's link rather than a menu/fields that don't match their order.
+  var lo = S.lastOrder;
+  if(lo && lo.channel && lo.channel !== S.channel){
+    var back = lo.channel === "camper" ? "?camper=1" : lo.channel === "outside" ? "?table=" + encodeURIComponent(lo.room_number) : lo.channel === "staff_food" ? "?staff=1" : "";
+    if(back){ location.href = location.pathname + back; return; }
+  }
   S.cart = {};
   S.lastOrder = null;
   S.lastOrderKind = null;
@@ -1425,7 +1464,7 @@ function isRoomServiceAvailableNow(row){
 }
 async function checkAvailability(){
   try{
-    var table = isOutside() ? "outside_availability" : "roomservice_availability";
+    var table = (isOutside() || isCamper()) ? "outside_availability" : "roomservice_availability";
     var rows = await sb(table+"?id=eq.1&select=automate,manual_available");
     var row = rows && rows[0];
     if(!isRoomServiceAvailableNow(row)){ show("closed"); return false; }
@@ -1596,7 +1635,7 @@ function skipEmailGate(){
 function dismissBusyModal(){ $("busyModal").style.display = "none"; }
 async function checkBusyNotice(){
   try{
-    var table = isOutside() ? "outside_busy_notice" : "busy_notice";
+    var table = (isOutside() || isCamper()) ? "outside_busy_notice" : "busy_notice";
     var rows = await sb(table+"?id=eq.1&select=active,message,until");
     var n = rows && rows[0];
     if(n && n.active && n.until && new Date(n.until) > new Date()){
@@ -1611,8 +1650,10 @@ async function checkBusyNotice(){
   var params = new URLSearchParams(location.search);
   var lockedTable = params.get("table");
   var lockedRoom = lockedTable || params.get("room");
+  if(params.get("camper") === "1") lockedRoom = null; // camper links never lock a room/table - the guest types their registration
   var isStaffLink = params.get("staff") === "1";
-  S.channel = isStaffLink ? "staff_food" : (lockedTable ? "outside" : "room_service");
+  var isCamperLink = params.get("camper") === "1" && !isStaffLink;
+  S.channel = isStaffLink ? "staff_food" : (isCamperLink ? "camper" : (lockedTable ? "outside" : "room_service"));
   S.isComp = params.get("comp") === "1";
   loadPersistedGuestEmail();
   loadPersistedCart();
@@ -1624,6 +1665,17 @@ async function checkBusyNotice(){
     $("roomLockedFld").style.display = "";
     $("roomLockedVal").textContent = lockedRoom;
   }
+  if(isCamperLink){
+    $("camperWelcomeNote").style.display = "";
+    $("camperBasketNote").style.display = "";
+    var regInput = $("gRoom");
+    regInput.placeholder = "e.g. AB12 CDE";
+    regInput.setAttribute("inputmode", "text");
+    regInput.setAttribute("autocapitalize", "characters");
+    regInput.setAttribute("maxlength", "12");
+    regInput.style.textTransform = "uppercase";
+  }
+  restoreSessionFields();
   if(S.isComp){ $("payVerb").textContent = "Place order"; $("nameFld").style.display = "none"; }
   if(isStaffLink){
     // Collection, not delivery - just a name, no room/table field at all.

@@ -418,7 +418,7 @@ async function loadCashup(){
     const {start,end} = dayWindow();
     const orders = await sb(`roomservice_orders?select=*&created_at=gte.${start.toISOString()}&created_at=lt.${end.toISOString()}`);
     const rsTaken = renderCashupTable("rsCashupBody", "rsSumupTaken", realPaid(orders, "room_service"));
-    const outTaken = renderCashupTable("outCashupBody", "outSumupTaken", realPaid(orders, "outside"));
+    const outTaken = renderCashupTable("outCashupBody", "outSumupTaken", realPaid(orders, "outside").concat(realPaid(orders, "camper")));
     document.getElementById("allSumupTaken").textContent = "£"+(rsTaken+outTaken).toFixed(2);
   }catch(e){
     document.getElementById("rsCashupBody").innerHTML = '<tr><td colspan="3" class="muted">Couldn\'t load — '+esc(e.message)+'</td></tr>';

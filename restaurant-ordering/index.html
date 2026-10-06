@@ -299,7 +299,7 @@
       </div>
     </div>
 
-    <p class="muted" style="margin:30px 0 0">Kitchen and bar tickets for outside orders print through the same Virtual printers panel as room service (headed "OUTSIDE / Table N") — see the Room Service tab. The menu is also shared — manage item names, prices and per-channel availability from the Room Service tab's menu editor.</p>
+    <p class="muted" style="margin:30px 0 0">Camper van orders (guest link <b>/order/?camper=1</b>) appear in this tab's order list and cash-up too, marked CAMPER with the vehicle registration, and share this tab's availability and busy notice. Kitchen and bar tickets for outside orders print through the same Virtual printers panel as room service (headed "OUTSIDE / Table N") — see the Room Service tab. The menu is also shared — manage item names, prices and per-channel availability from the Room Service tab's menu editor.</p>
 
     <h2 class="sec" style="margin-top:30px">Cash up — selected day</h2>
     <p class="muted" style="margin:0 0 10px" id="outCashupSummary"></p>
@@ -662,6 +662,7 @@ function ticketHtml(job){
   const time = new Date(job.created_at).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"});
   const pending = job.status==="pending";
   const isOutside = p.channel==="outside";
+  const isCamper = p.channel==="camper";
   const noteBlock = p.notes ? `<div class="t-note">Note: ${esc(p.notes)}</div>` : "";
   const allergyBlock = p.allergy_notes ? `<div class="t-allergy">⚠ Allergy / dietary: ${esc(p.allergy_notes)}</div>` : "";
   const isBar = job.destination==="bar";
@@ -677,8 +678,9 @@ function ticketHtml(job){
     <div class="ticket${pending?"":" printed"}">
       ${logoBlock}
       <div class="t-dest">${job.destination==="kitchen"?"Kitchen":"Bar"}</div>
-      <div class="t-bighead">${isOutside?"OUTSIDE":"ROOM SERVICE"}</div>
-      <div class="t-bigroom">${isOutside?"Table":"Room"} ${esc(p.room_number??"—")}</div>
+      <div class="t-bighead">${isCamper?"CAMPER VAN":isOutside?"OUTSIDE":"ROOM SERVICE"}</div>
+      <div class="t-bigroom">${isCamper?"":(isOutside?"Table ":"Room ")}${esc(p.room_number??"—")}</div>
+      ${isCamper?'<div class="t-bigroom" style="font-size:.7em">*** TAKEAWAY PACKAGING ***<br>DELIVER TO CAMPER VAN</div>':""}
       <div class="t-row"><span>Order #${p.order_no??"—"}</span><span>${time}</span></div>
       <div class="t-row"><span>${esc(p.guest_name??"")}</span></div>
       <div style="margin-top:4px">${sections || '<div class="t-line muted">(no lines)</div>'}</div>
@@ -818,8 +820,8 @@ async function refundOrder(id){
   const o = (ST.rsOrders||[]).find(x=>x.id===id);
   if(!o) return;
   const ref = o.sumup_transaction_id || o.sumup_checkout_id || "(no reference on file)";
-  const loc = o.channel==="staff_food" ? "" : (o.channel==="outside" ? "Table "+o.room_number : "Room "+o.room_number);
-  const kind = o.channel==="staff_food" ? "Staff Food order" : (o.channel==="outside" ? "Outside table order" : "Room service order");
+  const loc = o.channel==="staff_food" ? "" : (o.channel==="camper" ? "Camper "+o.room_number : o.channel==="outside" ? "Table "+o.room_number : "Room "+o.room_number);
+  const kind = o.channel==="staff_food" ? "Staff Food order" : (o.channel==="camper" ? "Camper van order" : o.channel==="outside" ? "Outside table order" : "Room service order");
   const ok = confirm(
     kind+" #"+o.order_no+" — "+o.guest_name+", "+loc+"\n"+
     "Amount: £"+Number(o.subtotal||0).toFixed(2)+"\n"+
@@ -908,7 +910,7 @@ function renderOutside(){
   renderOutAvailabilityBox();
   renderOutBusyNoticeBox();
   renderOutCashup();
-  const rows = (ST.rsOrders||[]).filter(o=>o.channel==="outside");
+  const rows = (ST.rsOrders||[]).filter(o=>o.channel==="outside" || o.channel==="camper");
   const paid = rows.filter(r=>r.status==="paid" && !r.is_test && !r.is_comp);
   document.getElementById("outSummary").textContent =
     rows.length + " order" + (rows.length===1?"":"s") + " · " + paid.length + " paid · £" +
@@ -929,7 +931,7 @@ function renderOutside(){
       `<td class="l">${o.order_no}</td>`+
       `<td class="l">${d.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}</td>`+
       `<td class="l">${esc(o.guest_name)}</td>`+
-      `<td class="l">${esc(o.room_number)}</td>`+
+      `<td class="l">${o.channel==="camper" ? "<b>CAMPER</b> "+esc(o.room_number) : esc(o.room_number)}</td>`+
       `<td class="l rs-lines">${esc(items)}</td>`+
       `<td>£${Number(o.subtotal||0).toFixed(2)}</td>`+
       `<td class="l"><span class="pill ${o.status}">${o.is_test?"TEST":o.is_comp?"COMP":o.status.replace(/_/g," ")}</span></td>`+
@@ -939,7 +941,7 @@ function renderOutside(){
   }
 }
 function renderOutCashup(){
-  const rows = (ST.rsOrders||[]).filter(o=>o.channel==="outside" && o.status==="paid" && !o.is_test && !o.is_comp);
+  const rows = (ST.rsOrders||[]).filter(o=>(o.channel==="outside" || o.channel==="camper") && o.status==="paid" && !o.is_test && !o.is_comp);
   const itemMap = {};
   let itemsTotal = 0, chargeTotal = 0;
   for(const o of rows){

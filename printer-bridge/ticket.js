@@ -111,6 +111,11 @@ function buildTicket(job, opts = {}) {
   );
   const isOutside = p.channel === "outside";
   const isStaffFood = p.channel === "staff_food";
+  // Camper vans: the guest's vehicle registration travels in room_number, and
+  // the order is carried out to the vehicle in takeaway packaging - the ticket
+  // has to make both impossible to miss, whichever strip of paper is torn off.
+  const isCamper = p.channel === "camper";
+  const camperReg = String(p.room_number ?? "-").toUpperCase().replace(/[^\x20-\x7e]/g, "").replace(/#/g, "").trim() || "-";
   const created = job.created_at ? new Date(job.created_at) : null;
   const date = created ? created.toLocaleDateString("en-GB") : "";
   const time = created ? created.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : "";
@@ -129,7 +134,7 @@ function buildTicket(job, opts = {}) {
     chunks.push(escBytes([0x0a]));
   }
 
-  const tag = kindKey === "staff-copy" && (isOutside || isStaffFood) ? "STAFF COPY" : cfg.tag;
+  const tag = kindKey === "staff-copy" && (isOutside || isCamper || isStaffFood) ? "STAFF COPY" : cfg.tag;
   if (tag) {
     chunks.push(escBytes([0x1b, 0x45, 0x01]));
     push(`${tag}\n`);
@@ -143,9 +148,19 @@ function buildTicket(job, opts = {}) {
     chunks.push(escBytes([0x1d, 0x21, 0x00])); // back to normal size
   }
   chunks.push(escBytes([0x1d, 0x21, 0x11])); // double height + width
-  push(`${isStaffFood ? "STAFF FOOD" : isOutside ? "OUTSIDE" : "ROOM SERVICE"}\n`);
+  push(`${isStaffFood ? "STAFF FOOD" : isCamper ? "CAMPER VAN" : isOutside ? "OUTSIDE" : "ROOM SERVICE"}\n`);
   chunks.push(escBytes([0x1d, 0x21, 0x00])); // back to normal size
-  push(isStaffFood ? "COLLECTING AT 12:30PM\n" : `${isOutside ? "Table " : "Room "}${p.room_number ?? "-"}\n`);
+  if (isCamper) {
+    // Registration in triple size (10 chars/line); double if it's longer than that.
+    chunks.push(escBytes([0x1d, 0x21, camperReg.length <= 10 ? 0x22 : 0x11]));
+    push(`${camperReg}\n`);
+    chunks.push(escBytes([0x1d, 0x21, 0x01])); // double height, normal width (32 chars/line)
+    push("*** TAKEAWAY PACKAGING ***\n");
+    push("DELIVER TO CAMPER VAN\n");
+    chunks.push(escBytes([0x1d, 0x21, 0x00]));
+  } else {
+    push(isStaffFood ? "COLLECTING AT 12:30PM\n" : `${isOutside ? "Table " : "Room "}${p.room_number ?? "-"}\n`);
+  }
   chunks.push(escBytes([0x1b, 0x45, 0x00])); // bold off
   push(rule());
 
@@ -188,7 +203,7 @@ function buildTicket(job, opts = {}) {
     const discountAmt = Number(p.discount_amount) || 0;
     const bundleAmt = Number(p.bundle_amount) || 0;
     push(rule());
-    push(priceRow(isOutside ? "Service charge (10%)" : "Tray charge", charge));
+    push(priceRow(isOutside || isCamper ? "Service charge (10%)" : "Tray charge", charge));
     if (bundleAmt > 0) {
       push(priceRow(p.bundle_label || "Deal savings", -bundleAmt));
     }
@@ -215,7 +230,7 @@ function buildTicket(job, opts = {}) {
     }
   }
 
-  if (cfg.signoff && !isOutside && !isStaffFood) {
+  if (cfg.signoff && !isOutside && !isCamper && !isStaffFood) {
     push(rule());
     chunks.push(escBytes([0x0a, 0x0a, 0x0a])); // gap before sign-off, further down the check
     chunks.push(escBytes([0x1b, 0x61, 0x00])); // left align
@@ -227,6 +242,14 @@ function buildTicket(job, opts = {}) {
     push(dottedLine("Name "));
     chunks.push(escBytes([0x0a]));
     push(dottedLine("Signed "));
+  }
+
+  if (isCamper) {
+    push(rule());
+    chunks.push(escBytes([0x1b, 0x61, 0x01, 0x1b, 0x45, 0x01])); // center + bold
+    push("CAMPER VAN - TAKEAWAY\n");
+    push(`REG: ${camperReg}\n`);
+    chunks.push(escBytes([0x1b, 0x45, 0x00, 0x1b, 0x61, 0x00]));
   }
 
   chunks.push(escBytes([0x0a, 0x0a, 0x0a, 0x0a])); // feed
