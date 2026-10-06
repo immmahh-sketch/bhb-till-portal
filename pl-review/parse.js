@@ -99,7 +99,10 @@
       var kind = sectionKind(low);
       if (kind) { cur = { key: kind.key, label: kind.label, lines: [], total: null }; sections.push(cur); continue; }
       if (low === 'gross profit') { gp = { name: name, values: vals(row) }; continue; }
-      if (low === 'operating profit') { op = { name: name, values: vals(row) }; continue; }
+      // Operating Profit closes the P&L. Rows below it ("Profit on Ordinary Activities Before Taxation", "Profit after Taxation") are
+      // restatements of the same figure, not costs, so nothing after it is read into a section.
+      if (low === 'operating profit') { op = { name: name, values: vals(row) }; cur = null; continue; }
+      if (low.indexOf('profit') === 0) continue;
       if (low.indexOf('total ') === 0) {
         if (cur) cur.total = { name: name, values: vals(row) };
         continue;
