@@ -2066,9 +2066,10 @@ async function loadOutstanding(fresh){
   } catch (e) { if (!stillWanted(want, cur)) return; showErr(e.message); $("views").innerHTML = ""; }
 }
 
-function pastKey(e){ if (e.key === "Enter" || e.key === " ") { e.preventDefault(); togglePastList(); } }
-function togglePastList(){
-  var box = document.getElementById("pastlist"), n = document.getElementById("pastnotice"), more = document.getElementById("pastmore");
+/* A red notice that opens a list of the weddings it is about (key: "past" or "err"). */
+function noticeKey(e, key){ if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleNotice(key); } }
+function toggleNotice(key){
+  var box = document.getElementById(key + "list"), n = document.getElementById(key + "notice"), more = document.getElementById(key + "more");
   if (!box) return;
   var open = box.classList.toggle("open");
   if (n) n.setAttribute("aria-expanded", open ? "true" : "false");
@@ -2108,16 +2109,24 @@ function viewOutstanding(){
   '</div>';
 
   if (errors.length) {
-    h += '<div class="notice notice--late"><strong>' + errors.length + ' wedding' +
-      (errors.length===1?"":"s") + ' couldn\'t be read from Guestline</strong> — ' +
-      errors.map(function(r){ return esc(r.salutation); }).join(", ") +
-      '. Their balance isn\'t included in the totals above.</div>';
+    h += '<div class="notice notice--late notice--click" id="errnotice" role="button" tabindex="0" aria-expanded="false" ' +
+      'onclick="toggleNotice(\'err\')" onkeydown="noticeKey(event, \'err\')">' +
+      '<strong>' + errors.length + ' wedding' + (errors.length===1?"":"s") + ' couldn\'t be read from Guestline.</strong> ' +
+      'Their balance isn\'t included in the totals above. <span class="notice__more" id="errmore">Click to see which.</span></div>' +
+      '<div class="pastlist" id="errlist">' +
+      errors.slice().sort(function(a,b){ return a.wedding_date < b.wedding_date ? -1 : 1; }).map(function(r){
+        return '<button type="button" class="pastrow" onclick="open_(\'' + esc(r.id) + '\')">' +
+          '<span><strong>' + esc(r.salutation) + '</strong><span class="muted"> · ' + esc(ukDate(r.wedding_date)) + (r.event_id ? ' · ' + esc(r.event_id) : '') + '</span></span>' +
+          '<span class="muted">' + esc(r.error || "Couldn't be read") + '</span>' +
+          '<span class="pastopen">Open</span></button>';
+      }).join('') +
+      '</div>';
   }
 
   if (pastDue.length) {
     /* Click the notice to see which weddings; click a wedding to open it. */
     h += '<div class="notice notice--late notice--click" id="pastnotice" role="button" tabindex="0" aria-expanded="false" ' +
-      'onclick="togglePastList()" onkeydown="pastKey(event)">' +
+      'onclick="toggleNotice(\'past\')" onkeydown="noticeKey(event, \'past\')">' +
       '<strong>' + pastDue.length + ' past wedding' + (pastDue.length===1?"":"s") + ' still showing a balance.</strong> ' +
       'Usually means a final payment was never posted in Rezlynx. <span class="notice__more" id="pastmore">Click to see which.</span></div>' +
       '<div class="pastlist" id="pastlist">' +
