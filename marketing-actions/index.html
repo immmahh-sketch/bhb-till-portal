@@ -202,7 +202,8 @@ table.tk tr.det td{background:var(--bone)}
 <div class="toast" id="toast"></div>
 <script src="../shared/fileshare.js?v=2"></script>
 <script src="social.js?v=5"></script>
-<script src="analytics.js?v=1"></script>
+<script src="insights.js?v=1"></script>
+<script src="analytics.js?v=2"></script>
 <script>
 const CFG = { SUPABASE_URL:"https://safcrtrfdzsnftghibot.supabase.co", SUPABASE_KEY:"sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU" };
 const STATUSES = [["outstanding","Outstanding"],["in_progress","In Progress"],["completed","Completed"],["parked","Parked"]];
@@ -666,6 +667,7 @@ function fsStop(){ if (fsHandle) { fsHandle.unmount(); fsHandle = null; } }
 
 /* ============================================================ social posts */
 const socialCall = (action, payload) => post("social-api", { action, staff_email: staffEmail(), ...(payload || {}) });
+const insightsCall = (action, payload) => post("social-insights", { action, staff_email: staffEmail(), ...(payload || {}) });
 let socialHandle = null;
 function viewSocial(){
   $("#views").innerHTML = `<div id="socialmount"></div>`;
@@ -677,7 +679,7 @@ function socialStop(){ if (socialHandle) { socialHandle.unmount(); socialHandle 
 let analyticsHandle = null;
 function viewAnalytics(){
   $("#views").innerHTML = `<div id="analyticsmount"></div>`;
-  analyticsHandle = Analytics.mount($("#analyticsmount"), { call: socialCall, me: S.me, toast });
+  analyticsHandle = Analytics.mount($("#analyticsmount"), { call: socialCall, callInsights: insightsCall, me: S.me, toast });
 }
 function analyticsStop(){ if (analyticsHandle) { analyticsHandle.unmount(); analyticsHandle = null; } }
 

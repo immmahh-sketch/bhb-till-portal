@@ -106,7 +106,7 @@
   ];
   const MAX_ROUNDS = 30, REFRESH_MS = 5 * 60 * 1000;
 
-  function mount(el, ctx) {
+  function mountPosts(el, ctx) {
     if (!document.getElementById('an-css')) { const s = document.createElement('style'); s.id = 'an-css'; s.textContent = CSS; document.head.appendChild(s); }
     const call = ctx.call, toast = ctx.toast || (() => {});
     const st = { days: 90, data: null, loaded: false, dead: false, loadGen: 0, syncGen: 0, syncing: false, sync: null, gaveUp: false, syncErr: '', notes: [], err: '', when: '', stale: false, timer: null };
@@ -306,6 +306,35 @@
         el.classList.remove('an'); el.innerHTML = '';
       }
     };
+  }
+
+  // ---------------------------------------------------------------- the Analytics tab: Posts (above) plus the Insights views (insights.js)
+  const SUBS = [['posts', 'Top and bottom posts'], ['trends', 'Trends'], ['timing', 'Best times'], ['content', 'Topics and types'], ['impact', 'Posts and results']];
+  const NAV_CSS = `
+.ansub{display:flex; gap:8px; flex-wrap:wrap; margin:0 0 14px}
+.ansub button{border:1px solid var(--mist,#e7e7e7); background:var(--white,#fff); color:var(--sage,#4E5F4F); border-radius:999px; padding:8px 16px; min-height:40px; font-size:14px; cursor:pointer}
+.ansub button[aria-pressed="true"]{background:var(--sage,#4E5F4F); border-color:var(--sage,#4E5F4F); color:#fff}
+.ansub button:focus-visible{outline:2px solid var(--blue,#34546F); outline-offset:2px}
+`;
+  let lastSub = 'posts';
+  function mount(el, ctx) {
+    if (!document.getElementById('ansub-css')) { const s = document.createElement('style'); s.id = 'ansub-css'; s.textContent = NAV_CSS; document.head.appendChild(s); }
+    const subs = SUBS.filter(([k]) => k === 'posts' || (global.Insights && ctx.callInsights));
+    if (!subs.some(([k]) => k === lastSub)) lastSub = 'posts';
+    el.innerHTML = (subs.length > 1 ? `<div class="ansub" role="group" aria-label="Analytics views">${subs.map(([k, l]) => `<button type="button" data-sub="${k}">${l}</button>`).join('')}</div>` : '') + '<div id="an_sub"></div>';
+    let handle = null, dead = false;
+    const paint = () => el.querySelectorAll('.ansub button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.sub === lastSub)));
+    function open(k) {
+      if (handle) { handle.unmount(); handle = null; }
+      lastSub = k; paint();
+      const box = el.querySelector('#an_sub'); box.innerHTML = '';
+      const inner = document.createElement('div'); box.appendChild(inner);
+      handle = k === 'posts' ? mountPosts(inner, ctx) : global.Insights.mount(inner, { call: ctx.callInsights, kind: k });
+    }
+    const onClick = e => { const b = e.target.closest && e.target.closest('.ansub button'); if (b && !dead) open(b.dataset.sub); };
+    el.addEventListener('click', onClick);
+    open(lastSub);
+    return { unmount() { dead = true; el.removeEventListener('click', onClick); if (handle) { handle.unmount(); handle = null; } el.innerHTML = ''; } };
   }
 
   global.Analytics = { mount };
