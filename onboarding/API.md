@@ -150,3 +150,5 @@ A person with `kind:'existing'` ("team member") has no contract or health forms.
 * `team.add` { people: [{ first_name, last_name, email, job_title?, department?, hired_date?, planday_id? }] } -> `{ added, skipped }` (skips duplicates by email and bad addresses). Creates `kind:'existing'` people with status `draft`.
 * `team.send` { ids?: [uuid] } -> `{ sent: n, failed: [{ name, error }], names: [...] }`: emails the upload link. With no `ids` it goes to every team member (not cancelled) who has NO right to work upload and NO right to work check yet, so pressing it again only chases the people still outstanding. Link lasts 30 days. Up to 120 emails per call.
 * `starter.send` / `starter.link` / `starter.get` / `starter.check` / `file.*` work for team members too (the link they return is the docs.html one).
+
+**Right to work is now asked for (8 Oct):** `details` accepts `rtw_later: bool` ("I cannot upload it now, I will bring it on my first day"). The starter page does not let the documents step be passed until there is at least one `rtw` upload OR `rtw_later` is true. The originals still have to be brought on day one and checked either way.

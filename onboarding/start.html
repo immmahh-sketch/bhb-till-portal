@@ -178,6 +178,8 @@ p{margin:0 0 12px}
 
 /* ---- documents + modal ---- */
 .upcard h3{font-size:23px;margin-bottom:4px}
+.upcard.main{border-top:4px solid var(--gold)}
+.upcard .row2 .btn{width:100%;padding-left:8px;padding-right:8px}
 .upcard .hint{margin:0 0 10px}
 .files{list-style:none;margin:0 0 10px;padding:0;display:grid;gap:8px}
 .chip{display:flex;align-items:center;gap:10px;background:var(--sage-10);border-radius:10px;padding:6px 6px 6px 8px;min-height:56px}
@@ -505,23 +507,26 @@ DETAIL_STEPS.forEach(id => { STEPS[id].part = 1; STEPS[id].save = { section:'det
 
 /* --- documents (optional uploads) --- */
 const UPKINDS = [
-  { k:'rtw', title:'Proof of your right to work', hint:'Your passport, or the share code letter or screenshot for a visa or BRP, or your birth certificate together with proof of your National Insurance number.' },
-  { k:'ni', title:'Proof of your National Insurance number', hint:'A P60, a payslip, a letter from HMRC or your National Insurance card.' }
+  { k:'rtw', title:'Please upload your right to work', lead:'Take a photo of your passport (or your share code letter if you have a visa), or choose a file. You still need to bring the original with you on your first day so we can check it.' },
+  { k:'ni', title:'Proof of your National Insurance number', lead:'If you have it to hand: a P60, a payslip, a letter from HMRC or your National Insurance card.' }
 ];
 const MAXFILES = 5, MAXBYTES = 6 * 1024 * 1024;
 const fmtSize = n => n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB';
 function upCard(u){
-  const mine = S.uploads.filter(f => f.kind === u.k), pend = S.pend[u.k], errs = S.upErr[u.k], full = mine.length + pend.length >= MAXFILES;
-  return '<div class="card upcard" id="up-' + u.k + '"><h3>' + esc(u.title) + '</h3><p class="hint">' + esc(u.hint) + '</p>'
+  const mine = S.uploads.filter(f => f.kind === u.k), pend = S.pend[u.k], errs = S.upErr[u.k], full = mine.length + pend.length >= MAXFILES, dis = full ? ' disabled' : '';
+  return '<div class="card upcard' + (u.k === 'rtw' ? ' main' : '') + '" id="up-' + u.k + '"><h3>' + esc(u.title) + '</h3><p class="hint">' + esc(u.lead) + '</p>'
     + ((mine.length || pend.length) ? '<ul class="files" aria-label="Files added">'
       + mine.map(f => '<li class="chip"><span class="th" aria-hidden="true">' + (S.thumbs[f.id] ? '<img alt="" src="' + esc(S.thumbs[f.id]) + '">' : (/\.pdf$/i.test(f.name) ? 'PDF' : 'IMG')) + '</span><span class="nm">' + esc(f.name) + '<small>' + (f.size ? esc(fmtSize(f.size)) + ' \u00b7 ' : '') + 'Uploaded</small></span><button type="button" class="x" data-act="rmfile" data-id="' + esc(f.id) + '" aria-label="Remove ' + esc(f.name) + '">\u00d7</button></li>').join('')
       + pend.map(f => '<li class="chip pend"><span class="th" aria-hidden="true"><span class="spin"></span></span><span class="nm">' + esc(f.name) + '<small>' + esc(f.msg || 'Uploading') + '</small><span class="pbar" role="progressbar" aria-label="Uploading"><i></i></span></span></li>').join('') + '</ul>' : '')
-    + '<button type="button" class="btn ghost" data-act="pickfile" data-kind="' + u.k + '"' + (full ? ' disabled' : '') + '>Take a photo or choose a file</button>'
+    + '<div class="row2"><button type="button" class="btn" data-act="pickfile" data-kind="' + u.k + '" data-cam="1"' + dis + '>Take a photo</button><button type="button" class="btn ghost" data-act="pickfile" data-kind="' + u.k + '"' + dis + '>Choose a file</button></div>'
+    + '<input type="file" class="sr" tabindex="-1" aria-hidden="true" id="cam-' + u.k + '" data-up="' + u.k + '" accept="image/*" capture="environment">'
     + '<input type="file" class="sr" tabindex="-1" aria-hidden="true" id="file-' + u.k + '" data-up="' + u.k + '" accept="image/*,application/pdf" multiple>'
     + (full ? '<p class="hint">That is the most you can add here (' + MAXFILES + '). Remove one to add another.</p>' : '')
-    + '<div aria-live="polite">' + errs.map(m => '<div class="ferr">' + esc(m) + '</div>').join('') + '</div></div>';
+    + '<div aria-live="polite">' + errs.map(m => '<div class="ferr">' + esc(m) + '</div>').join('') + '</div>'
+    + (u.k === 'rtw' && !mine.length ? '<label class="tick" style="margin-top:12px"><input type="checkbox" data-b="details.rtw_later"' + (S.details.rtw_later ? ' checked' : '') + '><span>I can\u2019t upload it right now. I will bring it with me on my first day.</span></label>' : '')
+    + '</div>';
 }
-function refreshCard(k){ const el = document.getElementById('up-' + k), u = UPKINDS.find(x => x.k === k); if (el && u) el.outerHTML = upCard(u); }
+function refreshCard(k){ const el = document.getElementById('up-' + k), u = UPKINDS.find(x => x.k === k); if (el && u) el.outerHTML = upCard(u); updateDocsNext(); }
 const userErr = m => Object.assign(new Error(m), { user:true });
 const readB64 = blob => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result)); r.onerror = () => rej(new Error('read')); r.readAsDataURL(blob); });
 function loadImg(file){ return new Promise((res, rej) => { const url = URL.createObjectURL(file), im = new Image(); im.onload = () => { URL.revokeObjectURL(url); res(im); }; im.onerror = () => { URL.revokeObjectURL(url); rej(userErr('We could not read "' + file.name + '". Please try another photo, or take a new one.')); }; im.src = url; }); }
@@ -554,7 +559,7 @@ async function addFiles(kind, list){
     try {
       const prep = await prepareFile(it.f); it.msg = 'Uploading'; refreshCard(kind);
       const r = await api('p.upload', { kind:kind, name:prep.name, data:prep.data });
-      if (r.file) { S.uploads.push(r.file); if (prep.thumb) S.thumbs[r.file.id] = prep.thumb; }
+      if (r.file) { S.uploads.push(r.file); if (prep.thumb) S.thumbs[r.file.id] = prep.thumb; if (kind === 'rtw') setRtwLater(false); }
     } catch(e) {
       if (e.code === 'expired' || e.code === 'cancelled' || e.code === 'notfound') { S.pend[kind] = []; return showFatal(e.code); }
       S.upErr[kind].push(e.user ? e.message : e.network ? 'We could not upload "' + it.name + '". Please check your signal and try again.' : (e.message || 'We could not upload "' + it.name + '".'));
@@ -568,17 +573,32 @@ async function removeFile(id){
   catch(e) { f.removing = false; if (e.code === 'expired' || e.code === 'cancelled' || e.code === 'notfound') return showFatal(e.code); S.upErr[f.kind].push(e.network ? 'We could not remove "' + f.name + '". Please check your signal and try again.' : (e.message || 'We could not remove that file.')); }
   refreshCard(f.kind);
 }
+function rtwLine(){
+  const r = S.uploads.filter(f => f.kind === 'rtw').length;
+  return r ? 'Right to work: uploaded (' + r + (r === 1 ? ' photo' : ' photos') + '). Bring the original on day one.' : 'Right to work: you will bring it on day one.';
+}
 function bringPanel(){
-  const n = k => S.uploads.filter(f => f.kind === k).length, r = n('rtw'), i = n('ni');
-  const pl = c => c + (c === 1 ? ' photo or file' : ' photos or files');
-  const what = (r || i) ? 'You uploaded ' + [r ? pl(r) + ' for your right to work' : '', i ? pl(i) + ' for your National Insurance number' : ''].filter(Boolean).join(' and ') + '.' : 'You have not uploaded any documents, which is fine. Just bring them with you.';
-  return '<div class="bring"><h3>Bring your original ID on day one</h3><p>' + esc(what) + '</p><p>Please bring your original right to work documents and proof of your National Insurance number on your first day, so we can check them. We cannot let you start work until we have seen them.</p></div>';
+  const i = S.uploads.filter(f => f.kind === 'ni').length;
+  return '<div class="bring"><h3>Bring your original ID on day one</h3><p>' + esc(rtwLine()) + '</p>' + (i ? '<p>' + esc('National Insurance number: uploaded (' + i + (i === 1 ? ' photo' : ' photos') + ').') + '</p>' : '')
+    + '<p>Please bring your original right to work documents and proof of your National Insurance number on your first day, so we can check them. We cannot let you start work until we have seen them.</p></div>';
+}
+function setRtwLater(v){
+  S.details.rtw_later = !!v; if (!!S.rtwSent === !!v) return; S.rtwSent = !!v;
+  api('p.save', { section:'details', data:{ rtw_later:!!v } }).catch(() => {});
+}
+function docsBlocked(){ return !S.uploads.some(f => f.kind === 'rtw') && !S.details.rtw_later; }
+function updateDocsNext(){
+  if (S.step !== 'documents') return;
+  const blocked = docsBlocked(), b = document.getElementById('nextbtn'), n = document.getElementById('docsnote');
+  if (b) { if (blocked) b.setAttribute('aria-disabled', 'true'); else b.removeAttribute('aria-disabled'); }
+  if (n) n.hidden = !blocked;
 }
 STEPS.documents = {
   part:1, next:'Next',
-  render(){ return { title:'Your documents', lead:'On your first day we must see your original documents. Uploading a clear photo now just saves us time.',
-    html:UPKINDS.map(upCard).join('') + '<p class="muted small">You can bring them on the day instead.</p>' }; },
-  validate(){ return {}; }
+  render(){ return { title:'Your documents', lead:'We need to see your original right to work documents on your first day. A photo now saves us time.',
+    html:UPKINDS.map(upCard).join('') + '<p class="callout" id="docsnote"' + (docsBlocked() ? '' : ' hidden') + '>To carry on, please upload your right to work, or tick the box to say you will bring it with you on your first day.</p>' }; },
+  validate(){ return docsBlocked() ? { 'documents.rtw':'Please upload your right to work, or tick the box to say you will bring it on your first day.' } : {}; },
+  save:{ section:'details', data:() => ({ rtw_later:!S.uploads.some(f => f.kind === 'rtw') && !!S.details.rtw_later }) }
 };
 function showDocsPopup(){
   if (document.getElementById('modal')) return;
@@ -844,7 +864,7 @@ function partDone(){
   const r = { details:true, tax:true, health:true, wtd:true, contract:true }, first = {};
   const saved = S.step;
   const chk = id => { const d = def(id); if (!d || !d.validate) return true; const e = d.validate(); return !Object.keys(e).length; };
-  DETAIL_STEPS.forEach(id => { if (r.details && !chk(id)) { r.details = false; first.details = id; } });
+  DETAIL_STEPS.concat(['documents']).forEach(id => { if (r.details && !chk(id)) { r.details = false; first.details = id; } });
   taxSteps().concat(['tax-confirm']).forEach(id => { if (r.tax && !chk(id)) { r.tax = false; first.tax = id; } });
   healthChunks().forEach(c => { if (r.health && !chk(c.id)) { r.health = false; first.health = c.id; } });
   if (r.health && !S.signed.health) { r.health = false; first.health = 'health-sign'; }
@@ -904,9 +924,9 @@ function footer(id, d){
   if (d.nofooter) { f.hidden = true; return; }
   f.hidden = false;
   const first = id === 'welcome', nextLabel = d.next || 'Next';
-  const dim = id === 'contract' && !S.readEnd && !S.signed.contract;
+  const dim = (id === 'contract' && !S.readEnd && !S.signed.contract), dimDocs = id === 'documents' && docsBlocked();
   f.innerHTML = (first ? '' : '<button type="button" class="btn ghost" data-act="back" aria-label="Back">Back</button>')
-    + '<button type="button" class="btn" id="nextbtn" data-act="next"' + (dim ? ' aria-disabled="true"' : '') + '>' + (dim ? 'Keep reading ↓' : esc(nextLabel)) + '</button>';
+    + '<button type="button" class="btn" id="nextbtn" data-act="next"' + ((dim || dimDocs) ? ' aria-disabled="true"' : '') + '>' + (dim ? 'Keep reading ↓' : esc(nextLabel)) + '</button>';
 }
 function setNextBusy(on){ const b = $('#nextbtn'); if (!b) return; b.classList.toggle('busy', on); b.setAttribute('aria-busy', on ? 'true' : 'false'); if (on) { b.dataset.l = b.innerHTML; b.innerHTML = '<span class="spin" aria-hidden="true"></span>Saving'; } else if (b.dataset.l) { b.innerHTML = b.dataset.l; delete b.dataset.l; } $$('#foot .btn').forEach(x => x.disabled = on); }
 function showBanner(msg, retry){ const b = $('#banner'); b.innerHTML = '<span>' + esc(msg) + '</span>' + (retry ? '<button type="button" class="btn small ghost" data-act="retry">Try again</button>' : ''); b.hidden = false; }
@@ -933,6 +953,7 @@ async function onNext(){
   const id = S.step, d = def(id); if (!d) return;
   hideBanner();
   if (id === 'documents' && (S.pend.rtw.length || S.pend.ni.length)) { showBanner('Please wait for your photos to finish uploading.', false); return; }
+  if (id === 'documents' && docsBlocked()) { showBanner('Please upload your right to work, or tick the box to say you will bring it on your first day.', false); const c = document.getElementById('up-rtw'); if (c) c.scrollIntoView({ block:'center' }); return; }
   if (d.prep) d.prep();
   if (id === 'contract' && !S.readEnd && !S.signed.contract) { const pb = $('#pb'); pb.scrollBy({ top:Math.round(pb.clientHeight * .8), behavior:REDUCED ? 'auto' : 'smooth' }); return; }
   const errs = d.validate ? d.validate() : {};
@@ -1140,7 +1161,7 @@ document.addEventListener('click', e => {
   if (act === 'sigclear') { if (pad) pad.clear(); return; }
   if (act === 'sigdraw') { S.sigMode[b.dataset.doc] = 'draw'; S.strokes = []; return rerenderKeep(); }
   if (act === 'siguse') { S.sigMode[b.dataset.doc] = 'use'; return rerenderKeep(); }
-  if (act === 'pickfile') { const i = document.getElementById('file-' + b.dataset.kind); if (i) i.click(); return; }
+  if (act === 'pickfile') { const i = document.getElementById((b.dataset.cam ? 'cam-' : 'file-') + b.dataset.kind); if (i) i.click(); return; }
   if (act === 'rmfile') return removeFile(b.dataset.id);
   if (act === 'reloadcontract') { S.contractErr = ''; render('contract'); return; }
 });
@@ -1173,6 +1194,7 @@ document.addEventListener('change', e => {
     set(k, t.checked);
     if (k === 'details.ni_unknown') { const f = document.getElementById('f-details-ni-number'); if (f) { f.disabled = t.checked; if (t.checked) { clearErr('details.ni_number'); } } const n = $('#ni-unk'); if (n) n.hidden = !t.checked; }
     if (/^agree\./.test(k)) clearErr('sign.' + k.slice(6) + '.agree');
+    if (k === 'details.rtw_later') { setRtwLater(t.checked); hideBanner(); updateDocsNext(); }
     return;
   }
   if (k.indexOf('dob.') === 0) { set('dob.' + k.slice(4), t.value); clearErr('details.dob'); return; }
@@ -1210,6 +1232,7 @@ function hydrate(o){
   S.wtd = Object.assign({}, o.wtd || {});
   S.signed = Object.assign({ health:false, wtd:false, contract:false }, o.signed || {});
   S.uploads = (Array.isArray(o.uploads) ? o.uploads : []).filter(f => f.kind === 'rtw' || f.kind === 'ni');
+  S.rtwSent = !!(o.details && o.details.rtw_later);
   S.hasSig = !!o.has_signature; S.submitted = !!o.submitted;
   const d = S.details, s = S.starter;
   if (!str(d.first_names) && s.first_name) d.first_names = s.first_name;
