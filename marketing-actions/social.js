@@ -59,6 +59,10 @@
 .spm .autobox{border:1px solid var(--mist,#e7e7e7); border-radius:10px; padding:14px; background:var(--bone,#f7f7f7)}
 .spm .autobox.ok{border-color:var(--good,#4F6B4F); background:var(--good-bg,#EDF2ED)}
 .spm .autobox.bad{border-color:var(--alert,#8C4A3F); background:var(--alert-bg,#F6EAE8)}
+.spm .nohide{display:none!important}
+.spm .btn.gold{background:var(--gold,#C9A56B); border-color:var(--gold,#C9A56B); color:#2b2415}
+.spm .askbox{background:var(--white,#fff); border:2px solid var(--gold,#C9A56B); border-radius:10px; padding:16px; margin:0 0 14px; box-shadow:0 6px 24px rgba(0,0,0,.12)}
+.spm .askbox b{display:block; font-size:16px; margin-bottom:4px}
 .spm .warn{background:var(--attention-bg,#F7F0E4); border-radius:8px; padding:9px 12px; margin:8px 0; font-size:13px}
 @media (max-width:760px){ .sp .item{gap:12px} .sp .when{width:52px} .spm .row2{grid-template-columns:1fr} }
 `;
@@ -211,7 +215,9 @@
       const peopleOpts = ctx.people.map(p => `<option value="${esc(p.email)}">${esc(p.name)}</option>`).join('');
       ctx.openModal(`<div class="spm"><h3>${isNew ? 'New ' + k.one : k.label + ' for ' + esc(day(post.post_date).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }))}</h3>
         <div id="spm_err"></div>
-        <div class="row2"><div class="field"><label>Date to post</label><input id="spm_date" type="date"></div><div class="field"><label>Time (optional)</label><input id="spm_time" type="time"></div></div>
+        <div class="row2"><div class="field"><label>Date to post</label><input id="spm_date" type="date"></div><div class="field"><label>Posting</label><select id="spm_mode"><option value="manual">Manual</option><option value="scheduled">Scheduled</option></select></div></div>
+        <div class="field nohide" id="spm_timebox"><label>Time to post</label><input id="spm_time" type="time" style="max-width:200px"><div class="muted" style="font-size:12px;margin-top:4px">At this time it goes out by itself once the post is approved and automatic posting is on.</div></div>
+        <div id="spm_ask"></div>
         <div class="field"><label>Who will post it</label><select id="spm_poster"><option value="">No one yet</option>${peopleOpts}</select></div>
         <div class="field"><label>Where</label><div class="pick" id="spm_plat">${Object.keys(PLAT).map(x => `<label><input type="checkbox" value="${x}">${PLAT[x]}</label>`).join('')}</div></div>
         <div class="field"><label>Text <span id="spm_count" style="float:right;letter-spacing:0;text-transform:none"></span></label><textarea id="spm_body" maxlength="5000" style="min-height:130px" placeholder="What the ${k.one} should say, with any hashtags"></textarea></div>
@@ -220,11 +226,15 @@
           <div id="spm_igwarn"></div><div id="spm_prog"></div></div>
         <div class="field"><label>Ad spend budget (£, optional)</label><input id="spm_spend" type="number" min="0" step="0.01" inputmode="decimal" placeholder="e.g. 50" style="max-width:220px"></div>
         ${isNew ? `<div class="field"><label>Note for whoever posts it (optional)</label><textarea id="spm_note0" maxlength="3000" placeholder="Anything they should read before posting"></textarea></div>` : ''}
-        <div class="opts"><button class="btn" id="spm_save">${isNew ? 'Save ' + k.one : 'Save changes'}</button><button class="btn ghost" id="spm_cancel">Close</button></div>
+        <div class="opts"><button class="btn" id="spm_save">${isNew ? 'Save ' + k.one : 'Save changes'}</button>${(!post || (post.status === 'scheduled' && !(post.publish_log && post.publish_log.facebook && post.publish_log.facebook.scheduled_on_meta))) ? `<button class="btn gold" id="spm_postnow" type="button">Post now</button>` : ''}<button class="btn ghost" id="spm_cancel">Close</button></div>
         ${isNew ? '' : `<div id="spm_more"></div>`}</div>`);
       const $ = s => document.querySelector('#modalroot ' + s);
       $('#spm_date').value = post ? post.post_date : today();
-      $('#spm_time').value = post ? (post.post_time ? String(post.post_time).slice(0, 5) : '') : '12:00';
+      const origTime = post && post.post_time ? String(post.post_time).slice(0, 5) : '';
+      $('#spm_mode').value = origTime ? 'scheduled' : 'manual';
+      $('#spm_time').value = origTime || '12:00';
+      const syncMode = () => { $('#spm_timebox').classList.toggle('nohide', $('#spm_mode').value !== 'scheduled'); };
+      $('#spm_mode').onchange = syncMode; syncMode();
       $('#spm_poster').value = post && post.poster_email ? post.poster_email : '';
       $('#spm_body').value = post ? post.body : '';
       $('#spm_spend').value = post && post.ad_spend != null ? post.ad_spend : '';
@@ -266,7 +276,7 @@
       $('#spm_cancel').onclick = () => { if (d.busy && !confirm('An upload is still running. Close anyway?')) return; ctx.closeModal(); load(); };
 
       const fields = () => ({
-        post_date: $('#spm_date').value, post_time: $('#spm_time').value || null, poster_email: $('#spm_poster').value,
+        post_date: $('#spm_date').value, post_time: $('#spm_mode').value === 'scheduled' ? ($('#spm_time').value || null) : null, poster_email: $('#spm_poster').value,
         body: $('#spm_body').value, ad_spend: $('#spm_spend').value === '' ? null : $('#spm_spend').value,
         platforms: Array.from(document.querySelectorAll('#modalroot #spm_plat input:checked')).map(i => i.value),
       });
@@ -289,16 +299,56 @@
         const p = $('#spm_prog'); if (p) p.innerHTML = '';
       }
 
-      $('#spm_save').onclick = async () => {
-        const btn = $('#spm_save');
+      // Automatic posting is a master switch on the main page. A post with a time only goes out by itself when it is on, so ask.
+      function askTurnOn() {
+        return new Promise(resolve => {
+          const box = $('#spm_ask'); const admin = !!(ctx.me && ctx.me.isAdmin);
+          box.innerHTML = `<div class="askbox" role="alertdialog" aria-labelledby="spm_ask_h"><b id="spm_ask_h">Automatic posting is turned off</b>
+            <p style="margin:0 0 12px;font-size:14px">This post has a time, but nothing goes out by itself while automatic posting is off.${admin ? '' : ' Ask an admin to turn it on from the main page.'}</p>
+            <div class="opts">${admin ? `<button class="btn small" id="spm_ask_on" type="button">Turn on now</button>` : ''}<button class="btn ghost small" id="spm_ask_keep" type="button">Save without turning it on</button><button class="btn ghost small" id="spm_ask_cancel" type="button">Go back</button></div></div>`;
+          box.scrollIntoView({ block: 'nearest' });
+          const done = v => { box.innerHTML = ''; resolve(v); };
+          const on = $('#spm_ask_on');
+          if (on) on.onclick = async () => {
+            on.disabled = true; on.textContent = 'Turning on…';
+            try {
+              const r = await call('settings.set', { auto_post_enabled: true });
+              st.meta = Object.assign({}, st.meta, { enabled: r.enabled });
+              const strip = el.querySelector('#sp_strip'); if (strip) { strip.innerHTML = stripHtml(); wireStrip(); }
+              toast('Automatic posting is on.'); done('on');
+            } catch (e) { on.disabled = false; on.textContent = 'Turn on now'; showErr(e.message); }
+          };
+          $('#spm_ask_keep').onclick = () => done('keep');
+          $('#spm_ask_cancel').onclick = () => done('cancel');
+        });
+      }
+
+      // Saves the post and its pictures; returns { saved, full } or null when the person went back.
+      async function saveAll(btn, label, opts) {
+        opts = opts || {};
         showErr('');
-        d.busy = true; btn.disabled = true; btn.textContent = 'Saving…';
+        const f = fields();
+        if ($('#spm_mode').value === 'scheduled' && !f.post_time) { showErr('Add the time it should go out, or choose Manual.'); return null; }
+        const changedTime = f.post_time && (!post || f.post_time !== origTime);
+        if (!opts.skipAsk && f.post_time && changedTime && (st.meta ? st.meta.enabled === false : (st.info && st.info.autoPostEnabled === false))) {
+          const a = await askTurnOn();
+          if (a === 'cancel') return null;
+        }
+        d.busy = true; btn.disabled = true; btn.textContent = label || 'Saving…';
+        const saved = await call('post.save', { id: d.id || undefined, kind: d.kind, ...f });
+        d.id = saved.post.id;
+        const note0 = $('#spm_note0'); if (note0 && note0.value.trim()) { await call('comment.add', { post_id: d.id, body: note0.value }); note0.value = ''; }
+        if (d.pending.length) { btn.textContent = 'Uploading…'; await uploadPending(); }
+        const full = await call('post.get', { id: d.id });
+        return { saved, full };
+      }
+
+      $('#spm_save').onclick = async () => {
+        const btn = $('#spm_save'), pn = $('#spm_postnow');
         try {
-          const saved = await call('post.save', { id: d.id || undefined, kind: d.kind, ...fields() });
-          d.id = saved.post.id;
-          const note0 = $('#spm_note0'); if (note0 && note0.value.trim()) { await call('comment.add', { post_id: d.id, body: note0.value }); note0.value = ''; }
-          if (d.pending.length) { btn.textContent = 'Uploading…'; await uploadPending(); }
-          const full = await call('post.get', { id: d.id });
+          const r = await saveAll(btn, 'Saving…');
+          if (!r) { btn.disabled = false; btn.textContent = d.id ? 'Save changes' : 'Save ' + k.one; d.busy = false; return; }
+          const { saved, full } = r;
           toast(saved.approval_cleared ? 'Saved. The approval was removed because you changed it: approve it again when it is ready.' : 'Saved.');
           if (isNew) { ctx.closeModal(); load(); return; }
           d.post = full.post; d.media = full.post.media; d.comments = full.comments; drawMedia(); drawMore(); await load();
@@ -306,6 +356,31 @@
         } catch (e) {
           d.busy = false; btn.disabled = false; btn.textContent = d.id ? 'Save changes' : 'Save ' + k.one;
           showErr((d.id ? 'The ' + k.one + ' was saved, but: ' : '') + e.message);
+        }
+        void pn;
+      };
+
+      // Post now: save what is on the screen, then send it to Facebook / Instagram straight away. Pressing it is the approval, and no time is needed.
+      const pnBtn = $('#spm_postnow');
+      if (pnBtn) pnBtn.onclick = async () => {
+        const plats = Array.from(document.querySelectorAll('#modalroot #spm_plat input:checked')).map(i => PLAT[i.value] || i.value);
+        if (!plats.length) { showErr('Choose Facebook and/or Instagram first.'); return; }
+        if (!confirm('Post this to ' + plats.join(' and ') + ' right now?')) return;
+        const btn = $('#spm_save'); const label = pnBtn.textContent;
+        pnBtn.disabled = true; btn.disabled = true;
+        try {
+          const r = await saveAll(pnBtn, 'Saving…', { skipAsk: true });
+          if (!r) { pnBtn.disabled = false; btn.disabled = false; pnBtn.textContent = label; d.busy = false; return; }
+          pnBtn.textContent = 'Posting… this can take a minute';
+          const out = await call('post.publish_now', { id: d.id, immediate: true });
+          d.busy = false;
+          if (out.post && out.post.status === 'posted') { toast('Posted.'); ctx.closeModal(); load(); return; }
+          if (out.post && out.post.publish_state === 'publishing') { toast('It is being posted. It will finish by itself.'); ctx.closeModal(); load(); return; }
+          showErr((out.post && out.post.publish_error) || 'It did not go out.');
+          pnBtn.disabled = false; btn.disabled = false; pnBtn.textContent = label; load();
+        } catch (e) {
+          d.busy = false; pnBtn.disabled = false; btn.disabled = false; pnBtn.textContent = label;
+          showErr((d.id ? 'Saved, but it was not posted: ' : '') + e.message);
         }
       };
 
