@@ -321,10 +321,22 @@ function renderPlan(){
 }
 async function quickStatus(id, status, sel){
   sel.disabled = true;
-  try { const d = await call("action.respond", { id, status }); replaceAction(d.action); toast("Status updated."); }
+  const before = ((S.actions.find(x => x.id === id) || S.mine.find(x => x.id === id)) || {}).status;
+  let done = null;
+  try { const d = await call("action.respond", { id, status }); replaceAction(d.action); toast("Status updated."); if (status === "completed" && before !== "completed") done = d.action; }
   catch(e){ toast(e.message, true); }
   if (S.view === "plan") renderPlan(); else if (S.view === "mine") renderMine();
   refreshBadges();
+  if (done) followOnOffer(done);
+}
+// After an action is completed: offer to start the next one, carrying over the objective and the people.
+function followOnOffer(a){
+  openModal(`<h3>Action completed</h3>
+    <p style="margin:0 0 16px">“${esc(a.title)}” is done. Is there something that follows on from it?</p>
+    <div class="opts"><button class="btn" id="fo_add" type="button">Add a follow on action</button><button class="btn ghost" id="fo_no" type="button">No thanks</button></div>`);
+  $("#fo_no").onclick = closeModal;
+  $("#fo_add").onclick = () => { closeModal(); actionModal(null, a.objective_id, { from:a.title, assignees:a.assignees || [] }); };
+  $("#fo_add").focus();
 }
 function replaceAction(a){ const i = S.actions.findIndex(x => x.id === a.id); if (i >= 0) S.actions[i] = a; else S.actions.push(a); const j = S.mine.findIndex(x => x.id === a.id); if (j >= 0) S.mine[j] = a; }
 
@@ -351,14 +363,15 @@ function objectiveModal(o){
   };
 }
 
-async function actionModal(a, objectiveId){
+async function actionModal(a, objectiveId, pre){
   const edit = !!a;
   const objList = S.objectives.filter(o => o.status === "active" || (a && o.id === a.objective_id));
   if (a && !objList.some(o => o.id === a.objective_id) && S.mineObj[a.objective_id]) objList.push(S.mineObj[a.objective_id]);
   const objOptions = objList.map(o => `<option value="${esc(o.id)}">${esc(o.title)}</option>`).join("");
   openModal(`<h3>${edit ? "Action" : "New action"}</h3>
-    <div class="field"><label>Action</label><input id="m_title" maxlength="300" placeholder="e.g. Contact local hospitals about staff Christmas parties"></div>
-    <div class="field"><label>Who</label>${peoplePick(a ? (a.assignees || []) : [])}</div>
+    ${pre && pre.from ? `<p class="muted" style="margin:-6px 0 14px;font-size:13px">Follows on from: ${esc(pre.from)}</p>` : ""}
+    <div class="field"><label>Action</label><input id="m_title" maxlength="300" placeholder="${pre && pre.from ? "What needs to happen next?" : "e.g. Contact local hospitals about staff Christmas parties"}"></div>
+    <div class="field"><label>Who</label>${peoplePick(a ? (a.assignees || []) : ((pre && pre.assignees) || []))}</div>
     <div class="field"><label>Status</label><div class="opts" id="m_st">${STATUSES.map(([v,l]) => `<button class="opt s-${v}" type="button" data-v="${v}" aria-pressed="${v === (a ? a.status : "outstanding")}">${l}</button>`).join("")}</div></div>
     <div class="field"><label>${edit ? "Post a new update" : "Latest update"}</label><textarea id="m_upd" maxlength="2000" placeholder="e.g. Leaflets printed, visiting RVI on Monday 12th October"></textarea></div>
     <div class="field"><label>Due date (optional)</label><input id="m_due" type="date"></div>
@@ -382,9 +395,12 @@ async function actionModal(a, objectiveId){
       } else {
         await call("action.create", { objective_id:objectiveId, title:$("#m_title").value, assignees:pickedWho(), status, latest_update:$("#m_upd").value, due_date:$("#m_due").value || null });
       }
+      const justDone = edit && status === "completed" && a.status !== "completed";
+      const doneTitle = $("#m_title").value.trim(), doneWho = pickedWho();
       closeModal(); toast("Saved.");
       if (S.view === "mine") viewMine(); else viewPlan();
       refreshBadges();
+      if (justDone) followOnOffer({ title:doneTitle, objective_id:a.objective_id, assignees:doneWho });
     } catch(e){ toast(e.message, true); btn.disabled = false; }
   };
   if (edit) {
