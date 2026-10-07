@@ -122,6 +122,17 @@ tbody tr:hover{background:var(--sage-10)}
 .notice{padding:13px 16px;font-size:.9375rem;border:1px solid;margin-bottom:16px}
 .notice--due{background:var(--attention-bg);border-color:var(--attention);color:#7a5f36}
 .notice--late{background:var(--alert-bg);border-color:var(--alert);color:var(--alert)}
+.notice--click{cursor:pointer}
+.notice--click:hover{filter:brightness(.97)}
+.notice--click:focus-visible{outline:2px solid var(--alert); outline-offset:2px}
+.notice__more{text-decoration:underline; white-space:nowrap}
+.pastlist{display:none; margin:-8px 0 18px; border:1px solid var(--alert); border-top:0; border-radius:0 0 8px 8px; background:var(--white,#fff); overflow:hidden}
+.pastlist.open{display:block}
+.pastrow{display:flex; gap:8px 16px; justify-content:space-between; align-items:center; flex-wrap:wrap; width:100%; text-align:left; background:transparent; border:0; border-top:1px solid var(--mist,#e7e7e7); padding:12px 16px; cursor:pointer; font:inherit; color:inherit}
+.pastrow:first-child{border-top:0}
+.pastrow:hover{background:var(--sage-10,#EDEFED)}
+.pastrow:focus-visible{outline:2px solid var(--alert); outline-offset:-2px}
+.pastopen{font-size:11px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--alert)}
 .notice--ok{background:var(--sage-10);border-color:var(--celadon)}
 .err{background:var(--alert-bg);border:1px solid var(--alert);color:var(--alert);padding:11px 14px;
   font-size:.875rem;margin-bottom:14px}
@@ -2055,6 +2066,15 @@ async function loadOutstanding(fresh){
   } catch (e) { if (!stillWanted(want, cur)) return; showErr(e.message); $("views").innerHTML = ""; }
 }
 
+function pastKey(e){ if (e.key === "Enter" || e.key === " ") { e.preventDefault(); togglePastList(); } }
+function togglePastList(){
+  var box = document.getElementById("pastlist"), n = document.getElementById("pastnotice"), more = document.getElementById("pastmore");
+  if (!box) return;
+  var open = box.classList.toggle("open");
+  if (n) n.setAttribute("aria-expanded", open ? "true" : "false");
+  if (more) more.textContent = open ? "Click to hide." : "Click to see which.";
+}
+
 function viewOutstanding(){
   var all = S.outstanding || [];
   var errors = all.filter(function(r){ return r.error; });
@@ -2095,9 +2115,19 @@ function viewOutstanding(){
   }
 
   if (pastDue.length) {
-    h += '<div class="notice notice--late"><strong>' + pastDue.length + ' past wedding' +
-      (pastDue.length===1?"":"s") + ' still showing a balance.</strong> ' +
-      'Usually means a final payment was never posted in Rezlynx.</div>';
+    /* Click the notice to see which weddings; click a wedding to open it. */
+    h += '<div class="notice notice--late notice--click" id="pastnotice" role="button" tabindex="0" aria-expanded="false" ' +
+      'onclick="togglePastList()" onkeydown="pastKey(event)">' +
+      '<strong>' + pastDue.length + ' past wedding' + (pastDue.length===1?"":"s") + ' still showing a balance.</strong> ' +
+      'Usually means a final payment was never posted in Rezlynx. <span class="notice__more" id="pastmore">Click to see which.</span></div>' +
+      '<div class="pastlist" id="pastlist">' +
+      pastDue.slice().sort(function(a,b){ return a.wedding_date < b.wedding_date ? 1 : -1; }).map(function(r){
+        return '<button type="button" class="pastrow" onclick="open_(\'' + esc(r.id) + '\')">' +
+          '<span><strong>' + esc(r.salutation) + '</strong><span class="muted"> · ' + esc(ukDate(r.wedding_date)) + ' · ' + Math.abs(r.daysToGo) + ' days ago</span></span>' +
+          '<span class="num">' + money(r.outstanding) + ' <span class="muted">owed, ' + money(r.paid) + ' of ' + money(r.total) + ' paid</span></span>' +
+          '<span class="pastopen">Open</span></button>';
+      }).join('') +
+      '</div>';
   }
 
   h += chaseTable("Behind the payment schedule", behind, true,
