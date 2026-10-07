@@ -1,0 +1,1145 @@
+<!DOCTYPE html>
+<html lang="en-GB" data-brand="bhb">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Welcome to Black Horse Beamish</title>
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#4E5F4F">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --sage:#4E5F4F; --sage-70:#7B887C; --sage-10:#EDEFED; --sage-dark:#3B483C;
+  --bone:#F7F7F7; --celadon:#C1C8B4; --mist:#E7E7E7; --white:#fff; --ink:#262626; --ink-2:#4a4f4a; --gold:#C9A56B;
+  --attention:#B08D57; --attention-bg:#F7F0E4; --alert:#8C4A3F; --alert-bg:#F6EAE8; --good:#4F6B4F; --good-bg:#EDF2ED;
+  --display:"Cormorant Garamond",Georgia,serif; --body:Raleway,"Helvetica Neue",Arial,sans-serif;
+  --track-label:.18em; --radius:10px; --shadow:0 1px 2px rgba(38,38,38,.06),0 8px 24px rgba(38,38,38,.07);
+  --ink-pen:#14213d;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%;overflow:hidden;overscroll-behavior:none}
+body{font-family:var(--body);color:var(--ink);background:var(--bone);font-size:16px;line-height:1.5;-webkit-text-size-adjust:100%;font-variant-numeric:lining-nums}
+h1,h2,h3,h4{font-family:var(--display);font-weight:700;margin:0;letter-spacing:.005em}
+button,input,textarea,select{font:inherit;color:inherit}
+[hidden]{display:none!important}
+:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* ---- frame: header, progress, scrolling slide, fixed bottom bar ---- */
+#app{position:fixed;left:0;right:0;top:0;height:100vh;height:100dvh;display:flex;flex-direction:column;background:var(--bone)}
+.ph{background:var(--sage);color:#fff;display:flex;align-items:center;gap:10px;padding:10px 16px;padding-top:max(10px,env(safe-area-inset-top))}
+.brand{font-family:var(--display);font-size:21px;line-height:1.1;flex:1;min-width:0}
+.brand small{display:block;font-family:var(--body);font-size:10px;letter-spacing:var(--track-label);text-transform:uppercase;opacity:.75}
+#savestat{font-size:11px;letter-spacing:.08em;text-transform:uppercase;font-weight:700;display:flex;align-items:center;gap:6px;min-height:20px;opacity:0;transition:opacity .25s}
+#savestat.on{opacity:1}
+#savestat .tick{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;background:var(--gold);color:#2b2415;font-size:11px}
+.bar{height:5px;background:rgba(0,0,0,.08);flex:none}
+.bar i{display:block;height:100%;width:0;background:var(--gold);transition:width .3s}
+.pb{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;scroll-padding:16px 0 90px}
+.pin{max-width:560px;margin:0 auto;padding:18px 16px 110px}
+.pf{background:#fff;border-top:1px solid var(--mist);padding:10px 14px;padding-bottom:max(10px,env(safe-area-inset-bottom));display:flex;gap:10px;flex:none}
+.pf .btn{flex:1.5;font-size:13px;letter-spacing:.1em;padding:10px 12px}
+.pf .btn.ghost{flex:.8}
+.pf.compact{padding-top:6px;padding-bottom:6px}
+#banner{flex:none;background:var(--alert-bg);color:var(--alert);border-top:3px solid var(--alert);padding:10px 16px;font-size:14px;font-weight:600;display:flex;gap:10px;align-items:center;justify-content:space-between}
+#banner .btn{min-height:40px;padding:8px 14px;flex:none}
+#banner.good{background:var(--good-bg);color:var(--good);border-color:var(--good)}
+
+.btn{border:1px solid var(--sage);background:var(--sage);color:#fff;border-radius:8px;padding:12px 18px;cursor:pointer;font-size:14px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;min-height:52px;display:inline-flex;align-items:center;justify-content:center;gap:10px;text-align:center}
+.btn:hover{background:var(--sage-dark)}
+.btn.ghost{background:#fff;color:var(--sage)} .btn.ghost:hover{background:var(--sage-10)}
+.btn.gold{background:var(--gold);border-color:var(--gold);color:#2b2415}
+.btn.small{min-height:44px;padding:8px 14px;font-size:12px}
+.btn:disabled,.btn[aria-disabled="true"]{opacity:.55;cursor:default}
+.btn.busy{pointer-events:none}
+.spin{width:16px;height:16px;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;animation:sp .8s linear infinite;flex:none}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* ---- a slide ---- */
+.slide{animation:in .25s ease both}
+@keyframes in{from{opacity:0;transform:translateY(8px)}}
+.kicker{font-size:12px;letter-spacing:.22em;text-transform:uppercase;font-weight:700;color:var(--sage);margin:0 0 4px}
+.title{font-size:34px;line-height:1.05;margin:0 0 10px;text-wrap:balance;outline:none}
+.lead{font-weight:600;font-size:17px;line-height:1.45;color:var(--ink-2);margin:0 0 16px}
+.card{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);padding:16px 18px;margin-bottom:14px}
+.muted{color:var(--sage-70)}
+.small{font-size:14px}
+p{margin:0 0 12px}
+.ticklist{list-style:none;padding:0;margin:8px 0}
+.ticklist li{position:relative;padding:6px 0 6px 32px}
+.ticklist li::before{content:'';position:absolute;left:0;top:9px;width:20px;height:20px;border-radius:50%;background:var(--sage-10)}
+.ticklist li::after{content:'✓';position:absolute;left:4px;top:8px;color:var(--sage);font-weight:800;font-size:14px;line-height:22px}
+.callout{background:var(--attention-bg);border-left:4px solid var(--gold);padding:10px 14px;border-radius:6px;margin:12px 0;font-weight:600;font-size:15px}
+.facts{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:0}
+.facts dt{font-size:11px;letter-spacing:var(--track-label);text-transform:uppercase;font-weight:700;color:var(--sage-70);padding-top:3px}
+.facts dd{margin:0;font-weight:700;overflow-wrap:anywhere}
+
+/* ---- fields ---- */
+.field{margin:0 0 16px;border:0;padding:0;min-width:0}
+.field>label:not(.tick):not(.plan),.field>legend,.lbl{display:block;font-size:12px;letter-spacing:.12em;text-transform:uppercase;font-weight:700;color:var(--ink-2);margin:0 0 6px;padding:0}
+.field .opt-tag{font-weight:500;letter-spacing:.04em;text-transform:none;color:var(--sage-70)}
+.field input[type=text],.field input[type=email],.field input[type=tel],.field input[type=number],.field input[type=search],.field select,.field textarea{
+  width:100%;border:1.5px solid var(--celadon);border-radius:10px;padding:12px 14px;background:#fff;font-size:17px;min-height:50px;line-height:1.3;-webkit-appearance:none;appearance:none}
+.field select{background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='9' viewBox='0 0 14 9'><path d='M1 1l6 6 6-6' fill='none' stroke='%234E5F4F' stroke-width='2'/></svg>");background-repeat:no-repeat;background-position:right 14px center;padding-right:38px}
+.field textarea{min-height:96px;resize:vertical}
+.field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--sage);box-shadow:0 0 0 3px rgba(201,165,107,.55)}
+.field input:disabled{background:var(--sage-10);color:var(--sage-70)}
+.field [aria-invalid="true"]{border-color:var(--alert);background:#fffafa}
+.hint{font-size:14px;color:var(--sage-70);margin:6px 0 0;line-height:1.4}
+.ferr{color:var(--alert);font-size:14px;font-weight:700;margin:6px 0 0;display:flex;gap:6px;align-items:flex-start;line-height:1.35}
+.ferr::before{content:'!';flex:none;width:18px;height:18px;border-radius:50%;background:var(--alert);color:#fff;font-size:12px;display:grid;place-items:center;margin-top:1px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.row3{display:grid;grid-template-columns:.8fr 1.3fr 1fr;gap:8px}
+.tick{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;background:#fff;border:1.5px solid var(--celadon);border-radius:10px;cursor:pointer;min-height:50px;font-weight:600;line-height:1.35}
+.tick input{flex:none;width:24px;height:24px;margin:1px 0 0;accent-color:var(--sage)}
+.tick:has(input:checked){border-color:var(--sage);background:var(--sage-10)}
+.tick:has(input:focus-visible){outline:3px solid var(--gold);outline-offset:2px}
+
+/* ---- big choice buttons (training skin: .opt / .tfrow) ---- */
+.tfrow{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tfrow.one{grid-template-columns:1fr}
+.opt{display:flex;gap:12px;align-items:center;justify-content:center;width:100%;text-align:center;background:#fff;border:2px solid var(--mist);border-radius:12px;padding:14px;min-height:62px;cursor:pointer;font-size:19px;line-height:1.3;font-weight:800;position:relative}
+.opt:hover{border-color:var(--celadon)}
+.opt.sel{border-color:var(--sage);background:var(--sage-10);color:var(--sage-dark)}
+.opt.sel::after{content:'✓';display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--sage);color:#fff;font-size:14px;flex:none}
+.opt.left{justify-content:flex-start;text-align:left;font-size:17px;font-weight:700}
+.opt.skip{grid-column:1 / -1;min-height:48px;font-size:15px;font-weight:600;color:var(--ink-2)}
+.opt.bad.sel{border-color:var(--sage)}
+.plan{display:flex;gap:14px;align-items:flex-start;background:#fff;border:2px solid var(--mist);border-radius:12px;padding:14px;margin-bottom:10px;cursor:pointer}
+.plan input{flex:none;width:26px;height:26px;margin:2px 0 0;accent-color:var(--sage)}
+.plan b{display:block;font-family:var(--display);font-size:22px;line-height:1.1}
+.plan small{display:block;font-size:14px;color:var(--ink-2);line-height:1.4;margin-top:3px}
+.plan:has(input:checked){border-color:var(--sage);background:var(--sage-10)}
+.plan:has(input:focus-visible){outline:3px solid var(--gold);outline-offset:2px}
+
+/* ---- health questions ---- */
+.q{border:0;margin:0 0 22px;padding:0;min-width:0}
+.q legend{padding:0;font-family:var(--display);font-size:25px;line-height:1.2;font-weight:700;margin:0 0 6px}
+.q .hint{margin:0 0 10px}
+.q .more{margin-top:12px}
+.q .more label{display:block;font-size:14px;font-weight:700;color:var(--ink-2);margin-bottom:6px}
+.q .more textarea{width:100%;border:1.5px solid var(--celadon);border-radius:10px;padding:12px 14px;font-size:17px;min-height:96px;background:#fff}
+.q .more textarea:focus{outline:none;border-color:var(--sage);box-shadow:0 0 0 3px rgba(201,165,107,.55)}
+.minicard{background:#fff;border:1.5px solid var(--celadon);border-radius:12px;padding:14px 14px 4px;margin-bottom:12px}
+.minicard h4{font-size:19px;margin-bottom:10px;color:var(--sage)}
+.rev{display:grid;gap:10px;margin:8px 0 16px}
+.rev .item{background:#fff;border-left:4px solid var(--gold);border-radius:8px;padding:12px 14px;box-shadow:var(--shadow)}
+.rev .item b{font-family:var(--display);font-size:19px;line-height:1.2;display:block}
+.rev .item p{margin:6px 0 0;font-size:15px;color:var(--ink-2);white-space:pre-line;overflow-wrap:anywhere}
+.rev .item button{margin-top:8px}
+.linkbtn{background:none;border:0;color:var(--sage);font-weight:700;text-decoration:underline;padding:10px 4px;min-height:44px;cursor:pointer;font-size:15px}
+.decl{border-left:4px solid var(--sage);background:#fff;border-radius:0 10px 10px 0;padding:14px 16px;font-family:var(--display);font-size:20px;line-height:1.35;font-weight:600;margin:0 0 16px;box-shadow:var(--shadow)}
+
+/* ---- signature pad ---- */
+.sigwrap{position:relative;border:2px dashed var(--celadon);border-radius:12px;background:#fff;height:190px;overflow:hidden}
+.sigwrap canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;cursor:crosshair;display:block}
+.sigwrap .base{position:absolute;left:18px;right:18px;bottom:44px;border-bottom:1.5px solid var(--celadon);pointer-events:none}
+.sigwrap .base::before{content:'✕';position:absolute;left:0;bottom:2px;color:var(--sage-70);font-size:16px}
+.sigwrap .ph2{position:absolute;left:0;right:0;bottom:12px;text-align:center;color:var(--sage-70);font-size:14px;pointer-events:none;font-weight:600}
+.sigwrap.has .ph2{display:none}
+.sigrow{display:flex;gap:10px;margin-top:8px;align-items:center;justify-content:space-between}
+.sigthumb{background:#fff;border:1.5px solid var(--celadon);border-radius:12px;padding:10px;text-align:center;min-height:90px;display:grid;place-items:center}
+.sigthumb img{max-width:100%;max-height:110px;display:block}
+.sigthumb.saved{color:var(--sage);font-weight:700}
+.signed{display:flex;gap:12px;align-items:center;background:var(--good-bg);border-left:4px solid var(--good);border-radius:8px;padding:14px 16px;font-weight:700;color:var(--good)}
+.signed::before{content:'✓';display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--good);color:#fff;flex:none}
+
+/* ---- contract document ---- */
+.rhint{position:sticky;top:8px;z-index:5;background:var(--sage);color:#fff;border-radius:999px;padding:8px 16px;margin:0 auto 10px;width:max-content;max-width:100%;font-size:13px;font-weight:700;letter-spacing:.06em;box-shadow:0 4px 14px rgba(38,38,38,.25)}
+.doc{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);padding:22px 18px 26px;margin-bottom:16px;font-size:15.5px;line-height:1.55;border-top:4px solid var(--gold)}
+.doc p{margin:0 0 10px}
+.c-cover{text-align:center;font-family:var(--display);font-size:21px;font-weight:600;margin:0 0 10px!important}
+.c-title{text-align:center;font-size:34px;line-height:1.05;margin:20px 0 18px;color:var(--sage)}
+.c-h{display:grid;grid-template-columns:42px 1fr;gap:0 4px;font-size:22px;line-height:1.2;margin:22px 0 8px;color:var(--sage-dark)}
+.c-c,.c-s{display:grid;grid-template-columns:42px 1fr;gap:0 4px}
+.c-c .n,.c-s .n{color:var(--sage-70);font-weight:700;font-variant-numeric:tabular-nums}
+.c-s{margin-left:42px;grid-template-columns:34px 1fr}
+.c-p{white-space:pre-line}
+.c-p.b{font-weight:800}
+.c-p.i{margin-left:42px}
+.card h3,.card h2{line-height:1.15}
+.doc .t,.doc .c-p,.doc .c-cover,.doc .c-title,.c-h span{overflow-wrap:anywhere;white-space:pre-line}
+
+/* ---- states ---- */
+.center{text-align:center;padding:48px 12px}
+.center .big{font-family:var(--display);font-size:56px;line-height:1;color:var(--sage);margin-bottom:6px}
+.centerspin{display:flex;flex-direction:column;align-items:center;gap:14px;padding:70px 20px;color:var(--sage-70);text-align:center;font-weight:600}
+.centerspin .spin{width:34px;height:34px;border-width:3px;color:var(--sage)}
+.done-badge{width:84px;height:84px;border-radius:50%;background:var(--sage);color:#fff;display:grid;place-items:center;font-size:44px;margin:10px auto 16px;box-shadow:0 8px 24px rgba(78,95,79,.35)}
+.recap{list-style:none;margin:0 0 16px;padding:0;display:grid;gap:8px}
+.recap li{display:flex;align-items:center;gap:12px;background:#fff;border-radius:10px;box-shadow:var(--shadow);padding:12px 14px;font-weight:700}
+.recap .ck{flex:none;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:var(--sage);color:#fff;font-size:15px}
+.recap .ck.no{background:var(--attention-bg);color:var(--attention);border:2px solid var(--gold)}
+.recap li span.grow{flex:1;min-width:0}
+.recap li small{display:block;color:var(--sage-70);font-weight:600}
+
+@media (max-width:360px){.title{font-size:30px}.row3{grid-template-columns:1fr 1fr}.row3>:first-child{grid-column:1 / -1}.q legend{font-size:23px}}
+@media (min-width:700px){.title{font-size:42px}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}.spin{animation:none;border-style:dotted}}
+</style>
+</head>
+<body>
+<noscript><p style="padding:24px">This page needs JavaScript to work. Please try a different browser.</p></noscript>
+<div id="app">
+  <header class="ph"><div class="brand">Black Horse Beamish<small>Welcome to the team</small></div><div id="savestat" aria-live="polite"></div></header>
+  <div class="bar" role="progressbar" aria-label="Progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="barfill"></i></div>
+  <main class="pb" id="pb"><div class="pin" id="main"></div></main>
+  <div id="banner" role="alert" hidden></div>
+  <footer class="pf" id="foot" hidden></footer>
+</div>
+<script>
+(function(){
+'use strict';
+
+/* =====================================================================
+   Black Horse Beamish: new starter onboarding (phone page)
+   The token in the link is the only key. Public calls only (p.*).
+   window.__MOCK_API__(body) -> Promise<{status, body}> replaces fetch when set before this script runs.
+   ===================================================================== */
+const CFG = { URL:'https://safcrtrfdzsnftghibot.supabase.co/functions/v1/onboarding-api', KEY:'sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU' };
+const $ = (s, r) => (r || document).querySelector(s);
+const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
+const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+const str = v => (typeof v === 'string' ? v : v == null ? '' : String(v)).trim();
+const REDUCED = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const S = {
+  token:'', bank:null, starter:{}, details:{}, checklist:{}, health:{ answers:{}, jobs:[{}, {}], gp:{} }, wtd:{},
+  signed:{ health:false, wtd:false, contract:false }, hasSig:false, submitted:false,
+  step:'welcome', errors:{}, busy:0,
+  sigData:'', strokes:[], sigMode:{}, fullName:{}, agree:{}, resign:{}, snap:{},
+  dob:{ d:'', m:'', y:'' }, contract:null, contractErr:'', contractLoading:false, readEnd:false,
+  history:[], pending:null
+};
+
+/* ---------------------------------------------------------------- API */
+async function api(action, payload){
+  const body = Object.assign({ action:action, token:S.token }, payload || {});
+  let status, data;
+  try {
+    if (window.__MOCK_API__) { const r = await window.__MOCK_API__(body); status = r.status; data = r.body; }
+    else {
+      const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 45000);
+      const r = await fetch(CFG.URL, { method:'POST', signal:ctl.signal, headers:{ 'Content-Type':'application/json', Authorization:'Bearer ' + CFG.KEY, apikey:CFG.KEY }, body:JSON.stringify(body) });
+      clearTimeout(timer); status = r.status; try { data = await r.json(); } catch(e){ data = {}; }
+    }
+  } catch(e) {
+    const err = new Error('We could not reach the server. Please check your signal and try again.'); err.network = true; throw err;
+  }
+  data = data || {};
+  if (status < 200 || status >= 300 || data.error) {
+    const err = new Error(data.error || 'Something went wrong on our side. Please try again.');
+    err.code = data.code; err.fields = data.fields; err.status = status; if (status >= 500 || !data.error) err.network = true; throw err;
+  }
+  return data;
+}
+function busyOn(){ S.busy++; if (S.busy === 1) { clearTimeout(busyOn.t); busyOn.t = setTimeout(() => { if (S.busy) setStat('Saving', true); }, 400); clearTimeout(busyOn.s); busyOn.s = setTimeout(() => { if (S.busy) setStat('Slow connection, still trying', true); }, 8000); } }
+function busyOff(){ S.busy = Math.max(0, S.busy - 1); if (!S.busy) { clearTimeout(busyOn.t); clearTimeout(busyOn.s); setStat('', false); } }
+function setStat(text, spin){ const el = $('#savestat'); el.innerHTML = text ? (spin ? '<span class="spin" aria-hidden="true"></span>' : '<span class="tick" aria-hidden="true">✓</span>') + esc(text) : ''; el.classList.toggle('on', !!text); }
+function flashSaved(){ setStat('Saved', false); clearTimeout(flashSaved.t); flashSaved.t = setTimeout(() => { if (!S.busy) setStat('', false); }, 2600); }
+
+/* ---------------------------------------------------------------- helpers */
+function get(path){ const p = path.split('.'); let o = S; for (const k of p) { if (o == null) return undefined; o = o[k]; } return o; }
+function set(path, v){ const p = path.split('.'); let o = S; for (let i = 0; i < p.length - 1; i++) { if (o[p[i]] == null || typeof o[p[i]] !== 'object') o[p[i]] = {}; o = o[p[i]]; } o[p[p.length - 1]] = v; }
+const fid = k => 'f-' + k.replace(/[^a-z0-9]+/gi, '-');
+function parseISO(iso){ const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || ''); return m ? new Date(+m[1], +m[2] - 1, +m[3], 12) : null; }
+function fmtDate(iso, weekday){ const d = parseISO(iso); if (!d) return str(iso); try { return d.toLocaleDateString('en-GB', { weekday:weekday === false ? undefined : 'long', day:'numeric', month:'long', year:'numeric' }); } catch(e){ return str(iso); } }
+function taxYearStart(){ const n = new Date(); let y = n.getFullYear(); if (n < new Date(y, 3, 6)) y--; return '6 April ' + y; }
+const digits = s => String(s || '').replace(/\D/g, '');
+function fmtSort(s){ const d = digits(s).slice(0, 6); return d.replace(/^(\d{2})(\d{1,2})?(\d{1,2})?$/, (a, x, y, z) => [x, y, z].filter(Boolean).join('-')); }
+function fmtPost(s){ const c = String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); return c.length > 4 ? c.slice(0, -3) + ' ' + c.slice(-3) : c; }
+const fmtNI = s => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 9);
+function niOK(s){ return /^[A-Z]{2}\d{6}[A-D]$/.test(fmtNI(s)); }
+function emailOK(s){ return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(str(s)); }
+function phoneOK(s){ const d = digits(s); return /^[+\d][\d\s()+-]*$/.test(str(s)) && d.length >= 10 && d.length <= 15; }
+function pathCopy(o){ return JSON.parse(JSON.stringify(o)); }
+function ensureAnswers(){ const h = S.health; h.answers = h.answers || {}; h.jobs = Array.isArray(h.jobs) ? h.jobs : []; while (h.jobs.length < 2) h.jobs.push({}); h.gp = h.gp || {}; }
+
+/* ---------------------------------------------------------------- the step list */
+const DETAIL_FIELDS = {
+  name:['title', 'first_names', 'last_name', 'gender', 'dob'],
+  address:['address1', 'address2', 'town', 'county', 'postcode', 'country'],
+  contact:['email', 'mobile'],
+  eligible:['eligible_uk'],
+  ni:['ni_number', 'ni_unknown'],
+  bank:['bank_name', 'account_holder', 'sort_code', 'account_number', 'building_society_roll'],
+  nok:['nok_name', 'nok_relationship', 'nok_address', 'nok_tel_day', 'nok_tel_eve']
+};
+const DETAIL_STEPS = Object.keys(DETAIL_FIELDS);
+function taxSteps(){
+  const c = S.checklist, s = ['tax-8'];
+  if (c.other_job === false) s.push('tax-9');
+  if (c.other_job === false && c.pension === false) s.push('tax-10');
+  s.push('tax-11');
+  if (c.student_loan === true) { s.push('tax-12'); if (c.loan_exempt === false) s.push('tax-13'); }
+  return s;
+}
+function healthChunks(){
+  const out = [];
+  if (!S.bank) return out;
+  S.bank.sections.forEach(sec => {
+    let cur = [], w = 0, n = 0;
+    const flush = () => { if (!cur.length) return; n++; out.push({ id:'health-' + sec.id + (n > 1 ? '-' + n : ''), section:sec, qs:cur }); cur = []; w = 0; };
+    sec.questions.forEach(q => { const qw = (q.type === 'jobs' || q.type === 'gp') ? 3 : 1; if (w + qw > 4) flush(); cur.push(q); w += qw; });
+    flush();
+  });
+  return out;
+}
+function path(){
+  return ['welcome'].concat(DETAIL_STEPS, taxSteps(), ['tax-confirm', 'tax-done', 'health-intro'], healthChunks().map(c => c.id), ['health-review', 'health-sign', 'wtd', 'wtd-sign', 'contract', 'finish']);
+}
+function partOf(id){
+  if (DETAIL_FIELDS[id]) return 1;
+  if (/^tax-/.test(id)) return 2;
+  if (/^health-/.test(id)) return 3;
+  if (/^wtd/.test(id)) return 4;
+  if (id === 'contract') return 5;
+  return 0;
+}
+const PARTS = ['', 'Your details', 'Tax', 'Health', 'Working time', 'Your contract'];
+function chunkOf(id){ return healthChunks().find(c => c.id === id); }
+function chunkOfQuestion(qid){ return healthChunks().find(c => c.qs.some(q => q.id === qid)); }
+
+/* ---------------------------------------------------------------- field builders */
+function fld(o){
+  const id = fid(o.k), val = o.fmt ? o.fmt(get(o.k)) : get(o.k), v = val == null ? '' : val;
+  const hid = o.hint ? ' aria-describedby="' + id + '-h ' + id + '-e"' : ' aria-describedby="' + id + '-e"';
+  const attrs = ' id="' + id + '" data-b="' + o.k + '"' + (o.fm ? ' data-fm="' + o.fm + '"' : '') + (o.ac ? ' autocomplete="' + o.ac + '"' : ' autocomplete="off"') + (o.im ? ' inputmode="' + o.im + '"' : '')
+    + (o.ph ? ' placeholder="' + esc(o.ph) + '"' : '') + (o.max ? ' maxlength="' + o.max + '"' : '') + (o.cap ? ' autocapitalize="' + o.cap + '"' : '') + (o.nospell ? ' spellcheck="false"' : '')
+    + (o.enter ? ' enterkeyhint="' + o.enter + '"' : '') + hid + (S.errors[o.k] ? ' aria-invalid="true"' : '') + (o.dis ? ' disabled' : '');
+  const control = o.area ? '<textarea rows="' + (o.rows || 3) + '"' + attrs + '>' + esc(v) + '</textarea>' : '<input type="' + (o.type || 'text') + '"' + attrs + ' value="' + esc(v) + '">';
+  return '<div class="field"><label for="' + id + '">' + esc(o.label) + (o.opt ? ' <span class="opt-tag">(optional)</span>' : '') + '</label>' + control
+    + (o.hint ? '<p class="hint" id="' + id + '-h">' + o.hint + '</p>' : '') + errEl(o.k, id + '-e') + '</div>';
+}
+function errEl(k, id){ const m = S.errors[k]; return '<div class="ferr" data-err="' + k + '"' + (id ? ' id="' + id + '"' : '') + ' aria-live="polite"' + (m ? '' : ' hidden') + '>' + esc(m || '') + '</div>'; }
+function choice(k, opts, val, o){
+  o = o || {};
+  return '<div class="tfrow' + (o.one ? ' one' : '') + '" role="radiogroup" data-grp="' + k + '"' + (o.labelledby ? ' aria-labelledby="' + o.labelledby + '"' : '') + '>'
+    + opts.map(x => '<button type="button" role="radio" aria-checked="' + (val === x.v) + '" class="opt' + (o.left ? ' left' : '') + (val === x.v ? ' sel' : '') + '" data-act="pick" data-k="' + k + '" data-v="' + esc(String(x.v)) + '">' + x.label + '</button>').join('') + '</div>' + errEl(k);
+}
+const YESNO = [{ v:true, label:'Yes' }, { v:false, label:'No' }];
+
+/* ---------------------------------------------------------------- step definitions */
+function def(id){
+  if (STEPS[id]) return STEPS[id];
+  const m = /^tax-(\d+)$/.exec(id);
+  if (m && TAXQ[m[1]]) return taxDef(m[1]);
+  const ch = chunkOf(id);
+  if (ch) return healthDef(ch);
+  return null;
+}
+const STEPS = {};
+
+STEPS.welcome = {
+  nofooterBack:true, next:'Start',
+  render(){
+    const s = S.starter;
+    return { title:'Hello ' + esc(s.first_name || 'there') + ', welcome to Black Horse Beamish', lead:'We are really glad you are joining us. This takes about 10 to 15 minutes on your phone.',
+      html:'<div class="card"><dl class="facts"><dt>Your job</dt><dd>' + esc(s.job_title || '') + '</dd>' + (s.start_date ? '<dt>Starting</dt><dd>' + esc(fmtDate(s.start_date)) + '</dd>' : '') + '</dl></div>'
+      + '<div class="card"><h3 style="font-size:22px;margin-bottom:4px">What is coming</h3><ul class="ticklist"><li>Your details, so we can pay you</li><li>A few questions for your tax code</li><li>A short, confidential health questionnaire</li><li>One agreement about working hours</li><li>Your contract, to read and sign</li></ul></div>'
+      + '<p class="callout">You can stop whenever you like and come back later with the same link. Everything you have done is saved.</p>' };
+  },
+  validate(){ return {}; }
+};
+
+/* --- details --- */
+function dobFromParts(){ const p = S.dob; if (!p.d || !p.m || !p.y) return ''; const dd = +p.d, mm = +p.m, yy = +p.y; const dt = new Date(yy, mm - 1, dd, 12); if (dt.getFullYear() !== yy || dt.getMonth() !== mm - 1 || dt.getDate() !== dd) return ''; return yy + '-' + String(mm).padStart(2, '0') + '-' + String(dd).padStart(2, '0'); }
+function sel(id, k, label, opts, val, ac){ return '<select id="' + id + '" data-b="' + k + '" aria-label="' + label + '" autocomplete="' + (ac || 'off') + '"><option value="">' + label + '</option>' + opts.map(o => '<option value="' + o[0] + '"' + (String(o[0]) === String(val) ? ' selected' : '') + '>' + esc(o[1]) + '</option>').join('') + '</select>'; }
+STEPS.name = {
+  next:'Next',
+  render(){
+    const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    const days = Array.from({ length:31 }, (_, i) => [i + 1, i + 1]), mo = months.map((m, i) => [i + 1, m]);
+    const y0 = new Date().getFullYear() - 14, ys = Array.from({ length:85 }, (_, i) => [y0 - i, y0 - i]);
+    const titles = ['Mr', 'Mrs', 'Miss', 'Ms', 'Mx', 'Dr'];
+    return { title:'First, your name', lead:'Please use your name as it appears on your official documents, so payroll and the tax office match.',
+      html:'<div class="field"><label for="f-details-title">Title <span class="opt-tag">(optional)</span></label><select id="f-details-title" data-b="details.title" autocomplete="honorific-prefix"><option value="">No title</option>'
+        + titles.map(t => '<option' + (S.details.title === t ? ' selected' : '') + '>' + t + '</option>').join('') + '</select></div>'
+        + fld({ k:'details.first_names', label:'First name(s)', ac:'given-name', cap:'words', enter:'next' })
+        + fld({ k:'details.last_name', label:'Last name', ac:'family-name', cap:'words', enter:'next' })
+        + '<fieldset class="field"><legend id="gender-l">Gender</legend>' + choice('details.gender', [{ v:'male', label:'Male' }, { v:'female', label:'Female' }], S.details.gender, { labelledby:'gender-l' })
+        + '<p class="hint">As shown on your birth certificate or gender recognition certificate.</p></fieldset>'
+        + '<fieldset class="field"><legend>Date of birth</legend><div class="row3">'
+        + sel('f-dob-d', 'dob.d', 'Day', days, S.dob.d, 'bday-day') + sel('f-dob-m', 'dob.m', 'Month', mo, S.dob.m, 'bday-month') + sel('f-dob-y', 'dob.y', 'Year', ys, S.dob.y, 'bday-year')
+        + '</div>' + errEl('details.dob') + '</fieldset>' };
+  },
+  validate(){
+    const e = {}, d = S.details;
+    if (!str(d.first_names)) e['details.first_names'] = 'Please enter your first name or names.';
+    if (!str(d.last_name)) e['details.last_name'] = 'Please enter your last name.';
+    if (!d.gender) e['details.gender'] = 'Please choose one.';
+    const iso = dobFromParts();
+    if (!iso) e['details.dob'] = (S.dob.d || S.dob.m || S.dob.y) && !(S.dob.d && S.dob.m && S.dob.y) ? 'Please choose the day, month and year.' : (S.dob.d && S.dob.m && S.dob.y ? 'That date does not look right. Please check it.' : 'Please choose your date of birth.');
+    else { const age = (Date.now() - parseISO(iso)) / 31557600000; if (age < 14 || age > 100) e['details.dob'] = 'That date does not look right. Please check it.'; }
+    return e;
+  },
+  prep(){ S.details.dob = dobFromParts(); }
+};
+STEPS.address = {
+  next:'Next',
+  render(){
+    return { title:'Where do you live?', lead:'Your home address, so payroll and your tax code letters reach you.',
+      html:fld({ k:'details.address1', label:'Address line 1', ac:'address-line1', cap:'words' }) + fld({ k:'details.address2', label:'Address line 2', ac:'address-line2', cap:'words', opt:true })
+        + fld({ k:'details.town', label:'Town or city', ac:'address-level2', cap:'words' }) + fld({ k:'details.county', label:'County', ac:'address-level1', cap:'words', opt:true })
+        + '<div class="row2">' + fld({ k:'details.postcode', label:'Postcode', ac:'postal-code', cap:'characters', fm:'post', fmt:fmtPost, nospell:true }) + fld({ k:'details.country', label:'Country', ac:'country-name', cap:'words' }) + '</div>' };
+  },
+  validate(){
+    const e = {}, d = S.details;
+    if (!str(d.address1)) e['details.address1'] = 'Please enter the first line of your address.';
+    if (!str(d.town)) e['details.town'] = 'Please enter your town or city.';
+    if (!str(d.country)) e['details.country'] = 'Please enter your country.';
+    if (!str(d.postcode)) e['details.postcode'] = 'Please enter your postcode.';
+    else if (/^united kingdom$|^uk$|^england$|^scotland$|^wales$|^northern ireland$|^great britain$/i.test(str(d.country)) && !/^[A-Z]{1,2}\d[A-Z\d]? ?\d[A-Z]{2}$/.test(fmtPost(d.postcode))) e['details.postcode'] = 'That postcode does not look right. It should look like DH9 0RD.';
+    return e;
+  },
+  prep(){ S.details.postcode = fmtPost(S.details.postcode); }
+};
+STEPS.contact = {
+  next:'Next',
+  render(){
+    return { title:'How can we reach you?', lead:'We will use these to send you rotas and keep in touch about your start.',
+      html:fld({ k:'details.email', label:'Email address', type:'email', im:'email', ac:'email', cap:'none', nospell:true }) + fld({ k:'details.mobile', label:'Mobile number', type:'tel', im:'tel', ac:'tel', ph:'07700 900123' }) };
+  },
+  validate(){
+    const e = {}, d = S.details;
+    if (!str(d.email)) e['details.email'] = 'Please enter your email address.'; else if (!emailOK(d.email)) e['details.email'] = 'That email address does not look right. It should look like name@example.com.';
+    if (!str(d.mobile)) e['details.mobile'] = 'Please enter your mobile number.'; else if (!phoneOK(d.mobile)) e['details.mobile'] = 'That number does not look right. It should look like 07700 900123.';
+    return e;
+  }
+};
+STEPS.eligible = {
+  next:'Next',
+  render(){
+    const v = S.details.eligible_uk;
+    return { title:'Are you eligible to work in the UK?', lead:'We will check your documents on your first day.',
+      html:'<div id="elq">' + choice('details.eligible_uk', YESNO, v, { labelledby:'f-title' }) + '</div>'
+        + '<div class="callout" id="elnote" ' + (v === false ? '' : 'hidden') + '>Thank you for telling us. Please speak to us before your first day so we can talk it through.</div>'
+        + '<div class="card" style="margin-top:14px"><b>Please bring on your first day</b><ul class="ticklist"><li>Your passport, or other right-to-work documents</li><li>Proof of your address, such as a recent bank statement or utility bill</li></ul></div>' };
+  },
+  validate(){ return typeof S.details.eligible_uk === 'boolean' ? {} : { 'details.eligible_uk':'Please choose Yes or No.' }; }
+};
+STEPS.ni = {
+  next:'Next',
+  render(){
+    const un = !!S.details.ni_unknown;
+    return { title:'Your National Insurance number', lead:'Payroll needs this to report your pay correctly.',
+      html:fld({ k:'details.ni_number', label:'National Insurance number', ac:'off', cap:'characters', fm:'ni', fmt:s => { const c = fmtNI(s); return c.replace(/^(\w{2})(\d{0,2})(\d{0,2})(\d{0,2})(\w?)$/, (a, p, x, y, z, l) => [p, x, y, z, l].filter(Boolean).join(' ')); }, nospell:true, dis:un, ph:'QQ 12 34 56 C',
+        hint:'Two letters, six numbers, then a letter, like QQ 12 34 56 C. You will find it on a payslip, a P60 or a letter from HMRC. Spaces are fine.' })
+        + '<label class="tick"><input type="checkbox" data-b="details.ni_unknown"' + (un ? ' checked' : '') + '><span>I do not know it yet</span></label>'
+        + '<p class="hint" id="ni-unk" ' + (un ? '' : 'hidden') + '>That is fine. We will help you find it.</p>' };
+  },
+  validate(){
+    const e = {}, d = S.details;
+    if (!d.ni_unknown) { if (!str(d.ni_number)) e['details.ni_number'] = 'Please enter your National Insurance number, or tick the box if you do not know it yet.'; else if (!niOK(d.ni_number)) e['details.ni_number'] = 'That does not look right. It should be two letters, six numbers and a final letter A to D, like QQ 12 34 56 C.'; }
+    return e;
+  },
+  prep(){ S.details.ni_unknown = !!S.details.ni_unknown; if (S.details.ni_unknown) S.details.ni_number = ''; else S.details.ni_number = fmtNI(S.details.ni_number); }
+};
+STEPS.bank = {
+  next:'Next',
+  render(){
+    return { title:'Where should we pay you?', lead:'Your bank or building society account for your wages.',
+      html:'<p class="callout">Your bank details are kept private and are only used to pay you.</p>'
+        + fld({ k:'details.bank_name', label:'Bank or building society', ac:'off', cap:'words' }) + fld({ k:'details.account_holder', label:'Name on the account', ac:'off', cap:'words' })
+        + '<div class="row2">' + fld({ k:'details.sort_code', label:'Sort code', im:'numeric', fm:'sort', fmt:fmtSort, ph:'12-34-56', max:8 }) + fld({ k:'details.account_number', label:'Account number', im:'numeric', fm:'acc', ph:'8 digits', max:8 }) + '</div>'
+        + fld({ k:'details.building_society_roll', label:'Building society roll number', opt:true, hint:'Only if your account is with a building society and has one.', nospell:true }) };
+  },
+  validate(){
+    const e = {}, d = S.details;
+    if (!str(d.bank_name)) e['details.bank_name'] = 'Please enter the name of your bank or building society.';
+    if (!str(d.account_holder)) e['details.account_holder'] = 'Please enter the name on the account.';
+    if (digits(d.sort_code).length !== 6) e['details.sort_code'] = 'A sort code has 6 numbers, like 12-34-56.';
+    if (digits(d.account_number).length !== 8) e['details.account_number'] = 'An account number has 8 numbers.';
+    return e;
+  },
+  prep(){ S.details.sort_code = digits(S.details.sort_code); S.details.account_number = digits(S.details.account_number); }
+};
+STEPS.nok = {
+  next:'Next',
+  render(){
+    return { title:'Who should we call in an emergency?', lead:'Someone we can contact if something happens to you at work. Please check they are happy to be listed.',
+      html:fld({ k:'details.nok_name', label:'Their name', ac:'off', cap:'words' }) + fld({ k:'details.nok_relationship', label:'How are they related to you?', ac:'off', cap:'words', ph:'For example mother, partner, friend' })
+        + fld({ k:'details.nok_address', label:'Their address', ac:'off', area:true, rows:3, cap:'words' })
+        + fld({ k:'details.nok_tel_day', label:'Daytime phone number', type:'tel', im:'tel', ac:'off' }) + fld({ k:'details.nok_tel_eve', label:'Evening phone number', type:'tel', im:'tel', ac:'off', opt:true }) };
+  },
+  validate(){
+    const e = {}, d = S.details;
+    if (!str(d.nok_name)) e['details.nok_name'] = 'Please enter their name.';
+    if (!str(d.nok_relationship)) e['details.nok_relationship'] = 'Please tell us how they are related to you.';
+    if (!str(d.nok_address)) e['details.nok_address'] = 'Please enter their address.';
+    if (!str(d.nok_tel_day)) e['details.nok_tel_day'] = 'Please enter a daytime phone number.'; else if (!phoneOK(d.nok_tel_day)) e['details.nok_tel_day'] = 'That number does not look right.';
+    if (str(d.nok_tel_eve) && !phoneOK(d.nok_tel_eve)) e['details.nok_tel_eve'] = 'That number does not look right.';
+    return e;
+  }
+};
+DETAIL_STEPS.forEach(id => { STEPS[id].part = 1; STEPS[id].save = { section:'details', data:() => { const o = {}; DETAIL_FIELDS[id].forEach(f => { let v = S.details[f]; if (v === undefined) return; if (typeof v === 'string') v = v.trim(); o[f] = v; }); return o; } }; });
+
+/* --- tax --- */
+const TAXQ = {
+  8:{ q:'Do you have another job at the moment?', help:'Count any other job you do alongside this one, including part-time, casual or agency work.', key:'other_job' },
+  9:{ q:'Do you get a State, workplace or private pension?', help:'That means a State Pension, or a pension paid to you by a past employer or a pension company.', key:'pension' },
+  10:{ q:'Since ' + '{TY}' + ', have you had any of these?', help:'', key:'since_april' },
+  11:{ q:'Do you have a Student Loan or a Postgraduate Loan?', help:'Choose Yes if you took out a loan to study and you have not finished paying it back.', key:'student_loan' },
+  12:{ q:'Do any of these apply to you?', help:'', key:'loan_exempt' },
+  13:{ q:'Which repayment plan are you on?', help:'', key:'plans' }
+};
+function taxDef(n){
+  const t = TAXQ[n], k = 'checklist.' + t.key;
+  return { part:2, next:'Next',
+    render(){
+      let q = t.q.replace('{TY}', taxYearStart()), extra = '', body = '';
+      if (n === '10') extra = '<ul class="ticklist"><li>Pay from another job that has now ended</li><li>Taxable Jobseeker’s Allowance</li><li>Taxable Employment and Support Allowance</li><li>Taxable Incapacity Benefit</li></ul>';
+      if (n === '12') extra = '<ul class="ticklist"><li>You are still studying on your course</li><li>You left your course after the start of the tax year (' + taxYearStart() + ') and got your final loan payment</li><li>You have already paid back your loan in full</li><li>You pay the Student Loans Company directly by Direct Debit</li></ul><p class="hint" style="margin-bottom:12px">If you are not sure, choose No.</p>';
+      if (n === '13') {
+        const pl = S.checklist.plans || [];
+        const plans = [
+          ['plan1', 'Plan 1', 'England or Wales: you started your course before 1 September 2012. Northern Ireland: any start date.'],
+          ['plan2', 'Plan 2', 'England: you started between 1 September 2012 and 31 July 2023. Wales: you started on or after 1 September 2012.'],
+          ['plan4', 'Plan 4', 'Scotland: you lived in Scotland when you started your course.'],
+          ['plan5', 'Plan 5', 'England: you started your course on or after 1 August 2023.'],
+          ['postgrad', 'Postgraduate Loan', 'A master’s or doctoral loan, taken out in England or Wales.']
+        ];
+        body = '<fieldset class="field" style="margin:0"><legend class="sr">Repayment plan</legend>' + plans.map(p => '<label class="plan"><input type="checkbox" data-act="plan" value="' + p[0] + '"' + (pl.indexOf(p[0]) >= 0 ? ' checked' : '') + '><span><b>' + p[1] + '</b><small>' + p[2] + '</small></span></label>').join('') + errEl(k) + '</fieldset>'
+          + '<p class="hint">Tick every plan that applies. If you are not sure, tick the closest one and payroll will check it with you. You can find your plan on the gov.uk page “Which repayment plan you are on”.</p>';
+      } else body = '<div class="card" style="padding-bottom:14px"><p id="tq" style="margin-bottom:' + (extra ? 6 : 0) + 'px">' + (t.help ? esc(t.help) : '') + '</p>' + (n === '10' ? '<p class="muted small" style="margin:0 0 6px">Choose Yes if any of these apply to you.</p>' : '') + extra + '</div>' + choice(k, YESNO, S.checklist[t.key], { labelledby:'tq' });
+      if (n === '9' || n === '8') body = body.replace('<div class="card"', '<div class="card"');
+      return { title:esc(q), lead:'', html:body };
+    },
+    validate(){
+      const e = {};
+      if (n === '13') { if (!(S.checklist.plans || []).length) e[k] = 'Please tick at least one plan.'; }
+      else if (typeof S.checklist[t.key] !== 'boolean') e[k] = 'Please choose Yes or No.';
+      return e;
+    },
+    save:{ section:'checklist', data:checklistPayload, skip:() => n === '12' && S.checklist.loan_exempt === false }
+  };
+}
+function checklistPayload(){
+  const c = S.checklist, o = { other_job:c.other_job };
+  if (c.other_job === false) { o.pension = c.pension; if (c.pension === false) o.since_april = c.since_april; }
+  if (typeof c.student_loan === 'boolean') { o.student_loan = c.student_loan; if (c.student_loan) { o.loan_exempt = c.loan_exempt; if (c.loan_exempt === false && (c.plans || []).length) o.plans = c.plans.slice(); } }
+  if (str(c.confirm_name)) o.confirm_name = str(c.confirm_name);
+  Object.keys(o).forEach(k => { if (o[k] === undefined) delete o[k]; });
+  return o;
+}
+const PLAN_NAMES = { plan1:'Plan 1', plan2:'Plan 2', plan4:'Plan 4', plan5:'Plan 5', postgrad:'Postgraduate Loan' };
+STEPS['tax-confirm'] = {
+  part:2, next:'Confirm',
+  render(){
+    const c = S.checklist, yn = v => v ? 'Yes' : 'No', rows = [['Another job', yn(c.other_job)]];
+    if (c.other_job === false) { rows.push(['Pension', yn(c.pension)]); if (c.pension === false) rows.push(['Other pay or benefits since ' + taxYearStart(), yn(c.since_april)]); }
+    rows.push(['Student or Postgraduate Loan', yn(c.student_loan)]);
+    if (c.student_loan) { rows.push(['Still studying, left, repaid or paying by Direct Debit', yn(c.loan_exempt)]); if (c.loan_exempt === false) rows.push(['Plan', (c.plans || []).map(p => PLAN_NAMES[p] || p).join(', ')]); }
+    return { title:'Check your answers', lead:'This is what you told us about tax.',
+      html:'<div class="card"><dl class="facts">' + rows.map(r => '<dt>' + esc(r[0]) + '</dt><dd>' + esc(r[1]) + '</dd>').join('') + '</dl></div>'
+        + '<p class="lead" style="margin-bottom:10px">I confirm the information I have given is correct.</p>'
+        + fld({ k:'checklist.confirm_name', label:'Type your full name to confirm', ac:'name', cap:'words' }) };
+  },
+  validate(){ const e = {}; if (str(S.checklist.confirm_name).length < 2) e['checklist.confirm_name'] = 'Please type your full name to confirm.'; return e; },
+  save:{ section:'checklist', data:checklistPayload }
+};
+STEPS['tax-done'] = {
+  part:2, next:'Next',
+  render(){ return { title:'Thanks, that is enough for payroll to set your tax code', lead:'', html:'<div class="center" style="padding:20px 0"><div class="done-badge" aria-hidden="true">✓</div><p class="lead">Next is a short health questionnaire. It is confidential, and there are no wrong answers.</p></div>' }; },
+  validate(){ return {}; }
+};
+
+/* --- health --- */
+function aOf(q){ ensureAnswers(); return S.health.answers[q.id] || (S.health.answers[q.id] = {}); }
+function concernOf(q){ return q.yesIsGood ? 'no' : 'yes'; }
+function qHTML(q){
+  ensureAnswers();
+  const a = S.health.answers[q.id] || {}, id = 'q-' + q.id, k = 'health.' + q.id;
+  let h = '<fieldset class="q" id="' + id + '" data-q="' + q.id + '"><legend>' + esc(q.text) + '</legend>' + (q.help ? '<p class="hint">' + esc(q.help) + '</p>' : '');
+  if (q.type === 'yesno') {
+    const btn = (v, label, cls) => '<button type="button" role="radio" aria-checked="' + (a.a === v) + '" class="opt' + (cls ? ' ' + cls : '') + (a.a === v ? ' sel' : '') + '" data-act="hq" data-q="' + q.id + '" data-v="' + v + '">' + label + '</button>';
+    h += '<div class="tfrow" role="radiogroup" aria-label="' + esc(q.text) + '">' + btn('yes', 'Yes') + btn('no', 'No') + (q.allowSkip ? btn('skip', 'Prefer not to say', 'skip') : '') + '</div>';
+    if (q.details && a.a === concernOf(q)) h += '<div class="more"><label for="' + id + '-d">' + esc(q.details) + (concernOf(q) === 'no' ? ' <span class="opt-tag">(optional)</span>' : '') + '</label><textarea id="' + id + '-d" data-hd="' + q.id + '" rows="3" autocomplete="off" enterkeyhint="done">' + esc(a.d || '') + '</textarea></div>';
+  } else if (q.type === 'number') {
+    h += '<div class="field" style="margin:0"><label class="sr" for="' + id + '-v">' + esc(q.text) + '</label><input type="number" id="' + id + '-v" data-hv="' + q.id + '" inputmode="' + (q.step && q.step < 1 ? 'decimal' : 'numeric') + '" min="' + (q.min != null ? q.min : 0) + '" max="' + (q.max != null ? q.max : 999) + '" step="' + (q.step || 1) + '" value="' + esc(a.v == null ? '' : a.v) + '" autocomplete="off" placeholder="0"></div>';
+  } else if (q.type === 'text') {
+    h += '<div class="field" style="margin:0"><label class="sr" for="' + id + '-v">' + esc(q.text) + '</label><input type="text" id="' + id + '-v" data-hv="' + q.id + '" value="' + esc(a.v == null ? '' : a.v) + '" autocomplete="off" placeholder="' + esc(q.placeholder || '') + '"></div>';
+  } else if (q.type === 'jobs') {
+    const rows = Math.max(1, q.rows || 2);
+    for (let i = 0; i < rows; i++) {
+      const j = S.health.jobs[i] || {};
+      h += '<div class="minicard"><h4>' + (i === 0 ? 'Most recent job' : 'The job before that') + '</h4>'
+        + [['company', 'Company', 'organization'], ['role', 'Your role', 'organization-title'], ['start', 'Started', 'off', 'For example March 2021'], ['finish', 'Finished', 'off', 'For example June 2023'], ['note', 'Anything else', 'off', 'Optional']].map(f =>
+          '<div class="field" style="margin-bottom:12px"><label for="' + id + '-' + i + f[0] + '">' + f[1] + '</label><input type="text" id="' + id + '-' + i + f[0] + '" data-hj="' + i + '.' + f[0] + '" value="' + esc(j[f[0]] || '') + '" autocomplete="off"' + (f[3] ? ' placeholder="' + f[3] + '"' : '') + '></div>').join('') + '</div>';
+    }
+  } else if (q.type === 'gp') {
+    const g = S.health.gp;
+    h += [['name', 'Practice name', 'text', 'off'], ['address', 'Address of the practice', 'area', 'off'], ['tel', 'Phone number', 'tel', 'off']].map(f =>
+      '<div class="field"><label for="' + id + '-' + f[0] + '">' + f[1] + '</label>' + (f[2] === 'area' ? '<textarea rows="3" id="' + id + '-' + f[0] + '" data-hg="' + f[0] + '" autocomplete="off">' + esc(g[f[0]] || '') + '</textarea>' : '<input type="' + f[2] + '" id="' + id + '-' + f[0] + '" data-hg="' + f[0] + '" value="' + esc(g[f[0]] || '') + '" autocomplete="off"' + (f[2] === 'tel' ? ' inputmode="tel"' : '') + '>') + '</div>').join('');
+  }
+  return h + errEl(k) + '</fieldset>';
+}
+function qRequired(q){ return q.type === 'yesno' || (q.type === 'number' && !q.optional && !/leave blank/i.test(q.help || '')); }
+function validateQ(q, e){
+  const a = S.health.answers[q.id] || {}, k = 'health.' + q.id;
+  if (q.type === 'yesno') {
+    if (!a.a) e[k] = q.allowSkip ? 'Please choose Yes, No or Prefer not to say.' : 'Please choose Yes or No.';
+    else if (a.a === 'yes' && q.details && concernOf(q) === 'yes' && !str(a.d)) e[k] = 'Please add a few words so we can understand. Share only what you are comfortable with.';
+  } else if (q.type === 'number') {
+    const v = str(a.v);
+    if (!v) { if (qRequired(q)) e[k] = 'Please enter a number, or 0 if none.'; }
+    else if (isNaN(Number(v)) || Number(v) < (q.min != null ? q.min : 0) || Number(v) > (q.max != null ? q.max : 999)) e[k] = 'Please enter a number between ' + (q.min != null ? q.min : 0) + ' and ' + (q.max != null ? q.max : 999) + '.';
+  }
+}
+function healthPayload(){
+  ensureAnswers();
+  const answers = {};
+  S.bank.sections.forEach(sec => sec.questions.forEach(q => {
+    const a = S.health.answers[q.id]; if (!a) return;
+    if (q.type === 'yesno') { if (!a.a) return; const o = { a:a.a }; if (a.a === concernOf(q) && str(a.d)) o.d = str(a.d); answers[q.id] = o; }
+    else if (q.type === 'number') { if (str(a.v) !== '') answers[q.id] = { v:Number(a.v) }; }
+    else if (q.type === 'text') { if (str(a.v)) answers[q.id] = { v:str(a.v) }; }
+  }));
+  const clean = o => { const r = {}; Object.keys(o).forEach(k => { if (str(o[k])) r[k] = str(o[k]); }); return r; };
+  return { answers:answers, jobs:S.health.jobs.map(clean).filter(j => Object.keys(j).length), gp:clean(S.health.gp) };
+}
+function healthDef(ch){
+  const first = ch.id === 'health-' + ch.section.id;
+  return { part:3, next:'Next', chunk:ch,
+    render(){ return { title:esc(ch.section.title), kicker:null, lead:'', html:ch.qs.map(qHTML).join('') }; },
+    validate(){ const e = {}; ch.qs.forEach(q => validateQ(q, e)); return e; },
+    save:{ section:'health', data:healthPayload, snap:'health' }
+  };
+}
+STEPS['health-intro'] = {
+  part:3, next:'Next',
+  render(){ return { title:'A short, confidential health questionnaire', lead:'',
+    html:'<div class="card"><p style="margin:0;font-size:17px;line-height:1.55">' + esc(S.bank.intro) + '</p></div><p class="callout">Take your time. You can leave and come back, and you can say “prefer not to say” where you see it.</p>' }; },
+  validate(){ return {}; }
+};
+function concerning(q){ const a = S.health.answers[q.id]; return !!a && q.type === 'yesno' && (a.a === concernOf(q)); }
+STEPS['health-review'] = {
+  part:3, next:'Next',
+  render(){
+    ensureAnswers();
+    const items = [];
+    S.bank.sections.forEach(sec => sec.questions.forEach(q => { const a = S.health.answers[q.id]; if (concerning(q)) items.push({ q:q, a:a }); else if (a && a.a === 'skip') items.push({ q:q, a:a, skip:true }); }));
+    const list = items.length ? '<div class="rev">' + items.map(it => '<div class="item"><b>' + esc(it.q.text) + '</b><p>' + (it.skip ? 'You preferred not to say.' : '<strong>' + (concernOf(it.q) === 'yes' ? 'Yes' : 'No') + '.</strong> ' + esc(it.a.d || '')) + '</p><button type="button" class="linkbtn" data-act="edit" data-step="' + esc((chunkOfQuestion(it.q.id) || {}).id || '') + '">Change this answer</button></div>').join('') + '</div>'
+      : '<div class="card"><p style="margin:0">You did not answer Yes to anything. Thank you.</p></div>';
+    return { title:'Review your answers', lead:items.length ? 'These are the answers you want us to know about. Please check them.' : '', html:list + '<p class="muted small">Everything else you answered No to. Tap Next to read the declaration and sign.</p>' };
+  },
+  validate(){ return {}; }
+};
+
+/* --- signing --- */
+function signBlock(doc, o){
+  const k = n => 'sign.' + doc + '.' + n;
+  if (S.signed[doc] && !S.resign[doc]) return '<div class="signed" role="status">You have signed this. Tap Next to carry on.</div>';
+  const have = S.sigData || S.hasSig, mode = S.sigMode[doc] || (have ? 'use' : 'draw');
+  if (S.fullName[doc] == null) S.fullName[doc] = S.fullName.any || '';
+  const nm = S.fullName[doc];
+  let sigPart;
+  if (mode === 'use' && have) {
+    sigPart = '<div class="lbl">Your signature</div><div class="sigthumb' + (S.sigData ? '' : ' saved') + '">' + (S.sigData ? '<img alt="Your signature" src="' + esc(S.sigData) + '">' : 'We have kept the signature you drew earlier.') + '</div>'
+      + '<div class="sigrow"><button type="button" class="btn small ghost" data-act="sigdraw" data-doc="' + doc + '">Draw again</button><span class="muted small">Using my signature ✓</span></div>';
+  } else {
+    sigPart = '<div class="lbl" id="sigl-' + doc + '">Sign here</div><div class="sigwrap" id="sigwrap" role="img" aria-labelledby="sigl-' + doc + '"><canvas id="sigcv" aria-label="Signature pad. Draw your signature with your finger."></canvas><div class="base"></div><div class="ph2">Sign here with your finger</div></div>'
+      + '<div class="sigrow"><button type="button" class="btn small ghost" data-act="sigclear">Clear</button>' + (have ? '<button type="button" class="linkbtn" data-act="siguse" data-doc="' + doc + '">Use my signature instead</button>' : '') + '</div>';
+  }
+  return '<div class="card" id="signcard">'
+    + '<div class="field"><label for="sf-' + doc + '">Type your full name</label><input type="text" id="sf-' + doc + '" data-b="fullName.' + doc + '" autocomplete="name" autocapitalize="words" value="' + esc(nm) + '"' + (S.errors[k('name')] ? ' aria-invalid="true"' : '') + '>' + errEl(k('name')) + '</div>'
+    + '<div class="field"><label class="tick"><input type="checkbox" data-b="agree.' + doc + '"' + (S.agree[doc] ? ' checked' : '') + '><span>' + esc(o.agree) + '</span></label>' + errEl(k('agree')) + '</div>'
+    + '<div class="field" style="margin-bottom:0">' + sigPart + errEl(k('sig')) + '</div></div>';
+}
+STEPS['health-sign'] = {
+  part:3, next:'Sign and continue', sign:'health',
+  render(){ return { title:'Your declaration', lead:'Please read this, then sign.', html:'<p class="decl">' + esc(S.bank.declaration) + '</p>' + signBlock('health', { agree:'I agree with this declaration.' }) }; },
+  validate(){ return validateSign('health'); }
+};
+
+/* --- working time --- */
+const WTD_OPTS = [{ v:'opt_out', label:'I agree to opt out of the 48-hour limit' }, { v:'keep_limit', label:'I do not wish to opt out' }];
+STEPS.wtd = {
+  part:4, next:'Next',
+  render(){
+    return { title:'Working hours', lead:'This is your choice and either answer is fine.',
+      html:'<div class="card"><p>The Working Time Regulations 1998 say that your average working week, including overtime, should not be more than 48 hours.</p><p>Some people choose to agree that this limit will not apply to them. That is voluntary. If you agree, you can cancel it at any time by giving at least three months’ written notice, and so can the company.</p><p style="margin:0"><strong>You will not suffer in any way if you say no.</strong></p></div>'
+        + '<div id="wq"><p class="lbl" id="wql">Which would you like?</p>' + choice('wtd.choice', WTD_OPTS, S.wtd.choice, { one:true, left:true, labelledby:'wql' }) + '</div>' };
+  },
+  validate(){ return S.wtd.choice ? {} : { 'wtd.choice':'Please choose one of the two options.' }; },
+  save:{ section:'wtd', data:() => ({ choice:S.wtd.choice }), snap:'wtd' }
+};
+STEPS['wtd-sign'] = {
+  part:4, next:'Sign and continue', sign:'wtd',
+  render(){
+    const c = WTD_OPTS.find(o => o.v === S.wtd.choice);
+    return { title:'Sign your choice', lead:'', html:'<div class="card"><div class="lbl">You chose</div><p style="margin:0;font-weight:700;font-size:18px">' + esc(c ? c.label : '') + '</p></div>' + signBlock('wtd', { agree:'I confirm this is my choice.' }) };
+  },
+  validate(){ return S.wtd.choice ? validateSign('wtd') : { 'wtd.choice':'Please go back and choose an option.' }; }
+};
+
+/* --- contract --- */
+function contractHTML(blocks){
+  return (blocks || []).map(b => {
+    const t = esc(b.t || ''), n = esc(b.n || '');
+    switch (b.k) {
+      case 'cover': return '<p class="c-cover">' + t + '</p>';
+      case 'title': return '<h2 class="c-title">' + t + '</h2>';
+      case 'h': return '<h3 class="c-h"><span>' + n + '</span><span>' + t + '</span></h3>';
+      case 'c': return '<p class="c-c"><span class="n">' + n + '</span><span class="t">' + t + '</span></p>';
+      case 's': return '<p class="c-s"><span class="n">' + n + '</span><span class="t">' + t + '</span></p>';
+      default: return '<p class="c-p' + (b.b ? ' b' : '') + (b.i ? ' i' : '') + '">' + t + '</p>';
+    }
+  }).join('');
+}
+STEPS.contract = {
+  part:5, next:'Sign my contract', sign:'contract',
+  render(){
+    const s = S.starter, c = S.contract;
+    if (!c) return { title:'Your contract', lead:'', html:S.contractErr ? '<div class="card"><p>' + esc(S.contractErr) + '</p><button type="button" class="btn" data-act="reloadcontract">Try again</button></div>' : '<div class="centerspin"><span class="spin" aria-hidden="true"></span>Getting your contract ready</div>' };
+    const sg = c.signatory || {};
+    return { title:'Your contract', lead:'Please read it all the way to the end, then sign at the bottom.',
+      html:'<div class="card"><dl class="facts"><dt>Job title</dt><dd>' + esc(s.job_title || '') + '</dd><dt>Start date</dt><dd>' + esc(fmtDate(c.start_date || s.start_date)) + '</dd>'
+        + (c.contract_date ? '<dt>Dated</dt><dd>' + esc(fmtDate(c.contract_date, false)) + '</dd>' : '') + (sg.name ? '<dt>Signed for us by</dt><dd>' + esc(sg.name) + (sg.title ? ', ' + esc(sg.title) : '') + '</dd>' : '') + '</dl></div>'
+        + '<div class="rhint" id="rhint" ' + (S.readEnd ? 'hidden' : '') + '>Scroll to the end to sign ↓</div>'
+        + '<article class="doc" id="doc" aria-label="Your contract of employment">' + contractHTML(c.blocks) + '</article><div id="endmark" style="height:1px"></div>'
+        + '<h3 style="font-size:26px;margin:6px 0 10px" id="signhead">Sign your contract</h3>'
+        + signBlock('contract', { agree:'I have read and agree to this contract.' }) };
+  },
+  validate(){
+    const e = validateSign('contract');
+    if (!S.readEnd && !S.signed.contract) e['sign.contract.read'] = 'Please scroll to the end of the contract before you sign.';
+    return e;
+  }
+};
+function validateSign(doc){
+  const e = {}; if (S.signed[doc] && !S.resign[doc]) return e;
+  if (str(S.fullName[doc]).length < 2) e['sign.' + doc + '.name'] = 'Please type your full name.';
+  if (!S.agree[doc]) e['sign.' + doc + '.agree'] = 'Please tick the box to agree.';
+  const have = S.sigData || S.hasSig, mode = S.sigMode[doc] || (have ? 'use' : 'draw');
+  if (mode === 'draw' || !have) { if (!(pad && pad.hasInk()) && !(S.strokes.length && inkOK(S.strokes))) e['sign.' + doc + '.sig'] = 'Please sign in the box with your finger.'; }
+  return e;
+}
+
+/* --- finish --- */
+function partDone(){
+  const r = { details:true, tax:true, health:true, wtd:true, contract:true }, first = {};
+  const saved = S.step;
+  const chk = id => { const d = def(id); if (!d || !d.validate) return true; const e = d.validate(); return !Object.keys(e).length; };
+  DETAIL_STEPS.forEach(id => { if (r.details && !chk(id)) { r.details = false; first.details = id; } });
+  taxSteps().concat(['tax-confirm']).forEach(id => { if (r.tax && !chk(id)) { r.tax = false; first.tax = id; } });
+  healthChunks().forEach(c => { if (r.health && !chk(c.id)) { r.health = false; first.health = c.id; } });
+  if (r.health && !S.signed.health) { r.health = false; first.health = 'health-sign'; }
+  if (!S.wtd.choice) { r.wtd = false; first.wtd = 'wtd'; } else if (!S.signed.wtd) { r.wtd = false; first.wtd = 'wtd-sign'; }
+  if (!S.signed.contract) { r.contract = false; first.contract = 'contract'; }
+  return { ok:r, first:first };
+}
+STEPS.finish = {
+  part:0, next:'Send to Black Horse Beamish', submit:true,
+  render(){
+    const p = partDone(), rows = [['details', 'Your details'], ['tax', 'Tax'], ['health', 'Health questionnaire, signed'], ['wtd', 'Working time choice, signed'], ['contract', 'Contract, signed']];
+    const all = rows.every(r => p.ok[r[0]]);
+    return { title:all ? 'All done. Ready to send?' : 'Nearly there', lead:all ? 'Here is everything you have completed. When you send it, we will get it straight away.' : 'A few things still need finishing before you can send.',
+      html:'<ul class="recap">' + rows.map(r => '<li><span class="ck' + (p.ok[r[0]] ? '' : ' no') + '" aria-hidden="true">' + (p.ok[r[0]] ? '✓' : '!') + '</span><span class="grow">' + esc(r[1]) + (p.ok[r[0]] ? '' : '<small>Not finished yet</small>') + '</span>'
+        + (p.ok[r[0]] ? '' : '<button type="button" class="btn small ghost" data-act="edit" data-step="' + p.first[r[0]] + '">Finish</button>') + '</li>').join('') + '</ul>'
+        + (all ? '<p class="muted small">You will not be able to change anything after you send it. Use Back if you want to check something first.</p>' : '') };
+  },
+  validate(){ const p = partDone(), bad = Object.keys(p.ok).filter(k => !p.ok[k]); return bad.length ? { 'finish':'Some parts are not finished yet. Tap Finish next to them.' } : {}; }
+};
+STEPS.done = {
+  part:0, nofooter:true,
+  render(){
+    const s = S.starter;
+    return { title:'Thank you, ' + esc(s.first_name || ''), lead:'', html:'<div class="center" style="padding:10px 0 0"><div class="done-badge" aria-hidden="true">✓</div></div>'
+      + '<div class="card"><h3 style="font-size:24px;margin-bottom:6px">All sent to Black Horse Beamish</h3><p>Everything has been sent, and there is nothing more for you to do.</p>'
+      + '<p>We will be in touch before your first day' + (s.start_date ? ' (' + esc(fmtDate(s.start_date)) + ')' : '') + '.</p>'
+      + '<p style="margin:0"><strong>On your first day, please bring your ID documents:</strong> your passport or other right-to-work documents, and proof of your address.</p></div>'
+      + '<p class="center small muted" style="padding:6px 0">We cannot wait to meet you.</p>' };
+  }
+};
+
+/* ---------------------------------------------------------------- rendering */
+const main = () => $('#main');
+function render(id, opts){
+  opts = opts || {};
+  const d = def(id) || def('welcome'); id = def(id) ? id : 'welcome';
+  S.step = id; S.errors = opts.keepErrors ? S.errors : {};
+  hideBanner();
+  const r = d.render(), p = partOf(id), kick = p ? 'Part ' + p + ' of 5 · ' + PARTS[p] : (id === 'finish' ? 'Last step' : '');
+  main().innerHTML = '<section class="slide" aria-labelledby="ttl">' + (kick ? '<p class="kicker">' + esc(kick) + '</p>' : '') + '<h1 class="title" id="ttl" tabindex="-1">' + r.title + '</h1>' + (r.lead ? '<p class="lead">' + r.lead + '</p>' : '')
+    + '<form id="stepform" novalidate autocomplete="off">' + r.html + '<button type="submit" class="sr" tabindex="-1" aria-hidden="true">Next</button></form></section>';
+  if (opts.errors) applyErrors(opts.errors);
+  footer(id, d); progress(id);
+  const pb = $('#pb'); pb.scrollTop = 0;
+  if (!opts.noFocus) { const h = $('#ttl'); if (h) h.focus({ preventScroll:true }); }
+  if (id === 'contract') afterContract();
+  if (d.sign || id === 'contract') setupPad();
+  document.title = (id === 'done' ? 'Thank you' : 'Welcome') + ' | Black Horse Beamish';
+}
+function progress(id){
+  const p = path(), i = id === 'done' ? p.length - 1 : Math.max(0, p.indexOf(id)), pct = id === 'done' ? 100 : Math.round(i / (p.length - 1) * 100);
+  $('#barfill').style.width = pct + '%'; $('.bar').setAttribute('aria-valuenow', pct);
+}
+function footer(id, d){
+  const f = $('#foot');
+  if (d.nofooter) { f.hidden = true; return; }
+  f.hidden = false;
+  const first = id === 'welcome', nextLabel = d.next || 'Next';
+  const dim = id === 'contract' && !S.readEnd && !S.signed.contract;
+  f.innerHTML = (first ? '' : '<button type="button" class="btn ghost" data-act="back" aria-label="Back">Back</button>')
+    + '<button type="button" class="btn" id="nextbtn" data-act="next"' + (dim ? ' aria-disabled="true"' : '') + '>' + (dim ? 'Keep reading ↓' : esc(nextLabel)) + '</button>';
+}
+function setNextBusy(on){ const b = $('#nextbtn'); if (!b) return; b.classList.toggle('busy', on); b.setAttribute('aria-busy', on ? 'true' : 'false'); if (on) { b.dataset.l = b.innerHTML; b.innerHTML = '<span class="spin" aria-hidden="true"></span>Saving'; } else if (b.dataset.l) { b.innerHTML = b.dataset.l; delete b.dataset.l; } $$('#foot .btn').forEach(x => x.disabled = on); }
+function showBanner(msg, retry){ const b = $('#banner'); b.innerHTML = '<span>' + esc(msg) + '</span>' + (retry ? '<button type="button" class="btn small ghost" data-act="retry">Try again</button>' : ''); b.hidden = false; }
+function hideBanner(){ const b = $('#banner'); b.hidden = true; b.innerHTML = ''; }
+function applyErrors(map){
+  S.errors = map || {};
+  $$('[data-err]').forEach(el => { const m = S.errors[el.dataset.err]; el.textContent = m || ''; el.hidden = !m; });
+  $$('[aria-invalid]').forEach(el => el.removeAttribute('aria-invalid'));
+  Object.keys(S.errors).forEach(k => { const el = document.getElementById(fid(k)); if (el) el.setAttribute('aria-invalid', 'true'); });
+  const first = $$('[data-err]').find(el => !el.hidden);
+  if (first) { const box = first.closest('.field,.q,.card,fieldset') || first; box.scrollIntoView({ block:'center', behavior:REDUCED ? 'auto' : 'smooth' }); const inp = box.querySelector('input:not([type=checkbox]):not([disabled]),select,textarea,button.opt'); if (inp && !inp.matches('[type=checkbox]')) try { inp.focus({ preventScroll:true }); } catch(e){} }
+}
+function clearErr(k){ if (!S.errors[k]) return; delete S.errors[k]; $$('[data-err]').forEach(el => { if (el.dataset.err === k) { el.hidden = true; el.textContent = ''; } }); const el = document.getElementById(fid(k)); if (el) el.removeAttribute('aria-invalid'); }
+
+/* ---------------------------------------------------------------- navigation */
+function goto(id, push){
+  render(id);
+  if (push !== false) { try { history.pushState({ s:id }, '', location.href); } catch(e){} }
+}
+function nextOf(id){ const p = path(), i = p.indexOf(id); return i >= 0 && i < p.length - 1 ? p[i + 1] : 'finish'; }
+function prevOf(id){ const p = path(), i = p.indexOf(id); if (i > 0) return p[i - 1]; const hist = S.history.pop(); return hist || 'welcome'; }
+async function onNext(){
+  if (S.busy || S.locked) return;
+  const id = S.step, d = def(id); if (!d) return;
+  hideBanner();
+  if (d.prep) d.prep();
+  if (id === 'contract' && !S.readEnd && !S.signed.contract) { const pb = $('#pb'); pb.scrollBy({ top:Math.round(pb.clientHeight * .8), behavior:REDUCED ? 'auto' : 'smooth' }); return; }
+  const errs = d.validate ? d.validate() : {};
+  if (Object.keys(errs).length) { applyErrors(errs); if (errs.finish) showBanner(errs.finish, false); return; }
+  S.locked = true; setNextBusy(true);
+  try {
+    const nxt = d.submit ? 'done' : (id === 'welcome' ? 'name' : nextOf(id));
+    if (d.save && !(d.save.skip && d.save.skip())) await doSave(d, id === 'tax-confirm' ? 'tax-done' : nxt);
+    if (d.sign) await doSign(d.sign);
+    if (d.submit) { await api('p.submit'); S.submitted = true; }
+    S.locked = false; setNextBusy(false);
+    goto(S.submitted ? 'done' : nxt);
+  } catch(e) {
+    S.locked = false; setNextBusy(false);
+    handleError(e, id, d);
+  }
+}
+async function doSave(d, nextStep){
+  busyOn();
+  try {
+    const sv = d.save, data = sv.data();
+    const r = await api('p.save', { section:sv.section, data:data, step:nextStep });
+    flashSaved();
+    if (sv.snap) { const key = JSON.stringify(data); if (S.snap[sv.snap] && S.snap[sv.snap] !== key) S.resign[sv.snap] = true; S.snap[sv.snap] = key; }
+    return r;
+  } finally { busyOff(); }
+}
+async function doSign(doc){
+  busyOn();
+  try {
+    const have = S.sigData || S.hasSig, mode = S.sigMode[doc] || (have ? 'use' : 'draw');
+    const payload = { doc:doc, agree:true, full_name:str(S.fullName[doc]) };
+    let sig = '';
+    if (mode === 'draw' || !have) { sig = exportSig(); if (!sig) throw Object.assign(new Error('Please sign in the box with your finger.'), { fields:{ ['sign.' + doc + '.sig']:'Please sign in the box with your finger.' }, local:true }); payload.signature = sig; }
+    const r = await api('p.sign', payload);
+    if (r.signed) S.signed = Object.assign({}, S.signed, r.signed); else S.signed[doc] = true;
+    S.resign[doc] = false;
+    if (sig) { S.sigData = sig; S.hasSig = true; S.strokes = []; if (pad) pad.clear(true); }
+    S.sigMode[doc] = 'use';
+    S.fullName.any = payload.full_name;
+    flashSaved();
+  } finally { busyOff(); }
+}
+function handleError(e, id, d){
+  const code = e.code;
+  if (code === 'expired' || code === 'cancelled' || code === 'notfound') return showFatal(code);
+  if (code === 'done') { S.submitted = true; return goto('done'); }
+  if (e.network) { showBanner(e.message + ' What you have typed is still here.', true); S.pending = 'next'; return; }
+  const f = e.fields || {};
+  if (Object.keys(f).length) {
+    const map = {}, sec = d && d.save ? d.save.section : '';
+    Object.keys(f).forEach(k => { map[mapFieldKey(k, sec)] = f[k]; });
+    // errors that belong to another screen: go there
+    const mine = Object.keys(map).filter(k => document.getElementById(fid(k)) || $$('[data-err]').some(el => el.dataset.err === k));
+    if (mine.length) { applyErrors(map); showBanner(e.message || 'Please check the highlighted answers.', false); return; }
+    const target = stepForKey(Object.keys(map)[0]);
+    if (target && target !== id) { render(target, { errors:map }); showBanner(e.message || 'Please check the highlighted answers.', false); return; }
+  }
+  showBanner(e.message || 'Something went wrong. Please try again.', false);
+}
+function mapFieldKey(k, sec){
+  if (/^(details|checklist|health|wtd|sign|dob)\./.test(k)) return k;
+  k = k.replace(/^answers\./, '');
+  if (sec === 'health') return 'health.' + k;
+  if (sec) return sec + '.' + k;
+  return k;
+}
+function stepForKey(k){
+  const m = /^(\w+)\.(.+)$/.exec(k); if (!m) return null;
+  if (m[1] === 'details') { return DETAIL_STEPS.find(s => DETAIL_FIELDS[s].indexOf(m[2]) >= 0) || null; }
+  if (m[1] === 'checklist') { const q = Object.keys(TAXQ).find(n => TAXQ[n].key === m[2]); return m[2] === 'confirm_name' ? 'tax-confirm' : q ? 'tax-' + q : null; }
+  if (m[1] === 'health') { const c = chunkOfQuestion(m[2]); return c ? c.id : (m[2] === 'jobs' || m[2] === 'gp') ? (chunkOfQuestion(m[2]) || {}).id : null; }
+  if (m[1] === 'wtd') return 'wtd';
+  return null;
+}
+function onBack(){
+  if (S.busy || S.locked) return;
+  const id = S.step; if (id === 'welcome') return;
+  const p = path(), i = p.indexOf(id);
+  const prev = i > 0 ? p[i - 1] : 'welcome';
+  S.history = []; goto(prev);
+}
+function showFatal(kind){
+  S.fatal = kind;
+  const msgs = {
+    expired:['This link has run out', 'Ask Black Horse Beamish to send you a new one.'],
+    cancelled:['This link is no longer in use', 'Your onboarding has been cancelled. If you think that is a mistake, please contact Black Horse Beamish.'],
+    notfound:['We cannot find this link', 'Please check you opened the whole link from your email. If it still does not work, ask Black Horse Beamish to send you a new one.']
+  };
+  const m = msgs[kind] || msgs.notfound;
+  $('#foot').hidden = true; hideBanner(); $('#barfill').style.width = '0%';
+  main().innerHTML = '<section class="center slide"><div class="big" aria-hidden="true">❦</div><h1 class="title" id="ttl" tabindex="-1">' + m[0] + '</h1><p class="lead">' + m[1] + '</p></section>';
+  const h = $('#ttl'); if (h) h.focus({ preventScroll:true });
+}
+function showRetry(msg, fn){
+  $('#foot').hidden = true; hideBanner();
+  main().innerHTML = '<section class="center slide"><div class="big" aria-hidden="true">❦</div><h1 class="title" id="ttl" tabindex="-1">We could not load this page</h1><p class="lead">' + esc(msg) + '</p><button type="button" class="btn" id="retrybtn">Try again</button></section>';
+  $('#retrybtn').onclick = function(){ if (this.classList.contains('busy')) return; this.classList.add('busy'); fn(); };
+  const h = $('#ttl'); if (h) h.focus({ preventScroll:true });
+}
+function showLoading(text){ $('#foot').hidden = true; main().innerHTML = '<div class="centerspin" role="status"><span class="spin" aria-hidden="true"></span><span id="ltext">' + esc(text) + '</span></div>'; clearTimeout(showLoading.t); showLoading.t = setTimeout(() => { const l = $('#ltext'); if (l) l.textContent = text + ' (slow connection, please wait)'; }, 7000); }
+
+/* ---------------------------------------------------------------- contract loading + scroll-to-end */
+async function loadContract(){
+  if (S.contractLoading) return; S.contractLoading = true; S.contractErr = '';
+  try { S.contract = await api('p.contract'); S.readEnd = !!S.signed.contract; }
+  catch(e) {
+    if (e.code === 'expired' || e.code === 'cancelled' || e.code === 'notfound') { S.contractLoading = false; return showFatal(e.code); }
+    S.contractErr = e.message || 'We could not load your contract.';
+  }
+  S.contractLoading = false;
+  if (S.step === 'contract') render('contract');
+}
+function afterContract(){
+  if (!S.contract) { if (!S.contractLoading && !S.contractErr) loadContract(); return; }
+  const end = $('#endmark'), pb = $('#pb');
+  const mark = () => { if (S.readEnd) return; S.readEnd = true; const h = $('#rhint'); if (h) h.hidden = true; const b = $('#nextbtn'); if (b && !S.signed.contract) { b.removeAttribute('aria-disabled'); b.textContent = STEPS.contract.next; } };
+  if (S.readEnd) return;
+  const check = () => { const r = end.getBoundingClientRect(), b = pb.getBoundingClientRect(); if (r.top < b.bottom - 4) mark(); };
+  pb.addEventListener('scroll', check, { passive:true });
+  if (window.IntersectionObserver) { const io = new IntersectionObserver(es => { if (es.some(x => x.isIntersecting)) { mark(); io.disconnect(); } }, { root:pb, threshold:0 }); io.observe(end); }
+  const poll = () => { if (S.step !== 'contract' || S.readEnd) return; check(); setTimeout(poll, 500); };
+  setTimeout(poll, 200);
+}
+
+/* ---------------------------------------------------------------- signature pad */
+const INK = '#14213d';
+let pad = null;
+function pathLen(strokes){ let L = 0; strokes.forEach(s => { for (let i = 1; i < s.length; i++) L += Math.hypot(s[i][0] - s[i - 1][0], s[i][1] - s[i - 1][1]); }); return L; }
+function inkOK(strokes){ return strokes.reduce((n, s) => n + s.length, 0) >= 6 && pathLen(strokes) >= 70; }
+function drawStrokes(ctx, strokes, lw){
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = INK; ctx.fillStyle = INK; ctx.lineWidth = lw;
+  strokes.forEach(s => {
+    if (!s.length) return;
+    if (s.length < 3) { ctx.beginPath(); ctx.arc(s[0][0], s[0][1], lw / 2, 0, 7); ctx.fill(); if (s.length === 2) { ctx.beginPath(); ctx.moveTo(s[0][0], s[0][1]); ctx.lineTo(s[1][0], s[1][1]); ctx.stroke(); } return; }
+    ctx.beginPath(); ctx.moveTo(s[0][0], s[0][1]);
+    for (let i = 1; i < s.length - 1; i++) { const mx = (s[i][0] + s[i + 1][0]) / 2, my = (s[i][1] + s[i + 1][1]) / 2; ctx.quadraticCurveTo(s[i][0], s[i][1], mx, my); }
+    const l = s[s.length - 1]; ctx.lineTo(l[0], l[1]); ctx.stroke();
+  });
+}
+function makePad(canvas, wrap){
+  const ctx = canvas.getContext('2d'); let cur = null, w = 0, h = 0, dpr = 1;
+  function size(){
+    const r = canvas.getBoundingClientRect(); if (!r.width) return; dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1)); w = r.width; h = r.height;
+    canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr); redraw();
+  }
+  function redraw(){ ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, h); drawStrokes(ctx, S.strokes, 2.4); wrap.classList.toggle('has', S.strokes.some(s => s.length)); }
+  const pt = (x, y) => { const r = canvas.getBoundingClientRect(); return [x - r.left, y - r.top]; };
+  function down(x, y){ cur = [pt(x, y)]; S.strokes.push(cur); redraw(); }
+  function move(x, y){ if (!cur) return; const p = pt(x, y), l = cur[cur.length - 1]; if (Math.hypot(p[0] - l[0], p[1] - l[1]) < 1.2) return; cur.push(p); redraw(); }
+  function up(){ cur = null; clearErrFor(); }
+  const ro = (window.ResizeObserver ? new ResizeObserver(size) : null); if (ro) ro.observe(canvas); else window.addEventListener('resize', size);
+  if (window.PointerEvent) {
+    canvas.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse' && e.button !== 0) return; e.preventDefault(); try { canvas.setPointerCapture(e.pointerId); } catch(_){} down(e.clientX, e.clientY); });
+    canvas.addEventListener('pointermove', e => { if (!cur) return; e.preventDefault(); const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : null; (evs && evs.length ? evs : [e]).forEach(ev => move(ev.clientX, ev.clientY)); });
+    ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(n => canvas.addEventListener(n, up));
+  } else {
+    canvas.addEventListener('touchstart', e => { e.preventDefault(); const t = e.touches[0]; down(t.clientX, t.clientY); }, { passive:false });
+    canvas.addEventListener('touchmove', e => { e.preventDefault(); const t = e.touches[0]; move(t.clientX, t.clientY); }, { passive:false });
+    canvas.addEventListener('touchend', up); canvas.addEventListener('touchcancel', up);
+    canvas.addEventListener('mousedown', e => { down(e.clientX, e.clientY); const mm = ev => move(ev.clientX, ev.clientY), mu = () => { up(); document.removeEventListener('mousemove', mm); document.removeEventListener('mouseup', mu); }; document.addEventListener('mousemove', mm); document.addEventListener('mouseup', mu); });
+  }
+  size();
+  return { hasInk:() => inkOK(S.strokes), clear(silent){ S.strokes = []; redraw(); }, destroy(){ if (ro) ro.disconnect(); else window.removeEventListener('resize', size); } };
+}
+function clearErrFor(){ const d = S.step === 'health-sign' ? 'health' : S.step === 'wtd-sign' ? 'wtd' : 'contract'; clearErr('sign.' + d + '.sig'); }
+function setupPad(){
+  if (pad) { pad.destroy(); pad = null; }
+  const cv = $('#sigcv'); if (cv) pad = makePad(cv, $('#sigwrap'));
+}
+function exportSig(){
+  const st = S.strokes.filter(s => s.length); if (!inkOK(st)) return '';
+  let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; st.forEach(s => s.forEach(p => { x0 = Math.min(x0, p[0]); y0 = Math.min(y0, p[1]); x1 = Math.max(x1, p[0]); y1 = Math.max(y1, p[1]); }));
+  const m = 8, bw = Math.max(20, x1 - x0) + m * 2, bh = Math.max(20, y1 - y0) + m * 2, sc = Math.min(600 / bw, 200 / bh, 2.5);
+  const c = document.createElement('canvas'); c.width = Math.max(1, Math.ceil(bw * sc)); c.height = Math.max(1, Math.ceil(bh * sc));
+  const ctx = c.getContext('2d'); ctx.setTransform(sc, 0, 0, sc, (-x0 + m) * sc, (-y0 + m) * sc);
+  drawStrokes(ctx, st, Math.max(2.2, 2.4 * Math.min(sc, 1.6)) / 1);
+  return c.toDataURL('image/png');
+}
+
+/* ---------------------------------------------------------------- events */
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  const act = b.dataset.act;
+  if (act === 'next') return onNext();
+  if (act === 'back') return onBack();
+  if (act === 'retry') { hideBanner(); return onNext(); }
+  if (act === 'pick') {
+    const k = b.dataset.k; let v = b.dataset.v; if (v === 'true') v = true; else if (v === 'false') v = false;
+    set(k, v); clearErr(k);
+    const g = b.closest('[data-grp]'); $$('.opt', g).forEach(x => { const on = x === b; x.classList.toggle('sel', on); x.setAttribute('aria-checked', on ? 'true' : 'false'); });
+    if (k === 'details.eligible_uk') { const n = $('#elnote'); if (n) n.hidden = v !== false; }
+    if (k === 'checklist.other_job') { /* the question list for this part changes */ progress(S.step); }
+    if (/^checklist\./.test(k)) progress(S.step);
+    return;
+  }
+  if (act === 'hq') {
+    const q = findQ(b.dataset.q), a = aOf(q); a.a = b.dataset.v; clearErr('health.' + q.id);
+    const old = document.getElementById('q-' + q.id); old.outerHTML = qHTML(q);
+    const nb = document.querySelector('#q-' + q.id + ' [data-v="' + b.dataset.v + '"]'); if (nb) nb.focus({ preventScroll:true });
+    const ta = document.getElementById('q-' + q.id + '-d'); if (ta) ta.scrollIntoView({ block:'nearest', behavior:REDUCED ? 'auto' : 'smooth' });
+    return;
+  }
+  if (act === 'edit') { const s = b.dataset.step; if (s) goto(s); return; }
+  if (act === 'sigclear') { if (pad) pad.clear(); return; }
+  if (act === 'sigdraw') { S.sigMode[b.dataset.doc] = 'draw'; S.strokes = []; return rerenderKeep(); }
+  if (act === 'siguse') { S.sigMode[b.dataset.doc] = 'use'; return rerenderKeep(); }
+  if (act === 'reloadcontract') { S.contractErr = ''; render('contract'); return; }
+});
+document.addEventListener('input', e => {
+  const t = e.target;
+  if (t.dataset.b) {
+    const k = t.dataset.b;
+    if (t.type === 'checkbox') return;
+    let v = t.value;
+    if (t.dataset.fm === 'ni') { const pos = t.selectionStart; const nv = v.toUpperCase(); if (nv !== v) { t.value = nv; try { t.setSelectionRange(pos, pos); } catch(_){} } v = nv; }
+    if (t.dataset.fm === 'sort') { v = fmtSort(v); if (t.value !== v) t.value = v; }
+    if (t.dataset.fm === 'acc') { v = digits(v).slice(0, 8); if (t.value !== v) t.value = v; }
+    if (k.indexOf('dob.') === 0) { set('dob.' + k.slice(4), v); clearErr('details.dob'); return; }
+    set(k, v); clearErr(k);
+    if (/^sign\./.test(k)) {}
+    return;
+  }
+  if (t.dataset.hd) { aOf(findQ(t.dataset.hd)).d = t.value; clearErr('health.' + t.dataset.hd); return; }
+  if (t.dataset.hv) { aOf(findQ(t.dataset.hv)).v = t.value; clearErr('health.' + t.dataset.hv); return; }
+  if (t.dataset.hj) { ensureAnswers(); const p = t.dataset.hj.split('.'); (S.health.jobs[+p[0]] = S.health.jobs[+p[0]] || {})[p[1]] = t.value; return; }
+  if (t.dataset.hg) { ensureAnswers(); S.health.gp[t.dataset.hg] = t.value; return; }
+});
+document.addEventListener('change', e => {
+  const t = e.target;
+  if (t.dataset && t.dataset.act === 'plan') { const l = $$('[data-act=plan]').filter(x => x.checked).map(x => x.value); S.checklist.plans = l; clearErr('checklist.plans'); return; }
+  if (!t.dataset || !t.dataset.b) return;
+  const k = t.dataset.b;
+  if (t.type === 'checkbox') {
+    set(k, t.checked);
+    if (k === 'details.ni_unknown') { const f = document.getElementById('f-details-ni-number'); if (f) { f.disabled = t.checked; if (t.checked) { clearErr('details.ni_number'); } } const n = $('#ni-unk'); if (n) n.hidden = !t.checked; }
+    if (/^agree\./.test(k)) clearErr('sign.' + k.slice(6) + '.agree');
+    return;
+  }
+  if (k.indexOf('dob.') === 0) { set('dob.' + k.slice(4), t.value); clearErr('details.dob'); return; }
+  if (t.dataset.fm === 'post') { t.value = fmtPost(t.value); set(k, t.value); }
+  if (t.dataset.fm === 'ni') { const f = fmtNI(t.value); set(k, f); t.value = STEPS.ni && f ? f.replace(/^(\w{2})(\d{0,2})(\d{0,2})(\d{0,2})(\w?)$/, (a, p, x, y, z, l) => [p, x, y, z, l].filter(Boolean).join(' ')) : f; }
+  if (t.dataset.fm === 'sort') { t.value = fmtSort(t.value); set(k, t.value); }
+});
+document.addEventListener('submit', e => { e.preventDefault(); onNext(); });
+document.addEventListener('focusin', e => {
+  const t = e.target; if (!t.matches || !t.matches('input:not([type=checkbox]),textarea,select')) return;
+  setTimeout(() => { if (document.activeElement === t) t.scrollIntoView({ block:'center', behavior:REDUCED ? 'auto' : 'smooth' }); }, 320);
+});
+function findQ(id){ let f = null; S.bank.sections.forEach(s => s.questions.forEach(q => { if (q.id === id) f = q; })); return f; }
+function rerenderKeep(){ const y = $('#pb').scrollTop; const e = S.errors; render(S.step, { noFocus:true }); $('#pb').scrollTop = y; }
+window.addEventListener('popstate', e => {
+  if (S.busy || S.fatal || S.submitted) { try { history.pushState({ s:S.step }, '', location.href); } catch(_){} return; }
+  const s = e.state && e.state.s; if (s && def(s)) render(s, { noFocus:false }); else { const p = path(), i = p.indexOf(S.step); if (i > 0) render(p[i - 1]); }
+});
+
+/* the phone keyboard: keep the frame the size of what is really visible */
+function fitFrame(){
+  const vv = window.visualViewport, app = $('#app'); if (!vv) return;
+  app.style.height = vv.height + 'px'; app.style.top = vv.offsetTop + 'px';
+  $('#foot').classList.toggle('compact', vv.height < 520);
+}
+if (window.visualViewport) { visualViewport.addEventListener('resize', fitFrame); visualViewport.addEventListener('scroll', fitFrame); fitFrame(); }
+
+/* ---------------------------------------------------------------- start up */
+function hydrate(o){
+  S.starter = o.starter || {};
+  S.details = Object.assign({}, o.details || {});
+  S.checklist = Object.assign({}, o.checklist || {});
+  const h = o.health || {}; S.health = { answers:Object.assign({}, h.answers || {}), jobs:Array.isArray(h.jobs) ? h.jobs.map(j => Object.assign({}, j)) : [], gp:Object.assign({}, h.gp || {}) }; ensureAnswers();
+  Object.keys(S.health.answers).forEach(k => { const a = S.health.answers[k]; if (a && a.v != null) a.v = String(a.v); });
+  S.wtd = Object.assign({}, o.wtd || {});
+  S.signed = Object.assign({ health:false, wtd:false, contract:false }, o.signed || {});
+  S.hasSig = !!o.has_signature; S.submitted = !!o.submitted;
+  const d = S.details, s = S.starter;
+  if (!str(d.first_names) && s.first_name) d.first_names = s.first_name;
+  if (!str(d.last_name) && s.last_name) d.last_name = s.last_name;
+  if (!str(d.country)) d.country = 'United Kingdom';
+  if (d.sort_code) d.sort_code = digits(d.sort_code);
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(d.dob || ''); if (m) S.dob = { y:String(+m[1]), m:String(+m[2]), d:String(+m[3]) };
+  S.snap.health = JSON.stringify(healthPayload()); S.snap.wtd = JSON.stringify({ choice:S.wtd.choice });
+  if (S.checklist.confirm_name == null) delete S.checklist.confirm_name;
+}
+function firstIncomplete(){
+  const p = path();
+  for (const id of p) {
+    if (id === 'welcome' || id === 'tax-done' || id === 'health-intro' || id === 'health-review' || id === 'finish') continue;
+    if (id === 'health-sign') { if (!S.signed.health) return id; continue; }
+    if (id === 'wtd-sign') { if (!S.signed.wtd) return id; continue; }
+    if (id === 'contract') { if (!S.signed.contract) return id; continue; }
+    const d = def(id); if (d && d.validate) { if (d.prep) d.prep(); if (Object.keys(d.validate()).length) return id; }
+  }
+  return 'finish';
+}
+function startStep(){
+  if (S.submitted) return 'done';
+  const saved = S.starter.step, p = path();
+  if (saved && p.indexOf(saved) > 0) {
+    let at = saved;
+    if ((at === 'health-review' || at === 'health-sign') && S.signed.health) at = 'wtd';
+    if (at === 'wtd-sign' && S.signed.wtd) at = 'contract';
+    if (at === 'contract' && S.signed.contract) at = 'finish';
+    return at;
+  }
+  if (saved === 'done') return 'finish';
+  const any = Object.keys(S.details).some(k => k !== 'country' && str(S.details[k]) && k !== 'first_names' && k !== 'last_name') || Object.keys(S.checklist).length || S.signed.health || S.signed.wtd || S.signed.contract;
+  return any ? firstIncomplete() : 'welcome';
+}
+async function boot(){
+  showLoading('Opening your onboarding');
+  const q = new URLSearchParams(location.search); S.token = (q.get('t') || '').trim();
+  if (!S.token) return showFatal('notfound');
+  try {
+    const [bank, open] = await Promise.all([
+      fetch('health.json', { cache:'no-cache' }).then(r => { if (!r.ok) throw new Error('bank'); return r.json(); }).catch(() => { const e = new Error('We could not load the questionnaire. Please check your signal and try again.'); e.network = true; throw e; }),
+      api('p.open')
+    ]);
+    S.bank = bank; hydrate(open);
+  } catch(e) {
+    if (e.code === 'expired' || e.code === 'cancelled' || e.code === 'notfound') return showFatal(e.code);
+    return showRetry(e.message || 'Something went wrong.', boot);
+  }
+  const id = startStep();
+  try { history.replaceState({ s:id }, '', location.href); } catch(e){}
+  render(id);
+  if (id !== 'welcome' && id !== 'done') { const t = S.starter.first_name; setStat('Welcome back' + (t ? ', ' + t : ''), false); setTimeout(() => { if (!S.busy) setStat('', false); }, 3200); }
+}
+boot();
+})();
+</script>
+</body>
+</html>
