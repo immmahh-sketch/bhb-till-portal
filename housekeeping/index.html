@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en-GB" data-brand="bhb">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Housekeepers boards | Black Horse Beamish</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --sage:#4E5F4F; --sage-70:#6C796D; --sage-10:#EDEFED; --sage-dark:#3B483C;
+  --bone:#F7F7F7; --celadon:#C1C8B4; --mist:#E7E7E7; --white:#fff; --ink:#262626; --gold:#C9A56B;
+  --attention:#B08D57; --attention-bg:#F7F0E4; --alert:#8C4A3F; --alert-bg:#F6EAE8; --good:#3F6B45; --good-bg:#EAF2EB;
+  --display:"Cormorant Garamond",Georgia,serif; --body:Raleway,"Helvetica Neue",Arial,sans-serif;
+  --track-label:.16em; --radius:12px; --shadow:0 1px 2px rgba(38,38,38,.06),0 8px 24px rgba(38,38,38,.07); --maxw:640px;
+}
+*{box-sizing:border-box} html,body{margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{font-family:var(--body); color:var(--ink); background:var(--bone); font-size:16px; line-height:1.5; overflow-x:hidden}
+h1,h2,h3,h4,.cd .big,.rname,.fact b,.finish .rooms b{font-variant-numeric:lining-nums}
+h1,h2,h3,h4{font-family:var(--display); font-weight:700; margin:0; letter-spacing:.01em}
+p{margin:0}
+button,input,textarea,select{font:inherit; color:inherit}
+[hidden]{display:none!important}
+:focus-visible{outline:3px solid var(--gold); outline-offset:2px}
+.shell{max-width:var(--maxw); margin:0 auto; padding:0 14px 72px}
+
+/* gate + header */
+#gate{position:fixed; inset:0; background:var(--sage); z-index:500; display:flex; align-items:center; justify-content:center; padding:24px}
+.gatecard{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); width:100%; max-width:380px; padding:32px 28px; text-align:center}
+.gatecard h1{font-size:28px; color:var(--sage); line-height:1.15}
+.gatecard .sub{font-size:11px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); margin:6px 0 22px}
+.gateerr{color:var(--alert); font-size:13px; min-height:18px; margin-top:8px}
+header.top{background:var(--sage); color:var(--white)}
+.topin{max-width:var(--maxw); margin:0 auto; padding:12px 14px; display:flex; align-items:center; gap:12px}
+.brand{font-family:var(--display); font-size:22px; line-height:1.1; min-width:0}
+.brand small{display:block; font-family:var(--body); font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; opacity:.75}
+.who{margin-left:auto; display:flex; align-items:center; gap:10px; font-size:12px; opacity:.95}
+.who #whoname{display:none}
+.who button{background:transparent; border:1px solid rgba(255,255,255,.45); color:var(--white); border-radius:8px; padding:0 12px; min-height:40px; cursor:pointer; font-size:11px; letter-spacing:.06em; text-transform:uppercase}
+@media (min-width:480px){ .who #whoname{display:inline} }
+
+/* buttons */
+.btn{display:inline-flex; align-items:center; justify-content:center; gap:8px; border:2px solid var(--sage); background:var(--sage); color:var(--white); border-radius:12px; padding:0 18px; cursor:pointer; font-size:14px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; min-height:52px; width:100%}
+.btn:hover{background:var(--sage-dark)}
+.btn.ghost{background:var(--white); color:var(--sage)} .btn.ghost:hover{background:var(--sage-10)}
+.btn.inline{width:auto}
+.btn:disabled{opacity:.55; cursor:default}
+.linkbtn{background:none; border:0; padding:0 4px; min-height:48px; color:var(--sage); font-weight:700; font-size:14px; text-decoration:underline; text-underline-offset:3px; cursor:pointer}
+
+/* toast */
+.toast{position:fixed; left:50%; bottom:calc(22px + env(safe-area-inset-bottom)); transform:translate(-50%,20px); background:var(--ink); color:#fff; padding:12px 18px; border-radius:10px; font-size:14px; opacity:0; pointer-events:none; transition:.2s; z-index:700; max-width:90vw; text-align:center}
+.toast.on{opacity:1; transform:translate(-50%,0)} .toast.bad{background:var(--alert)}
+
+/* greeting */
+.hello{margin:18px 2px 12px}
+.hello h1{font-size:34px; line-height:1.1; color:var(--sage)}
+.hello .date{color:var(--sage-70); font-size:14px; letter-spacing:.02em; margin-top:2px}
+
+/* head housekeeper message */
+.msg{background:var(--attention-bg); border:2px solid var(--gold); border-radius:var(--radius); padding:14px 16px 16px; margin-bottom:14px; box-shadow:var(--shadow)}
+.msg .kicker{font-size:11px; letter-spacing:var(--track-label); text-transform:uppercase; font-weight:800; color:#7a5f2c}
+.msg .body{font-family:var(--display); font-size:25px; line-height:1.2; font-weight:700; margin-top:4px; white-space:pre-wrap; overflow-wrap:anywhere}
+
+/* finish panel */
+.finish{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); padding:16px; margin-bottom:16px}
+.finish .rooms{font-size:16px}
+.finish .rooms b{font-family:var(--display); font-size:22px}
+.cd{margin:12px 0 4px; padding:14px 14px; border-radius:10px; text-align:center; background:var(--sage-10); color:var(--sage-dark)}
+.cd .big{font-family:var(--display); font-weight:700; font-size:34px; line-height:1.1; overflow-wrap:anywhere}
+.cd.during{background:var(--sage-10)}
+.cd.before{background:var(--attention-bg); color:#6d531f}
+.cd.over{background:var(--alert-bg); color:var(--alert)}
+.cd.done{background:var(--good-bg); color:var(--good)}
+.facts{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px}
+.fact{background:var(--bone); border-radius:10px; padding:10px 12px}
+.fact span{display:block; font-size:10.5px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); font-weight:700}
+.fact b{font-family:var(--display); font-size:26px; line-height:1.15}
+.factnote{grid-column:1 / -1; font-size:13px; color:var(--sage-70); margin-top:-2px}
+.progress{height:12px; border-radius:99px; background:var(--mist); overflow:hidden; margin:14px 0 4px}
+.progress i{display:block; height:100%; background:linear-gradient(90deg,var(--sage),var(--gold)); border-radius:99px; transition:width .4s}
+.proglabel{font-size:13px; color:var(--sage-70)}
+
+/* sticky mini bar */
+.mini{position:fixed; top:0; left:0; right:0; z-index:300; background:var(--sage-dark); color:#fff; transform:translateY(-110%); transition:transform .2s; padding-top:env(safe-area-inset-top); box-shadow:0 4px 14px rgba(0,0,0,.2)}
+.mini.on{transform:none}
+.miniin{max-width:var(--maxw); margin:0 auto; padding:9px 14px; display:flex; align-items:center; gap:10px; min-height:48px}
+.mini .mcd{font-weight:700; font-size:14px; flex:1; min-width:0; overflow-wrap:anywhere}
+.mini .mcount{font-size:13px; white-space:nowrap; opacity:.95}
+.mini.over{background:var(--alert)} .mini.done{background:var(--good)}
+
+/* section heads */
+.sechead{font-size:11px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); font-weight:800; margin:22px 2px 8px}
+
+/* room cards */
+.room{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); padding:16px; margin-bottom:14px; border-left:6px solid var(--celadon); position:relative; overflow:hidden}
+.room.dep{border-left-color:var(--gold)} .room.stay{border-left-color:var(--sage)}
+.rhead{display:flex; align-items:flex-start; gap:10px; justify-content:space-between}
+.rname{font-family:var(--display); font-size:34px; line-height:1.05; font-weight:700; min-width:0; overflow-wrap:anywhere}
+.rname small{font-size:26px; font-weight:600; color:var(--sage-dark)}
+.pill{flex:none; font-size:11px; letter-spacing:.12em; text-transform:uppercase; font-weight:800; padding:6px 10px; border-radius:99px; margin-top:4px; white-space:nowrap}
+.pill.dep{background:var(--attention-bg); color:#6d531f; border:1px solid var(--gold)}
+.pill.stay{background:var(--sage-10); color:var(--sage-dark); border:1px solid var(--celadon)}
+.rmeta{display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:6px 0 10px; font-size:14px; color:var(--sage-70)}
+.mins{font-weight:800; color:var(--ink); background:var(--bone); border-radius:8px; padding:3px 9px; font-size:14px}
+.mins.long{background:var(--attention-bg); color:#6d531f}
+.line{font-size:16px; line-height:1.4; margin:6px 0}
+.line b{font-weight:700}
+.line.none{color:var(--sage-70)}
+.note{border-radius:10px; padding:10px 12px; margin:10px 0 0; font-size:15px; line-height:1.4}
+.note h4{font-family:var(--body); font-size:10.5px; letter-spacing:var(--track-label); text-transform:uppercase; font-weight:800; margin-bottom:2px}
+.note div{white-space:pre-wrap; overflow-wrap:anywhere}
+.note.booking{background:var(--attention-bg); border:1px solid var(--gold)} .note.booking h4{color:#7a5f2c}
+.note.hk{background:var(--alert-bg); border:1px solid #d9b4ad} .note.hk h4{color:var(--alert)}
+.checked{display:flex; align-items:center; gap:8px; margin-top:10px; font-size:14px; font-weight:700; color:var(--good); background:var(--good-bg); border-radius:10px; padding:8px 12px}
+.checked svg{flex:none}
+.issues{display:inline-block; margin-top:10px; font-size:13px; font-weight:700; color:var(--alert); background:var(--alert-bg); border-radius:99px; padding:4px 11px}
+.acts{display:grid; gap:10px; margin-top:14px}
+.room.done{padding:12px 16px; border-left-color:var(--good); background:#fbfdfb}
+.room.done .rname{font-size:26px} .room.done .rname small{font-size:20px}
+.room.done .pill{opacity:.8}
+.donerow{display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:4px; color:var(--good); font-weight:700; font-size:15px}
+.donerow svg{flex:none}
+.donerow .sp{margin-left:auto; display:flex; gap:6px; flex-wrap:wrap}
+.room.done .issues{margin-top:4px; margin-right:6px}
+.room.done .checked{margin-top:6px}
+.room.pop{animation:pop .9s ease-out}
+.room.pop::after{content:""; position:absolute; inset:0; background:var(--good); opacity:0; animation:flash .9s ease-out; pointer-events:none}
+@keyframes pop{0%{transform:scale(1)}25%{transform:scale(1.03)}100%{transform:scale(1)}}
+@keyframes flash{0%{opacity:.28}100%{opacity:0}}
+@media (prefers-reduced-motion:reduce){ .room.pop,.room.pop::after{animation:none} .toast,.mini{transition:none} }
+
+/* states */
+.empty,.errbox{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); padding:30px 20px; text-align:center; margin-top:8px}
+.empty p,.errbox p{color:var(--sage-70); margin-bottom:16px; font-size:16px}
+.errbox h3{color:var(--alert); font-size:24px; margin-bottom:6px}
+.loading{padding:60px 0; text-align:center; color:var(--sage-70)}
+.stale{background:var(--attention-bg); border:1px solid var(--gold); color:#6d531f; border-radius:10px; padding:8px 12px; font-size:13px; margin-bottom:12px}
+.foot{display:flex; align-items:center; justify-content:space-between; gap:10px; font-size:13px; color:var(--sage-70); margin-top:18px}
+
+/* issue sheet */
+#sheet{position:fixed; inset:0; z-index:600; display:flex; align-items:flex-end; justify-content:center}
+.backdrop{position:absolute; inset:0; background:rgba(20,26,20,.55)}
+.sheet{position:relative; background:var(--white); width:100%; max-width:560px; max-height:94vh; overflow-y:auto; -webkit-overflow-scrolling:touch; border-radius:18px 18px 0 0; padding:18px 16px calc(18px + env(safe-area-inset-bottom)); box-shadow:0 -8px 30px rgba(0,0,0,.25)}
+@media (min-width:600px){ #sheet{align-items:center} .sheet{border-radius:16px; padding:22px 22px 22px} }
+.sheet h2{font-size:28px; color:var(--sage); line-height:1.1}
+.sheet .sub{color:var(--sage-70); font-size:15px; margin:2px 0 14px; font-weight:600}
+.sheet fieldset{border:0; padding:0; margin:0 0 14px; min-width:0}
+.sheet legend,.sheet .lbl{font-size:11px; letter-spacing:var(--track-label); text-transform:uppercase; font-weight:800; color:var(--sage-70); padding:0; margin-bottom:6px; display:block}
+.chips{display:flex; flex-wrap:wrap; gap:8px}
+.chips label{position:relative}
+.chips input{position:absolute; opacity:0; inset:0; width:100%; height:100%; margin:0; cursor:pointer}
+.chips span{display:inline-flex; align-items:center; min-height:48px; padding:0 16px; border:2px solid var(--mist); border-radius:99px; background:var(--white); font-size:15px; font-weight:600}
+.chips input:checked + span{background:var(--sage); border-color:var(--sage); color:#fff}
+.chips input:focus-visible + span{outline:3px solid var(--gold); outline-offset:2px}
+.sheet textarea{width:100%; border:2px solid var(--celadon); border-radius:10px; padding:12px; font-size:16px; min-height:110px; resize:vertical; background:#fff; margin-bottom:14px}
+.sheet textarea:focus{border-color:var(--sage); outline:none}
+.tick{display:flex; align-items:center; gap:12px; min-height:52px; padding:6px 12px; background:var(--bone); border-radius:10px; margin-bottom:14px; cursor:pointer; font-weight:600}
+.tick input{width:26px; height:26px; flex:none; accent-color:var(--sage)}
+.formerr{color:var(--alert); font-size:14px; font-weight:600; min-height:20px; margin-bottom:8px}
+.sheetbtns{display:grid; grid-template-columns:1fr 1.4fr; gap:10px}
+body.locked{overflow:hidden}
+body.locked .toast{bottom:auto; top:calc(14px + env(safe-area-inset-top)); transform:translate(-50%,-20px)}
+body.locked .toast.on{transform:translate(-50%,0)}
+</style>
+</head>
+<body>
+<div id="gate"><div class="gatecard"><h1>Housekeepers boards</h1><div class="sub">Black Horse Beamish</div>
+  <p style="margin:0 0 16px;font-size:14px;color:var(--sage-70)">This opens from the Staff Portal, which knows who you are.</p>
+  <a href="https://app.blackhorsebeamish.co.uk/portal/app.html" style="display:flex;align-items:center;justify-content:center;min-height:48px;padding:0 12px;border-radius:8px;background:var(--sage);color:#fff;text-decoration:none;font-weight:600;letter-spacing:var(--track-label);text-transform:uppercase;font-size:12px">Open the Staff Portal</a>
+  <div class="gateerr" id="gerr"></div></div></div>
+
+<div id="app" hidden>
+  <header class="top"><div class="topin"><div class="brand">Housekeepers boards<small>Black Horse Beamish</small></div>
+    <div class="who"><span id="whoname"></span><button id="signout" type="button">Sign out</button></div></div></header>
+  <div class="mini" id="mini" aria-hidden="true"><div class="miniin"><div class="mcd" id="mcd"></div><div class="mcount" id="mcount"></div></div></div>
+  <main class="shell"><div id="board" aria-live="polite"></div></main>
+</div>
+<div id="sheetroot"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+const CFG = { SUPABASE_URL:"https://safcrtrfdzsnftghibot.supabase.co", SUPABASE_KEY:"sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU" };
+const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
+const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const LON = "Europe/London";
+// d: board data; load: "loading" | "ok" | "error"; pend: ids with a call in flight; recent: ids just cleaned (stay in place a moment)
+const S = { d:null, load:"loading", err:"", pend:new Set(), recent:new Map(), sig:"", skewMs:0, synced:false, mut:0, inflight:false, staleMsg:"", fetchedAt:null, sheet:null };
+
+/* ------------------------------------------------------------- plumbing */
+function toast(msg, bad){ const t = $("#toast"); t.textContent = msg; t.className = "toast on" + (bad ? " bad" : ""); clearTimeout(toast._t); toast._t = setTimeout(() => { t.className = "toast"; }, bad ? 5600 : 3000); }
+function staffEmail(){ try { return sessionStorage.getItem("bhb_staff_email") || ""; } catch(e){ return ""; } }
+async function call(action, payload){
+  const body = { action, staff_email: staffEmail(), ...(payload || {}) };
+  if (typeof window.__MOCK_API__ === "function") {
+    const r = await window.__MOCK_API__(action, JSON.parse(JSON.stringify(body)));
+    return JSON.parse(JSON.stringify(r === undefined ? {} : r));
+  }
+  let r;
+  try { r = await fetch(CFG.SUPABASE_URL + "/functions/v1/housekeeping-api", { method:"POST", headers:{ "Content-Type":"application/json", Authorization:"Bearer " + CFG.SUPABASE_KEY, apikey:CFG.SUPABASE_KEY }, body: JSON.stringify(body) }); }
+  catch(e){ throw new Error("Could not reach the server. Please check your signal or Wi-Fi."); }
+  let d = {}; try { d = await r.json(); } catch(e){}
+  if (!r.ok || d.error) throw new Error(d.error || `Request failed (${r.status})`);
+  return d;
+}
+
+/* ------------------------------------------------------------- time (always UK time, from the device clock) */
+const nowDate = () => new Date(Date.now() + S.skewMs);
+function ukParts(d){
+  const p = {};
+  new Intl.DateTimeFormat("en-GB", { timeZone:LON, year:"numeric", month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit", hourCycle:"h23" }).formatToParts(d).forEach(x => { p[x.type] = x.value; });
+  return { date:`${p.year}-${p.month}-${p.day}`, mins:(+p.hour % 24) * 60 + +p.minute };
+}
+const hm = s => { const m = /^(\d{1,2}):(\d{2})/.exec(s || ""); return m ? +m[1] * 60 + +m[2] : null; };
+const fmtHM = mins => { mins = ((mins % 1440) + 1440) % 1440; return String(Math.floor(mins / 60)).padStart(2, "0") + ":" + String(mins % 60).padStart(2, "0"); };
+const noZero = s => String(s || "").replace(/^0(\d:)/, "$1");
+const dur = m => { m = Math.max(0, Math.round(m)); const h = Math.floor(m / 60), r = m % 60; return h ? (r ? `${h}h ${r}m` : `${h}h`) : `${r}m`; };
+const fixMonth = s => s.replace(/\bSept\b/, "Sep");
+const fmtDate = (iso, long) => { if (!iso) return ""; try { return fixMonth(new Date(String(iso).slice(0, 10) + "T12:00:00Z").toLocaleDateString("en-GB", long ? { timeZone:"UTC", weekday:"long", day:"numeric", month:"long", year:"numeric" } : { timeZone:"UTC", day:"numeric", month:"short" })); } catch(e){ return String(iso).slice(0, 10); } };
+const timeOf = iso => { try { const d = new Date(iso); return isNaN(d) ? "" : fmtHM(ukParts(d).mins); } catch(e){ return ""; } };
+const plural = (n, one, many) => `${n} ${n === 1 ? one : (many || one + "s")}`;
+
+/* ------------------------------------------------------------- wording */
+function peopleText(p){
+  const a = +p.adults || 0, c = +p.children || 0, i = +p.infants || 0;
+  const n = p.people != null ? +p.people : a + c + i;
+  const parts = [];
+  if (a) parts.push(plural(a, "adult"));
+  if (c) parts.push(plural(c, "child", "children"));
+  if (i) parts.push(plural(i, "infant"));
+  return plural(n, "person", "people") + (parts.length ? ` (${parts.join(", ")})` : "");
+}
+function nightsOf(inc){
+  if (inc.nights != null && inc.nights !== "") return +inc.nights;
+  if (inc.from && inc.to) { const n = Math.round((Date.parse(String(inc.to).slice(0, 10)) - Date.parse(String(inc.from).slice(0, 10))) / 864e5); return n > 0 ? n : null; }
+  return null;
+}
+function guestLine(t, today){
+  if (t.kind === "departure") {
+    const inc = t.incoming;
+    if (!inc) return `<p class="line none"><b>Nobody arriving today</b></p>`;
+    const when = !inc.from || String(inc.from).slice(0, 10) === today ? "arriving today" : "arriving " + fmtDate(inc.from);
+    const n = nightsOf(inc);
+    return `<p class="line"><b>Next guests:</b> ${esc(peopleText(inc))} ${esc(when)}${n ? `, staying ${esc(plural(n, "night"))}` : ""}</p>`;
+  }
+  const cur = t.current;
+  if (!cur) return "";
+  const bits = [peopleText(cur)];
+  if (cur.night_done != null && cur.night_total != null) bits.push(`night ${cur.night_done} of ${cur.night_total}`);
+  if (cur.to) bits.push(String(cur.to).slice(0, 10) === today ? "leaving today" : "leaving " + fmtDate(cur.to));
+  return `<p class="line"><b>Staying over:</b> ${esc(bits.join(", "))}</p>`;
+}
+const firstName = n => { const s = String(n || "").trim(); if (!s) return ""; if (s.includes("@")) s = s.split("@")[0]; return s.split(/[\s._-]+/)[0].replace(/^./, c => c.toUpperCase()); };
+const issuesText = n => `${n} maintenance ${n === 1 ? "issue" : "issues"} reported`;
+const TICK = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"/></svg>';
+
+/* ------------------------------------------------------------- derived */
+const tasksOf = () => ((S.d && S.d.tasks) || []).filter(t => !(t.gone && !t.cleaned_at));
+const isDone = t => !!t.cleaned_at;
+function stats(){
+  const ts = tasksOf(), dep = ts.filter(t => t.kind === "departure").length;
+  const cleaned = ts.filter(isDone).length;
+  return { rooms:ts.length, dep, stay:ts.length - dep, minutes:ts.reduce((s, t) => s + (+t.minutes || 0), 0), cleaned, remaining:ts.length - cleaned };
+}
+function finishMins(){
+  const d = S.d, st = stats(), m = hm(d.mine && d.mine.finish);
+  if (m != null) return m;
+  const start = hm(d.day && d.day.start_time) ?? 540;
+  return st.rooms ? start + st.minutes + (+(d.day && d.day.break_minutes) || 0) : null;
+}
+function cdState(){
+  if (!S.d) return null;
+  const st = stats(); if (!st.rooms) return null;
+  const start = hm(S.d.day && S.d.day.start_time); const startM = start == null ? 540 : start;
+  const fin = finishMins(), nowM = ukParts(nowDate()).mins;
+  if (!st.remaining) return { k:"done", text:"All done, well done", short:"All done, well done" };
+  if (nowM < startM) return { k:"before", text:"Starts in " + dur(startM - nowM), short:"Starts in " + dur(startM - nowM) };
+  if (fin == null || nowM <= fin) { const left = dur((fin ?? nowM) - nowM); return { k:"during", text:`${left} left to finish by ${fmtHM(fin ?? nowM)}`, short:`${left} left, finish by ${fmtHM(fin ?? nowM)}` }; }
+  return { k:"over", text:"Over by " + dur(nowM - fin), short:"Over by " + dur(nowM - fin) };
+}
+function paintCountdown(){
+  const c = cdState(), el = $("#cd"), mini = $("#mini");
+  if (!c) { if (mini) { mini.className = "mini"; } return; }
+  if (el) { el.className = "cd " + c.k; el.querySelector(".big").textContent = c.text; }
+  const st = stats();
+  $("#mcd").textContent = c.short;
+  $("#mcount").textContent = `${st.cleaned} of ${st.rooms} cleaned`;
+  mini.className = "mini" + (c.k === "over" ? " over" : c.k === "done" ? " done" : "") + (mini.classList.contains("on") ? " on" : "");
+  // a new day while the page stays open: fetch the new board
+  if (S.d && S.d.date && ukParts(nowDate()).date !== S.d.date && !S.inflight) refresh(true);
+}
+function paintMini(){
+  const fp = $("#fpanel"), mini = $("#mini");
+  const on = !!fp && fp.getBoundingClientRect().bottom < 0 && !$("body").classList.contains("locked");
+  mini.classList.toggle("on", on); mini.setAttribute("aria-hidden", on ? "false" : "true");
+}
+
+/* ------------------------------------------------------------- render */
+function cardHtml(t, today){
+  const busy = S.pend.has(String(t.id)), done = isDone(t) && !S.recent.has(String(t.id));
+  const dep = t.kind === "departure";
+  const title = `<div class="rname">${esc(t.room)} <small>${esc(t.name || "")}</small></div>`;
+  const pill = `<span class="pill ${dep ? "dep" : "stay"}">${dep ? "Departure" : "Stay over"}</span>`;
+  const label = `Room ${t.room}${t.name ? " " + t.name : ""}`;
+  const issues = t.issues > 0 ? `<span class="issues">${esc(issuesText(t.issues))}</span>` : "";
+  const checked = t.checked_at ? `<div class="checked">${TICK}<span>Checked by the head housekeeper</span></div>` : "";
+  if (isDone(t) && done) {
+    return `<article class="room done ${dep ? "dep" : "stay"}" data-id="${esc(t.id)}" aria-label="${esc(label)}, cleaned">
+      <div class="rhead">${title}${pill}</div>
+      <div class="donerow">${TICK}<span>Cleaned at ${esc(timeOf(t.cleaned_at))}</span>
+        <span class="sp">${t.checked_at ? "" : `<button class="linkbtn" type="button" data-act="undo" data-id="${esc(t.id)}" ${busy ? "disabled" : ""} aria-label="Undo cleaned, ${esc(label)}">Undo</button>`}<button class="linkbtn" type="button" data-act="issue" data-id="${esc(t.id)}" aria-label="Report a maintenance issue, ${esc(label)}">Report an issue</button></span></div>
+      ${issues}${checked}</article>`;
+  }
+  const mins = +t.minutes || 0;
+  return `<article class="room ${dep ? "dep" : "stay"}${S.recent.has(String(t.id)) ? " pop" : ""}" data-id="${esc(t.id)}" aria-label="${esc(label)}">
+    <div class="rhead">${title}${pill}</div>
+    <div class="rmeta"><span class="mins${mins >= 120 ? " long" : ""}">${mins} min</span></div>
+    ${guestLine(t, today)}
+    ${t.report_notes ? `<div class="note booking"><h4>From the booking</h4><div>${esc(t.report_notes)}</div></div>` : ""}
+    ${t.note ? `<div class="note hk"><h4>From the head housekeeper</h4><div>${esc(t.note)}</div></div>` : ""}
+    ${checked}${issues}
+    <div class="acts">
+      <button class="btn" type="button" data-act="clean" data-id="${esc(t.id)}" ${busy ? "disabled" : ""}>${busy ? "Saving..." : (S.recent.has(String(t.id)) ? "Cleaned" : "Room cleaned")}</button>
+      <button class="btn ghost" type="button" data-act="issue" data-id="${esc(t.id)}">Report a maintenance issue</button>
+    </div></article>`;
+}
+function render(){
+  const root = $("#board"); if (!root) return;
+  if (S.load === "loading" && !S.d) { root.innerHTML = `<div class="loading">Loading your rooms...</div>`; return; }
+  if (S.load === "error" && !S.d) {
+    root.innerHTML = `<div class="errbox" role="alert"><h3>Could not load your rooms</h3><p>${esc(S.err || "Please check your connection and try again.")}</p><button class="btn inline" type="button" data-act="retry">Retry</button></div>`;
+    return;
+  }
+  const d = S.d, today = d.date || ukParts(nowDate()).date, ts = tasksOf(), st = stats();
+  const name = firstName((d.me && d.me.name) || staffEmail());
+  const hour = Math.floor(ukParts(nowDate()).mins / 60);
+  const greet = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+  let h = `<div class="hello"><h1>${greet}${name ? ", " + esc(name) : ""}</h1><div class="date">${esc(fmtDate(today, true))}</div></div>`;
+  if (S.staleMsg) h += `<div class="stale" role="status">${esc(S.staleMsg)}</div>`;
+  if (d.message && String(d.message).trim()) h += `<section class="msg" aria-labelledby="msgh"><div class="kicker" id="msgh">Message from your head housekeeper</div><div class="body">${esc(String(d.message).trim())}</div></section>`;
+  if (!ts.length) {
+    h += `<div class="empty"><p>No rooms have been given to you yet. Your head housekeeper adds them each morning.</p><button class="btn inline" type="button" data-act="retry">Refresh</button></div>`;
+    root.innerHTML = h; paintCountdown(); paintMini(); return;
+  }
+  const startTxt = noZero((d.day && d.day.start_time) || "09:00"), br = d.day ? +d.day.break_minutes : 20;
+  const fin = finishMins();
+  const pct = st.rooms ? Math.round(st.cleaned / st.rooms * 100) : 0;
+  h += `<section class="finish" id="fpanel" aria-label="Your day">
+    <div class="rooms">Your rooms: <b>${st.rooms}</b> (${esc(plural(st.dep, "departure"))}, ${esc(plural(st.stay, "stay over"))})</div>
+    <div class="cd" id="cd"><div class="big"></div></div>
+    <div class="facts">
+      <div class="fact"><span>Cleaning time</span><b>${esc(dur(st.minutes))}</b></div>
+      <div class="fact"><span>Expected finish</span><b>${fin == null ? "-" : esc(fmtHM(fin))}</b></div>
+      <div class="factnote">${esc(startTxt)} start${br > 0 ? `, including a ${br} minute break` : ", no break"}</div>
+    </div>
+    <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="${st.rooms}" aria-valuenow="${st.cleaned}" aria-label="Rooms cleaned"><i style="width:${pct}%"></i></div>
+    <div class="proglabel">${st.cleaned} of ${st.rooms} rooms cleaned</div>
+  </section>`;
+  // keep remaining rooms first; a room just cleaned stays where it is for a moment
+  const todo = ts.filter(t => !isDone(t) || S.recent.has(String(t.id))), doneL = ts.filter(t => isDone(t) && !S.recent.has(String(t.id)));
+  if (todo.length) h += `<div class="sechead">To clean (${todo.length})</div>` + todo.map(t => cardHtml(t, today)).join("");
+  if (doneL.length) h += `<div class="sechead">Cleaned (${doneL.length})</div>` + doneL.map(t => cardHtml(t, today)).join("");
+  h += `<div class="foot"><span>${S.fetchedAt ? "Updated " + esc(S.fetchedAt) : ""}</span><button class="linkbtn" type="button" data-act="retry">Refresh</button></div>`;
+  root.innerHTML = h; paintCountdown(); paintMini();
+}
+const dataSig = d => d ? JSON.stringify([d.tasks, d.message, d.day, d.mine, d.date, d.me, d.issue_types]) : "";
+
+/* ------------------------------------------------------------- data */
+function setData(d){
+  S.d = d; S.load = "ok"; S.err = ""; S.staleMsg = ""; S.fetchedAt = fmtHM(ukParts(nowDate()).mins);
+  if (!S.synced) { // first sync with the server clock, only if the device clock is clearly off
+    S.synced = true; const sm = hm(d.now);
+    if (sm != null && d.date) { const p = ukParts(new Date()); if (p.date === d.date && Math.abs(sm - p.mins) > 3) S.skewMs = (sm - p.mins) * 60000; }
+  }
+}
+async function refresh(quiet){
+  if (S.inflight) return; S.inflight = true;
+  const m0 = S.mut;
+  if (!quiet && !S.d) { S.load = "loading"; render(); }
+  try {
+    const d = await call("board.get", {});
+    if (S.mut !== m0 || S.pend.size) return;       // an action happened meanwhile: this answer may be older than it
+    const sig = dataSig(d), changed = sig !== S.sig || !!S.staleMsg;
+    setData(d); S.sig = sig;
+    if (changed || !$("#fpanel")) render(); else { const f = $(".foot span"); if (f) f.textContent = "Updated " + S.fetchedAt; paintCountdown(); }
+  } catch (e) {
+    if (S.d) { S.staleMsg = "Could not update just now. You are seeing the rooms as they were at " + (S.fetchedAt || "the last update") + "."; if (!quiet) toast(e.message || "Could not refresh", true); render(); }
+    else { S.load = "error"; S.err = e.message || ""; render(); }
+  } finally { S.inflight = false; }
+}
+function applyServerTask(task){ if (!task || !S.d) return; const i = S.d.tasks.findIndex(t => String(t.id) === String(task.id)); if (i >= 0) S.d.tasks[i] = { ...S.d.tasks[i], ...task }; }
+const findTask = id => S.d && S.d.tasks.find(t => String(t.id) === String(id));
+
+async function setCleaned(id, done){
+  const t = findTask(id); if (!t || S.pend.has(String(t.id))) return;
+  const prev = { cleaned_at:t.cleaned_at, cleaned_by:t.cleaned_by };
+  S.mut++; S.pend.add(String(t.id));
+  t.cleaned_at = done ? new Date(Date.now() + S.skewMs).toISOString() : null;
+  if (done) { S.recent.set(String(t.id), true); setTimeout(() => { S.recent.delete(String(t.id)); S.sig = ""; render(); }, 1100); }
+  render();
+  try {
+    const r = await call("task.cleaned", { id:t.id, done });
+    applyServerTask(r.task); if (r.mine && S.d) S.d.mine = { ...S.d.mine, ...r.mine };
+    if (!done) S.recent.delete(String(t.id));
+    S.sig = dataSig(S.d);
+  } catch (e) {
+    Object.assign(t, prev); S.recent.delete(String(t.id));
+    toast(e.message || "Could not save that. Please try again.", true);
+  } finally { S.pend.delete(String(t.id)); S.mut++; render(); }
+}
+
+/* ------------------------------------------------------------- issue sheet */
+function openSheet(id){
+  const t = findTask(id); if (!t || $("#sheet")) return;
+  const types = (S.d.issue_types && S.d.issue_types.length) ? S.d.issue_types : [{ key:"other", label:"Other" }];
+  const label = `Room ${t.room}${t.name ? " " + t.name : ""}`;
+  S.sheet = { id:t.id, opener:document.activeElement, busy:false };
+  $("#sheetroot").innerHTML = `<div id="sheet" role="dialog" aria-modal="true" aria-labelledby="sh-title"><div class="backdrop" data-sheet="close"></div>
+    <form class="sheet" id="shform" novalidate>
+      <h2 id="sh-title">Report a maintenance issue</h2><div class="sub">${esc(label)}</div>
+      <fieldset><legend>What kind of problem is it?</legend><div class="chips" role="radiogroup">
+        ${types.map((x, i) => `<label><input type="radio" name="jt" value="${esc(x.key)}" ${types.length === 1 ? "checked" : ""}><span>${esc(x.label || x.key)}</span></label>`).join("")}
+      </div></fieldset>
+      <label class="lbl" for="sh-desc">What is the problem?</label>
+      <textarea id="sh-desc" maxlength="1000" placeholder="Say what is wrong and where in the room" required></textarea>
+      <label class="tick"><input type="checkbox" id="sh-off"><span>Room needs to be taken offline until fixed</span></label>
+      <div class="formerr" id="sh-err" role="alert"></div>
+      <div class="sheetbtns"><button class="btn ghost" type="button" data-sheet="close">Cancel</button><button class="btn" type="submit" id="sh-send">Send</button></div>
+    </form></div>`;
+  $("body").classList.add("locked"); paintMini();
+  setTimeout(() => { const f = $("#sh-desc"); if (f) f.focus(); }, 30);
+  $("#shform").addEventListener("submit", ev => { ev.preventDefault(); sendIssue(); });
+}
+function closeSheet(){
+  const sh = $("#sheet"); if (!sh || (S.sheet && S.sheet.busy)) return;
+  $("#sheetroot").innerHTML = ""; $("body").classList.remove("locked");
+  const o = S.sheet && S.sheet.opener; S.sheet = null;
+  if (o && document.contains(o) && o.focus) o.focus();
+  S.sig = ""; paintMini();
+}
+async function sendIssue(){
+  const sh = S.sheet; if (!sh || sh.busy) return;
+  const type = ($("#shform input[name=jt]:checked") || {}).value, desc = $("#sh-desc").value.trim(), off = $("#sh-off").checked, err = $("#sh-err");
+  if (!type) { err.textContent = "Please choose what kind of problem it is."; return; }
+  if (!desc) { err.textContent = "Please say what the problem is."; $("#sh-desc").focus(); return; }
+  err.textContent = ""; sh.busy = true; const btn = $("#sh-send"); btn.disabled = true; btn.textContent = "Sending...";
+  S.mut++;
+  try {
+    const r = await call("issue.raise", { task_id:sh.id, job_type:type, description:desc, room_offline:off });
+    const t = findTask(sh.id);
+    if (r.task) applyServerTask(r.task); else if (t) t.issues = (+t.issues || 0) + 1;
+    sh.busy = false; S.sig = ""; closeSheet();
+    toast(`Sent to maintenance${r.job_no != null ? ` (job #${r.job_no})` : ""}`);
+  } catch (e) {
+    sh.busy = false; err.textContent = String(e.message || "Could not send that").replace(/[.\s]+$/, "") + ". Your text is still here, please try again.";
+    btn.disabled = false; btn.textContent = "Send"; toast(e.message || "Could not send that", true);
+  } finally { S.mut++; render(); }
+}
+
+/* ------------------------------------------------------------- events */
+document.addEventListener("click", ev => {
+  const a = ev.target.closest("[data-act]"), sh = ev.target.closest("[data-sheet]");
+  if (sh) { const ta = $("#sh-desc"); if (sh.classList.contains("backdrop") && ta && ta.value.trim()) return; closeSheet(); return; }
+  if (!a) return;
+  const act = a.dataset.act, id = a.dataset.id;
+  if (act === "clean") setCleaned(id, true);
+  else if (act === "undo") setCleaned(id, false);
+  else if (act === "issue") openSheet(id);
+  else if (act === "retry") { S.d ? refresh(false) : (S.load = "loading", render(), refresh(false)); }
+});
+document.addEventListener("keydown", ev => {
+  if (ev.key === "Escape" && $("#sheet")) closeSheet();
+  if (ev.key === "Tab" && $("#sheet")) { // keep focus inside the open sheet
+    const f = $$("#sheet button:not([disabled]), #sheet input, #sheet textarea"); if (!f.length) return;
+    const first = f[0], last = f[f.length - 1];
+    if (ev.shiftKey && document.activeElement === first) { ev.preventDefault(); last.focus(); }
+    else if (!ev.shiftKey && document.activeElement === last) { ev.preventDefault(); first.focus(); }
+  }
+});
+window.addEventListener("scroll", paintMini, { passive:true });
+document.addEventListener("visibilitychange", () => { if (!document.hidden && S.d) { paintCountdown(); refresh(true); } });
+function openGate(msg){ $("#gate").style.display = "flex"; $("#app").hidden = true; if (msg) $("#gerr").textContent = msg; }
+$("#signout").addEventListener("click", () => { try { sessionStorage.removeItem("bhb_staff_email"); } catch(e){} openGate(); });
+
+function boot(){
+  $("#app").hidden = false;
+  $("#whoname").textContent = staffEmail();
+  render(); refresh(false);
+  setInterval(paintCountdown, 30000);
+  setInterval(() => { if (!document.hidden) refresh(true); }, 60000);
+}
+(function(){ if (staffEmail()) { $("#gate").style.display = "none"; boot(); } else openGate(); })();
+</script>
+</body>
+</html>

@@ -1,0 +1,1008 @@
+<!DOCTYPE html>
+<html lang="en-GB" data-brand="bhb">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Housekeeping Boards Config - Black Horse Beamish</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --sage:#4E5F4F; --sage-70:#6c796d; --sage-10:#EDEFED; --sage-dark:#3B483C;
+  --bone:#F7F7F7; --celadon:#C1C8B4; --mist:#E7E7E7; --white:#fff; --ink:#262626; --gold:#C9A56B;
+  --attention:#B08D57; --attention-bg:#F7F0E4; --attention-ink:#6d5320;
+  --alert:#8C4A3F; --alert-bg:#F6EAE8;
+  --red:#B3261E; --red-bg:#FCECEA; --red-dark:#5E1414;
+  --good:#4F6B4F; --good-bg:#EDF2ED; --blue:#35607F; --blue-bg:#E8EFF5;
+  --display:"Cormorant Garamond",Georgia,serif; --body:Raleway,"Helvetica Neue",Arial,sans-serif;
+  --track-label:.18em; --radius:10px; --shadow:0 1px 2px rgba(38,38,38,.06),0 8px 24px rgba(38,38,38,.07); --maxw:1320px;
+}
+*{box-sizing:border-box} html,body{margin:0;padding:0}
+body{font-family:var(--body); color:var(--ink); background:var(--bone); font-size:15px; line-height:1.5; -webkit-text-size-adjust:100%; overflow-x:hidden}
+h1,h2,h3,h4{font-family:var(--display); font-weight:600; margin:0; letter-spacing:.01em}
+button,input,textarea,select{font:inherit; color:inherit}
+.off{display:none!important}
+a{color:var(--sage)}
+.sr{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap}
+
+/* gate + header */
+.shell{max-width:var(--maxw); margin:0 auto; padding:0 16px 64px}
+#gate{position:fixed; inset:0; background:var(--sage); z-index:500; display:flex; align-items:center; justify-content:center; padding:24px}
+.gatecard{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); width:100%; max-width:380px; padding:32px 28px; text-align:center}
+.gatecard h1{font-size:26px; color:var(--sage); line-height:1.15}
+.gatecard .sub{font-size:11px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); margin:6px 0 22px}
+.gateerr{color:var(--alert); font-size:13px; min-height:18px; margin-top:8px}
+header.top{background:var(--sage); color:var(--white)}
+.topin{max-width:var(--maxw); margin:0 auto; padding:14px 16px; display:flex; align-items:center; gap:18px; flex-wrap:wrap}
+.brand{font-family:var(--display); font-size:21px; line-height:1.1}
+.brand small{display:block; font-family:var(--body); font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; opacity:.75}
+.who{margin-left:auto; display:flex; align-items:center; gap:10px; font-size:12px; opacity:.9}
+.who button{background:transparent; border:1px solid rgba(255,255,255,.4); color:var(--white); border-radius:6px; padding:5px 10px; cursor:pointer; font-size:11px; letter-spacing:.06em; text-transform:uppercase}
+nav.tabs{background:var(--sage-dark)}
+.tabsin{max-width:var(--maxw); margin:0 auto; padding:0 16px; display:flex; gap:2px; overflow-x:auto}
+.tabbtn{background:transparent; border:0; cursor:pointer; color:rgba(255,255,255,.78); padding:12px 16px; font-size:12px; font-weight:600; white-space:nowrap; letter-spacing:var(--track-label); text-transform:uppercase; border-bottom:3px solid transparent}
+.tabbtn[aria-current="page"]{color:var(--white); border-bottom-color:var(--gold)}
+.tabbtn:focus-visible,.who button:focus-visible{outline:3px solid var(--gold); outline-offset:-3px}
+
+/* controls */
+.btn{border:1px solid var(--sage); background:var(--sage); color:var(--white); border-radius:8px; padding:10px 18px; cursor:pointer; font-size:12px; font-weight:700; letter-spacing:var(--track-label); text-transform:uppercase; min-height:42px; text-decoration:none; display:inline-flex; align-items:center; justify-content:center; gap:6px; line-height:1.2}
+.btn:hover{background:var(--sage-dark)} .btn.ghost{background:var(--white); color:var(--sage)} .btn.ghost:hover{background:var(--sage-10)}
+.btn.gold{background:var(--gold); border-color:var(--gold); color:#2b2415} .btn.gold:hover{background:#bb9657} .btn.small{min-height:36px; padding:6px 12px; font-size:11px}
+.btn.danger{background:var(--white); color:var(--alert); border-color:var(--alert)} .btn.danger:hover{background:var(--alert-bg)}
+.btn.solid-danger{background:var(--red); border-color:var(--red); color:#fff} .btn.solid-danger:hover{background:var(--red-dark)}
+.btn:disabled{opacity:.5; cursor:default}
+.btn:focus-visible,.chip:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible{outline:3px solid var(--gold); outline-offset:2px}
+.chip{border:1px solid var(--mist); background:var(--white); border-radius:999px; padding:6px 13px; cursor:pointer; font-size:13px; min-height:36px}
+.chip:hover{background:var(--sage-10)} .chip[aria-pressed="true"]{background:var(--sage); border-color:var(--sage); color:var(--white); font-weight:600}
+.chip i{font-style:normal; opacity:.75; margin-left:4px; font-size:12px}
+.card{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); padding:16px 18px; margin-bottom:12px}
+.muted{color:var(--sage-70)} .small{font-size:13px} .tiny{font-size:12px}
+.empty{padding:36px 20px; text-align:center; color:var(--sage-70)}
+.toast{position:fixed; left:50%; bottom:22px; transform:translate(-50%,20px); background:var(--ink); color:#fff; padding:10px 16px; border-radius:8px; font-size:13px; opacity:0; pointer-events:none; transition:.2s; z-index:900; max-width:90vw}
+.toast.on{opacity:1; transform:translate(-50%,0)} .toast.bad{background:var(--alert)}
+.sechead{font-size:11px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); font-weight:700; margin:22px 2px 8px; display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+.toolrow{display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:14px 0 8px}
+.toolrow .sp{margin-left:auto}
+.pagehead{display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin:18px 0 6px}
+.pagehead h2{font-size:30px; color:var(--sage); line-height:1.1; margin-right:auto}
+.field{display:flex; flex-direction:column; gap:4px; margin-bottom:12px; min-width:0}
+.field label,.lbl{font-size:11px; letter-spacing:var(--track-label); text-transform:uppercase; font-weight:700; color:var(--sage-70)}
+.field input,.field select,.field textarea,.ctl{border:1px solid var(--celadon); border-radius:8px; padding:9px 11px; background:#fff; width:100%; min-height:42px}
+.field textarea{min-height:84px; resize:vertical}
+.field input[aria-invalid="true"],.ctl[aria-invalid="true"]{border-color:var(--red); background:var(--red-bg)}
+.ferr{color:var(--red); font-size:12.5px; font-weight:600}
+.hint{font-size:12.5px; color:var(--sage-70)}
+.notice{background:var(--attention-bg); border-radius:8px; padding:10px 14px; margin:8px 0; font-size:14px}
+.notice.bad{background:var(--red-bg); color:#6e1d17} .notice.good{background:var(--good-bg); color:var(--good)} .notice.info{background:var(--sage-10); color:var(--sage-dark)}
+.notice b{font-weight:700}
+.row-actions{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
+.confirmbox{background:var(--red-bg); border:1px solid var(--red); border-radius:8px; padding:10px 12px; margin-top:8px; font-size:13.5px}
+.confirmbox .row-actions{margin-top:8px}
+.badge{font-size:10.5px; letter-spacing:.1em; text-transform:uppercase; font-weight:700; padding:3px 9px; border-radius:99px; background:var(--sage-10); color:var(--sage); white-space:nowrap; display:inline-block}
+.badge.gone{background:var(--mist); color:#6b6b6b} .badge.manual{background:var(--blue-bg); color:var(--blue)} .badge.issue{background:var(--red-bg); color:var(--red)}
+.pill{font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; font-weight:800; padding:3px 10px; border-radius:99px; white-space:nowrap; display:inline-block}
+.pill.departure{background:var(--sage); color:#fff} .pill.stayover{background:var(--blue-bg); color:var(--blue); box-shadow:inset 0 0 0 1px #b9cddd} .pill.none{background:var(--mist); color:#5c635c}
+
+/* skeletons + spinner */
+.sk{background:linear-gradient(90deg,#ececec 25%,#f7f7f7 50%,#ececec 75%); background-size:200% 100%; animation:shim 1.3s linear infinite; border-radius:6px}
+@keyframes shim{to{background-position:-200% 0}}
+.spin{width:22px; height:22px; border:3px solid var(--mist); border-top-color:var(--sage); border-radius:50%; animation:rot .9s linear infinite} @keyframes rot{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.sk,.spin{animation:none}}
+
+/* date bar */
+.datebar{display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap; margin:16px 0 4px}
+.datebar .field{margin:0; width:170px}
+.datebar h2{font-size:30px; color:var(--sage); line-height:1.05; margin:0 auto 0 8px; align-self:center}
+.datebar .stat-end{margin-left:auto; display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+
+/* upload */
+.drop-card{padding:0; overflow:hidden}
+.drop{display:flex; flex-direction:column; align-items:center; text-align:center; gap:6px; padding:26px 18px; border:2px dashed var(--celadon); border-radius:var(--radius); margin:10px; cursor:pointer; background:#fcfdfb; transition:background .15s,border-color .15s}
+.drop:hover,.drop.over{background:var(--sage-10); border-color:var(--sage)}
+.drop:focus-within{outline:3px solid var(--gold); outline-offset:2px}
+.drop .dtitle{font-family:var(--display); font-size:30px; color:var(--sage); line-height:1.1}
+.drop.compact{padding:14px 16px; flex-direction:row; flex-wrap:wrap; justify-content:center; gap:10px 16px}
+.drop.compact .dtitle{font-size:22px}
+.drop .dsub{font-size:14px; color:var(--sage-70); max-width:520px}
+.drop-card .hint{padding:0 18px 12px; text-align:center}
+.emptymsg{font-size:17px; font-family:var(--display); color:var(--sage); text-align:center; padding:18px 16px 0; font-weight:600}
+.pvhead{display:flex; gap:12px; flex-wrap:wrap; align-items:baseline; justify-content:space-between}
+.pvhead h3{font-size:26px; color:var(--sage)}
+.counts{display:flex; gap:8px; flex-wrap:wrap; margin:10px 0}
+.counts span{background:var(--sage-10); border-radius:8px; padding:6px 12px; font-size:14px} .counts b{font-family:var(--display); font-size:22px; color:var(--sage); margin-right:6px}
+.pv{border:1px solid var(--mist); border-radius:8px; overflow:hidden; margin-top:8px}
+.pvrow{display:grid; grid-template-columns:70px 120px minmax(0,1.6fr) minmax(0,1fr); gap:4px 12px; padding:8px 12px; border-bottom:1px solid var(--mist); font-size:13.5px; align-items:start}
+.pvrow:last-child{border-bottom:0}
+.pvrow.h{background:var(--sage-10); font-size:10.5px; letter-spacing:.1em; text-transform:uppercase; font-weight:700; color:var(--sage-70); position:sticky; top:0}
+.pvrow.skip{color:var(--sage-70); background:#fafafa}
+.pvrow b.rn{font-family:var(--display); font-size:22px; line-height:1; color:var(--sage)}
+.pvrow > div{min-width:0; overflow-wrap:anywhere}
+.pvscroll{max-height:460px; overflow:auto}
+.pvnote{white-space:pre-line}
+
+/* summary */
+.stats{display:grid; grid-template-columns:repeat(4,1fr); gap:10px}
+.stat{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); padding:12px 14px; min-width:0}
+.stat .lbl{display:block}
+.stat b{display:block; font-family:var(--display); font-size:34px; line-height:1.05; color:var(--sage); margin-top:2px}
+.stat span.s{display:block; font-size:12.5px; color:var(--sage-70); line-height:1.3; margin-top:2px}
+.daycard{display:grid; grid-template-columns:minmax(260px,320px) 1fr; gap:0 22px; align-items:start}
+.daycard .two{display:grid; grid-template-columns:1fr 1fr; gap:0 12px}
+.by{list-style:none; margin:0; padding:0; display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:8px}
+.by li{background:var(--sage-10); border-radius:8px; padding:8px 12px; font-size:14px}
+.by li b{font-weight:700}
+.by li.un{background:var(--attention-bg); color:var(--attention-ink)}
+.prog{font-size:15px; font-weight:600; color:var(--sage); margin:8px 2px 0}
+.prog .bar{height:6px; border-radius:99px; background:var(--mist); margin-top:6px; overflow:hidden} .prog .bar i{display:block; height:100%; background:var(--gold)} .prog .bar i.ck{background:var(--sage)}
+
+/* room list (cards on phone, rows on desktop) */
+.rmhead{display:none}
+.rm{position:relative; background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); padding:14px 16px; margin-bottom:10px; border-left:5px solid var(--celadon); display:grid; grid-template-columns:1fr; gap:10px 16px; align-items:start}
+.rm.cl{border-left-color:var(--gold)} .rm.ck{border-left-color:var(--good)} .rm.gone{opacity:.62; border-left-style:dashed; border-left-color:#bdbdbd}
+.rm > div{min-width:0}
+.ml{display:block; font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; font-weight:700; color:var(--sage-70); margin-bottom:3px}
+.rno{font-family:var(--display); font-size:34px; line-height:1; color:var(--sage); font-weight:700}
+.rname{font-family:var(--display); font-size:22px; color:var(--ink); margin-left:6px}
+.roomtop{display:flex; align-items:baseline; flex-wrap:wrap; gap:0 2px}
+.roommeta{display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-top:6px}
+.mins{font-size:13px; font-weight:600; color:var(--sage-dark)}
+.guest{font-size:14px; overflow-wrap:anywhere}
+.guest .g1{font-weight:700}
+.guest.none{color:var(--sage-70)}
+.rnote{font-size:13px; background:var(--attention-bg); color:var(--attention-ink); border-radius:6px; padding:6px 9px; margin-bottom:6px; white-space:pre-line; overflow-wrap:anywhere}
+textarea.hknote{width:100%; min-height:60px; border:1px solid var(--celadon); border-radius:8px; padding:7px 9px; resize:vertical; font-size:14px; background:#fff}
+.oth{display:flex; align-items:center; gap:8px; font-size:13px; margin-top:7px; cursor:pointer; min-height:28px}
+.oth input{width:18px; height:18px; accent-color:var(--sage); margin:0}
+select.cs{width:100%; border:1px solid var(--celadon); border-radius:8px; padding:9px 10px; background:#fff; min-height:42px}
+.stline{font-size:14.5px; font-weight:600}
+.stline.todo{color:var(--sage-70); font-weight:500} .stline.ok{color:var(--attention-ink)} .stline.done{color:var(--good)}
+.stsub{font-size:13px; color:var(--sage-70); margin-top:2px; overflow-wrap:anywhere}
+.chknote{width:100%; border:1px solid var(--celadon); border-radius:8px; padding:7px 10px; min-height:38px; margin:8px 0 0; font-size:14px}
+.acts{display:flex; gap:8px; flex-wrap:wrap; margin-top:8px}
+.savedmark{font-size:12px; color:var(--good); font-weight:600; margin-left:6px}
+
+.sec{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); margin-bottom:12px}
+.sec>summary{cursor:pointer; padding:12px 18px; font-family:var(--display); font-size:22px; font-weight:600; color:var(--sage); list-style:none; display:flex; align-items:center; gap:10px}
+.sec>summary::-webkit-details-marker{display:none}
+.sec>summary::before{content:"\25B8"; font-size:15px; transition:transform .15s} .sec[open]>summary::before{transform:rotate(90deg)}
+.sec>.in{padding:0 18px 14px}
+.log{list-style:none; margin:0; padding:0; font-size:13.5px; max-height:340px; overflow:auto}
+.log li{display:grid; grid-template-columns:130px 1fr; gap:2px 12px; padding:6px 0; border-bottom:1px solid var(--mist)}
+.log li:last-child{border-bottom:0} .log .at{color:var(--sage-70); font-size:12.5px} .log .wh{overflow-wrap:anywhere}
+
+/* rooms tab */
+.rrhead{display:none}
+.rr{display:grid; grid-template-columns:1fr 1fr; gap:8px 12px; background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); padding:12px 14px; margin-bottom:8px; align-items:end}
+.rr > div{min-width:0}
+.rr .full{grid-column:1 / -1}
+.rr .ctl{width:100%}
+.rr.inactive{opacity:.7}
+.rr .ml{margin-bottom:2px}
+.rr .actv{display:flex; align-items:center; gap:8px; min-height:42px; cursor:pointer; font-size:14px}
+.rr .actv input{width:18px; height:18px; accent-color:var(--sage)}
+.savebar{position:sticky; bottom:0; background:var(--bone); border-top:1px solid var(--mist); padding:10px 0; display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:10px}
+
+@media (min-width:640px){
+  .rm{grid-template-columns:1fr 1fr}
+  .rm .c-stat{grid-column:1 / -1}
+}
+@media (min-width:1000px){
+  .rmhead{display:grid; grid-template-columns:170px minmax(0,1fr) minmax(0,1.05fr) minmax(0,1.35fr) minmax(0,1.1fr); gap:0 16px; padding:0 21px; font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; font-weight:700; color:var(--sage-70); margin:14px 0 6px}
+  .rm{grid-template-columns:170px minmax(0,1fr) minmax(0,1.05fr) minmax(0,1.35fr) minmax(0,1.1fr)}
+  .rm .c-stat{grid-column:auto}
+  .rm .ml{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); margin:0}
+  .rrhead{display:grid; grid-template-columns:100px minmax(0,1.4fr) minmax(0,1.2fr) 110px 150px 90px; gap:0 12px; padding:0 15px; font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; font-weight:700; color:var(--sage-70); margin:14px 0 6px}
+  .rr{grid-template-columns:100px minmax(0,1.4fr) minmax(0,1.2fr) 110px 150px 90px; align-items:center}
+  .rr .full{grid-column:auto}
+  .rr .ml{display:none}
+}
+@media (max-width:999px){
+  .stats{grid-template-columns:1fr 1fr}
+  .daycard{grid-template-columns:1fr}
+  .pvrow{grid-template-columns:60px 1fr} .pvrow.h{display:none}
+  .pvrow > div:nth-child(3),.pvrow > div:nth-child(4){grid-column:1 / -1}
+}
+@media (max-width:640px){
+  .shell{padding:0 12px 48px} .topin,.tabsin{padding-left:12px; padding-right:12px}
+  .datebar h2{font-size:24px; flex:1 1 100%; margin:6px 0 0}
+  .datebar .field{flex:1 1 140px}
+  .datebar .stat-end{margin-left:0; width:100%}
+  .drop .dtitle{font-size:26px}
+  .stat b{font-size:28px}
+  .log li{grid-template-columns:1fr}
+  .acts .btn{flex:1 1 100%}
+  .card{padding:14px}
+  .daycard .two{grid-template-columns:1fr 1fr}
+  .row-actions .btn{flex:1 1 auto}
+  .pagehead h2{font-size:26px}
+}
+</style>
+</head>
+<body>
+<div id="gate"><div class="gatecard"><h1>Housekeeping Boards Config</h1><div class="sub">Black Horse Beamish</div>
+  <p style="margin:0 0 16px;font-size:14px;color:var(--sage-70)">This opens from the Staff Portal, which knows who you are.</p>
+  <a href="https://app.blackhorsebeamish.co.uk/portal/app.html" style="display:block;padding:12px;border-radius:8px;background:var(--sage);color:#fff;text-decoration:none;font-weight:600;letter-spacing:var(--track-label);text-transform:uppercase;font-size:12px">Open the Staff Portal</a>
+  <div class="gateerr" id="gerr"></div></div></div>
+<div id="app" class="off">
+  <header class="top"><div class="topin"><div class="brand">Housekeeping Boards Config<small>Black Horse Beamish</small></div>
+    <div class="who"><span id="whoname"></span><button id="signout" type="button">Sign out</button></div></div></header>
+  <nav class="tabs" aria-label="Sections"><div class="tabsin" id="tabs">
+    <button class="tabbtn" type="button" data-view="today" aria-current="page">Today</button>
+    <button class="tabbtn" type="button" data-view="rooms" aria-current="false">Rooms</button>
+  </div></nav>
+  <div class="shell"><main id="views">
+    <div id="v_today">
+      <div class="datebar" id="tbar">
+        <button class="btn small ghost" type="button" data-act="prev" aria-label="Previous day">&lsaquo;</button>
+        <div class="field"><label for="datepick">Date</label><input type="date" id="datepick"></div>
+        <button class="btn small ghost" type="button" data-act="next" aria-label="Next day">&rsaquo;</button>
+        <button class="btn small ghost" type="button" data-act="todaybtn">Today</button>
+        <h2 id="daytitle"></h2>
+        <div class="stat-end"><span class="muted tiny" id="lastchk" role="status"></span><button class="btn small ghost" type="button" data-act="refresh">Refresh</button></div>
+      </div>
+      <div id="imp"></div>
+      <div id="sum"></div>
+      <div id="dayform"></div>
+      <div id="by"></div>
+      <div id="boardtop"></div>
+      <div id="addroom"></div>
+      <div id="list" aria-live="polite"></div>
+      <div id="logp"></div>
+    </div>
+    <div id="v_rooms" class="off"></div>
+  </main></div>
+</div>
+<div class="toast" id="toast" role="status"></div>
+<script>
+const CFG = { SUPABASE_URL:"https://safcrtrfdzsnftghibot.supabase.co", SUPABASE_KEY:"sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU" };
+const PDFJS = {
+  url:"https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js",
+  sri:"sha512-q+4liFwdPC/bNdhUpZx6aXDx/h77yEQtn4I1slHydcbZK34nLaR3cAeYSJshoxIOq3mjEf7xJE8YWIUHMn+oCQ==",
+  worker:"https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"
+};
+const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
+const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const S = {
+  me:null, today:"", date:"", day:null, tasks:[], plan:null, rooms:[], cleaners:[], all_staff:[], planday:{}, log:[],
+  loaded:false, loadErr:"", tab:"today", filter:"all", busy:0, mut:0, seq:0, fetchedAt:0, refreshErr:false,
+  ui:{ other:{}, confirm:{}, checkNote:{}, noteDirty:{}, noteDraft:{}, parsed:null, parsing:false, parseErr:"", importing:false, addOpen:false, addErr:"", dayDirty:false, logOpen:true, stale:false, roomsDraft:null, roomsDirty:false, roomsErr:{} }
+};
+
+/* ------------------------------------------------------------- plumbing */
+function toast(msg, bad){ const t = $("#toast"); t.textContent = msg; t.className = "toast on" + (bad ? " bad" : ""); clearTimeout(toast._t); toast._t = setTimeout(() => { t.className = "toast"; }, bad ? 6000 : 2800); }
+function staffEmail(){ try { return sessionStorage.getItem("bhb_staff_email") || ""; } catch(e){ return ""; } }
+async function call(action, payload){
+  const body = { action, staff_email: staffEmail(), ...(payload || {}) };
+  if (typeof window.__MOCK_API__ === "function") {
+    const r = await window.__MOCK_API__(action, JSON.parse(JSON.stringify(body)));
+    return JSON.parse(JSON.stringify(r === undefined ? {} : r));
+  }
+  let r;
+  try { r = await fetch(CFG.SUPABASE_URL + "/functions/v1/housekeeping-api", { method:"POST", headers:{ "Content-Type":"application/json", Authorization:"Bearer " + CFG.SUPABASE_KEY, apikey:CFG.SUPABASE_KEY }, body: JSON.stringify(body) }); }
+  catch(e){ throw new Error("Could not reach the server. Check your connection and try again."); }
+  let d = {}; try { d = await r.json(); } catch(e){}
+  if (!r.ok || d.error) throw new Error(d.error || (r.status >= 500 ? "Something went wrong on the server. Try again in a moment." : `That did not work (error ${r.status}).`));
+  return d;
+}
+const LON = "Europe/London";
+const pad2 = n => String(n).padStart(2, "0");
+const fixMonth = s => s.replace(/\bSept\b/, "Sep");
+function isoParts(iso){ const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || ""); return m ? [+m[1], +m[2], +m[3]] : null; }
+function fmtShort(iso){ const p = isoParts(iso); if (!p) return ""; return fixMonth(new Date(Date.UTC(p[0], p[1] - 1, p[2], 12)).toLocaleDateString("en-GB", { timeZone:"UTC", day:"numeric", month:"short" })); }
+function fmtLong(iso){ const p = isoParts(iso); if (!p) return ""; return fixMonth(new Date(Date.UTC(p[0], p[1] - 1, p[2], 12)).toLocaleDateString("en-GB", { timeZone:"UTC", weekday:"long", day:"numeric", month:"short", year:"numeric" })).replace(",", ""); }
+function addDays(iso, n){ const p = isoParts(iso); const d = new Date(Date.UTC(p[0], p[1] - 1, p[2] + n, 12)); return d.getUTCFullYear() + "-" + pad2(d.getUTCMonth() + 1) + "-" + pad2(d.getUTCDate()); }
+function fmtTime(v){ if (!v) return ""; try { return new Date(v).toLocaleTimeString("en-GB", { timeZone:LON, hour:"2-digit", minute:"2-digit", hour12:false }); } catch(e){ return ""; } }
+function dateOfIso(v){ try { return new Date(v).toLocaleDateString("en-CA", { timeZone:LON }); } catch(e){ return ""; } }
+function fmtMins(m){ m = Math.round(+m || 0); if (m <= 0) return "0 min"; const h = Math.floor(m / 60), r = m % 60; return h ? (r ? `${h} h ${r} min` : `${h} h`) : `${r} min`; }
+const plural = (n, one, many) => `${n} ${n === 1 ? one : (many || one + "s")}`;
+
+/* ------------------------------------------------------------- PDF parser (pure: takes text items with positions) */
+const MONTHS = { jan:1, feb:2, mar:3, apr:4, may:5, jun:6, jul:7, aug:8, sep:9, sept:9, oct:10, nov:11, dec:12 };
+function parseRepDate(s){
+  s = String(s || "").trim();
+  let m = /^(\d{1,2})[\/\- ]([A-Za-z]{3,4})[\/\- ](\d{4})$/.exec(s);
+  if (m) { const mo = MONTHS[m[2].toLowerCase()]; return mo ? `${m[3]}-${pad2(mo)}-${pad2(m[1])}` : null; }
+  m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(s);
+  return m ? `${m[3]}-${pad2(m[2])}-${pad2(m[1])}` : null;
+}
+function londonISO(dateIso, hhmm){
+  const dp = isoParts(dateIso), tp = /^(\d{1,2}):(\d{2})$/.exec(hhmm || ""); if (!dp || !tp) return null;
+  const guess = Date.UTC(dp[0], dp[1] - 1, dp[2], +tp[1], +tp[2]);
+  const fmt = new Intl.DateTimeFormat("en-GB", { timeZone:LON, hourCycle:"h23", year:"numeric", month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit" });
+  const o = {}; fmt.formatToParts(new Date(guess)).forEach(p => { o[p.type] = p.value; });
+  const asLondon = Date.UTC(+o.year, +o.month - 1, +o.day, +o.hour, +o.minute);
+  return new Date(guess - (asLondon - guess)).toISOString();
+}
+const norm = s => String(s || "").toLowerCase().replace(/[^a-z]/g, "");
+const HDR = { roomid:"room", roomno:"room", roomnumber:"room", room:"room", roomtype:"room_type", subgroup:"group", group:"group", roomstatus:"room_status",
+  housekeepingstatus:"hk_status", hkstatus:"hk_status", occupiedfrom:"from", occupiedto:"to", leadname:"lead", leadguest:"lead", guestname:"lead",
+  ad:"ad", adults:"ad", ch:"ch", children:"ch", inf:"inf", infants:"inf", night:"night", nights:"night", roomsection:"section", section:"section",
+  comments:"notes", comment:"notes", notes:"notes", note:"notes", bookingcomments:"notes", bookingnotes:"notes", remarks:"notes", specialrequests:"notes",
+  startdate:"start", enddate:"end" };
+/* pdf.js items -> single words with an estimated x for each word (an item can hold several words) */
+function toWords(items, pageH){
+  const out = []; let ii = 0;
+  for (const it of items || []) {
+    const str = it.str; if (typeof str !== "string" || !str.trim()) continue;
+    ii++;
+    const x = it.transform[4], y = pageH - it.transform[5], w = it.width || 0, len = str.length;
+    const re = /\S+/g; let m;
+    while ((m = re.exec(str))) out.push({ s:m[0], x:x + w * (m.index / len), w:w * (m[0].length / len), y, item:ii });
+  }
+  return out;
+}
+function joinWords(ws){
+  let t = "";
+  ws.forEach((w, i) => { const p = ws[i - 1]; t += (i && !(p.item !== w.item && w.x - (p.x + p.w) < 0.5 && w.x - (p.x + p.w) > -2) ? " " : "") + w.s; });
+  return t;
+}
+function toLines(words){
+  words.sort((a, b) => a.y - b.y || a.x - b.x);
+  const lines = [];
+  for (const w of words) {
+    const l = lines[lines.length - 1];
+    if (l && Math.abs(w.y - l.y) <= 2) { l.words.push(w); l.y = (l.y * (l.words.length - 1) + w.y) / l.words.length; }
+    else lines.push({ y:w.y, words:[w] });
+  }
+  lines.forEach(l => { l.words.sort((a, b) => a.x - b.x); l.words.forEach(w => { w.ly = l.y; }); l.text = joinWords(l.words); });
+  return lines;
+}
+function scanHeader(words){
+  const cols = []; let i = 0;
+  while (i < words.length) {
+    let hit = null;
+    for (let n = Math.min(3, words.length - i); n >= 1; n--) {
+      const key = HDR[norm(words.slice(i, i + n).map(w => w.s).join(""))];
+      if (key) { hit = { key, n }; break; }
+    }
+    if (hit) { cols.push({ key:hit.key, x:words[i].x }); i += hit.n; }
+    else {
+      const w = words[i], last = cols[cols.length - 1];
+      if (last && last.key === "extra" && w.x - last.endX < 8) { last.endX = w.x + w.w; }
+      else cols.push({ key:"extra", x:w.x, endX:w.x + w.w });
+      i++;
+    }
+  }
+  return cols;
+}
+function colKey(cols, x){ let k = cols[0].key; for (const c of cols) { if (x >= c.x - 6) k = c.key; } return k; }
+function cellText(ws){
+  ws = ws.slice().sort((a, b) => a.ly - b.ly || a.x - b.x);
+  let t = "", prev = null;
+  ws.forEach(w => { if (prev) t += (prev.ly === w.ly && prev.item !== w.item && w.x - (prev.x + prev.w) < 0.5 && w.x - (prev.x + prev.w) > -2) ? "" : " "; t += w.s; prev = w; });
+  return t.trim();
+}
+function groupRows(lines, kind, warnings){
+  const isAnchor = l => {
+    const keys = l.words.map(w => colKey(l.cols, w.x));
+    const rw = l.words.filter((w, i) => keys[i] === "room");
+    if (rw.length !== 1 || rw[0].s.length > 10) return false;   // a room id is one short token; a note line starting at the left edge has several words there
+    return kind === "rooms" ? (keys.includes("hk_status") || (keys.includes("room_type") && /\d/.test(rw[0].s))) : (keys.includes("start") || keys.includes("end"));
+  };
+  const anchors = [];
+  lines.forEach(l => { if (isAnchor(l)) anchors.push({ line:l, extras:[] }); });
+  if (!anchors.length) return [];
+  /* a line that looks like a row but sits much closer to the row above than the usual row spacing is a note under that row */
+  const gaps = []; anchors.forEach((a, i) => { const p = anchors[i - 1]; if (p && p.line.page === a.line.page) gaps.push(a.line.y - p.line.y); });
+  if (gaps.length > 2) { const med = gaps.slice().sort((x, y) => x - y)[Math.floor(gaps.length / 2)]; for (let i = anchors.length - 1; i > 0; i--) { const p = anchors[i - 1]; if (p.line.page === anchors[i].line.page && anchors[i].line.y - p.line.y < med * 0.45) anchors.splice(i, 1); } }
+  lines.forEach(l => {
+    if (anchors.some(a => a.line === l)) return;
+    const same = anchors.filter(a => a.line.page === l.page);
+    let best = null;
+    if (!same.length) best = anchors.filter(a => a.line.page < l.page).pop() || anchors[0];
+    else { let bd = Infinity; same.forEach(a => { const d = Math.abs(a.line.y - l.y); if (d < bd || (d === bd && a.line.y < l.y)) { bd = d; best = a; } }); if (bd > 45) { warnings.push("Some text was left out because it did not sit next to a room: " + l.text.slice(0, 60)); return; } }
+    best.extras.push(l);
+  });
+  return anchors.map(a => {
+    const cells = {}, noteWords = [];
+    const take = (l, extra) => {
+      if (extra && colKey(l.cols, l.words[0].x) === "room") { l.words.forEach(w => noteWords.push(w)); return; }
+      l.words.forEach(w => { const k = colKey(l.cols, w.x); if (k === "extra" || k === "notes") noteWords.push(w); else (cells[k] = cells[k] || []).push(w); });
+    };
+    take(a.line, false); a.extras.forEach(l => take(l, true));
+    const c = {}; Object.keys(cells).forEach(k => { c[k] = cellText(cells[k]); });
+    const byLine = new Map(); noteWords.forEach(w => { if (!byLine.has(w.ly)) byLine.set(w.ly, []); byLine.get(w.ly).push(w); });
+    const notes = Array.from(byLine.keys()).sort((x, y) => x - y).map(k => cellText(byLine.get(k))).filter(Boolean).join("\n");
+    return { c, notes };
+  });
+}
+function parseReport(pages, fileName){
+  const warnings = []; const st = { mode:null, cols:null };
+  const roomLines = [], roosLines = []; let footer = null, titleY = -1;
+  pages.forEach((pg, pi) => {
+    const lines = toLines(toWords(pg.items, pg.height));
+    lines.forEach(l => { l.page = pi; });
+    for (const l of lines) {
+      const t = l.text;
+      const fm = /Page\s+\d+\s+of\s+\d+\s+at\s+(\d{1,2}:\d{2})\s+on\s+(?:the\s+)?(\d{1,2}[\/\- ][A-Za-z]{3,4}[\/\- ]\d{4})/i.exec(t);
+      if (fm) { footer = footer || { time:fm[1], date:parseRepDate(fm[2]) }; continue; }
+      if (/Page\s+\d+\s+of\s+\d+/i.test(t)) continue;
+      if (/room status report/i.test(t)) { if (titleY < 0) titleY = l.y; continue; }
+      if (titleY >= 0 && l.y <= titleY + 3) continue;
+      const hdr = scanHeader(l.words), keys = hdr.filter(c => c.key !== "extra").map(c => c.key);
+      if (keys.length >= 3 && keys.includes("room") && keys.includes("start") && keys.includes("end")) { st.mode = "roos"; st.cols = hdr; continue; }
+      if (keys.length >= 4 && keys.includes("room") && (keys.includes("hk_status") || keys.includes("room_type"))) { st.mode = "rooms"; st.cols = hdr; continue; }
+      if (/ROOS|returning to service/i.test(t) && l.words.length <= 12 && !keys.includes("room")) { st.mode = "roos-wait"; continue; }
+      if (st.mode === "rooms") roomLines.push(Object.assign(l, { cols:st.cols }));
+      else if (st.mode === "roos") roosLines.push(Object.assign(l, { cols:st.cols }));
+    }
+  });
+  const num = v => { const m = /\d+/.exec(v || ""); return m ? parseInt(m[0], 10) : 0; };
+  const seen = new Set(), rows = [];
+  groupRows(roomLines, "rooms", warnings).forEach(g => {
+    const c = g.c, room = (c.room || "").trim(); if (!room) return;
+    if (seen.has(room)) { warnings.push("Room " + room + " appears twice on the report. Only the first is used."); return; }
+    seen.add(room);
+    const nm = /(\d+)\s*\/\s*(\d+)/.exec(c.night || "");
+    const r = { room, room_type:c.room_type || undefined, group:c.group || undefined, room_status:c.room_status || undefined, hk_status:c.hk_status || "",
+      occupied_from:parseRepDate(c.from) || undefined, occupied_to:parseRepDate(c.to) || undefined, lead_name:c.lead || undefined,
+      adults:num(c.ad), children:num(c.ch), infants:num(c.inf), night_done:nm ? +nm[1] : undefined, night_total:nm ? +nm[2] : undefined,
+      section:c.section || undefined, notes:g.notes || undefined };
+    Object.keys(r).forEach(k => { if (r[k] === undefined) delete r[k]; });
+    rows.push(r);
+  });
+  const roos = groupRows(roosLines, "roos", warnings).map(g => ({ room:(g.c.room || "").trim(), start:parseRepDate(g.c.start) || undefined, end:parseRepDate(g.c.end) || undefined, notes:[g.c.notes, g.notes].filter(Boolean).join("\n") || undefined }))
+    .filter(r => r.room).map(r => { Object.keys(r).forEach(k => { if (r[k] === undefined) delete r[k]; }); return r; });
+  let report_date = footer && footer.date, report_time = footer && footer.time;
+  if (!report_date) { const fn = /(\d{4})(\d{2})(\d{2})[_-]?(\d{2})?(\d{2})?/.exec(fileName || ""); if (fn) report_date = `${fn[1]}-${fn[2]}-${fn[3]}`; warnings.push("The date and time footer was not found on the report" + (report_date ? ", so the date in the file name is used." : ".")); }
+  return { rows, roos, report_date:report_date || null, report_time:report_time || null, report_at:report_date && report_time ? londonISO(report_date, report_time) : null, warnings, file:fileName || "" };
+}
+/* ---- pdf.js (lazy) ---- */
+let pdfjsP = null;
+function loadPdfJs(){
+  if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+  if (pdfjsP) return pdfjsP;
+  pdfjsP = new Promise((res, rej) => {
+    const s = document.createElement("script"); s.src = PDFJS.url; s.integrity = PDFJS.sri; s.crossOrigin = "anonymous";
+    s.onload = () => { if (!window.pdfjsLib) { pdfjsP = null; return rej(new Error("The PDF reader did not start. Reload the page and try again.")); } window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS.worker; res(window.pdfjsLib); };
+    s.onerror = () => { pdfjsP = null; s.remove(); rej(new Error("Could not load the PDF reader. Check your connection and try again.")); };
+    document.head.appendChild(s);
+  });
+  return pdfjsP;
+}
+async function extractPages(file){
+  const lib = await loadPdfJs();
+  const buf = new Uint8Array(await file.arrayBuffer());
+  let doc;
+  try { doc = await lib.getDocument({ data:buf }).promise; }
+  catch(e){ throw new Error(e && e.name === "PasswordException" ? "That PDF is password protected. Export the report again without a password." : "That file could not be read as a PDF. Download the Room Status Report again and retry."); }
+  const pages = [];
+  for (let i = 1; i <= doc.numPages; i++) {
+    const page = await doc.getPage(i), tc = await page.getTextContent(), v = page.view;
+    pages.push({ height:v[3] - v[1], items:tc.items.map(it => ({ str:it.str, transform:it.transform, width:it.width })) });
+  }
+  return pages;
+}
+async function handleFile(file){
+  const U = S.ui;
+  if (!file) return;
+  U.parseErr = ""; U.parsed = null;
+  if (!/\.pdf$/i.test(file.name) && file.type !== "application/pdf") { U.parseErr = "Choose the Room Status Report as a PDF file."; return renderImp(); }
+  if (file.size > 15 * 1048576) { U.parseErr = "That file is larger than 15 MB, which is too big for a room report."; return renderImp(); }
+  U.parsing = true; renderImp();
+  try {
+    const pages = await extractPages(file);
+    const p = parseReport(pages, file.name);
+    if (!p.rows.length) throw new Error("That does not look like a Guestline Room Status Report: I could not find the room table. Check you chose the right PDF.");
+    U.parsed = p;
+  } catch(e){ U.parseErr = e.message || "That file could not be read."; }
+  U.parsing = false; renderImp();
+}
+
+/* ------------------------------------------------------------- task helpers */
+const hkKind = r => { const s = String(r.hk_status || "").toLowerCase(); return s.includes("stayover") ? "stayover" : s.includes("departure") ? "departure" : "none"; };
+const peopleText = g => {
+  const a = +g.adults || 0, c = +g.children || 0, i = +g.infants || 0, n = +g.people || (a + c + i);
+  const parts = []; if (a) parts.push(plural(a, "adult")); if (c) parts.push(plural(c, "child", "children")); if (i) parts.push(plural(i, "infant"));
+  return plural(n, "person", "people") + (parts.length && (c || i) ? " (" + parts.join(", ") + ")" : "");
+};
+const nightsBetween = (a, b) => { const p = isoParts(a), q = isoParts(b); return p && q ? Math.round((Date.UTC(q[0], q[1] - 1, q[2]) - Date.UTC(p[0], p[1] - 1, p[2])) / 864e5) : 0; };
+function arrivalText(from, date){ return !from ? "" : from === date ? "arriving today" : from < date ? "arrived " + fmtShort(from) : "arriving " + fmtShort(from); }
+function incomingText(g, date){
+  if (!g) return null;
+  const n = +g.nights || nightsBetween(g.from, g.to);
+  return [g.lead_name, peopleText(g), n ? plural(n, "night") : "", arrivalText(g.from, date)].filter(Boolean).join(", ");
+}
+function currentText(g){
+  if (!g) return null;
+  return [g.lead_name, peopleText(g), g.night_total ? `night ${g.night_done || 0} of ${g.night_total}` : "", g.to ? "leaving " + fmtShort(g.to) : ""].filter(Boolean).join(", ");
+}
+function guestHtml(t){
+  if (t.kind === "stayover") return t.current ? `<div class="guest"><span class="g1">Staying:</span> ${esc(currentText(t.current))}</div>` : `<div class="guest none">Staying: guests not listed</div>`;
+  return t.incoming ? `<div class="guest"><span class="g1">Going in next:</span> ${esc(incomingText(t.incoming, t.date))}</div>` : `<div class="guest none">Nobody arriving</div>`;
+}
+const sameP = (a, b) => !!a && !!b && ((a.planday_id && b.planday_id && String(a.planday_id) === String(b.planday_id)) || (a.email && b.email && String(a.email).toLowerCase() === String(b.email).toLowerCase()) || (!a.planday_id && !b.planday_id && !a.email && !b.email && String(a.name).toLowerCase() === String(b.name).toLowerCase()));
+const otherOn = t => (t.id in S.ui.other) ? S.ui.other[t.id] : !!(t.cleaner && t.cleaner.other);
+const shiftText = s => String(s || "").replace(/\s*-\s*/, " to ");
+const sigOf = t => { const s = JSON.stringify(t); let h = 5381; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return String(h); };
+const liveTasks = () => S.tasks.filter(t => !t.gone);
+const FILTERS = [["all", "All"], ["todo", "Not cleaned"], ["cleaned", "Cleaned, not checked"], ["checked", "Checked"], ["unassigned", "Unassigned"]];
+function passes(t, f){
+  if (f === "all") return true; if (t.gone) return false;
+  return f === "todo" ? !t.cleaned_at : f === "cleaned" ? !!t.cleaned_at && !t.checked_at : f === "checked" ? !!t.checked_at : !t.cleaner;
+}
+const visibleTasks = () => S.tasks.filter(t => passes(t, S.filter));
+const cardEl = id => $$("#list .rm").find(e => e.dataset.id === String(id));
+
+function cleanerOptions(t){
+  const all = otherOn(t), list = all ? S.all_staff : S.cleaners, cur = t.cleaner;
+  let found = false;
+  const opts = list.map((c, i) => {
+    const sel = sameP(cur, c); if (sel) found = true;
+    return `<option value="i${i}"${sel ? " selected" : ""}>${esc(c.name)}${c.shift ? " (" + esc(shiftText(c.shift)) + ")" : ""}${all && c.draft ? " (drafted in)" : ""}</option>`;
+  }).join("");
+  const unlisted = cur && !found ? `<option value="cur" selected>${esc(cur.name)} (${all ? "not in this list" : "not on a shift today"})</option>` : "";
+  return `<option value=""${cur ? "" : " selected"}>Unassigned</option>${unlisted}${opts}`;
+}
+function cardHtml(t){
+  const id = esc(t.id), cleaned = !!t.cleaned_at, checked = !!t.checked_at, gone = !!t.gone, conf = S.ui.confirm[t.id];
+  const cls = ["rm", t.kind, cleaned ? "cl" : "", checked ? "ck" : "", gone ? "gone" : ""].filter(Boolean).join(" ");
+  const badges = (gone ? `<span class="badge gone">No longer on the report</span>` : "") + (t.manual ? `<span class="badge manual">Added by hand</span>` : "") + (t.issues > 0 ? `<span class="badge issue">${plural(t.issues, "maintenance issue")}</span>` : "");
+  let status;
+  if (checked) status = `<div class="stline done">Checked by ${esc(t.checked_by || "the head housekeeper")} at ${esc(fmtTime(t.checked_at))}</div><div class="stsub">Cleaned at ${esc(fmtTime(t.cleaned_at))} by ${esc(t.cleaned_by || "a cleaner")}${t.check_note ? ". Note: " + esc(t.check_note) : ""}</div>`;
+  else if (cleaned) status = `<div class="stline ok">Cleaned at ${esc(fmtTime(t.cleaned_at))} by ${esc(t.cleaned_by || "a cleaner")}</div><div class="stsub">Waiting to be checked</div>`;
+  else status = `<div class="stline todo">Not started</div>`;
+  let acts = "";
+  if (!gone) {
+    if (checked) acts += `<button class="btn small ghost" type="button" data-act="uncheck" data-id="${id}" data-fk="uncheck:${id}">Undo checked</button>`;
+    else acts += `<button class="btn small" type="button" data-act="check" data-id="${id}" data-fk="check:${id}"${cleaned ? "" : ' disabled title="Available once the cleaner has marked the room cleaned"'}>Confirm checked</button>`;
+    if (cleaned) acts += `<button class="btn small danger" type="button" data-act="reopen-ask" data-id="${id}" data-fk="reopen:${id}">Not right: send back</button>`;
+    if (t.manual || !cleaned) acts += `<button class="btn small danger" type="button" data-act="remove-ask" data-id="${id}" data-fk="remove:${id}">Remove</button>`;
+  }
+  const checkNote = !gone && cleaned && !checked ? `<label class="sr" for="cn_${id}">Note on the check for room ${esc(t.room)}</label><input class="chknote" id="cn_${id}" data-fk="cn:${id}" data-cn="${id}" maxlength="300" placeholder="Note on the check (optional)" value="${esc(S.ui.checkNote[t.id] || "")}">` : "";
+  let confirm = "";
+  if (conf === "reopen") confirm = `<div class="confirmbox" role="alert">Send room ${esc(t.room)} back? This clears the cleaned${checked ? " and checked" : ""} time and the room needs doing again.<div class="row-actions"><button class="btn small solid-danger" type="button" data-act="reopen-yes" data-id="${id}" data-fk="reopen-yes:${id}">Yes, send it back</button><button class="btn small ghost" type="button" data-act="confirm-cancel" data-id="${id}">Keep as it is</button></div></div>`;
+  if (conf === "remove") confirm = `<div class="confirmbox" role="alert">Remove room ${esc(t.room)} from ${esc(fmtShort(t.date))}'s list?${t.manual ? "" : " It will show as no longer on the report."}<div class="row-actions"><button class="btn small solid-danger" type="button" data-act="remove-yes" data-id="${id}" data-fk="remove-yes:${id}">Yes, remove it</button><button class="btn small ghost" type="button" data-act="confirm-cancel" data-id="${id}">Cancel</button></div></div>`;
+  const on = otherOn(t);
+  const cleanerCell = gone ? `<span class="ml">Cleaner</span><div class="guest${t.cleaner ? "" : " none"}">${t.cleaner ? esc(t.cleaner.name) : "Unassigned"}</div>`
+    : `<label class="ml" for="cs_${id}">Cleaner</label><select class="cs" id="cs_${id}" data-fk="cs:${id}" data-cs="${id}">${cleanerOptions(t)}</select>
+       <label class="oth"><input type="checkbox" data-oth="${id}" data-fk="oth:${id}"${on ? " checked" : ""}> <span title="Someone drafted in who is not on a Planday shift today">Other (drafted in)</span></label>`;
+  const noteCell = `${t.report_notes ? `<div class="rnote"><b>From the report:</b> ${esc(t.report_notes)}</div>` : ""}
+      <label class="ml" for="n_${id}" style="margin-top:2px">Your note</label>
+      <textarea class="hknote" id="n_${id}" data-fk="n:${id}" data-note="${id}" maxlength="600" placeholder="Add a note for the cleaner"${gone ? " disabled" : ""}>${esc(S.ui.noteDirty[t.id] ? S.ui.noteDraft[t.id] : (t.note || ""))}</textarea>`;
+  return `<article class="${cls}" data-id="${id}" data-sig="${sigOf(t)}" aria-label="Room ${esc(t.room)}">
+    <div class="c-room"><div class="roomtop"><span class="rno">${esc(t.room)}</span><span class="rname">${esc(t.name || "")}</span></div>
+      <div class="roommeta"><span class="pill ${esc(t.kind)}">${t.kind === "stayover" ? "Stay over" : "Departure"}</span><span class="mins">${esc(fmtMins(t.minutes))}</span></div>
+      ${badges ? `<div class="roommeta">${badges}</div>` : ""}</div>
+    <div class="c-guest"><span class="ml">Guests</span>${guestHtml(t)}</div>
+    <div class="c-notes">${noteCell}</div>
+    <div class="c-clean">${cleanerCell}</div>
+    <div class="c-stat"><span class="ml">Status</span>${status}${checkNote}${acts ? `<div class="acts">${acts}</div>` : ""}${confirm}</div>
+  </article>`;
+}
+
+/* ------------------------------------------------------------- rendering: today */
+function skeletonBlock(n){ return Array.from({ length:n }, () => `<div class="card" aria-hidden="true"><div class="sk" style="height:24px;width:40%"></div><div class="sk" style="height:14px;width:80%;margin-top:12px"></div><div class="sk" style="height:14px;width:60%;margin-top:8px"></div></div>`).join(""); }
+function keepFocus(fn){
+  const a = document.activeElement, k = a && a.dataset && a.dataset.fk;
+  let sel = null; try { if (a && a.selectionStart != null && a.tagName !== "SELECT") sel = [a.selectionStart, a.selectionEnd]; } catch(e){}
+  fn();
+  if (k) { const e = $$("[data-fk]").find(x => x.dataset.fk === k); if (e) { e.focus({ preventScroll:true }); try { if (sel) e.setSelectionRange(sel[0], sel[1]); } catch(e2){} } }
+}
+function renderBar(){
+  $("#datepick").value = S.date || ""; $("#daytitle").textContent = S.date ? fmtLong(S.date) : "";
+  const lc = $("#lastchk");
+  lc.textContent = S.refreshErr ? "Could not refresh. Trying again shortly." : S.fetchedAt ? "Checked " + new Date(S.fetchedAt).toLocaleTimeString("en-GB", { hour:"2-digit", minute:"2-digit", second:"2-digit" }) + ". Updates itself every 45 seconds." : "";
+}
+function renderToday(){
+  renderBar();
+  if (!S.loaded) {
+    const sk = skeletonBlock(1);
+    $("#imp").innerHTML = S.loadErr ? `<div class="card empty" role="alert">${esc(S.loadErr)}<br><br><button class="btn" type="button" data-act="retry">Try again</button>${S.me ? "" : `<p class="muted small" style="margin-top:14px">Open this from the Staff Portal so it knows who you are.</p>`}</div>` : sk;
+    ["#sum", "#dayform", "#by", "#boardtop", "#addroom", "#list", "#logp"].forEach(s => { $(s).innerHTML = ""; });
+    if (!S.loadErr) $("#list").innerHTML = skeletonBlock(3);
+    return;
+  }
+  renderImp(); renderSummary(); renderDayForm(); renderBy(); renderBoardTop(); renderAdd(); renderList(); renderLog();
+}
+const hasReport = () => S.tasks.length > 0 || !!(S.day && (S.day.imported_at || S.day.report_at));
+function dropHtml(){
+  const big = !hasReport();
+  return `<div class="card drop-card">
+    ${big ? `<p class="emptymsg">${S.date ? `No report yet for ${esc(fmtShort(S.date))}. Upload the Room Status Report to start.` : ""}</p>` : ""}
+    <label class="drop${big ? "" : " compact"}" id="drop" for="pdffile">
+      <input type="file" id="pdffile" class="sr" accept="application/pdf,.pdf" data-fk="pdffile">
+      <span class="dtitle">${big ? "Upload the room report" : "Update from a newer room report"}</span>
+      <span class="dsub">${big ? "Drag the Guestline Room Status Report (PDF) here, or choose the file. It is read in this browser, nothing is sent until you press Import." : "Drag a newer PDF here, or choose the file."}</span>
+      <span class="btn ${big ? "gold" : "ghost small"}" aria-hidden="true">Choose file</span>
+    </label>
+    ${big ? "" : `<p class="hint">Importing again later in the day merges. Cleaner assignments, your notes and cleaned and checked times are kept. New rooms are added, changed guests are updated, and rooms that left the report are flagged as no longer on it.</p>`}
+  </div>`;
+}
+function previewHtml(){
+  const p = S.ui.parsed, rows = p.rows;
+  const dep = rows.filter(r => hkKind(r) === "departure").length, so = rows.filter(r => hkKind(r) === "stayover").length, none = rows.length - dep - so;
+  const mismatch = p.report_date && p.report_date !== S.date;
+  const guests = r => {
+    const k = hkKind(r), n = (r.adults || 0) + (r.children || 0) + (r.infants || 0), nights = nightsBetween(r.occupied_from, r.occupied_to);
+    const who = [r.lead_name, n ? peopleText({ adults:r.adults, children:r.children, infants:r.infants }) : ""].filter(Boolean).join(", ");
+    if (k === "stayover") return `<b>Staying:</b> ${esc([who, r.night_total ? `night ${r.night_done || 0} of ${r.night_total}` : "", r.occupied_to ? "leaving " + fmtShort(r.occupied_to) : ""].filter(Boolean).join(", ") || "guests not listed")}`;
+    if (k === "departure") return r.occupied_from || r.lead_name || n ? `<b>Going in next:</b> ${esc([who, nights ? plural(nights, "night") : "", arrivalText(r.occupied_from, p.report_date || S.date)].filter(Boolean).join(", "))}` : `<span class="muted">Nobody arriving</span>`;
+    return who ? esc(who) : `<span class="muted">Nobody in</span>`;
+  };
+  const body = rows.map(r => { const k = hkKind(r); return `<div class="pvrow${k === "none" ? " skip" : ""}"><div><b class="rn">${esc(r.room)}</b></div><div><span class="pill ${k}">${k === "stayover" ? "Stay over" : k === "departure" ? "Departure" : "No cleaning"}</span><div class="tiny muted" style="margin-top:3px">${esc(r.hk_status || "No status")}</div></div><div>${guests(r)}</div><div class="pvnote">${esc(r.notes || "")}</div></div>`; }).join("");
+  return `<div class="card" id="preview">
+    <div class="pvhead"><h3>Check the report before importing</h3><span class="muted small">${esc(p.file)}${p.report_time ? ` &middot; report run at ${esc(p.report_time)}${p.report_date ? " on " + esc(fmtShort(p.report_date)) : ""}` : ""}</span></div>
+    <div class="counts" aria-label="Summary of the report"><span><b>${dep}</b>${dep === 1 ? "departure" : "departures"}</span><span><b>${so}</b>${so === 1 ? "stay over" : "stay overs"}</span><span><b>${none}</b>${none === 1 ? "needs" : "need"} no cleaning</span>${p.roos.length ? `<span><b>${p.roos.length}</b>returning to service today</span>` : ""}</div>
+    ${mismatch ? `<div class="notice" role="alert"><b>This report is for ${esc(fmtShort(p.report_date))}</b>, but the date selected is ${esc(fmtShort(S.date))}. <button class="btn small gold" type="button" data-act="switchdate" style="margin-left:6px">Switch to ${esc(fmtShort(p.report_date))}</button></div>` : ""}
+    ${p.warnings.length ? `<div class="notice info">${p.warnings.map(w => esc(w)).join("<br>")}</div>` : ""}
+    ${hasReport() ? `<div class="notice info">There is already a report for ${esc(fmtShort(S.date))}. Importing merges: assignments, notes and cleaned and checked times are kept; new rooms are added; changed guests are updated; rooms that left the report are flagged as gone.</div>` : ""}
+    <div class="pv"><div class="pvscroll"><div class="pvrow h"><div>Room</div><div>Cleaning</div><div>Incoming or current guests</div><div>Notes</div></div>${body}</div></div>
+    <div class="row-actions" style="margin-top:12px"><button class="btn" type="button" data-act="import" data-fk="import"${S.ui.importing ? " disabled" : ""}>${S.ui.importing ? "Importing..." : "Import"}</button><button class="btn ghost" type="button" data-act="impcancel"${S.ui.importing ? " disabled" : ""}>Cancel</button><span class="muted small">into ${esc(fmtLong(S.date))}</span></div>
+  </div>`;
+}
+function renderImp(){
+  const U = S.ui, el = $("#imp");
+  if (!S.loaded) return;
+  let h = "";
+  if (U.parseErr) h += `<div class="notice bad" role="alert">${esc(U.parseErr)}</div>`;
+  if (U.parsing) h += `<div class="card" role="status" style="display:flex;gap:14px;align-items:center"><div class="spin"></div><div>Reading the report...</div></div>`;
+  else if (U.parsed) h += previewHtml();
+  else h += dropHtml();
+  el.innerHTML = h;
+  const z = $("#drop");
+  if (z) {
+    ["dragenter", "dragover"].forEach(ev => z.addEventListener(ev, e => { e.preventDefault(); z.classList.add("over"); }));
+    ["dragleave", "drop"].forEach(ev => z.addEventListener(ev, e => { e.preventDefault(); z.classList.remove("over"); }));
+    z.addEventListener("drop", e => { const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]; if (f) handleFile(f); });
+  }
+}
+function renderSummary(){
+  const p = S.plan, el = $("#sum");
+  if (!S.loaded) return;
+  let h = "";
+  if (S.planday && S.planday.ok === false) h += `<div class="notice" role="alert"><b>Planday could not be reached</b>${S.planday.error ? ": " + esc(S.planday.error) : ""}. Shifts may be missing from the cleaner drop-down. Tick Other on a room to pick anyone in housekeeping.</div>`;
+  if (!S.tasks.length || !p) { el.innerHTML = h; return; }
+  const d = S.day || {};
+  h += `<div class="stats" role="group" aria-label="Day summary">
+    <div class="stat"><span class="lbl">Rooms to clean</span><b>${p.rooms ?? 0}</b><span class="s">${plural(p.departures || 0, "departure")}, ${plural(p.stayovers || 0, "stay over")}</span></div>
+    <div class="stat"><span class="lbl">Total cleaning time</span><b>${esc(fmtMins(p.minutes))}</b><span class="s">Before breaks</span></div>
+    <div class="stat"><span class="lbl">Cleaners on shift</span><b>${p.cleaners_on_shift ?? 0}</b><span class="s">${p.cleaners_on_shift ? "From Planday" : "None found for this date"}</span></div>
+    <div class="stat"><span class="lbl">Expected finish</span><b>${esc(p.even_split_finish || "-")}</b><span class="s">${p.even_split_finish ? "If shared equally" : "Needs a cleaner on shift"}${p.latest_finish ? `. Latest assigned: <strong>${esc(p.latest_finish)}</strong>` : ""}</span></div>
+  </div>
+  ${d.report_name || d.imported_at ? `<p class="hint" style="margin:8px 2px 0">Report ${d.report_at ? "run at " + esc(fmtTime(d.report_at)) : ""}${d.imported_at ? `, imported ${d.imported_by ? "by " + esc(d.imported_by) + " " : ""}at ${esc(fmtTime(d.imported_at))}` : ""}.</p>` : ""}`;
+  el.innerHTML = h;
+}
+function renderDayForm(force){
+  const el = $("#dayform");
+  if (!S.loaded || !S.tasks.length) { el.innerHTML = ""; return; }
+  if (!force && el.contains(document.activeElement) && el.firstChild) return;
+  if (!force && S.ui.dayDirty && el.firstChild) return;
+  const d = S.day || {};
+  el.innerHTML = `<form class="card daycard" id="dform" novalidate style="margin-top:12px">
+    <div><h3 style="font-size:23px;color:var(--sage);margin-bottom:8px">The day</h3>
+      <div class="two"><div class="field"><label for="d_start">Start time</label><input id="d_start" type="time" value="${esc(d.start_time || "09:00")}" data-day></div>
+      <div class="field"><label for="d_break">Break (minutes)</label><input id="d_break" type="number" inputmode="numeric" min="0" max="240" step="5" value="${esc(d.break_minutes ?? 20)}" data-day></div></div>
+      <div class="hint">Finish = start time + the cleaner's room minutes + break.</div><div class="ferr" id="d_err" role="alert"></div></div>
+    <div><div class="field"><label for="d_msg">Message to the cleaners</label><textarea id="d_msg" maxlength="600" data-day placeholder="For example: Job of the day, all skirting boards damp dusted">${esc(d.message || "")}</textarea></div>
+      <div class="row-actions"><button class="btn" type="submit" id="d_save">Save</button><span class="hint">The cleaners see this at the top of their board.</span></div></div>
+  </form>`;
+}
+function renderBy(){
+  const p = S.plan, el = $("#by");
+  if (!S.loaded || !S.tasks.length || !p) { el.innerHTML = ""; return; }
+  const items = (p.per_cleaner || []).map(c => `<li><b>${esc(c.name)}:</b> ${plural(c.rooms, "room")}, ${esc(fmtMins(c.minutes))}${c.finish ? `, finishes ${esc(c.finish)}` : ""}</li>`);
+  if (p.unassigned && p.unassigned.rooms) items.push(`<li class="un"><b>Not yet assigned:</b> ${plural(p.unassigned.rooms, "room")}, ${esc(fmtMins(p.unassigned.minutes))}</li>`);
+  el.innerHTML = items.length ? `<div class="sechead">By cleaner</div><ul class="by">${items.join("")}</ul>` : "";
+}
+function renderBoardTop(){
+  const el = $("#boardtop");
+  if (!S.loaded || !S.tasks.length) { el.innerHTML = ""; return; }
+  const live = liveTasks(), n = live.length, cl = live.filter(t => t.cleaned_at).length, ck = live.filter(t => t.checked_at).length;
+  const cnt = f => S.tasks.filter(t => passes(t, f)).length;
+  el.innerHTML = `<div class="sechead">Rooms</div>
+    <div class="prog" role="status">${cl} of ${n} cleaned, ${ck} checked<div class="bar" aria-hidden="true"><i style="width:${n ? Math.round(cl / n * 100) : 0}%"></i></div></div>
+    <div class="toolrow" role="group" aria-label="Show rooms">${FILTERS.map(([k, l]) => `<button class="chip" type="button" data-act="filter" data-k="${k}" aria-pressed="${S.filter === k}">${l}<i>${cnt(k)}</i></button>`).join("")}
+      <button class="btn small gold sp" type="button" data-act="addtoggle" aria-expanded="${S.ui.addOpen}" aria-controls="addroom">Add a room</button></div>`;
+}
+function renderAdd(){
+  const el = $("#addroom");
+  if (!S.loaded || !S.ui.addOpen) { el.innerHTML = ""; return; }
+  const taken = new Set(liveTasks().map(t => String(t.room)));
+  const rooms = S.rooms.filter(r => r.active !== false);
+  el.innerHTML = `<form class="card" id="addform" novalidate>
+    <h3 style="font-size:22px;color:var(--sage);margin-bottom:8px">Add a room that is not on the report</h3>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0 14px">
+      <div class="field"><label for="a_room">Room</label><select id="a_room"><option value="">Choose a room...</option>${rooms.map(r => `<option value="${esc(r.room)}"${taken.has(String(r.room)) ? " disabled" : ""}>${esc(r.room)} ${esc(r.name || "")}${taken.has(String(r.room)) ? " (already on the list)" : ""}</option>`).join("")}</select></div>
+      <div class="field"><label for="a_kind">What needs doing</label><select id="a_kind"><option value="departure">Departure clean</option><option value="stayover">Stay over clean</option></select></div>
+      <div class="field"><label for="a_note">Note (optional)</label><input id="a_note" maxlength="300"></div></div>
+    <div class="ferr" id="a_err" role="alert">${esc(S.ui.addErr)}</div>
+    <div class="row-actions"><button class="btn" type="submit" id="a_go">Add room</button><button class="btn ghost" type="button" data-act="addtoggle">Cancel</button></div></form>`;
+}
+function renderList(){
+  const el = $("#list");
+  if (!S.loaded) return;
+  if (!S.tasks.length) { el.innerHTML = ""; return; }
+  const v = visibleTasks();
+  const y = window.scrollY;
+  el.innerHTML = v.length ? `<div class="rmhead" aria-hidden="true"><div>Room</div><div>Guests</div><div>Notes</div><div>Cleaner</div><div>Status</div></div>` + v.map(cardHtml).join("")
+    : `<div class="card empty">No rooms match this filter.</div>`;
+  S.ui.stale = false;
+  if (Math.abs(window.scrollY - y) > 1) window.scrollTo(0, y);
+}
+function renderLog(){
+  const el = $("#logp");
+  if (!S.loaded || !S.tasks.length) { el.innerHTML = ""; return; }
+  const items = (S.log || []).slice(0, 60).map(l => {
+    const day = dateOfIso(l.at), when = (day && day !== S.date ? fmtShort(day) + ", " : "") + fmtTime(l.at);
+    return `<li><span class="at">${esc(when)}</span><span class="wh">${l.room ? `<b>Room ${esc(l.room)}</b> ` : ""}${esc(l.what || "")}${l.who ? ` <span class="muted">(${esc(l.who)})</span>` : ""}</span></li>`;
+  }).join("");
+  el.innerHTML = `<details class="sec" id="logdet"${S.ui.logOpen ? " open" : ""} style="margin-top:18px"><summary>Activity log</summary><div class="in">${items ? `<ul class="log">${items}</ul>` : `<p class="muted small" style="margin:0">Nothing has happened yet today.</p>`}</div></details>`;
+}
+
+/* ------------------------------------------------------------- loading + auto refresh */
+function applyData(d, quiet){
+  S.today = d.today || S.today; S.date = d.date || S.date; S.day = d.day || null; S.tasks = d.tasks || []; S.plan = d.plan || null;
+  S.cleaners = d.cleaners || []; S.all_staff = d.all_staff || []; S.planday = d.planday || {}; S.log = d.log || [];
+  if (d.me) S.me = d.me;
+  if (d.rooms) { S.rooms = d.rooms; if (!S.ui.roomsDirty) S.ui.roomsDraft = null; }
+  if (!quiet) { S.loaded = true; S.loadErr = ""; S.ui.noteDirty = {}; S.ui.noteDraft = {}; S.ui.confirm = {}; S.ui.checkNote = {}; S.ui.other = {}; S.ui.dayDirty = false; renderToday(); }
+  else {
+    S.loaded = true; renderBar(); renderSummary(); renderDayForm(); renderBy(); renderBoardTop(); renderLog();
+    if ($("#imp #drop") && !!$("#imp .emptymsg") === hasReport()) renderImp();
+    patchList();
+  }
+  if (S.tab === "rooms") renderRooms();
+}
+function patchList(){
+  const want = visibleTasks(), have = $$("#list .rm"), act = document.activeElement;
+  const inList = !!(act && act.closest && act.closest("#list"));
+  if (!S.tasks.length) { renderList(); return; }
+  const same = want.length === have.length && want.every((t, i) => have[i].dataset.id === String(t.id));
+  if (!same) { if (inList) { S.ui.stale = true; return; } renderList(); return; }
+  let stale = false;
+  want.forEach((t, i) => {
+    const el = have[i]; if (el.dataset.sig === sigOf(t)) return;
+    if (el.contains(act) || S.ui.confirm[t.id] || S.ui.noteDirty[t.id] || S.ui.checkNote[t.id]) { stale = true; return; }
+    delete S.ui.other[t.id]; el.outerHTML = cardHtml(t);
+  });
+  S.ui.stale = stale;
+}
+async function load(quiet){
+  const my = ++S.seq, asked = S.date, mut = S.mut;
+  if (!quiet) { S.loaded = false; S.loadErr = ""; renderToday(); }
+  try {
+    const d = await call("config.bootstrap", asked ? { date:asked } : {});
+    if (my !== S.seq) return;
+    if (quiet && (S.mut !== mut || S.busy || asked !== S.date)) return;
+    S.fetchedAt = Date.now(); S.refreshErr = false;
+    applyData(d, quiet);
+  } catch(e){
+    if (my !== S.seq) return;
+    if (quiet) { S.refreshErr = true; renderBar(); return; }
+    S.loaded = false; S.loadErr = e.message; renderToday();
+  }
+}
+function tick(){
+  if (document.visibilityState !== "visible" || S.tab !== "today" || !S.me || S.ui.importing || S.ui.parsing) return;
+  load(true);
+}
+setInterval(tick, 45000);
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && S.me && Date.now() - S.fetchedAt > 45000) tick(); });
+
+/* ------------------------------------------------------------- actions */
+async function guarded(fn, btn){
+  S.busy++; S.mut++; if (btn) btn.disabled = true;
+  try { return await fn(); }
+  catch(e){ toast(e.message, true); if (btn && document.body.contains(btn)) btn.disabled = false; return null; }
+  finally { S.busy--; }
+}
+function setTask(t){ if (!t) return; const i = S.tasks.findIndex(x => String(x.id) === String(t.id)); if (i >= 0) S.tasks[i] = t; else S.tasks.push(t); }
+function afterChange(){ renderSummary(); renderBy(); renderBoardTop(); }
+async function doImport(){
+  const p = S.ui.parsed; if (!p || S.ui.importing) return;
+  S.ui.importing = true; renderImp();
+  const r = await guarded(() => call("report.import", { date:S.date, report_name:p.file || undefined, report_at:p.report_at || undefined, rooms:p.rows, roos:p.roos }));
+  S.ui.importing = false;
+  if (!r) { renderImp(); return; }
+  S.tasks = r.tasks || S.tasks; S.plan = r.plan || S.plan; S.day = r.day || S.day; S.ui.parsed = null; S.ui.parseErr = ""; S.ui.noteDirty = {}; S.ui.noteDraft = {}; S.ui.confirm = {};
+  S.ui.dayDirty = false; renderImp(); renderSummary(); renderDayForm(true); renderBy(); renderBoardTop(); renderList(); renderLog();
+  toast(`Imported: ${r.added || 0} added, ${r.updated || 0} updated, ${r.unchanged || 0} unchanged${r.removed ? ", " + r.removed + " no longer on the report" : ""}${r.skipped ? ", " + r.skipped + " need no cleaning" : ""}.`);
+  load(true);
+}
+async function saveNote(ta){
+  const id = ta.dataset.note, t = S.tasks.find(x => String(x.id) === id); if (!t) return;
+  const val = ta.value.trim();
+  if (val === (t.note || "")) { delete S.ui.noteDirty[id]; return; }
+  const r = await guarded(() => call("task.update", { id:t.id, note:val }));
+  if (!r) return;
+  delete S.ui.noteDirty[id]; delete S.ui.noteDraft[id];
+  setTask(r.task || Object.assign({}, t, { note:val })); if (r.plan) S.plan = r.plan;
+  const el = cardEl(id); if (el && r.task) el.dataset.sig = sigOf(r.task);
+  toast("Note saved."); afterChange();
+}
+async function saveCleaner(sel){
+  const id = sel.dataset.cs, t = S.tasks.find(x => String(x.id) === id); if (!t) return;
+  const all = otherOn(t), list = all ? S.all_staff : S.cleaners, v = sel.value;
+  let cleaner = null;
+  if (v === "cur") return;
+  if (v) {
+    const c = list[+v.slice(1)]; if (!c) return;
+    cleaner = { planday_id:c.planday_id ?? null, name:c.name, email:c.email || null, other:all && !S.cleaners.some(x => sameP(x, c)) };
+  }
+  const r = await guarded(() => call("task.update", { id:t.id, cleaner }), sel);
+  if (!r) { keepFocus(() => { const el = cardEl(id); if (el) el.outerHTML = cardHtml(t); }); return; }
+  sel.disabled = false; sel.focus({ preventScroll:true });
+  setTask(r.task || Object.assign({}, t, { cleaner })); if (r.plan) S.plan = r.plan;
+  const el = cardEl(id); if (el && r.task) el.dataset.sig = sigOf(r.task);
+  toast(cleaner ? `Room ${t.room} assigned to ${cleaner.name}.` : `Room ${t.room} is unassigned.`); afterChange();
+}
+async function taskAction(act, id, btn){
+  const t = S.tasks.find(x => String(x.id) === id); if (!t) return;
+  const redraw = () => { renderList(); afterChange(); };
+  if (act === "reopen-ask" || act === "remove-ask") { S.ui.confirm[t.id] = act === "reopen-ask" ? "reopen" : "remove"; const el = cardEl(id); if (el) { el.outerHTML = cardHtml(t); const n = cardEl(id).querySelector(".confirmbox button"); if (n) n.focus(); } return; }
+  if (act === "confirm-cancel") { delete S.ui.confirm[t.id]; const el = cardEl(id); if (el) el.outerHTML = cardHtml(t); const n = cardEl(id) && cardEl(id).querySelector("[data-act$='-ask']"); if (n) n.focus(); return; }
+  if (act === "check" || act === "uncheck") {
+    const note = (S.ui.checkNote[t.id] || "").trim();
+    const r = await guarded(() => call("task.check", { id:t.id, checked:act === "check", note:note || undefined }), btn);
+    if (!r) return;
+    delete S.ui.checkNote[t.id];
+    setTask(r.task || Object.assign({}, t, act === "check" ? { checked_at:new Date().toISOString(), checked_by:S.me && S.me.name, check_note:note || null } : { checked_at:null, checked_by:null, check_note:null }));
+    toast(act === "check" ? `Room ${t.room} checked.` : `Room ${t.room} is no longer marked as checked.`); keepFocus(redraw); return;
+  }
+  if (act === "reopen-yes") {
+    const r = await guarded(() => call("task.reopen", { id:t.id }), btn);
+    delete S.ui.confirm[t.id]; if (!r) { const el = cardEl(id); if (el) el.outerHTML = cardHtml(t); return; }
+    setTask(r.task || Object.assign({}, t, { cleaned_at:null, cleaned_by:null, checked_at:null, checked_by:null, check_note:null }));
+    toast(`Room ${t.room} sent back to the cleaner.`); redraw(); load(true); return;
+  }
+  if (act === "remove-yes") {
+    const r = await guarded(() => call("task.remove", { id:t.id }), btn);
+    delete S.ui.confirm[t.id]; if (!r) { const el = cardEl(id); if (el) el.outerHTML = cardHtml(t); return; }
+    if (r.plan) S.plan = r.plan;
+    if (!t.manual) t.gone = true; else S.tasks = S.tasks.filter(x => x !== t);
+    toast(`Room ${t.room} removed.`); await load(true); redraw(); renderLog(); return;
+  }
+}
+async function saveDay(){
+  const start = $("#d_start").value, brk = $("#d_break").value.trim(), msg = $("#d_msg").value.trim(), err = $("#d_err");
+  err.textContent = "";
+  if (!/^\d{2}:\d{2}$/.test(start)) { err.textContent = "Enter the start time as hours and minutes, for example 09:00."; $("#d_start").focus(); return; }
+  if (!/^\d+$/.test(brk) || +brk > 240) { err.textContent = "Break must be a whole number of minutes between 0 and 240."; $("#d_break").focus(); return; }
+  const btn = $("#d_save");
+  const r = await guarded(() => call("day.save", { date:S.date, message:msg, start_time:start, break_minutes:+brk }), btn);
+  if (!r) return;
+  btn.disabled = false; S.day = r.day || Object.assign({}, S.day, { message:msg, start_time:start, break_minutes:+brk }); if (r.plan) S.plan = r.plan; S.ui.dayDirty = false;
+  renderSummary(); renderBy(); renderDayForm(true); toast("Saved.");
+}
+async function addRoom(){
+  const room = $("#a_room").value, kind = $("#a_kind").value, note = $("#a_note").value.trim(), err = $("#a_err");
+  err.textContent = "";
+  if (!room) { err.textContent = "Choose a room to add."; $("#a_room").focus(); return; }
+  const r = await guarded(() => call("task.add", { date:S.date, room, kind, note:note || undefined }), $("#a_go"));
+  if (!r) return;
+  if (r.task) setTask(r.task); if (r.plan) S.plan = r.plan;
+  S.tasks.sort((a, b) => (S.rooms.findIndex(x => x.room === a.room) + 1 || 999) - (S.rooms.findIndex(x => x.room === b.room) + 1 || 999));
+  S.ui.addOpen = false; renderAdd(); renderSummary(); renderBy(); renderBoardTop(); renderList(); renderDayForm();
+  toast(`Room ${room} added.`);
+}
+
+/* ------------------------------------------------------------- rooms tab */
+function roomsDraft(){
+  if (!S.ui.roomsDraft) { S.ui.roomsDraft = S.rooms.map(r => Object.assign({}, r, { _key:r.room, _new:false })); S.ui.roomsDirty = false; S.ui.roomsErr = {}; }
+  return S.ui.roomsDraft;
+}
+function renderRooms(force){
+  const el = $("#v_rooms");
+  if (!S.loaded) { el.innerHTML = `<div class="pagehead"><h2>Rooms</h2></div>${S.loadErr ? `<div class="card empty">${esc(S.loadErr)}<br><br><button class="btn" type="button" data-act="retry">Try again</button></div>` : skeletonBlock(3)}`; return; }
+  if (!force && el.contains(document.activeElement) && el.firstChild) return;
+  const d = roomsDraft(), E = S.ui.roomsErr;
+  const f = (i, k, label, type, extra) => `<div><label class="ml" for="rf_${i}_${k}">${label}</label><input class="ctl" id="rf_${i}_${k}" data-fk="rf:${i}:${k}" data-ri="${i}" data-f="${k}" ${type}${extra || ""} aria-label="${label}, room ${esc(d[i].room || "new")}"${E[i + ":" + k] ? ' aria-invalid="true"' : ""}></div>`;
+  el.innerHTML = `<div class="pagehead"><h2>Rooms</h2></div>
+    <p class="muted" style="margin:4px 2px 10px">Cleaning time per room: 40 minutes unless set here; Rosemary and Huckleberry are 120.<br><span class="small">Stay over minutes are optional. Untick Active to hide a room from the Add a room list.</span></p>
+    <div class="rrhead" aria-hidden="true"><div>Room</div><div>Name</div><div>Type</div><div>Minutes</div><div>Stay over minutes</div><div>Active</div></div>
+    ${d.map((r, i) => `<div class="rr${r.active === false ? " inactive" : ""}" data-row="${i}">
+      ${f(i, "room", "Room number", `value="${esc(r.room)}" maxlength="12"${r._new ? "" : " readonly"}`)}
+      ${f(i, "name", "Name", `value="${esc(r.name || "")}" maxlength="60"`)}
+      ${f(i, "room_type", "Type", `value="${esc(r.room_type || "")}" maxlength="40"`)}
+      ${f(i, "minutes", "Minutes", `type="number" inputmode="numeric" min="1" max="600" value="${esc(r.minutes ?? "")}"`)}
+      ${f(i, "stayover_minutes", "Stay over minutes", `type="number" inputmode="numeric" min="1" max="600" placeholder="Optional" value="${esc(r.stayover_minutes ?? "")}"`)}
+      <div><span class="ml">Active</span><label class="actv"><input type="checkbox" data-ri="${i}" data-f="active" data-fk="rf:${i}:active"${r.active === false ? "" : " checked"}> Active</label></div>
+      ${Object.keys(E).some(k => k.startsWith(i + ":")) ? `<div class="full ferr" role="alert">${esc(Object.keys(E).filter(k => k.startsWith(i + ":")).map(k => E[k]).join(" "))}</div>` : ""}
+    </div>`).join("")}
+    <div class="savebar"><button class="btn" type="button" data-act="rooms-save" id="rsave"${S.ui.roomsDirty ? "" : " disabled"}>Save</button><button class="btn ghost" type="button" data-act="rooms-add">Add a room</button><button class="btn ghost" type="button" data-act="rooms-discard"${S.ui.roomsDirty ? "" : " disabled"}>Discard changes</button><span class="muted small" id="rstate" role="status">${S.ui.roomsDirty ? "You have unsaved changes." : ""}</span></div>`;
+}
+async function saveRooms(){
+  const d = roomsDraft(), E = {}; const seen = new Set();
+  const out = d.map((r, i) => {
+    const room = String(r.room || "").trim(), mins = Number(r.minutes), so = r.stayover_minutes === "" || r.stayover_minutes == null ? null : Number(r.stayover_minutes);
+    if (!room) E[i + ":room"] = "Enter a room number."; else if (seen.has(room.toLowerCase())) E[i + ":room"] = `Room ${room} is listed twice.`; seen.add(room.toLowerCase());
+    if (!Number.isInteger(mins) || mins < 1 || mins > 600) E[i + ":minutes"] = `Room ${room || "(new)"} needs whole minutes between 1 and 600.`;
+    if (so !== null && (!Number.isInteger(so) || so < 1 || so > 600)) E[i + ":stayover_minutes"] = `Stay over minutes for room ${room || "(new)"} must be between 1 and 600, or left blank.`;
+    return { room, name:String(r.name || "").trim() || room, room_type:String(r.room_type || "").trim() || null, minutes:mins, stayover_minutes:so, sort_order:r.sort_order, active:r.active !== false };
+  });
+  S.ui.roomsErr = E;
+  if (Object.keys(E).length) { renderRooms(true); toast("Some rooms need fixing before saving.", true); const first = document.querySelector('#v_rooms [aria-invalid="true"]'); if (first) first.focus(); return; }
+  const r = await guarded(() => call("rooms.save", { rooms:out }), $("#rsave"));
+  if (!r) return;
+  S.rooms = r.rooms || out; if (r.plan) S.plan = r.plan; S.ui.roomsDraft = null; S.ui.roomsDirty = false; S.ui.roomsErr = {};
+  renderRooms(true); toast("Rooms saved."); load(true);
+}
+
+/* ------------------------------------------------------------- events */
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-act]"); if (!b || b.disabled) return;
+  const a = b.dataset.act, id = b.dataset.id;
+  if (a === "refresh") { load(true).then(() => toast("Up to date.")); return; }
+  if (a === "retry") { load(false); return; }
+  if (a === "prev" || a === "next" || a === "todaybtn") { const d = a === "todaybtn" ? S.today : addDays(S.date || S.today, a === "prev" ? -1 : 1); if (d) changeDate(d); return; }
+  if (a === "filter") { S.filter = b.dataset.k; renderBoardTop(); renderList(); const n = $$("#boardtop .chip").find(c => c.dataset.k === S.filter); if (n) n.focus(); return; }
+  if (a === "addtoggle") { S.ui.addOpen = !S.ui.addOpen; S.ui.addErr = ""; renderBoardTop(); renderAdd(); if (S.ui.addOpen) { const s = $("#a_room"); if (s) s.focus(); } else { const n = $('#boardtop [data-act="addtoggle"]'); if (n) n.focus(); } return; }
+  if (a === "import") { doImport(); return; }
+  if (a === "impcancel") { S.ui.parsed = null; S.ui.parseErr = ""; renderImp(); return; }
+  if (a === "switchdate") { const d = S.ui.parsed && S.ui.parsed.report_date; if (d) changeDate(d); return; }
+  if (a === "rooms-save") { saveRooms(); return; }
+  if (a === "rooms-discard") { S.ui.roomsDraft = null; S.ui.roomsDirty = false; S.ui.roomsErr = {}; renderRooms(true); return; }
+  if (a === "rooms-add") {
+    const d = roomsDraft(), max = d.reduce((m, r) => Math.max(m, +r.sort_order || 0), 0);
+    d.push({ room:"", name:"", room_type:"", minutes:40, stayover_minutes:null, sort_order:max + 10, active:true, _new:true }); S.ui.roomsDirty = true; renderRooms(true);
+    const n = document.getElementById("rf_" + (d.length - 1) + "_room"); if (n) { n.focus(); n.scrollIntoView({ block:"center" }); } return;
+  }
+  if (id !== undefined) taskAction(a, id, b);
+});
+document.addEventListener("submit", e => {
+  e.preventDefault();
+  if (e.target.id === "dform") saveDay();
+  if (e.target.id === "addform") addRoom();
+});
+document.addEventListener("change", e => {
+  const t = e.target;
+  if (t.id === "datepick") { if (/^\d{4}-\d{2}-\d{2}$/.test(t.value)) changeDate(t.value); else t.value = S.date; return; }
+  if (t.id === "pdffile") { const f = t.files && t.files[0]; t.value = ""; handleFile(f); return; }
+  if (t.dataset.cs !== undefined) { saveCleaner(t); return; }
+  if (t.dataset.oth !== undefined) {
+    const id = t.dataset.oth, task = S.tasks.find(x => String(x.id) === id); if (!task) return;
+    S.ui.other[task.id] = t.checked;
+    const sel = document.getElementById("cs_" + id); if (sel) { sel.innerHTML = cleanerOptions(task); if (t.checked && !task.cleaner) sel.focus(); }
+    return;
+  }
+  if (t.dataset.ri !== undefined && t.type === "checkbox") { const d = roomsDraft(); d[+t.dataset.ri].active = t.checked; S.ui.roomsDirty = true; const row = t.closest(".rr"); if (row) row.classList.toggle("inactive", !t.checked); roomsDirtyUi(); }
+});
+document.addEventListener("input", e => {
+  const t = e.target;
+  if (t.dataset.note !== undefined) { S.ui.noteDirty[t.dataset.note] = true; S.ui.noteDraft[t.dataset.note] = t.value; return; }
+  if (t.dataset.cn !== undefined) { S.ui.checkNote[t.dataset.cn] = t.value; return; }
+  if (t.hasAttribute("data-day")) { S.ui.dayDirty = true; return; }
+  if (t.dataset.ri !== undefined && t.type !== "checkbox") {
+    const d = roomsDraft(), r = d[+t.dataset.ri], k = t.dataset.f; r[k] = t.value; S.ui.roomsDirty = true;
+    delete S.ui.roomsErr[t.dataset.ri + ":" + k]; t.removeAttribute("aria-invalid"); roomsDirtyUi();
+  }
+});
+function roomsDirtyUi(){ const s = $("#rsave"), d = document.querySelector('[data-act="rooms-discard"]'), m = $("#rstate"); if (s) s.disabled = !S.ui.roomsDirty; if (d) d.disabled = !S.ui.roomsDirty; if (m) m.textContent = S.ui.roomsDirty ? "You have unsaved changes." : ""; }
+document.addEventListener("focusout", e => {
+  const t = e.target;
+  if (t.dataset && t.dataset.note !== undefined) saveNote(t);
+  if (S.ui.stale) setTimeout(() => { if (S.ui.stale && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("#list"))) patchList(); }, 250);
+});
+document.addEventListener("toggle", e => { if (e.target.id === "logdet") S.ui.logOpen = e.target.open; }, true);
+window.addEventListener("dragover", e => { if (!e.target.closest || !e.target.closest("#drop")) e.preventDefault(); });
+window.addEventListener("drop", e => { if (!e.target.closest || !e.target.closest("#drop")) e.preventDefault(); });
+function changeDate(d){
+  if (!d || d === S.date) { renderBar(); return; }
+  S.date = d; S.ui.addOpen = false; S.ui.parseErr = ""; S.ui.other = {}; load(false);
+}
+function setTab(name){
+  S.tab = name === "rooms" ? "rooms" : "today";
+  $$(".tabbtn").forEach(b => b.setAttribute("aria-current", b.dataset.view === S.tab ? "page" : "false"));
+  $("#v_today").classList.toggle("off", S.tab !== "today"); $("#v_rooms").classList.toggle("off", S.tab !== "rooms");
+  if (S.tab === "rooms") renderRooms(); else if (S.loaded) { renderBar(); }
+  window.scrollTo(0, 0);
+}
+$$(".tabbtn").forEach(b => b.addEventListener("click", () => { location.hash = b.dataset.view === "rooms" ? "#/rooms" : "#/"; }));
+window.addEventListener("hashchange", () => setTab(/^#\/rooms/.test(location.hash) ? "rooms" : "today"));
+
+/* ------------------------------------------------------------- boot */
+function openGate(msg){ $("#gate").style.display = "flex"; $("#app").classList.add("off"); if (msg) $("#gerr").textContent = msg; }
+$("#signout").addEventListener("click", () => { try { sessionStorage.removeItem("bhb_staff_email"); } catch(e){} openGate(); });
+async function boot(){
+  $("#app").classList.remove("off");
+  setTab(/^#\/rooms/.test(location.hash) ? "rooms" : "today");
+  await load(false);
+  if (S.me) $("#whoname").textContent = S.me.name || S.me.email || "";
+}
+(function(){ if (staffEmail()) { $("#gate").style.display = "none"; boot(); } else openGate(); })();
+</script>
+</body>
+</html>
