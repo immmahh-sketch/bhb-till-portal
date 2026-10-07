@@ -96,13 +96,18 @@ header.top{background:var(--sage); color:var(--white)}
 
 /* room cards */
 .room{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); padding:16px; margin-bottom:14px; border-left:6px solid var(--celadon); position:relative; overflow:hidden}
-.room.dep{border-left-color:var(--gold)} .room.stay{border-left-color:var(--sage)}
+.room.dep{border-left-color:var(--gold)} .room.stay{border-left-color:var(--sage)} .room.setup{border-left-color:#4F7A95}
 .rhead{display:flex; align-items:flex-start; gap:10px; justify-content:space-between}
 .rname{font-family:var(--display); font-size:34px; line-height:1.05; font-weight:700; min-width:0; overflow-wrap:anywhere}
 .rname small{font-size:26px; font-weight:600; color:var(--sage-dark)}
 .pill{flex:none; font-size:11px; letter-spacing:.12em; text-transform:uppercase; font-weight:800; padding:6px 10px; border-radius:99px; margin-top:4px; white-space:nowrap}
 .pill.dep{background:var(--attention-bg); color:#6d531f; border:1px solid var(--gold)}
 .pill.stay{background:var(--sage-10); color:var(--sage-dark); border:1px solid var(--celadon)}
+.pill.setup{background:#E4EEF4; color:#27495E; border:1px solid #8FB0C4}
+.with{font-size:16px; font-weight:700; color:var(--sage-dark); background:var(--sage-10); border-radius:10px; padding:7px 12px; margin:8px 0 0}
+.setupline{font-weight:700; color:#27495E; background:#E4EEF4; border-radius:10px; padding:9px 12px; margin:6px 0}
+.note.booking.big{border-width:2px; font-size:17px; font-weight:600}
+.donerow .by{font-weight:600}
 .rmeta{display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:6px 0 10px; font-size:14px; color:var(--sage-70)}
 .mins{font-weight:800; color:var(--ink); background:var(--bone); border-radius:8px; padding:3px 9px; font-size:14px}
 .mins.long{background:var(--attention-bg); color:#6d531f}
@@ -242,7 +247,7 @@ function nightsOf(inc){
   return null;
 }
 function guestLine(t, today){
-  if (t.kind === "departure") {
+  if (t.kind === "departure" || t.kind === "setup") {
     const inc = t.incoming;
     if (!inc) return `<p class="line none"><b>Nobody arriving today</b></p>`;
     const when = !inc.from || String(inc.from).slice(0, 10) === today ? "arriving today" : "arriving " + fmtDate(inc.from);
@@ -256,6 +261,17 @@ function guestLine(t, today){
   if (cur.to) bits.push(String(cur.to).slice(0, 10) === today ? "leaving today" : "leaving " + fmtDate(cur.to));
   return `<p class="line"><b>Staying over:</b> ${esc(bits.join(", "))}</p>`;
 }
+const joinNames = a => a.length < 2 ? (a[0] || "") : a.slice(0, -1).join(", ") + " and " + a[a.length - 1];
+const kindClass = t => t.kind === "departure" ? "dep" : t.kind === "setup" ? "setup" : "stay";
+const withOf = t => Array.isArray(t.with) ? t.with.filter(Boolean) : [];
+const myMins = t => +(t.my_minutes != null ? t.my_minutes : t.minutes) || 0;
+const nameOnly = n => String(n || "").includes("@") ? firstName(n) : String(n || "").trim();
+function byWho(t){
+  const n = nameOnly(t.cleaned_by); if (!n) return "";
+  const me = nameOnly(S.d && S.d.me && S.d.me.name).toLowerCase();
+  if (me && n.toLowerCase() === me) return withOf(t).length ? " by you" : "";
+  return " by " + n;
+}
 const firstName = n => { const s = String(n || "").trim(); if (!s) return ""; if (s.includes("@")) s = s.split("@")[0]; return s.split(/[\s._-]+/)[0].replace(/^./, c => c.toUpperCase()); };
 const issuesText = n => `${n} maintenance ${n === 1 ? "issue" : "issues"} reported`;
 const TICK = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"/></svg>';
@@ -264,9 +280,9 @@ const TICK = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke
 const tasksOf = () => ((S.d && S.d.tasks) || []).filter(t => !(t.gone && !t.cleaned_at));
 const isDone = t => !!t.cleaned_at;
 function stats(){
-  const ts = tasksOf(), dep = ts.filter(t => t.kind === "departure").length;
+  const ts = tasksOf(), dep = ts.filter(t => t.kind === "departure").length, setups = ts.filter(t => t.kind === "setup").length;
   const cleaned = ts.filter(isDone).length;
-  return { rooms:ts.length, dep, stay:ts.length - dep, minutes:ts.reduce((s, t) => s + (+t.minutes || 0), 0), cleaned, remaining:ts.length - cleaned };
+  return { rooms:ts.length, dep, setups, stay:ts.length - dep - setups, minutes:ts.reduce((s, t) => s + myMins(t), 0), cleaned, remaining:ts.length - cleaned };
 }
 function finishMins(){
   const d = S.d, st = stats(), m = hm(d.mine && d.mine.finish);
@@ -304,29 +320,33 @@ function paintMini(){
 /* ------------------------------------------------------------- render */
 function cardHtml(t, today){
   const busy = S.pend.has(String(t.id)), done = isDone(t) && !S.recent.has(String(t.id));
-  const dep = t.kind === "departure";
+  const kc = kindClass(t), setup = t.kind === "setup", w = withOf(t);
   const title = `<div class="rname">${esc(t.room)} <small>${esc(t.name || "")}</small></div>`;
-  const pill = `<span class="pill ${dep ? "dep" : "stay"}">${dep ? "Departure" : "Stay over"}</span>`;
+  const pill = `<span class="pill ${kc}">${t.kind === "departure" ? "Departure" : setup ? "Set up" : "Stay over"}</span>`;
   const label = `Room ${t.room}${t.name ? " " + t.name : ""}`;
   const issues = t.issues > 0 ? `<span class="issues">${esc(issuesText(t.issues))}</span>` : "";
   const checked = t.checked_at ? `<div class="checked">${TICK}<span>Checked by the head housekeeper</span></div>` : "";
   if (isDone(t) && done) {
-    return `<article class="room done ${dep ? "dep" : "stay"}" data-id="${esc(t.id)}" aria-label="${esc(label)}, cleaned">
+    return `<article class="room done ${kc}" data-id="${esc(t.id)}" aria-label="${esc(label)}, ${setup ? "set up done" : "cleaned"}">
       <div class="rhead">${title}${pill}</div>
-      <div class="donerow">${TICK}<span>Cleaned at ${esc(timeOf(t.cleaned_at))}</span>
-        <span class="sp">${t.checked_at ? "" : `<button class="linkbtn" type="button" data-act="undo" data-id="${esc(t.id)}" ${busy ? "disabled" : ""} aria-label="Undo cleaned, ${esc(label)}">Undo</button>`}<button class="linkbtn" type="button" data-act="issue" data-id="${esc(t.id)}" aria-label="Report a maintenance issue, ${esc(label)}">Report an issue</button></span></div>
+      <div class="donerow">${TICK}<span>${setup ? "Set up done" : "Cleaned"} at ${esc(timeOf(t.cleaned_at))}<span class="by">${esc(byWho(t))}</span></span>
+        <span class="sp">${t.checked_at ? "" : `<button class="linkbtn" type="button" data-act="undo" data-id="${esc(t.id)}" ${busy ? "disabled" : ""} aria-label="Undo, ${esc(label)}">Undo</button>`}<button class="linkbtn" type="button" data-act="issue" data-id="${esc(t.id)}" aria-label="Report a maintenance issue, ${esc(label)}">Report an issue</button></span></div>
       ${issues}${checked}</article>`;
   }
-  const mins = +t.minutes || 0;
-  return `<article class="room ${dep ? "dep" : "stay"}${S.recent.has(String(t.id)) ? " pop" : ""}" data-id="${esc(t.id)}" aria-label="${esc(label)}">
+  const mins = +t.minutes || 0, mine = myMins(t);
+  const timeTxt = w.length ? `${mins} min room, about ${mine} min each` : `${mine} min`;
+  const bookingNote = t.report_notes ? `<div class="note booking${setup ? " big" : ""}"><h4>From the booking</h4><div>${esc(t.report_notes)}</div></div>` : "";
+  return `<article class="room ${kc}${S.recent.has(String(t.id)) ? " pop" : ""}" data-id="${esc(t.id)}" aria-label="${esc(label)}">
     <div class="rhead">${title}${pill}</div>
-    <div class="rmeta"><span class="mins${mins >= 120 ? " long" : ""}">${mins} min</span></div>
+    ${w.length ? `<p class="with">Cleaning with ${esc(joinNames(w))}</p>` : ""}
+    <div class="rmeta"><span class="mins${mins >= 120 ? " long" : ""}">${esc(timeTxt)}</span></div>
+    ${setup ? `<p class="setupline">Already clean. Please set it up before the guests arrive.</p>` : ""}
     ${guestLine(t, today)}
-    ${t.report_notes ? `<div class="note booking"><h4>From the booking</h4><div>${esc(t.report_notes)}</div></div>` : ""}
+    ${bookingNote}
     ${t.note ? `<div class="note hk"><h4>From the head housekeeper</h4><div>${esc(t.note)}</div></div>` : ""}
     ${checked}${issues}
     <div class="acts">
-      <button class="btn" type="button" data-act="clean" data-id="${esc(t.id)}" ${busy ? "disabled" : ""}>${busy ? "Saving..." : (S.recent.has(String(t.id)) ? "Cleaned" : "Room cleaned")}</button>
+      <button class="btn" type="button" data-act="clean" data-id="${esc(t.id)}" ${busy ? "disabled" : ""}>${busy ? "Saving..." : (S.recent.has(String(t.id)) ? (setup ? "Done" : "Cleaned") : (setup ? "Set up done" : "Room cleaned"))}</button>
       <button class="btn ghost" type="button" data-act="issue" data-id="${esc(t.id)}">Report a maintenance issue</button>
     </div></article>`;
 }
@@ -352,10 +372,10 @@ function render(){
   const fin = finishMins();
   const pct = st.rooms ? Math.round(st.cleaned / st.rooms * 100) : 0;
   h += `<section class="finish" id="fpanel" aria-label="Your day">
-    <div class="rooms">Your rooms: <b>${st.rooms}</b> (${esc(plural(st.dep, "departure"))}, ${esc(plural(st.stay, "stay over"))})</div>
+    <div class="rooms">Your rooms: <b>${st.rooms}</b> (${esc(plural(st.dep, "departure"))}, ${esc(plural(st.stay, "stay over"))}${st.setups ? ", " + esc(plural(st.setups, "set up", "set ups")) : ""})</div>
     <div class="cd" id="cd"><div class="big"></div></div>
     <div class="facts">
-      <div class="fact"><span>Cleaning time</span><b>${esc(dur(st.minutes))}</b></div>
+      <div class="fact"><span>Cleaning time</span><b>${esc(dur(+(d.mine && d.mine.minutes) || st.minutes))}</b></div>
       <div class="fact"><span>Expected finish</span><b>${fin == null ? "-" : esc(fmtHM(fin))}</b></div>
       <div class="factnote">${esc(startTxt)} start${br > 0 ? `, including a ${br} minute break` : ", no break"}</div>
     </div>
@@ -401,7 +421,7 @@ async function setCleaned(id, done){
   const t = findTask(id); if (!t || S.pend.has(String(t.id))) return;
   const prev = { cleaned_at:t.cleaned_at, cleaned_by:t.cleaned_by };
   S.mut++; S.pend.add(String(t.id));
-  t.cleaned_at = done ? new Date(Date.now() + S.skewMs).toISOString() : null;
+  t.cleaned_at = done ? new Date(Date.now() + S.skewMs).toISOString() : null; t.cleaned_by = done ? ((S.d.me && S.d.me.name) || null) : null;
   if (done) { S.recent.set(String(t.id), true); setTimeout(() => { S.recent.delete(String(t.id)); S.sig = ""; render(); }, 1100); }
   render();
   try {

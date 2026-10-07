@@ -94,6 +94,28 @@ nav.tabs{background:var(--sage-dark)}
 .pill{font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; font-weight:800; padding:3px 10px; border-radius:99px; white-space:nowrap; display:inline-block}
 .pill.departure{background:var(--sage); color:#fff} .pill.stayover{background:var(--blue-bg); color:var(--blue); box-shadow:inset 0 0 0 1px #b9cddd} .pill.none{background:var(--mist); color:#5c635c}
 
+.pill.setup{background:var(--gold); color:#2b2415}
+.rnote.setup{background:#fff3d6; color:#4a3a10; font-weight:600; font-size:14px; border-left:4px solid var(--gold)}
+.g-setup{font-weight:700; color:var(--attention-ink); margin-bottom:4px}
+.pchips{display:flex; flex-wrap:wrap; gap:6px; margin-top:8px}
+.pchip{display:inline-flex; align-items:center; gap:2px; background:var(--sage-10); border-radius:99px; padding:1px 2px 1px 10px; font-size:13px; max-width:100%}
+.pchip button{border:0; background:transparent; width:28px; height:28px; border-radius:50%; cursor:pointer; font-size:22px; line-height:1; color:var(--alert)}
+.pchip button:hover{background:var(--alert-bg)} .pchip button:focus-visible{outline:3px solid var(--gold); outline-offset:0}
+.teamlbl{font-size:12px; color:var(--sage-70); margin-top:6px; font-style:italic}
+select.cs.add{margin-top:8px; min-height:36px; font-size:13px; padding:5px 8px}
+.tlist{list-style:none; margin:0; padding:0; display:flex; gap:8px; flex-wrap:wrap}
+.tchip{background:var(--sage-10); border-radius:10px; padding:8px 8px 8px 12px; display:flex; gap:12px; align-items:center; max-width:100%}
+.tchip b{font-family:var(--display); font-size:20px; color:var(--sage)}
+.tchip .tiny{overflow-wrap:anywhere}
+.pickbox{border:1px solid var(--mist); border-radius:8px; background:#fff; max-height:250px; overflow:auto; margin-bottom:8px}
+.pickrow{display:flex; gap:10px; align-items:center; padding:8px 10px; border-bottom:1px solid var(--mist); cursor:pointer; font-size:14px; min-height:42px}
+.pickrow:last-child{border-bottom:0} .pickrow input{width:18px; height:18px; accent-color:var(--sage); flex:none; margin:0}
+.pickrow small{color:var(--sage-70)}
+fieldset.pk{border:0; margin:0 0 8px; padding:0; min-width:0} fieldset.pk legend{font-size:11px; letter-spacing:var(--track-label); text-transform:uppercase; font-weight:700; color:var(--sage-70); padding:0; margin-bottom:6px}
+.counts small{font-size:12px; color:var(--sage-70); margin-left:4px}
+.stat b.sm{font-size:19px; line-height:1.2; margin-top:6px}
+.switch{display:flex; gap:10px; align-items:flex-start; cursor:pointer; font-size:14px; margin:4px 0 6px}
+.switch input{width:20px; height:20px; accent-color:var(--sage); flex:none; margin:1px 0 0}
 /* skeletons + spinner */
 .sk{background:linear-gradient(90deg,#ececec 25%,#f7f7f7 50%,#ececec 75%); background-size:200% 100%; animation:shim 1.3s linear infinite; border-radius:6px}
 @keyframes shim{to{background-position:-200% 0}}
@@ -149,6 +171,7 @@ nav.tabs{background:var(--sage-dark)}
 /* room list (cards on phone, rows on desktop) */
 .rmhead{display:none}
 .rm{position:relative; background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); padding:14px 16px; margin-bottom:10px; border-left:5px solid var(--celadon); display:grid; grid-template-columns:1fr; gap:10px 16px; align-items:start}
+.rm.setup{border-left-color:var(--gold)}
 .rm.cl{border-left-color:var(--gold)} .rm.ck{border-left-color:var(--good)} .rm.gone{opacity:.62; border-left-style:dashed; border-left-color:#bdbdbd}
 .rm > div{min-width:0}
 .ml{display:block; font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; font-weight:700; color:var(--sage-70); margin-bottom:3px}
@@ -255,6 +278,7 @@ select.cs{width:100%; border:1px solid var(--celadon); border-radius:8px; paddin
       <div id="imp"></div>
       <div id="sum"></div>
       <div id="dayform"></div>
+      <div id="teams"></div>
       <div id="by"></div>
       <div id="boardtop"></div>
       <div id="addroom"></div>
@@ -276,9 +300,9 @@ const PDFJS = {
 const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
 const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 const S = {
-  me:null, today:"", date:"", day:null, tasks:[], plan:null, rooms:[], cleaners:[], all_staff:[], planday:{}, log:[],
+  me:null, today:"", date:"", day:null, tasks:[], plan:null, rooms:[], cleaners:[], all_staff:[], teams:[], planday:{}, log:[],
   loaded:false, loadErr:"", tab:"today", filter:"all", busy:0, mut:0, seq:0, fetchedAt:0, refreshErr:false,
-  ui:{ other:{}, confirm:{}, checkNote:{}, noteDirty:{}, noteDraft:{}, parsed:null, parsing:false, parseErr:"", importing:false, addOpen:false, addErr:"", dayDirty:false, logOpen:true, stale:false, roomsDraft:null, roomsDirty:false, roomsErr:{} }
+  ui:{ other:{}, confirm:{}, checkNote:{}, noteDirty:{}, noteDraft:{}, teamOpen:false, teamForm:{ picks:{}, other:false, name:"", err:"" }, teamConfirm:null, parsed:null, parsing:false, parseErr:"", importing:false, addOpen:false, addErr:"", dayDirty:false, logOpen:true, stale:false, roomsDraft:null, roomsDirty:false, roomsErr:{} }
 };
 
 /* ------------------------------------------------------------- plumbing */
@@ -409,7 +433,12 @@ function groupRows(lines, kind, warnings){
   return anchors.map(a => {
     const cells = {}, noteWords = [];
     const take = (l, extra) => {
-      if (extra && colKey(l.cols, l.words[0].x) === "room") { l.words.forEach(w => noteWords.push(w)); return; }
+      if (extra) {
+        const ks = l.words.map(w => colKey(l.cols, w.x)), dy = Math.abs(l.y - a.line.y);
+        /* a line beside the row (a wrapped cell) stays in its columns; a lead name may wrap further out; anything else under the row is a note for that row */
+        const wrapped = dy <= 6.5 ? ks[0] !== "room" : ks.every(k => k === "lead");
+        if (!wrapped) { l.words.forEach(w => noteWords.push(w)); return; }
+      }
       l.words.forEach(w => { const k = colKey(l.cols, w.x); if (k === "extra" || k === "notes") noteWords.push(w); else (cells[k] = cells[k] || []).push(w); });
     };
     take(a.line, false); a.extras.forEach(l => take(l, true));
@@ -503,7 +532,16 @@ async function handleFile(file){
 }
 
 /* ------------------------------------------------------------- task helpers */
-const hkKind = r => { const s = String(r.hk_status || "").toLowerCase(); return s.includes("stayover") ? "stayover" : s.includes("departure") ? "departure" : "none"; };
+const hkKind = r => {
+  const s = String(r.hk_status || "").toLowerCase();
+  if (s.includes("stayover")) return "stayover"; if (s.includes("departure")) return "departure";
+  return /\bclean\b/.test(s) && !/dirty/.test(s) && String(r.notes || "").trim() ? "setup" : "none";
+};
+const kindLabel = k => k === "stayover" ? "Stay over" : k === "setup" ? "Set up" : k === "departure" ? "Departure" : "Needs nothing";
+const peopleOf = t => Array.isArray(t.cleaners) ? t.cleaners : (t.cleaner ? [t.cleaner] : []);
+const pkey = p => p.planday_id ? "p" + p.planday_id : p.email ? "e" + String(p.email).toLowerCase() : "n" + String(p.name).toLowerCase();
+const teamByName = n => S.teams.find(x => x.name === n);
+const sameSet = (a, b) => a.length === b.length && a.every(p => b.some(q => sameP(p, q)));
 const peopleText = g => {
   const a = +g.adults || 0, c = +g.children || 0, i = +g.infants || 0, n = +g.people || (a + c + i);
   const parts = []; if (a) parts.push(plural(a, "adult")); if (c) parts.push(plural(c, "child", "children")); if (i) parts.push(plural(i, "infant"));
@@ -522,30 +560,40 @@ function currentText(g){
 }
 function guestHtml(t){
   if (t.kind === "stayover") return t.current ? `<div class="guest"><span class="g1">Staying:</span> ${esc(currentText(t.current))}</div>` : `<div class="guest none">Staying: guests not listed</div>`;
-  return t.incoming ? `<div class="guest"><span class="g1">Going in next:</span> ${esc(incomingText(t.incoming, t.date))}</div>` : `<div class="guest none">Nobody arriving</div>`;
+  const inc = t.incoming ? `<div class="guest"><span class="g1">Going in next:</span> ${esc(incomingText(t.incoming, t.date))}</div>` : `<div class="guest none">Nobody arriving</div>`;
+  return t.kind === "setup" ? `<div class="guest g-setup">Room is clean: set up before the guests arrive</div>` + inc : inc;
 }
 const sameP = (a, b) => !!a && !!b && ((a.planday_id && b.planday_id && String(a.planday_id) === String(b.planday_id)) || (a.email && b.email && String(a.email).toLowerCase() === String(b.email).toLowerCase()) || (!a.planday_id && !b.planday_id && !a.email && !b.email && String(a.name).toLowerCase() === String(b.name).toLowerCase()));
-const otherOn = t => (t.id in S.ui.other) ? S.ui.other[t.id] : !!(t.cleaner && t.cleaner.other);
+const otherOn = t => (t.id in S.ui.other) ? S.ui.other[t.id] : peopleOf(t).some(p => p.other);
 const shiftText = s => String(s || "").replace(/\s*-\s*/, " to ");
 const sigOf = t => { const s = JSON.stringify(t); let h = 5381; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return String(h); };
 const liveTasks = () => S.tasks.filter(t => !t.gone);
 const FILTERS = [["all", "All"], ["todo", "Not cleaned"], ["cleaned", "Cleaned, not checked"], ["checked", "Checked"], ["unassigned", "Unassigned"]];
 function passes(t, f){
   if (f === "all") return true; if (t.gone) return false;
-  return f === "todo" ? !t.cleaned_at : f === "cleaned" ? !!t.cleaned_at && !t.checked_at : f === "checked" ? !!t.checked_at : !t.cleaner;
+  return f === "todo" ? !t.cleaned_at : f === "cleaned" ? !!t.cleaned_at && !t.checked_at : f === "checked" ? !!t.checked_at : !peopleOf(t).length;
 }
 const visibleTasks = () => S.tasks.filter(t => passes(t, S.filter));
 const cardEl = id => $$("#list .rm").find(e => e.dataset.id === String(id));
 
-function cleanerOptions(t){
-  const all = otherOn(t), list = all ? S.all_staff : S.cleaners, cur = t.cleaner;
-  let found = false;
-  const opts = list.map((c, i) => {
-    const sel = sameP(cur, c); if (sel) found = true;
-    return `<option value="i${i}"${sel ? " selected" : ""}>${esc(c.name)}${c.shift ? " (" + esc(shiftText(c.shift)) + ")" : ""}${all && c.draft ? " (drafted in)" : ""}</option>`;
-  }).join("");
-  const unlisted = cur && !found ? `<option value="cur" selected>${esc(cur.name)} (${all ? "not in this list" : "not on a shift today"})</option>` : "";
-  return `<option value=""${cur ? "" : " selected"}>Unassigned</option>${unlisted}${opts}`;
+function cleanerCellHtml(t){
+  const id = esc(t.id), cur = peopleOf(t);
+  if (t.gone) return `<span class="ml">Cleaner</span><div class="guest${cur.length ? "" : " none"}">${cur.length ? esc(cur.map(p => p.name).join(", ")) : "Unassigned"}</div>`;
+  const all = otherOn(t), list = all ? S.all_staff : S.cleaners, tm = t.team ? teamByName(t.team) : null;
+  const matchTeam = tm && cur.length && sameSet(cur, tm.members);
+  let single = -1; if (cur.length === 1) single = list.findIndex(c => sameP(cur[0], c));
+  const person = (c, i) => `<option value="i${i}"${single === i && !matchTeam ? " selected" : ""}>${esc(c.name)}${c.shift ? " (" + esc(shiftText(c.shift)) + ")" : ""}${all && c.draft ? " (drafted in)" : ""}</option>`;
+  let extra = "";
+  if (cur.length > 1 && !matchTeam) extra = `<option value="multi" selected disabled>${cur.length} people (see below)</option>`;
+  else if (cur.length === 1 && single < 0 && !matchTeam) extra = `<option value="cur" selected>${esc(cur[0].name)} (${all ? "not in this list" : "not on a shift today"})</option>`;
+  const teams = S.teams.length ? `<optgroup label="Teams">${S.teams.map((x, i) => `<option value="t${i}"${matchTeam && x.id === tm.id ? " selected" : ""}>Team: ${esc(x.name)}</option>`).join("")}</optgroup>` : "";
+  const opts = `<option value=""${cur.length ? "" : " selected"}>Unassigned</option>${extra}${teams}<optgroup label="${all ? "Everyone in housekeeping" : "On shift today"}">${list.map(person).join("")}</optgroup>`;
+  const left = list.map((c, i) => [c, i]).filter(([c]) => !cur.some(p => sameP(p, c)));
+  const chips = cur.length ? `<div class="pchips" aria-label="People on room ${esc(t.room)}">${cur.map((p, i) => `<span class="pchip">${esc(p.name)}<button type="button" data-act="rmp" data-id="${id}" data-pi="${i}" data-fk="rp:${id}:${i}" aria-label="Take ${esc(p.name)} off room ${esc(t.room)}" title="Take ${esc(p.name)} off this room">&times;</button></span>`).join("")}</div>` : "";
+  const lbl = t.team && cur.length ? `<div class="teamlbl">Team: ${esc(t.team)}${tm && !matchTeam ? " (edited)" : ""}</div>` : "";
+  const add = left.length ? `<label class="sr" for="ap_${id}">Add a person to room ${esc(t.room)}</label><select class="cs add" id="ap_${id}" data-fk="ap:${id}" data-ap="${id}"><option value="">+ Add person</option>${left.map(([c, i]) => `<option value="i${i}">${esc(c.name)}${c.shift ? " (" + esc(shiftText(c.shift)) + ")" : ""}${all && c.draft ? " (drafted in)" : ""}</option>`).join("")}</select>` : "";
+  return `<label class="ml" for="cs_${id}">Cleaners</label><select class="cs" id="cs_${id}" data-fk="cs:${id}" data-cs="${id}">${opts}</select>${lbl}${chips}${add}
+    <label class="oth"><input type="checkbox" data-oth="${id}" data-fk="oth:${id}"${all ? " checked" : ""}> <span title="Someone drafted in who is not on a Planday shift today">Other (drafted in)</span></label>`;
 }
 function cardHtml(t){
   const id = esc(t.id), cleaned = !!t.cleaned_at, checked = !!t.checked_at, gone = !!t.gone, conf = S.ui.confirm[t.id];
@@ -566,16 +614,13 @@ function cardHtml(t){
   let confirm = "";
   if (conf === "reopen") confirm = `<div class="confirmbox" role="alert">Send room ${esc(t.room)} back? This clears the cleaned${checked ? " and checked" : ""} time and the room needs doing again.<div class="row-actions"><button class="btn small solid-danger" type="button" data-act="reopen-yes" data-id="${id}" data-fk="reopen-yes:${id}">Yes, send it back</button><button class="btn small ghost" type="button" data-act="confirm-cancel" data-id="${id}">Keep as it is</button></div></div>`;
   if (conf === "remove") confirm = `<div class="confirmbox" role="alert">Remove room ${esc(t.room)} from ${esc(fmtShort(t.date))}'s list?${t.manual ? "" : " It will show as no longer on the report."}<div class="row-actions"><button class="btn small solid-danger" type="button" data-act="remove-yes" data-id="${id}" data-fk="remove-yes:${id}">Yes, remove it</button><button class="btn small ghost" type="button" data-act="confirm-cancel" data-id="${id}">Cancel</button></div></div>`;
-  const on = otherOn(t);
-  const cleanerCell = gone ? `<span class="ml">Cleaner</span><div class="guest${t.cleaner ? "" : " none"}">${t.cleaner ? esc(t.cleaner.name) : "Unassigned"}</div>`
-    : `<label class="ml" for="cs_${id}">Cleaner</label><select class="cs" id="cs_${id}" data-fk="cs:${id}" data-cs="${id}">${cleanerOptions(t)}</select>
-       <label class="oth"><input type="checkbox" data-oth="${id}" data-fk="oth:${id}"${on ? " checked" : ""}> <span title="Someone drafted in who is not on a Planday shift today">Other (drafted in)</span></label>`;
-  const noteCell = `${t.report_notes ? `<div class="rnote"><b>From the report:</b> ${esc(t.report_notes)}</div>` : ""}
+  const cleanerCell = cleanerCellHtml(t);
+  const noteCell = `${t.report_notes ? `<div class="rnote${t.kind === "setup" ? " setup" : ""}"><b>${t.kind === "setup" ? "Set up" : "From the report"}:</b> ${esc(t.report_notes)}</div>` : ""}
       <label class="ml" for="n_${id}" style="margin-top:2px">Your note</label>
       <textarea class="hknote" id="n_${id}" data-fk="n:${id}" data-note="${id}" maxlength="600" placeholder="Add a note for the cleaner"${gone ? " disabled" : ""}>${esc(S.ui.noteDirty[t.id] ? S.ui.noteDraft[t.id] : (t.note || ""))}</textarea>`;
   return `<article class="${cls}" data-id="${id}" data-sig="${sigOf(t)}" aria-label="Room ${esc(t.room)}">
     <div class="c-room"><div class="roomtop"><span class="rno">${esc(t.room)}</span><span class="rname">${esc(t.name || "")}</span></div>
-      <div class="roommeta"><span class="pill ${esc(t.kind)}">${t.kind === "stayover" ? "Stay over" : "Departure"}</span><span class="mins">${esc(fmtMins(t.minutes))}</span></div>
+      <div class="roommeta"><span class="pill ${esc(t.kind)}">${esc(kindLabel(t.kind))}</span><span class="mins">${esc(fmtMins(t.minutes))}</span></div>
       ${badges ? `<div class="roommeta">${badges}</div>` : ""}</div>
     <div class="c-guest"><span class="ml">Guests</span>${guestHtml(t)}</div>
     <div class="c-notes">${noteCell}</div>
@@ -602,11 +647,11 @@ function renderToday(){
   if (!S.loaded) {
     const sk = skeletonBlock(1);
     $("#imp").innerHTML = S.loadErr ? `<div class="card empty" role="alert">${esc(S.loadErr)}<br><br><button class="btn" type="button" data-act="retry">Try again</button>${S.me ? "" : `<p class="muted small" style="margin-top:14px">Open this from the Staff Portal so it knows who you are.</p>`}</div>` : sk;
-    ["#sum", "#dayform", "#by", "#boardtop", "#addroom", "#list", "#logp"].forEach(s => { $(s).innerHTML = ""; });
+    ["#sum", "#dayform", "#teams", "#by", "#boardtop", "#addroom", "#list", "#logp"].forEach(s => { $(s).innerHTML = ""; });
     if (!S.loadErr) $("#list").innerHTML = skeletonBlock(3);
     return;
   }
-  renderImp(); renderSummary(); renderDayForm(); renderBy(); renderBoardTop(); renderAdd(); renderList(); renderLog();
+  renderImp(); renderSummary(); renderDayForm(); renderTeams(); renderBy(); renderBoardTop(); renderAdd(); renderList(); renderLog();
 }
 const hasReport = () => S.tasks.length > 0 || !!(S.day && (S.day.imported_at || S.day.report_at));
 function dropHtml(){
@@ -624,19 +669,19 @@ function dropHtml(){
 }
 function previewHtml(){
   const p = S.ui.parsed, rows = p.rows;
-  const dep = rows.filter(r => hkKind(r) === "departure").length, so = rows.filter(r => hkKind(r) === "stayover").length, none = rows.length - dep - so;
+  const dep = rows.filter(r => hkKind(r) === "departure").length, so = rows.filter(r => hkKind(r) === "stayover").length, su = rows.filter(r => hkKind(r) === "setup").length, none = rows.length - dep - so - su;
   const mismatch = p.report_date && p.report_date !== S.date;
   const guests = r => {
     const k = hkKind(r), n = (r.adults || 0) + (r.children || 0) + (r.infants || 0), nights = nightsBetween(r.occupied_from, r.occupied_to);
     const who = [r.lead_name, n ? peopleText({ adults:r.adults, children:r.children, infants:r.infants }) : ""].filter(Boolean).join(", ");
     if (k === "stayover") return `<b>Staying:</b> ${esc([who, r.night_total ? `night ${r.night_done || 0} of ${r.night_total}` : "", r.occupied_to ? "leaving " + fmtShort(r.occupied_to) : ""].filter(Boolean).join(", ") || "guests not listed")}`;
-    if (k === "departure") return r.occupied_from || r.lead_name || n ? `<b>Going in next:</b> ${esc([who, nights ? plural(nights, "night") : "", arrivalText(r.occupied_from, p.report_date || S.date)].filter(Boolean).join(", "))}` : `<span class="muted">Nobody arriving</span>`;
+    if (k === "departure" || k === "setup") return (k === "setup" ? `<b>Room is clean: set up before the guests arrive</b><br>` : "") + (r.occupied_from || r.lead_name || n ? `<b>Going in next:</b> ${esc([who, nights ? plural(nights, "night") : "", arrivalText(r.occupied_from, p.report_date || S.date)].filter(Boolean).join(", "))}` : `<span class="muted">Nobody arriving</span>`);
     return who ? esc(who) : `<span class="muted">Nobody in</span>`;
   };
-  const body = rows.map(r => { const k = hkKind(r); return `<div class="pvrow${k === "none" ? " skip" : ""}"><div><b class="rn">${esc(r.room)}</b></div><div><span class="pill ${k}">${k === "stayover" ? "Stay over" : k === "departure" ? "Departure" : "No cleaning"}</span><div class="tiny muted" style="margin-top:3px">${esc(r.hk_status || "No status")}</div></div><div>${guests(r)}</div><div class="pvnote">${esc(r.notes || "")}</div></div>`; }).join("");
+  const body = rows.map(r => { const k = hkKind(r); return `<div class="pvrow${k === "none" ? " skip" : ""}"><div><b class="rn">${esc(r.room)}</b></div><div><span class="pill ${k}">${kindLabel(k)}</span><div class="tiny muted" style="margin-top:3px">${esc(r.hk_status || "No status")}</div></div><div>${guests(r)}</div><div class="pvnote">${esc(r.notes || "")}</div></div>`; }).join("");
   return `<div class="card" id="preview">
     <div class="pvhead"><h3>Check the report before importing</h3><span class="muted small">${esc(p.file)}${p.report_time ? ` &middot; report run at ${esc(p.report_time)}${p.report_date ? " on " + esc(fmtShort(p.report_date)) : ""}` : ""}</span></div>
-    <div class="counts" aria-label="Summary of the report"><span><b>${dep}</b>${dep === 1 ? "departure" : "departures"}</span><span><b>${so}</b>${so === 1 ? "stay over" : "stay overs"}</span><span><b>${none}</b>${none === 1 ? "needs" : "need"} no cleaning</span>${p.roos.length ? `<span><b>${p.roos.length}</b>returning to service today</span>` : ""}</div>
+    <div class="counts" aria-label="Summary of the report"><span><b>${dep}</b>${dep === 1 ? "departure" : "departures"}</span><span><b>${so}</b>${so === 1 ? "stay over" : "stay overs"}</span>${su ? `<span><b>${su}</b>${su === 1 ? "set-up job" : "set-up jobs"}<small>(clean room with a housekeeping note)</small></span>` : ""}<span><b>${none}</b>${none === 1 ? "needs" : "need"} nothing</span>${p.roos.length ? `<span><b>${p.roos.length}</b>returning to service today</span>` : ""}</div>
     ${mismatch ? `<div class="notice" role="alert"><b>This report is for ${esc(fmtShort(p.report_date))}</b>, but the date selected is ${esc(fmtShort(S.date))}. <button class="btn small gold" type="button" data-act="switchdate" style="margin-left:6px">Switch to ${esc(fmtShort(p.report_date))}</button></div>` : ""}
     ${p.warnings.length ? `<div class="notice info">${p.warnings.map(w => esc(w)).join("<br>")}</div>` : ""}
     ${hasReport() ? `<div class="notice info">There is already a report for ${esc(fmtShort(S.date))}. Importing merges: assignments, notes and cleaned and checked times are kept; new rooms are added; changed guests are updated; rooms that left the report are flagged as gone.</div>` : ""}
@@ -668,10 +713,10 @@ function renderSummary(){
   if (!S.tasks.length || !p) { el.innerHTML = h; return; }
   const d = S.day || {};
   h += `<div class="stats" role="group" aria-label="Day summary">
-    <div class="stat"><span class="lbl">Rooms to clean</span><b>${p.rooms ?? 0}</b><span class="s">${plural(p.departures || 0, "departure")}, ${plural(p.stayovers || 0, "stay over")}</span></div>
+    <div class="stat"><span class="lbl">Rooms to clean</span><b>${p.rooms ?? 0}</b><span class="s">${plural(p.departures || 0, "departure")}, ${plural(p.stayovers || 0, "stay over")}${p.setups ? ", " + plural(p.setups, "set-up job") : ""}</span></div>
     <div class="stat"><span class="lbl">Total cleaning time</span><b>${esc(fmtMins(p.minutes))}</b><span class="s">Before breaks</span></div>
-    <div class="stat"><span class="lbl">Cleaners on shift</span><b>${p.cleaners_on_shift ?? 0}</b><span class="s">${p.cleaners_on_shift ? "From Planday" : "None found for this date"}</span></div>
-    <div class="stat"><span class="lbl">Expected finish</span><b>${esc(p.even_split_finish || "-")}</b><span class="s">${p.even_split_finish ? "If shared equally" : "Needs a cleaner on shift"}${p.latest_finish ? `. Latest assigned: <strong>${esc(p.latest_finish)}</strong>` : ""}</span></div>
+    <div class="stat"><span class="lbl">Cleaners assigned</span><b>${p.cleaners_assigned ?? 0}</b><span class="s">People given at least one room</span></div>
+    <div class="stat"><span class="lbl">Expected finish</span>${p.even_split_finish ? `<b>${esc(p.even_split_finish)}</b><span class="s">If shared equally between the cleaners assigned</span>` : `<b class="sm">Give out some rooms to see this</b>`}${p.latest_finish ? `<span class="s">Latest finish: <strong>${esc(p.latest_finish)}</strong></span>` : ""}</div>
   </div>
   ${d.report_name || d.imported_at ? `<p class="hint" style="margin:8px 2px 0">Report ${d.report_at ? "run at " + esc(fmtTime(d.report_at)) : ""}${d.imported_at ? `, imported ${d.imported_by ? "by " + esc(d.imported_by) + " " : ""}at ${esc(fmtTime(d.imported_at))}` : ""}.</p>` : ""}`;
   el.innerHTML = h;
@@ -686,6 +731,7 @@ function renderDayForm(force){
     <div><h3 style="font-size:23px;color:var(--sage);margin-bottom:8px">The day</h3>
       <div class="two"><div class="field"><label for="d_start">Start time</label><input id="d_start" type="time" value="${esc(d.start_time || "09:00")}" data-day></div>
       <div class="field"><label for="d_break">Break (minutes)</label><input id="d_break" type="number" inputmode="numeric" min="0" max="240" step="5" value="${esc(d.break_minutes ?? 20)}" data-day></div></div>
+      <label class="switch" for="d_share"><input type="checkbox" id="d_share" data-day${d.share_minutes === false ? "" : " checked"}><span>Share a room's time between the people cleaning it<br><span class="hint">On: a 120 minute room with 3 people counts as 40 minutes each.</span></span></label>
       <div class="hint">Finish = start time + the cleaner's room minutes + break.</div><div class="ferr" id="d_err" role="alert"></div></div>
     <div><div class="field"><label for="d_msg">Message to the cleaners</label><textarea id="d_msg" maxlength="600" data-day placeholder="For example: Job of the day, all skirting boards damp dusted">${esc(d.message || "")}</textarea></div>
       <div class="row-actions"><button class="btn" type="submit" id="d_save">Save</button><span class="hint">The cleaners see this at the top of their board.</span></div></div>
@@ -746,12 +792,14 @@ function renderLog(){
 /* ------------------------------------------------------------- loading + auto refresh */
 function applyData(d, quiet){
   S.today = d.today || S.today; S.date = d.date || S.date; S.day = d.day || null; S.tasks = d.tasks || []; S.plan = d.plan || null;
+  const tsig = JSON.stringify(S.teams); S.teams = d.teams || []; const teamsChanged = tsig !== JSON.stringify(S.teams);
   S.cleaners = d.cleaners || []; S.all_staff = d.all_staff || []; S.planday = d.planday || {}; S.log = d.log || [];
   if (d.me) S.me = d.me;
   if (d.rooms) { S.rooms = d.rooms; if (!S.ui.roomsDirty) S.ui.roomsDraft = null; }
   if (!quiet) { S.loaded = true; S.loadErr = ""; S.ui.noteDirty = {}; S.ui.noteDraft = {}; S.ui.confirm = {}; S.ui.checkNote = {}; S.ui.other = {}; S.ui.dayDirty = false; renderToday(); }
   else {
-    S.loaded = true; renderBar(); renderSummary(); renderDayForm(); renderBy(); renderBoardTop(); renderLog();
+    S.loaded = true; renderBar(); renderSummary(); renderDayForm(); renderTeamList(); renderBy(); renderBoardTop(); renderLog();
+    if (teamsChanged) refreshAllCells();
     if ($("#imp #drop") && !!$("#imp .emptymsg") === hasReport()) renderImp();
     patchList();
   }
@@ -811,7 +859,7 @@ async function doImport(){
   if (!r) { renderImp(); return; }
   S.tasks = r.tasks || S.tasks; S.plan = r.plan || S.plan; S.day = r.day || S.day; S.ui.parsed = null; S.ui.parseErr = ""; S.ui.noteDirty = {}; S.ui.noteDraft = {}; S.ui.confirm = {};
   S.ui.dayDirty = false; renderImp(); renderSummary(); renderDayForm(true); renderBy(); renderBoardTop(); renderList(); renderLog();
-  toast(`Imported: ${r.added || 0} added, ${r.updated || 0} updated, ${r.unchanged || 0} unchanged${r.removed ? ", " + r.removed + " no longer on the report" : ""}${r.skipped ? ", " + r.skipped + " need no cleaning" : ""}.`);
+  toast(`Imported: ${r.added || 0} added, ${r.updated || 0} updated, ${r.unchanged || 0} unchanged${r.removed ? ", " + r.removed + " no longer on the report" : ""}${r.skipped ? ", " + r.skipped + " need nothing" : ""}.`);
   load(true);
 }
 async function saveNote(ta){
@@ -825,21 +873,87 @@ async function saveNote(ta){
   const el = cardEl(id); if (el && r.task) el.dataset.sig = sigOf(r.task);
   toast("Note saved."); afterChange();
 }
-async function saveCleaner(sel){
+function refreshCell(t, focusFk){
+  const el = cardEl(t.id); if (!el) return;
+  keepFocus(() => { el.querySelector(".c-clean").innerHTML = cleanerCellHtml(t); el.dataset.sig = sigOf(t); });
+  if (focusFk) { const n = $$("[data-fk]").find(x => x.dataset.fk === focusFk) || $("#cs_" + t.id); if (n) n.focus({ preventScroll:true }); }
+}
+function refreshAllCells(){
+  const act = document.activeElement;
+  $$("#list .rm").forEach(el => { if (el.contains(act)) return; const t = S.tasks.find(x => String(x.id) === el.dataset.id); if (t) el.querySelector(".c-clean").innerHTML = cleanerCellHtml(t); });
+}
+const toPerson = c => ({ planday_id:c.planday_id ?? null, name:c.name, email:c.email || null, other:!S.cleaners.some(x => sameP(x, c)) });
+async function assignPeople(id, body, ctl, msg){
+  const t = S.tasks.find(x => String(x.id) === String(id)); if (!t) return;
+  const fk = ctl && ctl.dataset.fk;
+  const r = await guarded(() => call("task.update", Object.assign({ id:t.id }, body)), ctl);
+  if (!r) { refreshCell(t, fk); return; }
+  const fallback = Object.assign({}, t, { cleaners:body.cleaners, cleaner:body.cleaners[0] || null }, "team_name" in body ? { team:body.team_name || null } : {});
+  const nt = r.task || fallback; setTask(nt); if (r.plan) S.plan = r.plan;
+  refreshCell(nt, fk); toast(msg); afterChange();
+}
+function saveCleaner(sel){
   const id = sel.dataset.cs, t = S.tasks.find(x => String(x.id) === id); if (!t) return;
   const all = otherOn(t), list = all ? S.all_staff : S.cleaners, v = sel.value;
-  let cleaner = null;
-  if (v === "cur") return;
-  if (v) {
-    const c = list[+v.slice(1)]; if (!c) return;
-    cleaner = { planday_id:c.planday_id ?? null, name:c.name, email:c.email || null, other:all && !S.cleaners.some(x => sameP(x, c)) };
-  }
-  const r = await guarded(() => call("task.update", { id:t.id, cleaner }), sel);
-  if (!r) { keepFocus(() => { const el = cardEl(id); if (el) el.outerHTML = cardHtml(t); }); return; }
-  sel.disabled = false; sel.focus({ preventScroll:true });
-  setTask(r.task || Object.assign({}, t, { cleaner })); if (r.plan) S.plan = r.plan;
-  const el = cardEl(id); if (el && r.task) el.dataset.sig = sigOf(r.task);
-  toast(cleaner ? `Room ${t.room} assigned to ${cleaner.name}.` : `Room ${t.room} is unassigned.`); afterChange();
+  if (v === "cur" || v === "multi") return;
+  if (v === "") return assignPeople(id, { cleaners:[], team_name:"" }, sel, `Room ${t.room} is unassigned.`);
+  if (v[0] === "t") { const tm = S.teams[+v.slice(1)]; if (!tm) return; return assignPeople(id, { cleaners:tm.members, team_name:tm.name }, sel, `Room ${t.room} given to team ${tm.name}.`); }
+  const c = list[+v.slice(1)]; if (!c) return;
+  return assignPeople(id, { cleaners:[toPerson(c)], team_name:"" }, sel, `Room ${t.room} assigned to ${c.name}.`);
+}
+function addPerson(sel){
+  const id = sel.dataset.ap, t = S.tasks.find(x => String(x.id) === id); if (!t || !sel.value) return;
+  const list = otherOn(t) ? S.all_staff : S.cleaners, c = list[+sel.value.slice(1)]; if (!c) return;
+  assignPeople(id, { cleaners:peopleOf(t).concat([toPerson(c)]) }, sel, `${c.name} added to room ${t.room}.`);
+}
+function removePerson(id, i, btn){
+  const t = S.tasks.find(x => String(x.id) === String(id)); if (!t) return;
+  const cur = peopleOf(t), gone = cur[i]; if (!gone) return;
+  const rest = cur.filter((_, k) => k !== i);
+  assignPeople(id, rest.length ? { cleaners:rest } : { cleaners:[], team_name:"" }, btn, rest.length ? `${gone.name} taken off room ${t.room}.` : `Room ${t.room} is unassigned.`);
+}
+/* ---- teams panel ---- */
+function teamPool(){
+  const on = S.cleaners, other = S.ui.teamForm.other ? S.all_staff.filter(p => !on.some(c => sameP(c, p))) : [];
+  return { on, other };
+}
+function renderTeams(){
+  const el = $("#teams");
+  if (!S.loaded) { el.innerHTML = ""; return; }
+  el.innerHTML = `<section class="card" aria-labelledby="teams_h"><div class="pvhead"><h3 id="teams_h" style="font-size:23px;color:var(--sage)">Teams today</h3><button class="btn small ghost" type="button" data-act="teamopen" aria-expanded="${S.ui.teamOpen}" aria-controls="tf">${S.ui.teamOpen ? "Close" : "Make a team"}</button></div><div id="tl"></div><div id="tf"></div></section>`;
+  renderTeamList(); renderTeamForm();
+}
+function renderTeamList(){
+  const el = $("#tl"); if (!el) return;
+  const ts = S.teams, conf = S.ui.teamConfirm;
+  el.innerHTML = ts.length ? `<ul class="tlist" style="margin-top:8px">${ts.map(tm => `<li class="tchip"><div><b>${esc(tm.name)}</b><div class="tiny muted">${esc(tm.members.map(m => m.name).join(", "))}</div></div>${conf === tm.id ? `<span class="row-actions"><button class="btn small solid-danger" type="button" data-act="teamdel-yes" data-tid="${esc(tm.id)}" data-fk="tdy:${esc(tm.id)}">Yes, remove</button><button class="btn small ghost" type="button" data-act="teamdel-no">Keep</button></span>` : `<button class="btn small danger" type="button" data-act="teamdel-ask" data-tid="${esc(tm.id)}" data-fk="td:${esc(tm.id)}" aria-label="Remove team ${esc(tm.name)}">Remove</button>`}</li>`).join("")}</ul><p class="hint" style="margin:8px 0 0">Removing a team does not take anyone off the rooms they already have.</p>`
+    : `<p class="muted" style="margin:6px 0 0">No teams yet. A team is two or more people who clean rooms together. Make one, then pick it from a room's cleaner list to give them the room in one go.</p>`;
+}
+function renderTeamForm(){
+  const el = $("#tf"); if (!el) return;
+  if (!S.ui.teamOpen) { el.innerHTML = ""; return; }
+  const F = S.ui.teamForm, pool = teamPool();
+  const row = (c, other) => `<label class="pickrow"><input type="checkbox" data-pick="${esc(pkey(c))}" data-fk="pk:${esc(pkey(c))}"${F.picks[pkey(c)] ? " checked" : ""}><span>${esc(c.name)}${c.shift ? ` <small>${esc(shiftText(c.shift))}</small>` : ""}${c.draft ? " <small>drafted in</small>" : ""}</span></label>`;
+  el.innerHTML = `<form id="teamf" novalidate style="margin-top:12px"><fieldset class="pk"><legend>Who is in the team? Tick two or more</legend>
+    <div class="pickbox">${pool.on.length ? pool.on.map(c => row(c, false)).join("") : `<p class="muted small" style="margin:10px">Nobody has a housekeeping shift on this date. Tick Other to pick from everyone in housekeeping.</p>`}${pool.other.length ? `<div class="pickrow" style="cursor:default;background:var(--sage-10)"><b class="tiny">Everyone in housekeeping</b></div>${pool.other.map(c => row(c, true)).join("")}` : ""}</div></fieldset>
+    <label class="oth" style="margin:0 0 10px"><input type="checkbox" id="tf_other" data-fk="tf_other"${F.other ? " checked" : ""}> <span>Other (drafted in)</span></label>
+    <div class="field" style="max-width:360px"><label for="tf_name">Team name (optional)</label><input id="tf_name" maxlength="60" value="${esc(F.name)}" placeholder="Blank uses the names, like Karen + Tyler"></div>
+    <div class="ferr" id="tf_err" role="alert">${esc(F.err)}</div>
+    <div class="row-actions"><button class="btn" type="submit" id="tf_save">Save team</button><button class="btn ghost" type="button" data-act="teamopen">Cancel</button></div></form>`;
+}
+async function saveTeam(){
+  const F = S.ui.teamForm, members = Object.values(F.picks).map(toPerson);
+  if (members.length < 2) { F.err = "Tick at least two people for a team."; $("#tf_err").textContent = F.err; return; }
+  if (members.length > 8) { F.err = "A team can have up to 8 people."; $("#tf_err").textContent = F.err; return; }
+  const r = await guarded(() => call("team.save", { date:S.date, name:F.name.trim() || undefined, members }), $("#tf_save"));
+  if (!r) return;
+  S.teams = r.teams || S.teams; S.ui.teamOpen = false; S.ui.teamForm = { picks:{}, other:false, name:"", err:"" };
+  renderTeams(); refreshAllCells(); toast("Team saved.");
+}
+async function deleteTeam(tid, btn){
+  const r = await guarded(() => call("team.delete", { date:S.date, id:tid }), btn);
+  S.ui.teamConfirm = null; if (!r) { renderTeamList(); return; }
+  S.teams = r.teams || S.teams.filter(x => x.id !== tid); renderTeamList(); refreshAllCells(); toast("Team removed.");
 }
 async function taskAction(act, id, btn){
   const t = S.tasks.find(x => String(x.id) === id); if (!t) return;
@@ -874,9 +988,9 @@ async function saveDay(){
   if (!/^\d{2}:\d{2}$/.test(start)) { err.textContent = "Enter the start time as hours and minutes, for example 09:00."; $("#d_start").focus(); return; }
   if (!/^\d+$/.test(brk) || +brk > 240) { err.textContent = "Break must be a whole number of minutes between 0 and 240."; $("#d_break").focus(); return; }
   const btn = $("#d_save");
-  const r = await guarded(() => call("day.save", { date:S.date, message:msg, start_time:start, break_minutes:+brk }), btn);
+  const r = await guarded(() => call("day.save", { date:S.date, message:msg, start_time:start, break_minutes:+brk, share_minutes:$("#d_share").checked }), btn);
   if (!r) return;
-  btn.disabled = false; S.day = r.day || Object.assign({}, S.day, { message:msg, start_time:start, break_minutes:+brk }); if (r.plan) S.plan = r.plan; S.ui.dayDirty = false;
+  btn.disabled = false; S.day = r.day || Object.assign({}, S.day, { message:msg, start_time:start, break_minutes:+brk, share_minutes:$("#d_share").checked }); if (r.plan) S.plan = r.plan; S.ui.dayDirty = false;
   renderSummary(); renderBy(); renderDayForm(true); toast("Saved.");
 }
 async function addRoom(){
@@ -982,22 +1096,34 @@ document.addEventListener("click", e => {
     d.push({ room:"", name:"", room_type:"", minutes:40, stayover_minutes:null, sort_order:max + 10, active:true, _new:true }); S.ui.roomsDirty = true; renderRooms(true);
     const n = document.getElementById("rf_" + (d.length - 1) + "_room"); if (n) { n.focus(); n.scrollIntoView({ block:"center" }); } return;
   }
+  if (a === "rmp") { removePerson(id, +b.dataset.pi, b); return; }
+  if (a === "teamopen") { S.ui.teamOpen = !S.ui.teamOpen; S.ui.teamForm = { picks:{}, other:false, name:"", err:"" }; renderTeams(); const n = $(S.ui.teamOpen ? ".pickrow input" : '[data-act="teamopen"]'); if (n) n.focus(); return; }
+  if (a === "teamdel-ask") { S.ui.teamConfirm = b.dataset.tid; renderTeamList(); const n = $('[data-act="teamdel-yes"]'); if (n) n.focus(); return; }
+  if (a === "teamdel-no") { S.ui.teamConfirm = null; renderTeamList(); return; }
+  if (a === "teamdel-yes") { deleteTeam(b.dataset.tid, b); return; }
   if (id !== undefined) taskAction(a, id, b);
 });
 document.addEventListener("submit", e => {
   e.preventDefault();
   if (e.target.id === "dform") saveDay();
   if (e.target.id === "addform") addRoom();
+  if (e.target.id === "teamf") saveTeam();
 });
 document.addEventListener("change", e => {
   const t = e.target;
   if (t.id === "datepick") { if (/^\d{4}-\d{2}-\d{2}$/.test(t.value)) changeDate(t.value); else t.value = S.date; return; }
   if (t.id === "pdffile") { const f = t.files && t.files[0]; t.value = ""; handleFile(f); return; }
   if (t.dataset.cs !== undefined) { saveCleaner(t); return; }
+  if (t.dataset.ap !== undefined) { addPerson(t); return; }
+  if (t.id === "tf_other") { S.ui.teamForm.other = t.checked; renderTeamForm(); const n = $("#tf_other"); if (n) n.focus(); return; }
+  if (t.dataset.pick !== undefined) {
+    const F = S.ui.teamForm, pool = teamPool(), c = pool.on.concat(pool.other).find(x => pkey(x) === t.dataset.pick);
+    if (t.checked && c) F.picks[t.dataset.pick] = c; else delete F.picks[t.dataset.pick];
+    F.err = ""; const er = $("#tf_err"); if (er) er.textContent = ""; return;
+  }
   if (t.dataset.oth !== undefined) {
     const id = t.dataset.oth, task = S.tasks.find(x => String(x.id) === id); if (!task) return;
-    S.ui.other[task.id] = t.checked;
-    const sel = document.getElementById("cs_" + id); if (sel) { sel.innerHTML = cleanerOptions(task); if (t.checked && !task.cleaner) sel.focus(); }
+    S.ui.other[task.id] = t.checked; refreshCell(task, "oth:" + id);
     return;
   }
   if (t.dataset.ri !== undefined && t.type === "checkbox") { const d = roomsDraft(); d[+t.dataset.ri].active = t.checked; S.ui.roomsDirty = true; const row = t.closest(".rr"); if (row) row.classList.toggle("inactive", !t.checked); roomsDirtyUi(); }
@@ -1005,6 +1131,7 @@ document.addEventListener("change", e => {
 document.addEventListener("input", e => {
   const t = e.target;
   if (t.dataset.note !== undefined) { S.ui.noteDirty[t.dataset.note] = true; S.ui.noteDraft[t.dataset.note] = t.value; return; }
+  if (t.id === "tf_name") { S.ui.teamForm.name = t.value; return; }
   if (t.dataset.cn !== undefined) { S.ui.checkNote[t.dataset.cn] = t.value; return; }
   if (t.hasAttribute("data-day")) { S.ui.dayDirty = true; return; }
   if (t.dataset.ri !== undefined && t.type !== "checkbox") {

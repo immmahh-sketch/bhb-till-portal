@@ -72,3 +72,15 @@ The report has NO booking comments column in the sample, but other runs may: cap
   Tasks are in room order. Nothing assigned to me -> `tasks:[]`.
 * `task.cleaned` { id, done: bool } -> `{ task, mine }` (marks my room cleaned now, by me; `done:false` undoes it unless it has been checked)
 * `issue.raise` { task_id, job_type, description, room_offline?: bool } -> `{ job_no, task }` (creates a job in the Maintenance List: location "Room 14 Rosemary", raised by me)
+
+## Teams, several cleaners per room, set-up jobs (added 7 Oct, after the first release)
+* **Task** now has `cleaners: [{ name, email|null, planday_id|null, other }]` (everyone cleaning the room; `[]` = unassigned), `team: string|null` (the team it was given to), and `kind` can be `'setup'`:
+  a room the report calls clean ("Room is Clean") but that carries a "Housekeeping Notes" line (for example "Extra bed needed"). It is shown with a SET UP pill, 10 minutes, and the note; the next guests are still shown. `cleaner` (first person) remains for old callers.
+* **Plan** now has `cleaners_assigned` (distinct people given at least one room; REPLACES `cleaners_on_shift`: the head housekeeper is on the rota but only counts if she is given rooms), `setups`, `share_minutes`.
+  `per_cleaner[].minutes` shares a room's minutes between the people on it when `day.share_minutes` is true (default): 120 minutes for 3 people = 40 each. `even_split_finish` = shared equally between `cleaners_assigned` (null when nobody is assigned).
+* `day` now has `share_minutes: bool`; `day.save` accepts it.
+* `config.bootstrap` also returns `teams: [{ id, date, name, members:[Person] }]` for that date.
+* `team.save` { date, id?, name?, members:[Person] (2 to 8) } -> `{ teams }` (name defaults to "Karen + Tyler"); `team.delete` { date, id } -> `{ teams }`.
+* `task.update` { id, cleaners?: [Person] (up to 8; [] clears), team_name?: string, note? } -> `{ task, plan }`. Giving a room to a team = send that team's members as `cleaners` and `team_name`; adding or removing someone for that one room = send the edited list (keep `team_name` or send none). Teams do not change by themselves when the list on a room is edited.
+* **Board**: `board.get` tasks include a room if the person is anywhere in `cleaners`; each task has `with: [names of the OTHER people on the room]` and `my_minutes` (their share), `cleaners`; `mine.minutes`/`mine.finish` already use the shared minutes.
+* **Report**: a line "Housekeeping Notes : Extra bed needed" sits under the room row (in the Room Type / Sub Group area). It belongs to that room: send it as `notes` on that row (the server strips the "Housekeeping Notes :" label). Sample: `C:\Users\GM\Downloads\BLACKHORSE_HouseRoomStatus_20261007_152239.pdf` (room 16 has the note and status "Room is Clean"; rooms 06, 14, 17 are dirty departures).
