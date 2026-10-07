@@ -15,7 +15,7 @@
 .ins .ctl select{border:1px solid var(--mist,#e7e7e7); border-radius:8px; background:var(--white,#fff); padding:8px 12px; min-height:40px; font-size:16px; cursor:pointer}
 .ins .ctl .when{font-size:12px; color:var(--sage-70,#7B887C); white-space:nowrap}
 .ins .ctl .btn{width:auto}
-.ins .cw:focus-visible,.ins select:focus-visible,.ins .btn:focus-visible,.ins .chip:focus-visible,.ins a:focus-visible,.ins .scroll:focus-visible{outline:2px solid var(--blue,#34546F); outline-offset:2px}
+.ins .cw:focus-visible,.ins select:focus-visible,.ins .btn:focus-visible,.ins .pick:focus-visible,.ins a:focus-visible,.ins .scroll:focus-visible{outline:2px solid var(--blue,#34546F); outline-offset:2px}
 .ins .body{transition:opacity .15s} .ins .body.busy{opacity:.45; pointer-events:none}
 .ins .plat{border-top:4px solid var(--pc); padding-top:16px}
 .ins .plat.fb{--pc:#3B5998; --pc-bg:#E9EDF5; --pc-ink:#2F4778}
@@ -39,10 +39,10 @@
 .ins .none{padding:14px 4px; color:var(--sage-70,#7B887C); font-size:14px}
 .ins .na{color:var(--sage-70,#7B887C)}
 .ins .foot{font-size:12px; color:var(--sage-70,#7B887C); margin:4px 2px 0; max-width:760px; line-height:1.45}
-.ins .chips{display:flex; gap:8px; flex-wrap:wrap; margin:0 0 10px}
-.ins .chip{border:1px solid var(--mist,#e7e7e7); background:var(--white,#fff); color:var(--sage,#4E5F4F); border-radius:999px; padding:6px 14px; min-height:36px; font-size:13px; cursor:pointer}
-.ins .chip[aria-pressed="true"]{background:var(--pc,var(--sage,#4E5F4F)); border-color:var(--pc,var(--sage,#4E5F4F)); color:#fff}
-.ins .chip[disabled]{opacity:.5; cursor:default}
+.ins .picks{display:flex; gap:8px; flex-wrap:wrap; margin:0 0 10px}
+.ins .pick{border:1px solid var(--mist,#e7e7e7); background:var(--white,#fff); color:var(--sage,#4E5F4F); border-radius:999px; padding:6px 14px; min-height:36px; font-size:13px; cursor:pointer}
+.ins .pick[aria-pressed="true"]{background:var(--pc,var(--sage,#4E5F4F)); border-color:var(--pc,var(--sage,#4E5F4F)); color:#fff}
+.ins .pick[disabled]{opacity:.5; cursor:default}
 .ins .cw{overflow-x:auto}
 .ins svg.chart{display:block; width:100%; min-width:560px; height:auto; overflow:visible}
 .ins svg.chart text{font-size:11px; fill:var(--sage-70,#7B887C); font-family:inherit}
@@ -54,16 +54,16 @@
 .ins .t tbody th{font-weight:600; color:var(--sage,#4E5F4F)}
 .ins .t tbody tr:first-child th,.ins .t tbody tr:first-child td{border-top:0}
 .ins .bars{display:grid; gap:6px; margin:0 0 4px}
-.ins .bar{display:grid; grid-template-columns:minmax(110px,190px) 1fr; gap:6px 12px; align-items:center}
-.ins .bar .nm{font-size:14px; min-width:0; overflow-wrap:anywhere}
-.ins .bar .nm small{display:block; font-size:11px; color:var(--sage-70,#7B887C)}
-.ins .bar .tr{display:flex; align-items:center; gap:10px; min-width:0}
-.ins .bar .tr .bw{flex:1; min-width:0; height:14px}
-.ins .bar .tr i{display:block; height:100%; border-radius:99px; background:var(--pc); min-width:3px}
-.ins .bar.few .tr i{background:var(--mist,#e7e7e7)}
-.ins .bar .tr b{flex:none; min-width:3.2em; text-align:right; font-size:14px; font-variant-numeric:tabular-nums; white-space:nowrap}
-.ins .bar.best .nm{font-weight:700} .ins .bar.best .nm small{font-weight:400}
-.ins .bar .bt{flex:none; font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--pc-ink); font-weight:700; min-width:3em}
+.ins .brow{display:grid; grid-template-columns:minmax(110px,190px) 1fr; gap:6px 12px; align-items:center}
+.ins .brow .nm{font-size:14px; min-width:0; overflow-wrap:anywhere}
+.ins .brow .nm small{display:block; font-size:11px; color:var(--sage-70,#7B887C)}
+.ins .brow .tr{display:flex; align-items:center; gap:10px; min-width:0}
+.ins .brow .tr .bw{flex:1; min-width:0; height:14px}
+.ins .brow .tr i{display:block; height:100%; border-radius:99px; background:var(--pc); min-width:3px}
+.ins .brow.few .tr i{background:var(--mist,#e7e7e7)}
+.ins .brow .tr b{flex:none; min-width:3.2em; text-align:right; font-size:14px; font-variant-numeric:tabular-nums; white-space:nowrap}
+.ins .brow.best .nm{font-weight:700} .ins .brow.best .nm small{font-weight:400}
+.ins .brow .bt{flex:none; font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--pc-ink); font-weight:700; min-width:3em}
 .ins .two{display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:0 28px}
 .ins .two>div{min-width:0}
 .ins .lift{border:1px solid var(--mist,#e7e7e7); border-radius:10px; padding:12px 16px; margin:0 0 10px; background:var(--white,#fff)}
@@ -84,7 +84,7 @@
 @media (max-width:760px){
   .ins .ctl{width:100%} .ins .ctl .spacer{display:none}
   .ins .strip b{font-size:24px}
-  .ins .bar{grid-template-columns:1fr}
+  .ins .brow{grid-template-columns:1fr}
 }
 `;
 
@@ -178,9 +178,9 @@
     const $ = s => el.querySelector(s);
     $('#in_days').onchange = e => { st.days = Number(e.target.value) || 90; load({ busy: true }); };
     $('#in_ref').onclick = () => load({ busy: true });
-    // Click handlers for the chips (metric / outcome), set once on the container.
+    // Click handlers for the picks (metric / outcome), set once on the container.
     el.addEventListener('click', e => {
-      const c = e.target.closest && e.target.closest('.chip');
+      const c = e.target.closest && e.target.closest('.pick');
       if (!c || c.disabled) return;
       if (c.dataset.plat) { st.metric[c.dataset.plat] = c.dataset.metric; draw(); }
       else if (c.dataset.outcome) { st.outcome = c.dataset.outcome; draw(); }
@@ -247,9 +247,9 @@
         + stripItem(show(s.interactions_total), 'Interactions', av.interactions ? '' : 'not available')
         + '</div>';
       const metric = st.metric[key] && (st.metric[key] === 'followers' || av[st.metric[key]]) ? st.metric[key] : 'followers';
-      const chips = `<div class="chips" role="group" aria-label="${esc(name)} measure to draw">` + METRICS.map(([k, l]) => {
+      const picks = `<div class="picks" role="group" aria-label="${esc(name)} measure to draw">` + METRICS.map(([k, l]) => {
         const ok = k === 'followers' || av[k];
-        return `<button type="button" class="chip" data-plat="${key}" data-metric="${k}" aria-pressed="${k === metric}"${ok ? '' : ' disabled title="Meta does not give this figure"'}>${esc(l)}</button>`;
+        return `<button type="button" class="pick" data-plat="${key}" data-metric="${k}" aria-pressed="${k === metric}"${ok ? '' : ' disabled title="Meta does not give this figure"'}>${esc(l)}</button>`;
       }).join('') + '</div>';
       let cht, cap;
       if (metric === 'followers') {
@@ -268,7 +268,7 @@
       }).join('');
       const tbl = `<h4>Week by week <small>newest first</small></h4><div class="scroll" tabindex="0" role="region" aria-label="${esc(name)} weekly figures, scrolls sideways on a small screen"><table class="t"><caption class="sr">${esc(name)} week by week</caption><thead><tr><th scope="col">Week from</th><th scope="col">Followers</th><th scope="col">Net gain</th><th scope="col">Reach</th><th scope="col">Views</th><th scope="col">Profile visits</th><th scope="col">Web clicks</th><th scope="col">Interactions</th></tr></thead><tbody>${rowsH}</tbody></table></div>`;
       const thin = days < Math.min(st.days, 28) ? `<div class="notice">We hold ${plural(days, 'day')} of figures for ${esc(name)}. Meta only gives a few weeks back, so the history is built up from here, one more day every morning.</div>` : '';
-      return platCard(p, thin + strip + chips + cht + `<p class="foot">${esc(cap)}</p>` + tbl, `${plural(days, 'day')} of figures`);
+      return platCard(p, thin + strip + picks + cht + `<p class="foot">${esc(cap)}</p>` + tbl, `${plural(days, 'day')} of figures`);
     }
     function trendsView(d) {
       return PLATS.map(p => trendsCard(p, d)).join('')
@@ -284,7 +284,7 @@
         const v = isNum(r.typical_interactions) ? r.typical_interactions : null, few = r.posts < (o.min || 3);
         const w = v !== null && max > 0 ? Math.max(v > 0 ? 1 : 0, Math.round(v / max * 100)) : 0;
         const isBest = !few && best && r.label === best.label;
-        return `<div class="bar${few ? ' few' : ''}${isBest ? ' best' : ''}"><div class="nm">${esc(r.label)}<small>${plural(r.posts, 'post')}${few ? ' · too few to judge' : ''}${!few && isNum(r.avg_reach) && r.posts ? ' · reach ' + esc(num(r.avg_reach)) : ''}</small></div>
+        return `<div class="brow${few ? ' few' : ''}${isBest ? ' best' : ''}"><div class="nm">${esc(r.label)}<small>${plural(r.posts, 'post')}${few ? ' · too few to judge' : ''}${!few && isNum(r.avg_reach) && r.posts ? ' · reach ' + esc(num(r.avg_reach)) : ''}</small></div>
           <div class="tr"><span class="bw"><i style="width:${w}%"></i></span><b>${v === null ? dash : esc(dec(v))}</b><span class="bt">${isBest ? 'best' : ''}</span></div></div>`;
       }).join('') + `</div>`;
     }
@@ -352,14 +352,14 @@
         + stripItem(show(t.showrounds), 'Show-rounds booked', '')
         + stripItem(show(t.signups), 'Mailing-list sign-ups', '')
         + '</div>';
-      const chips = `<div class="chips" role="group" aria-label="Result to draw">` + OUTCOMES.map(([k, l]) => `<button type="button" class="chip" data-outcome="${k}" aria-pressed="${k === st.outcome}">${esc(l)}</button>`).join('') + '</div>';
+      const picks = `<div class="picks" role="group" aria-label="Result to draw">` + OUTCOMES.map(([k, l]) => `<button type="button" class="pick" data-outcome="${k}" aria-pressed="${k === st.outcome}">${esc(l)}</button>`).join('') + '</div>';
       const label = OUTCOMES.find(o => o[0] === st.outcome)[1];
       const items = series.map(r => ({ label: dShort(r.date), value: isNum(r[st.outcome]) ? r[st.outcome] : 0, tip: `${dLong(r.date)}: ${num(r[st.outcome]) ?? 0} ${label.toLowerCase()}${r.posts ? `, ${plural(r.posts, 'post')} that day` : ''}` }));
       const cht = chart(items, {
         kind: 'bar', color: 'var(--sage,#4E5F4F)', aria: `${label} each day, with the days posts went out marked underneath`,
         extra: g => series.map((r, i) => r.posts > 0 ? `<circle cx="${g.x(i).toFixed(1)}" cy="${g.PT + g.ih + 8}" r="3.2" fill="#B03A6B"><title>${esc(dLong(r.date) + ': ' + plural(r.posts, 'post'))}</title></circle>` : '').join('')
       });
-      const chartBox = `<div class="card"><h3>${esc(label)}, day by day</h3>${chips}${cht}<p class="foot"><span style="color:#B03A6B">●</span> marks a day a post went out.</p></div>`;
+      const chartBox = `<div class="card"><h3>${esc(label)}, day by day</h3>${picks}${cht}<p class="foot"><span style="color:#B03A6B">●</span> marks a day a post went out.</p></div>`;
 
       const lifts = (d.lifts || []).map(l => {
         if (l.enough) {
