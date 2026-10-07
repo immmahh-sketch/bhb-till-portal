@@ -54,7 +54,7 @@ const requiredOf = (s: Sess, depts: string[], set?: any) => { const aud: string[
 const addMonths = (iso: string, n: number) => { const d = new Date(iso); d.setMonth(d.getMonth() + n); return d.getTime(); };
 // passes: that person's records for the session, newest first. A pass only counts if made on or after the date it was issued.
 function statusFor(set: any, joined: string, passes: any[]) {
-  const issued = set?.issued_at; if (!issued) return { st: "notissued", due: null as number | null };
+  const issued = set?.issued_at; if (!issued || new Date(issued).getTime() > Date.now()) return { st: "notissued", due: null as number | null }; // not issued yet, or scheduled for a later date
   const lp = passes.find((r) => r.passed && r.completed_at >= issued), now = Date.now();
   if (!lp) { const due = Math.max(new Date(issued).getTime(), new Date(joined).getTime()) + (set.grace_days ?? 7) * 864e5; return { st: now > due ? "overdue" : "todo", due }; }
   const renew = addMonths(lp.completed_at, set.refresh_months ?? 12);
@@ -279,6 +279,22 @@ Deno.serve(async (req) => {
           const cur = existing.get(k);
           const issued = body.withdraw === true ? null : (cur?.issued_at && body.reissue !== true ? cur.issued_at : now);
           return { session_key: k, refresh_months: cur?.refresh_months ?? sessions.find((x) => x.key === k)?.refreshMonths ?? 12, grace_days: cur?.grace_days ?? 7, issued_at: issued, updated_by: who.email, updated_at: now };
+        });
+        if (rows.length) await rest(`training_settings?on_conflict=session_key`, { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify(rows) });
+        return json({ ok: true, count: rows.length });
+      }
+
+      // Give modules their issue dates in one go (a rollout plan): items = [{ session_key, issue_at }]; a date in the future means
+      // "scheduled": nobody is chased and nothing shows on lists until that day; issue_at null withdraws the module.
+      case "schedule": {
+        needManager();
+        const sessions = await loadIndex(), known = new Set(sessions.map((x) => x.key));
+        const existing = new Map<string, any>(((await rest(`training_settings?select=*`)) || []).map((x: any) => [x.session_key, x]));
+        const now = new Date().toISOString();
+        const rows = (Array.isArray(body.items) ? body.items : []).filter((i: any) => known.has(String(i?.session_key))).map((i: any) => {
+          const cur = existing.get(i.session_key); const d = i.issue_at ? new Date(String(i.issue_at)) : null;
+          if (d && isNaN(d.getTime())) throw new Error("That is not a date.");
+          return { session_key: String(i.session_key), refresh_months: cur?.refresh_months ?? sessions.find((x) => x.key === i.session_key)?.refreshMonths ?? 12, grace_days: cur?.grace_days ?? 7, issued_at: d ? d.toISOString() : null, updated_by: who.email, updated_at: now };
         });
         if (rows.length) await rest(`training_settings?on_conflict=session_key`, { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify(rows) });
         return json({ ok: true, count: rows.length });

@@ -18,7 +18,7 @@ for (const key of keys) {
   const slides = s.cards.filter((c) => c.kind === 'slide'), checks = s.cards.filter((c) => c.kind === 'check');
   if (s.cards.some((c) => c.kind !== 'slide' && c.kind !== 'check')) errs.push('every card must be a slide or a check');
   if (s.cards[0]?.layout !== 'hero') errs.push('card 1 must be a hero slide');
-  if (slides.length < 7 || slides.length > 10) errs.push(`${slides.length} slides (want 7 to 10 including the hero and the Remember slide)`);
+  const minSlides = meta.source ? 5 : 7; if (slides.length < minSlides || slides.length > 10) errs.push(`${slides.length} slides (want ${minSlides} to 10 including the hero and the Remember slide)`);
   if (checks.length !== 10) errs.push(`${checks.length} checks (want exactly 10)`);
   const lastSlide = s.cards.map((c) => c.kind).lastIndexOf('slide'), firstCheck = s.cards.findIndex((c) => c.kind === 'check');
   if (firstCheck >= 0 && firstCheck < lastSlide) errs.push('all slides must come before the checks');
@@ -52,7 +52,7 @@ for (const key of keys) {
     }
   }
   const mins = words / 150 + checks.length * 0.6 + slides.length * 0.15;
-  if (words < 600 || words > 2300) warn.push(`${words} words (aim for roughly 700 to 1500)`);
+  if (words < (meta.source ? 380 : 600) || words > 2300) warn.push(`${words} words (aim for roughly 700 to 1500)`);
   if (!Array.isArray(s.siteNotes)) errs.push('siteNotes must be a list (it may be empty)');
   if (!Array.isArray(s.legalNotes) || !s.legalNotes.length) errs.push('legalNotes must list the sources for the rules stated');
   const ans = checks.filter((c) => c.type === 'choice').map((c) => c.answer); if (ans.length >= 3 && new Set(ans).size === 1) warn.push('the right answer is always the same option number');
