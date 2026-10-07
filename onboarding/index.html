@@ -217,6 +217,34 @@ details.sec>.in{padding:0 18px 16px}
   .bigchoice label{padding:12px}
   .pagehead .btn:not(.small){flex:1 1 100%}
 }
+
+/* documents */
+.regtable{overflow-x:auto; background:#fff; border-radius:var(--radius); box-shadow:var(--shadow)}
+.regtable table{border-collapse:collapse; width:100%; font-size:14px}
+.regtable th,.regtable td{padding:9px 8px; border-bottom:1px solid var(--mist); text-align:center; vertical-align:middle}
+.regtable thead th{font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--sage-70); background:var(--sage-10); position:sticky; top:0}
+.regtable .nm{text-align:left; min-width:190px; font-weight:600}
+.regtable .nm a{color:var(--sage); text-decoration:none; font-family:var(--display); font-size:19px; line-height:1.1} .regtable .nm a:hover{text-decoration:underline}
+.regtable .nm .tiny{font-weight:400}
+.regtable tbody tr{cursor:pointer} .regtable tbody tr:hover{background:#fbfbf9}
+.regtable tr.warnrow th.nm{box-shadow:inset 4px 0 0 var(--attention)}
+.regtable td.warn{background:var(--attention-bg)} .regtable td.warn .dash{color:var(--attention-ink); font-weight:800}
+.tick{color:var(--good); font-weight:800; font-size:16px} .tick small{font-size:11px; margin-left:2px; color:var(--sage-70)}
+.dash{color:var(--sage-70)} .dash.quiet{color:#c9cec9}
+.sr{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0)}
+.badge.ok{background:var(--good-bg); color:var(--good); font-size:9.5px; padding:2px 7px; margin-top:2px}
+.regcards{display:none}
+.chipsx{display:flex; gap:5px; flex-wrap:wrap; margin-top:8px}
+.chipx{font-size:11.5px; border-radius:99px; padding:2px 9px; background:var(--sage-10); color:var(--sage)}
+.chipx.ok{background:var(--good-bg); color:var(--good)} .chipx.warn{background:var(--attention-bg); color:var(--attention-ink); font-weight:600}
+a.scard.warnc{border-left-color:var(--attention)}
+@media (max-width:760px){ .regtable{display:none} .regcards{display:block} }
+.checks .chk{padding:10px 0; border-top:1px solid var(--mist)} .checks .chk:first-of-type{border-top:0}
+.checks.remind{border:2px solid var(--attention); background:#fffdf8}
+.chk.done{color:var(--good)} .chk.done b{color:var(--ink)}
+.linkbtn{background:none; border:0; padding:0; color:var(--alert); text-decoration:underline; cursor:pointer; font-size:13px}
+.frow .row-actions{flex-wrap:nowrap} .frow .row-actions .btn{flex:0 0 auto}
+.frow{grid-template-columns:1fr auto}
 .formbtns{display:flex; gap:8px; flex-wrap:wrap; margin:14px 0 6px}
 </style>
 </head>
@@ -230,6 +258,7 @@ details.sec>.in{padding:0 18px 16px}
     <div class="who"><span id="whoname"></span><button id="signout">Sign out</button></div></div></header>
   <nav class="tabs"><div class="tabsin" role="tablist" id="tabs">
     <button class="tabbtn" role="tab" data-view="starters" aria-current="page">New starters</button>
+    <button class="tabbtn" role="tab" data-view="documents" aria-current="false">Documents</button>
     <button class="tabbtn off" role="tab" data-view="settings" aria-current="false" id="tab_settings">Settings</button>
   </div></nav>
   <div class="shell"><div id="views" aria-live="polite"></div></div>
@@ -240,7 +269,7 @@ details.sec>.in{padding:0 18px 16px}
 const CFG = { SUPABASE_URL:"https://safcrtrfdzsnftghibot.supabase.co", SUPABASE_KEY:"sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU" };
 const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
 const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
-const S = { me:null, settings:{}, planday:{}, templates:[], health:null, filter:"open", list:null, listSig:"", d:null, ui:{}, route:{ name:"list" }, fetchedAt:0, seq:0 };
+const S = { reg:null, regSig:"", regFilter:"all", regFind:"", me:null, settings:{}, planday:{}, templates:[], health:null, filter:"open", list:null, listSig:"", d:null, ui:{}, route:{ name:"list" }, fetchedAt:0, seq:0 };
 
 /* ------------------------------------------------------------- plumbing */
 function toast(msg, bad){ const t = $("#toast"); t.textContent = msg; t.className = "toast on" + (bad ? " bad" : ""); clearTimeout(toast._t); toast._t = setTimeout(() => { t.className = "toast"; }, bad ? 5600 : 2800); }
@@ -269,7 +298,12 @@ const STATUS = { draft:"Draft", link_sent:"Link sent", in_progress:"Started", si
 const CONTRACT = { hourly:"Hourly paid", salaried:"Salaried" };
 const STEPS = ["Link sent", "Opened", "Signed", "Submitted", "In Planday", "Complete"];
 const RISK = [["required", "Needed"], ["in_progress", "In progress"], ["done", "Done"], ["not_needed", "Not needed"]];
-const KINDS = { contract:"Signed contract", health:"Health questionnaire", wtd:"48-hour opt-out", payroll:"Payroll starter form", risk:"Risk assessment" };
+const KINDS = { contract:"Signed contract", health:"Health questionnaire", wtd:"48-hour opt-out", payroll:"Payroll starter form", rtw:"Right to work", ni:"Proof of National Insurance", risk:"Completed risk assessment", other:"Other document" };
+const KIND_ORDER = ["contract", "health", "wtd", "payroll", "rtw", "ni", "risk", "other"];
+const KIND_SHORT = { contract:"Contract", health:"Health", wtd:"48h", payroll:"Payroll form", rtw:"Right to work", ni:"NI proof", risk:"Risk assessment", other:"Other" };
+const GENERATED = ["contract", "health", "wtd", "payroll"], UPLOADED = ["rtw", "ni", "risk", "other"];
+const CHECKS = { rtw:"Right to work", ni:"National Insurance" };
+const SIGNED_PLUS = ["submitted", "in_planday", "complete"];
 const LOCKED = ["submitted", "in_planday", "complete", "cancelled"];
 function stepsDone(s){
   const m = { draft:0, link_sent:1, in_progress:2, signed:3, submitted:4, in_planday:5, complete:6, cancelled:0 }[s.status] || 0;
@@ -277,6 +311,16 @@ function stepsDone(s){
   return s.status === "cancelled" ? t : Math.max(m, t);
 }
 const needsRisk = s => !!s.risk_required && !["done", "not_needed"].includes(s.risk_status);
+// what a person is missing that matters, from a register row or a list row
+function missingFor(p){
+  const docs = p.docs || {}, ch = p.checks || {}, m = [];
+  GENERATED.forEach(k => { if (SIGNED_PLUS.includes(p.status) && !docs[k]) m.push(k); });
+  ["rtw", "ni"].forEach(k => { if (!docs[k] && !ch[k]) m.push(k); });
+  if (needsRisk(p) && !docs.risk) m.push("risk");
+  return m;
+}
+const sizeText = n => !n ? "" : n > 1048576 ? (n / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(n / 1024)) + " KB";
+const csvCell = v => { let s = String(v ?? ""); if (/^[=+\-@\t\r]/.test(s)) s = "'" + s; return '"' + s.replace(/"/g, '""') + '"'; };
 async function copyText(text){
   try { if (navigator.clipboard && window.isSecureContext !== false) { await navigator.clipboard.writeText(text); return true; } } catch(e){}
   try { const t = document.createElement("textarea"); t.value = text; t.setAttribute("readonly", ""); t.style.cssText = "position:fixed;left:-9999px;top:0"; document.body.appendChild(t); t.select(); const ok = document.execCommand("copy"); t.remove(); return ok; } catch(e){ return false; }
@@ -300,18 +344,19 @@ function parseRoute(){
   if (h[0] === "new") return { name:"form", id:null };
   if (h[0] === "s" && h[1]) return h[2] === "edit" ? { name:"form", id:h[1] } : { name:"detail", id:h[1] };
   if (h[0] === "settings") return { name:"settings" };
+  if (h[0] === "documents") return { name:"docs" };
   return { name:"list" };
 }
 function go(hash){ if (location.hash === hash) route(); else location.hash = hash; }
 window.addEventListener("hashchange", () => route());
 function setTabs(){
-  const cur = S.route.name === "settings" ? "settings" : "starters";
+  const cur = S.route.name === "settings" ? "settings" : S.route.name === "docs" ? "documents" : "starters";
   $$(".tabbtn").forEach(b => b.setAttribute("aria-current", b.dataset.view === cur ? "page" : "false"));
   const admin = !!(S.me && S.me.admin) && (!Array.isArray(S.me.tabs) || S.me.tabs.includes("settings"));
   $("#tab_settings").classList.toggle("off", !admin);
   const st = $('.tabbtn[data-view="starters"]'); st.classList.toggle("off", Array.isArray(S.me && S.me.tabs) && !S.me.tabs.includes("starters"));
 }
-$$(".tabbtn").forEach(b => b.addEventListener("click", () => go(b.dataset.view === "settings" ? "#/settings" : "#/")));
+$$(".tabbtn").forEach(b => b.addEventListener("click", () => go(b.dataset.view === "settings" ? "#/settings" : b.dataset.view === "documents" ? "#/documents" : "#/")));
 async function route(){
   S.route = parseRoute(); closeModal(); setTabs();
   if (S.route.name === "settings" && !(S.me && S.me.admin)) { S.route = { name:"list" }; location.replace("#/"); }
@@ -320,6 +365,7 @@ async function route(){
     if (S.route.name === "list") await showList();
     else if (S.route.name === "detail") await showDetail(S.route.id);
     else if (S.route.name === "form") await showForm(S.route.id);
+    else if (S.route.name === "docs") await showDocs();
     else showSettings();
   } catch(e){ $("#views").innerHTML = `<div class="card empty">${esc(e.message)}</div>`; }
 }
@@ -341,7 +387,7 @@ function cardHtml(s){
   return `<a class="${cls.join(" ")}" href="#/s/${encodeURIComponent(s.id)}">
     <div class="r1"><div><h3>${esc(fullName(s))}</h3><div class="sub">${esc(s.job_title || "No job title")}${s.department_name ? " &middot; " + esc(s.department_name) : ""}</div></div><span class="badge st-${esc(s.status)}">${esc(STATUS[s.status] || s.status)}</span></div>
     <div class="badges"><span class="sub">${s.start_date ? "Starts " + esc(fmtDay(s.start_date)) : "No start date"}</span><span class="badge kind">${esc(CONTRACT[s.contract_type] || s.contract_type || "")}</span>
-      ${risk ? `<span class="badge risk">Risk assessment needed</span>` : ""}${s.flags > 0 ? `<span class="badge flags">${s.flags} flag${s.flags === 1 ? "" : "s"}</span>` : ""}</div>
+      ${risk ? `<span class="badge risk">Risk assessment needed</span>` : ""}${s.flags > 0 ? `<span class="badge flags">${s.flags} flag${s.flags === 1 ? "" : "s"}</span>` : ""}${["submitted", "in_planday"].includes(s.status) ? ["rtw", "ni"].filter(k => !(s.checks || {})[k]).map(k => `<span class="badge flags">${k === "rtw" ? "Right to work" : "NI proof"} not checked</span>`).join("") : ""}</div>
     ${stripHtml(s)}${ex ? `<div class="foot${ex.bad ? " bad" : ""}">${ex.t}</div>` : ""}</a>`;
 }
 function renderList(){
@@ -503,10 +549,14 @@ async function loadDetail(id, quiet){
   S.d = d; S.ui.open = S.ui.open || {};
   S.ui.riskDirty = S.ui.riskDirty && S.ui.riskFor === id;
   if (!S.ui.riskDirty) { S.ui.riskStatus = null; S.ui.riskNote = null; }
-  S.detailSig = detailSig(d.starter, (d.files || []).length, (d.starter.health_flags || []).length);
+  S.detailSig = detailSig(d.starter, d.files || [], (d.starter.health_flags || []).length);
   if (S.route.name === "detail" && S.route.id === id) renderDetail();
 }
-function detailSig(s, nf, nfl){ return s ? JSON.stringify([s.status, nfl === undefined ? s.flags : nfl, nf === undefined ? s.files : nf, s.risk_status, s.risk_required, s.planday_id, s.signed_at, s.submitted_at, s.first_opened_at, s.link_sent_at]) : ""; }
+function detailSig(s, files, nfl){
+  if (!s) return "";
+  let docs = s.docs; if (files) { docs = {}; files.forEach(f => { docs[f.kind] = (docs[f.kind] || 0) + 1; }); }
+  return JSON.stringify([s.status, nfl === undefined ? s.flags : nfl, docs, s.checks || {}, s.risk_status, s.risk_required, s.planday_id, s.signed_at, s.submitted_at, s.first_opened_at, s.link_sent_at]);
+}
 async function showDetail(id){
   if (S.ui.forId !== id) S.ui = { forId:id, open:{} };
   if (!S.d || S.d.starter.id !== id) { S.d = null; $("#views").innerHTML = `<button class="back" data-act="back">&larr; Back to the list</button>${skeletonList()}${skeletonList()}`; }
@@ -652,13 +702,143 @@ function healthHtml(s){
   }).join("")}`).join("");
   return part + secs;
 }
-function filesHtml(s, files){
+function whoWhen(f){
+  const when = f.created_at ? " on " + fmtDT(f.created_at) : "";
+  if (f.source === "starter") return "Uploaded by the starter" + when;
+  if (f.source === "manager") return "Uploaded by " + (f.uploaded_by || "a manager") + when;
+  return "Made by the system when signed" + when;
+}
+function docsHtml(s, files){
   const w = s.wtd && s.wtd.choice;
   const choice = w === "opt_out" ? "Opted out of the 48-hour limit" : w === "keep_limit" ? "Kept the 48-hour limit" : "";
-  const rows = (files || []).map(f => `<div class="frow"><div><div class="fn">${esc(KINDS[f.kind] || f.name)}</div><div class="fm">${esc(f.name)} &middot; ${esc(f.size ? (f.size > 1048576 ? (f.size / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(f.size / 1024)) + " KB") : "")} &middot; ${esc(fmtDay(f.created_at))}${f.kind === "wtd" && choice ? " &middot; <b>" + esc(choice) + "</b>" : ""}</div></div><button class="btn small" data-act="openfile" data-id="${esc(f.id)}">Open</button></div>`).join("");
-  return `${rows || `<p class="muted" style="margin-top:0">The signed documents appear here once ${esc(s.first_name)} has submitted.</p>`}
+  const by = {}; (files || []).forEach(f => { (by[f.kind] = by[f.kind] || []).push(f); });
+  const groups = KIND_ORDER.filter(k => by[k]).map(k => `<div class="sub-h">${esc(KINDS[k])}<span class="muted tiny"> (${by[k].length})</span></div>${by[k].map(f => {
+    const uploaded = UPLOADED.includes(f.kind) && f.source !== "generated", title = f.kind === "other" && f.label ? f.label : f.name;
+    const asking = S.ui.delFile === f.id;
+    return `<div class="frow"><div><div class="fn">${esc(title)}</div><div class="fm">${f.kind === "other" && f.label ? esc(f.name) + " &middot; " : ""}${esc(sizeText(f.size))}${f.mime ? " &middot; " + esc(f.mime.replace("application/", "").replace("image/", "").toUpperCase()) : ""}<br>${esc(whoWhen(f))}${f.kind === "wtd" && choice ? " &middot; <b>" + esc(choice) + "</b>" : ""}</div></div>
+      <div class="row-actions"><button class="btn small" data-act="openfile" data-id="${esc(f.id)}">Open</button>${uploaded ? `<button class="btn small danger" data-act="delask" data-id="${esc(f.id)}">Delete</button>` : ""}</div>
+      ${asking ? `<div class="confirmbox" style="grid-column:1 / -1;margin-top:0" role="alertdialog"><b>Delete this document?</b><div class="small" style="margin:4px 0 10px">${esc(title)} will be removed for good.</div><div class="row-actions"><button class="btn small solid-danger" data-act="delyes" data-id="${esc(f.id)}">Yes, delete it</button><button class="btn small ghost" data-act="delno">Keep it</button></div></div>` : ""}</div>`;
+  }).join("")}`).join("");
+  const up = S.ui.up || { kind:"rtw", label:"", file:null };
+  const upload = `<div class="rbox"><div class="sub-h" style="margin-top:0">Upload a document</div>
+    <div class="grid2"><div class="field"><label for="up_kind">What is it</label><select id="up_kind">${["rtw", "ni", "risk", "other"].map(k => `<option value="${k}"${up.kind === k ? " selected" : ""}>${esc(KINDS[k])}</option>`).join("")}</select></div>
+    <div class="field${up.kind === "other" ? "" : " off"}" id="w_uplabel"><label for="up_label">Label (required)</label><input id="up_label" value="${esc(up.label)}" placeholder="For example Food hygiene certificate" maxlength="80"></div></div>
+    <div class="field"><label for="up_file">File</label><input id="up_file" type="file" accept="image/jpeg,image/png,application/pdf,image/*"><div class="hint">${up.file ? "Chosen: " + esc(up.file.name) + " (" + esc(sizeText(up.file.size)) + "). " : ""}A photo or a PDF, up to 6 MB. Photos are shrunk to fit before they go.</div></div>
+    <div class="row-actions"><button class="btn small" data-act="upload">Upload</button></div></div>`;
+  return `${groups || `<p class="muted" style="margin-top:0">Nothing here yet. The signed documents appear once ${esc(s.first_name)} has submitted, and you can upload others below.</p>`}
     ${choice && !(files || []).some(f => f.kind === "wtd") ? `<div class="kv nocopy"><dt>48-hour working week</dt><dd>${esc(choice)}</dd></div>` : ""}
-    <div class="notice info" style="margin-bottom:0">Please upload these PDFs to ${esc(s.first_name)}'s documents in Planday yourself: Planday has no way for us to upload documents for you.</div>`;
+    ${upload}
+    <div class="notice info" style="margin:14px 0 0">Please upload the signed PDFs to ${esc(s.first_name)}'s documents in Planday yourself: Planday has no way for us to upload documents for you.</div>`;
+}
+function checksCard(s, files){
+  if (s.status === "cancelled") return "";
+  const ch = s.checks || {}, held = k => (files || []).filter(f => f.kind === k).length;
+  const remind = ["rtw", "ni"].some(k => held(k) && !ch[k]);
+  const one = k => {
+    const c = ch[k], v = (S.ui.chk && S.ui.chk[k]) || {};
+    const label = CHECKS[k];
+    if (c) return `<div class="chk done"><b>${esc(label)}</b>: original seen by ${esc(c.by || "a manager")} on ${esc(fmtDay(c.at))}: ${esc(c.document || "document")}${c.expiry ? ", expires " + esc(fmtDay(c.expiry)) : ""}.${c.note ? `<div class="tiny muted">${esc(c.note)}</div>` : ""} <button class="linkbtn" data-act="uncheck" data-k="${k}">Remove</button></div>`;
+    return `<div class="chk"><b>${esc(label)}</b>: original not checked yet${held(k) ? ` <span class="badge kind">${held(k)} photo${held(k) === 1 ? "" : "s"} uploaded</span>` : ` <span class="tiny muted">(nothing uploaded)</span>`}
+      <div class="grid2" style="margin-top:8px"><div class="field"><label for="chk_document_${k}">Document seen</label><input id="chk_document_${k}" value="${esc(v.document || "")}" placeholder="${k === "rtw" ? "UK passport, or share code check" : "P45, payslip or NI card"}"></div>
+      <div class="field"><label for="chk_expiry_${k}">Expiry date (optional)</label><input id="chk_expiry_${k}" type="date" value="${esc(v.expiry || "")}"></div></div>
+      <div class="field"><label for="chk_note_${k}">Note (optional)</label><input id="chk_note_${k}" value="${esc(v.note || "")}"></div>
+      <button class="btn small" data-act="check" data-k="${k}">I have seen the original</button></div>`;
+  };
+  return `<div class="card checks${remind ? " remind" : ""}"><h3 style="font-size:23px">Right to work and National Insurance checks</h3>
+    ${remind ? `<div class="notice" style="margin:8px 0"><b>Bring-in reminder:</b> they were told to bring the originals on day one. A photo is not enough, so look at the original and record it here.</div>` : `<p class="small muted" style="margin:2px 0 8px">Record that you have seen the original document. It is kept with the starter's record.</p>`}
+    ${one("rtw")}${one("ni")}</div>`;
+}
+/* ---- uploads: shrink photos in the browser, send PDFs as they are */
+const MAXB = 6 * 1048576;
+function readB64(blob){ return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(",")[1] || ""); r.onerror = () => rej(new Error("That file could not be read.")); r.readAsDataURL(blob); }); }
+function loadImage(f){ return new Promise((res, rej) => { const u = URL.createObjectURL(f), i = new Image(); i.onload = () => { URL.revokeObjectURL(u); res(i); }; i.onerror = () => { URL.revokeObjectURL(u); rej(new Error("That photo could not be read here. Try a JPEG or PNG, or a PDF.")); }; i.src = u; }); }
+async function prepUpload(f){
+  if (f.type === "application/pdf" || /\.pdf$/i.test(f.name)) {
+    if (f.size > MAXB) throw new Error(`That PDF is ${sizeText(f.size)}. The limit is 6 MB, so try a smaller scan.`);
+    return { name:f.name, data:await readB64(f) };
+  }
+  if (!/^image\//.test(f.type)) throw new Error("Please choose a photo (JPEG or PNG) or a PDF.");
+  const img = await loadImage(f), long = Math.max(img.naturalWidth, img.naturalHeight), k = long > 2000 ? 2000 / long : 1;
+  const c = document.createElement("canvas"); c.width = Math.max(1, Math.round(img.naturalWidth * k)); c.height = Math.max(1, Math.round(img.naturalHeight * k));
+  const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); g.drawImage(img, 0, 0, c.width, c.height);
+  const blob = await new Promise(r => c.toBlob(r, "image/jpeg", 0.85));
+  if (!blob) throw new Error("That photo could not be prepared. Try a PDF instead.");
+  if (blob.size > MAXB) throw new Error(`That photo is still ${sizeText(blob.size)} after shrinking. The limit is 6 MB.`);
+  return { name:f.name.replace(/\.[^.]+$/, "") + ".jpg", data:await readB64(blob) };
+}
+
+/* ------------------------------------------------------------- documents register */
+const REG_FILTERS = [["all", "Everyone"], ["missing", "Something missing"], ["rtw", "Right to work not checked"], ["risk", "Risk assessment outstanding"]];
+function regRows(){
+  if (!S.reg) return [];
+  const q = S.regFind.trim().toLowerCase();
+  return S.reg.people.filter(p => {
+    if (q && !((p.name || "") + " " + (p.job_title || "")).toLowerCase().includes(q)) return false;
+    if (S.regFilter === "missing") return missingFor(p).length > 0;
+    if (S.regFilter === "rtw") return !(p.checks || {}).rtw;
+    if (S.regFilter === "risk") return needsRisk(p);
+    return true;
+  });
+}
+function checkedBadge(p, k){
+  const c = (p.checks || {})[k]; if (!c) return "";
+  return `<span class="badge ok" title="${esc((CHECKS[k] || k) + ": original seen by " + (c.by || "a manager") + " on " + fmtDay(c.at))}">Checked</span>`;
+}
+function regBody(){
+  const kinds = (S.reg.kinds && S.reg.kinds.length ? S.reg.kinds : KIND_ORDER.map(k => ({ key:k, label:KINDS[k] })));
+  const rows = regRows();
+  if (!rows.length) return { sum:`0 people`, html:`<div class="card empty">${S.reg.people.length ? "Nobody matches that." : "No people yet."}</div>` };
+  const bad = rows.filter(p => missingFor(p).length).length;
+  const sum = `${rows.length} ${rows.length === 1 ? "person" : "people"}, ${bad} with something missing`;
+  const head = `<tr><th scope="col" class="nm">Person</th>${kinds.map(k => `<th scope="col" title="${esc(k.label)}">${esc(KIND_SHORT[k.key] || k.label)}</th>`).join("")}</tr>`;
+  const trs = rows.map(p => {
+    const miss = missingFor(p), href = "#/s/" + encodeURIComponent(p.id);
+    return `<tr class="${miss.length ? "warnrow" : ""}" data-act="go" data-h="${esc(href)}"><th scope="row" class="nm"><a href="${esc(href)}">${esc(p.name)}</a><div class="tiny muted">${esc(p.job_title || "")}${p.start_date ? " &middot; starts " + esc(fmtDay(p.start_date)) : ""}</div></th>${kinds.map(k => {
+      const n = (p.docs || {})[k.key] || 0, m = miss.includes(k.key), cb = checkedBadge(p, k.key);
+      return `<td class="${m ? "warn" : ""}">${n ? `<span class="tick" aria-label="${n} held">&#10003;${n > 1 ? `<small>${n}</small>` : ""}</span>` : m ? `<span class="dash" title="Missing">&ndash;</span><span class="sr">Missing</span>` : `<span class="dash quiet">&ndash;</span>`}${cb ? "<br>" + cb : ""}</td>`;
+    }).join("")}</tr>`;
+  }).join("");
+  const cards = rows.map(p => {
+    const miss = missingFor(p), href = "#/s/" + encodeURIComponent(p.id);
+    const held = KIND_ORDER.filter(k => (p.docs || {})[k]).map(k => `<span class="chipx ok">${esc(KIND_SHORT[k])}${p.docs[k] > 1 ? " " + p.docs[k] : ""}</span>`).join("");
+    const mis = miss.map(k => `<span class="chipx warn">Missing: ${esc(KIND_SHORT[k] || k)}</span>`).join("");
+    const chk = ["rtw", "ni"].map(k => (p.checks || {})[k] ? `<span class="chipx ok" title="${esc("Original seen by " + (p.checks[k].by || "a manager") + " on " + fmtDay(p.checks[k].at))}">${k === "rtw" ? "Right to work" : "NI"} checked</span>` : "").join("");
+    return `<a class="card scard${miss.length ? " hasrisk warnc" : ""}" href="${esc(href)}"><div class="r1"><div><h3>${esc(p.name)}</h3><div class="sub">${esc(p.job_title || "")}${p.department_name ? " &middot; " + esc(p.department_name) : ""}</div></div><span class="badge st-${esc(p.status)}">${esc(STATUS[p.status] || p.status)}</span></div>
+      <div class="sub" style="margin-top:4px">${p.start_date ? "Starts " + esc(fmtDay(p.start_date)) : "No start date"}</div><div class="chipsx">${held}${chk}${mis}${held || chk || mis ? "" : `<span class="muted tiny">Nothing held yet</span>`}</div></a>`;
+  }).join("");
+  return { sum, html:`<div class="regtable"><table><thead>${head}</thead><tbody>${trs}</tbody></table></div><div class="regcards">${cards}</div>` };
+}
+function renderRegBody(){
+  const el = $("#regbody"); if (!el) return renderDocs();
+  if (!S.reg) { el.innerHTML = skeletonList(); $("#regsum").textContent = ""; return; }
+  const b = regBody(); el.innerHTML = b.html; $("#regsum").textContent = b.sum;
+}
+function renderDocs(){
+  const keepY = window.scrollY;
+  $("#views").innerHTML = `<div class="pagehead"><h2>Who has what</h2><button class="btn small ghost" data-act="regrefresh">Refresh</button><button class="btn small ghost" data-act="regcsv">Export CSV</button></div>
+    <div class="field" style="margin:8px 0;max-width:420px"><label for="regfind">Search</label><input id="regfind" type="search" placeholder="Name or job" value="${esc(S.regFind)}" autocomplete="off"></div>
+    <div class="toolrow" style="margin-top:4px" role="group" aria-label="Show">${REG_FILTERS.map(([k, l]) => `<button class="chip" data-act="regfilter" data-k="${k}" aria-pressed="${S.regFilter === k}">${l}</button>`).join("")}</div>
+    <p class="small muted" id="regsum" style="margin:6px 2px" aria-live="polite"></p><div id="regbody"></div>
+    <p class="muted tiny" style="margin-top:14px">Amber means something that matters is missing: right to work or National Insurance proof not uploaded or checked, signed forms missing after they submit, or a risk assessment still outstanding. Updates itself every minute.</p>`;
+  renderRegBody(); window.scrollTo(0, keepY);
+}
+async function loadRegister(quiet){
+  try {
+    const d = await call("register"), sig = JSON.stringify(d.people);
+    S.fetchedAt = Date.now();
+    if (quiet && S.reg && sig === S.regSig) return;
+    S.reg = d; S.regSig = sig;
+    if (S.route.name === "docs") renderRegBody();
+  } catch(e){ if (!quiet) { S.reg = S.reg || { kinds:[], people:[] }; renderRegBody(); toast(e.message, true); } }
+}
+async function showDocs(){ renderDocs(); await loadRegister(); }
+function exportCsv(){
+  const rows = regRows(), kinds = (S.reg.kinds && S.reg.kinds.length ? S.reg.kinds : KIND_ORDER.map(k => ({ key:k, label:KINDS[k] })));
+  const head = ["Name", "Job title", "Department", "Status", "Start date"].concat(kinds.map(k => k.label), ["Right to work checked by", "Right to work checked on", "NI checked by", "NI checked on"]);
+  const lines = [head].concat(rows.map(p => { const c = p.checks || {}; return [p.name, p.job_title, p.department_name, STATUS[p.status] || p.status, p.start_date ? fmtDay(p.start_date) : ""].concat(kinds.map(k => (p.docs || {})[k.key] || 0), [c.rtw ? c.rtw.by : "", c.rtw ? fmtDay(c.rtw.at) : "", c.ni ? c.ni.by : "", c.ni ? fmtDay(c.ni.at) : ""]); }));
+  const text = "﻿" + lines.map(r => r.map(csvCell).join(",")).join("\r\n");
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text], { type:"text/csv" })); a.download = "documents-register-" + new Date().toISOString().slice(0, 10) + ".csv"; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+  return lines.length - 1;
 }
 function planName(k){ return human(k); }
 function flatten(o, pre, out){ Object.entries(o || {}).forEach(([k, v]) => { const lab = (pre ? pre + ": " : "") + planName(k); if (v && typeof v === "object" && !Array.isArray(v)) flatten(v, lab, out); else out.push([lab, Array.isArray(v) ? v.map(x => typeof x === "object" ? JSON.stringify(x) : x).join(", ") : v]); }); return out; }
@@ -713,7 +893,8 @@ function renderDetail(){
     <div class="sechead">Progress</div><div class="card">${timelineHtml(s, d)}</div>
     ${sec("health", "Health questionnaire", `<div class="conf" style="margin-top:0">Health information is confidential: only share what the manager of this person needs.</div>${healthHtml(s)}`, flags > 0, flags ? `<span class="badge flags">${flags} flag${flags === 1 ? "" : "s"}</span>` : "")}
     ${sec("payroll", "Payroll details", `<div class="conf" style="margin-top:0">This is confidential: bank and personal details. Use Copy to paste into Planday or Xero, and do not share it further.</div>${payrollHtml(s)}<div class="sub-h" style="margin-top:20px">Tax checklist</div>${checklistHtml(s)}`, !!hasPayroll && s.status === "submitted")}
-    ${sec("files", "Contract and forms", filesHtml(s, d.files), true, d.files && d.files.length ? `<span class="badge kind">${d.files.length}</span>` : "")}
+    ${checksCard(s, d.files)}
+    ${sec("files", "Documents", docsHtml(s, d.files), true, d.files && d.files.length ? `<span class="badge kind">${d.files.length}</span>` : "")}
     ${sec("planday", "Planday", plandayHtml(s), ["submitted", "in_planday"].includes(s.status))}
     ${sec("log", "Activity", logHtml(d.log), false)}
     <p class="muted tiny" style="margin:14px 2px">Opening this record is logged against your name, as it holds personal and health information.</p>`;
@@ -763,6 +944,30 @@ document.addEventListener("click", async e => {
   if (b.disabled) return;
   const busy = v => { b.disabled = v; };
   try {
+    if (a === "go") { if (e.target.closest("a")) return; return go(b.dataset.h); }
+    if (a === "regfilter") { S.regFilter = b.dataset.k; $$("[data-act=regfilter]").forEach(x => x.setAttribute("aria-pressed", String(x.dataset.k === S.regFilter))); return renderRegBody(); }
+    if (a === "regrefresh") { b.disabled = true; await loadRegister(); b.disabled = false; return toast("Up to date."); }
+    if (a === "regcsv") { if (!S.reg) return; const n = exportCsv(); return toast(`Exported ${n} ${n === 1 ? "person" : "people"}.`); }
+    if (a === "delask") { S.ui.delFile = b.dataset.id; return renderDetail(); }
+    if (a === "delno") { S.ui.delFile = null; return renderDetail(); }
+    if (a === "delyes") { busy(true); await call("file.delete", { file_id:b.dataset.id }); S.ui.delFile = null; toast("Document deleted."); return afterAction(); }
+    if (a === "upload") {
+      const up = S.ui.up || { kind:"rtw", label:"", file:null };
+      if (up.kind === "other" && !up.label.trim()) return toast("Give the document a label first.", true);
+      if (!up.file) return toast("Choose a file first.", true);
+      busy(true); toast("Uploading...");
+      const p = await prepUpload(up.file);
+      await call("file.upload", { starter_id:sid, kind:up.kind, label:up.kind === "other" ? up.label.trim() : undefined, name:p.name, data:p.data });
+      S.ui.up = { kind:up.kind, label:"", file:null }; toast("Uploaded.");
+      return afterAction();
+    }
+    if (a === "check") {
+      const k = b.dataset.k, v = (S.ui.chk && S.ui.chk[k]) || {};
+      if (!(v.document || "").trim()) return toast("Say which document you saw, for example UK passport.", true);
+      busy(true); await call("starter.check", { id:sid, what:k, checked:true, document:v.document.trim(), expiry:v.expiry || undefined, note:(v.note || "").trim() || undefined });
+      if (S.ui.chk) S.ui.chk[k] = {}; toast(CHECKS[k] + " check recorded."); return afterAction();
+    }
+    if (a === "uncheck") { busy(true); await call("starter.check", { id:sid, what:b.dataset.k, checked:false }); toast("Check removed."); return afterAction(); }
     if (a === "filter") { S.filter = b.dataset.k; S.list = null; return showList(); }
     if (a === "refresh") { b.disabled = true; await loadList(); toast("Up to date."); return; }
     if (a === "new") return go("#/new");
@@ -808,10 +1013,17 @@ document.addEventListener("click", async e => {
   } catch(err){ toast(err.message, true); if (b && document.body.contains(b)) b.disabled = false; }
 });
 document.addEventListener("input", e => {
+  const id = e.target.id || "";
+  if (id === "regfind") { S.regFind = e.target.value; return renderRegBody(); }
+  if (id.startsWith("chk_")) { const [, f, k] = id.split("_"); S.ui.chk = S.ui.chk || {}; (S.ui.chk[k] = S.ui.chk[k] || {})[f] = e.target.value; return; }
+  if (id === "up_label") { S.ui.up = S.ui.up || { kind:"rtw", label:"", file:null }; S.ui.up.label = e.target.value; return; }
   if (e.target.id === "risknote") { S.ui.riskNote = e.target.value; S.ui.riskDirty = true; S.ui.riskFor = S.route.id; }
 });
 document.addEventListener("change", e => {
   const t = e.target;
+  if (t.id === "up_kind") { S.ui.up = S.ui.up || { kind:"rtw", label:"", file:null }; S.ui.up.kind = t.value; $("#w_uplabel").classList.toggle("off", t.value !== "other"); return; }
+  if (t.id === "up_file") { S.ui.up = S.ui.up || { kind:"rtw", label:"", file:null }; S.ui.up.file = t.files[0] || null; return renderDetail(); }
+  if (t.id.startsWith("chk_expiry_")) { const k = t.id.split("_")[2]; S.ui.chk = S.ui.chk || {}; (S.ui.chk[k] = S.ui.chk[k] || {}).expiry = t.value; }
   if (t.name === "ct" || t.name === "employment_type" || t.name === "term") {
     $$(`input[name="${t.name}"]`).forEach(r => r.closest("label").classList.toggle("on", r.checked));
     if (t.name === "ct") { $("#w_rate").classList.toggle("off", t.value !== "hourly"); $("#w_sal").classList.toggle("off", t.value !== "salaried"); $("#w_hours").classList.toggle("off", t.value !== "salaried"); }
@@ -823,6 +1035,7 @@ document.addEventListener("toggle", e => { const d = e.target; if (d.tagName ===
 async function tick(force){
   if (document.visibilityState !== "visible" || $("#modalbg")) return;
   if (S.route.name === "list") return loadList(true);
+  if (S.route.name === "docs") return loadRegister(true);
   if (S.route.name === "detail" && S.d) {
     try {
       const d = await call("starters.list", { filter:"all" }), mine = d.starters.find(x => x.id === S.route.id), sig = detailSig(mine);

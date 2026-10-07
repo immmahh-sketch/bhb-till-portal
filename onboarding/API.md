@@ -115,3 +115,23 @@ Needs details, checklist, health, wtd and the three signatures. Makes the payrol
 ## health.json (shared question bank)
 `onboarding/health.json`: `sections[] -> questions[]` with `type` in `yesno | number | text | jobs | gp`, `details` (the prompt shown when Yes), `help`, `optional`, `allowSkip`
 (yes/no with a third "Prefer not to say"), `flag` (what the manager is told). The page renders from it; do not hard-code the questions.
+
+## Documents (added 8 Oct): uploads and the register
+
+Document kinds (`kind`): `contract` Signed contract, `health` Health questionnaire, `wtd` Working time agreement, `payroll` Payroll starter form (these four are made by the system and cannot be deleted),
+`rtw` Right to work, `ni` Proof of National Insurance, `risk` Risk assessment, `other` Other document (needs a `label`). Every file object now also has
+`source: 'generated'|'starter'|'manager'`, `label`, `uploaded_by`, `mime` (`application/pdf`, `image/jpeg`, `image/png`).
+
+### Starter (public)
+* `p.upload` { token, kind:'rtw'|'ni', name, data } -> `{ file }`. `data` is base64 (a `data:` prefix is fine). JPEG, PNG or PDF only, at most 6 MB each and 5 files per kind. The page should shrink phone photos first (canvas, longest side 2000px, JPEG 0.85) so they upload quickly.
+* `p.upload_remove` { token, file_id } -> `{ ok }` (only the starter's own uploads, only before they submit).
+* `p.open` now also returns `uploads: [{ id, kind, name, size, created_at }]` (the starter's own uploads).
+Uploading is optional, but they must be told, in a pop-up on that step, to bring the originals on their first day to be checked.
+
+### Manager
+* `starters.list` rows now carry `docs: { rtw: 2, ni: 1, contract: 1, ... }` (count per kind) and `checks`.
+* `register` {} -> `{ kinds: [{key,label}], people: [{ id, name, job_title, department_name, status, start_date, risk_required, risk_status, docs:{kind:count}, checks:{ rtw?, ni? } }] }` (everyone except cancelled; newest start first). This is the "who has what" register.
+* `file.upload` { starter_id, kind:'risk'|'rtw'|'ni'|'other', label? (required for other), name, data } -> `{ file }`
+* `file.delete` { file_id } -> `{ ok }` (refuses the four signed/generated kinds)
+* `starter.check` { id, what:'rtw'|'ni', checked:true, document, expiry?, note? } -> `{ starter }` records that the ORIGINAL was seen: stored in `starter.checks[what] = { by, at, document, expiry, note }`. `checked:false` removes it. `starter.get` returns `starter.checks`.
+* `starter.get` `files` rows now include `source`, `label`, `uploaded_by`, `mime`.

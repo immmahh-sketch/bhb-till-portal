@@ -31,7 +31,7 @@ button,input,textarea,select{font:inherit;color:inherit}
 /* ---- frame: header, progress, scrolling slide, fixed bottom bar ---- */
 #app{position:fixed;left:0;right:0;top:0;height:100vh;height:100dvh;display:flex;flex-direction:column;background:var(--bone)}
 .ph{background:var(--sage);color:#fff;display:flex;align-items:center;gap:10px;padding:10px 16px;padding-top:max(10px,env(safe-area-inset-top))}
-.brand{font-family:var(--display);font-size:21px;line-height:1.1;flex:1;min-width:0}
+.brand{font-family:var(--display);font-size:21px;line-height:1.1;flex:1;min-width:0;white-space:nowrap}
 .brand small{display:block;font-family:var(--body);font-size:10px;letter-spacing:var(--track-label);text-transform:uppercase;opacity:.75}
 #savestat{font-size:11px;letter-spacing:.08em;text-transform:uppercase;font-weight:700;display:flex;align-items:center;gap:6px;min-height:20px;opacity:0;transition:opacity .25s}
 #savestat.on{opacity:1}
@@ -176,6 +176,31 @@ p{margin:0 0 12px}
 .recap li span.grow{flex:1;min-width:0}
 .recap li small{display:block;color:var(--sage-70);font-weight:600}
 
+/* ---- documents + modal ---- */
+.upcard h3{font-size:23px;margin-bottom:4px}
+.upcard .hint{margin:0 0 10px}
+.files{list-style:none;margin:0 0 10px;padding:0;display:grid;gap:8px}
+.chip{display:flex;align-items:center;gap:10px;background:var(--sage-10);border-radius:10px;padding:6px 6px 6px 8px;min-height:56px}
+.chip .th{flex:none;width:44px;height:44px;border-radius:8px;background:#fff;border:1px solid var(--celadon);display:grid;place-items:center;font-size:11px;font-weight:800;color:var(--sage);overflow:hidden}
+.chip .th img{width:100%;height:100%;object-fit:cover;display:block}
+.chip .nm{flex:1;min-width:0;font-weight:700;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chip .nm small{display:block;font-weight:500;color:var(--sage-70);font-size:12px}
+.chip .x{flex:none;width:44px;height:44px;border-radius:8px;border:0;background:transparent;color:var(--alert);font-size:26px;line-height:1;cursor:pointer}
+.chip .x:hover{background:var(--alert-bg)}
+.pbar{display:block;height:5px;border-radius:99px;background:var(--mist);overflow:hidden;margin-top:4px;position:relative}
+.pbar i{position:absolute;top:0;bottom:0;left:0;width:40%;background:var(--gold);border-radius:99px;animation:slide 1.1s ease-in-out infinite alternate}
+@keyframes slide{to{left:60%}}
+.upcard .btn{width:100%}
+.modal{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;padding:20px}
+.mback{position:absolute;inset:0;background:rgba(38,38,38,.55)}
+.mbox{position:relative;background:#fff;border-radius:14px;box-shadow:0 20px 50px rgba(0,0,0,.35);padding:22px 20px 20px;max-width:420px;width:100%;border-top:5px solid var(--gold);animation:in .2s ease both}
+.mbox h2{font-size:30px;line-height:1.1;margin-bottom:10px;color:var(--sage-dark)}
+.mbox p{font-weight:600;color:var(--ink-2)}
+.mbox .btn{width:100%;margin-top:6px}
+.bring{background:var(--attention-bg);border-left:5px solid var(--gold);border-radius:8px;padding:14px 16px;margin:0 0 16px}
+.bring h3{font-size:24px;margin-bottom:6px}
+.bring p{margin:0 0 8px;font-weight:600}
+.bring p:last-child{margin:0}
 @media (max-width:360px){.title{font-size:30px}.row3{grid-template-columns:1fr 1fr}.row3>:first-child{grid-column:1 / -1}.q legend{font-size:23px}}
 @media (min-width:700px){.title{font-size:42px}}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}.spin{animation:none;border-style:dotted}}
@@ -212,7 +237,8 @@ const S = {
   step:'welcome', errors:{}, busy:0,
   sigData:'', strokes:[], sigMode:{}, fullName:{}, agree:{}, resign:{}, snap:{},
   dob:{ d:'', m:'', y:'' }, contract:null, contractErr:'', contractLoading:false, readEnd:false,
-  history:[], pending:null
+  history:[], pending:null,
+  uploads:[], pend:{ rtw:[], ni:[] }, upErr:{ rtw:[], ni:[] }, thumbs:{}
 };
 
 /* ---------------------------------------------------------------- API */
@@ -289,10 +315,10 @@ function healthChunks(){
   return out;
 }
 function path(){
-  return ['welcome'].concat(DETAIL_STEPS, taxSteps(), ['tax-confirm', 'tax-done', 'health-intro'], healthChunks().map(c => c.id), ['health-review', 'health-sign', 'wtd', 'wtd-sign', 'contract', 'finish']);
+  return ['welcome'].concat(DETAIL_STEPS, ['documents'], taxSteps(), ['tax-confirm', 'tax-done', 'health-intro'], healthChunks().map(c => c.id), ['health-review', 'health-sign', 'wtd', 'wtd-sign', 'contract', 'finish']);
 }
 function partOf(id){
-  if (DETAIL_FIELDS[id]) return 1;
+  if (DETAIL_FIELDS[id] || id === 'documents') return 1;
   if (/^tax-/.test(id)) return 2;
   if (/^health-/.test(id)) return 3;
   if (/^wtd/.test(id)) return 4;
@@ -476,6 +502,100 @@ STEPS.nok = {
   }
 };
 DETAIL_STEPS.forEach(id => { STEPS[id].part = 1; STEPS[id].save = { section:'details', data:() => { const o = {}; DETAIL_FIELDS[id].forEach(f => { let v = S.details[f]; if (v === undefined) return; if (typeof v === 'string') v = v.trim(); o[f] = v; }); return o; } }; });
+
+/* --- documents (optional uploads) --- */
+const UPKINDS = [
+  { k:'rtw', title:'Proof of your right to work', hint:'Your passport, or the share code letter or screenshot for a visa or BRP, or your birth certificate together with proof of your National Insurance number.' },
+  { k:'ni', title:'Proof of your National Insurance number', hint:'A P60, a payslip, a letter from HMRC or your National Insurance card.' }
+];
+const MAXFILES = 5, MAXBYTES = 6 * 1024 * 1024;
+const fmtSize = n => n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB';
+function upCard(u){
+  const mine = S.uploads.filter(f => f.kind === u.k), pend = S.pend[u.k], errs = S.upErr[u.k], full = mine.length + pend.length >= MAXFILES;
+  return '<div class="card upcard" id="up-' + u.k + '"><h3>' + esc(u.title) + '</h3><p class="hint">' + esc(u.hint) + '</p>'
+    + ((mine.length || pend.length) ? '<ul class="files" aria-label="Files added">'
+      + mine.map(f => '<li class="chip"><span class="th" aria-hidden="true">' + (S.thumbs[f.id] ? '<img alt="" src="' + esc(S.thumbs[f.id]) + '">' : (/\.pdf$/i.test(f.name) ? 'PDF' : 'IMG')) + '</span><span class="nm">' + esc(f.name) + '<small>' + (f.size ? esc(fmtSize(f.size)) + ' \u00b7 ' : '') + 'Uploaded</small></span><button type="button" class="x" data-act="rmfile" data-id="' + esc(f.id) + '" aria-label="Remove ' + esc(f.name) + '">\u00d7</button></li>').join('')
+      + pend.map(f => '<li class="chip pend"><span class="th" aria-hidden="true"><span class="spin"></span></span><span class="nm">' + esc(f.name) + '<small>' + esc(f.msg || 'Uploading') + '</small><span class="pbar" role="progressbar" aria-label="Uploading"><i></i></span></span></li>').join('') + '</ul>' : '')
+    + '<button type="button" class="btn ghost" data-act="pickfile" data-kind="' + u.k + '"' + (full ? ' disabled' : '') + '>Take a photo or choose a file</button>'
+    + '<input type="file" class="sr" tabindex="-1" aria-hidden="true" id="file-' + u.k + '" data-up="' + u.k + '" accept="image/*,application/pdf" multiple>'
+    + (full ? '<p class="hint">That is the most you can add here (' + MAXFILES + '). Remove one to add another.</p>' : '')
+    + '<div aria-live="polite">' + errs.map(m => '<div class="ferr">' + esc(m) + '</div>').join('') + '</div></div>';
+}
+function refreshCard(k){ const el = document.getElementById('up-' + k), u = UPKINDS.find(x => x.k === k); if (el && u) el.outerHTML = upCard(u); }
+const userErr = m => Object.assign(new Error(m), { user:true });
+const readB64 = blob => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result)); r.onerror = () => rej(new Error('read')); r.readAsDataURL(blob); });
+function loadImg(file){ return new Promise((res, rej) => { const url = URL.createObjectURL(file), im = new Image(); im.onload = () => { URL.revokeObjectURL(url); res(im); }; im.onerror = () => { URL.revokeObjectURL(url); rej(userErr('We could not read "' + file.name + '". Please try another photo, or take a new one.')); }; im.src = url; }); }
+const toBlob = (cv, q) => new Promise(res => cv.toBlob(res, 'image/jpeg', q));
+async function prepareFile(f){
+  const isPdf = f.type === 'application/pdf' || /\.pdf$/i.test(f.name);
+  if (isPdf) {
+    if (f.size > MAXBYTES) throw userErr('"' + f.name + '" is bigger than 6 MB. Please choose a smaller file, or bring it on the day.');
+    return { name:f.name, data:await readB64(f) };
+  }
+  if (!/^image\//.test(f.type) && !/\.(jpe?g|png|heic|heif|webp)$/i.test(f.name)) throw userErr('"' + f.name + '" is not a photo or a PDF. Please choose a photo or a PDF.');
+  const im = await loadImg(f), w0 = im.naturalWidth || im.width, h0 = im.naturalHeight || im.height, sc = Math.min(1, 2000 / Math.max(w0, h0));
+  const cv = document.createElement('canvas'); cv.width = Math.max(1, Math.round(w0 * sc)); cv.height = Math.max(1, Math.round(h0 * sc));
+  const cx = cv.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0, 0, cv.width, cv.height); cx.drawImage(im, 0, 0, cv.width, cv.height);
+  const blob = await toBlob(cv, 0.85); if (!blob) throw userErr('We could not read "' + f.name + '". Please try another photo.');
+  if (blob.size > MAXBYTES) throw userErr('"' + f.name + '" is still bigger than 6 MB. Please try a different photo.');
+  const t = document.createElement('canvas'), ts = Math.min(1, 96 / Math.min(cv.width, cv.height)); t.width = Math.max(1, Math.round(cv.width * ts)); t.height = Math.max(1, Math.round(cv.height * ts));
+  t.getContext('2d').drawImage(cv, 0, 0, t.width, t.height);
+  return { name:(f.name || 'photo').replace(/\.[^.]*$/, '') + '.jpg', data:await readB64(blob), thumb:t.toDataURL('image/jpeg', 0.7) };
+}
+async function addFiles(kind, list){
+  let files = Array.from(list || []); S.upErr[kind] = [];
+  if (!files.length) return refreshCard(kind);
+  const room = MAXFILES - S.uploads.filter(f => f.kind === kind).length - S.pend[kind].length;
+  if (room <= 0) { S.upErr[kind].push('You already have ' + MAXFILES + ' files here. Remove one to add another.'); return refreshCard(kind); }
+  if (files.length > room) { S.upErr[kind].push('You can add up to ' + MAXFILES + ' files here, so we have only taken the first ' + room + '.'); files = files.slice(0, room); }
+  const items = files.map(f => ({ f:f, name:f.name || 'photo', msg:'Waiting' })); items.forEach(it => S.pend[kind].push(it)); refreshCard(kind);
+  for (const it of items) {
+    it.msg = 'Getting it ready'; refreshCard(kind);
+    try {
+      const prep = await prepareFile(it.f); it.msg = 'Uploading'; refreshCard(kind);
+      const r = await api('p.upload', { kind:kind, name:prep.name, data:prep.data });
+      if (r.file) { S.uploads.push(r.file); if (prep.thumb) S.thumbs[r.file.id] = prep.thumb; }
+    } catch(e) {
+      if (e.code === 'expired' || e.code === 'cancelled' || e.code === 'notfound') { S.pend[kind] = []; return showFatal(e.code); }
+      S.upErr[kind].push(e.user ? e.message : e.network ? 'We could not upload "' + it.name + '". Please check your signal and try again.' : (e.message || 'We could not upload "' + it.name + '".'));
+    }
+    S.pend[kind] = S.pend[kind].filter(x => x !== it); refreshCard(kind);
+  }
+}
+async function removeFile(id){
+  const f = S.uploads.find(x => String(x.id) === String(id)); if (!f || f.removing) return; f.removing = true; S.upErr[f.kind] = [];
+  try { await api('p.upload_remove', { file_id:f.id }); S.uploads = S.uploads.filter(x => x !== f); }
+  catch(e) { f.removing = false; if (e.code === 'expired' || e.code === 'cancelled' || e.code === 'notfound') return showFatal(e.code); S.upErr[f.kind].push(e.network ? 'We could not remove "' + f.name + '". Please check your signal and try again.' : (e.message || 'We could not remove that file.')); }
+  refreshCard(f.kind);
+}
+function bringPanel(){
+  const n = k => S.uploads.filter(f => f.kind === k).length, r = n('rtw'), i = n('ni');
+  const pl = c => c + (c === 1 ? ' photo or file' : ' photos or files');
+  const what = (r || i) ? 'You uploaded ' + [r ? pl(r) + ' for your right to work' : '', i ? pl(i) + ' for your National Insurance number' : ''].filter(Boolean).join(' and ') + '.' : 'You have not uploaded any documents, which is fine. Just bring them with you.';
+  return '<div class="bring"><h3>Bring your original ID on day one</h3><p>' + esc(what) + '</p><p>Please bring your original right to work documents and proof of your National Insurance number on your first day, so we can check them. We cannot let you start work until we have seen them.</p></div>';
+}
+STEPS.documents = {
+  part:1, next:'Next',
+  render(){ return { title:'Your documents', lead:'On your first day we must see your original documents. Uploading a clear photo now just saves us time.',
+    html:UPKINDS.map(upCard).join('') + '<p class="muted small">You can bring them on the day instead.</p>' }; },
+  validate(){ return {}; }
+};
+function showDocsPopup(){
+  if (document.getElementById('modal')) return;
+  const m = document.createElement('div'); m.id = 'modal'; m.className = 'modal';
+  m.innerHTML = '<div class="mback"></div><div class="mbox" role="dialog" aria-modal="true" aria-labelledby="mt" aria-describedby="mtext"><h2 id="mt">Please bring your originals</h2><p id="mtext">Whether or not you upload photos here, please bring your original right to work documents and proof of your National Insurance number with you on your first day, so we can check them. We cannot let you start work until we have seen them.</p><button type="button" class="btn" id="mok">OK, I understand</button></div>';
+  document.body.appendChild(m);
+  const app = $('#app'); app.setAttribute('aria-hidden', 'true'); try { app.inert = true; } catch(e){}
+  const ok = $('#mok'); ok.focus();
+  m.onkeydown = e => { if (e.key === 'Escape') { e.preventDefault(); closeModal(true); } else if (e.key === 'Tab') { e.preventDefault(); ok.focus(); } };
+  ok.onclick = () => closeModal(true);
+  $('.mback', m).onclick = () => closeModal(true);
+}
+function closeModal(focus){
+  const m = document.getElementById('modal'); if (!m) return; m.remove();
+  const app = $('#app'); app.removeAttribute('aria-hidden'); try { app.inert = false; } catch(e){}
+  if (focus) { const h = $('#ttl'); if (h) h.focus({ preventScroll:true }); }
+}
 
 /* --- tax --- */
 const TAXQ = {
@@ -740,7 +860,7 @@ STEPS.finish = {
     return { title:all ? 'All done. Ready to send?' : 'Nearly there', lead:all ? 'Here is everything you have completed. When you send it, we will get it straight away.' : 'A few things still need finishing before you can send.',
       html:'<ul class="recap">' + rows.map(r => '<li><span class="ck' + (p.ok[r[0]] ? '' : ' no') + '" aria-hidden="true">' + (p.ok[r[0]] ? '✓' : '!') + '</span><span class="grow">' + esc(r[1]) + (p.ok[r[0]] ? '' : '<small>Not finished yet</small>') + '</span>'
         + (p.ok[r[0]] ? '' : '<button type="button" class="btn small ghost" data-act="edit" data-step="' + p.first[r[0]] + '">Finish</button>') + '</li>').join('') + '</ul>'
-        + (all ? '<p class="muted small">You will not be able to change anything after you send it. Use Back if you want to check something first.</p>' : '') };
+        + bringPanel() + (all ? '<p class="muted small">You will not be able to change anything after you send it. Use Back if you want to check something first.</p>' : '') };
   },
   validate(){ const p = partDone(), bad = Object.keys(p.ok).filter(k => !p.ok[k]); return bad.length ? { 'finish':'Some parts are not finished yet. Tap Finish next to them.' } : {}; }
 };
@@ -749,7 +869,7 @@ STEPS.done = {
   render(){
     const s = S.starter;
     return { title:'Thank you, ' + esc(s.first_name || ''), lead:'', html:'<div class="center" style="padding:10px 0 0"><div class="done-badge" aria-hidden="true">✓</div></div>'
-      + '<div class="card"><h3 style="font-size:24px;margin-bottom:6px">All sent to Black Horse Beamish</h3><p>Everything has been sent, and there is nothing more for you to do.</p>'
+      + bringPanel() + '<div class="card"><h3 style="font-size:24px;margin-bottom:6px">All sent to Black Horse Beamish</h3><p>Everything has been sent, and there is nothing more for you to do.</p>'
       + '<p>We will be in touch before your first day' + (s.start_date ? ' (' + esc(fmtDate(s.start_date)) + ')' : '') + '.</p>'
       + '<p style="margin:0"><strong>On your first day, please bring your ID documents:</strong> your passport or other right-to-work documents, and proof of your address.</p></div>'
       + '<p class="center small muted" style="padding:6px 0">We cannot wait to meet you.</p>' };
@@ -762,7 +882,7 @@ function render(id, opts){
   opts = opts || {};
   const d = def(id) || def('welcome'); id = def(id) ? id : 'welcome';
   S.step = id; S.errors = opts.keepErrors ? S.errors : {};
-  hideBanner();
+  hideBanner(); if (id !== 'documents') closeModal(false);
   const r = d.render(), p = partOf(id), kick = p ? 'Part ' + p + ' of 5 · ' + PARTS[p] : (id === 'finish' ? 'Last step' : '');
   main().innerHTML = '<section class="slide" aria-labelledby="ttl">' + (kick ? '<p class="kicker">' + esc(kick) + '</p>' : '') + '<h1 class="title" id="ttl" tabindex="-1">' + r.title + '</h1>' + (r.lead ? '<p class="lead">' + r.lead + '</p>' : '')
     + '<form id="stepform" novalidate autocomplete="off">' + r.html + '<button type="submit" class="sr" tabindex="-1" aria-hidden="true">Next</button></form></section>';
@@ -772,6 +892,7 @@ function render(id, opts){
   if (!opts.noFocus) { const h = $('#ttl'); if (h) h.focus({ preventScroll:true }); }
   if (id === 'contract') afterContract();
   if (d.sign || id === 'contract') setupPad();
+  if (id === 'documents' && !opts.noFocus) showDocsPopup();
   document.title = (id === 'done' ? 'Thank you' : 'Welcome') + ' | Black Horse Beamish';
 }
 function progress(id){
@@ -811,6 +932,7 @@ async function onNext(){
   if (S.busy || S.locked) return;
   const id = S.step, d = def(id); if (!d) return;
   hideBanner();
+  if (id === 'documents' && (S.pend.rtw.length || S.pend.ni.length)) { showBanner('Please wait for your photos to finish uploading.', false); return; }
   if (d.prep) d.prep();
   if (id === 'contract' && !S.readEnd && !S.signed.contract) { const pb = $('#pb'); pb.scrollBy({ top:Math.round(pb.clientHeight * .8), behavior:REDUCED ? 'auto' : 'smooth' }); return; }
   const errs = d.validate ? d.validate() : {};
@@ -1018,6 +1140,8 @@ document.addEventListener('click', e => {
   if (act === 'sigclear') { if (pad) pad.clear(); return; }
   if (act === 'sigdraw') { S.sigMode[b.dataset.doc] = 'draw'; S.strokes = []; return rerenderKeep(); }
   if (act === 'siguse') { S.sigMode[b.dataset.doc] = 'use'; return rerenderKeep(); }
+  if (act === 'pickfile') { const i = document.getElementById('file-' + b.dataset.kind); if (i) i.click(); return; }
+  if (act === 'rmfile') return removeFile(b.dataset.id);
   if (act === 'reloadcontract') { S.contractErr = ''; render('contract'); return; }
 });
 document.addEventListener('input', e => {
@@ -1041,6 +1165,7 @@ document.addEventListener('input', e => {
 });
 document.addEventListener('change', e => {
   const t = e.target;
+  if (t.dataset && t.dataset.up) { const files = Array.from(t.files || []); t.value = ''; addFiles(t.dataset.up, files); return; }
   if (t.dataset && t.dataset.act === 'plan') { const l = $$('[data-act=plan]').filter(x => x.checked).map(x => x.value); S.checklist.plans = l; clearErr('checklist.plans'); return; }
   if (!t.dataset || !t.dataset.b) return;
   const k = t.dataset.b;
@@ -1084,6 +1209,7 @@ function hydrate(o){
   Object.keys(S.health.answers).forEach(k => { const a = S.health.answers[k]; if (a && a.v != null) a.v = String(a.v); });
   S.wtd = Object.assign({}, o.wtd || {});
   S.signed = Object.assign({ health:false, wtd:false, contract:false }, o.signed || {});
+  S.uploads = (Array.isArray(o.uploads) ? o.uploads : []).filter(f => f.kind === 'rtw' || f.kind === 'ni');
   S.hasSig = !!o.has_signature; S.submitted = !!o.submitted;
   const d = S.details, s = S.starter;
   if (!str(d.first_names) && s.first_name) d.first_names = s.first_name;
@@ -1136,7 +1262,7 @@ async function boot(){
   const id = startStep();
   try { history.replaceState({ s:id }, '', location.href); } catch(e){}
   render(id);
-  if (id !== 'welcome' && id !== 'done') { const t = S.starter.first_name; setStat('Welcome back' + (t ? ', ' + t : ''), false); setTimeout(() => { if (!S.busy) setStat('', false); }, 3200); }
+  if (id !== 'welcome' && id !== 'done') { const t = S.starter.first_name; setStat('Welcome back', false); setTimeout(() => { if (!S.busy) setStat('', false); }, 3200); }
 }
 boot();
 })();
