@@ -746,6 +746,64 @@ details summary::-webkit-details-marker{color:var(--sage-70)}
   #trackerApp .pagehead h2{font-size:22px}
   #trackerApp .tile .n{font-size:28px}
 }
+
+/* ---- "View as the couple": full-screen test panel ----
+   Toggled by classes only; [hidden] loses to any display rule below. */
+body.va-lock{overflow:hidden}
+.va{position:fixed;inset:0;z-index:1000;display:flex;flex-direction:column;background:#dfe2dd;color:var(--sage)}
+.va-bar{flex:0 0 auto;background:var(--sage);color:var(--bone);padding:12px 20px;
+  padding-top:max(env(safe-area-inset-top,0px), 12px);
+  padding-left:max(env(safe-area-inset-left,0px), 20px);padding-right:max(env(safe-area-inset-right,0px), 20px)}
+.va-head{display:flex;align-items:baseline;gap:6px 14px;flex-wrap:wrap;margin-bottom:6px}
+.va-head h2{font-size:1.125rem;color:var(--bone);min-width:0;overflow-wrap:anywhere}
+.va-head .label{color:var(--celadon)}
+.va-head h2:focus{outline:none}
+.va-note{margin:0 0 10px;font-size:.8125rem;line-height:1.5;color:var(--celadon);max-width:62rem}
+.va-details>summary{display:none}
+.va-tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.va-devs{display:inline-flex;gap:0}
+.va-devs .btn+.btn{margin-left:-1px}
+.va .btn{color:var(--bone);border-color:rgba(247,247,247,.7);min-height:36px;
+  display:inline-flex;align-items:center;justify-content:center}
+.va .btn:hover{background:var(--bone);color:var(--sage)}
+.va .btn[aria-pressed="true"]{background:var(--bone);color:var(--sage)}
+.va .btn:focus-visible,.va-details>summary:focus-visible{outline:2px solid #fff;outline-offset:2px}
+.va-frame iframe:focus-visible{outline:3px solid var(--sage);outline-offset:-3px}
+.va-spacer{flex:1 1 auto}
+.va-link{display:inline-flex;align-items:center;font-size:.8125rem;margin-top:2px}
+.va-link:focus-visible{outline:2px solid var(--sage);outline-offset:2px}
+.va-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.va-sr:focus{width:auto;height:auto;clip:auto;left:16px;bottom:16px;padding:10px 14px;
+  background:var(--sage);color:var(--bone);border:0;font:inherit;z-index:3}
+@media(pointer:coarse){.va-link,#vaBtn{min-height:44px}}
+.va-stage{flex:1 1 auto;min-height:0;overflow:auto;padding:16px;
+  padding-bottom:max(env(safe-area-inset-bottom,0px), 16px)}
+.va-fit{margin:0 auto}
+.va-frame{position:relative;transform-origin:top left;background:#fff;border:1px solid var(--sage);overflow:hidden}
+.va-frame iframe{display:block;width:100%;height:100%;border:0;background:#fff}
+.va-frame--phone{background:#1f2420;border:0;border-radius:36px;padding:12px;box-shadow:0 8px 30px rgba(31,36,32,.35)}
+.va-frame--phone iframe{border-radius:24px}
+.va-frame--bare{border:0}
+.va-spinbox{position:absolute;inset:0;display:none;align-items:center;justify-content:center;gap:10px;
+  background:#fff;color:var(--sage-70);font-size:.875rem;z-index:2}
+.va-frame--phone .va-spinbox{inset:12px;border-radius:24px}
+.va-frame.is-loading .va-spinbox{display:flex}
+@media(max-width:700px),(pointer:coarse){
+  .va .btn{min-height:44px}
+  .va-details>summary{min-height:44px}
+}
+@media(max-width:700px){
+  .va-bar{padding-left:max(env(safe-area-inset-left,0px), 12px);padding-right:max(env(safe-area-inset-right,0px), 12px)}
+  .va .va-dev--big{display:none}
+  .va-stage{padding:0}
+  .va-details>summary{display:flex;align-items:center;cursor:pointer;font-size:.75rem;
+    letter-spacing:.14em;text-transform:uppercase;color:var(--celadon);list-style:none}
+  .va-details>summary::-webkit-details-marker{display:none}
+  .va-details>summary::before{content:"+";display:inline-block;width:1.2em}
+  .va-details[open]>summary::before{content:"\2212"}
+  .va-tools .va-spacer{display:none}
+  .va-tools .btn{padding:8px 12px;flex:1 1 auto}
+}
 </style>
 </head>
 <body>
@@ -2766,6 +2824,9 @@ function listRow(w, dim){
     '<td><strong>' + esc(w.salutation) + '</strong>' +
     (un.count ? ' <span class="pill pill--late">' + money(un.total) + ' to post</span>' : '') +
     '<br><span class="muted" style="font-size:.8125rem">' + esc(w.primary_email) + '</span>' +
+    '<br><button type="button" class="linkish va-link" data-va-id="' + esc(w.id) + '" ' +
+      'aria-label="View as the couple: ' + esc(w.salutation) + '" ' +
+      'onclick="viewAs(\'' + esc(w.id) + '\', this)">View as</button>' +
     unHost(w.id) + '</td>' +
     '<td class="num">' + esc(ukDate(w.wedding_date)) + '<br>' +
       '<span class="muted" style="font-size:.8125rem">' +
@@ -3890,10 +3951,213 @@ document.addEventListener("visibilitychange", function(){
   } else if (!S.current && $("unTotal")) loadUnread();
 });
 
+/* ============================ VIEW AS THE COUPLE ============================
+   Opens the couple's real Wedding App in a full-screen test panel. The
+   server hands back a test-session token; the app simulates every change
+   and the server refuses anything that is not a read (see wedding/VIEWAS.md).
+   The token lives only in VA.token and the iframe address: never in
+   storage, this page's URL or the console. Closing the panel removes the
+   iframe, so the test state goes with it. */
+var VA = { busy:false, root:null, token:null, id:null, dev:"phone", opener:null,
+           narrow:null, timer:0 };
+var VA_W = { phone:390, tablet:768, desktop:1100 };
+
+function vaLocal(id){
+  var w = S.detail && S.detail.wedding && String(S.detail.wedding.id) === String(id) ? S.detail.wedding : null;
+  return w || (S.list || []).filter(function(x){ return String(x.id) === String(id); })[0] || {};
+}
+
+async function viewAs(id, btn){
+  if (VA.busy || VA.root) return;
+  VA.busy = true; clearErr();
+  var was = btn ? btn.textContent : "";
+  if (btn) { btn.textContent = "Opening..."; btn.disabled = true; btn.setAttribute("aria-busy", "true"); }
+  try {
+    var res = await call("viewas.open", { id:id });
+    if (!res || !res.token) throw new Error("The test view could not be opened. Please try again.");
+    vaOpen(res, id, btn);
+  } catch (e) {
+    showErr(e && e.message ? e.message : "The test view could not be opened. Please try again.");
+  } finally {
+    if (btn) { btn.textContent = was; btn.disabled = false; btn.removeAttribute("aria-busy"); }
+    VA.busy = false;
+  }
+}
+
+function vaUrl(){ return "wedding/index.html#viewas=" + VA.token; }
+
+function vaOpen(res, id, opener){
+  var loc = vaLocal(id), info = res.wedding || {};
+  var name = info.salutation || loc.salutation || "the couple";
+  var ref = info.event_id || loc.event_id || "";
+  VA.token = res.token; VA.id = id; VA.dev = "phone"; VA.narrow = null;
+  VA.opener = opener || document.activeElement;
+
+  var r = document.createElement("div");
+  r.className = "va"; r.id = "vaPanel";
+  r.setAttribute("role", "dialog"); r.setAttribute("aria-modal", "true");
+  r.setAttribute("aria-labelledby", "vaTitle");
+  r.innerHTML =
+    '<div class="va-bar">' +
+      '<div class="va-head"><h2 id="vaTitle" tabindex="-1">Test view of ' + esc(name) + '</h2>' +
+        (ref ? '<span class="label">' + esc(ref) + '</span>' : '') + '</div>' +
+      '<details class="va-details" open><summary>About this test view</summary>' +
+        '<p class="va-note">Test view. You see exactly what they see. Anything that would save, ' +
+        'send an email or take a payment is only simulated and nothing is changed. ' +
+        'It all resets when you close this.</p></details>' +
+      '<div class="va-tools">' +
+        '<div class="va-devs" role="group" aria-label="Screen size">' +
+          '<button type="button" class="btn btn--sm va-dev" data-dev="phone" aria-pressed="true">Phone</button>' +
+          '<button type="button" class="btn btn--sm va-dev va-dev--big" data-dev="tablet" aria-pressed="false">Tablet</button>' +
+          '<button type="button" class="btn btn--sm va-dev va-dev--big" data-dev="desktop" aria-pressed="false">Desktop</button>' +
+        '</div>' +
+        '<button type="button" class="btn btn--sm" id="vaReload">Reload</button>' +
+        '<a class="btn btn--sm" id="vaNewTab" target="_blank" rel="noopener">Open in a new tab</a>' +
+        '<span class="va-spacer"></span>' +
+        '<button type="button" class="btn btn--sm" id="vaClose">Close</button>' +
+      '</div>' +
+    '</div>' +
+    '<div class="va-stage" id="vaStage"><div class="va-fit" id="vaFit"></div>' +
+      '<button type="button" class="va-sr" id="vaLoop">Back to the test view controls</button></div>';
+  document.body.appendChild(r);
+  VA.root = r;
+  document.body.classList.add("va-lock");
+  $("app").inert = true; $("gate").inert = true;
+  r.querySelector("#vaNewTab").href = vaUrl();
+
+  r.querySelector(".va-devs").addEventListener("click", function(ev){
+    var b = ev.target.closest("button[data-dev]"); if (!b) return;
+    VA.dev = b.dataset.dev;
+    [].forEach.call(r.querySelectorAll(".va-dev"), function(x){
+      x.setAttribute("aria-pressed", x === b ? "true" : "false");
+    });
+    vaLayout();
+  });
+  r.querySelector("#vaReload").addEventListener("click", vaBuildFrame);
+  r.querySelector("#vaClose").addEventListener("click", vaClose);
+  r.querySelector("#vaLoop").addEventListener("focus", function(){ vaFocusables()[0].focus(); });
+
+  document.addEventListener("keydown", vaKey, true);
+  document.addEventListener("focusin", vaFocusIn, true);
+  window.addEventListener("resize", vaLayout);
+  window.addEventListener("orientationchange", vaLayout);
+
+  vaBuildFrame();
+  r.querySelector("#vaTitle").focus();
+}
+
+/* A fresh iframe each time: setting src on the old one would only be a
+   hash change (the app removes the token from its own address), which does
+   not reload anything. Replacing it throws the test state away. */
+function vaBuildFrame(){
+  var r = VA.root; if (!r) return;
+  var fit = r.querySelector("#vaFit");
+  fit.textContent = "";
+  clearTimeout(VA.timer);
+  var fr = document.createElement("div");
+  fr.className = "va-frame is-loading";
+  var sp = document.createElement("div");
+  sp.className = "va-spinbox"; sp.setAttribute("role", "status");
+  sp.innerHTML = '<span class="spin" aria-hidden="true"></span><span>Loading the app...</span>';
+  var fm = document.createElement("iframe");
+  fm.title = "The Wedding App as the couple sees it (test view)";
+  var done = function(){ fr.classList.remove("is-loading"); clearTimeout(VA.timer); };
+  fm.addEventListener("load", function(){
+    done();
+    /* Same site, so Escape pressed inside the app can close the panel too
+       (only when nothing in the app is focused, so it never fights the
+       app's own dialogs). */
+    try {
+      var d = fm.contentWindow.document;
+      d.addEventListener("keydown", function(ev){
+        if (ev.key === "Escape" && !ev.defaultPrevented &&
+            (!d.activeElement || d.activeElement === d.body)) vaClose();
+      });
+    } catch (e) {}
+  });
+  VA.timer = setTimeout(done, 20000);
+  /* src before insertion: an iframe inserted without one fires a load event
+     for its blank page straight away, which would hide the spinner at once. */
+  fm.src = vaUrl();
+  fr.appendChild(sp); fr.appendChild(fm); fit.appendChild(fr);
+  vaLayout();
+}
+
+/* Sizes the frame to the screen: fixed device widths, scaled down when the
+   screen is narrower, and the height always fills what is left (at least
+   560px; the panel scrolls if the screen is shorter). */
+function vaLayout(){
+  var r = VA.root; if (!r) return;
+  var fit = r.querySelector("#vaFit"), fr = fit.firstChild, stage = r.querySelector("#vaStage");
+  if (!fr) return;
+  var narrow = window.matchMedia("(max-width:700px)").matches;
+  var det = r.querySelector(".va-details");
+  if (VA.narrow !== narrow) { VA.narrow = narrow; det.open = !narrow; }
+  var dev = narrow ? "phone" : VA.dev;
+  var cs = getComputedStyle(stage);
+  var sw = stage.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+  var sh = stage.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+  var visH = Math.max(560, Math.floor(sh));
+  fr.classList.toggle("va-frame--bare", narrow);
+  fr.classList.toggle("va-frame--phone", !narrow && dev === "phone");
+  if (narrow) {
+    fit.style.width = "100%"; fit.style.height = visH + "px";
+    fr.style.width = "100%"; fr.style.height = "100%"; fr.style.transform = "";
+    return;
+  }
+  var total = VA_W[dev] + (dev === "phone" ? 24 : 2);
+  var s = Math.min(1, sw / total);
+  fit.style.width = Math.floor(total * s) + "px"; fit.style.height = visH + "px";
+  fr.style.width = total + "px"; fr.style.height = Math.ceil(visH / s) + "px";
+  fr.style.transform = s < 1 ? "scale(" + s + ")" : "";
+}
+
+function vaFocusables(){
+  return [].filter.call(VA.root.querySelectorAll("button:not([disabled]):not(.va-sr), a[href], summary, iframe"),
+    function(x){ return x.offsetParent !== null; });
+}
+
+function vaKey(ev){
+  if (!VA.root) return;
+  if (ev.key === "Escape") { ev.preventDefault(); ev.stopPropagation(); vaClose(); return; }
+  if (ev.key !== "Tab") return;
+  var f = vaFocusables(); if (!f.length) return;
+  var first = f[0], last = f[f.length - 1], a = document.activeElement;
+  if (!VA.root.contains(a)) { ev.preventDefault(); first.focus(); }
+  else if (ev.shiftKey && (a === first || a === VA.root.querySelector("#vaTitle"))) { ev.preventDefault(); last.focus(); }
+  else if (!ev.shiftKey && a === last) { ev.preventDefault(); first.focus(); }
+}
+
+function vaFocusIn(ev){
+  if (VA.root && !VA.root.contains(ev.target)) vaFocusables()[0].focus();
+}
+
+function vaClose(){
+  var r = VA.root; if (!r) return;
+  clearTimeout(VA.timer);
+  document.removeEventListener("keydown", vaKey, true);
+  document.removeEventListener("focusin", vaFocusIn, true);
+  window.removeEventListener("resize", vaLayout);
+  window.removeEventListener("orientationchange", vaLayout);
+  r.querySelector("#vaFit").textContent = "";   // removes the iframe: test state gone
+  r.remove();
+  VA.root = null; VA.token = null;
+  document.body.classList.remove("va-lock");
+  $("app").inert = false; $("gate").inert = false;
+  var o = VA.opener;
+  if (!o || !o.isConnected) {
+    o = document.querySelector('[data-va-id="' + String(VA.id).replace(/"/g, "") + '"]');
+  }
+  VA.opener = null; VA.id = null;
+  if (o && o.focus) o.focus();
+}
+
 function viewWedding(){
   var d = S.detail, w = d.wedding, b = d.balance;
   var h = '<button class="btn btn--sm" onclick="S.current=null;render()">&larr; All weddings</button>' +
-    ' <button class="btn btn--sm" onclick="openInTracker(\'' + esc(w.event_id) + '\')">View in Tracker</button>';
+    ' <button class="btn btn--sm" onclick="openInTracker(\'' + esc(w.event_id) + '\')">View in Tracker</button>' +
+    ' <button type="button" class="btn btn--sm" id="vaBtn" data-va-id="' + esc(w.id) + '" ' +
+      'onclick="viewAs(\'' + esc(w.id) + '\', this)">View as the couple</button>';
 
   h += '<div class="split" style="margin:16px 0 4px"><h1>' + esc(w.salutation) + '</h1>' +
     '<span class="label">' + esc(ukDate(w.wedding_date)) + '</span></div>';

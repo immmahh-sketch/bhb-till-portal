@@ -417,6 +417,20 @@ footer.app{border-top:1px solid var(--mist);padding:26px 0;text-align:center;fon
 .staffbar strong{letter-spacing:.06em;text-transform:uppercase;font-size:.6875rem;
   display:block;opacity:.85;margin-bottom:1px}
 
+/* ---- the test view: the back office trying the app as the couple ----
+   Calm rather than loud, because nothing done here touches their wedding.
+   It stays on screen, and the app header sits just beneath it (--sbxh is
+   the banner's height, set when it is drawn). */
+.sbxbar{position:sticky;top:0;z-index:60;display:flex;align-items:center;gap:12px;
+  background:var(--sage-10);color:var(--sage);border-bottom:1px solid var(--celadon);
+  padding:8px 16px;font-size:.8125rem;line-height:1.4;letter-spacing:.02em}
+.sbxbar .sbx-text{flex:1 1 auto;min-width:0}
+.sbxbar strong{font-weight:600}
+.sbxbar .sbx-sub{display:block;font-size:.75rem;color:var(--sage-70)}
+.sbxbar .sbx-reset{flex:0 0 auto;padding:11px 18px}
+body.sbx header.app{top:var(--sbxh,0px)}
+#sbxNote{margin-bottom:18px}
+
 /* ---- photo album ---- */
 .linkbox{display:flex;gap:0;border:1px solid var(--mist);background:var(--bone);margin:0 0 12px}
 .linkbox code{flex:1;min-width:0;padding:12px 14px;font:.8125rem/1.5 var(--body);
@@ -713,6 +727,7 @@ footer.app{border-top:1px solid var(--mist);padding:26px 0;text-align:center;fon
   </header>
 
   <main class="wrap">
+    <div id="sbxNote" class="notice notice--ok hide" role="status" aria-live="polite"></div>
     <div id="globalErr" class="notice notice--late hide" style="margin-bottom:18px"></div>
     <div id="views"></div>
   </main>
@@ -735,6 +750,9 @@ var CFG = {
   SUPABASE_URL: "https://safcrtrfdzsnftghibot.supabase.co",
   SUPABASE_KEY: "sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU",
   SESSION_KEY: "bhb_wedding_session",
+  // The back office's test view keeps its token here and nowhere else, so a
+  // test session can never be mistaken for (or become) a couple's own login.
+  SANDBOX_KEY: "bhb_wedding_viewas",
   // Their reference and date, kept so they don't retype them every visit.
   // Separate from the session token: the token expires after 30 days, and
   // Safari may drop it inside the Squarespace frame — these survive that
@@ -745,7 +763,9 @@ var CFG = {
 // locked: a phone that has not been added to the home screen yet, where the
 // instructions are the whole app until it has.
 var S = { onboardStep: 1, locked: false, token: null, data: null, view: "home",
-          guests: [], suppliers: [], budget: [], tables: [], menu: [] };
+          guests: [], suppliers: [], budget: [], tables: [], menu: [],
+          // The back office's test view: changes are simulated on the page.
+          sandbox: false, staff: false };
 
 /* ---------- helpers ---------- */
 function $(id){ return document.getElementById(id); }
@@ -797,6 +817,17 @@ function shift(iso, months, days){
 
 /* ---------- api ---------- */
 async function callFn(name, body){
+  /* The test view. Nothing that could change, send or charge anything may
+     reach the network from here: sending an invitation is simulated, and
+     anything else that is not a plain read is refused before fetch runs. */
+  if (S.sandbox) {
+    var sim = await sbxIntercept(name, body);
+    if (sim !== null) return sim;
+    if (!sbxAllowed(name, body)) {
+      sbxLog("blocked before sending", name, body);
+      throw sbxErr(sbxBlockedText(name), 403, "SANDBOX");
+    }
+  }
   var r = await fetch(CFG.SUPABASE_URL + "/functions/v1/" + name, {
     method: "POST",
     headers: { "Content-Type":"application/json",
@@ -804,6 +835,13 @@ async function callFn(name, body){
     body: JSON.stringify(body)
   });
   var data = await r.json().catch(function(){ return {}; });
+  /* The server's own refusal of a test session is the safety net under the
+     simulation: if a path was missed, say so quietly and carry on. */
+  if (S.sandbox && r.status === 403 && data.code === "SANDBOX") {
+    sbxLog("refused by the server", name, body);
+    sbxNotice("Test view: that action is not saved.");
+    return { ok:true, sandbox:true };
+  }
   if (!r.ok) {
     var e = new Error(data.error || ("Request failed (" + r.status + ")"));
     e.code = data.code; e.status = r.status; e.payload = data;
@@ -813,6 +851,10 @@ async function callFn(name, body){
 }
 
 async function api(action, payload){
+  if (S.sandbox) {
+    try { return await sbxApi(action, payload || {}); }
+    catch (e) { if (e.code === "AUTH") { signOut(); } throw e; }
+  }
   try {
     return await callFn("wedding-api", { token: S.token, action: action, payload: payload||{} });
   } catch (e) {
@@ -846,6 +888,9 @@ function bookMeeting(key, title){
   box.classList.add("open");
 
   var parent = $("calFrame_" + key);
+
+  // A booking made in the test view would be a real one, in the venue's diary.
+  if (S.sandbox) { parent.innerHTML = sbxCalendarNote(); return; }
 
   function open(){
     if (!window.Calendly) {
@@ -945,6 +990,8 @@ function clearError(){ $("globalErr").classList.add("hide"); }
 
 /* ---------- session ---------- */
 function signOut(){
+  // A test view that has run out is not a login to go back to.
+  if (S.sandbox) { sbxExpired(); return; }
   // The session goes; their reference and date stay, so logging back in is
   // one tap rather than digging through old emails again.
   try { localStorage.removeItem(CFG.SESSION_KEY); } catch(e){}
@@ -1281,8 +1328,9 @@ function buildMenu(){
       (v[0] === "chat" ? menuBadgeHtml() : '') + '</button>';
   }).join("") +
   // Last in the list and set apart, because it is the one thing in here
-  // that undoes something rather than going somewhere.
-  '<button data-action="logout" class="menu-out">Log out</button>';
+  // that undoes something rather than going somewhere. (Not in the test
+  // view: there is no login there to leave.)
+  (S.sandbox ? '' : '<button data-action="logout" class="menu-out">Log out</button>');
   var label = VIEWS.filter(function(v){ return v[0] === S.view; })[0];
   var w = $("whereAmI");
   if (w && label) w.textContent = label[1];
@@ -1395,6 +1443,21 @@ function renderStaffBar(){
   var bar = $("staffBar");
   if (!bar) return;
   var w = S.data && S.data.wedding;
+
+  /* The test view gets its own calm banner, with Reset. */
+  if (S.sandbox) {
+    bar.className = "sbxbar";
+    if (!w) { bar.classList.add("hide"); return; }
+    bar.innerHTML = '<div class="sbx-text">Test view of <strong>' + esc(w.salutation) + '</strong> (' +
+      esc(w.event_id) + '). Nothing you do here is saved, sent or paid.' +
+      '<span class="sbx-sub">Closing this window resets everything.</span></div>' +
+      '<button type="button" class="btn btn--sm sbx-reset" onclick="sbxReset(this)" ' +
+      'title="Put everything back as the couple has it">Reset</button>';
+    sbxBarHeight();
+    return;
+  }
+
+  bar.className = "staffbar hide";
   if (!w || w.staff !== true) { bar.classList.add("hide"); return; }
   bar.innerHTML = '<strong>Back office view</strong>' +
     'You are signed in as <strong style="display:inline;text-transform:none;font-size:.8125rem;opacity:1">' +
@@ -1547,7 +1610,8 @@ var APP_URL = "https://app.blackhorsebeamish.co.uk/wedding/";
    they close it — after that it still lives at the top of their journey,
    which is where a letter about the journey belongs anyway. */
 function gmWelcomeCard(){
-  try { if (localStorage.getItem("bhb_wedding_welcome") === "read") return ""; } catch (e) {}
+  if (S.sandbox) { if (SBX.mem.welcome) return ""; }
+  else { try { if (localStorage.getItem("bhb_wedding_welcome") === "read") return ""; } catch (e) {} }
   var w = S.data.wedding;
   return '<div class="welcome" id="gmCard" style="margin:0 0 16px;text-align:left">' +
     '<div class="orn" style="margin:0 0 16px"><i></i></div>' +
@@ -1560,7 +1624,8 @@ function gmWelcomeCard(){
 }
 
 function closeWelcome(){
-  try { localStorage.setItem("bhb_wedding_welcome", "read"); } catch (e) {}
+  if (S.sandbox) SBX.mem.welcome = true;
+  else { try { localStorage.setItem("bhb_wedding_welcome", "read"); } catch (e) {} }
   var el = $("gmCard");
   if (el) el.remove();
 }
@@ -1808,7 +1873,7 @@ function renderStandaloneNote(){
 }
 
 function installHint(){
-  if (!isFramed()) return "";
+  if (!isFramed() || S.sandbox) return "";
   try { if (localStorage.getItem("bhb_wedding_hint") === "off") return ""; } catch (e) {}
   return '<div class="card" id="installHint" style="border-color:var(--celadon);background:var(--sage-10)">' +
     '<span class="label">Keep it to hand</span>' +
@@ -1951,8 +2016,11 @@ function viewPay(){
             (overdue ? 'Was due by ' : 'Due by ') + esc(due) + '</p>'
           : '<p class="muted" style="margin:0 0 16px;font-size:.9375rem">Requested by the venue</p>') +
         (p.description ? '<p style="margin:0 0 14px">' + esc(p.description) + '</p>' : '') +
-        '<a class="btn btn--primary" style="width:100%;text-align:center" href="' + esc(p.uri) + '" ' +
-        'target="_blank" rel="noopener">Pay ' + money(p.amount) + ' now</a>' +
+        '<a class="btn btn--primary" style="width:100%;text-align:center" ' +
+        // In the test view the real payment page is never opened.
+        (S.sandbox ? 'href="#" onclick="sbxPayBlocked();return false"'
+                   : 'href="' + esc(p.uri) + '" target="_blank" rel="noopener"') +
+        '>Pay ' + money(p.amount) + ' now</a>' +
         '<p class="muted center" style="font-size:.8125rem;margin:12px 0 0">' +
         'Goes straight onto your account, so it shows here as soon as it clears.</p>' +
       '</div>';
@@ -2066,6 +2134,7 @@ function bindPay(){
       err.textContent = "That's more than your outstanding balance of " + money(S.data.balance.outstanding) + ".";
       err.classList.remove("hide"); return;
     }
+    if (S.sandbox) { sbxPayBlocked(); return; }
     btn.disabled = true; btn.innerHTML = '<span class="spin"></span>';
     try {
       var res = await callFn("sumup-create-wedding-checkout", {
@@ -2091,6 +2160,7 @@ var MEETING_NUDGE_KEY = "bhb_wedding_meeting_nudge";
 var MEETING_NUDGE_QUIET_DAYS = 3;
 
 function nudgeSnoozed(key){
+  if (S.sandbox) return SBX.mem.nudge === key;     // the test view leaves no trace in the browser
   try {
     var raw = localStorage.getItem(MEETING_NUDGE_KEY);
     if (!raw) return false;
@@ -2100,6 +2170,7 @@ function nudgeSnoozed(key){
 }
 
 function snoozeNudge(key){
+  if (S.sandbox) { SBX.mem.nudge = key; return; }
   try {
     localStorage.setItem(MEETING_NUDGE_KEY, JSON.stringify({
       key: key, until: Date.now() + MEETING_NUDGE_QUIET_DAYS * 86400000
@@ -2215,6 +2286,7 @@ function viewMeeting(){
 function openMeetingCalendar(){
   var parent = $("calFrame_meeting");
   if (!parent) return;
+  if (S.sandbox) { parent.innerHTML = sbxCalendarNote(); return; }
   var w = S.data.wedding, due = meetingDue();
   var label = due ? due.title : "Wedding meeting";
 
@@ -2954,6 +3026,7 @@ async function previewInvite(guestId){
   try {
     showModal('<div class="empty"><span class="spin"></span></div>');
     var res = await callFn("send-guest-invite", { token:S.token, action:"preview", guest_id: guestId || null });
+    if (S.sandbox) res = sbxPatchPreview(res);
     var frame = '<iframe id="previewFrame" style="width:100%;height:62vh;border:1px solid var(--mist);background:#fff" ' +
       'title="Invitation preview"></iframe>';
     showModal('<div class="split" style="margin-bottom:12px"><h2>Invitation preview</h2>' +
@@ -2966,6 +3039,11 @@ async function previewInvite(guestId){
         ? '<div class="notice notice--due" style="margin:12px 0 0;font-size:.8125rem">' +
           'The arrival time above was read from your function notes — ' +
           '&ldquo;' + esc(res.arrivalSource) + '&rdquo;. Please check it is right.</div>'
+        : '') +
+      (res.sbxStale
+        ? '<div class="notice notice--due" style="margin:12px 0 0;font-size:.8125rem">' +
+          'Test view: this preview is built from the wording the couple has saved, so the ' +
+          'changes you made here are not all shown in it.</div>'
         : '') +
       '<p class="muted" style="margin:12px 0 0;font-size:.8125rem">' +
       'Each guest gets their own reply link, so we know exactly who has answered.</p>');
@@ -3083,6 +3161,7 @@ async function reallySendInvites(guestId){
     else if (res.failed) {
       showError("Sent " + res.sent + ", but " + res.failed + " didn't go through. Check those email addresses and try again.");
     } else { clearError(); }
+    if (S.sandbox && res.sbxNote) sbxNotice(res.sbxNote);
     await loadGuests();
   } catch (e) { closeModal(); showError(e.message); }
 }
@@ -4575,6 +4654,18 @@ function viewAlbum(){
     '<button class="btn btn--primary" onclick="saveAlbumSettings(this)">Save</button>' +
   '</div>';
 
+  // ---- test view only: stand in for a guest adding a photograph ---------
+  if (S.sandbox) {
+    h += '<div class="card"><span class="label">Test view</span>' +
+      '<h3 style="margin:6px 0 8px">Add a photograph as a guest would</h3>' +
+      '<p class="muted" style="margin:0 0 14px;font-size:.9375rem">Guests add photographs ' +
+      'through your album link. Add one here to see how it appears, and to try hiding or ' +
+      'deleting it. It stays on this page only.</p>' +
+      '<button type="button" class="btn btn--sm" id="sbxAlbumAdd" onclick="sbxAlbumPick()">Add a test photograph</button>' +
+      '<input type="file" id="sbxAlbumFile" class="hide" accept="image/*" multiple tabindex="-1" ' +
+        'aria-hidden="true" onchange="sbxAlbumAdd(this)"></div>';
+  }
+
   // ---- the photographs -----------------------------------------------
   h += '<div class="card"><h2 style="margin-bottom:6px">' +
     (n ? (n === 1 ? "One photograph" : n + " photographs") : "Photographs") + '</h2>';
@@ -4904,7 +4995,7 @@ function viewScan(){
     h += '<div class="card center">' +
       '<input id="scanPick" type="file" accept="image/*" capture="environment" ' +
         'style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none">' +
-      '<button class="btn btn--primary btn--block" onclick="document.getElementById(\'scanPick\').click()">' +
+      '<button class="btn btn--primary btn--block" onclick="scanPickClick()">' +
         'Photograph a page</button>' +
       '<p class="muted" style="margin:14px 0 0;font-size:.875rem">' +
         'One page at a time. We can read your <strong>checklist</strong>, <strong>guest list</strong>, ' +
@@ -5010,7 +5101,16 @@ function decodeForScan(file){
   }
 }
 
+/* Reading a page sends the photograph away and is paid for per page, so the
+   test view never starts it. */
+function scanPickClick(){
+  if (S.sandbox) { sbxScanBlocked(); return; }
+  var p = $("scanPick");
+  if (p) p.click();
+}
+
 async function scanPage(file){
+  if (S.sandbox) { sbxScanBlocked(); return; }
   SC.stage = "busy"; render();
   try {
     var image = await scanShrink(file);
@@ -5382,7 +5482,11 @@ function exportBudget(){
 var CH = { msgs:[], unread:0, sending:false, polling:false, fast:null, slow:null,
            tmp:0, painted:0, vis:false };
 
-function isStaffView(){ return !!(S.data && S.data.wedding && S.data.wedding.staff === true); }
+/* A real coordinator signed in as the couple. The test view is not this: there
+   everything works, and is simulated on the page (see the test view section). */
+function isStaffView(){
+  return !S.sandbox && !!(S.data && S.data.wedding && S.data.wedding.staff === true);
+}
 function pageVisible(){ return document.visibilityState !== "hidden"; }
 function finePointer(){ try { return window.matchMedia("(pointer: fine)").matches; } catch (e) { return true; } }
 function coarsePointer(){ try { return window.matchMedia("(pointer: coarse)").matches; } catch (e) { return false; } }
@@ -5541,6 +5645,7 @@ function chatMsgHtml(m){
   var mine = m.side === "couple";
   var meta = m.pending ? "Sending" : lonTime(m.created_at);
   if (!mine) meta = firstName(m.sender_name) + " · " + meta;
+  else if (m.sandbox) meta += " · test message, not sent";
   return '<div class="cmsg ' + (mine ? "cmsg--me" : "cmsg--team") + (m.pending ? " cmsg--pending" : "") + '">' +
     '<div class="cbub">' + esc(m.body) + '</div>' +
     '<span class="cmeta">' + esc(meta) + '</span></div>';
@@ -5930,6 +6035,8 @@ function tpCancel(d){
 
 /* ---------- saving ---------- */
 function tpPut(url, blob, mime, onPct){
+  // The test view only acts out the upload: nothing leaves the page.
+  if (S.sandbox) return sbxFakeUpload(onPct);
   return new Promise(function(res, rej){
     var x = new XMLHttpRequest();
     x.open("PUT", url);
@@ -5950,6 +6057,7 @@ async function tpSave(d){
   try {
     var s = await api("teamphotos.start", { mime:"image/jpeg", bytes:d.blob.size });
     var mime = s.mime || "image/jpeg";
+    if (S.sandbox) sbxHoldBlob(s.id, d.blob);
     d.stage = "Uploading 0%"; tpUpd(d);
     var onPct = function(p){ d.pct = p; d.stage = "Uploading " + p + "%"; tpUpd(d); };
     // One retry: a phone loses signal for a second now and then.
@@ -6168,8 +6276,711 @@ async function tpDelete(){
   }
 }
 
+/* ============================ THE TEST VIEW ============================
+   "View as the couple" (see VIEWAS.md). The back office opens a couple's real
+   app on a test session and clicks through every feature. Nothing done there
+   is saved, emailed or paid, and two things make sure of it:
+
+     1. The server answers a test session's reads only, and refuses anything
+        else with 403 SANDBOX. That is the net underneath.
+     2. This page never tries. Every list is read from the server once (reads
+        are allowed), kept in memory, and every later read and every write is
+        answered from that copy with the same shapes the server returns. So
+        the guest list, table plan, budget and the rest behave as they would
+        for the couple, until Reset puts them back.
+
+   callFn() is the single door to the network. In the test view it lets
+   through only the read actions and the invitation preview; everything else
+   is simulated here or refused before fetch is called. */
+
+var SBX = { gen:0, seq:0, d:{}, pending:{}, at:{}, urls:[], blobs:{}, noteTimer:null, ro:null,
+            mem:{} };     // "not just now", "thank you Paul": kept for this page only
+
+/* What the server will answer for a test session. Must match wedding-api. */
+var SBX_READS = { "dashboard":1, "guests.list":1, "tables.list":1, "menu.list":1, "suppliers.list":1,
+  "budget.list":1, "photos.list":1, "photos.download":1, "foodsheet":1, "chat.list":1,
+  "chat.unread":1, "teamphotos.list":1 };
+
+/* The read that seeds each cached list. */
+var SBX_SEED = { dashboard:"dashboard", guests:"guests.list", tables:"tables.list", menu:"menu.list",
+  suppliers:"suppliers.list", budget:"budget.list", photos:"photos.list", chat:"chat.list",
+  teamphotos:"teamphotos.list" };
+
+/* The columns each list lets the couple write; anything else is dropped. */
+var SBX_WRITABLE = {
+  guests: ["first_name","surname","email","phone","address","household","age_group","invited_to","rsvp",
+           "dietary","accessibility","notes","table_id","allergies","starter_choice","main_choice",
+           "dessert_choice","meal_confirmed","seat_number"],
+  tables: ["name","capacity","sort_order","shape"],
+  suppliers: ["name","category","contact_name","phone","email","arrival_time","notes","cost","is_paid"],
+  budget: ["description","category","budgeted","spent","is_paid","sort_order"]
+};
+
+var SBX_GENERIC = "Something went wrong in the test view. Please try again.";
+var SBX_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function sbxClone(x){ return x === undefined ? undefined : JSON.parse(JSON.stringify(x)); }
+function sbxId(){ return "sbx-" + (++SBX.seq); }
+function sbxNow(){ return new Date().toISOString(); }
+function sbxErr(msg, status, code){
+  var e = new Error(msg);
+  e.status = status || 400; e.code = code; e.payload = { error: msg };
+  return e;
+}
+function sbxLog(what, name, body){
+  try { console.warn("[test view] " + what + ":", name, (body && body.action) || ""); } catch (e) {}
+}
+function sbxWid(){ var D = SBX.d.dashboard; return (D && D.base && D.base.wedding && D.base.wedding.id) || "sbx-wedding"; }
+
+/* The only requests the test view may send. */
+function sbxAllowed(name, body){
+  if (name === "wedding-api") return !!SBX_READS[String(body && body.action)];
+  if (name === "send-guest-invite") return !!(body && body.action === "preview");
+  return false;
+}
+function sbxBlockedText(name){
+  if (name === "sumup-create-wedding-checkout") return "Payments are switched off in the test view.";
+  if (name === "journal-scan") return "Scanning is switched off in the test view.";
+  return "That is switched off in the test view.";
+}
+
+/* A real read, for seeding. */
+function sbxNet(action, payload){
+  return callFn("wedding-api", { token: S.token, action: action, payload: payload || {} });
+}
+
+/* ---- the cache: one real read per list, then it is ours ---- */
+function sbxShape(key, d){
+  switch (key) {
+    case "dashboard": return { base: sbxClone(d), progress: sbxClone(d.progress || []), over: {} };
+    case "photos": { var a = sbxClone(d || {}); a.photos = a.photos || []; return a; }
+    case "chat": return sbxClone((d && d.messages) || []);
+    case "teamphotos": return sbxClone((d && d.photos) || []);
+    // A list the server would not give us (never expected) starts empty.
+    default: return Array.isArray(d) ? sbxClone(d) : [];
+  }
+}
+
+function sbxGet(key){
+  if (SBX.d[key]) return Promise.resolve(SBX.d[key]);
+  if (SBX.pending[key]) return SBX.pending[key];
+  var gen = SBX.gen;
+  var p = sbxNet(SBX_SEED[key], {}).then(function(d){
+    if (gen !== SBX.gen) return sbxGet(key);          // Reset happened while this was in flight
+    delete SBX.pending[key];
+    SBX.d[key] = sbxShape(key, d);
+    SBX.at[key] = Date.now();
+    return SBX.d[key];
+  }, function(e){ delete SBX.pending[key]; throw e; });
+  SBX.pending[key] = p;
+  return p;
+}
+
+/* Picture links from the server are signed for an hour. A test view left open
+   longer gets fresh links for the pictures it already has. */
+async function sbxFreshUrls(key){
+  if (Date.now() - (SBX.at[key] || 0) < 40 * 60 * 1000) return;
+  SBX.at[key] = Date.now();
+  try {
+    var fresh = await sbxNet(SBX_SEED[key], {});
+    if (!SBX.d[key]) return;
+    var field = key === "photos" ? "thumb" : "url";
+    var list = key === "photos" ? SBX.d.photos.photos : SBX.d.teamphotos;
+    (fresh.photos || []).forEach(function(f){
+      list.forEach(function(x){ if (x.id === f.id && f[field]) x[field] = f[field]; });
+    });
+  } catch (e) { /* the old links may well still work */ }
+}
+
+function sbxClean(key, body){
+  var out = {};
+  SBX_WRITABLE[key].forEach(function(k){
+    if (body[k] !== undefined) out[k] = body[k] === "" ? null : body[k];
+  });
+  return out;
+}
+
+/* Like the server's upsert: an id edits that row, no id makes a new one. */
+function sbxUpsert(key, list, payload, make){
+  var data = sbxClean(key, payload);
+  if (payload.id) {
+    var row = list.filter(function(x){ return x.id === payload.id; })[0];
+    if (!row) throw sbxErr(SBX_GENERIC, 500);
+    Object.assign(row, data);
+    return row;
+  }
+  var made = make(data);
+  list.push(made);
+  return made;
+}
+
+function sbxCmp(x, y){
+  if (x === y) return 0;
+  if (x == null) return 1;
+  if (y == null) return -1;
+  if (typeof x === "number" && typeof y === "number") return x - y;
+  return String(x).localeCompare(String(y), "en-GB", { sensitivity:"base" });
+}
+function sbxSort(list, keys){
+  list.sort(function(a, b){
+    for (var i = 0; i < keys.length; i++) {
+      var c = sbxCmp(a[keys[i]], b[keys[i]]);
+      if (c) return c;
+    }
+    return 0;
+  });
+}
+
+function sbxNewGuest(data){
+  var id = sbxId();
+  return Object.assign({
+    id: id, wedding_id: sbxWid(), first_name: "", surname: null, email: null, phone: null, address: null,
+    household: null, age_group: "adult", invited_to: "day", rsvp: "no_reply", dietary: null,
+    accessibility: null, notes: null, table_id: null, allergies: null, starter_choice: null,
+    main_choice: null, dessert_choice: null, meal_confirmed: false, seat_number: null,
+    rsvp_token: id + "-reply", rsvp_at: null, rsvp_method: null, invite_sent_at: null, created_at: sbxNow()
+  }, data);
+}
+
+function sbxIds(p){
+  return (Array.isArray(p.ids) ? p.ids : [p.id]).filter(Boolean).slice(0, 500);
+}
+
+/* ---- wedding-api, acted out ---- */
+async function sbxApi(action, p){
+  switch (action) {
+
+    case "dashboard": {
+      var D = await sbxGet("dashboard");
+      var out = sbxClone(D.base);
+      out.progress = sbxClone(D.progress);
+      // What the couple has changed here (budget total, invitation wording) shows on top.
+      out.wedding = Object.assign(out.wedding || {}, D.over, { staff:true, sandbox:true });
+      return out;
+    }
+
+    /* ---- guests ---- */
+    case "guests.list": return sbxClone(await sbxGet("guests"));
+    case "guests.save": {
+      var gl = await sbxGet("guests");
+      var g = sbxUpsert("guests", gl, p, sbxNewGuest);
+      sbxSort(gl, ["surname", "first_name"]);
+      return sbxClone(g);
+    }
+    case "guests.delete": {
+      var gl2 = await sbxGet("guests");
+      SBX.d.guests = gl2.filter(function(x){ return x.id !== p.id; });
+      return { ok:true };
+    }
+    case "guests.bulk": {
+      var rows = Array.isArray(p.rows) ? p.rows : [];
+      if (!rows.length) throw sbxErr("There's nothing to import.", 400);
+      if (rows.length > 500) throw sbxErr("That's more than 500 guests in one go. Split it into a couple of files.", 400);
+      var trim = function(v, max){ return typeof v === "string" && v.trim() ? v.trim().slice(0, max) : null; };
+      var gl3 = await sbxGet("guests"), made = 0;
+      rows.forEach(function(r){
+        var first = trim(r.first_name, 80);
+        if (!first) return;                              // a guest with no name isn't a guest
+        gl3.push(sbxNewGuest({
+          first_name: first, surname: trim(r.surname, 80) || "", email: trim(r.email, 160),
+          phone: trim(r.phone, 40), address: trim(r.address, 400), household: trim(r.household, 120),
+          age_group: ["adult","child","infant"].indexOf(r.age_group) > -1 ? r.age_group : "adult",
+          invited_to: ["day","evening","both"].indexOf(r.invited_to) > -1 ? r.invited_to : "day",
+          rsvp: ["no_reply","invited","attending","declined"].indexOf(r.rsvp) > -1 ? r.rsvp : "no_reply",
+          dietary: trim(r.dietary, 500), allergies: trim(r.allergies, 500), notes: trim(r.notes, 500)
+        }));
+        made++;
+      });
+      if (!made) throw sbxErr("None of those rows had a first name in them.", 400);
+      sbxSort(gl3, ["surname", "first_name"]);
+      return { ok:true, imported:made, skipped: rows.length - made };
+    }
+    case "guests.markRsvp": {
+      var gl4 = await sbxGet("guests");
+      var one = gl4.filter(function(x){ return x.id === p.id; })[0];
+      if (!one) throw sbxErr("not found", 404);
+      one.rsvp = p.attending === true ? "attending" : "declined";
+      one.rsvp_at = sbxNow();
+      one.rsvp_method = "manual";
+      return { ok:true };
+    }
+
+    /* ---- tables ---- */
+    case "tables.list": return sbxClone(await sbxGet("tables"));
+    case "tables.save": {
+      if (p.shape !== "top" && p.capacity != null && Number(p.capacity) > 11) {
+        throw sbxErr("A round table seats 10, or 11 at a squeeze. For more than that, make it a top table or add another.", 400);
+      }
+      var tl = await sbxGet("tables");
+      var t = sbxUpsert("tables", tl, p, function(data){
+        var next = tl.reduce(function(m, x){ return Math.max(m, Number(x.sort_order) || 0); }, -1) + 1;
+        return Object.assign({ id: sbxId(), wedding_id: sbxWid(), name: "Table", capacity: 10,
+          sort_order: next, shape: "round", created_at: sbxNow() }, data);
+      });
+      sbxSort(tl, ["sort_order"]);
+      return sbxClone(t);
+    }
+    case "tables.delete": {
+      var tl2 = await sbxGet("tables"), gl5 = await sbxGet("guests");
+      // Guests sitting there are unseated, not deleted.
+      gl5.forEach(function(x){ if (x.table_id === p.id) x.table_id = null; });
+      SBX.d.tables = tl2.filter(function(x){ return x.id !== p.id; });
+      return { ok:true };
+    }
+    case "tables.setup": {
+      var tl3 = await sbxGet("tables");
+      var count = Math.max(0, Math.min(60, Number(p.count) || 0));
+      var capacity = Math.max(1, Math.min(11, Number(p.capacity) || 10));
+      var from = tl3.length;
+      if (count <= from) return { ok:true, created:0 };
+      for (var i = from; i < count; i++) {
+        tl3.push({ id: sbxId(), wedding_id: sbxWid(), name: "Table " + (i + 1), capacity: capacity,
+          sort_order: i, shape: "round", created_at: sbxNow() });
+      }
+      return { ok:true, created: count - from };
+    }
+    case "tables.assign": {
+      var tl4 = await sbxGet("tables"), gl6 = await sbxGet("guests");
+      var tid = p.table_id || null;
+      if (tid && !tl4.some(function(x){ return x.id === tid; })) throw sbxErr("That table isn't on your plan.", 400);
+      var sit = gl6.filter(function(x){ return x.id === p.guest_id; })[0];
+      if (!sit) throw sbxErr("not found", 404);
+      sit.table_id = tid;                                // over capacity is allowed, as on the server
+      return { ok:true };
+    }
+    case "tables.assignMany": {
+      var tl5 = await sbxGet("tables"), gl7 = await sbxGet("guests");
+      var tid2 = p.table_id || null;
+      var gids = (Array.isArray(p.guest_ids) ? p.guest_ids : [])
+        .filter(function(x){ return typeof x === "string"; }).slice(0, 40);
+      if (!gids.length) throw sbxErr("Nobody to seat.", 400);
+      if (tid2 && !tl5.some(function(x){ return x.id === tid2; })) throw sbxErr("That table isn't on your plan.", 400);
+      var moved = 0;
+      gl7.forEach(function(x){ if (gids.indexOf(x.id) > -1) { x.table_id = tid2; moved++; } });
+      return { ok:true, moved: moved };
+    }
+
+    /* ---- menu (read only for the couple) and the kitchen sheet ---- */
+    case "menu.list": return sbxClone(await sbxGet("menu"));
+    case "foodsheet": {
+      var D2 = await sbxGet("dashboard");
+      var tl6 = await sbxGet("tables"), gl8 = await sbxGet("guests");
+      var seated = gl8.filter(function(x){ return x.rsvp === "attending"; })
+        .sort(function(a, b){ return sbxCmp(a.surname, b.surname); })
+        .filter(function(x){ return x.invited_to !== "evening"; });
+      var tally = function(field){
+        var counts = {};
+        seated.forEach(function(x){ var v = x[field] || "Not chosen"; counts[v] = (counts[v] || 0) + 1; });
+        return Object.keys(counts).map(function(k){ return { label:k, count:counts[k] }; })
+          .sort(function(a, b){ return b.count - a.count; });
+      };
+      var wd = D2.base.wedding;
+      return sbxClone({
+        wedding: { salutation: wd.salutation, wedding_date: wd.wedding_date, event_id: wd.event_id },
+        tables: tl6, guests: seated,
+        unseated: seated.filter(function(x){ return !x.table_id; }).length,
+        unconfirmed: seated.filter(function(x){ return !x.meal_confirmed; }).length,
+        allergyCount: seated.filter(function(x){ return x.allergies; }).length,
+        totals: {
+          starter: tally("starter_choice"), main: tally("main_choice"), dessert: tally("dessert_choice"),
+          adults: seated.filter(function(x){ return x.age_group === "adult"; }).length,
+          children: seated.filter(function(x){ return x.age_group === "child"; }).length,
+          infants: seated.filter(function(x){ return x.age_group === "infant"; }).length
+        }
+      });
+    }
+
+    /* ---- invitation wording ---- */
+    case "invite.settings": {
+      var D3 = await sbxGet("dashboard");
+      if ("invite_style" in p && ["invitation","rsvp"].indexOf(String(p.invite_style)) < 0) {
+        throw sbxErr("unknown invitation style", 400);
+      }
+      var fields = ["invite_message","invite_dress_code","invite_rsvp_by","invite_extra_info","invite_style"];
+      var any = false;
+      fields.forEach(function(f){ if (f in p) { D3.over[f] = p[f] === "" ? null : p[f]; any = true; } });
+      if (!any) throw sbxErr("nothing to save", 400);
+      return { ok:true };
+    }
+
+    /* ---- suppliers ---- */
+    case "suppliers.list": return sbxClone(await sbxGet("suppliers"));
+    case "suppliers.save": {
+      var sl = await sbxGet("suppliers");
+      var sup = sbxUpsert("suppliers", sl, p, function(data){
+        return Object.assign({ id: sbxId(), wedding_id: sbxWid(), name: "", category: "Other",
+          contact_name: null, phone: null, email: null, arrival_time: null, notes: null,
+          cost: null, is_paid: false, created_at: sbxNow() }, data);
+      });
+      // A time column comes back as hh:mm:ss.
+      if (sup.arrival_time && String(sup.arrival_time).length === 5) sup.arrival_time += ":00";
+      sbxSort(sl, ["arrival_time"]);
+      return sbxClone(sup);
+    }
+    case "suppliers.delete": {
+      var sl2 = await sbxGet("suppliers");
+      SBX.d.suppliers = sl2.filter(function(x){ return x.id !== p.id; });
+      return { ok:true };
+    }
+
+    /* ---- budget ---- */
+    case "budget.list": return sbxClone(await sbxGet("budget"));
+    case "budget.save": {
+      var bl = await sbxGet("budget");
+      var bud = sbxUpsert("budget", bl, p, function(data){
+        var next = bl.reduce(function(m, x){ return Math.max(m, Number(x.sort_order) || 0); }, 0) + 1;
+        return Object.assign({ id: sbxId(), wedding_id: sbxWid(), description: "", category: "Other",
+          budgeted: 0, spent: 0, is_paid: false, is_venue_cost: false, sort_order: next,
+          created_at: sbxNow() }, data);
+      });
+      sbxSort(bl, ["sort_order"]);
+      return sbxClone(bud);
+    }
+    case "budget.delete": {
+      var bl2 = await sbxGet("budget");
+      SBX.d.budget = bl2.filter(function(x){ return x.id !== p.id; });
+      return { ok:true };
+    }
+    case "budget.setTotal": {
+      var D4 = await sbxGet("dashboard");
+      var total = p.total === null || p.total === "" || p.total === undefined ? null : round2(Number(p.total));
+      D4.over.total_budget = total;
+      return { ok:true, total_budget: total };
+    }
+    case "budget.syncVenue": {
+      var D5 = await sbxGet("dashboard"), bl3 = await sbxGet("budget");
+      var deposits = (D5.base.bill && D5.base.bill.deposits) || [];
+      var paid = -deposits.reduce(function(s, x){ return s + Number(x.amount || 0); }, 0);
+      var vrow = {
+        description: "Black Horse Beamish — venue, food & drink", category: "Venue",
+        budgeted: round2(Number(D5.base.balance && D5.base.balance.total) || 0),
+        spent: round2(paid), is_venue_cost: true, sort_order: -1
+      };
+      var have = bl3.filter(function(x){ return x.is_venue_cost; })[0];
+      if (have) Object.assign(have, vrow);
+      else bl3.push(Object.assign({ id: sbxId(), wedding_id: sbxWid(), is_paid: false, created_at: sbxNow() }, vrow));
+      sbxSort(bl3, ["sort_order"]);
+      return { ok:true };
+    }
+
+    /* ---- checklist and journey ticks ---- */
+    case "progress.toggle": {
+      var D6 = await sbxGet("dashboard");
+      if (p.kind !== "milestone" && p.kind !== "checklist") throw sbxErr("bad kind", 400);
+      var key = String(p.item_key);
+      var at = p.done ? sbxNow() : null;
+      var row = D6.progress.filter(function(x){ return x.kind === p.kind && x.item_key === key; })[0];
+      if (row) { row.completed_at = at; row.custom_label = p.custom_label != null ? p.custom_label : row.custom_label; }
+      else D6.progress.push({ id: sbxId(), wedding_id: sbxWid(), kind: p.kind, item_key: key,
+        custom_label: p.custom_label != null ? p.custom_label : null, completed_at: at, created_at: sbxNow() });
+      return { ok:true };
+    }
+    case "progress.removeCustom": {
+      var D7 = await sbxGet("dashboard");
+      D7.progress = D7.progress.filter(function(x){ return x.item_key !== String(p.item_key); });
+      return { ok:true };
+    }
+
+    /* ---- the photo album ---- */
+    case "photos.list": {
+      var A0 = await sbxGet("photos");
+      await sbxFreshUrls("photos");
+      return sbxClone(A0);
+    }
+    case "photos.download": {
+      var A1 = await sbxGet("photos");
+      var ids = (Array.isArray(p.ids) ? p.ids : []).slice(0, 500);
+      if (!ids.length) throw sbxErr("Choose at least one photograph.", 400);
+      var have2 = A1.photos.filter(function(x){ return ids.indexOf(x.id) > -1; });
+      var files = [];
+      have2.filter(function(x){ return String(x.id).indexOf("sbx-") === 0; }).forEach(function(x){
+        files.push({ id: x.id, url: x.thumb, name: String(x.created_at).slice(0, 10) + "-" + x.id + ".jpg" });
+      });
+      var real = have2.filter(function(x){ return String(x.id).indexOf("sbx-") !== 0; })
+        .map(function(x){ return x.id; });
+      if (real.length) {
+        var got = await sbxNet("photos.download", { ids: real });
+        files = (got.files || []).concat(files);
+      }
+      return { files: files };
+    }
+    case "photos.update": {
+      var A2 = await sbxGet("photos");
+      var data = {};
+      if ("hidden" in p) data.hidden = p.hidden === true;
+      if ("favourite" in p) data.favourite = p.favourite === true;
+      if (!Object.keys(data).length) throw sbxErr("nothing to save", 400);
+      var uids = sbxIds(p);
+      if (!uids.length) throw sbxErr("nothing to save", 400);
+      A2.photos.forEach(function(x){ if (uids.indexOf(x.id) > -1) Object.assign(x, data); });
+      return { ok:true };
+    }
+    case "photos.delete": {
+      var A3 = await sbxGet("photos");
+      var dids = sbxIds(p);
+      if (!dids.length) throw sbxErr("nothing to delete", 400);
+      var before = A3.photos.length;
+      A3.photos = A3.photos.filter(function(x){ return dids.indexOf(x.id) < 0; });
+      return { ok:true, deleted: before - A3.photos.length };
+    }
+    case "photos.settings": {
+      var A4 = await sbxGet("photos"), any2 = false;
+      if ("album_wall" in p) { A4.album_wall = p.album_wall === true; any2 = true; }
+      if ("album_message" in p) {
+        A4.album_message = typeof p.album_message === "string" ? (p.album_message.trim().slice(0, 400) || null) : null;
+        any2 = true;
+      }
+      if ("album_marketing_ok" in p) { A4.album_marketing_ok = p.album_marketing_ok === true; any2 = true; }
+      if (!any2) throw sbxErr("nothing to save", 400);
+      return { ok:true };
+    }
+
+    /* ---- messages with the team ---- */
+    case "chat.list": {
+      var C0 = await sbxGet("chat");
+      // The real thing marks the team's messages as read; here that happens on the page only.
+      if (p.markRead === true) C0.forEach(function(m){ if (m.side === "team") m.read = true; });
+      return { messages: sbxClone(C0),
+        unread: C0.filter(function(m){ return m.side === "team" && !m.read; }).length };
+    }
+    case "chat.unread": {
+      var C1 = await sbxGet("chat");
+      return { unread: C1.filter(function(m){ return m.side === "team" && !m.read; }).length };
+    }
+    case "chat.send": {
+      var C2 = await sbxGet("chat"), D8 = await sbxGet("dashboard");
+      var body = String(p.body == null ? "" : p.body).replace(/\r\n/g, "\n").trim().slice(0, 2000);
+      if (!body) throw sbxErr("Write a message first.", 400);
+      var hourAgo = Date.now() - 3600e3;
+      var recent = C2.filter(function(m){ return m.side === "couple" && new Date(m.created_at).getTime() >= hourAgo; });
+      if (recent.length >= 30) throw sbxErr("That is a lot of messages in an hour. Please give us a little while to catch up.", 400);
+      var msg = { id: sbxId(), side: "couple", body: body, sender_name: D8.base.wedding.salutation || "The couple",
+        source: "app", created_at: sbxNow(), read: true, sandbox: true };
+      C2.push(msg);                                      // no reply from the team arrives
+      return { message: sbxClone(msg) };
+    }
+
+    /* ---- photos for the team ---- */
+    case "teamphotos.list": {
+      var T0 = await sbxGet("teamphotos");
+      await sbxFreshUrls("teamphotos");
+      return { photos: sbxClone(T0).sort(function(a, b){ return String(a.created_at) < String(b.created_at) ? 1 : -1; }) };
+    }
+    case "teamphotos.start": {
+      await sbxGet("teamphotos");
+      var mime = String(p.mime || "image/jpeg").toLowerCase();
+      if (["image/jpeg","image/png","image/webp"].indexOf(mime) < 0) throw sbxErr("Please send a JPEG, PNG or WebP picture.", 400);
+      if ((Number(p.bytes) || 0) > 12 * 1024 * 1024) throw sbxErr("That picture is too big (12 MB at most).", 400);
+      var pid = sbxId();
+      return { id: pid, path: "team/test-view/" + pid + ".jpg", mime: mime, upload_url: "about:blank#test-view-no-upload" };
+    }
+    case "teamphotos.save": {
+      var T1 = await sbxGet("teamphotos"), D9 = await sbxGet("dashboard");
+      if (!p.id || T1.some(function(x){ return x.id === p.id; })) throw sbxErr("That photo is already saved.", 400);
+      var blob = SBX.blobs[p.id], url;
+      if (blob) { url = URL.createObjectURL(blob); SBX.urls.push(url); delete SBX.blobs[p.id]; }
+      else url = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400"><rect width="400" height="400" fill="#C1C8B4"/></svg>');
+      var photo = { id: p.id, from_side: "couple", caption: String(p.caption || "").trim().slice(0, 300) || null, url: url,
+        added_by_name: D9.base.wedding.salutation || "The couple", created_at: sbxNow(), mine: true };
+      T1.push(photo);
+      return { photo: photo };
+    }
+    case "teamphotos.caption": {
+      var T2 = await sbxGet("teamphotos");
+      var cp = T2.filter(function(x){ return x.id === p.id; })[0];
+      if (!cp) throw sbxErr("Photo not found.", 400);
+      if (cp.from_side !== "couple") throw sbxErr("You can only change the photos you added.", 400);
+      cp.caption = String(p.caption || "").trim().slice(0, 300) || null;
+      return { ok:true };
+    }
+    case "teamphotos.delete": {
+      var T3 = await sbxGet("teamphotos");
+      var dp = T3.filter(function(x){ return x.id === p.id; })[0];
+      if (!dp) throw sbxErr("Photo not found.", 400);
+      if (dp.from_side !== "couple") throw sbxErr("You can only remove the photos you added.", 400);
+      SBX.d.teamphotos = T3.filter(function(x){ return x.id !== p.id; });
+      return { ok:true };
+    }
+  }
+
+  // Not simulated yet. Never sent: say so quietly and log it so it can be added.
+  sbxLog("not simulated", "wedding-api", { action: action });
+  sbxNotice("Test view: that action is not saved.");
+  return { ok:true, sandbox:true };
+}
+
+/* ---- the other functions ---- */
+async function sbxIntercept(name, body){
+  if (name === "send-guest-invite" && body && body.action === "send") return sbxSimSend(body);
+  return null;
+}
+
+/* Works out who the real send would have emailed, marks them as sent on the
+   page, and emails nobody. */
+async function sbxSimSend(body){
+  var gl = await sbxGet("guests");
+  var pool = body.guest_id
+    ? gl.filter(function(g){ return g.id === body.guest_id; })
+    : gl.filter(function(g){ return !g.invite_sent_at; });
+  var ok = pool.filter(function(g){ return SBX_EMAIL.test(String(g.email || "").trim()); });
+  var skipped = pool.length - ok.length;
+  if (!ok.length) {
+    return { sent:0, failed:0, skipped:skipped, message: skipped
+      ? "None of those guests have an email address yet. Add one and try again."
+      : "Everyone with an email address has already been invited." };
+  }
+  var stamp = sbxNow();
+  ok.forEach(function(g){ g.invite_sent_at = stamp; });
+  return { sent: ok.length, failed:0, skipped:skipped,
+    results: ok.map(function(g){ return { id:g.id, ok:true }; }),
+    sbxNote: "Test view: no emails were sent. " + (ok.length === 1 ? "1 guest" : ok.length + " guests") +
+             " would have been invited." };
+}
+
+/* The preview is built by the server from the couple's saved wording, so
+   wording changed in the test view is put into it where it can be found, and
+   the tester is told where it cannot. */
+function sbxPatchPreview(res){
+  var D = SBX.d.dashboard;
+  if (!D || !res || typeof res.html !== "string") return res;
+  var o = D.over, base = D.base.wedding || {}, missed = false;
+  ["invite_message","invite_dress_code","invite_rsvp_by","invite_extra_info","invite_style"].forEach(function(f){
+    if (!(f in o) || String(o[f] == null ? "" : o[f]) === String(base[f] == null ? "" : base[f])) return;
+    var was = base[f], now = o[f];
+    if (f === "invite_message" || f === "invite_dress_code" || f === "invite_extra_info") {
+      if (was && now && res.html.indexOf(esc(was)) > -1) { res.html = res.html.split(esc(was)).join(esc(now)); return; }
+    }
+    missed = true;
+  });
+  res.sbxStale = missed;
+  return res;
+}
+
+/* ---- friendly messages ---- */
+function sbxNotice(msg){
+  var el = $("sbxNote");
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.remove("hide");
+  clearTimeout(SBX.noteTimer);
+  SBX.noteTimer = setTimeout(function(){ el.classList.add("hide"); }, 9000);
+  window.scrollTo({ top:0, behavior:"smooth" });
+}
+
+function sbxBlocked(body){
+  showModal('<div class="split" style="margin-bottom:14px"><h2>Test view</h2>' +
+    '<button class="btn btn--sm" onclick="closeModal()">Close</button></div>' +
+    '<p style="margin:0">' + esc(body) + '</p>');
+  var b = document.querySelector("#modal button");
+  if (b) b.focus();
+}
+function sbxPayBlocked(){
+  sbxBlocked("Payments are switched off in the test view. This is where the couple would be taken to the card payment page.");
+}
+function sbxScanBlocked(){ sbxBlocked("Scanning is switched off in the test view."); }
+function sbxCalendarNote(){
+  return '<p class="empty">Test view: booking a meeting is switched off here. This is where the couple ' +
+    'would pick a time in the venue\'s calendar.</p>';
+}
+
+/* ---- the banner ---- */
+function sbxBarHeight(){
+  var bar = $("staffBar");
+  if (!bar) return;
+  var set = function(){ document.documentElement.style.setProperty("--sbxh", bar.offsetHeight + "px"); };
+  set();
+  if (window.ResizeObserver && !SBX.ro) { SBX.ro = new ResizeObserver(set); SBX.ro.observe(bar); }
+}
+
+/* Reset: forget every change made here and read the couple's data afresh. */
+async function sbxReset(btn){
+  if (!S.sandbox) return;
+  if (btn) btn.disabled = true;
+  SBX.gen++; SBX.seq = 0; SBX.d = {}; SBX.pending = {}; SBX.at = {}; SBX.mem = {};
+  SBX.urls.forEach(function(u){ try { URL.revokeObjectURL(u); } catch (e) {} });
+  SBX.urls = []; SBX.blobs = {};
+  closeModal(); closeLightbox(); tpClose(true); tpCleanDrafts();
+  ["askConfirm", "meetingNudge", "signOutAsk"].forEach(function(id){ var n = $(id); if (n) n.remove(); });
+  SC = { stage:"start", page:null, rows:[], unsure:[], note:"", busy:false, done:null };
+  A.sel = {}; A.folder = null; A.stop = false;
+  chatReset();
+  clearError();
+  await start();
+  sbxNotice("Test view reset. Everything is back as the couple has it.");
+}
+
+/* The test session ran out (it lasts eight hours): there is no login to go back to. */
+function sbxExpired(){
+  try { sessionStorage.removeItem(CFG.SANDBOX_KEY); } catch (e) {}
+  chatReset();
+  S.token = null;
+  $("login").classList.add("hide");
+  $("app").classList.remove("hide");
+  $("views").innerHTML = '<div class="card"><h2>This test view has timed out</h2>' +
+    '<p>Close it and open it again from the back office.</p></div>';
+}
+
+/* ---- photos ---- */
+function sbxFakeUpload(onPct){
+  return new Promise(function(res){
+    var pct = 0;
+    var t = setInterval(function(){
+      pct = Math.min(100, pct + 34);
+      onPct(pct);
+      if (pct >= 100) { clearInterval(t); res(); }
+    }, 120);
+  });
+}
+function sbxHoldBlob(id, blob){ SBX.blobs[id] = blob; }
+
+function sbxAlbumPick(){ var f = $("sbxAlbumFile"); if (f) f.click(); }
+function sbxAlbumAdd(input){
+  var files = [].slice.call(input.files || []);
+  input.value = "";
+  if (!files.length) return;
+  sbxGet("photos").then(function(a){
+    files.forEach(function(f){
+      var url = URL.createObjectURL(f);
+      SBX.urls.push(url);
+      a.photos.unshift({ id: sbxId(), uploader: "Test guest", uploader_key: "sbx-test-phone", caption: null,
+        hidden: false, favourite: false, bytes: f.size, width: null, height: null, created_at: sbxNow(),
+        consented: false, cleared: false, thumb: url });
+    });
+    return loadAlbum();
+  }).then(function(){
+    sbxNotice("Test photograph added. It stays on this page only.");
+  }).catch(function(e){ showError(e.message); });
+}
+
+/* The address carries the token only on the way in. It is taken off the
+   address at once and kept for this tab alone, under a key of its own, so
+   reloading the test view works and a test token can never be a login. */
+function sbxTokenFromUrl(){
+  var m = /(?:^#|&)viewas=([^&]*)/.exec(location.hash || "");
+  if (m) {
+    var tok = "";
+    try { tok = decodeURIComponent(m[1]); } catch (e) { tok = m[1]; }
+    try { history.replaceState(null, "", location.pathname + location.search); } catch (e2) {}
+    if (tok) { try { sessionStorage.setItem(CFG.SANDBOX_KEY, tok); } catch (e3) {} }
+    return tok || null;
+  }
+  try { return sessionStorage.getItem(CFG.SANDBOX_KEY) || null; } catch (e4) { return null; }
+}
+
+function sbxBoot(token){
+  S.token = token; S.sandbox = true; S.staff = true;
+  document.body.classList.add("sbx");
+  var out = $("logout");
+  if (out) out.classList.add("hide");
+  start();
+}
+
 /* ---------- start ---------- */
 (function(){
+  /* A test view comes first and never looks at the couple's own login. */
+  var viewas = sbxTokenFromUrl();
+  if (viewas) { sbxBoot(viewas); return; }
+
   try { S.token = localStorage.getItem(CFG.SESSION_KEY); } catch(e){}
 
   /* The gate comes first, before the saved session is honoured.
