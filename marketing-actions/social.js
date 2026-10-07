@@ -157,7 +157,7 @@
         <div class="opts" style="margin-bottom:12px"><button class="opt" data-kind="post" aria-pressed="${st.kind === 'post'}">Posts</button><button class="opt" data-kind="reel" aria-pressed="${st.kind === 'reel'}">Reels</button></div>
         <div class="scope">${scopes.map(([v, l]) => `<button class="opt" data-scope="${v}" aria-pressed="${st.scope === v}">${l}</button>`).join('')}
           <label class="mine"><input type="checkbox" id="sp_mine" ${st.mine ? 'checked' : ''}> Mine to post</label>
-          <span class="spacer"></span>${list.some(p => p.status === 'posted') ? `<button class="btn ghost small" id="sp_csv">Export CSV</button>` : ''}</div>
+          <span class="spacer"></span>${ctx.me.isAdmin ? `<button class="btn ghost small" id="sp_import">Import last 30 days from Facebook and Instagram</button>` : ''}${list.some(p => p.status === 'posted') ? `<button class="btn ghost small" id="sp_csv">Export CSV</button>` : ''}</div>
         ${list.length ? list.map(card).join('') : `<div class="card empty">${st.scope === 'upcoming' ? `Nothing scheduled. Press New ${k.one} to plan one.` : st.scope === 'history' ? `No ${k.many.toLowerCase()} have been marked as posted yet.` : `Nothing here.`}</div>`}`;
       wireStrip();
       el.querySelectorAll('[data-kind]').forEach(b => b.onclick = () => { st.kind = b.dataset.kind; st.loaded = false; load(); });
@@ -166,6 +166,21 @@
       el.querySelector('#sp_new').onclick = () => editor(null);
       el.querySelectorAll('.item').forEach(c => c.onclick = e => { if (e.target.closest('a')) return; editor(st.posts.find(p => p.id === c.dataset.id)); });
       const csv = el.querySelector('#sp_csv'); if (csv) csv.onclick = () => exportCsv(list.filter(p => p.status === 'posted'));
+      const imp = el.querySelector('#sp_import');
+      if (imp) imp.onclick = async () => {
+        imp.disabled = true; const label = imp.textContent; imp.textContent = 'Checking Facebook and Instagram…';
+        try {
+          const pre = await call('history.import', { days: 30, dry_run: true });
+          const note = (pre.notes || []).length ? '\n\nNot everything could be read: ' + pre.notes.join(' ') : '';
+          if (!pre.new) { toast('Nothing new to import. ' + pre.already_have + ' post' + (pre.already_have === 1 ? ' is' : 's are') + ' already in the history.' + (note ? ' ' + pre.notes.join(' ') : ''), !!note); }
+          else if (confirm('Add ' + pre.new + ' post' + (pre.new === 1 ? '' : 's') + ' from the last 30 days to the posted history? (' + pre.already_have + ' already there.) Pictures are not copied; the text, date, link and likes are.' + note)) {
+            imp.textContent = 'Importing…';
+            const r = await call('history.import', { days: 30 });
+            toast('Imported ' + r.imported + ' post' + (r.imported === 1 ? '' : 's') + '.'); await load(); return;
+          }
+        } catch (e) { toast(e.message, true); }
+        imp.disabled = false; imp.textContent = label;
+      };
     }
 
     function exportCsv(rows) {
