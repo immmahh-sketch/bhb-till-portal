@@ -164,6 +164,8 @@ header.top{background:var(--sage); color:var(--white)}
 body.locked{overflow:hidden}
 body.locked .toast{bottom:auto; top:calc(14px + env(safe-area-inset-top)); transform:translate(-50%,-20px)}
 body.locked .toast.on{transform:translate(-50%,0)}
+body.viewas #signout{display:none}
+body.viewas .btn[data-act]{opacity:.85}
 </style>
 </head>
 <body>
@@ -192,6 +194,8 @@ const S = { d:null, load:"loading", err:"", pend:new Set(), recent:new Map(), si
 /* ------------------------------------------------------------- plumbing */
 function toast(msg, bad){ const t = $("#toast"); t.textContent = msg; t.className = "toast on" + (bad ? " bad" : ""); clearTimeout(toast._t); toast._t = setTimeout(() => { t.className = "toast"; }, bad ? 5600 : 3000); }
 function staffEmail(){ try { return sessionStorage.getItem("bhb_staff_email") || ""; } catch(e){ return ""; } }
+// "View board screen" in the config tile opens this same page for another cleaner: ?as_email=..&as_name=..&as_date=.. . It is read only.
+const VIEW_AS = (function(){ const q = new URLSearchParams(location.search); const n = q.get("as_name"); return n ? { email:q.get("as_email") || "", name:n, date:q.get("as_date") || "" } : null; })();
 async function call(action, payload){
   const body = { action, staff_email: staffEmail(), ...(payload || {}) };
   if (typeof window.__MOCK_API__ === "function") {
@@ -380,7 +384,7 @@ async function refresh(quiet){
   const m0 = S.mut;
   if (!quiet && !S.d) { S.load = "loading"; render(); }
   try {
-    const d = await call("board.get", {});
+    const d = await call("board.get", VIEW_AS ? { view_as:{ email:VIEW_AS.email, name:VIEW_AS.name }, date:VIEW_AS.date || undefined } : {});
     if (S.mut !== m0 || S.pend.size) return;       // an action happened meanwhile: this answer may be older than it
     const sig = dataSig(d), changed = sig !== S.sig || !!S.staleMsg;
     setData(d); S.sig = sig;
@@ -462,6 +466,7 @@ async function sendIssue(){
 /* ------------------------------------------------------------- events */
 document.addEventListener("click", ev => {
   const a = ev.target.closest("[data-act]"), sh = ev.target.closest("[data-sheet]");
+  if (VIEW_AS && a && a.dataset.act !== "retry") { ev.preventDefault(); toast("You are looking at " + VIEW_AS.name + "'s board, so this does nothing here.", true); return; }
   if (sh) { const ta = $("#sh-desc"); if (sh.classList.contains("backdrop") && ta && ta.value.trim()) return; closeSheet(); return; }
   if (!a) return;
   const act = a.dataset.act, id = a.dataset.id;
@@ -486,7 +491,8 @@ $("#signout").addEventListener("click", () => { try { sessionStorage.removeItem(
 
 function boot(){
   $("#app").hidden = false;
-  $("#whoname").textContent = staffEmail();
+  if (VIEW_AS) document.body.classList.add("viewas");
+  $("#whoname").textContent = VIEW_AS ? VIEW_AS.name : staffEmail();
   render(); refresh(false);
   setInterval(paintCountdown, 30000);
   setInterval(() => { if (!document.hidden) refresh(true); }, 60000);

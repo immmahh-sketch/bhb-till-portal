@@ -24,6 +24,15 @@ body{font-family:var(--body); color:var(--ink); background:var(--bone); font-siz
 h1,h2,h3,h4{font-family:var(--display); font-weight:600; margin:0; letter-spacing:.01em}
 button,input,textarea,select{font:inherit; color:inherit}
 .off{display:none!important}
+.vb .vbbar{display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:16px 0 12px}
+.vb .vbchip{border:1px solid var(--mist); background:var(--white); color:var(--sage); border-radius:999px; padding:8px 14px; min-height:40px; cursor:pointer; font-size:14px}
+.vb .vbchip[aria-pressed="true"]{background:var(--sage); border-color:var(--sage); color:#fff}
+.vb .vbchip small{opacity:.75; margin-left:6px}
+.vb .vbwrap{display:flex; gap:24px; flex-wrap:wrap; align-items:flex-start}
+.vb .phone{width:390px; max-width:100%; background:#1f2a20; border-radius:34px; padding:12px; box-shadow:0 8px 30px rgba(0,0,0,.25)}
+.vb .phone iframe{display:block; width:100%; height:760px; max-height:78vh; border:0; border-radius:24px; background:var(--bone)}
+.vb .vbnote{flex:1; min-width:240px; max-width:420px; font-size:14px; color:var(--sage-70)}
+.vb .vbnote b{color:var(--sage)}
 a{color:var(--sage)}
 .sr{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap}
 
@@ -230,6 +239,7 @@ select.cs{width:100%; border:1px solid var(--celadon); border-radius:8px; paddin
     <div class="who"><span id="whoname"></span><button id="signout" type="button">Sign out</button></div></div></header>
   <nav class="tabs" aria-label="Sections"><div class="tabsin" id="tabs">
     <button class="tabbtn" type="button" data-view="today" aria-current="page">Today</button>
+    <button class="tabbtn" type="button" data-view="board" aria-current="false">View board screen</button>
     <button class="tabbtn" type="button" data-view="rooms" aria-current="false">Rooms</button>
   </div></nav>
   <div class="shell"><main id="views">
@@ -251,6 +261,7 @@ select.cs{width:100%; border:1px solid var(--celadon); border-radius:8px; paddin
       <div id="list" aria-live="polite"></div>
       <div id="logp"></div>
     </div>
+    <div id="v_board" class="off"></div>
     <div id="v_rooms" class="off"></div>
   </main></div>
 </div>
@@ -745,6 +756,7 @@ function applyData(d, quiet){
     patchList();
   }
   if (S.tab === "rooms") renderRooms();
+  if (S.tab === "board") renderBoardView();
 }
 function patchList(){
   const want = visibleTasks(), have = $$("#list .rm"), act = document.activeElement;
@@ -884,6 +896,36 @@ function roomsDraft(){
   if (!S.ui.roomsDraft) { S.ui.roomsDraft = S.rooms.map(r => Object.assign({}, r, { _key:r.room, _new:false })); S.ui.roomsDirty = false; S.ui.roomsErr = {}; }
   return S.ui.roomsDraft;
 }
+/* ------------------------------------------------------------- view board screen: the cleaner's own page, in a phone frame */
+function renderBoardView(){
+  const host = $("#v_board"); if (!host) return;
+  const list = ((S.plan && S.plan.per_cleaner) || []).filter(c => c.rooms > 0);
+  if (!host.firstChild) host.innerHTML = '<div class="vb"><h2 style="margin:18px 0 4px">View board screen</h2><div class="muted" id="vbsub"></div><div class="vbbar" id="vbbar" role="group" aria-label="Cleaner"></div><div id="vbbody"></div></div>';
+  $("#vbsub").textContent = S.date ? `Exactly what each cleaner sees on their phone for ${fmtLong(S.date)}. You can look but not change anything from here.` : "";
+  const keyOf = c => c.email || c.name;
+  if (!list.length) { $("#vbbar").innerHTML = ""; $("#vbbody").innerHTML = `<div class="emptymsg" style="margin-top:20px">${S.loaded ? "No rooms have been given to a cleaner yet for this day. Give rooms out on the Today tab and the cleaner appears here." : "Loading..."}</div>`; return; }
+  if (!S.ui.boardKey || !list.some(c => keyOf(c) === S.ui.boardKey)) S.ui.boardKey = keyOf(list[0]);
+  const sig = list.map(c => keyOf(c) + ":" + c.rooms).join("|") + "@" + S.ui.boardKey;
+  if ($("#vbbar").dataset.sig !== sig) {
+    $("#vbbar").dataset.sig = sig;
+    $("#vbbar").innerHTML = list.map(c => `<button type="button" class="vbchip" data-vbk="${esc(keyOf(c))}" aria-pressed="${keyOf(c) === S.ui.boardKey}">${esc(c.name)}<small>${plural(c.rooms, "room")}</small></button>`).join("") + '<button type="button" class="btn small ghost" id="vbreload">Refresh</button>';
+  }
+  const cur = list.find(c => keyOf(c) === S.ui.boardKey);
+  const src = "index.html?as_email=" + encodeURIComponent(cur.email || "") + "&as_name=" + encodeURIComponent(cur.name) + "&as_date=" + encodeURIComponent(S.date);
+  const body = $("#vbbody");
+  if (!body.firstChild || body.dataset.src !== src) {
+    body.dataset.src = src;
+    body.innerHTML = `<div class="vbwrap"><div class="phone"><iframe title="${esc(cur.name)}'s board" src="${esc(src)}"></iframe></div>
+      <div class="vbnote"><p><b>${esc(cur.name)}</b>: ${plural(cur.rooms, "room")}, ${esc(fmtMins(cur.minutes))} of cleaning${cur.finish ? `, expected to finish at <b>${esc(cur.finish)}</b>` : ""}.</p>
+      <p>This is the real board page, so it matches what they see, including your message, the room notes, their countdown and the Room cleaned button. It updates itself every minute. The buttons are switched off here.</p></div></div>`;
+  }
+}
+document.addEventListener("click", e => {
+  const c = e.target.closest && e.target.closest("[data-vbk]");
+  if (c) { S.ui.boardKey = c.dataset.vbk; renderBoardView(); return; }
+  if (e.target.id === "vbreload") { const f = $("#vbbody iframe"); if (f) f.src = f.src; }
+});
+
 function renderRooms(force){
   const el = $("#v_rooms");
   if (!S.loaded) { el.innerHTML = `<div class="pagehead"><h2>Rooms</h2></div>${S.loadErr ? `<div class="card empty">${esc(S.loadErr)}<br><br><button class="btn" type="button" data-act="retry">Try again</button></div>` : skeletonBlock(3)}`; return; }
@@ -984,21 +1026,22 @@ function changeDate(d){
   S.date = d; S.ui.addOpen = false; S.ui.parseErr = ""; S.ui.other = {}; load(false);
 }
 function setTab(name){
-  S.tab = name === "rooms" ? "rooms" : "today";
+  S.tab = name === "rooms" ? "rooms" : name === "board" ? "board" : "today";
   $$(".tabbtn").forEach(b => b.setAttribute("aria-current", b.dataset.view === S.tab ? "page" : "false"));
-  $("#v_today").classList.toggle("off", S.tab !== "today"); $("#v_rooms").classList.toggle("off", S.tab !== "rooms");
-  if (S.tab === "rooms") renderRooms(); else if (S.loaded) { renderBar(); }
+  $("#v_today").classList.toggle("off", S.tab !== "today"); $("#v_rooms").classList.toggle("off", S.tab !== "rooms"); $("#v_board").classList.toggle("off", S.tab !== "board");
+  if (S.tab === "rooms") renderRooms(); else if (S.tab === "board") renderBoardView(); else if (S.loaded) { renderBar(); }
   window.scrollTo(0, 0);
 }
-$$(".tabbtn").forEach(b => b.addEventListener("click", () => { location.hash = b.dataset.view === "rooms" ? "#/rooms" : "#/"; }));
-window.addEventListener("hashchange", () => setTab(/^#\/rooms/.test(location.hash) ? "rooms" : "today"));
+const tabFromHash = () => /^#\/rooms/.test(location.hash) ? "rooms" : /^#\/board/.test(location.hash) ? "board" : "today";
+$$(".tabbtn").forEach(b => b.addEventListener("click", () => { location.hash = b.dataset.view === "rooms" ? "#/rooms" : b.dataset.view === "board" ? "#/board" : "#/"; }));
+window.addEventListener("hashchange", () => setTab(tabFromHash()));
 
 /* ------------------------------------------------------------- boot */
 function openGate(msg){ $("#gate").style.display = "flex"; $("#app").classList.add("off"); if (msg) $("#gerr").textContent = msg; }
 $("#signout").addEventListener("click", () => { try { sessionStorage.removeItem("bhb_staff_email"); } catch(e){} openGate(); });
 async function boot(){
   $("#app").classList.remove("off");
-  setTab(/^#\/rooms/.test(location.hash) ? "rooms" : "today");
+  setTab(tabFromHash());
   await load(false);
   if (S.me) $("#whoname").textContent = S.me.name || S.me.email || "";
 }
