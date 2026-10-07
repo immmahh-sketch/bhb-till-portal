@@ -245,6 +245,18 @@ a.scard.warnc{border-left-color:var(--attention)}
 .linkbtn{background:none; border:0; padding:0; color:var(--alert); text-decoration:underline; cursor:pointer; font-size:13px}
 .frow .row-actions{flex-wrap:nowrap} .frow .row-actions .btn{flex:0 0 auto}
 .frow{grid-template-columns:1fr auto}
+
+.teamcard{border:2px solid var(--sage); background:#fcfdfb}
+.stats{display:grid; grid-template-columns:repeat(6,1fr); gap:8px}
+.stat{background:var(--sage-10); border-radius:8px; padding:8px 6px; text-align:center} .stat b{display:block; font-family:var(--display); font-size:28px; line-height:1; color:var(--sage)} .stat span{font-size:11.5px; color:var(--sage-70); line-height:1.2; display:block; margin-top:2px}
+.subpanel{background:var(--bone); border:1px solid var(--mist); border-radius:10px; padding:14px; margin-top:14px} .subpanel h4{font-family:var(--display); font-size:21px; color:var(--sage); margin-bottom:6px}
+.candlist{max-height:320px; overflow:auto; background:#fff; border:1px solid var(--mist); border-radius:8px}
+.candrow{display:flex; gap:10px; align-items:flex-start; padding:8px 10px; border-bottom:1px solid var(--mist); cursor:pointer; font-size:14px} .candrow:last-child{border-bottom:0} .candrow input{margin-top:4px; width:18px; height:18px; accent-color:var(--sage); flex:none} .candrow span{min-width:0; overflow-wrap:anywhere}
+.chipx.info{background:var(--blue-bg); color:var(--blue)}
+.na{font-size:11px; color:#b6bcb6; font-style:italic}
+.spin{width:22px; height:22px; border:3px solid var(--mist); border-top-color:var(--sage); border-radius:50%; animation:rot .9s linear infinite; margin-bottom:8px} @keyframes rot{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spin{animation:none}}
+@media (max-width:640px){ .stats{grid-template-columns:repeat(3,1fr)} .teamcard .row-actions .btn{flex:1 1 100%} }
 .formbtns{display:flex; gap:8px; flex-wrap:wrap; margin:14px 0 6px}
 </style>
 </head>
@@ -314,6 +326,7 @@ const needsRisk = s => !!s.risk_required && !["done", "not_needed"].includes(s.r
 // what a person is missing that matters, from a register row or a list row
 function missingFor(p){
   const docs = p.docs || {}, ch = p.checks || {}, m = [];
+  if (p.kind === "existing") { if (!docs.rtw && !ch.rtw) m.push("rtw"); return m; }
   GENERATED.forEach(k => { if (SIGNED_PLUS.includes(p.status) && !docs[k]) m.push(k); });
   ["rtw", "ni"].forEach(k => { if (!docs[k] && !ch[k]) m.push(k); });
   if (needsRisk(p) && !docs.risk) m.push("risk");
@@ -350,7 +363,7 @@ function parseRoute(){
 function go(hash){ if (location.hash === hash) route(); else location.hash = hash; }
 window.addEventListener("hashchange", () => route());
 function setTabs(){
-  const cur = S.route.name === "settings" ? "settings" : S.route.name === "docs" ? "documents" : "starters";
+  const cur = S.route.name === "settings" ? "settings" : S.route.name === "docs" || (S.route.name === "detail" && S.d && S.d.starter.kind === "existing") ? "documents" : "starters";
   $$(".tabbtn").forEach(b => b.setAttribute("aria-current", b.dataset.view === cur ? "page" : "false"));
   const admin = !!(S.me && S.me.admin) && (!Array.isArray(S.me.tabs) || S.me.tabs.includes("settings"));
   $("#tab_settings").classList.toggle("off", !admin);
@@ -702,35 +715,35 @@ function healthHtml(s){
   }).join("")}`).join("");
   return part + secs;
 }
-function whoWhen(f){
+function whoWhen(f, existing){
   const when = f.created_at ? " on " + fmtDT(f.created_at) : "";
-  if (f.source === "starter") return "Uploaded by the starter" + when;
+  if (f.source === "starter") return (existing ? "Uploaded by the team member" : "Uploaded by the starter") + when;
   if (f.source === "manager") return "Uploaded by " + (f.uploaded_by || "a manager") + when;
   return "Made by the system when signed" + when;
 }
-function docsHtml(s, files){
+function docsHtml(s, files, existing){
   const w = s.wtd && s.wtd.choice;
   const choice = w === "opt_out" ? "Opted out of the 48-hour limit" : w === "keep_limit" ? "Kept the 48-hour limit" : "";
   const by = {}; (files || []).forEach(f => { (by[f.kind] = by[f.kind] || []).push(f); });
   const groups = KIND_ORDER.filter(k => by[k]).map(k => `<div class="sub-h">${esc(KINDS[k])}<span class="muted tiny"> (${by[k].length})</span></div>${by[k].map(f => {
     const uploaded = UPLOADED.includes(f.kind) && f.source !== "generated", title = f.kind === "other" && f.label ? f.label : f.name;
     const asking = S.ui.delFile === f.id;
-    return `<div class="frow"><div><div class="fn">${esc(title)}</div><div class="fm">${f.kind === "other" && f.label ? esc(f.name) + " &middot; " : ""}${esc(sizeText(f.size))}${f.mime ? " &middot; " + esc(f.mime.replace("application/", "").replace("image/", "").toUpperCase()) : ""}<br>${esc(whoWhen(f))}${f.kind === "wtd" && choice ? " &middot; <b>" + esc(choice) + "</b>" : ""}</div></div>
+    return `<div class="frow"><div><div class="fn">${esc(title)}</div><div class="fm">${f.kind === "other" && f.label ? esc(f.name) + " &middot; " : ""}${esc(sizeText(f.size))}${f.mime ? " &middot; " + esc(f.mime.replace("application/", "").replace("image/", "").toUpperCase()) : ""}<br>${esc(whoWhen(f, existing))}${f.kind === "wtd" && choice ? " &middot; <b>" + esc(choice) + "</b>" : ""}</div></div>
       <div class="row-actions"><button class="btn small" data-act="openfile" data-id="${esc(f.id)}">Open</button>${uploaded ? `<button class="btn small danger" data-act="delask" data-id="${esc(f.id)}">Delete</button>` : ""}</div>
       ${asking ? `<div class="confirmbox" style="grid-column:1 / -1;margin-top:0" role="alertdialog"><b>Delete this document?</b><div class="small" style="margin:4px 0 10px">${esc(title)} will be removed for good.</div><div class="row-actions"><button class="btn small solid-danger" data-act="delyes" data-id="${esc(f.id)}">Yes, delete it</button><button class="btn small ghost" data-act="delno">Keep it</button></div></div>` : ""}</div>`;
   }).join("")}`).join("");
   const up = S.ui.up || { kind:"rtw", label:"", file:null };
   const upload = `<div class="rbox"><div class="sub-h" style="margin-top:0">Upload a document</div>
-    <div class="grid2"><div class="field"><label for="up_kind">What is it</label><select id="up_kind">${["rtw", "ni", "risk", "other"].map(k => `<option value="${k}"${up.kind === k ? " selected" : ""}>${esc(KINDS[k])}</option>`).join("")}</select></div>
+    <div class="grid2"><div class="field"><label for="up_kind">What is it</label><select id="up_kind">${(existing ? ["rtw", "ni", "other"] : ["rtw", "ni", "risk", "other"]).map(k => `<option value="${k}"${up.kind === k ? " selected" : ""}>${esc(KINDS[k])}</option>`).join("")}</select></div>
     <div class="field${up.kind === "other" ? "" : " off"}" id="w_uplabel"><label for="up_label">Label (required)</label><input id="up_label" value="${esc(up.label)}" placeholder="For example Food hygiene certificate" maxlength="80"></div></div>
     <div class="field"><label for="up_file">File</label><input id="up_file" type="file" accept="image/jpeg,image/png,application/pdf,image/*"><div class="hint">${up.file ? "Chosen: " + esc(up.file.name) + " (" + esc(sizeText(up.file.size)) + "). " : ""}A photo or a PDF, up to 6 MB. Photos are shrunk to fit before they go.</div></div>
     <div class="row-actions"><button class="btn small" data-act="upload">Upload</button></div></div>`;
-  return `${groups || `<p class="muted" style="margin-top:0">Nothing here yet. The signed documents appear once ${esc(s.first_name)} has submitted, and you can upload others below.</p>`}
+  return `${groups || `<p class="muted" style="margin-top:0">${existing ? "Nothing uploaded yet. You can upload a document yourself below." : `Nothing here yet. The signed documents appear once ${esc(s.first_name)} has submitted, and you can upload others below.`}</p>`}
     ${choice && !(files || []).some(f => f.kind === "wtd") ? `<div class="kv nocopy"><dt>48-hour working week</dt><dd>${esc(choice)}</dd></div>` : ""}
     ${upload}
-    <div class="notice info" style="margin:14px 0 0">Please upload the signed PDFs to ${esc(s.first_name)}'s documents in Planday yourself: Planday has no way for us to upload documents for you.</div>`;
+    ${existing ? "" : `<div class="notice info" style="margin:14px 0 0">Please upload the signed PDFs to ${esc(s.first_name)}'s documents in Planday yourself: Planday has no way for us to upload documents for you.</div>`}`;
 }
-function checksCard(s, files){
+function checksCard(s, files, existing){
   if (s.status === "cancelled") return "";
   const ch = s.checks || {}, held = k => (files || []).filter(f => f.kind === k).length;
   const remind = ["rtw", "ni"].some(k => held(k) && !ch[k]);
@@ -745,7 +758,7 @@ function checksCard(s, files){
       <button class="btn small" data-act="check" data-k="${k}">I have seen the original</button></div>`;
   };
   return `<div class="card checks${remind ? " remind" : ""}"><h3 style="font-size:23px">Right to work and National Insurance checks</h3>
-    ${remind ? `<div class="notice" style="margin:8px 0"><b>Bring-in reminder:</b> they were told to bring the originals on day one. A photo is not enough, so look at the original and record it here.</div>` : `<p class="small muted" style="margin:2px 0 8px">Record that you have seen the original document. It is kept with the starter's record.</p>`}
+    ${remind ? `<div class="notice" style="margin:8px 0">${existing ? "<b>Photo uploaded, original not checked.</b> A photo is not enough: look at the original and record it here." : "<b>Bring-in reminder:</b> they were told to bring the originals on day one. A photo is not enough, so look at the original and record it here."}</div>` : `<p class="small muted" style="margin:2px 0 8px">Record that you have seen the original document. It is kept with the starter's record.</p>`}
     ${one("rtw")}${one("ni")}</div>`;
 }
 /* ---- uploads: shrink photos in the browser, send PDFs as they are */
@@ -768,15 +781,28 @@ async function prepUpload(f){
 }
 
 /* ------------------------------------------------------------- documents register */
-const REG_FILTERS = [["all", "Everyone"], ["missing", "Something missing"], ["rtw", "Right to work not checked"], ["risk", "Risk assessment outstanding"]];
+const REG_FILTERS = [["all", "Everyone"], ["missing", "Something missing"], ["team", "Team"], ["new", "New starters"], ["notup", "Not uploaded yet"], ["rtw", "Right to work not checked"], ["risk", "Risk assessment outstanding"]];
+const isTeam = p => p.kind === "existing";
+const NA_KINDS = ["contract", "health", "wtd", "payroll", "risk"];
+const hasRtw = p => !!((p.docs || {}).rtw || (p.checks || {}).rtw);
+// where a team member is with their upload link
+function teamStage(p){
+  if ((p.docs || {}).rtw) return ["Uploaded", "ok"];
+  if (p.first_opened_at) return ["Opened", "info"];
+  if (p.link_sent_at) return ["Link sent", "info"];
+  return ["Not sent", ""];
+}
 function regRows(){
   if (!S.reg) return [];
   const q = S.regFind.trim().toLowerCase();
   return S.reg.people.filter(p => {
     if (q && !((p.name || "") + " " + (p.job_title || "")).toLowerCase().includes(q)) return false;
     if (S.regFilter === "missing") return missingFor(p).length > 0;
+    if (S.regFilter === "team") return isTeam(p);
+    if (S.regFilter === "new") return !isTeam(p);
+    if (S.regFilter === "notup") return isTeam(p) && !hasRtw(p);
     if (S.regFilter === "rtw") return !(p.checks || {}).rtw;
-    if (S.regFilter === "risk") return needsRisk(p);
+    if (S.regFilter === "risk") return !isTeam(p) && needsRisk(p);
     return true;
   });
 }
@@ -784,27 +810,28 @@ function checkedBadge(p, k){
   const c = (p.checks || {})[k]; if (!c) return "";
   return `<span class="badge ok" title="${esc((CHECKS[k] || k) + ": original seen by " + (c.by || "a manager") + " on " + fmtDay(c.at))}">Checked</span>`;
 }
+const regKinds = () => (S.reg.kinds && S.reg.kinds.length ? S.reg.kinds : KIND_ORDER.map(k => ({ key:k, label:KINDS[k] })));
 function regBody(){
-  const kinds = (S.reg.kinds && S.reg.kinds.length ? S.reg.kinds : KIND_ORDER.map(k => ({ key:k, label:KINDS[k] })));
-  const rows = regRows();
+  const kinds = regKinds(), rows = regRows();
   if (!rows.length) return { sum:`0 people`, html:`<div class="card empty">${S.reg.people.length ? "Nobody matches that." : "No people yet."}</div>` };
   const bad = rows.filter(p => missingFor(p).length).length;
   const sum = `${rows.length} ${rows.length === 1 ? "person" : "people"}, ${bad} with something missing`;
   const head = `<tr><th scope="col" class="nm">Person</th>${kinds.map(k => `<th scope="col" title="${esc(k.label)}">${esc(KIND_SHORT[k.key] || k.label)}</th>`).join("")}</tr>`;
   const trs = rows.map(p => {
-    const miss = missingFor(p), href = "#/s/" + encodeURIComponent(p.id);
-    return `<tr class="${miss.length ? "warnrow" : ""}" data-act="go" data-h="${esc(href)}"><th scope="row" class="nm"><a href="${esc(href)}">${esc(p.name)}</a><div class="tiny muted">${esc(p.job_title || "")}${p.start_date ? " &middot; starts " + esc(fmtDay(p.start_date)) : ""}</div></th>${kinds.map(k => {
+    const miss = missingFor(p), href = "#/s/" + encodeURIComponent(p.id), team = isTeam(p), st = team ? teamStage(p) : null;
+    return `<tr class="${miss.length ? "warnrow" : ""}" data-act="go" data-h="${esc(href)}"><th scope="row" class="nm"><a href="${esc(href)}">${esc(p.name)}</a>${team ? ` <span class="badge kind">Team</span> <span class="chipx ${st[1]}">${st[0]}</span>` : ""}<div class="tiny muted">${esc(p.job_title || "")}${p.start_date && !team ? " &middot; starts " + esc(fmtDay(p.start_date)) : ""}</div></th>${kinds.map(k => {
       const n = (p.docs || {})[k.key] || 0, m = miss.includes(k.key), cb = checkedBadge(p, k.key);
+      if (team && NA_KINDS.includes(k.key) && !n) return `<td><span class="na" title="Not applicable to team members">n/a</span></td>`;
       return `<td class="${m ? "warn" : ""}">${n ? `<span class="tick" aria-label="${n} held">&#10003;${n > 1 ? `<small>${n}</small>` : ""}</span>` : m ? `<span class="dash" title="Missing">&ndash;</span><span class="sr">Missing</span>` : `<span class="dash quiet">&ndash;</span>`}${cb ? "<br>" + cb : ""}</td>`;
     }).join("")}</tr>`;
   }).join("");
   const cards = rows.map(p => {
-    const miss = missingFor(p), href = "#/s/" + encodeURIComponent(p.id);
+    const miss = missingFor(p), href = "#/s/" + encodeURIComponent(p.id), team = isTeam(p), st = team ? teamStage(p) : null;
     const held = KIND_ORDER.filter(k => (p.docs || {})[k]).map(k => `<span class="chipx ok">${esc(KIND_SHORT[k])}${p.docs[k] > 1 ? " " + p.docs[k] : ""}</span>`).join("");
     const mis = miss.map(k => `<span class="chipx warn">Missing: ${esc(KIND_SHORT[k] || k)}</span>`).join("");
     const chk = ["rtw", "ni"].map(k => (p.checks || {})[k] ? `<span class="chipx ok" title="${esc("Original seen by " + (p.checks[k].by || "a manager") + " on " + fmtDay(p.checks[k].at))}">${k === "rtw" ? "Right to work" : "NI"} checked</span>` : "").join("");
-    return `<a class="card scard${miss.length ? " hasrisk warnc" : ""}" href="${esc(href)}"><div class="r1"><div><h3>${esc(p.name)}</h3><div class="sub">${esc(p.job_title || "")}${p.department_name ? " &middot; " + esc(p.department_name) : ""}</div></div><span class="badge st-${esc(p.status)}">${esc(STATUS[p.status] || p.status)}</span></div>
-      <div class="sub" style="margin-top:4px">${p.start_date ? "Starts " + esc(fmtDay(p.start_date)) : "No start date"}</div><div class="chipsx">${held}${chk}${mis}${held || chk || mis ? "" : `<span class="muted tiny">Nothing held yet</span>`}</div></a>`;
+    return `<a class="card scard${miss.length ? " hasrisk warnc" : ""}" href="${esc(href)}"><div class="r1"><div><h3>${esc(p.name)}</h3><div class="sub">${esc(p.job_title || "")}${p.department_name ? " &middot; " + esc(p.department_name) : ""}</div></div>${team ? `<span class="chipx ${st[1]}" style="flex:none">${st[0]}</span>` : `<span class="badge st-${esc(p.status)}">${esc(STATUS[p.status] || p.status)}</span>`}</div>
+      <div class="sub" style="margin-top:4px">${team ? `<span class="badge kind">Team</span>` : p.start_date ? "Starts " + esc(fmtDay(p.start_date)) : "No start date"}</div><div class="chipsx">${held}${chk}${mis}${held || chk || mis ? "" : `<span class="muted tiny">Nothing held yet</span>`}</div></a>`;
   }).join("");
   return { sum, html:`<div class="regtable"><table><thead>${head}</thead><tbody>${trs}</tbody></table></div><div class="regcards">${cards}</div>` };
 }
@@ -816,11 +843,12 @@ function renderRegBody(){
 function renderDocs(){
   const keepY = window.scrollY;
   $("#views").innerHTML = `<div class="pagehead"><h2>Who has what</h2><button class="btn small ghost" data-act="regrefresh">Refresh</button><button class="btn small ghost" data-act="regcsv">Export CSV</button></div>
+    <div id="teamsec"></div>
     <div class="field" style="margin:8px 0;max-width:420px"><label for="regfind">Search</label><input id="regfind" type="search" placeholder="Name or job" value="${esc(S.regFind)}" autocomplete="off"></div>
     <div class="toolrow" style="margin-top:4px" role="group" aria-label="Show">${REG_FILTERS.map(([k, l]) => `<button class="chip" data-act="regfilter" data-k="${k}" aria-pressed="${S.regFilter === k}">${l}</button>`).join("")}</div>
     <p class="small muted" id="regsum" style="margin:6px 2px" aria-live="polite"></p><div id="regbody"></div>
-    <p class="muted tiny" style="margin-top:14px">Amber means something that matters is missing: right to work or National Insurance proof not uploaded or checked, signed forms missing after they submit, or a risk assessment still outstanding. Updates itself every minute.</p>`;
-  renderRegBody(); window.scrollTo(0, keepY);
+    <p class="muted tiny" style="margin-top:14px">Amber means something that matters is missing: right to work or National Insurance proof not uploaded or checked, signed forms missing after they submit, or a risk assessment still outstanding. For team members only right to work counts. Updates itself every minute.</p>`;
+  renderRegBody(); renderTeam(); window.scrollTo(0, keepY);
 }
 async function loadRegister(quiet){
   try {
@@ -828,17 +856,91 @@ async function loadRegister(quiet){
     S.fetchedAt = Date.now();
     if (quiet && S.reg && sig === S.regSig) return;
     S.reg = d; S.regSig = sig;
-    if (S.route.name === "docs") renderRegBody();
+    if (S.route.name === "docs") { renderRegBody(); renderTeam(); }
   } catch(e){ if (!quiet) { S.reg = S.reg || { kinds:[], people:[] }; renderRegBody(); toast(e.message, true); } }
 }
 async function showDocs(){ renderDocs(); await loadRegister(); }
 function exportCsv(){
-  const rows = regRows(), kinds = (S.reg.kinds && S.reg.kinds.length ? S.reg.kinds : KIND_ORDER.map(k => ({ key:k, label:KINDS[k] })));
-  const head = ["Name", "Job title", "Department", "Status", "Start date"].concat(kinds.map(k => k.label), ["Right to work checked by", "Right to work checked on", "NI checked by", "NI checked on"]);
-  const lines = [head].concat(rows.map(p => { const c = p.checks || {}; return [p.name, p.job_title, p.department_name, STATUS[p.status] || p.status, p.start_date ? fmtDay(p.start_date) : ""].concat(kinds.map(k => (p.docs || {})[k.key] || 0), [c.rtw ? c.rtw.by : "", c.rtw ? fmtDay(c.rtw.at) : "", c.ni ? c.ni.by : "", c.ni ? fmtDay(c.ni.at) : ""]); }));
+  const rows = regRows(), kinds = regKinds();
+  const head = ["Name", "Type", "Job title", "Department", "Status", "Upload link", "Start date"].concat(kinds.map(k => k.label), ["Right to work checked by", "Right to work checked on", "NI checked by", "NI checked on"]);
+  const lines = [head].concat(rows.map(p => { const c = p.checks || {}; return [p.name, isTeam(p) ? "Team" : "New starter", p.job_title, p.department_name, isTeam(p) ? "" : (STATUS[p.status] || p.status), isTeam(p) ? teamStage(p)[0] : "", p.start_date ? fmtDay(p.start_date) : ""].concat(kinds.map(k => (p.docs || {})[k.key] || 0), [c.rtw ? c.rtw.by : "", c.rtw ? fmtDay(c.rtw.at) : "", c.ni ? c.ni.by : "", c.ni ? fmtDay(c.ni.at) : ""]); }));
   const text = "﻿" + lines.map(r => r.map(csvCell).join(",")).join("\r\n");
   const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text], { type:"text/csv" })); a.download = "documents-register-" + new Date().toISOString().slice(0, 10) + ".csv"; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
   return lines.length - 1;
+}
+
+/* ------------------------------------------------------------- team right to work: upload links */
+S.team = { mode:null, cand:null, sel:new Set(), find:"", hand:{ first:"", last:"", email:"", job:"" }, result:null, err:"", busy:false };
+const candKey = c => String(c.planday_id || c.email);
+function teamCounts(){
+  const t = (S.reg ? S.reg.people : []).filter(isTeam);
+  return { all:t.length, notSent:t.filter(p => !p.link_sent_at).length, sent:t.filter(p => p.link_sent_at).length, opened:t.filter(p => p.first_opened_at).length, up:t.filter(p => (p.docs || {}).rtw).length, checked:t.filter(p => (p.checks || {}).rtw).length, outstanding:t.filter(p => !hasRtw(p)).length };
+}
+function splitName(n){ const s = String(n || "").trim(), i = s.indexOf(" "); return i < 0 ? { first:s, last:"" } : { first:s.slice(0, i), last:s.slice(i + 1).trim() }; }
+function candVisible(){
+  const q = S.team.find.trim().toLowerCase();
+  return (S.team.cand ? S.team.cand.people : []).filter(c => !q || (c.name + " " + c.email + " " + (c.job_title || "")).toLowerCase().includes(q));
+}
+function candListHtml(){
+  const rows = candVisible(), T = S.team;
+  return rows.length ? rows.map(c => `<label class="candrow"><input type="checkbox" data-cand="${esc(candKey(c))}"${T.sel.has(candKey(c)) ? " checked" : ""}><span><b>${esc(c.name)}</b><br><span class="tiny muted">${esc([c.job_title, c.department].filter(Boolean).join(" · "))}${c.email ? (c.job_title || c.department ? " · " : "") + esc(c.email) : ""}</span></span></label>`).join("") : `<p class="muted small" style="margin:8px 0">Nobody matches that.</p>`;
+}
+function candCountText(){ const T = S.team, total = T.cand ? T.cand.people.length : 0; return `${T.sel.size} of ${total} selected`; }
+function renderTeam(){
+  const el = $("#teamsec"); if (!el || !S.reg) { if (el) el.innerHTML = `<div class="card"><div class="sk" style="height:22px;width:50%"></div><div class="sk" style="height:48px;margin-top:12px"></div></div>`; return; }
+  const ae = document.activeElement, aeId = ae && ae.id, pos = ae && ae.selectionStart;
+  const c = teamCounts(), T = S.team, N = c.outstanding, busy = T.busy;
+  const stat = (n, l) => `<div class="stat"><b>${n}</b><span>${l}</span></div>`;
+  let sub = "";
+  if (T.mode === "add") {
+    const d = T.cand;
+    sub = `<div class="subpanel" id="addpanel"><h4>Add the team from Planday</h4>${!d ? `<div class="sk" style="height:60px"></div><p class="muted small">Asking Planday who is on the team...</p>` : `
+      <p class="small muted" style="margin:0 0 8px">${d.people.length} ${d.people.length === 1 ? "person" : "people"} found in Planday with an email address${d.already ? `, and ${d.already} already in the register` : ""}.</p>
+      ${d.no_email && d.no_email.length ? `<div class="notice" style="margin:0 0 8px"><b>No email address in Planday, so they cannot be added yet:</b> ${esc(d.no_email.join(", "))}. Add their email in Planday, or add them by hand.</div>` : ""}
+      ${d.people.length ? `<div class="toolrow" style="margin:0 0 6px"><input id="candfind" type="search" placeholder="Search by name, job or email" value="${esc(T.find)}" aria-label="Search the list" style="flex:1 1 200px;border:1px solid var(--celadon);border-radius:8px;padding:9px 10px;min-width:0"><button class="btn small ghost" data-act="candall">Tick all</button><button class="btn small ghost" data-act="candnone">Untick all</button></div>
+      <div class="small" id="candcount" style="margin:2px 0 6px"><b>${esc(candCountText())}</b></div><div class="candlist" id="candlist">${candListHtml()}</div>` : `<p class="muted">Everyone with an email is already in the register.</p>`}
+      <div class="row-actions" style="margin-top:12px"><button class="btn" data-act="candadd" id="candaddbtn"${T.sel.size && !busy ? "" : " disabled"}>${busy ? "Adding..." : "Add " + T.sel.size + (T.sel.size === 1 ? " person" : " people")}</button><button class="btn ghost" data-act="teamclose"${busy ? " disabled" : ""}>Close</button></div>`}${T.err ? `<div class="ferr" role="alert" style="margin-top:8px">${esc(T.err)}</div>` : ""}</div>`;
+  } else if (T.mode === "hand") {
+    const h = T.hand;
+    sub = `<div class="subpanel"><h4>Add someone by hand</h4><div class="grid2"><div class="field"><label for="th_first">First name</label><input id="th_first" value="${esc(h.first)}" autocomplete="off"></div><div class="field"><label for="th_last">Last name</label><input id="th_last" value="${esc(h.last)}" autocomplete="off"></div>
+      <div class="field"><label for="th_email">Email</label><input id="th_email" type="email" inputmode="email" value="${esc(h.email)}" autocomplete="off"></div><div class="field"><label for="th_job">Job title (optional)</label><input id="th_job" value="${esc(h.job)}"></div></div>
+      ${T.err ? `<div class="ferr" role="alert" style="margin-bottom:8px">${esc(T.err)}</div>` : ""}<div class="row-actions"><button class="btn" data-act="handadd"${busy ? " disabled" : ""}>${busy ? "Adding..." : "Add to the register"}</button><button class="btn ghost" data-act="teamclose"${busy ? " disabled" : ""}>Close</button></div></div>`;
+  } else if (T.mode === "confirm") {
+    sub = `<div class="confirmbox neutral" role="alertdialog" aria-label="Send the upload links"><b>Send the upload links?</b><div class="small" style="margin:4px 0 10px">This will email <b>${N}</b> ${N === 1 ? "person" : "people"} a personal link to upload their right to work documents. People who have already uploaded or been checked are skipped. Send?</div><div class="row-actions"><button class="btn" data-act="sendyes"${N ? "" : " disabled"}>Send</button><button class="btn ghost" data-act="teamclose">Cancel</button></div></div>`;
+  } else if (T.mode === "sending") {
+    sub = `<div class="subpanel" role="status" aria-live="polite"><div class="spin"></div><b>Sending the emails...</b><div class="small muted">This can take 10 to 20 seconds. Please keep this page open.</div></div>`;
+  } else if (T.mode === "result" && T.result) {
+    const r = T.result, f = r.failed || [];
+    sub = `<div class="subpanel" role="status"><h4>${r.sent} ${r.sent === 1 ? "email" : "emails"} sent</h4>${f.length ? `<div class="notice bad"><b>${f.length} could not be sent:</b><ul>${f.map(x => `<li>${esc(x.name)}: ${esc(x.error)}</li>`).join("")}</ul></div>` : `<div class="notice good" style="margin-top:0">Every email went out.</div>`}<p class="small muted" style="margin:6px 0 10px">Send again later to chase the rest: it only goes to people who still have not uploaded or been checked.</p><button class="btn ghost" data-act="teamclose">Done</button></div>`;
+  }
+  el.innerHTML = `<div class="card teamcard"><h3 style="font-size:24px">Team right to work: upload links</h3>
+    <p class="small muted" style="margin:2px 0 10px">Email every team member a personal link to photograph their right to work document. You then check the original and record it.</p>
+    <div class="stats">${stat(c.all, "in the register")}${stat(c.notSent, "link not sent")}${stat(c.sent, "link sent")}${stat(c.opened, "opened")}${stat(c.up, "uploaded")}${stat(c.checked, "original checked")}</div>
+    <div class="row-actions" style="margin-top:12px"><button class="btn small" data-act="teamadd"${busy || T.mode === "sending" ? " disabled" : ""}>Add the team from Planday</button><button class="btn small ghost" data-act="teamhand"${busy || T.mode === "sending" ? " disabled" : ""}>Add someone by hand</button>
+    <button class="btn gold" data-act="sendask"${N && !busy && T.mode !== "sending" ? "" : " disabled"}>Send the upload link to everyone who has not uploaded${N ? " (" + N + ")" : ""}</button></div>
+    ${N === 0 && c.all ? `<div class="tiny muted" style="margin-top:6px">Everyone in the register has uploaded or been checked.</div>` : ""}${sub}</div>`;
+  if (aeId) { const n = document.getElementById(aeId); if (n && n.focus) { n.focus({ preventScroll:true }); try { if (pos !== null && pos !== undefined) n.setSelectionRange(pos, pos); } catch(e){} } }
+}
+async function teamOpenAdd(){
+  const T = S.team; T.mode = "add"; T.cand = null; T.err = ""; T.find = ""; renderTeam();
+  try { const d = await call("team.candidates"); T.cand = { people:d.people || [], no_email:d.no_email || [], already:d.already || 0 }; T.sel = new Set(T.cand.people.map(candKey)); }
+  catch(e){ T.mode = null; toast(e.message, true); }
+  renderTeam();
+}
+async function teamAdd(people){
+  const T = S.team; T.busy = true; T.err = ""; renderTeam();
+  try {
+    const r = await call("team.add", { people });
+    T.busy = false; T.mode = null; T.cand = null; T.hand = { first:"", last:"", email:"", job:"" };
+    toast(`Added ${r.added}${r.skipped ? ", skipped " + r.skipped + " (already there or bad address)" : ""}.`, !r.added && !!r.skipped);
+    await loadRegister(); renderTeam();
+  } catch(e){ T.busy = false; T.err = e.message; renderTeam(); }
+}
+async function teamSend(){
+  const T = S.team; T.mode = "sending"; T.busy = true; renderTeam();
+  try { const r = await call("team.send", {}); T.result = { sent:r.sent || 0, failed:r.failed || [] }; T.mode = "result"; }
+  catch(e){ T.result = null; T.mode = null; toast(e.message, true); }
+  T.busy = false; await loadRegister(); renderTeam();
 }
 function planName(k){ return human(k); }
 function flatten(o, pre, out){ Object.entries(o || {}).forEach(([k, v]) => { const lab = (pre ? pre + ": " : "") + planName(k); if (v && typeof v === "object" && !Array.isArray(v)) flatten(v, lab, out); else out.push([lab, Array.isArray(v) ? v.map(x => typeof x === "object" ? JSON.stringify(x) : x).join(", ") : v]); }); return out; }
@@ -874,10 +976,36 @@ function logHtml(log){
   const rows = (log || []).slice().sort((a, b) => new Date(b.at) - new Date(a.at));
   return rows.length ? `<ul class="log">${rows.map(l => `<li><span class="at">${esc(fmtDT(l.at))}</span><span class="wh"><b>${esc(l.who || "")}</b> ${esc(l.what || "")}</span></li>`).join("")}</ul>` : `<p class="muted" style="margin:0">Nothing recorded yet.</p>`;
 }
+function teamDetailHtml(s, d){
+  const rtwN = (d.files || []).filter(f => f.kind === "rtw").length, st = teamStage({ docs:{ rtw:rtwN }, link_sent_at:s.link_sent_at, first_opened_at:s.first_opened_at });
+  const cancelled = s.status === "cancelled", sent = !!s.link_sent_at;
+  const exp = s.link_expires_at ? daysTo(s.link_expires_at) : null;
+  const ask = S.ui.confirm === "cancel" ? `<div class="confirmbox" role="alertdialog" aria-label="Remove from the register"><b>Remove ${esc(fullName(s))} from the register?</b><div class="small" style="margin:4px 0 10px">Their upload link will stop working and they will no longer be listed. This cannot be undone.</div><div class="row-actions"><button class="btn small solid-danger" data-act="cancelyes">Yes, remove them</button><button class="btn small ghost" data-act="cancelno">Keep them</button></div></div>` : "";
+  const sendNote = S.ui.sendNote ? `<div class="notice bad" role="alert"><b>The email did not go.</b> ${esc(S.ui.sendNote.error)} Copy the link below and send it to ${esc(s.first_name)} yourself.</div>` : "";
+  const lk = S.ui.link ? `<div class="linkbox"><input id="linkfield" readonly value="${esc(S.ui.link.link)}" aria-label="Upload link for the team member" onfocus="this.select()"><button class="btn small" data-act="copyfield">Copy</button></div><div class="tiny muted" style="margin-top:4px">Anyone with this link can upload documents for ${esc(s.first_name)}, so send it only to them.</div>` : "";
+  return `<button class="back" data-act="back">&larr; Back</button>
+    <div class="card dhead"><div style="display:flex;gap:10px;justify-content:space-between;align-items:flex-start;flex-wrap:wrap"><div><h2>${esc(fullName(s))}</h2>
+      <div class="muted">${esc(s.job_title || "")}${s.department_name ? " &middot; " + esc(s.department_name) : ""}</div>
+      <div class="muted small">${esc(s.email || "")}${s.mobile ? " &middot; " + esc(s.mobile) : ""}</div></div>
+      <div class="badges" style="margin:0"><span class="badge kind">Team</span>${cancelled ? `<span class="badge st-cancelled">Removed</span>` : `<span class="chipx ${st[1]}">${st[0]}</span>`}${(s.checks || {}).rtw ? `<span class="badge ok">Right to work checked</span>` : ""}</div></div>
+      ${cancelled ? `<div class="notice">This person has been removed from the register.</div>` : `<div class="row-actions" style="margin-top:12px"><button class="btn${sent && exp !== null && exp < 0 ? " gold" : ""}" data-act="send">${sent ? (exp !== null && exp < 0 ? "Send a new upload link" : "Resend upload link") : "Send upload link"}</button><button class="btn ghost" data-act="copylink">Copy link</button><button class="btn danger" data-act="cancelask">Remove from the register</button></div>
+      ${sent && !S.ui.sendNote ? `<div class="tiny muted" style="margin-top:6px">${esc(s.first_name)} was sent the link on ${esc(fmtDay(s.link_sent_at))}${s.first_opened_at ? " and opened it on " + esc(fmtDay(s.first_opened_at)) : ""}${exp !== null ? (exp < 0 ? ". The link has expired." : ". It works for " + exp + " more day" + (exp === 1 ? "" : "s") + ".") : "."}</div>` : ""}`}
+      ${sendNote}${lk}${ask}</div>
+    ${checksCard(s, d.files, true)}
+    <details class="sec" data-key="files"${openKey("files", true) ? " open" : ""}><summary>Documents${d.files && d.files.length ? `<span class="badge kind">${d.files.length}</span>` : ""}</summary><div class="in">${docsHtml(s, d.files, true)}</div></details>
+    <details class="sec" data-key="log"${openKey("log", false) ? " open" : ""}><summary>Activity</summary><div class="in">${logHtml(d.log)}</div></details>
+    <p class="muted tiny" style="margin:14px 2px">Opening this record is logged against your name.</p>`;
+}
 function renderDetail(){
   if (!S.d || S.route.name !== "detail") return;
+  setTabs();
   const keepY = window.scrollY, ae = document.activeElement, aeId = ae && ae.id, aePos = ae && ae.selectionStart;
   const d = S.d, s = d.starter, flags = (s.health_flags || []).length, h = s.health || {};
+  if (s.kind === "existing") {
+    $("#views").innerHTML = teamDetailHtml(s, d); window.scrollTo(0, keepY);
+    if (aeId) { const n = document.getElementById(aeId); if (n && n.focus) { n.focus({ preventScroll:true }); try { if (aePos !== null && aePos !== undefined) n.setSelectionRange(aePos, aePos); } catch(e){} } }
+    return;
+  }
   const hasPayroll = s.details && Object.keys(s.details).length;
   const sec = (key, title, inner, dflt, badge) => `<details class="sec" data-key="${key}"${openKey(key, dflt) ? " open" : ""}><summary>${title}${badge || ""}</summary><div class="in">${inner}</div></details>`;
   $("#views").innerHTML = `<button class="back" data-act="back">&larr; All starters</button>
@@ -944,6 +1072,23 @@ document.addEventListener("click", async e => {
   if (b.disabled) return;
   const busy = v => { b.disabled = v; };
   try {
+    if (a === "teamadd") return teamOpenAdd();
+    if (a === "teamhand") { S.team.mode = "hand"; S.team.err = ""; return renderTeam(); }
+    if (a === "teamclose") { if (S.team.busy) return; S.team.mode = null; S.team.err = ""; return renderTeam(); }
+    if (a === "sendask") { S.team.mode = "confirm"; return renderTeam(); }
+    if (a === "sendyes") { return teamSend(); }
+    if (a === "candall" || a === "candnone") { candVisible().forEach(c => { if (a === "candall") S.team.sel.add(candKey(c)); else S.team.sel.delete(candKey(c)); }); return renderTeam(); }
+    if (a === "candadd") {
+      const T = S.team, people = T.cand.people.filter(c => T.sel.has(candKey(c))).map(c => { const n = splitName(c.name); return { first_name:n.first, last_name:n.last, email:c.email, job_title:c.job_title || undefined, department:c.department || undefined, hired_date:c.hired_date || undefined, planday_id:c.planday_id || undefined }; });
+      if (!people.length) return toast("Tick at least one person.", true);
+      return teamAdd(people);
+    }
+    if (a === "handadd") {
+      const h = S.team.hand, em = h.email.trim();
+      if (!h.first.trim() || !h.last.trim()) { S.team.err = "Enter their first and last name."; return renderTeam(); }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) { S.team.err = "Enter a valid email address."; return renderTeam(); }
+      return teamAdd([{ first_name:h.first.trim(), last_name:h.last.trim(), email:em, job_title:h.job.trim() || undefined }]);
+    }
     if (a === "go") { if (e.target.closest("a")) return; return go(b.dataset.h); }
     if (a === "regfilter") { S.regFilter = b.dataset.k; $$("[data-act=regfilter]").forEach(x => x.setAttribute("aria-pressed", String(x.dataset.k === S.regFilter))); return renderRegBody(); }
     if (a === "regrefresh") { b.disabled = true; await loadRegister(); b.disabled = false; return toast("Up to date."); }
@@ -971,7 +1116,7 @@ document.addEventListener("click", async e => {
     if (a === "filter") { S.filter = b.dataset.k; S.list = null; return showList(); }
     if (a === "refresh") { b.disabled = true; await loadList(); toast("Up to date."); return; }
     if (a === "new") return go("#/new");
-    if (a === "back") { if (S.route.name === "form" && S.route.id) return go("#/s/" + encodeURIComponent(S.route.id)); return go("#/"); }
+    if (a === "back") { if (S.route.name === "detail" && S.d && S.d.starter.kind === "existing") return go("#/documents"); if (S.route.name === "form" && S.route.id) return go("#/s/" + encodeURIComponent(S.route.id)); return go("#/"); }
     if (a === "closemodal") return closeModal();
     if (a === "preview") { busy(true); try { await previewContract(); } finally { busy(false); } return; }
     if (a === "save" || a === "savesend") { busy(true); try { await saveForm(a === "savesend"); } finally { if (document.body.contains(b)) busy(false); } return; }
@@ -987,7 +1132,7 @@ document.addEventListener("click", async e => {
     if (a === "copylink") { busy(true); const r = await call("starter.link", { id:sid }); S.ui.link = { link:r.link, expires_at:r.expires_at }; S.ui.sendNote = null; renderDetail(); const ok = await copyText(r.link); return toast(ok ? "Link copied." : "Here is the link. Select it and copy.", !ok); }
     if (a === "cancelask") { S.ui.confirm = "cancel"; return renderDetail(); }
     if (a === "cancelno") { S.ui.confirm = null; return renderDetail(); }
-    if (a === "cancelyes") { busy(true); await call("starter.cancel", { id:sid }); S.ui.confirm = null; S.ui.link = null; toast("Starter cancelled."); return afterAction(); }
+    if (a === "cancelyes") { busy(true); await call("starter.cancel", { id:sid }); S.ui.confirm = null; S.ui.link = null; if (S.d && S.d.starter.kind === "existing") { toast("Removed from the register."); S.regSig = ""; S.d = null; return go("#/documents"); } toast("Starter cancelled."); return afterAction(); }
     if (a === "riskstat") { S.ui.riskStatus = b.dataset.k; S.ui.riskDirty = true; S.ui.riskFor = sid; return renderDetail(); }
     if (a === "risksave") {
       const s = S.d.starter, status = S.ui.riskStatus || s.risk_status, note = ($("#risknote") || {}).value || "";
@@ -1014,6 +1159,8 @@ document.addEventListener("click", async e => {
 });
 document.addEventListener("input", e => {
   const id = e.target.id || "";
+  if (id === "candfind") { S.team.find = e.target.value; $("#candlist").innerHTML = candListHtml(); return; }
+  if (id.startsWith("th_")) { S.team.hand[{ th_first:"first", th_last:"last", th_email:"email", th_job:"job" }[id]] = e.target.value; return; }
   if (id === "regfind") { S.regFind = e.target.value; return renderRegBody(); }
   if (id.startsWith("chk_")) { const [, f, k] = id.split("_"); S.ui.chk = S.ui.chk || {}; (S.ui.chk[k] = S.ui.chk[k] || {})[f] = e.target.value; return; }
   if (id === "up_label") { S.ui.up = S.ui.up || { kind:"rtw", label:"", file:null }; S.ui.up.label = e.target.value; return; }
@@ -1021,6 +1168,7 @@ document.addEventListener("input", e => {
 });
 document.addEventListener("change", e => {
   const t = e.target;
+  if (t.dataset && t.dataset.cand !== undefined && t.type === "checkbox") { if (t.checked) S.team.sel.add(t.dataset.cand); else S.team.sel.delete(t.dataset.cand); $("#candcount").innerHTML = "<b>" + esc(candCountText()) + "</b>"; const bt = $("#candaddbtn"); if (bt) { bt.disabled = !S.team.sel.size; bt.textContent = "Add " + S.team.sel.size + (S.team.sel.size === 1 ? " person" : " people"); } return; }
   if (t.id === "up_kind") { S.ui.up = S.ui.up || { kind:"rtw", label:"", file:null }; S.ui.up.kind = t.value; $("#w_uplabel").classList.toggle("off", t.value !== "other"); return; }
   if (t.id === "up_file") { S.ui.up = S.ui.up || { kind:"rtw", label:"", file:null }; S.ui.up.file = t.files[0] || null; return renderDetail(); }
   if (t.id.startsWith("chk_expiry_")) { const k = t.id.split("_")[2]; S.ui.chk = S.ui.chk || {}; (S.ui.chk[k] = S.ui.chk[k] || {}).expiry = t.value; }

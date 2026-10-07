@@ -135,3 +135,18 @@ Uploading is optional, but they must be told, in a pop-up on that step, to bring
 * `file.delete` { file_id } -> `{ ok }` (refuses the four signed/generated kinds)
 * `starter.check` { id, what:'rtw'|'ni', checked:true, document, expiry?, note? } -> `{ starter }` records that the ORIGINAL was seen: stored in `starter.checks[what] = { by, at, document, expiry, note }`. `checked:false` removes it. `starter.get` returns `starter.checks`.
 * `starter.get` `files` rows now include `source`, `label`, `uploaded_by`, `mime`.
+
+## Existing team members: right to work upload link (added 8 Oct)
+
+A person with `kind:'existing'` ("team member") has no contract or health forms. They are sent a link to `onboarding/docs.html?t=<token>` to upload right to work (and optional NI proof) documents; a manager then checks the originals. They appear in `register` (with `kind`, `link_sent_at`, `first_opened_at`, `submitted_at`) but NOT in `starters.list` unless `kind:'existing'` (or `'all'`) is passed.
+
+### Starter side (docs.html, public)
+* `p.open` { token } -> same as before; `starter.kind === 'existing'`; `uploads` lists their files; `submitted` is true once they pressed Done (they can still add more files afterwards: `p.upload` / `p.upload_remove` keep working for team members).
+* `p.upload` / `p.upload_remove` as before (kinds `rtw`, `ni`).
+* `p.docs_done` { token } -> `{ ok }`. Needs at least one `rtw` upload (else 400 "Please add a photo of your right to work document first."). Sets status `submitted`.
+
+### Manager
+* `team.candidates` {} -> `{ people: [{ planday_id, name, email, job_title, department, hired_date }], no_email: [name], already: n }`: active Planday staff with an email who are not yet in the register.
+* `team.add` { people: [{ first_name, last_name, email, job_title?, department?, hired_date?, planday_id? }] } -> `{ added, skipped }` (skips duplicates by email and bad addresses). Creates `kind:'existing'` people with status `draft`.
+* `team.send` { ids?: [uuid] } -> `{ sent: n, failed: [{ name, error }], names: [...] }`: emails the upload link. With no `ids` it goes to every team member (not cancelled) who has NO right to work upload and NO right to work check yet, so pressing it again only chases the people still outstanding. Link lasts 30 days. Up to 120 emails per call.
+* `starter.send` / `starter.link` / `starter.get` / `starter.check` / `file.*` work for team members too (the link they return is the docs.html one).
