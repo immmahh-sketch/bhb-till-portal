@@ -286,6 +286,16 @@
       };
 
       const platNames = pl => (pl || []).map(x => PLAT[x] || x).join(' and ') || 'nowhere yet';
+      const fbLive = p => { const f = p.publish_log && p.publish_log.facebook; return !!(f && f.ok && f.id); };
+      const fbGone = p => { const f = p.publish_log && p.publish_log.facebook; return f && f.removed ? f : null; };
+      function takeDownBox(p) {
+        const gone = fbGone(p), igLive = !!(p.publish_log && p.publish_log.instagram && p.publish_log.instagram.ok);
+        if (gone) return `<p class="muted" style="margin:0 0 10px">Removed from Facebook ${esc(fmtDT(gone.removed_at))}${gone.removed_by ? ' by ' + esc(gone.removed_by) : ''}.${igLive ? ' It is still on Instagram: delete it in the Instagram app.' : ''}</p>`;
+        if (!fbLive(p)) return '';
+        return `<div class="autobox"><b>Live on your Facebook Page.</b>
+          <div class="opts" style="margin-top:8px"><button class="btn danger small" id="spm_takedown">Remove from Facebook</button></div>
+          <p class="muted" style="margin:8px 0 0;font-size:12px">It disappears from Facebook straight away and can't be brought back. Instagram doesn't allow posts to be deleted from outside the Instagram app, so an Instagram post has to be deleted there.</p></div>`;
+      }
       function logLinks(p) {
         const l = p.publish_log || {};
         const bits = ['facebook', 'instagram'].filter(x => l[x] && l[x].ok && l[x].url).map(x => ` <a href="${esc(l[x].url)}" target="_blank" rel="noopener">${PLAT[x]}</a>`);
@@ -327,6 +337,7 @@
           <button class="btn ghost small" id="spm_addnote">Add note</button>
           <h4>${posted ? 'Posted' : cancelled ? 'Cancelled' : 'Posting'}</h4>
           ${posted ? `<p class="muted" style="margin:0 0 10px">Posted ${esc(fmtDT(p.posted_at))}${p.posted_by_name ? ' by ' + esc(p.posted_by_name) : ''}.${p.posted_url ? ` <a href="${esc(p.posted_url)}" target="_blank" rel="noopener">View live post</a>` : ''}${logLinks(p)}</p>
+            ${takeDownBox(p)}
             <div class="opts"><button class="btn ghost small" id="spm_unpost">Put back on the schedule</button></div>
             <h4>Results</h4><p class="muted" style="margin:0 0 10px;font-size:13px">Typed in by hand for now. When the Meta (Facebook and Instagram) connection is set up, these fill in by themselves.${p.results_at ? ` Last updated ${esc(fmtDT(p.results_at))}${p.results_source === 'meta' ? ' from Meta' : ''}.` : ''}</p>
             <div class="resgrid">${RESULTS.map(([key, label]) => `<div class="field"><label>${esc(label)}</label><input data-res="${key}" type="number" min="0" ${key === 'spend_actual' ? 'step="0.01"' : 'step="1"'} inputmode="decimal" value="${r[key] ?? ''}"></div>`).join('')}</div>
@@ -348,6 +359,13 @@
           try { const r = await call(action, Object.assign({ id: d.id }, extra || {})); d.post = Object.assign(d.post, r.post); toast(doneMsg(r)); await load(); if (d.post.status === 'posted') { ctx.closeModal(); return; } drawMore(); }
           catch (e) { showErr(e.message); if (b) b.disabled = false; await load(); }
         };
+        act('#spm_takedown', async () => {
+          if (!confirm('Remove this post from your Facebook Page?\n\nIt disappears from Facebook straight away and cannot be brought back.')) return;
+          const b = $('#spm_takedown'); if (b) { b.disabled = true; b.textContent = 'Removing…'; }
+          showErr('');
+          try { const r = await call('post.take_down', { id: d.id }); d.post = Object.assign(d.post, r.post); toast(r.instagram_still_live ? 'Removed from Facebook. It is still on Instagram: delete it in the Instagram app.' : 'Removed from Facebook.'); await load(); drawMore(); }
+          catch (e) { showErr(e.message); if (b) { b.disabled = false; b.textContent = 'Remove from Facebook'; } }
+        });
         act('#spm_approve', () => autoCall('post.approve', { approve: true }, () => 'Approved. It will be posted automatically.', '#spm_approve'));
         act('#spm_unapprove', () => autoCall('post.approve', { approve: false }, () => 'Approval removed.', '#spm_unapprove'));
         act('#spm_now', () => { if (confirm('Post this to ' + (p.platforms || []).map(x => PLAT[x] || x).join(' and ') + ' right now?')) { const b = $('#spm_now'); if (b) b.textContent = 'Posting… this can take a minute'; autoCall('post.publish_now', {}, r => r.post.status === 'posted' ? 'Posted.' : (r.post.publish_state === 'publishing' ? 'Started. Instagram is still processing it; it will finish by itself.' : 'It did not go out.'), '#spm_now'); } });
