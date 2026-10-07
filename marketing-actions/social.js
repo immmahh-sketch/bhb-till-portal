@@ -157,7 +157,7 @@
         <div class="opts" style="margin-bottom:12px"><button class="opt" data-kind="post" aria-pressed="${st.kind === 'post'}">Posts</button><button class="opt" data-kind="reel" aria-pressed="${st.kind === 'reel'}">Reels</button></div>
         <div class="scope">${scopes.map(([v, l]) => `<button class="opt" data-scope="${v}" aria-pressed="${st.scope === v}">${l}</button>`).join('')}
           <label class="mine"><input type="checkbox" id="sp_mine" ${st.mine ? 'checked' : ''}> Mine to post</label>
-          <span class="spacer"></span>${ctx.me.isAdmin ? `<button class="btn ghost small" id="sp_import">Import last 30 days from Facebook and Instagram</button>` : ''}${list.some(p => p.status === 'posted') ? `<button class="btn ghost small" id="sp_csv">Export CSV</button>` : ''}</div>
+          <span class="spacer"></span>${ctx.me.isAdmin ? `<button class="btn ghost small" id="sp_import">Import last 90 days (with photos) from Facebook and Instagram</button>` : ''}${list.some(p => p.status === 'posted') ? `<button class="btn ghost small" id="sp_csv">Export CSV</button>` : ''}</div>
         ${list.length ? list.map(card).join('') : `<div class="card empty">${st.scope === 'upcoming' ? `Nothing scheduled. Press New ${k.one} to plan one.` : st.scope === 'history' ? `No ${k.many.toLowerCase()} have been marked as posted yet.` : `Nothing here.`}</div>`}`;
       wireStrip();
       el.querySelectorAll('[data-kind]').forEach(b => b.onclick = () => { st.kind = b.dataset.kind; st.loaded = false; load(); });
@@ -170,13 +170,18 @@
       if (imp) imp.onclick = async () => {
         imp.disabled = true; const label = imp.textContent; imp.textContent = 'Checking Facebook and Instagram…';
         try {
-          const pre = await call('history.import', { days: 30, dry_run: true });
+          const pre = await call('history.import', { days: 90, dry_run: true });
           const note = (pre.notes || []).length ? '\n\nNot everything could be read: ' + pre.notes.join(' ') : '';
-          if (!pre.new) { toast('Nothing new to import. ' + pre.already_have + ' post' + (pre.already_have === 1 ? ' is' : 's are') + ' already in the history.' + (note ? ' ' + pre.notes.join(' ') : ''), !!note); }
-          else if (confirm('Add ' + pre.new + ' post' + (pre.new === 1 ? '' : 's') + ' from the last 30 days to the posted history? (' + pre.already_have + ' already there.) Pictures are not copied; the text, date, link and likes are.' + note)) {
-            imp.textContent = 'Importing…';
-            const r = await call('history.import', { days: 30 });
-            toast('Imported ' + r.imported + ' post' + (r.imported === 1 ? '' : 's') + '.'); await load(); return;
+          if (!pre.new && !pre.photos_pending) { toast('Nothing new to import. ' + pre.already_have + ' post' + (pre.already_have === 1 ? ' is' : 's are') + ' already in the history, with their pictures.' + (note ? ' ' + pre.notes.join(' ') : ''), !!note); }
+          else if (confirm((pre.new ? 'Add ' + pre.new + ' post' + (pre.new === 1 ? '' : 's') + ' from the last 90 days to the posted history' : 'Copy the pictures for the posts already imported') + ', with their pictures? (' + pre.already_have + ' already there.) It can take a few minutes; leave this page open.' + note)) {
+            if (pre.new) { imp.textContent = 'Importing posts…'; await call('history.import', { days: 90 }); }
+            let copied = 0, left = 1, rounds = 0;
+            while (left > 0 && rounds++ < 40) {
+              imp.textContent = 'Copying pictures…' + (copied ? ' ' + copied + ' so far' : '');
+              const r = await call('history.photos', { days: 90 });
+              copied += r.images; left = r.remaining; if (!r.processed) break;
+            }
+            toast('Done. ' + (pre.new || 0) + ' post' + (pre.new === 1 ? '' : 's') + ' added and ' + copied + ' picture' + (copied === 1 ? '' : 's') + ' copied.' + (left > 0 ? ' Some are still waiting: press the button again.' : '')); await load(); return;
           }
         } catch (e) { toast(e.message, true); }
         imp.disabled = false; imp.textContent = label;
@@ -354,7 +359,7 @@
           ${posted ? `<p class="muted" style="margin:0 0 10px">Posted ${esc(fmtDT(p.posted_at))}${p.posted_by_name ? ' by ' + esc(p.posted_by_name) : ''}.${p.posted_url ? ` <a href="${esc(p.posted_url)}" target="_blank" rel="noopener">View live post</a>` : ''}${logLinks(p)}</p>
             ${takeDownBox(p)}
             <div class="opts"><button class="btn ghost small" id="spm_unpost">Put back on the schedule</button></div>
-            <h4>Results</h4><p class="muted" style="margin:0 0 10px;font-size:13px">Typed in by hand for now. When the Meta (Facebook and Instagram) connection is set up, these fill in by themselves.${p.results_at ? ` Last updated ${esc(fmtDT(p.results_at))}${p.results_source === 'meta' ? ' from Meta' : ''}.` : ''}</p>
+            <h4>Results</h4><p class="muted" style="margin:0 0 10px;font-size:13px"><span id="spm_resnote">Likes, comments, shares and reach refresh from Facebook and Instagram when you open a post; type in anything else by hand.${p.results_at ? ` Last updated ${esc(fmtDT(p.results_at))}${p.results_source === 'meta' ? ' from Meta' : ''}.` : ''}</span> <button class="btn ghost small" id="spm_resrefresh" type="button">Refresh now</button></p>
             <div class="resgrid">${RESULTS.map(([key, label]) => `<div class="field"><label>${esc(label)}</label><input data-res="${key}" type="number" min="0" ${key === 'spend_actual' ? 'step="0.01"' : 'step="1"'} inputmode="decimal" value="${r[key] ?? ''}"></div>`).join('')}</div>
             <button class="btn small" id="spm_saveres" style="margin-top:10px">Save results</button>`
           : cancelled ? `<div class="opts"><button class="btn ghost small" id="spm_resched">Put back on the schedule</button></div>`
@@ -381,6 +386,20 @@
           try { const r = await call('post.take_down', { id: d.id }); d.post = Object.assign(d.post, r.post); toast(r.instagram_still_live ? 'Removed from Facebook. It is still on Instagram: delete it in the Instagram app.' : 'Removed from Facebook.'); await load(); drawMore(); }
           catch (e) { showErr(e.message); if (b) { b.disabled = false; b.textContent = 'Remove from Facebook'; } }
         });
+        const refreshResults = async force => {
+          const note = $('#spm_resnote'), btn = $('#spm_resrefresh'); if (!note) return;
+          if (btn) btn.disabled = true; note.textContent = 'Refreshing from Facebook and Instagram…';
+          try {
+            const r = await call('post.refresh_results', { id: d.id, force: !!force });
+            d.post = Object.assign(d.post, r.post); const res = d.post.results || {};
+            RESULTS.forEach(([key]) => { const inp = box.querySelector('[data-res="' + key + '"]'); if (inp && document.activeElement !== inp) inp.value = res[key] ?? ''; });
+            note.textContent = (r.refreshed || r.cached) ? 'Updated ' + fmtDT(d.post.results_at) + ' from Meta.' : ((r.notes && r.notes[0]) || 'Meta had no new figures.');
+            load();
+          } catch (e) { note.textContent = 'Could not refresh: ' + e.message; }
+          if (btn) btn.disabled = false;
+        };
+        act('#spm_resrefresh', () => refreshResults(true));
+        if (posted && st.meta && st.meta.connected && !d.autoRefreshed) { d.autoRefreshed = true; refreshResults(false); }
         act('#spm_approve', () => autoCall('post.approve', { approve: true }, () => 'Approved. It will be posted automatically.', '#spm_approve'));
         act('#spm_unapprove', () => autoCall('post.approve', { approve: false }, () => 'Approval removed.', '#spm_unapprove'));
         act('#spm_now', () => { if (confirm('Post this to ' + (p.platforms || []).map(x => PLAT[x] || x).join(' and ') + ' right now?')) { const b = $('#spm_now'); if (b) b.textContent = 'Posting… this can take a minute'; autoCall('post.publish_now', {}, r => r.post.status === 'posted' ? 'Posted.' : (r.post.publish_state === 'publishing' ? 'Started. Instagram is still processing it; it will finish by itself.' : 'It did not go out.'), '#spm_now'); } });
