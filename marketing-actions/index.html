@@ -193,6 +193,7 @@ table.tk tr.det td{background:var(--bone)}
     <button class="tabbtn" data-view="chat">Chat<span class="badge" id="b_chat" hidden></span></button>
     <button class="tabbtn" data-view="files">File share<span class="badge" id="b_files" hidden></span></button>
     <button class="tabbtn" data-view="social">Social Posts</button>
+    <button class="tabbtn" data-view="analytics">Analytics</button>
     <button class="tabbtn" data-view="call">Marketing Call</button>
   </div></nav>
   <div class="shell"><div id="views"></div></div>
@@ -201,6 +202,7 @@ table.tk tr.det td{background:var(--bone)}
 <div class="toast" id="toast"></div>
 <script src="../shared/fileshare.js?v=2"></script>
 <script src="social.js?v=5"></script>
+<script src="analytics.js?v=1"></script>
 <script>
 const CFG = { SUPABASE_URL:"https://safcrtrfdzsnftghibot.supabase.co", SUPABASE_KEY:"sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU" };
 const STATUSES = [["outstanding","Outstanding"],["in_progress","In Progress"],["completed","Completed"],["parked","Parked"]];
@@ -671,6 +673,14 @@ function viewSocial(){
 }
 function socialStop(){ if (socialHandle) { socialHandle.unmount(); socialHandle = null; } }
 
+/* ============================================================ analytics */
+let analyticsHandle = null;
+function viewAnalytics(){
+  $("#views").innerHTML = `<div id="analyticsmount"></div>`;
+  analyticsHandle = Analytics.mount($("#analyticsmount"), { call: socialCall, me: S.me, toast });
+}
+function analyticsStop(){ if (analyticsHandle) { analyticsHandle.unmount(); analyticsHandle = null; } }
+
 /* ============================================================ marketing call */
 function viewCall(){
   $("#views").innerHTML = `<div class="pagehead"><h2>Marketing Call</h2><span class="hint">The marketing team's video room</span></div>
@@ -720,6 +730,7 @@ async function refreshModalHistory(){
 }
 async function refreshNow(manual){
   if (S.refreshing || !S.me) return;
+  // Only the plan, My actions and Chat refresh here; Analytics (like Social Posts) runs its own five-minute refresh.
   const view = S.view; if (!["plan", "mine", "chat"].includes(view)) { if (!manual) refreshBadges(); return; }
   S.refreshing = true;
   const btn = $("#refnow"); if (btn && manual) { btn.disabled = true; btn.textContent = "Refreshing…"; }
@@ -762,9 +773,9 @@ async function refreshBadges(){
 }
 function markTab(){ $$(".tabbtn").forEach(b => b.setAttribute("aria-current", b.dataset.view === S.view ? "page" : "false")); }
 function goView(v){
-  chatStop(); tkStop(); fsStop(); socialStop();
+  chatStop(); tkStop(); fsStop(); socialStop(); analyticsStop();
   S.view = v; markTab(); closeModal();
-  if (v === "plan") viewPlan(); else if (v === "mine") viewMine(); else if (v === "tickets") viewTickets(); else if (v === "files") viewFiles(); else if (v === "call") viewCall(); else if (v === "social") viewSocial(); else viewChat();
+  if (v === "plan") viewPlan(); else if (v === "mine") viewMine(); else if (v === "tickets") viewTickets(); else if (v === "files") viewFiles(); else if (v === "call") viewCall(); else if (v === "social") viewSocial(); else if (v === "analytics") viewAnalytics(); else viewChat();
   window.scrollTo(0, 0);
 }
 function openGate(msg){ $("#gate").hidden = false; $("#app").hidden = true; if (msg) $("#gerr").textContent = msg; }
