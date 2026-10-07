@@ -50,7 +50,7 @@ async function loadIndex(): Promise<Sess[]> {
   indexCache = { at: Date.now(), sessions: d.sessions };
   return d.sessions;
 }
-const requiredOf = (s: Sess, depts: string[]) => s.audience.includes("all") || s.audience.some((a) => depts.includes(a));
+const requiredOf = (s: Sess, depts: string[], set?: any) => { const aud: string[] = Array.isArray(set?.roles) ? set.roles : s.audience; return aud.includes("all") || aud.some((a) => depts.includes(a)); };
 const addMonths = (iso: string, n: number) => { const d = new Date(iso); d.setMonth(d.getMonth() + n); return d.getTime(); };
 // passes: that person's records for the session, newest first. A pass only counts if made on or after the date it was issued.
 function statusFor(set: any, joined: string, passes: any[]) {
@@ -58,7 +58,7 @@ function statusFor(set: any, joined: string, passes: any[]) {
   const lp = passes.find((r) => r.passed && r.completed_at >= issued), now = Date.now();
   if (!lp) { const due = Math.max(new Date(issued).getTime(), new Date(joined).getTime()) + (set.grace_days ?? 7) * 864e5; return { st: now > due ? "overdue" : "todo", due }; }
   const renew = addMonths(lp.completed_at, set.refresh_months ?? 12);
-  return { st: now > renew ? "overdue" : renew - now <= 30 * 864e5 ? "soon" : "ok", due: renew };
+  return { st: now > renew ? "overdue" : renew - now <= 14 * 864e5 ? "soon" : "ok", due: renew };
 }
 const ukDay = (t: number | null) => t ? new Date(t).toLocaleDateString("en-GB", { timeZone: "Europe/London", day: "numeric", month: "long", year: "numeric" }) : "";
 
@@ -78,7 +78,7 @@ async function overdueList() {
   for (const u of users || []) {
     const d = deps.get(u.email) || [], items = [];
     for (const s of sessions) {
-      if (!requiredOf(s, d)) continue;
+      if (!requiredOf(s, d, set.get(s.key))) continue;
       const st = statusFor(set.get(s.key), u.created_at, bySP.get(u.email + "|" + s.key) || []);
       if (st.st === "overdue") items.push({ key: s.key, title: s.title, due: st.due });
     }
@@ -167,7 +167,7 @@ Deno.serve(async (req) => {
           rest(`training_records?select=${REC_COLS}&email=eq.${q(who.email)}&order=completed_at.desc&limit=500`),
           rest(`training_people?select=departments&email=eq.${q(who.email)}`),
           rest(`training_certs?select=${CERT_COLS}&email=eq.${q(who.email)}&deleted_at=is.null&order=created_at.desc`),
-          rest(`training_settings?select=session_key,refresh_months,grace_days,issued_at`),
+          rest(`training_settings?select=session_key,refresh_months,grace_days,issued_at,roles`),
           rest(`portal_users?select=created_at&email=eq.${q(who.email)}`),
         ]);
         const cfg = who.manager ? (await rest(`training_config?select=reminders_on&id=eq.1`))?.[0] : null;
@@ -258,7 +258,10 @@ Deno.serve(async (req) => {
         const key = clean(body.session_key, 60);
         if (!/^[a-z0-9][a-z0-9-]{1,58}$/.test(key)) throw new Error("Unknown session.");
         const refresh = Math.max(1, Math.min(60, Math.round(+body.refresh_months || 12))), grace = Math.max(1, Math.min(60, Math.round(+body.grace_days || 7)));
-        await rest(`training_settings?on_conflict=session_key`, { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify({ session_key: key, refresh_months: refresh, grace_days: grace, updated_by: who.email, updated_at: new Date().toISOString() }) });
+        const row: Record<string, unknown> = { session_key: key, refresh_months: refresh, grace_days: grace, updated_by: who.email, updated_at: new Date().toISOString() };
+        // roles: the list of roles (or "all") that must do the module; null puts it back to the default in the session list
+        if ("roles" in body) row.roles = Array.isArray(body.roles) ? [...new Set(body.roles.map((x: unknown) => String(x)).filter((x: string) => x === "all" || DEPARTMENTS.includes(x)))] : null;
+        await rest(`training_settings?on_conflict=session_key`, { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify(row) });
         return json({ ok: true });
       }
 

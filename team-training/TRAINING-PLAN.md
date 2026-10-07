@@ -56,9 +56,11 @@ These need an accredited course, a practical, or a certificate. Log them as cert
 - Everyone: **mental health awareness**; **lone-working check-in** at closing; **induction checklist** (site walk-round, first aiders, fire exits).
 
 ## How the record works
-- **Issue** a session in Training record > Settings. From that day everyone it is required of has **7 days** to pass it (a new starter has 7 days from their start date). The number of days can be changed per session.
-- After a pass, the session **renews** on the pass date plus the renewal months (12 by default, changeable per session). A pass made before a session was re-issued does not count, so **Re-issue** makes everyone do it again (use it when the content changes).
-- Who is required: a session marked "Everyone" is required of all staff; area sessions are required of people who work in that area. Set each person's areas in Training record (tap their name). Someone with no areas set is only required to do the "Everyone" sessions.
-- **Overdue** means past the due date, or past the renewal date. Filter the record by Overdue, or press **Overdue report** for a printable list grouped by department to hand to the managers.
-- An email goes to anyone overdue every morning, at most once a week each, with a copy summary to the admins. The switch is in Settings.
-- Every attempt is stored, pass or fail, with the score, session version and time taken.
+- **Roles, not choices.** Each person is given one or more **roles** by a manager (Training record > tap their name): front of house, bar, kitchen, housekeeping, maintenance, weddings and events, office and admin, managers. Staff are never asked what they do; they simply see their list. A person with no role set sees only the modules everyone does, and the page tells them their role has not been set.
+- **Which modules a role does** is set in Training record > Settings (a tick grid, with an "Everyone" column). The defaults are the audiences in the table above, and managers also get the food, allergen, licensing and conflict modules.
+- **Issue** a module in Settings. From that day everyone it applies to has **7 days** to pass it (a new starter has 7 days from their start date). The number of days can be changed per module.
+- **A completed module leaves the person's list.** It comes back as **Due** two weeks before its renewal date, and becomes **Overdue** on that date. The renewal date is the last pass plus the module's renewal months (12 by default, changeable per module in Settings).
+- **Re-issue** makes everyone do a module again (use it when the content changes). A pass made before a module was re-issued does not count.
+- **Overdue** is filterable in the record, and **Overdue report** gives a printable list grouped by role to hand to the managers.
+- An email goes to anyone overdue every morning, at most once a week each, with a summary to the admins. The switch is in Settings.
+- Every attempt is stored, pass or fail, with the score and time taken.

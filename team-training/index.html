@@ -184,7 +184,7 @@ function statusOf(s, sess /* { last, lastPass } or undefined */, joined){
     return { st: now > due ? "overdue" : "todo", due, last: sess && sess.last, tried: !!(sess && sess.last && sess.last.completed_at >= s.issuedAt), first:true };
   }
   const due = addMonths(lp.completed_at, s.refreshMonths || 12), days = (due - now) / 864e5;
-  return { st: days < 0 ? "overdue" : days <= 30 ? "soon" : "ok", lp, due };
+  return { st: days < 0 ? "overdue" : days <= 14 ? "soon" : "ok", lp, due };
 }
 // my own latest records per session
 function mySessions(){
@@ -193,36 +193,34 @@ function mySessions(){
   return m;
 }
 const myDepartments = () => S.myDepts.length ? S.myDepts : ((() => { try { return JSON.parse(localStorage.getItem(LS + "depts") || "[]"); } catch(e){ return []; } })());
-const TAG = { ok:["ok","Done"], soon:["soon","Renewal due soon"], overdue:["overdue","Overdue"], todo:["todo","To do"], notissued:["","Optional"] };
+const TAG = { ok:["ok","Done"], soon:["soon","Due now"], overdue:["overdue","Overdue"], todo:["todo","To do"], notissued:["","Optional"] };
 
 /* ------------------------------------------------------------- my training */
 function renderLearn(){
-  const mine = mySessions(), depts = myDepartments(), joined = S.me.joined;
-  const req = S.sessions.filter(s => required(s, depts)), oth = S.sessions.filter(s => !required(s, depts));
+  const mine = mySessions(), roles = S.myDepts, joined = S.me.joined;
+  const req = S.sessions.filter(s => required(s, roles));
   const stat = s => statusOf(s, mine[s.key], joined);
-  const done = req.filter(s => ["ok","soon"].includes(stat(s).st)).length;
-  const late = req.filter(s => stat(s).st === "overdue").length, todo = req.filter(s => stat(s).st === "todo").length;
+  const action = req.filter(s => ["overdue","todo","soon"].includes(stat(s).st)), finished = req.filter(s => ["ok"].includes(stat(s).st));
+  const late = action.filter(s => stat(s).st === "overdue").length;
   const card = s => {
     const x = stat(s), [cls, label] = TAG[x.st];
-    const note = x.st === "todo" ? `Due by ${fmtDay(x.due)}` : x.st === "overdue" ? (x.first ? `Was due by ${fmtDay(x.due)}` : `Renewal was due ${fmtDay(x.due)}`)
-      : x.lp ? `Done ${fmtDay(x.lp.completed_at)} · renew by ${fmtDay(x.due)}` : (x.last ? `Last try ${x.last.score}/${x.last.total}` : "");
+    const note = x.st === "todo" ? `Due by ${fmtDay(x.due)}` : x.st === "overdue" ? (x.first ? `Was due by ${fmtDay(x.due)}` : `Renewal was due ${fmtDay(x.due)}`) : x.st === "soon" ? `Renew by ${fmtDay(x.due)}` : "";
     const failed = x.tried && x.last && !x.last.passed ? `<span class="tag overdue">Not passed yet</span>` : "";
-    return `<div class="sess ${x.st === "notissued" ? "" : x.st}"><div class="ico">${esc(s.icon)}</div><div><h3>${esc(s.title)}</h3><p>${esc(s.blurb)}</p>
-      <div class="meta"><span class="tag ${cls}">${label}</span>${failed}<span class="tag">${s.mins} min</span>${s.audience.includes("all") ? `<span class="tag">Everyone</span>` : s.audience.map(a => `<span class="tag">${esc(deptLabel(a))}</span>`).join("")}${note ? `<span class="muted" style="font-size:12px;font-weight:${x.st === "todo" || x.st === "overdue" ? 700 : 400}">${esc(note)}</span>` : ""}</div></div>
-      <div class="go"><button class="btn ${x.st === "ok" || x.st === "notissued" ? "ghost" : ""}" data-act="start" data-k="${esc(s.key)}">${x.lp ? "Do it again" : "Start"}</button></div></div>`;
+    return `<div class="sess ${x.st}"><div class="ico">${esc(s.icon)}</div><div><h3>${esc(s.title)}</h3><p>${esc(s.blurb)}</p>
+      <div class="meta"><span class="tag ${cls}">${label}</span>${failed}<span class="tag">${s.mins} min</span>${note ? `<span class="muted" style="font-size:12px;font-weight:700">${esc(note)}</span>` : ""}</div></div>
+      <div class="go"><button class="btn" data-act="start" data-k="${esc(s.key)}">Start</button></div></div>`;
   };
-  const pick = !S.myDepts.length ? `<div class="card"><b>Where do you work?</b><div class="muted" style="font-size:13px">Pick your areas so the right sessions show as required for you. Your manager can set this for you too.</div>
-    <div class="picker">${S.depts.map(d => `<button class="chip" data-act="mydept" data-k="${d.key}" aria-pressed="${depts.includes(d.key)}">${esc(d.label)}</button>`).join("")}</div></div>` : "";
+  const doneCard = s => { const x = stat(s); return `<div style="display:flex;gap:10px;justify-content:space-between;flex-wrap:wrap;padding:6px 0;border-bottom:1px solid var(--mist)"><span>${esc(s.icon)} ${esc(s.title)}</span><span class="muted" style="font-size:12px">Done ${fmtDay(x.lp.completed_at)} · next due ${fmtDay(x.due)}</span></div>`; };
   const certs = S.certs.length ? `<div class="sechead">Your certificates</div><div class="card">${S.certs.map(c => `<div style="display:flex;gap:10px;justify-content:space-between;flex-wrap:wrap;padding:4px 0"><b>${esc(c.cert_label)}</b><span class="muted">${c.expires_on ? `expires ${fmtDay(c.expires_on)}` : c.obtained_on ? `obtained ${fmtDay(c.obtained_on)}` : ""}</span></div>`).join("")}</div>` : "";
-  const pct = req.length ? Math.round(done / req.length * 100) : 100;
-  const order = { overdue:0, todo:1, soon:2, ok:3 };
-  req.sort((a, b) => order[stat(a).st] - order[stat(b).st]);
-  const msg = late ? `${late} overdue${todo ? ` and ${todo} more to do` : ""}. Please do ${late === 1 ? "it" : "them"} as soon as you can.` : todo ? `${todo} to do. Each takes 10 to 15 minutes, on your phone.` : req.length ? "You are all up to date. Thank you." : "Nothing has been issued to you yet.";
-  $("#views").innerHTML = `<div class="hello"><div class="card" style="margin:0"><div class="bigstat"><b>${done}</b><span>of ${req.length} required sessions up to date</span></div>
-      <div class="progress"><i style="width:${pct}%"></i></div><div class="${late ? "" : "muted"}" style="font-size:13px;${late ? "color:var(--alert);font-weight:700" : ""}">${msg}</div></div>${pick}</div>
-    ${req.length ? `<div class="sechead">Required for you</div>${req.map(card).join("")}` : ""}
-    ${oth.length ? `<div class="sechead">${req.length ? "Other sessions you can do" : "Sessions"}</div>${oth.map(card).join("")}` : ""}${certs}
-    <p class="muted" style="font-size:12px;margin-top:22px">You do each session on your own, at your own pace: read the slides, then answer 10 questions. The pass mark is 8 out of 10 (80%). If you score less you go back over the slides and do it again; every attempt is saved against your name for the training record. A new session is due within a week of being issued, then renewed on a set date each year.</p>`;
+  const order = { overdue:0, todo:1, soon:2 };
+  action.sort((a, b) => order[stat(a).st] - order[stat(b).st]);
+  const roleNote = !roles.length ? `<div class="card" style="border-left:4px solid var(--gold)"><b>Your role has not been set yet</b><div class="muted" style="font-size:13px">Until your manager sets it you will only see the training everyone does.</div></div>` : "";
+  const head = action.length ? `<div class="bigstat"><b>${action.length}</b><span>${action.length === 1 ? "module" : "modules"} to do</span></div><div class="${late ? "" : "muted"}" style="font-size:13px;${late ? "color:var(--alert);font-weight:700" : ""}">${late ? `${late} overdue. Please do ${late === 1 ? "it" : "them"} as soon as you can.` : "Each takes 10 to 15 minutes, on your phone."}</div>`
+    : `<div class="bigstat"><b>✔</b><span>${req.length ? "You are all up to date. Thank you." : "Nothing has been issued to you yet."}</span></div>`;
+  $("#views").innerHTML = `<div class="hello"><div class="card" style="margin:0">${head}</div>${roleNote}</div>
+    ${action.length ? `<div class="sechead">Your training</div>${action.map(card).join("")}` : ""}
+    ${finished.length ? `<details class="out" style="margin-top:18px"><summary>Completed (${finished.length}). They come back when they are due again.</summary><div class="card" style="margin-top:8px">${finished.map(doneCard).join("")}</div></details>` : ""}${certs}
+    <p class="muted" style="font-size:12px;margin-top:22px">You do each module on your own, at your own pace: read the slides, then answer 10 questions. The pass mark is 8 out of 10 (80%). If you score less you go back over the slides and do it again; every attempt is saved against your name. When you pass, a module leaves your list until it is due again, two weeks before its renewal date.</p>`;
 }
 
 /* ------------------------------------------------------------- the player */
@@ -325,7 +323,6 @@ document.addEventListener("click", async e => {
     if (a === "submit") return grade();
     if (a === "retry") { P.checks = P.data.cards.filter(c => c.kind === "check").map(prepCheck); P.phase = "learn"; P.step = 0; P.score = 0; P.sel = []; P.locked = false; P.started = Date.now(); return paint(); }
     if (a === "save") { P.saved = null; paint(); return saveResult(); }
-    if (a === "mydept") { const k = b.dataset.k; let cur = myDepartments().slice(); cur = cur.includes(k) ? cur.filter(x => x !== k) : cur.concat(k); try { localStorage.setItem(LS + "depts", JSON.stringify(cur)); } catch(e){} return renderLearn(); }
     return onRecordAct(a, b);
   } catch(err){ toast(err.message, true); }
 });
@@ -336,7 +333,7 @@ async function loadTeam(force){
   $("#views").innerHTML = `<div class="loading">Loading the record…</div>`;
   S.team = (await call("team")).people;
 }
-const FILTERS = [["","Everyone"],["overdue","Overdue"],["soon","Renewal due soon"],["todo","To do"]];
+const FILTERS = [["","Everyone"],["overdue","Overdue"],["soon","Due soon"],["todo","To do"]];
 // every required, issued session for a person with its status
 function theirs(p){ return S.sessions.filter(s => required(s, p.departments)).map(s => ({ s, x: statusOf(s, p.sessions[s.key], p.joined) })); }
 function personRows(){
@@ -363,18 +360,18 @@ function summary(p){
 function renderRecord(){
   if (!S.team) return;
   const rows = personRows();
-  const chips = `<button class="chip" data-act="rdept" data-k="" aria-pressed="${!S.dept}">All areas</button>${S.depts.map(d => `<button class="chip" data-act="rdept" data-k="${d.key}" aria-pressed="${S.dept === d.key}">${esc(d.label)}</button>`).join("")}`;
+  const chips = `<button class="chip" data-act="rdept" data-k="" aria-pressed="${!S.dept}">All roles</button>${S.depts.map(d => `<button class="chip" data-act="rdept" data-k="${d.key}" aria-pressed="${S.dept === d.key}">${esc(d.label)}</button>`).join("")}`;
   const nOver = S.team.filter(p => theirs(p).some(t => t.x.st === "overdue")).length;
   const tools = `<div class="toolrow"><button class="btn gold" data-act="report">Overdue report (${nOver})</button><button class="btn small ghost" data-act="remind">Send reminder emails now</button><span class="sp"></span><button class="btn small ghost" data-act="csv">Download CSV</button><button class="btn small ghost" data-act="refresh">Refresh</button></div>
     <div class="toolrow" style="margin-top:0"><input id="rfind" type="search" placeholder="Find someone…" value="${esc(S.find)}" style="border:1px solid var(--celadon);border-radius:99px;padding:8px 14px;min-width:170px">
     <button class="chip" data-act="rview" data-k="person" aria-pressed="${S.rv === "person"}">By person</button><button class="chip" data-act="rview" data-k="session" aria-pressed="${S.rv === "session"}">By session</button><button class="chip" data-act="rview" data-k="settings" aria-pressed="${S.rv === "settings"}">Settings</button></div>
     ${S.rv === "settings" ? "" : `<div class="picker" style="margin:0 0 6px">${FILTERS.map(([k, l]) => `<button class="chip" data-act="ronly" data-k="${k}" aria-pressed="${S.only === k}">${l}</button>`).join("")}</div><div class="picker" style="margin:0 0 8px">${chips}</div>`}`;
-  const legend = `<div class="legend"><span><i style="background:var(--good-bg);border:1px solid var(--good)"></i>Up to date</span><span><i style="background:var(--attention-bg);border:1px solid var(--attention)"></i>Renewal within 30 days</span><span><i style="background:var(--alert-bg);border:1px solid var(--alert)"></i>Overdue</span><span><i style="background:#fff;border:1px solid var(--alert)"></i>○ to do (not yet due)</span><span>· not issued · – not required</span></div>`;
+  const legend = `<div class="legend"><span><i style="background:var(--good-bg);border:1px solid var(--good)"></i>Up to date</span><span><i style="background:var(--attention-bg);border:1px solid var(--attention)"></i>Due (within 14 days)</span><span><i style="background:var(--alert-bg);border:1px solid var(--alert)"></i>Overdue</span><span><i style="background:#fff;border:1px solid var(--alert)"></i>○ to do (not yet due)</span><span>· not issued · – not required</span></div>`;
   let main = "";
   if (S.rv === "person") {
     main = `<div class="mwrap"><table class="mx"><thead><tr><th class="nm">${rows.length} ${rows.length === 1 ? "person" : "people"}</th><th><span>Up to date</span></th>${S.sessions.map(s => `<th title="${esc(s.title)}"><span>${esc(s.icon)} ${esc(s.title)}</span></th>`).join("")}</tr></thead><tbody>
       ${rows.map(p => { const sm = summary(p); return `<tr><td class="nm" data-act="person" data-k="${esc(p.email)}" title="${esc(p.email)}">${esc(p.name)}</td><td class="sum" style="color:${sm.bad ? "var(--alert)" : "var(--good)"}">${sm.ok}/${sm.n}</td>${S.sessions.map(s => { const c = cellFor(s, p); return `<td class="c ${c.cls}" title="${esc(c.tip)}">${c.txt}</td>`; }).join("")}</tr>`; }).join("")}</tbody></table></div>${legend}
-      <p class="muted" style="font-size:12px">Tap a name for their departments, history and certificates. A person with no departments set is only required to do the "Everyone" sessions.</p>`;
+      <p class="muted" style="font-size:12px">Tap a name to set their role and see their history and certificates. A person with no role set is only given the "Everyone" modules.</p>`;
   } else if (S.rv === "session") {
     main = `<div class="bysess">${S.sessions.map(s => {
       if (!s.issuedAt) return `<div class="sess"><div><h3>${esc(s.icon)} ${esc(s.title)}</h3><div class="muted" style="font-size:13px">Not issued yet. Issue it in Settings.</div></div><div class="tag">Not issued</div></div>`;
@@ -392,6 +389,13 @@ function renderRecord(){
   $("#views").innerHTML = tools + main;
   const f = $("#rfind"); if (f) f.addEventListener("input", e => { S.find = e.target.value; clearTimeout(renderRecord._t); renderRecord._t = setTimeout(() => { renderRecord(); const n = $("#rfind"); n.focus(); n.setSelectionRange(n.value.length, n.value.length); }, 200); });
 }
+// Who does which module: a tick for every role that has to do it. "Everyone" means every member of staff, whatever their role.
+function roleMatrix(){
+  const cols = [["all","Everyone"]].concat(S.depts.map(d => [d.key, d.label]));
+  return `<div class="sechead">Which modules each role does</div><div class="mwrap"><table class="mx" style="min-width:760px"><thead><tr><th class="nm" style="height:auto">Module</th>${cols.map(c => `<th style="height:auto;min-width:78px;white-space:normal;font-size:11px">${esc(c[1])}</th>`).join("")}</tr></thead><tbody>
+    ${S.sessions.map(s => `<tr><td class="nm" style="cursor:default;max-width:240px;white-space:normal">${esc(s.icon)} ${esc(s.title)}</td>${cols.map(c => `<td><input type="checkbox" data-role="${esc(s.key)}" data-r="${c[0]}" ${s.audience.includes(c[0]) ? "checked" : ""}></td>`).join("")}</tr>`).join("")}</tbody></table></div>
+    <p class="muted" style="font-size:12px">Tick a role to give it the module. People can have more than one role. A change applies straight away: a newly ticked module shows on that role's list and is due within the days set above.</p>`;
+}
 function renderSettings(){
   const issuedN = S.sessions.filter(s => s.issuedAt).length, unissued = S.sessions.filter(s => !s.issuedAt).map(s => s.key);
   return `<div class="card"><b>How it works</b><div class="muted" style="font-size:13px;margin-top:4px">When you <b>issue</b> a session, everyone it is required of has <b>7 days</b> (or the days set below) to pass it; a new starter has that long from the day they joined. After a pass it renews on the date below. <b>Re-issue</b> makes everyone do it again. Sessions that are not issued stay optional and nobody is chased.</div>
@@ -403,6 +407,7 @@ function renderSettings(){
       <td><input type="number" min="1" max="60" value="${s.graceDays}" data-set="${esc(s.key)}" data-f="grace" style="width:64px;padding:5px;border:1px solid var(--celadon);border-radius:6px"></td>
       <td>${s.issuedAt ? fmtDay(s.issuedAt) : `<span class="muted">Not issued</span>`}</td>
       <td style="white-space:nowrap">${s.issuedAt ? `<button class="btn small ghost" data-act="reissue" data-k="${esc(s.key)}">Re-issue</button> <button class="btn small danger" data-act="withdraw" data-k="${esc(s.key)}">Withdraw</button>` : `<button class="btn small" data-act="issue" data-k="${esc(s.key)}">Issue</button>`}</td></tr>`).join("")}</tbody></table></div>
+    ${roleMatrix()}
     <p class="muted" style="font-size:12px">${issuedN} of ${S.sessions.length} sessions issued. Changing months or days saves as you type and applies to everyone straight away.</p>`;
 }
 // ---- the overdue report: one click, grouped by department, ready to print or send to the managers
@@ -413,7 +418,7 @@ function overdueByDept(){
     if (!p.departments.length) add("none", p, items); else for (const d of p.departments) add(d, p, items);
   }
   const order = S.depts.map(d => d.key).concat("none");
-  return order.filter(k => groups.has(k)).map(k => ({ key:k, label: k === "none" ? "No department set" : deptLabel(k), people: groups.get(k).sort((a, b) => a.p.name.localeCompare(b.p.name)) }));
+  return order.filter(k => groups.has(k)).map(k => ({ key:k, label: k === "none" ? "No role set" : deptLabel(k), people: groups.get(k).sort((a, b) => a.p.name.localeCompare(b.p.name)) }));
 }
 const daysLate = d => Math.max(1, Math.round((Date.now() - new Date(d)) / 864e5));
 function openReport(){
@@ -423,7 +428,7 @@ function openReport(){
     : `<div class="card empty">Nobody is overdue. Well done.</div>`;
   const d = document.createElement("div"); d.id = "report"; d.className = "drawer"; d.style.width = "min(820px,100%)";
   d.innerHTML = `<div class="dh"><h3>Overdue training report</h3><button data-act="rprint">Print / save as PDF</button><button data-act="rcsv">CSV</button><button data-act="rcopy">Copy</button><button data-act="rclose">Close</button></div>
-    <div class="db" id="reportbody"><div class="muted" style="font-size:13px">Black Horse Beamish · ${esc(today)} · ${people} ${people === 1 ? "person" : "people"} overdue. Someone who works in more than one area is listed under each. Only issued sessions required of them are counted.</div>${body}</div>`;
+    <div class="db" id="reportbody"><div class="muted" style="font-size:13px">Black Horse Beamish · ${esc(today)} · ${people} ${people === 1 ? "person" : "people"} overdue. Someone with more than one role is listed under each. Only issued sessions required of them are counted.</div>${body}</div>`;
   $("#report")?.remove(); document.body.appendChild(d);
 }
 function reportRows(){ const rows = [["Department","Name","Email","Session","Was due","Days late"]]; for (const d of overdueByDept()) for (const r of d.people) for (const t of r.items) rows.push([d.label, r.p.name, r.p.email, t.s.title, fmtDay(t.x.due), daysLate(t.x.due)]); return rows; }
@@ -450,9 +455,9 @@ async function openPerson(email){
   const d = document.createElement("div"); d.className = "drawer"; d.id = "drawer";
   d.innerHTML = `<div class="dh"><h3>${esc(p.name)}</h3><button data-act="dclose">Close</button></div><div class="db">
     <div class="muted" style="font-size:13px;margin-bottom:10px">${esc(p.email)}</div>
-    <div class="sechead" style="margin-top:4px">Works in</div><div class="picker">${S.depts.map(x => `<button class="chip" data-act="pdept" data-e="${esc(email)}" data-k="${x.key}" aria-pressed="${p.departments.includes(x.key)}">${esc(x.label)}</button>`).join("")}</div>
+    <div class="sechead" style="margin-top:4px">Role (tick every role they have)</div><div class="picker">${S.depts.map(x => `<button class="chip" data-act="pdept" data-e="${esc(email)}" data-k="${x.key}" aria-pressed="${p.departments.includes(x.key)}">${esc(x.label)}</button>`).join("")}</div>
     <div class="sechead">Required sessions</div>
-    ${req.map(s => { const x = statusOf(s, p.sessions[s.key], p.joined), [cls, label] = TAG[x.st]; return `<div style="display:flex;gap:8px;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--mist)"><span>${esc(s.icon)} ${esc(s.title)}</span><span class="tag ${cls}">${label}${x.due ? (x.st === "overdue" ? " · was due " : x.first ? " · due by " : " · renew by ") + fmtShort(x.due) : ""}</span></div>`; }).join("") || `<div class="muted">Nothing issued and required yet. Pick their departments above, and issue sessions in Settings.</div>`}
+    ${req.map(s => { const x = statusOf(s, p.sessions[s.key], p.joined), [cls, label] = TAG[x.st]; return `<div style="display:flex;gap:8px;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--mist)"><span>${esc(s.icon)} ${esc(s.title)}</span><span class="tag ${cls}">${label}${x.due ? (x.st === "overdue" ? " · was due " : x.first ? " · due by " : " · renew by ") + fmtShort(x.due) : ""}</span></div>`; }).join("") || `<div class="muted">Nothing issued and required yet. Pick their role above, and issue modules in Settings.</div>`}
     <div class="sechead">Certificates</div>
     ${p.certs.map(c => `<div style="padding:6px 0;border-bottom:1px solid var(--mist);display:flex;gap:8px;justify-content:space-between;align-items:center"><div><b>${esc(c.cert_label)}</b><div class="muted" style="font-size:12px">${c.obtained_on ? "Obtained " + fmtDay(c.obtained_on) : ""}${c.expires_on ? " · expires " + fmtDay(c.expires_on) : ""}${c.note ? " · " + esc(c.note) : ""}</div></div><button class="btn small danger" data-act="cdel" data-e="${esc(email)}" data-id="${esc(c.id)}">Remove</button></div>`).join("") || `<div class="muted" style="font-size:13px">None logged.</div>`}
     <div class="card" style="margin-top:10px"><div class="field"><label>Add a certificate</label><select id="ck">${CERTS.map(c => `<option value="${c[0]}">${esc(c[1])}</option>`).join("")}</select></div>
@@ -511,6 +516,11 @@ async function onRecordAct(a, b){
 document.addEventListener("change", async e => {
   const t = e.target;
   try {
+    if (t.dataset && t.dataset.role) {
+      const s = S.sessions.find(x => x.key === t.dataset.role), r = t.dataset.r;
+      s.audience = t.checked ? [...new Set(s.audience.concat(r))] : s.audience.filter(x => x !== r);
+      await call("settings_save", { session_key:s.key, refresh_months:s.refreshMonths, grace_days:s.graceDays, roles:s.audience }); toast("Saved."); return;
+    }
     if (t.dataset && t.dataset.set) {
       const s = S.sessions.find(x => x.key === t.dataset.set); const v = Math.max(1, Math.min(60, Math.round(+t.value) || 1)); t.value = v;
       if (t.dataset.f === "refresh") s.refreshMonths = v; else s.graceDays = v;
@@ -521,7 +531,7 @@ document.addEventListener("change", async e => {
 async function reloadSettings(){ const d = await call("bootstrap"); applySettings(d.settings || []); S.config = d.config || S.config; S.team = null; await loadTeam(true); }
 function applySettings(rows){
   const m = new Map(rows.map(r => [r.session_key, r]));
-  for (const s of S.sessions) { const r = m.get(s.key); s.issuedAt = r && r.issued_at || null; s.refreshMonths = r ? r.refresh_months : (s.baseRefresh || 12); s.graceDays = r ? r.grace_days : 7; }
+  for (const s of S.sessions) { const r = m.get(s.key); s.audience = r && r.roles ? r.roles : s.baseAudience; s.issuedAt = r && r.issued_at || null; s.refreshMonths = r ? r.refresh_months : (s.baseRefresh || 12); s.graceDays = r ? r.grace_days : 7; }
 }
 /* ------------------------------------------------------------- tabs and boot */
 function renderTabs(){
@@ -539,7 +549,7 @@ async function boot(){
   $("#app").hidden = false; $("#views").innerHTML = `<div class="loading">Loading…</div>`;
   try {
     const [idx, d] = await Promise.all([fetch("sessions/index.json", { cache:"no-cache" }).then(r => r.json()), call("bootstrap")]);
-    S.sessions = idx.sessions.map(s => ({ ...s, baseRefresh:s.refreshMonths })); S.depts = idx.departments; S.me = d.me; applySettings(d.settings || []); S.config = d.config || null; S.myDepts = d.departments || []; S.records = d.records || []; S.certs = d.certs || [];
+    S.sessions = idx.sessions.map(s => ({ ...s, baseRefresh:s.refreshMonths, baseAudience:s.audience.slice() })); S.depts = idx.departments; S.me = d.me; applySettings(d.settings || []); S.config = d.config || null; S.myDepts = d.departments || []; S.records = d.records || []; S.certs = d.certs || [];
   } catch(e){ $("#views").innerHTML = `<div class="card empty">${esc(e.message)}<br><br><span class="muted">Open this from the Staff Portal so it knows who you are.</span></div>`; return; }
   $("#whoname").textContent = S.me.name; renderTabs(); show();
 }
