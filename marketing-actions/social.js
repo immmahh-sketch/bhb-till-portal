@@ -85,7 +85,10 @@
       try { st.info = await call('bootstrap'); } catch (e) { el.innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
       call('meta.status').then(m => { st.meta = m; const s = el.querySelector('#sp_strip'); if (s && !st.dead) { s.innerHTML = stripHtml(); wireStrip(); } }).catch(() => {});
       await load();
+      // Posts already scheduled inside Facebook / Meta Business Suite: found in the background and added to the upcoming list.
+      call('schedule.scan').then(r => { if (!st.dead && r && (r.added || r.updated || r.published || r.gone)) load(); }).catch(() => {});
     }
+    const onMeta = p => !!(p && p.publish_log && p.publish_log.facebook && p.publish_log.facebook.scheduled_on_meta);
 
     function stripHtml() {
       const m = st.meta, on = !!(m && m.enabled);
@@ -127,6 +130,7 @@
       const d = day(p.post_date), late = p.status === 'scheduled' && p.post_date < today();
       const statusTag = p.status === 'posted' ? `<span class="tag completed">Posted</span>` : p.status === 'cancelled' ? `<span class="tag parked">Cancelled</span>`
         : p.publish_state === 'publishing' ? `<span class="tag in_progress">Posting…</span>` : p.publish_state === 'failed' ? `<span class="tag late">Failed</span>`
+        : onMeta(p) ? `<span class="tag in_progress" title="Scheduled in Facebook / Meta Business Suite; Facebook will publish it">Scheduled on Facebook</span>`
         : (late ? `<span class="tag late">Overdue</span>` : `<span class="tag outstanding">Scheduled</span>`);
       return `<div class="card item" data-id="${esc(p.id)}">
         <div class="when${late ? ' late' : ''}"><small>${esc(d.toLocaleDateString('en-GB', { weekday: 'short', timeZone: 'UTC' }))}</small><b>${d.getUTCDate()}</b><span>${esc(d.toLocaleDateString('en-GB', { month: 'short', timeZone: 'UTC' }))}</span></div>
@@ -233,9 +237,9 @@
       function igWarning() {
         const ig = document.querySelector('#modalroot #spm_plat input[value=instagram]');
         const files = d.media.map(m => ({ name: m.name, mime: m.mime })).concat(d.pending.map(f => ({ name: f.name, mime: f.type })));
-        const bad = files.filter(f => /^image\//.test(f.mime || '') && !/jpe?g/i.test(f.mime || '') && !/\.jpe?g$/i.test(f.name || ''));
+        const bad = files.filter(f => /^image\//.test(f.mime || '') && !/jpe?g|png/i.test(f.mime || '') && !/\.(jpe?g|png)$/i.test(f.name || ''));
         const box = $('#spm_igwarn'); if (!box) return;
-        box.innerHTML = ig && ig.checked && bad.length ? `<div class="warn">Instagram only accepts JPEG pictures, and ${bad.length === 1 ? esc(bad[0].name) + ' is not one' : bad.length + ' of these are not JPEGs'}. Use a JPEG (.jpg) or untick Instagram, otherwise automatic posting will not be allowed.</div>` : '';
+        box.innerHTML = ig && ig.checked && bad.length ? `<div class="warn">Instagram can only take JPEG or PNG pictures, and ${bad.length === 1 ? esc(bad[0].name) + ' is not one' : bad.length + ' of these are not'}. Use a JPEG or PNG, or untick Instagram, otherwise automatic posting will not be allowed.</div>` : '';
       }
       function drawMedia() {
         const box = $('#spm_media');
@@ -325,6 +329,12 @@
         const meta = st.meta, masterOn = !!(meta && meta.enabled), conn = !!(meta && meta.connected);
         const when = p.post_time ? day(p.post_date).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }) + ' at ' + String(p.post_time).slice(0, 5) : '';
         let inner;
+        if (onMeta(p)) {
+          const u = p.publish_log.facebook.url;
+          inner = `<div class="autobox"><b>Already scheduled on Facebook.</b>
+            <p style="margin:6px 0 0;font-size:14px">This was scheduled in Facebook / Meta Business Suite, not here. Facebook will publish it${when ? ' on ' + esc(when) : ''}; the portal will not post it as well. To change or cancel it, do that in Meta Business Suite${u ? ` (<a href="${esc(u)}" target="_blank" rel="noopener">open on Facebook</a>)` : ''}. Once it has gone out it moves to the posted history by itself.</p></div>`;
+          return `<div class="field"><label>Automatic posting</label>${inner}</div>`;
+        }
         if (p.publish_state === 'publishing') {
           inner = `<div class="autobox"><b>Being posted now.</b> ${p.publish_log && p.publish_log.instagram && !p.publish_log.instagram.ok ? 'Instagram is still processing the video; it will finish by itself in a few minutes.' : 'This will take a moment.'}</div>`;
         } else if (p.publish_state === 'failed') {
