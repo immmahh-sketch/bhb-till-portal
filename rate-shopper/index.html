@@ -163,6 +163,7 @@ nav.tabs{background:var(--sage-dark)}
       <div class="card" id="refreshbox"></div>
       <div class="card" id="livebox"></div>
       <div id="notices"></div>
+      <div id="scenariobar"></div>
       <div class="basis" id="basisbar"></div>
       <div id="sumstrip"></div>
       <div class="monthbar" id="monthbar"></div>
@@ -227,10 +228,19 @@ function calc(d){
 }
 
 /* ------------------------------------------------------------- calendar */
+/* temporary scenario: our prices shown as if set at the recommended rates from the revenue pricing pack */
+function renderScenario(){
+  const el = $("#scenariobar"), edit = S.me && S.me.edit;
+  if (!S.scenario) { el.innerHTML = ""; return; }
+  el.innerHTML = `<div class="card" style="background:#FFF2B8; border-left:5px solid #C9A400; padding:12px 16px; margin-bottom:12px; display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap:wrap">
+    <div style="flex:1 1 320px; color:#4A3F00"><b>Scenario on: our prices are the recommended rates.</b> Every price shown for our hotel (own website, Booking.com and the other sites) is today's price moved by the recommended rack-rate change for that night. Competitor prices are real. Nothing has been changed in Rezlynx and nothing real is overwritten.</div>
+    <button class="btn small" type="button" data-act="scenoff" ${edit ? "" : "disabled"}>Switch off</button></div>`;
+}
 async function loadMonth(ym, force){
   if (!force && S.days[ym]) return;
   const r = await call("calendar", { from: ym + "-01", to: monthLast(ym), channel: S.channel, meal: S.meal });
   S.days[ym] = r.days;
+  if (S.scenario !== (r.scenario || null)) { S.scenario = r.scenario || null; renderScenario(); }
   if (r.channels && r.channels.length) { S.channels = r.channels; if (!S.channels.some(c => c.key === S.channel)) { S.channel = "direct"; } renderBasis(); }
 }
 async function showMonth(ym){
@@ -498,6 +508,7 @@ document.addEventListener("click", async e => {
   try {
     if (act === "mprev") await showMonth(monthAdd(S.month, -1));
     else if (act === "mnext") await showMonth(monthAdd(S.month, 1));
+    else if (act === "scenoff") { await call("scenario.off", {}); S.scenario = null; renderScenario(); S.days = {}; await loadMonth(S.month, true); renderCal(); if (S.sel) openDay(S.sel); toast("Scenario switched off"); }
     else if (act === "refresh") startRefresh();
     else if (act === "live") runLive();
     else if (act === "livestop") { S.liveStop = true; b.disabled = true; b.textContent = "Stopping..."; }
@@ -571,6 +582,7 @@ async function boot(){
   $("#whoname").textContent = S.me.name || S.me.email || "";
   S.month = S.today.slice(0, 7);
   setTab(location.hash === "#competitors" ? "competitors" : "calendar");
+  S.scenario = (S.settings && S.settings.scenario) || null; renderScenario();
   renderBasis(); renderRefresh(); renderLive();
   if (S.running) { S.stop = false; runLoop(S.running.id); }
   await showMonth(S.month);
