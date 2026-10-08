@@ -152,3 +152,6 @@ A person with `kind:'existing'` ("team member") has no contract or health forms.
 * `starter.send` / `starter.link` / `starter.get` / `starter.check` / `file.*` work for team members too (the link they return is the docs.html one).
 
 **Right to work is now asked for (8 Oct):** `details` accepts `rtw_later: bool` ("I cannot upload it now, I will bring it on my first day"). The starter page does not let the documents step be passed until there is at least one `rtw` upload OR `rtw_later` is true. The originals still have to be brought on day one and checked either way.
+
+## Documents are compulsory (8 Oct 2026)
+`p.submit` refuses unless the starter has uploaded at least one `rtw` file, and at least one `ni` file unless `details.ni_unknown` is true ("Still to do: your right to work document, proof of your National Insurance number."). The form no longer offers the "I will bring it on my first day" tick (`details.rtw_later` is now always saved false). The originals are still brought on day one and checked there. Existing team members (`p.docs_done`) still only need a right to work file.
