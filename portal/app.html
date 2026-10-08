@@ -174,6 +174,22 @@ header.top{background:var(--sage); color:var(--white)}
   font:inherit; font-size:12px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; min-height:40px;
 }
 .layout-tools .lbtn:hover{background:var(--sage-10)}
+
+/* first-login welcome */
+.welcome-veil{position:fixed; inset:0; z-index:120; background:rgba(38,38,38,.55); display:flex; align-items:center; justify-content:center; padding:16px; overflow:auto}
+.welcome-veil[hidden]{display:none}
+.welcome-card{background:var(--white); border-radius:14px; max-width:520px; width:100%; box-shadow:0 20px 60px rgba(0,0,0,.35); overflow:hidden; margin:auto}
+.welcome-top{background:var(--sage); color:var(--white); padding:22px 26px 18px}
+.welcome-top .eyebrow{font-size:11px; letter-spacing:.14em; text-transform:uppercase; opacity:.8}
+.welcome-top h2{font-size:30px; line-height:1.1; margin-top:6px}
+.welcome-body{padding:22px 26px 6px; font-size:15px; line-height:1.55; color:var(--ink)}
+.welcome-body p{margin:0 0 14px}
+.welcome-sign{font-family:var(--display); font-size:21px; color:var(--sage); line-height:1.15; margin-top:4px}
+.welcome-sign small{display:block; font-family:var(--body); font-size:12px; color:var(--sage-70); margin-top:2px}
+.welcome-foot{padding:14px 26px 24px}
+.welcome-foot button{width:100%; padding:13px; border:0; border-radius:8px; background:var(--sage); color:var(--white); font-weight:600; font-size:15px; cursor:pointer}
+.welcome-foot button:hover{background:var(--sage-dark)}
+@media (max-width:480px){ .welcome-top{padding:20px 20px 16px} .welcome-body{padding:18px 20px 4px} .welcome-foot{padding:12px 20px 20px} .welcome-top h2{font-size:26px} }
 .layout-tools .lbtn.main{background:var(--sage); color:var(--white)}
 .layout-tools .lbtn.quiet{border-color:transparent; color:var(--sage-70)}
 .layout-note{flex-basis:100%; font-size:13px; color:var(--sage-70); margin:4px 0 0}
@@ -449,6 +465,19 @@ table.grid td{padding:10px 12px; border-top:1px solid var(--mist); vertical-alig
 
 <div class="toast" id="toast"></div>
 
+
+<div class="welcome-veil" id="welcome" role="dialog" aria-modal="true" aria-labelledby="welcomeTitle" hidden>
+  <div class="welcome-card">
+    <div class="welcome-top"><div class="eyebrow">The Black Horse Beamish</div><h2 id="welcomeTitle">Welcome, <span id="welcomeName"></span></h2></div>
+    <div class="welcome-body">
+      <p>First of all, thank you. Your hard work is what makes this place what it is, and I really do appreciate it.</p>
+      <p>This portal is the one place for the tools you use at work. It has been designed to make communication and processes more streamlined across the whole business, so there is less chasing and fewer things getting lost.</p>
+      <p>For now we are keeping it light, with just the basics. There are lots of great features coming over the next few weeks, and I will release new tiles as we go. If you have an idea that would make your job easier, tell me or your manager.</p>
+      <div class="welcome-sign">Paul Riley<small>General Manager</small></div>
+    </div>
+    <div class="welcome-foot"><button type="button" id="welcomeBtn">Let's get started</button></div>
+  </div>
+</div>
 <script>
 /* ==================================================================
    Staff Portal — one login for every in-house app.
@@ -507,7 +536,7 @@ async function trySignIn(email, password){
   if(!email || !password){ $("#gerr").textContent = "Enter your email and password."; return; }
   try{
     const d = await api("login", { email, password });
-    S.token = d.token; S.user = d.user; S.portals = d.portals || []; S.serverLayout = d.layout;
+    S.token = d.token; S.user = d.user; S.portals = d.portals || []; S.serverLayout = d.layout; S.welcome = !!d.welcome;
     localStorage.setItem(LS_TOKEN, S.token);
     enterApp();
   }catch(e){
@@ -575,6 +604,22 @@ function signOut(){
 $("#navSignout").addEventListener("click", signOut);
 
 /* -------------------------------------------------------------- app */
+/* ------------------------------------------------- first-login welcome */
+function showWelcome(preview){
+  $("#welcomeName").textContent = (S.user.name || "").trim().split(/\s+/)[0] || "there";
+  $("#welcome").hidden = false;
+  $("#welcomeBtn").onclick = async () => {
+    $("#welcome").hidden = true;
+    if(!preview){ try{ await api("welcome_seen"); }catch(e){} }
+  };
+  setTimeout(()=> $("#welcomeBtn").focus(), 50);
+}
+function maybeWelcome(){
+  let preview = false;
+  try{ preview = new URLSearchParams(location.search).get("welcome") === "1"; }catch(e){}
+  if(S.welcome || preview) showWelcome(!S.welcome);
+}
+
 function enterApp(){
   $("#gate").style.display = "none";
   $("#app").hidden = false;
@@ -584,6 +629,7 @@ function enterApp(){
   renderNav();
   if (S.user.role !== "admin") $("#page-settings").remove();
   else plCheck(true);
+  maybeWelcome();
 }
 
 function iconFor(k){
@@ -1846,7 +1892,7 @@ function proceedPastInstallGate(){
   if(saved){
     S.token = saved;
     api("me").then(d=>{
-      S.user = d.user; S.portals = d.portals || []; S.serverLayout = d.layout;
+      S.user = d.user; S.portals = d.portals || []; S.serverLayout = d.layout; S.welcome = !!d.welcome;
       enterApp();
     }).catch(()=>{
       try{ localStorage.removeItem(LS_TOKEN); }catch(e){}
