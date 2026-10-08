@@ -14,7 +14,8 @@
   --bone:#F7F7F7; --celadon:#C1C8B4; --mist:#E7E7E7; --white:#fff; --ink:#262626; --gold:#C9A56B;
   --attention:#B08D57; --attention-bg:#F7F0E4; --attention-ink:#6d5320;
   --alert:#8C4A3F; --alert-bg:#F6EAE8; --red:#B3261E; --red-bg:#FCECEA;
-  --good:#3F6B4A; --good-bg:#E4F0E6; --warm:#8a6a22; --warm-bg:#F6EBCF; --high:#8C4A3F; --high-bg:#F3DDD8;
+  --good:#2f6a3d; --bad:#a1281f;
+  --occ-lo:#F8DAD6; --occ-lo-b:#EDB9B2; --occ-mid:#FBE0BE; --occ-mid-b:#EFC38A; --occ-hi:#CDE8CF; --occ-hi-b:#9FCFA4;
   --display:"Cormorant Garamond",Georgia,serif; --body:Raleway,"Helvetica Neue",Arial,sans-serif;
   --track-label:.18em; --radius:10px; --shadow:0 1px 2px rgba(38,38,38,.06),0 8px 24px rgba(38,38,38,.07); --maxw:1180px;
 }
@@ -50,7 +51,7 @@ nav.tabs{background:var(--sage-dark)}
 .toast{position:fixed; left:50%; bottom:22px; transform:translate(-50%,20px); background:var(--ink); color:#fff; padding:10px 16px; border-radius:8px; font-size:13px; opacity:0; pointer-events:none; transition:.2s; z-index:900; max-width:90vw}
 .toast.on{opacity:1; transform:translate(-50%,0)} .toast.bad{background:var(--alert)}
 .notice{background:var(--attention-bg); border-radius:8px; padding:10px 14px; margin:10px 0; font-size:14px}
-.notice.bad{background:var(--red-bg); color:#6e1d17} .notice.good{background:var(--good-bg); color:var(--good)} .notice.info{background:var(--sage-10); color:var(--sage-dark)}
+.notice.bad{background:var(--red-bg); color:#6e1d17} .notice.good{background:#E4F0E6; color:var(--good)} .notice.info{background:var(--sage-10); color:var(--sage-dark)}
 .field{display:flex; flex-direction:column; gap:4px; margin-bottom:12px; min-width:0}
 .field label,.lbl{font-size:11px; letter-spacing:var(--track-label); text-transform:uppercase; font-weight:700; color:var(--sage-70)}
 .field input,.field select,.ctl{border:1px solid var(--celadon); border-radius:8px; padding:9px 11px; background:#fff; width:100%; min-height:42px}
@@ -63,7 +64,7 @@ nav.tabs{background:var(--sage-dark)}
 
 /* refresh panel */
 .refresh{display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end}
-.refresh .field{margin:0; flex:0 1 190px}
+.refresh .field{margin:0; flex:0 1 220px}
 .progress{height:10px; background:var(--sage-10); border-radius:99px; overflow:hidden; margin:12px 0 4px}
 .progress i{display:block; height:100%; background:var(--sage); transition:width .3s}
 
@@ -74,30 +75,39 @@ nav.tabs{background:var(--sage-dark)}
 .sumstrip span{font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--sage-70); font-weight:700}
 
 /* calendar */
+.basis{display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; margin:12px 0 0}
+.basis .field{flex:0 1 300px; margin:0}
+.basis .hint{flex:1 1 280px}
 .monthbar{display:flex; align-items:center; gap:10px; margin:14px 0 8px}
 .monthbar h3{font-size:26px; color:var(--sage); min-width:190px; text-align:center}
-.legend{display:flex; gap:14px; flex-wrap:wrap; font-size:12.5px; color:var(--sage-70); margin:4px 0 10px}
-.legend i{display:inline-block; width:12px; height:12px; border-radius:3px; margin-right:5px; vertical-align:-1px}
+.legend{display:flex; gap:6px 16px; flex-wrap:wrap; font-size:12.5px; color:var(--sage-70); margin:4px 0 10px}
+.legend i{display:inline-block; width:13px; height:13px; border-radius:3px; margin-right:5px; vertical-align:-2px}
+.lg-lo{background:var(--occ-lo); border:1px solid var(--occ-lo-b)} .lg-mid{background:var(--occ-mid); border:1px solid var(--occ-mid-b)} .lg-hi{background:var(--occ-hi); border:1px solid var(--occ-hi-b)}
+.legend .up{color:var(--bad); font-weight:700} .legend .down{color:var(--good); font-weight:700}
 .cal{display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:5px}
 .dow{font-size:11px; letter-spacing:.12em; text-transform:uppercase; font-weight:700; color:var(--sage-70); text-align:center; padding:4px 0}
-.cell{border:1px solid var(--mist); border-radius:8px; background:var(--white); min-height:86px; padding:6px 7px; text-align:left; cursor:pointer; display:flex; flex-direction:column; gap:1px; min-width:0; font-variant-numeric:tabular-nums}
+.cell{border:1px solid var(--mist); border-radius:8px; background:var(--white); min-height:92px; padding:6px 7px; text-align:left; cursor:pointer; display:flex; flex-direction:column; gap:1px; min-width:0; font-variant-numeric:tabular-nums}
 .cell:hover{box-shadow:0 0 0 2px var(--celadon)}
 .cell.blank{border:0; background:transparent; cursor:default; box-shadow:none}
 .cell.past{opacity:.45; cursor:default}
 .cell.sel{box-shadow:0 0 0 3px var(--gold)}
+.cell .top{display:flex; justify-content:space-between; gap:4px; align-items:baseline}
 .cell .d{font-size:11.5px; color:var(--sage-70); font-weight:700}
+.cell .oc{font-size:11px; font-weight:700; color:#555}
 .cell .us{font-family:var(--display); font-size:22px; font-weight:700; line-height:1.05; color:var(--ink)}
 .cell .av{font-size:11.5px; color:var(--sage-70)}
-.cell .rk{font-size:10.5px; font-weight:700; letter-spacing:.04em; text-transform:uppercase}
-.cell.good{background:var(--good-bg); border-color:#c9dfce} .cell.good .rk{color:var(--good)}
-.cell.warm{background:var(--warm-bg); border-color:#ead9a8} .cell.warm .rk{color:var(--warm)}
-.cell.high{background:var(--high-bg); border-color:#e5c3bb} .cell.high .rk{color:var(--high)}
+.cell .gap{font-size:11px; font-weight:800; letter-spacing:.02em}
+.cell .gap.up{color:var(--bad)} .cell .gap.down{color:var(--good)}
+.cell.lo{background:var(--occ-lo); border-color:var(--occ-lo-b)}
+.cell.mid{background:var(--occ-mid); border-color:var(--occ-mid-b)}
+.cell.hi{background:var(--occ-hi); border-color:var(--occ-hi-b)}
 .cell.full .us{font-size:15px; color:var(--sage-70)}
 .cell.nodata .us{color:var(--celadon)}
-.lg-good{background:var(--good-bg); border:1px solid #c9dfce} .lg-warm{background:var(--warm-bg); border:1px solid #ead9a8} .lg-high{background:var(--high-bg); border:1px solid #e5c3bb}
 
 /* day panel */
 .daycard h3{font-size:28px; color:var(--sage)}
+.occline{display:inline-block; font-size:12.5px; font-weight:700; padding:3px 10px; border-radius:99px; margin-left:8px; vertical-align:middle; font-family:var(--body); letter-spacing:0}
+.occline.lo{background:var(--occ-lo)} .occline.mid{background:var(--occ-mid)} .occline.hi{background:var(--occ-hi)}
 .verdict{font-size:15px; margin:4px 0 12px}
 .rank{width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums}
 .rank th{font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--sage-70); text-align:left; padding:6px 8px; border-bottom:2px solid var(--mist)}
@@ -108,7 +118,7 @@ nav.tabs{background:var(--sage-dark)}
 .rank tr.us td.n{color:var(--sage)}
 .rank .sub{font-size:12px; color:var(--sage-70); line-height:1.35}
 .diff{white-space:nowrap; font-weight:600}
-.diff.up{color:var(--high)} .diff.down{color:var(--good)}
+.diff.up{color:var(--bad)} .diff.down{color:var(--good)}
 .tag{font-size:10px; letter-spacing:.1em; text-transform:uppercase; font-weight:800; padding:2px 8px; border-radius:99px; background:var(--sage); color:#fff; vertical-align:middle; margin-left:6px}
 .tag.bk{background:#35607F} .tag.gh{background:var(--sage-70)}
 
@@ -116,6 +126,8 @@ nav.tabs{background:var(--sage-dark)}
 .comp{display:flex; gap:12px; align-items:flex-start; flex-wrap:wrap}
 .comp .info{flex:1 1 260px; min-width:0}
 .comp h4{font-size:22px; color:var(--sage)}
+.keyrow{display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end; margin-top:10px}
+.keyrow .field{flex:1 1 260px; margin:0}
 .cands{border:1px solid var(--mist); border-radius:8px; margin-top:8px; overflow:hidden}
 .cands button{display:flex; width:100%; text-align:left; gap:10px; background:#fff; border:0; border-bottom:1px solid var(--mist); padding:9px 12px; cursor:pointer; align-items:center; justify-content:space-between}
 .cands button:hover{background:var(--sage-10)}
@@ -123,12 +135,12 @@ nav.tabs{background:var(--sage-dark)}
 @media (max-width:640px){
   .shell{padding:0 10px 48px} .topin,.tabsin{padding-left:12px; padding-right:12px}
   .cal{gap:3px}
-  .cell{min-height:70px; padding:4px 4px}
-  .cell .us{font-size:16px} .cell .av{font-size:10px} .cell .rk{display:none} .cell .d{font-size:10.5px}
+  .cell{min-height:76px; padding:4px 4px}
+  .cell .us{font-size:16px} .cell .av{display:none} .cell .d{font-size:10.5px} .cell .oc{font-size:9.5px} .cell .gap{font-size:10px}
   .monthbar h3{min-width:0; flex:1; font-size:22px}
   .pagehead h2{font-size:26px}
   .rank th.hm,.rank td.hm{display:none}
-  .refresh .field{flex:1 1 100%}
+  .refresh .field,.basis .field{flex:1 1 100%}
 }
 </style>
 </head>
@@ -148,9 +160,10 @@ nav.tabs{background:var(--sage-dark)}
       <div class="pagehead"><h2>Our price against the competition</h2></div>
       <div class="card" id="refreshbox"></div>
       <div id="notices"></div>
+      <div class="basis" id="basisbar"></div>
       <div id="sumstrip"></div>
       <div class="monthbar" id="monthbar"></div>
-      <div class="legend"><span><i class="lg-good"></i>Below the competitor average</span><span><i class="lg-warm"></i>Up to 10% above</span><span><i class="lg-high"></i>More than 10% above</span><span>Big figure: our price. Small figure: competitor average.</span></div>
+      <div class="legend"><span><i class="lg-lo"></i>Occupancy under 50%</span><span><i class="lg-mid"></i>50% to 80%</span><span><i class="lg-hi"></i>Over 80%</span><span>Big figure: our price. Small figure: competitor average.</span><span><b class="up">&#9650; &pound;20</b> we are dearer than the average</span><span><b class="down">&#9660; &pound;20</b> we are cheaper</span></div>
       <div class="cal" id="cal"></div>
       <div id="daypanel"></div>
     </div>
@@ -162,7 +175,13 @@ nav.tabs{background:var(--sage-dark)}
 const CFG = { SUPABASE_URL:"https://safcrtrfdzsnftghibot.supabase.co", SUPABASE_KEY:"sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU" };
 const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
 const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
-const S = { me:null, today:"", maxDate:"", props:[], settings:{}, serp:false, used:0, running:null, last:null, month:"", days:{}, sel:"", dayData:null, tab:"calendar", busy:false, stop:false, cands:{}, findBusy:"", formErr:"" };
+const BASES = {
+  bb: { label:"Our website, bed and breakfast", key:"price" },
+  ro: { label:"Our website, room only", key:"price_ro" },
+  bk: { label:"Our Booking.com price", key:"price_booking" }
+};
+let savedBasis = "bb"; try { savedBasis = localStorage.getItem("bhb_rs_basis") || "bb"; } catch(e){}
+const S = { me:null, today:"", maxDate:"", props:[], settings:{}, serp:false, used:0, running:null, last:null, month:"", days:{}, sel:"", dayData:null, tab:"calendar", busy:false, stop:false, cands:{}, findBusy:"", formErr:"", basis: BASES[savedBasis] ? savedBasis : "bb", cap:18 };
 function toast(msg, bad){ const t = $("#toast"); t.textContent = msg; t.className = "toast on" + (bad ? " bad" : ""); clearTimeout(toast._t); toast._t = setTimeout(() => { t.className = "toast"; }, bad ? 6000 : 2800); }
 function staffEmail(){ try { return sessionStorage.getItem("bhb_staff_email") || ""; } catch(e){ return ""; } }
 async function call(action, payload){
@@ -188,33 +207,44 @@ const gbp2 = n => n == null ? "" : "£" + Number(n).toLocaleString("en-GB", { mi
 const ago = iso => { if (!iso) return ""; const mins = Math.round((Date.now() - Date.parse(iso)) / 60000); if (mins < 2) return "just now"; if (mins < 90) return mins + " min ago"; if (mins < 36 * 60) return Math.round(mins / 60) + " h ago"; return Math.round(mins / 1440) + " days ago"; };
 const ord = n => n + (["th","st","nd","rd"][(n % 100 > 10 && n % 100 < 14) ? 0 : (n % 10 < 4 ? n % 10 : 0)]);
 const comps = () => S.props.filter(p => p.kind === "competitor");
+const own = () => S.props.find(p => p.kind === "own");
+const occClass = occ => occ == null ? "" : occ < 50 ? "lo" : occ > 80 ? "hi" : "mid";
+const ourPrice = o => o ? o[BASES[S.basis].key] : null;
+const MODES = { xotelo:"Free: Tripadvisor price comparison (Xotelo)", area:"Paid: SerpApi, one search a night for everyone", detail:"Paid: SerpApi, one search per hotel per night" };
+
+/* ------------------------------------------------------------- the maths: average, rank and gap for the chosen basis */
+function calc(d){
+  const op = ourPrice(d.own);
+  const cp = d.comps.filter(c => c.price != null).map(c => c.price);
+  const avg = cp.length ? Math.round(cp.reduce((a, b) => a + b, 0) / cp.length * 100) / 100 : null;
+  const out = { op, avg, n: cp.length, rank: null, of: null, diff: null, pct: null };
+  if (op != null) {
+    out.of = cp.length + 1;
+    if (cp.length) out.rank = 1 + cp.filter(p => p < op).length;
+    if (avg != null) { out.diff = Math.round((op - avg) * 100) / 100; out.pct = avg ? Math.round((op - avg) / avg * 1000) / 10 : null; }
+  }
+  return out;
+}
 
 /* ------------------------------------------------------------- calendar */
-function cls(d){
-  if (!d.own) return "nodata";
-  if (d.own.sold_out || d.own.price == null) return "full";
-  if (d.diff_pct == null) return "";
-  return d.diff_pct <= 0 ? "good" : d.diff_pct <= 10 ? "warm" : "high";
-}
-function rankText(d){
-  if (d.rank == null || !d.of || d.of < 2) return "";
-  return d.rank === 1 ? "Cheapest" : ord(d.rank) + " of " + d.of;
-}
 async function loadMonth(ym, force){
   if (!force && S.days[ym]) return;
-  const from = ym + "-01", to = monthLast(ym);
-  const r = await call("calendar", { from, to });
+  const r = await call("calendar", { from: ym + "-01", to: monthLast(ym) });
   S.days[ym] = r.days;
 }
 async function showMonth(ym){
-  S.month = ym; S.sel = ""; S.dayData = null;
+  S.month = ym; S.sel = ""; S.dayData = null; $("#daypanel").innerHTML = "";
   renderCal();
   try { await loadMonth(ym); } catch(e){ toast(e.message, true); }
   if (S.month === ym) renderCal();
 }
+function renderBasis(){
+  $("#basisbar").innerHTML = `<div class="field"><label for="basis">Our price shown as</label><select id="basis">${Object.entries(BASES).map(([k, v]) => `<option value="${k}" ${k === S.basis ? "selected" : ""}>${esc(v.label)}</option>`).join("")}</select></div>
+    <div class="hint">Competitor prices are the Booking.com rate for the cheapest room, two adults, one night, and breakfast is not confirmed. To compare like with like, choose <b>Our Booking.com price</b> (or room only if their rate has no breakfast).</div>`;
+}
 function renderCal(){
   const ym = S.month, days = S.days[ym] || [];
-  const first = ym + "-01", p = isoParts(first);
+  const p = isoParts(ym + "-01");
   const lead = (new Date(Date.UTC(p[0], p[1] - 1, 1)).getUTCDay() + 6) % 7;
   const minM = S.today.slice(0, 7), maxM = (S.maxDate || S.today).slice(0, 7);
   $("#monthbar").innerHTML = `<button class="btn small ghost" type="button" data-act="mprev" aria-label="Previous month" ${ym <= minM ? "disabled" : ""}>&lsaquo;</button><h3>${esc(monthName(ym))}</h3><button class="btn small ghost" type="button" data-act="mnext" aria-label="Next month" ${ym >= maxM ? "disabled" : ""}>&rsaquo;</button>`;
@@ -222,29 +252,38 @@ function renderCal(){
   for (let i = 0; i < lead; i++) h += `<div class="cell blank"></div>`;
   if (!days.length) h += `<div class="muted" style="grid-column:1/-1;padding:24px;text-align:center">Loading prices...</div>`;
   for (const d of days) {
-    const past = d.date < S.today, c = cls(d);
+    const past = d.date < S.today, c = calc(d), oc = occClass(d.occ);
     const num = Number(d.date.slice(8));
-    let body = "";
-    if (d.own && d.own.price != null) body = `<span class="us">${gbp0(d.own.price)}</span>` + (d.comp.avg != null ? `<span class="av">avg ${gbp0(d.comp.avg)}</span>` : d.comp.total ? `<span class="av">no rival price</span>` : "") + (rankText(d) ? `<span class="rk">${esc(rankText(d))}</span>` : "");
-    else if (d.own && d.own.sold_out) body = `<span class="us">Full</span>` + (d.comp.avg != null ? `<span class="av">avg ${gbp0(d.comp.avg)}</span>` : "");
-    else body = `<span class="us">-</span>` + (d.comp.avg != null ? `<span class="av">avg ${gbp0(d.comp.avg)}</span>` : "");
-    h += `<button type="button" class="cell ${c}${past ? " past" : ""}${S.sel === d.date ? " sel" : ""}" data-date="${d.date}" ${past ? "disabled" : ""} aria-label="${esc(fmtLong(d.date))}"><span class="d">${num}</span>${body}</button>`;
+    let body = "", extra = "";
+    if (c.op != null) {
+      body = `<span class="us">${gbp0(c.op)}</span>`;
+      if (c.avg != null) body += `<span class="av">avg ${gbp0(c.avg)}</span>`;
+      if (c.diff != null && Math.round(Math.abs(c.diff)) > 0) body += `<span class="gap ${c.diff > 0 ? "up" : "down"}">${c.diff > 0 ? "&#9650;" : "&#9660;"} ${gbp0(Math.abs(c.diff))}</span>`;
+    } else if (d.own && d.own.sold_out) { body = `<span class="us">Full</span>` + (c.avg != null ? `<span class="av">avg ${gbp0(c.avg)}</span>` : ""); extra = " full"; }
+    else { body = `<span class="us">-</span>` + (c.avg != null ? `<span class="av">avg ${gbp0(c.avg)}</span>` : ""); extra = d.own ? "" : " nodata"; }
+    const occTxt = d.occ != null ? `${Math.round(d.occ)}%` : "";
+    h += `<button type="button" class="cell ${oc}${extra}${past ? " past" : ""}${S.sel === d.date ? " sel" : ""}" data-date="${d.date}" ${past ? "disabled" : ""} aria-label="${esc(fmtLong(d.date))}${d.occ != null ? ", occupancy " + Math.round(d.occ) + " percent" : ""}"><span class="top"><span class="d">${num}</span><span class="oc">${occTxt}</span></span>${body}</button>`;
   }
   $("#cal").innerHTML = h;
   renderSum(days);
 }
 function renderSum(days){
-  const live = days.filter(d => d.date >= S.today && d.own && d.own.price != null);
-  const cmp = live.filter(d => d.diff_pct != null);
-  if (!live.length) { $("#sumstrip").innerHTML = ""; return; }
-  const avgUs = live.reduce((a, d) => a + d.own.price, 0) / live.length;
-  const cav = cmp.length ? cmp.reduce((a, d) => a + d.comp.avg, 0) / cmp.length : null;
-  const gap = cmp.length ? cmp.reduce((a, d) => a + d.diff, 0) / cmp.length : null;
-  const cheaper = cmp.filter(d => d.diff_pct <= 0).length;
-  const full = days.filter(d => d.date >= S.today && d.own && d.own.sold_out).length;
-  $("#sumstrip").innerHTML = `<div class="sumstrip"><div><b>${gbp0(avgUs)}</b><span>Our average this month</span></div>` +
-    (cav != null ? `<div><b>${gbp0(cav)}</b><span>Competitor average</span></div><div><b>${gap > 0 ? "+" : gap < 0 ? "-" : ""}${gbp0(Math.abs(gap))}</b><span>${gap > 0 ? "We are above on average" : "We are below on average"}</span></div><div><b>${cheaper} of ${cmp.length}</b><span>Nights at or below average</span></div>` : `<div><b>-</b><span>No competitor prices yet</span></div>`) +
-    (full ? `<div><b>${full}</b><span>Nights we are full</span></div>` : "") + `</div>`;
+  const fut = days.filter(d => d.date >= S.today);
+  const live = fut.filter(d => ourPrice(d.own) != null);
+  if (!live.length && !fut.some(d => d.occ != null)) { $("#sumstrip").innerHTML = ""; return; }
+  const cs = live.map(calc).filter(c => c.diff != null);
+  const occs = fut.filter(d => d.occ != null);
+  const occAvg = occs.length ? occs.reduce((a, d) => a + d.occ, 0) / occs.length : null;
+  const avgUs = live.length ? live.reduce((a, d) => a + ourPrice(d.own), 0) / live.length : null;
+  const cav = cs.length ? cs.reduce((a, c) => a + c.avg, 0) / cs.length : null;
+  const gap = cs.length ? cs.reduce((a, c) => a + c.diff, 0) / cs.length : null;
+  const dearer = cs.filter(c => c.diff > 0).length;
+  let h = `<div class="sumstrip">`;
+  if (occAvg != null) h += `<div><b>${Math.round(occAvg)}%</b><span>Average occupancy</span></div>`;
+  if (avgUs != null) h += `<div><b>${gbp0(avgUs)}</b><span>Our average price</span></div>`;
+  if (cav != null) h += `<div><b>${gbp0(cav)}</b><span>Competitor average</span></div><div><b>${gap > 0 ? "+" : gap < 0 ? "-" : ""}${gbp0(Math.abs(gap))}</b><span>${gap > 0 ? "We are above on average" : "We are below on average"}</span></div><div><b>${dearer} of ${cs.length}</b><span>Nights we are dearer</span></div>`;
+  else if (live.length) h += `<div><b>-</b><span>No competitor prices yet</span></div>`;
+  $("#sumstrip").innerHTML = h + `</div>`;
 }
 async function openDay(date){
   S.sel = date; S.dayData = null; renderCal();
@@ -254,31 +293,45 @@ async function openDay(date){
 }
 function renderDay(){
   const d = S.dayData; if (!d) { $("#daypanel").innerHTML = ""; return; }
-  const us = d.list.find(x => x.kind === "own");
+  const key = BASES[S.basis].key;
+  const items = d.list.map(x => ({ ...x, p: x.kind === "own" ? x[key] : x.price }));
+  const priced = items.filter(x => x.p != null).sort((a, b) => a.p - b.p || (a.kind === "own" ? -1 : 1));
+  const unpriced = items.filter(x => x.p == null);
+  const us = priced.find(x => x.kind === "own");
+  const cp = priced.filter(x => x.kind === "competitor");
+  const avg = cp.length ? Math.round(cp.reduce((a, x) => a + x.p, 0) / cp.length * 100) / 100 : null;
   let verdict = "";
-  if (!us || us.price == null) verdict = us && us.checked ? "We have no bed and breakfast room available this night." : "We have not fetched our price for this night yet.";
-  else if (d.of < 2) verdict = "No competitor price has been found for this night yet.";
+  const usAll = items.find(x => x.kind === "own");
+  if (!us) verdict = usAll && usAll.checked ? (usAll.sold_out ? "We have no room available this night." : "We have no price for this night on this basis.") : "We have not fetched our price for this night yet.";
+  else if (!cp.length) verdict = "No competitor price has been found for this night yet.";
   else {
-    const where = d.rank === 1 ? "the cheapest" : ord(d.rank) + " cheapest";
-    verdict = `We are <b>${where} of ${d.of}</b>` + (d.avg != null ? `, ${d.diff === 0 ? "level with" : `<b>${gbp2(Math.abs(d.diff))} ${d.diff > 0 ? "above" : "below"}</b>`} the competitor average of ${gbp2(d.avg)} (${d.diff_pct > 0 ? "+" : ""}${d.diff_pct}%).` : ".");
+    const rank = priced.indexOf(us) + 1, diff = Math.round((us.p - avg) * 100) / 100, pct = avg ? Math.round((us.p - avg) / avg * 1000) / 10 : 0;
+    verdict = `We are <b>${rank === 1 ? "the cheapest" : ord(rank) + " cheapest"} of ${priced.length}</b>, ${diff === 0 ? "level with" : `<b>${gbp2(Math.abs(diff))} ${diff > 0 ? "above" : "below"}</b>`} the competitor average of ${gbp2(avg)} (${pct > 0 ? "+" : ""}${pct}%).`;
   }
-  let n = 0;
-  const rows = d.list.map(x => {
-    const priced = x.price != null;
-    if (priced) n++;
-    const isUs = x.kind === "own";
+  const rows = priced.concat(unpriced).map(x => {
+    const has = x.p != null, isUs = x.kind === "own";
+    const idx = priced.indexOf(x) + 1;
     let vs = "";
-    if (priced && !isUs && x.vs_us != null) vs = `<span class="diff ${x.vs_us > 0 ? "down" : x.vs_us < 0 ? "up" : ""}">${x.vs_us === 0 ? "Same as us" : (x.vs_us > 0 ? "+" : "-") + gbp2(Math.abs(x.vs_us))}</span><div class="sub">${x.vs_us_pct > 0 ? "+" : ""}${x.vs_us_pct}% on ours</div>`;
+    if (has && !isUs && us) { const dv = Math.round((x.p - us.p) * 100) / 100, pc = us.p ? Math.round(dv / us.p * 1000) / 10 : 0; vs = `<span class="diff ${dv > 0 ? "down" : dv < 0 ? "up" : ""}">${dv === 0 ? "Same as us" : (dv > 0 ? "+" : "-") + gbp2(Math.abs(dv))}</span><div class="sub">${pc > 0 ? "+" : ""}${pc}% on ours</div>`; }
     let sub = "";
-    if (isUs) sub = priced ? `${esc(x.room || "")}, ${esc(x.rate || "")}` + (x.price_flex != null && x.price_flex !== x.price ? `<br>Flexible rate: <b>${gbp2(x.price_flex)}</b>` : "") : esc(x.rate || "");
-    else if (priced) sub = (x.is_booking ? `<span class="tag bk">Booking.com</span> ` : x.source ? `<span class="tag gh">${esc(x.source)}</span> ` : "") + (x.meal_known ? "" : "Lowest rate found; breakfast not confirmed") + (x.rate ? "<br>" + esc(x.rate) : "");
+    if (isUs) {
+      const bits = [];
+      if (x.price != null) bits.push(`Website bed and breakfast <b>${gbp2(x.price)}</b>` + (x.price_flex != null && x.price_flex !== x.price ? ` (flexible ${gbp2(x.price_flex)})` : ""));
+      if (x.price_ro != null) bits.push(`room only <b>${gbp2(x.price_ro)}</b>`);
+      if (x.price_booking != null) bits.push(`Booking.com <b>${gbp2(x.price_booking)}</b>`);
+      sub = bits.join("<br>") + (x.room && S.basis === "bb" ? `<br>${esc(x.room)}, ${esc(x.rate || "")}` : "");
+      if (!bits.length) sub = esc(x.rate || "");
+    }
+    else if (has) sub = (x.is_booking ? `<span class="tag bk">Booking.com</span> ` : x.source ? `<span class="tag gh">${esc(x.source)}</span> ` : "") + "Cheapest room; breakfast not confirmed" + (x.rate ? "<br>" + esc(x.rate) : "");
     else sub = esc(x.checked ? (x.rate || (x.sold_out ? "Sold out" : "No price found")) : "Not checked yet");
     const link = x.link && !isUs ? ` <a href="${esc(x.link)}" target="_blank" rel="noopener noreferrer" class="tiny">View</a>` : "";
-    return `<tr class="${isUs ? "us" : ""}"><td class="n">${priced ? n : ""}</td><td><b>${esc(x.name)}</b>${isUs ? `<span class="tag">Us</span>` : ""}${link}<div class="sub">${sub}</div></td><td class="p">${priced ? gbp2(x.price) : `<span class="muted" style="font-size:15px;font-family:var(--body);font-weight:600">${x.sold_out ? "Sold out" : "No price"}</span>`}</td><td class="hm">${vs}</td><td class="hm"><span class="sub">${x.fetched_at ? esc(ago(x.fetched_at)) : ""}</span></td></tr>`;
+    const missing = !has ? (isUs && x.sold_out ? "Full" : x.sold_out ? "Sold out" : "No price") : "";
+    return `<tr class="${isUs ? "us" : ""}"><td class="n">${has ? idx : ""}</td><td><b>${esc(x.name)}</b>${isUs ? `<span class="tag">Us</span>` : ""}${link}<div class="sub">${sub}</div></td><td class="p">${has ? gbp2(x.p) : `<span class="muted" style="font-size:15px;font-family:var(--body);font-weight:600">${missing}</span>`}</td><td class="hm">${vs}</td><td class="hm"><span class="sub">${x.fetched_at ? esc(ago(x.fetched_at)) : ""}</span></td></tr>`;
   }).join("");
-  $("#daypanel").innerHTML = `<div class="card daycard"><h3>${esc(fmtLong(d.date))}</h3><p class="verdict">${verdict}</p>
+  const occ = d.occ != null ? `<span class="occline ${occClass(d.occ)}">${Math.round(d.occ)}% occupied &middot; ${d.rooms} of ${d.capacity} rooms</span>` : "";
+  $("#daypanel").innerHTML = `<div class="card daycard"><h3>${esc(fmtLong(d.date))}${occ}</h3><p class="verdict">${verdict}</p>
     <div style="overflow-x:auto"><table class="rank"><thead><tr><th></th><th>Hotel</th><th>Per night</th><th class="hm">Against ours</th><th class="hm">Checked</th></tr></thead><tbody>${rows}</tbody></table></div>
-    <p class="hint" style="margin-top:10px">Two adults, one night, cheapest available room with breakfast. Our price is the cheapest bed and breakfast rate on our own booking engine; the flexible rate is shown beneath it when it differs.</p></div>`;
+    <p class="hint" style="margin-top:10px">Ranked on: ${esc(BASES[S.basis].label)}, against each competitor's Booking.com rate. Two adults, one night. Occupancy is rooms sold from the forecast, out of ${d.capacity} rooms.</p></div>`;
 }
 
 /* ------------------------------------------------------------- refresh */
@@ -286,18 +339,17 @@ function renderRefresh(){
   const el = $("#refreshbox"), run = S.running;
   if (run) {
     const pct = run.total ? Math.round(run.done / run.total * 100) : 0;
-    el.innerHTML = `<div class="lbl">Refreshing prices</div><div class="progress"><i style="width:${pct}%"></i></div><div class="row" style="justify-content:space-between;align-items:center"><span class="small">${run.done} of ${run.total} checks done (${pct}%)${run.errors.length ? ` &middot; ${run.errors.length} problem${run.errors.length === 1 ? "" : "s"}` : ""}</span><button class="btn small danger" type="button" data-act="stop">Stop</button></div>`;
+    el.innerHTML = `<div class="lbl">Refreshing prices. Keep this page open until it finishes.</div><div class="progress"><i style="width:${pct}%"></i></div><div class="row" style="justify-content:space-between;align-items:center"><span class="small">${run.done} of ${run.total} checks done (${pct}%)${run.errors.length ? ` &middot; ${run.errors.length} problem${run.errors.length === 1 ? "" : "s"}` : ""}</span><button class="btn small danger" type="button" data-act="stop">Stop</button></div>`;
     return;
   }
-  const edit = S.me && S.me.edit;
-  const l = S.last;
-  const lastTxt = l ? `Last refresh ${ago(l.finished_at || l.started_at)}: ${fmtShort(l.date_from)} to ${fmtShort(l.date_to)}${l.errors.length ? `, ${l.errors.length} night${l.errors.length === 1 ? "" : "s"} missed` : ""}.` : "Prices have not been fetched yet.";
-  const used = S.settings.monthly_budget ? ` Competitor searches used this month: ${S.used} of ${S.settings.monthly_budget}.` : "";
+  const edit = S.me && S.me.edit, l = S.last, paid = S.settings.competitor_mode && S.settings.competitor_mode !== "xotelo";
+  const lastTxt = l ? `Last refresh ${ago(l.finished_at || l.started_at)}: ${fmtShort(l.date_from)} to ${fmtShort(l.date_to)}${l.errors.length ? `, ${l.errors.length} check${l.errors.length === 1 ? "" : "s"} missed` : ""}.` : "Prices have not been fetched yet.";
+  const used = paid && S.settings.monthly_budget ? ` Searches used this month: ${S.used} of ${S.settings.monthly_budget}.` : "";
   el.innerHTML = `<div class="refresh">
-    <div class="field"><label for="rs_scope">What to refresh</label><select id="rs_scope"><option value="all">Our price and competitors</option><option value="own">Our price only</option><option value="competitors">Competitors only</option></select></div>
+    <div class="field"><label for="rs_scope">What to refresh</label><select id="rs_scope"><option value="all">Everything</option><option value="own">Our website price only (about 1 minute)</option><option value="competitors">Competitors and Booking.com only</option></select></div>
     <div class="field"><label for="rs_nights">How far ahead</label><select id="rs_nights"><option value="30">Next 30 nights</option><option value="90">Next 90 nights</option><option value="180">Next 180 nights</option><option value="365" selected>Next year</option></select></div>
     <button class="btn" type="button" data-act="refresh" ${edit ? "" : "disabled"}>Refresh prices</button></div>
-    <p class="hint" style="margin:10px 0 0">${esc(lastTxt)}${esc(used)}</p>`;
+    <p class="hint" style="margin:10px 0 0">${esc(lastTxt)}${esc(used)} A full year takes about 10 minutes.</p>`;
 }
 async function startRefresh(){
   const scope = $("#rs_scope").value, nights = +$("#rs_nights").value;
@@ -311,12 +363,14 @@ async function startRefresh(){
 async function runLoop(id){
   if (S.busy) return;
   S.busy = true;
+  let lastSeen = 0;
   try {
     while (S.running && !S.stop) {
       const r = await call("refresh.step", { run_id: id });
       S.running = r.run.status === "running" ? r.run : null;
-      if (!S.running) { S.last = r.run; }
+      if (!S.running) S.last = r.run;
       renderRefresh();
+      if (S.running && S.running.done - lastSeen >= 40) { lastSeen = S.running.done; S.days = {}; loadMonth(S.month, true).then(renderCal).catch(() => {}); }
       if (!S.running) break;
     }
     if (S.stop) { try { await call("refresh.cancel", { run_id: id }); } catch(e){} S.running = null; toast("Stopped. Prices fetched so far are kept."); }
@@ -333,39 +387,49 @@ async function runLoop(id){
 async function reloadAfterRefresh(){
   try { const b = await call("bootstrap"); S.used = b.searches_used; S.last = b.last; S.running = b.running; } catch(e){}
   S.days = {}; renderRefresh();
-  await loadMonth(S.month, true); renderCal();
+  try { await loadMonth(S.month, true); } catch(e){}
+  renderCal();
   if (S.sel) openDay(S.sel);
 }
 
 /* ------------------------------------------------------------- competitors tab */
+function keyBox(p, edit){
+  return `<div class="keyrow"><div class="field"><label for="xk_${p.id}">Tripadvisor link or key</label><input id="xk_${p.id}" value="${esc(p.xotelo_key || "")}" placeholder="Paste the hotel's Tripadvisor page address" ${edit ? "" : "disabled"}></div><button class="btn small ghost" type="button" data-act="savekey" data-id="${p.id}" ${edit ? "" : "disabled"}>Save</button></div>`;
+}
 function renderComps(){
-  const edit = S.me && S.me.edit, st = S.settings;
-  let h = `<div class="pagehead"><h2>Competitors</h2></div><p class="muted small" style="margin:0 0 12px">These are the hotels our price is compared against. Prices are read from Google Hotels, which lists the lowest rate it finds for each night (usually from Booking.com or the hotel itself).</p>`;
-  if (!S.serp) h += `<div class="notice">The search service key has not been added yet, so competitor prices cannot be fetched. Our own price still works.</div>`;
+  const edit = S.me && S.me.edit, st = S.settings, free = st.competitor_mode === "xotelo";
+  const o = own();
+  let h = `<div class="pagehead"><h2>Competitors</h2></div><p class="muted small" style="margin:0 0 12px">These are the hotels our price is compared against. Each is found by its Tripadvisor page: open the hotel on Tripadvisor, copy the address from the browser and paste it here. Prices are Booking.com's cheapest rate for two adults, one night.</p>`;
+  if (!free && !S.serp) h += `<div class="notice">A paid search method is selected but its key (SERPAPI_KEY) has not been added, so competitor prices cannot be fetched. Switch to the free method below.</div>`;
+  if (o) h += `<div class="card"><div class="comp"><div class="info"><h4>${esc(o.name)} <span class="tag">Us</span></h4><div class="small muted">${o.xotelo_key ? "Our Booking.com price is fetched too, so there is a like-for-like comparison." : "Add our Tripadvisor link to also fetch our Booking.com price."}</div>${keyBox(o, edit)}</div></div></div>`;
   for (const p of comps()) {
     const cands = S.cands[p.id];
     h += `<div class="card"><div class="comp"><div class="info"><h4>${esc(p.name)}${p.active ? "" : ` <span class="tiny muted">(paused)</span>`}</h4>
-      <div class="small muted">${p.google_token ? `Matched on Google Hotels${p.google_name ? ": " + esc(p.google_name) : ""}` : "Matched by name in the search results. Use Find to pin it to the exact hotel."}</div>
-      ${p.notes ? `<div class="small" style="margin-top:4px">${esc(p.notes)}</div>` : ""}</div>
+      <div class="small muted">${p.xotelo_key ? "Tripadvisor page linked." : "No Tripadvisor link yet, so no prices can be fetched."}</div>
+      ${p.notes ? `<div class="small" style="margin-top:4px">${esc(p.notes)}</div>` : ""}
+      ${keyBox(p, edit)}</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn small ghost" type="button" data-act="find" data-id="${p.id}" ${edit && S.serp && !S.findBusy ? "" : "disabled"}>${S.findBusy === p.id ? "Searching..." : "Find on Google Hotels"}</button>
+        ${free ? "" : `<button class="btn small ghost" type="button" data-act="find" data-id="${p.id}" ${edit && S.serp && !S.findBusy ? "" : "disabled"}>${S.findBusy === p.id ? "Searching..." : "Find on Google Hotels"}</button>`}
         <button class="btn small ghost" type="button" data-act="toggle" data-id="${p.id}" ${edit ? "" : "disabled"}>${p.active ? "Pause" : "Resume"}</button>
         <button class="btn small danger" type="button" data-act="remove" data-id="${p.id}" ${edit ? "" : "disabled"}>Remove</button></div></div>
       ${cands ? (cands.length ? `<div class="cands">${cands.map((c, i) => `<button type="button" data-act="pick" data-id="${p.id}" data-i="${i}"><span><b>${esc(c.name)}</b><br><span class="tiny muted">${esc(c.type || "")}</span></span><span>${c.rate != null ? gbp0(c.rate) : ""} &middot; <u>Use this one</u></span></button>`).join("")}</div>` : `<div class="notice">Google Hotels found nothing for that name.</div>`) : ""}
       </div>`;
   }
-  h += `<div class="card"><div class="lbl" style="margin-bottom:8px">Add a competitor</div><div class="row"><div class="field"><label for="nc_name">Hotel name</label><input id="nc_name" placeholder="e.g. Lumley Castle Hotel" maxlength="120"></div><button class="btn" type="button" data-act="add" ${edit ? "" : "disabled"}>Add</button></div>${S.formErr ? `<div class="notice bad">${esc(S.formErr)}</div>` : ""}</div>`;
-  h += `<div class="sechead">How competitor prices are found</div><div class="card">
-    <div class="row"><div class="field"><label for="st_mode">Search method</label><select id="st_mode" ${edit ? "" : "disabled"}><option value="area" ${st.competitor_mode === "area" ? "selected" : ""}>One search a night for everyone (cheapest to run)</option><option value="detail" ${st.competitor_mode === "detail" ? "selected" : ""}>One search per hotel per night (reads the Booking.com price)</option></select></div>
-    <div class="field"><label for="st_area">Area searched</label><input id="st_area" value="${esc(st.area_query || "")}" maxlength="200" ${edit ? "" : "disabled"}></div>
-    <div class="field" style="flex:0 1 160px"><label for="st_budget">Searches a month</label><input id="st_budget" type="number" min="0" step="10" value="${esc(st.monthly_budget)}" ${edit ? "" : "disabled"}></div>
+  h += `<div class="card"><div class="lbl" style="margin-bottom:8px">Add a competitor</div><div class="row"><div class="field"><label for="nc_name">Hotel name</label><input id="nc_name" placeholder="e.g. Lumley Castle Hotel" maxlength="120"></div><div class="field"><label for="nc_key">Tripadvisor link</label><input id="nc_key" placeholder="Paste the Tripadvisor page address"></div><button class="btn" type="button" data-act="add" ${edit ? "" : "disabled"}>Add</button></div>${S.formErr ? `<div class="notice bad">${esc(S.formErr)}</div>` : ""}</div>`;
+  h += `<div class="sechead">Settings</div><div class="card">
+    <div class="row"><div class="field"><label for="st_mode">How competitor prices are found</label><select id="st_mode" ${edit ? "" : "disabled"}>${Object.entries(MODES).map(([k, v]) => `<option value="${k}" ${st.competitor_mode === k ? "selected" : ""}>${esc(v)}</option>`).join("")}</select></div>
+    <div class="field" style="flex:0 1 150px"><label for="st_cap">Rooms we have</label><input id="st_cap" type="number" min="1" max="200" value="${esc(st.rooms_capacity)}" ${edit ? "" : "disabled"}></div>
+    ${free ? "" : `<div class="field"><label for="st_area">Area searched</label><input id="st_area" value="${esc(st.area_query || "")}" maxlength="200" ${edit ? "" : "disabled"}></div><div class="field" style="flex:0 1 150px"><label for="st_budget">Searches a month</label><input id="st_budget" type="number" min="0" step="10" value="${esc(st.monthly_budget)}" ${edit ? "" : "disabled"}></div>`}
     <button class="btn" type="button" data-act="savesettings" ${edit ? "" : "disabled"}>Save</button></div>
-    <p class="hint" style="margin:12px 0 0">A refresh will not start if it would go over the monthly search budget. The free plan allows 250 a month. Fetching a full year for every competitor with the first method takes about 365 searches; fetching the next 90 nights takes about 90. Used this month: <b>${S.used}</b>.</p></div>`;
+    <p class="hint" style="margin:12px 0 0">The free method uses Xotelo, a free service that reads Tripadvisor's price comparison, which includes the Booking.com rate. It needs no account or key. ${free ? "" : `A refresh will not start if it would go over the monthly search budget. Searches used this month: <b>${S.used}</b>. `}"Rooms we have" is the number used for the occupancy colours on the calendar (sold rooms come from the forecast).</p></div>`;
   $("#v_competitors").innerHTML = h;
 }
 async function saveProp(p, patch){ await call("properties.save", { id:p.id, name:p.name, notes:p.notes, booking_url:p.booking_url, google_token:p.google_token, google_name:p.google_name, active:p.active, ...patch }).then(r => { S.props = r.properties; }); }
 
 /* ------------------------------------------------------------- events */
+document.addEventListener("change", e => {
+  if (e.target && e.target.id === "basis") { S.basis = e.target.value; try { localStorage.setItem("bhb_rs_basis", S.basis); } catch(x){} renderCal(); if (S.dayData) renderDay(); }
+});
 document.addEventListener("click", async e => {
   const cell = e.target.closest(".cell[data-date]");
   if (cell && !cell.disabled) { openDay(cell.dataset.date); return; }
@@ -376,6 +440,10 @@ document.addEventListener("click", async e => {
     else if (act === "mnext") await showMonth(monthAdd(S.month, 1));
     else if (act === "refresh") startRefresh();
     else if (act === "stop") { S.stop = true; b.disabled = true; b.textContent = "Stopping..."; }
+    else if (act === "savekey") {
+      const p = S.props.find(x => x.id === id); const v = $("#xk_" + id).value;
+      await saveProp(p, { xotelo_key: v }); renderComps(); toast(v.trim() ? "Saved" : "Link removed");
+    }
     else if (act === "find") {
       const p = S.props.find(x => x.id === id); S.findBusy = id; renderComps();
       try { const r = await call("properties.find", { name: p.name }); S.cands[id] = r.candidates; } finally { S.findBusy = ""; }
@@ -391,13 +459,15 @@ document.addEventListener("click", async e => {
       const r = await call("properties.delete", { id }); S.props = r.properties; S.days = {}; renderComps(); toast("Removed");
     }
     else if (act === "add") {
-      const name = $("#nc_name").value.trim(); S.formErr = "";
+      const name = $("#nc_name").value.trim(), key = $("#nc_key").value.trim(); S.formErr = "";
       if (!name) { S.formErr = "Type the hotel name."; renderComps(); return; }
-      try { const r = await call("properties.save", { name }); S.props = r.properties; $("#nc_name") && 0; toast("Added. Use Find to match it on Google Hotels."); } catch(err){ S.formErr = err.message; }
+      try { const r = await call("properties.save", { name, xotelo_key: key }); S.props = r.properties; toast(key ? "Added" : "Added. Paste its Tripadvisor link to get prices."); } catch(err){ S.formErr = err.message; }
       renderComps();
     }
     else if (act === "savesettings") {
-      const r = await call("settings.save", { competitor_mode: $("#st_mode").value, area_query: $("#st_area").value, monthly_budget: +$("#st_budget").value }); S.settings = r.settings; renderComps(); toast("Saved");
+      const payload = { competitor_mode: $("#st_mode").value, rooms_capacity: +$("#st_cap").value };
+      if ($("#st_area")) { payload.area_query = $("#st_area").value; payload.monthly_budget = +$("#st_budget").value; }
+      const r = await call("settings.save", payload); S.settings = r.settings; S.days = {}; renderComps(); renderRefresh(); toast("Saved");
     }
   } catch(err){ toast(err.message, true); }
 });
@@ -412,7 +482,7 @@ function setTab(name){
 $$(".tabbtn").forEach(x => x.addEventListener("click", () => { location.hash = x.dataset.view === "competitors" ? "#competitors" : "#calendar"; }));
 window.addEventListener("hashchange", () => setTab(location.hash === "#competitors" ? "competitors" : "calendar"));
 
-function openGate(msg){ $("#gate").style.display = "flex"; $("#app").classList.add("off"); }
+function openGate(){ $("#gate").style.display = "flex"; $("#app").classList.add("off"); }
 $("#signout").addEventListener("click", () => { try { sessionStorage.removeItem("bhb_staff_email"); } catch(e){} openGate(); });
 async function boot(){
   $("#app").classList.remove("off");
@@ -423,7 +493,7 @@ async function boot(){
   $("#whoname").textContent = S.me.name || S.me.email || "";
   S.month = S.today.slice(0, 7);
   setTab(location.hash === "#competitors" ? "competitors" : "calendar");
-  renderRefresh();
+  renderBasis(); renderRefresh();
   if (S.running) { S.stop = false; runLoop(S.running.id); }
   await showMonth(S.month);
 }
