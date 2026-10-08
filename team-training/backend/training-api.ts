@@ -18,7 +18,19 @@ const BREVO_KEY = Deno.env.get("BREVO_API_KEY") ?? "";
 const SENDER = { name: "Black Horse Beamish", email: "stay@blackhorsebeamish.co.uk" };
 const SITE = "https://app.blackhorsebeamish.co.uk/team-training/";
 const PORTAL_URL = "https://app.blackhorsebeamish.co.uk/portal/app.html";
-const DEPARTMENTS = ["foh", "bar", "kitchen", "housekeeping", "maintenance", "events", "office", "management"];
+// Who does which module follows the portal PROFILES (Settings > Users). A person has the one profile they were set up with, plus "admin" when they are a portal administrator.
+// A module's audience is a list of profile keys ("all" = everyone). The 10-minute trainers' own "For:" departments are turned into profiles with this map (keep it in step with
+// team-training/index.html); a module's saved audience, if any, replaces it.
+const DEPT_PROFILES: Record<string, string[]> = {
+  foh: ["foh-team", "fb-supervisor"], bar: ["foh-team", "fb-supervisor"], kitchen: ["chef", "kitchen-porter"], housekeeping: ["housekeeping-team"],
+  maintenance: ["maintenance-team"], events: ["wedding-coordinator"], office: ["accounts"], management: ["head-of-department", "admin"],
+};
+const audienceOf = (aud: string[]) => aud.includes("all") ? ["all"] : [...new Set(aud.flatMap((d) => DEPT_PROFILES[d] || []))];
+const profilesOfUser = (u: any): string[] => [u?.profile_key, u?.role === "admin" ? "admin" : null].filter(Boolean) as string[];
+async function profileList(): Promise<{ key: string; label: string }[]> {
+  const rows = (await rest(`portal_profiles?select=key,label,sort_order&active=is.true&order=sort_order.asc,label.asc`)) || [];
+  return [...rows.map((r: any) => ({ key: r.key, label: r.label })), { key: "admin", label: "Administrator (GM)" }];
+}
 
 const CORS = {
   "access-control-allow-origin": "*",
@@ -50,12 +62,13 @@ async function loadIndex(): Promise<Sess[]> {
   indexCache = { at: Date.now(), sessions: d.sessions };
   return d.sessions;
 }
-const requiredOf = (s: Sess, depts: string[], set?: any) => { const aud: string[] = Array.isArray(set?.roles) ? set.roles : s.audience; return aud.includes("all") || aud.some((a) => depts.includes(a)); };
+const requiredOf = (s: Sess, profiles: string[], set?: any) => { const aud: string[] = Array.isArray(set?.roles) ? set.roles : audienceOf(s.audience); return aud.includes("all") || aud.some((a) => profiles.includes(a)); };
 const addMonths = (iso: string, n: number) => { const d = new Date(iso); d.setMonth(d.getMonth() + n); return d.getTime(); };
 // passes: that person's records for the session, newest first. A pass only counts if made on or after the date it was issued.
 function statusFor(set: any, joined: string, passes: any[]) {
-  const issued = set?.issued_at; if (!issued || new Date(issued).getTime() > Date.now()) return { st: "notissued", due: null as number | null }; // not issued yet, or scheduled for a later date
-  const lp = passes.find((r) => r.passed && r.completed_at >= issued), now = Date.now();
+  const issued = set?.issued_at, now = Date.now();
+  const lp = passes.find((r) => r.passed && !r.voided_at && (r.manual || (issued && r.completed_at >= issued)));
+  if (!issued || new Date(issued).getTime() > now) return lp ? { st: now > addMonths(lp.completed_at, set?.refresh_months ?? 12) ? "overdue" : "ok", due: addMonths(lp.completed_at, set?.refresh_months ?? 12) } : { st: "notissued", due: null as number | null }; // not issued yet, or scheduled for a later date
   if (!lp) { const due = Math.max(new Date(issued).getTime(), new Date(joined).getTime()) + (set.grace_days ?? 7) * 864e5; return { st: now > due ? "overdue" : "todo", due }; }
   const renew = addMonths(lp.completed_at, set.refresh_months ?? 12);
   return { st: now > renew ? "overdue" : renew - now <= 14 * 864e5 ? "soon" : "ok", due: renew };
@@ -65,20 +78,20 @@ const ukDay = (t: number | null) => t ? new Date(t).toLocaleDateString("en-GB", 
 async function overdueList() {
   const [sessions, users, people, settings, recs] = await Promise.all([
     loadIndex(),
-    rest(`portal_users?select=email,display_name,created_at,role&active=is.true`),
-    rest(`training_people?select=email,departments`),
+    rest(`portal_users?select=email,display_name,created_at,role,profile_key&active=is.true`),
+    profileList(),
     rest(`training_settings?select=*`),
-    rest(`training_records?select=email,session_key,passed,completed_at&order=completed_at.desc&limit=20000`),
+    rest(`training_records?select=email,session_key,passed,completed_at,manual,voided_at&voided_at=is.null&order=completed_at.desc&limit=20000`),
   ]);
-  const deps = new Map<string, string[]>((people || []).map((p: any) => [p.email, p.departments || []]));
+  const labelOf = new Map<string, string>((people || []).map((p: any) => [p.key, p.label]));
   const set = new Map<string, any>((settings || []).map((x: any) => [x.session_key, x]));
   const bySP = new Map<string, any[]>();
   for (const r of recs || []) { const k = r.email + "|" + r.session_key; const a = bySP.get(k) || []; a.push(r); bySP.set(k, a); }
   const out: { email: string; name: string; admin: boolean; departments: string[]; items: { key: string; title: string; due: number | null }[] }[] = [];
   for (const u of users || []) {
-    const d = deps.get(u.email) || [], items = [];
+    const pk = profilesOfUser(u), d = pk.map((k) => labelOf.get(k) || k), items = [];
     for (const s of sessions) {
-      if (!requiredOf(s, d, set.get(s.key))) continue;
+      if (!requiredOf(s, pk, set.get(s.key))) continue;
       const st = statusFor(set.get(s.key), u.created_at, bySP.get(u.email + "|" + s.key) || []);
       if (st.st === "overdue") items.push({ key: s.key, title: s.title, due: st.due });
     }
@@ -139,7 +152,7 @@ async function checkAccess(email: unknown): Promise<Who | null> {
   return { id: user.id, email: e, name: user.display_name || e, admin, manager };
 }
 
-const REC_COLS = "id,email,name,session_key,session_version,score,total,passed,seconds,completed_at";
+const REC_COLS = "id,email,name,session_key,session_version,score,total,passed,seconds,completed_at,manual,note,recorded_by";
 const CERT_COLS = "id,email,cert_key,cert_label,obtained_on,expires_on,note,recorded_by,created_at";
 
 Deno.serve(async (req) => {
@@ -163,15 +176,16 @@ Deno.serve(async (req) => {
     switch (action) {
       // Who I am, my departments, and everything I have finished (every attempt, newest first).
       case "bootstrap": {
-        const [mine, person, certs, settings, joinedRow] = await Promise.all([
-          rest(`training_records?select=${REC_COLS}&email=eq.${q(who.email)}&order=completed_at.desc&limit=500`),
-          rest(`training_people?select=departments&email=eq.${q(who.email)}`),
+        const [mine, person, certs, settings, joinedRow, plist] = await Promise.all([
+          rest(`training_records?select=${REC_COLS}&email=eq.${q(who.email)}&voided_at=is.null&order=completed_at.desc&limit=500`),
+          rest(`portal_users?select=profile_key,role&email=eq.${q(who.email)}`),
           rest(`training_certs?select=${CERT_COLS}&email=eq.${q(who.email)}&deleted_at=is.null&order=created_at.desc`),
           rest(`training_settings?select=session_key,refresh_months,grace_days,issued_at,roles`),
           rest(`portal_users?select=created_at&email=eq.${q(who.email)}`),
+          profileList(),
         ]);
         const cfg = who.manager ? (await rest(`training_config?select=reminders_on&id=eq.1`))?.[0] : null;
-        return json({ me: { email: who.email, name: who.name, admin: who.admin, manager: who.manager, joined: joinedRow?.[0]?.created_at || null }, departments: person?.[0]?.departments || [], records: mine || [], certs: certs || [], settings: settings || [], config: cfg || null });
+        return json({ me: { email: who.email, name: who.name, admin: who.admin, manager: who.manager, joined: joinedRow?.[0]?.created_at || null }, profiles: plist, my_profiles: profilesOfUser(person?.[0]), records: mine || [], certs: certs || [], settings: settings || [], config: cfg || null });
       }
 
       // A session was finished. The pass mark comes from the page (it holds the session file); it is kept within 50% to 100%.
@@ -192,13 +206,12 @@ Deno.serve(async (req) => {
       // Everyone: departments, finished sessions (latest pass per session, and the latest attempt), certificates.
       case "team": {
         needManager();
-        const [users, people, recs, certs] = await Promise.all([
-          rest(`portal_users?select=email,display_name,active,role,created_at&active=is.true&order=display_name.asc`),
-          rest(`training_people?select=email,departments`),
-          rest(`training_records?select=${REC_COLS}&order=completed_at.desc&limit=5000`),
+        const [users, plist, recs, certs] = await Promise.all([
+          rest(`portal_users?select=email,display_name,active,role,created_at,profile_key&active=is.true&order=display_name.asc`),
+          profileList(),
+          rest(`training_records?select=${REC_COLS}&voided_at=is.null&order=completed_at.desc&limit=5000`),
           rest(`training_certs?select=${CERT_COLS}&deleted_at=is.null&order=expires_on.asc.nullslast`),
         ]);
-        const deps = new Map<string, string[]>((people || []).map((p: any) => [p.email, p.departments || []]));
         const byPerson = new Map<string, Record<string, any>>();
         for (const r of recs || []) {
           const m = byPerson.get(r.email) || {}; byPerson.set(r.email, m);
@@ -209,18 +222,39 @@ Deno.serve(async (req) => {
         }
         const certBy = new Map<string, any[]>();
         for (const c of certs || []) { const a = certBy.get(c.email) || []; a.push(c); certBy.set(c.email, a); }
-        const out = (users || []).map((u: any) => ({ email: u.email, name: u.display_name, joined: u.created_at, departments: deps.get(u.email) || [], sessions: byPerson.get(u.email) || {}, certs: certBy.get(u.email) || [] }));
+        const out = (users || []).map((u: any) => ({ email: u.email, name: u.display_name, joined: u.created_at, profiles: profilesOfUser(u), profile_label: (plist.find((x: any) => x.key === u.profile_key) || {}).label || (u.role === 'admin' ? 'Administrator (GM)' : ''), sessions: byPerson.get(u.email) || {}, certs: certBy.get(u.email) || [] }));
         return json({ people: out });
       }
 
-      case "set_departments": {
+      // A manager records a completion by hand (for example done on paper), or removes one. A removed completion stays on file, marked void, but no longer counts.
+      case "record_add": {
         needManager();
         const email = clean(body.email, 200).toLowerCase();
-        const target = (await rest(`portal_users?select=email&email=eq.${q(email)}`))?.[0];
+        const target = (await rest(`portal_users?select=email,display_name&email=eq.${q(email)}`))?.[0];
         if (!target) throw new Error("No such person.");
-        const departments = [...new Set((Array.isArray(body.departments) ? body.departments : []).map((d: unknown) => String(d)).filter((d: string) => DEPARTMENTS.includes(d)))];
-        await rest(`training_people?on_conflict=email`, { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify({ email, departments, updated_by: who.email, updated_at: new Date().toISOString() }) });
-        return json({ ok: true, email, departments });
+        const key = clean(body.session_key, 60);
+        if (!/^[a-z0-9][a-z0-9-]{1,58}$/.test(key) || !(await loadIndex()).some((x) => x.key === key)) throw new Error("Unknown session.");
+        const on = day(body.completed_on) || new Date().toISOString().slice(0, 10);
+        if (on > new Date().toISOString().slice(0, 10)) throw new Error("A completion cannot be in the future.");
+        const total = Math.max(1, Math.min(60, Math.round(+body.total || 10)));
+        const row = (await rest(`training_records`, { method: "POST", headers: { Prefer: "return=representation" }, body: JSON.stringify({
+          email, name: target.display_name || email, session_key: key, session_version: 1, score: total, total, passed: true, seconds: null,
+          completed_at: on + "T12:00:00Z", manual: true, recorded_by: who.email, note: clean(body.note, 300),
+        }) }))?.[0];
+        return json({ record: row });
+      }
+      case "record_void": {
+        needManager();
+        const email = clean(body.email, 200).toLowerCase(), key = clean(body.session_key, 60);
+        if (!email || !/^[a-z0-9][a-z0-9-]{1,58}$/.test(key)) throw new Error("Unknown person or session.");
+        const set = (await rest(`training_settings?select=issued_at&session_key=eq.${q(key)}`))?.[0];
+        const issued = set?.issued_at || null;
+        // every pass that currently counts: made by hand, or on/after the issue date
+        const recs = (await rest(`training_records?select=id,passed,manual,completed_at&email=eq.${q(email)}&session_key=eq.${q(key)}&voided_at=is.null&passed=is.true`)) || [];
+        const ids = recs.filter((r: any) => r.manual || (issued && r.completed_at >= issued)).map((r: any) => r.id);
+        if (!ids.length) throw new Error("There is no completion to remove.");
+        await rest(`training_records?id=in.(${ids.map(q).join(",")})`, { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ voided_at: new Date().toISOString(), voided_by: who.email }) });
+        return json({ ok: true, voided: ids.length });
       }
 
       case "cert_save": {
@@ -248,7 +282,7 @@ Deno.serve(async (req) => {
       case "history": {
         needManager();
         const email = clean(body.email, 200).toLowerCase();
-        const rows = await rest(`training_records?select=${REC_COLS}&email=eq.${q(email)}&order=completed_at.desc&limit=300`);
+        const rows = await rest(`training_records?select=${REC_COLS},voided_at,voided_by&email=eq.${q(email)}&order=completed_at.desc&limit=300`);
         return json({ records: rows || [] });
       }
 
@@ -260,7 +294,7 @@ Deno.serve(async (req) => {
         const refresh = Math.max(1, Math.min(60, Math.round(+body.refresh_months || 12))), grace = Math.max(1, Math.min(60, Math.round(+body.grace_days || 7)));
         const row: Record<string, unknown> = { session_key: key, refresh_months: refresh, grace_days: grace, updated_by: who.email, updated_at: new Date().toISOString() };
         // roles: the list of roles (or "all") that must do the module; null puts it back to the default in the session list
-        if ("roles" in body) row.roles = Array.isArray(body.roles) ? [...new Set(body.roles.map((x: unknown) => String(x)).filter((x: string) => x === "all" || DEPARTMENTS.includes(x)))] : null;
+        if ("roles" in body) { const okKeys = new Set(["all", ...(await profileList()).map((p) => p.key)]); row.roles = Array.isArray(body.roles) ? [...new Set(body.roles.map((x: unknown) => String(x)).filter((x: string) => okKeys.has(x)))] : null; }
         await rest(`training_settings?on_conflict=session_key`, { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify(row) });
         return json({ ok: true });
       }

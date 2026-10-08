@@ -153,7 +153,7 @@ details.out{margin-top:6px; font-size:13px} details.out summary{cursor:pointer; 
 const CFG = { SUPABASE_URL:"https://safcrtrfdzsnftghibot.supabase.co", SUPABASE_KEY:"sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU" };
 const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
 const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
-const S = { config:null, me:null, sessions:[], depts:[], myDepts:[], records:[], certs:[], view:"learn", team:null, rv:"person", dept:"", find:"", only:"", open:null, hist:null, cache:{} };
+const S = { config:null, me:null, sessions:[], profiles:[], myProfiles:[], records:[], certs:[], view:"learn", team:null, rv:"person", dept:"", find:"", only:"", open:null, hist:null, cache:{} };
 const LS = "bhb_training_";
 function toast(msg, bad){ const t=$("#toast"); t.textContent=msg; t.className="toast on"+(bad?" bad":""); clearTimeout(toast._t); toast._t=setTimeout(()=>{t.className="toast";}, bad?5200:2600); }
 function staffEmail(){ try { return sessionStorage.getItem("bhb_staff_email") || ""; } catch(e){ return ""; } }
@@ -166,7 +166,10 @@ async function call(action, payload){
 const fmtDay = iso => { if(!iso) return ""; try { return new Date(iso).toLocaleDateString("en-GB",{ timeZone:"Europe/London", day:"numeric", month:"short", year:"numeric" }); } catch(e){ return String(iso).slice(0,10); } };
 const fmtShort = iso => { if(!iso) return ""; try { return new Date(iso).toLocaleDateString("en-GB",{ timeZone:"Europe/London", day:"numeric", month:"short" }); } catch(e){ return ""; } };
 const addMonths = (iso, n) => { const d = new Date(iso); d.setMonth(d.getMonth() + n); return d; };
-const deptLabel = k => (S.depts.find(d => d.key === k) || {}).label || k;
+const profileLabel = k => k === "all" ? "Everyone" : (S.profiles.find(d => d.key === k) || {}).label || k;
+// The 10-minute trainers say who they are for by department; the portal's profiles are what the team was set up with. This turns one into the other (keep in step with training-api).
+const DEPT_PROFILES = { foh:["foh-team","fb-supervisor"], bar:["foh-team","fb-supervisor"], kitchen:["chef","kitchen-porter"], housekeeping:["housekeeping-team"], maintenance:["maintenance-team"], events:["wedding-coordinator"], office:["accounts"], management:["head-of-department","admin"] };
+const audienceOf = aud => aud.includes("all") ? ["all"] : [...new Set(aud.flatMap(d => DEPT_PROFILES[d] || []))];
 const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 
 /* ------------------------------------------------------------- who needs what */
@@ -177,9 +180,14 @@ const required = (s, depts) => !!s.issuedAt && new Date(s.issuedAt) <= new Date(
 //   not passed yet: due by (the later of issue date and the day they joined) + grace days  -> todo, then overdue
 //   passed: renew by pass date + the session's renewal months                              -> ok, soon (30 days), overdue
 function statusOf(s, sess /* { last, lastPass } or undefined */, joined){
-  if (!s.issuedAt || new Date(s.issuedAt) > new Date()) return { st:"notissued", last: sess && sess.last }; // not issued, or scheduled for a later day
-  const lp = sess && sess.lastPass, now = Date.now();
-  if (!lp || lp.completed_at < s.issuedAt) {
+  const now = Date.now(), live = s.issuedAt && new Date(s.issuedAt) <= new Date();
+  const lp0 = sess && sess.lastPass;
+  const lp = lp0 && (lp0.manual || (live && lp0.completed_at >= s.issuedAt)) ? lp0 : null;       // a completion recorded by a manager counts whatever its date
+  if (!live) {                                                                                       // not issued, or scheduled for a later day
+    if (lp) { const due = addMonths(lp.completed_at, s.refreshMonths || 12); return { st: now > due ? "overdue" : "ok", lp, due }; }
+    return { st:"notissued", last: sess && sess.last };
+  }
+  if (!lp) {
     const start = Math.max(new Date(s.issuedAt).getTime(), joined ? new Date(joined).getTime() : 0), due = new Date(start + (s.graceDays || 7) * 864e5);
     return { st: now > due ? "overdue" : "todo", due, last: sess && sess.last, tried: !!(sess && sess.last && sess.last.completed_at >= s.issuedAt), first:true };
   }
@@ -192,12 +200,12 @@ function mySessions(){
   for (const r of S.records) { const c = m[r.session_key] || (m[r.session_key] = { last:null, lastPass:null, attempts:0 }); c.attempts++; if (!c.last) c.last = r; if (r.passed && !c.lastPass) c.lastPass = r; }
   return m;
 }
-const myDepartments = () => S.myDepts.length ? S.myDepts : ((() => { try { return JSON.parse(localStorage.getItem(LS + "depts") || "[]"); } catch(e){ return []; } })());
+const myDepartments = () => S.myProfiles.length ? S.myProfiles : ((() => { try { return JSON.parse(localStorage.getItem(LS + "depts") || "[]"); } catch(e){ return []; } })());
 const TAG = { ok:["ok","Done"], soon:["soon","Due now"], overdue:["overdue","Overdue"], todo:["todo","To do"], notissued:["","Optional"] };
 
 /* ------------------------------------------------------------- my training */
 function renderLearn(){
-  const mine = mySessions(), roles = S.myDepts, joined = S.me.joined;
+  const mine = mySessions(), roles = S.myProfiles, joined = S.me.joined;
   const req = S.sessions.filter(s => required(s, roles));
   const stat = s => statusOf(s, mine[s.key], joined);
   const action = req.filter(s => ["overdue","todo","soon"].includes(stat(s).st)), finished = req.filter(s => ["ok"].includes(stat(s).st));
@@ -214,7 +222,7 @@ function renderLearn(){
   const certs = S.certs.length ? `<div class="sechead">Your certificates</div><div class="card">${S.certs.map(c => `<div style="display:flex;gap:10px;justify-content:space-between;flex-wrap:wrap;padding:4px 0"><b>${esc(c.cert_label)}</b><span class="muted">${c.expires_on ? `expires ${fmtDay(c.expires_on)}` : c.obtained_on ? `obtained ${fmtDay(c.obtained_on)}` : ""}</span></div>`).join("")}</div>` : "";
   const order = { overdue:0, todo:1, soon:2 };
   action.sort((a, b) => order[stat(a).st] - order[stat(b).st]);
-  const roleNote = !roles.length ? `<div class="card" style="border-left:4px solid var(--gold)"><b>Your role has not been set yet</b><div class="muted" style="font-size:13px">Until your manager sets it you will only see the training everyone does.</div></div>` : "";
+  const roleNote = !roles.length ? `<div class="card" style="border-left:4px solid var(--gold)"><b>Your profile has not been set yet</b><div class="muted" style="font-size:13px">Until it is set in the portal you will only see the training everyone does.</div></div>` : "";
   const head = action.length ? `<div class="bigstat"><b>${action.length}</b><span>${action.length === 1 ? "module" : "modules"} to do</span></div><div class="${late ? "" : "muted"}" style="font-size:13px;${late ? "color:var(--alert);font-weight:700" : ""}">${late ? `${late} overdue. Please do ${late === 1 ? "it" : "them"} as soon as you can.` : "Each takes 10 to 15 minutes, on your phone."}</div>`
     : `<div class="bigstat"><b>✔</b><span>${req.length ? "You are all up to date. Thank you." : "Nothing has been issued to you yet."}</span></div>`;
   $("#views").innerHTML = `<div class="hello"><div class="card" style="margin:0">${head}</div>${roleNote}</div>
@@ -335,16 +343,16 @@ async function loadTeam(force){
 }
 const FILTERS = [["","Everyone"],["overdue","Overdue"],["soon","Due soon"],["todo","To do"]];
 // every required, issued session for a person with its status
-function theirs(p){ return S.sessions.filter(s => required(s, p.departments)).map(s => ({ s, x: statusOf(s, p.sessions[s.key], p.joined) })); }
+function theirs(p){ return S.sessions.filter(s => required(s, p.profiles)).map(s => ({ s, x: statusOf(s, p.sessions[s.key], p.joined) })); }
 function personRows(){
   let rows = S.team.slice();
-  if (S.dept) rows = rows.filter(p => p.departments.includes(S.dept));
+  if (S.dept) rows = rows.filter(p => p.profiles.includes(S.dept));
   if (S.find) rows = rows.filter(p => (p.name + " " + p.email).toLowerCase().includes(S.find.toLowerCase()));
   if (S.only) rows = rows.filter(p => theirs(p).some(t => t.x.st === S.only));
   return rows;
 }
 function cellFor(s, p){
-  const x = statusOf(s, p.sessions[s.key], p.joined), reqd = required(s, p.departments);
+  const x = statusOf(s, p.sessions[s.key], p.joined), reqd = required(s, p.profiles);
   if (x.st === "notissued") return { cls:"na", txt:"·", tip:"Not issued yet" };
   if (x.st === "ok") return { cls: reqd ? "ok" : "opt2", txt:"✔", tip:`Done ${fmtDay(x.lp.completed_at)}, renew by ${fmtDay(x.due)}` };
   if (x.st === "soon") return { cls:"soon", txt:"✔", tip:`Renew by ${fmtDay(x.due)}` };
@@ -360,7 +368,7 @@ function summary(p){
 function renderRecord(){
   if (!S.team) return;
   const rows = personRows();
-  const chips = `<button class="chip" data-act="rdept" data-k="" aria-pressed="${!S.dept}">All roles</button>${S.depts.map(d => `<button class="chip" data-act="rdept" data-k="${d.key}" aria-pressed="${S.dept === d.key}">${esc(d.label)}</button>`).join("")}`;
+  const chips = `<button class="chip" data-act="rdept" data-k="" aria-pressed="${!S.dept}">All profiles</button>${S.profiles.map(d => `<button class="chip" data-act="rdept" data-k="${d.key}" aria-pressed="${S.dept === d.key}">${esc(d.label)}</button>`).join("")}`;
   const nOver = S.team.filter(p => theirs(p).some(t => t.x.st === "overdue")).length;
   const tools = `<div class="toolrow"><button class="btn gold" data-act="report">Overdue report (${nOver})</button><button class="btn small ghost" data-act="remind">Send reminder emails now</button><span class="sp"></span><button class="btn small ghost" data-act="csv">Download CSV</button><button class="btn small ghost" data-act="refresh">Refresh</button></div>
     <div class="toolrow" style="margin-top:0"><input id="rfind" type="search" placeholder="Find someone…" value="${esc(S.find)}" style="border:1px solid var(--celadon);border-radius:99px;padding:8px 14px;min-width:170px">
@@ -370,18 +378,18 @@ function renderRecord(){
   let main = "";
   if (S.rv === "person") {
     main = `<div class="mwrap"><table class="mx"><thead><tr><th class="nm">${rows.length} ${rows.length === 1 ? "person" : "people"}</th><th><span>Up to date</span></th>${S.sessions.map(s => `<th title="${esc(s.title)}"><span>${esc(s.icon)} ${esc(s.title)}</span></th>`).join("")}</tr></thead><tbody>
-      ${rows.map(p => { const sm = summary(p); return `<tr><td class="nm" data-act="person" data-k="${esc(p.email)}" title="${esc(p.email)}">${esc(p.name)}</td><td class="sum" style="color:${sm.bad ? "var(--alert)" : "var(--good)"}">${sm.ok}/${sm.n}</td>${S.sessions.map(s => { const c = cellFor(s, p); return `<td class="c ${c.cls}" title="${esc(c.tip)}">${c.txt}</td>`; }).join("")}</tr>`; }).join("")}</tbody></table></div>${legend}
-      <p class="muted" style="font-size:12px">Tap a name to set their role and see their history and certificates. A person with no role set is only given the "Everyone" modules.</p>`;
+      ${rows.map(p => { const sm = summary(p); return `<tr><td class="nm" data-act="person" data-k="${esc(p.email)}" title="${esc(p.email)}">${esc(p.name)}</td><td class="sum" style="color:${sm.bad ? "var(--alert)" : "var(--good)"}">${sm.ok}/${sm.n}</td>${S.sessions.map(s => { const c = cellFor(s, p); return `<td class="c ${c.cls}" data-act="cell" data-e="${esc(p.email)}" data-k="${esc(s.key)}" style="cursor:pointer" title="${esc(c.tip)}. Click to add or remove a completion.">${c.txt}</td>`; }).join("")}</tr>`; }).join("")}</tbody></table></div>${legend}
+      <p class="muted" style="font-size:12px">Tap a name for their history and certificates. <b>Tap a square</b> to mark that module as completed for them, or to remove a completion. A profile is set in the portal under Settings > Users; a person with no profile is only given the "Everyone" modules.</p>`;
   } else if (S.rv === "session") {
     main = `<div class="bysess">${S.sessions.map(s => {
       if (!s.issuedAt) return `<div class="sess"><div><h3>${esc(s.icon)} ${esc(s.title)}</h3><div class="muted" style="font-size:13px">Not issued yet. Issue it in Settings.</div></div><div class="tag">Not issued</div></div>`;
-      const reqP = S.team.filter(p => required(s, p.departments) && (!S.dept || p.departments.includes(S.dept)) && (!S.find || (p.name + p.email).toLowerCase().includes(S.find.toLowerCase())));
+      const reqP = S.team.filter(p => required(s, p.profiles) && (!S.dept || p.profiles.includes(S.dept)) && (!S.find || (p.name + p.email).toLowerCase().includes(S.find.toLowerCase())));
       const rowsX = reqP.map(p => ({ p, x: statusOf(s, p.sessions[s.key], p.joined) })), okp = rowsX.filter(r => r.x.st === "ok" || r.x.st === "soon"), out = rowsX.filter(r => r.x.st === "overdue" || r.x.st === "todo");
       const shown = S.only ? rowsX.filter(r => r.x.st === S.only) : out;
       if (S.only && !shown.length) return "";
       const pct = reqP.length ? Math.round(okp.length / reqP.length * 100) : 100, lateN = out.filter(r => r.x.st === "overdue").length;
       return `<div class="sess ${lateN ? "overdue" : out.length ? "todo" : "ok"}"><div><h3>${esc(s.icon)} ${esc(s.title)}</h3><div class="progress"><i style="width:${pct}%"></i></div>
-        <div class="muted" style="font-size:13px">${okp.length} of ${reqP.length} up to date · issued ${fmtDay(s.issuedAt)} · renews every ${s.refreshMonths} months · ${s.audience.includes("all") ? "everyone" : s.audience.map(deptLabel).join(", ")}</div>
+        <div class="muted" style="font-size:13px">${okp.length} of ${reqP.length} up to date · issued ${fmtDay(s.issuedAt)} · renews every ${s.refreshMonths} months · ${s.audience.includes("all") ? "everyone" : s.audience.map(profileLabel).join(", ")}</div>
         ${shown.length ? `<details class="out" ${S.only ? "open" : ""}><summary>${shown.length} ${S.only ? FILTERS.find(f => f[0] === S.only)[1].toLowerCase() : "outstanding"}</summary><div>${shown.map(o => `${esc(o.p.name)} <span class="muted">(${o.x.st === "overdue" ? "overdue" : "due " + fmtShort(o.x.due)})</span>`).join(", ")}</div></details>` : ""}</div><div class="tag ${lateN ? "overdue" : out.length ? "todo" : "ok"}">${lateN ? lateN + " overdue" : out.length ? out.length + " to do" : "All done"}</div></div>`; }).join("")}</div>`;
   } else {
     main = renderSettings();
@@ -391,14 +399,14 @@ function renderRecord(){
 }
 // Who does which module: a tick for every role that has to do it. "Everyone" means every member of staff, whatever their role.
 function roleMatrix(){
-  const cols = [["all","Everyone"]].concat(S.depts.map(d => [d.key, d.label]));
-  return `<div class="sechead">Which modules each role does</div><div class="mwrap"><table class="mx" style="min-width:760px"><thead><tr><th class="nm" style="height:auto">Module</th>${cols.map(c => `<th style="height:auto;min-width:78px;white-space:normal;font-size:11px">${esc(c[1])}</th>`).join("")}</tr></thead><tbody>
+  const cols = [["all","Everyone"]].concat(S.profiles.map(d => [d.key, d.label]));
+  return `<div class="sechead">Which modules each profile does</div><div class="mwrap"><table class="mx" style="min-width:760px"><thead><tr><th class="nm" style="height:auto">Module</th>${cols.map(c => `<th style="height:auto;min-width:78px;white-space:normal;font-size:11px">${esc(c[1])}</th>`).join("")}</tr></thead><tbody>
     ${S.sessions.map(s => `<tr><td class="nm" style="cursor:default;max-width:240px;white-space:normal">${esc(s.icon)} ${esc(s.title)}</td>${cols.map(c => `<td><input type="checkbox" data-role="${esc(s.key)}" data-r="${c[0]}" ${s.audience.includes(c[0]) ? "checked" : ""}></td>`).join("")}</tr>`).join("")}</tbody></table></div>
-    <p class="muted" style="font-size:12px">Tick a role to give it the module. People can have more than one role. A change applies straight away: a newly ticked module shows on that role's list and is due within the days set above.</p>`;
+    <p class="muted" style="font-size:12px">Tick a profile to give it the module. The profiles are the ones the team was set up with in the portal (Settings > Users); Administrator is the GM and other portal admins. A change applies straight away: a newly ticked module shows on that profile's list and is due within the days set above.</p>`;
 }
 // A rollout plan: modules go out one at a time (about one a week for each role) instead of all at once, like the weekly 10-minute trainer.
 function planSlots(){
-  const roles = S.depts.map(d => d.key), taken = {}; const slotOf = {};
+  const roles = S.profiles.map(d => d.key), taken = {}; const slotOf = {};
   const todo = S.sessions.filter(s => !s.issuedAt || new Date(s.issuedAt) > new Date());
   for (const s of todo) {
     const rs = s.audience.includes("all") ? roles : s.audience; let k = 0;
@@ -421,7 +429,7 @@ function renderSettings(){
     <div class="toolrow"><button class="btn small" data-act="issueall" ${unissued.length ? "" : "disabled"}>Issue all ${unissued.length ? `${unissued.length} not yet issued` : "(all issued)"}</button>
     <label class="chip" style="display:inline-flex;gap:8px;align-items:center;cursor:pointer"><input type="checkbox" id="remon" ${S.config && S.config.reminders_on === false ? "" : "checked"} data-act="remtoggle"> Automatic overdue emails (daily, each person at most once a week)</label></div></div>
     <div class="mwrap"><table class="mx" style="min-width:760px"><thead><tr><th class="nm" style="height:auto">Session</th><th style="height:auto">Who</th><th style="height:auto">Renews every (months)</th><th style="height:auto">Days to complete</th><th style="height:auto">Issued</th><th style="height:auto"></th></tr></thead><tbody>
-    ${S.sessions.map(s => `<tr><td class="nm" style="cursor:default;max-width:260px;white-space:normal">${esc(s.icon)} ${esc(s.title)}</td><td style="white-space:normal;text-align:left;font-size:12px">${s.audience.includes("all") ? "Everyone" : s.audience.map(deptLabel).join(", ")}</td>
+    ${S.sessions.map(s => `<tr><td class="nm" style="cursor:default;max-width:260px;white-space:normal">${esc(s.icon)} ${esc(s.title)}</td><td style="white-space:normal;text-align:left;font-size:12px">${s.audience.includes("all") ? "Everyone" : s.audience.map(profileLabel).join(", ")}</td>
       <td><input type="number" min="1" max="60" value="${s.refreshMonths}" data-set="${esc(s.key)}" data-f="refresh" style="width:64px;padding:5px;border:1px solid var(--celadon);border-radius:6px"></td>
       <td><input type="number" min="1" max="60" value="${s.graceDays}" data-set="${esc(s.key)}" data-f="grace" style="width:64px;padding:5px;border:1px solid var(--celadon);border-radius:6px"></td>
       <td>${s.issuedAt ? (new Date(s.issuedAt) > new Date() ? `<b style="color:var(--attention)">Starts ${fmtDay(s.issuedAt)}</b>` : fmtDay(s.issuedAt)) : `<span class="muted">Not issued</span>`}<br><input type="date" data-on="${esc(s.key)}" value="${s.issuedAt ? s.issuedAt.slice(0,10) : ""}" title="Issue on this date" style="margin-top:4px;border:1px solid var(--celadon);border-radius:6px;padding:3px 5px;font-size:12px"></td>
@@ -435,10 +443,10 @@ function overdueByDept(){
   const groups = new Map(); const add = (k, p, items) => { const g = groups.get(k) || []; g.push({ p, items }); groups.set(k, g); };
   for (const p of S.team) {
     const items = theirs(p).filter(t => t.x.st === "overdue"); if (!items.length) continue;
-    if (!p.departments.length) add("none", p, items); else for (const d of p.departments) add(d, p, items);
+    if (!p.profiles.length) add("none", p, items); else for (const d of p.profiles) add(d, p, items);
   }
-  const order = S.depts.map(d => d.key).concat("none");
-  return order.filter(k => groups.has(k)).map(k => ({ key:k, label: k === "none" ? "No role set" : deptLabel(k), people: groups.get(k).sort((a, b) => a.p.name.localeCompare(b.p.name)) }));
+  const order = S.profiles.map(d => d.key).concat("none");
+  return order.filter(k => groups.has(k)).map(k => ({ key:k, label: k === "none" ? "No profile set" : profileLabel(k), people: groups.get(k).sort((a, b) => a.p.name.localeCompare(b.p.name)) }));
 }
 const daysLate = d => Math.max(1, Math.round((Date.now() - new Date(d)) / 864e5));
 function openReport(){
@@ -448,10 +456,10 @@ function openReport(){
     : `<div class="card empty">Nobody is overdue. Well done.</div>`;
   const d = document.createElement("div"); d.id = "report"; d.className = "drawer"; d.style.width = "min(820px,100%)";
   d.innerHTML = `<div class="dh"><h3>Overdue training report</h3><button data-act="rprint">Print / save as PDF</button><button data-act="rcsv">CSV</button><button data-act="rcopy">Copy</button><button data-act="rclose">Close</button></div>
-    <div class="db" id="reportbody"><div class="muted" style="font-size:13px">Black Horse Beamish · ${esc(today)} · ${people} ${people === 1 ? "person" : "people"} overdue. Someone with more than one role is listed under each. Only issued sessions required of them are counted.</div>${body}</div>`;
+    <div class="db" id="reportbody"><div class="muted" style="font-size:13px">Black Horse Beamish · ${esc(today)} · ${people} ${people === 1 ? "person" : "people"} overdue. Someone with more than one profile (an administrator) is listed under each. Only issued sessions required of them are counted.</div>${body}</div>`;
   $("#report")?.remove(); document.body.appendChild(d);
 }
-function reportRows(){ const rows = [["Department","Name","Email","Session","Was due","Days late"]]; for (const d of overdueByDept()) for (const r of d.people) for (const t of r.items) rows.push([d.label, r.p.name, r.p.email, t.s.title, fmtDay(t.x.due), daysLate(t.x.due)]); return rows; }
+function reportRows(){ const rows = [["Profile","Name","Email","Session","Was due","Days late"]]; for (const d of overdueByDept()) for (const r of d.people) for (const t of r.items) rows.push([d.label, r.p.name, r.p.email, t.s.title, fmtDay(t.x.due), daysLate(t.x.due)]); return rows; }
 function toCsv(rows){ return rows.map(r => r.map(v => `"${String(v ?? "").replace(/"/g, '""')}"`).join(",")).join("\r\n"); }
 function download(name, text){ const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["\ufeff" + text], { type:"text/csv" })); a.download = name; document.body.appendChild(a); a.click(); a.remove(); }
 function reportText(){
@@ -459,10 +467,10 @@ function reportText(){
   return `Overdue team training, ${fmtDay(new Date().toISOString())}\n` + g.map(d => `\n${d.label.toUpperCase()}\n` + d.people.map(r => `- ${r.p.name}: ${r.items.map(t => `${t.s.title} (${daysLate(t.x.due)} days late)`).join("; ")}`).join("\n")).join("\n");
 }
 function csv(){
-  const rows = [["Name","Email","Departments","Session","Required","Status","Last passed","Score","Due or renew by","Attempts"]];
+  const rows = [["Name","Email","Profile","Session","Required","Status","Last passed","Score","Due or renew by","Attempts"]];
   for (const p of personRows()) for (const s of S.sessions) {
-    const x = statusOf(s, p.sessions[s.key], p.joined), reqd = required(s, p.departments), cur = p.sessions[s.key] || {};
-    rows.push([p.name, p.email, p.departments.map(deptLabel).join("; "), s.title, reqd ? "Yes" : "No", {ok:"Up to date",soon:"Renewal due soon",overdue:"Overdue",todo:"To do",notissued:"Not issued"}[x.st], x.lp ? fmtDay(x.lp.completed_at) : "", x.lp ? `${x.lp.score}/${x.lp.total}` : "", x.due ? fmtDay(x.due) : "", cur.attempts || 0]);
+    const x = statusOf(s, p.sessions[s.key], p.joined), reqd = required(s, p.profiles), cur = p.sessions[s.key] || {};
+    rows.push([p.name, p.email, p.profiles.map(profileLabel).join("; "), s.title, reqd ? "Yes" : "No", {ok:"Up to date",soon:"Renewal due soon",overdue:"Overdue",todo:"To do",notissued:"Not issued"}[x.st], x.lp ? fmtDay(x.lp.completed_at) : "", x.lp ? `${x.lp.score}/${x.lp.total}` : "", x.due ? fmtDay(x.due) : "", cur.attempts || 0]);
   }
   for (const p of personRows()) for (const c of p.certs) rows.push([p.name, p.email, "", "CERTIFICATE: " + c.cert_label, "", c.expires_on && new Date(c.expires_on) < new Date() ? "Expired" : "Held", c.obtained_on || "", "", c.expires_on || "", ""]);
   download(`training-record-${new Date().toISOString().slice(0,10)}.csv`, toCsv(rows));
@@ -471,13 +479,13 @@ const CERTS = [["food-hygiene-l2","Food hygiene, Level 2"],["allergen","Allergen
 async function openPerson(email){
   const p = S.team.find(x => x.email === email); if (!p) return;
   let hist = []; try { hist = (await call("history", { email })).records; } catch(e){}
-  const req = S.sessions.filter(s => required(s, p.departments));
+  const req = S.sessions.filter(s => required(s, p.profiles));
   const d = document.createElement("div"); d.className = "drawer"; d.id = "drawer";
   d.innerHTML = `<div class="dh"><h3>${esc(p.name)}</h3><button data-act="dclose">Close</button></div><div class="db">
     <div class="muted" style="font-size:13px;margin-bottom:10px">${esc(p.email)}</div>
-    <div class="sechead" style="margin-top:4px">Role (tick every role they have)</div><div class="picker">${S.depts.map(x => `<button class="chip" data-act="pdept" data-e="${esc(email)}" data-k="${x.key}" aria-pressed="${p.departments.includes(x.key)}">${esc(x.label)}</button>`).join("")}</div>
+    <div class="sechead" style="margin-top:4px">Profile</div><div style="padding:4px 0 8px"><b>${esc(p.profile_label || "No profile set")}</b><div class="muted" style="font-size:12px">Set in the portal under Settings > Users. It decides which modules are required of them.</div></div>
     <div class="sechead">Required sessions</div>
-    ${req.map(s => { const x = statusOf(s, p.sessions[s.key], p.joined), [cls, label] = TAG[x.st]; return `<div style="display:flex;gap:8px;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--mist)"><span>${esc(s.icon)} ${esc(s.title)}</span><span class="tag ${cls}">${label}${x.due ? (x.st === "overdue" ? " · was due " : x.first ? " · due by " : " · renew by ") + fmtShort(x.due) : ""}</span></div>`; }).join("") || `<div class="muted">Nothing issued and required yet. Pick their role above, and issue modules in Settings.</div>`}
+    ${req.map(s => { const x = statusOf(s, p.sessions[s.key], p.joined), [cls, label] = TAG[x.st]; return `<div style="display:flex;gap:8px;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--mist)"><span>${esc(s.icon)} ${esc(s.title)}</span><span class="tag ${cls}">${label}${x.due ? (x.st === "overdue" ? " · was due " : x.first ? " · due by " : " · renew by ") + fmtShort(x.due) : ""}</span></div>`; }).join("") || `<div class="muted">Nothing issued and required yet. Issue modules in Settings, and tick which profiles do them.</div>`}
     <div class="sechead">Certificates</div>
     ${p.certs.map(c => `<div style="padding:6px 0;border-bottom:1px solid var(--mist);display:flex;gap:8px;justify-content:space-between;align-items:center"><div><b>${esc(c.cert_label)}</b><div class="muted" style="font-size:12px">${c.obtained_on ? "Obtained " + fmtDay(c.obtained_on) : ""}${c.expires_on ? " · expires " + fmtDay(c.expires_on) : ""}${c.note ? " · " + esc(c.note) : ""}</div></div><button class="btn small danger" data-act="cdel" data-e="${esc(email)}" data-id="${esc(c.id)}">Remove</button></div>`).join("") || `<div class="muted" style="font-size:13px">None logged.</div>`}
     <div class="card" style="margin-top:10px"><div class="field"><label>Add a certificate</label><select id="ck">${CERTS.map(c => `<option value="${c[0]}">${esc(c[1])}</option>`).join("")}</select></div>
@@ -488,7 +496,38 @@ async function openPerson(email){
     <table>${hist.map(h => `<tr><td>${fmtDay(h.completed_at)}</td><td>${esc((S.sessions.find(s => s.key === h.session_key) || { title:h.session_key }).title)}</td><td>${h.score}/${h.total}</td><td>${h.passed ? "Passed" : "Not passed"}</td></tr>`).join("") || `<tr><td class="muted">No attempts yet.</td></tr>`}</table></div>`;
   $("#drawer")?.remove(); document.body.appendChild(d);
 }
+// One square of the record: mark the module completed for them (say, done on paper), or remove a completion.
+async function openCell(email, key){
+  const p = S.team.find(x => x.email === email), s = S.sessions.find(x => x.key === key); if (!p || !s) return;
+  let hist = []; try { hist = (await call("history", { email })).records.filter(r => r.session_key === key); } catch(e){}
+  const x = statusOf(s, p.sessions[key], p.joined), [cls, label] = TAG[x.st], done = !!x.lp;
+  const d = document.createElement("div"); d.className = "drawer"; d.id = "drawer";
+  const today = new Date().toISOString().slice(0, 10);
+  d.innerHTML = `<div class="dh"><h3>${esc(p.name)}</h3><button data-act="dclose">Close</button></div><div class="db">
+    <div style="font-size:18px;font-weight:700;margin-bottom:4px">${esc(s.icon)} ${esc(s.title)}</div>
+    <div style="margin-bottom:12px"><span class="tag ${cls}">${label}</span> <span class="muted" style="font-size:13px">${done ? `Completed ${fmtDay(x.lp.completed_at)}${x.lp.manual ? " (recorded by a manager" + (x.lp.note ? ": " + esc(x.lp.note) : "") + ")" : ""}, renew by ${fmtDay(x.due)}` : x.due ? "Due by " + fmtDay(x.due) : s.issuedAt ? "" : "Not issued yet"}</span></div>
+    <div class="card"><b>Mark as completed</b><div class="muted" style="font-size:13px;margin:2px 0 8px">For training they did outside the app, for example on paper. It counts as a pass on the date you give, and it renews ${s.refreshMonths} months after that.</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap"><div class="field" style="flex:0 0 160px"><label>Date completed</label><input type="date" id="cell_on" value="${today}" max="${today}"></div><div class="field" style="flex:1 1 180px"><label>Note (optional)</label><input id="cell_note" placeholder="e.g. signed sheet, trainer's name" maxlength="300"></div></div>
+      <button class="btn small" data-act="cadd" data-e="${esc(email)}" data-k="${esc(key)}">Mark as completed</button></div>
+    ${done ? `<div class="card" style="margin-top:10px"><b>Remove the completion</b><div class="muted" style="font-size:13px;margin:2px 0 8px">If this was recorded by mistake. The entry stays on file but no longer counts, so the module goes back on their list.</div><button class="btn small danger" data-act="cvoid" data-e="${esc(email)}" data-k="${esc(key)}">Remove this completion</button></div>` : ""}
+    <div class="sechead">Every attempt at this module</div>
+    <table>${hist.map(h => `<tr><td>${fmtDay(h.completed_at)}</td><td>${h.manual ? "Recorded by a manager" : h.score + "/" + h.total}</td><td>${h.voided_at ? "Removed" : h.passed ? "Passed" : "Not passed"}</td></tr>`).join("") || `<tr><td class="muted">No attempts yet.</td></tr>`}</table></div>`;
+  $("#drawer")?.remove(); document.body.appendChild(d);
+}
 async function onRecordAct(a, b){
+  if (a === "cell") return openCell(b.dataset.e, b.dataset.k);
+  if (a === "cadd") {
+    const on = $("#cell_on").value, note = $("#cell_note").value.trim(), p = S.team.find(x => x.email === b.dataset.e), s = S.sessions.find(x => x.key === b.dataset.k);
+    if (!on) return toast("Pick the date it was completed.", true);
+    await call("record_add", { email:b.dataset.e, session_key:b.dataset.k, completed_on:on, note }); $("#drawer")?.remove();
+    await loadTeam(true); renderRecord(); return toast(`Marked "${s.title}" as completed for ${p.name}.`);
+  }
+  if (a === "cvoid") {
+    const p = S.team.find(x => x.email === b.dataset.e), s = S.sessions.find(x => x.key === b.dataset.k);
+    if (!confirm(`Remove ${p.name}'s completion of "${s.title}"? It goes back on their list.`)) return;
+    await call("record_void", { email:b.dataset.e, session_key:b.dataset.k }); $("#drawer")?.remove();
+    await loadTeam(true); renderRecord(); return toast("Completion removed.");
+  }
   if (a === "rdept") { S.dept = b.dataset.k; return renderRecord(); }
   if (a === "rview") { S.rv = b.dataset.k; return renderRecord(); }
   if (a === "ronly") { S.only = b.dataset.k; return renderRecord(); }
@@ -527,11 +566,6 @@ async function onRecordAct(a, b){
   if (a === "csv") return csv();
   if (a === "person") return openPerson(b.dataset.k);
   if (a === "dclose") return $("#drawer")?.remove();
-  if (a === "pdept") {
-    const p = S.team.find(x => x.email === b.dataset.e), k = b.dataset.k;
-    const next = p.departments.includes(k) ? p.departments.filter(x => x !== k) : p.departments.concat(k);
-    await call("set_departments", { email:p.email, departments:next }); p.departments = next; await openPerson(p.email); return renderRecord();
-  }
   if (a === "csave") {
     const k = $("#ck").value, label = k === "other" ? $("#cl").value.trim() : (CERTS.find(c => c[0] === k) || [])[1];
     const r = await call("cert_save", { email:b.dataset.e, cert_key:k, cert_label: $("#cl").value.trim() || label, obtained_on:$("#co").value, expires_on:$("#ce").value, note:$("#cn").value });
@@ -580,7 +614,7 @@ async function boot(){
   $("#app").hidden = false; $("#views").innerHTML = `<div class="loading">Loading…</div>`;
   try {
     const [idx, d] = await Promise.all([fetch("sessions/index.json", { cache:"no-cache" }).then(r => r.json()), call("bootstrap")]);
-    S.sessions = idx.sessions.map(s => ({ ...s, baseRefresh:s.refreshMonths, baseAudience:s.audience.slice() })); S.depts = idx.departments; S.me = d.me; applySettings(d.settings || []); S.config = d.config || null; S.myDepts = d.departments || []; S.records = d.records || []; S.certs = d.certs || [];
+    S.profiles = d.profiles || []; S.sessions = idx.sessions.map(s => ({ ...s, baseRefresh:s.refreshMonths, baseAudience:audienceOf(s.audience) })); S.me = d.me; applySettings(d.settings || []); S.config = d.config || null; S.myProfiles = d.my_profiles || []; S.records = d.records || []; S.certs = d.certs || [];
   } catch(e){ $("#views").innerHTML = `<div class="card empty">${esc(e.message)}<br><br><span class="muted">Open this from the Staff Portal so it knows who you are.</span></div>`; return; }
   $("#whoname").textContent = S.me.name; renderTabs(); show();
 }
