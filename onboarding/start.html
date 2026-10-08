@@ -291,7 +291,7 @@ const DETAIL_FIELDS = {
   name:['title', 'first_names', 'last_name', 'gender', 'dob'],
   address:['address1', 'address2', 'town', 'county', 'postcode', 'country'],
   contact:['email', 'mobile'],
-  eligible:['eligible_uk'],
+  eligible:['eligible_uk','british'],
   ni:['ni_number', 'ni_unknown'],
   bank:['bank_name', 'account_holder', 'sort_code', 'account_number', 'building_society_roll'],
   nok:['nok_name', 'nok_relationship', 'nok_address', 'nok_tel_day', 'nok_tel_eve']
@@ -445,9 +445,10 @@ STEPS.eligible = {
     return { title:'Are you eligible to work in the UK?', lead:'We will check your documents on your first day.',
       html:'<div id="elq">' + choice('details.eligible_uk', YESNO, v, { labelledby:'f-title' }) + '</div>'
         + '<div class="callout" id="elnote" ' + (v === false ? '' : 'hidden') + '>Thank you for telling us. Please speak to us before your first day so we can talk it through.</div>'
+        + '<fieldset class="field" style="margin-top:18px"><legend id="british-l">Are you a British national?</legend>' + choice('details.british', YESNO, S.details.british, { labelledby:'british-l' }) + '</fieldset>'
         + '<div class="card" style="margin-top:14px"><b>Please bring on your first day</b><ul class="ticklist"><li>Your passport, or other right-to-work documents</li><li>Proof of your address, such as a recent bank statement or utility bill</li></ul></div>' };
   },
-  validate(){ return typeof S.details.eligible_uk === 'boolean' ? {} : { 'details.eligible_uk':'Please choose Yes or No.' }; }
+  validate(){ const e = {}; if (typeof S.details.eligible_uk !== 'boolean') e['details.eligible_uk'] = 'Please choose Yes or No.'; if (typeof S.details.british !== 'boolean') e['details.british'] = 'Please choose Yes or No.'; return e; }
 };
 STEPS.ni = {
   next:'Next',
