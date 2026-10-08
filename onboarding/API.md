@@ -79,7 +79,7 @@ Errors carry `code`: `notfound`, `expired`, `cancelled`. If already `submitted` 
 Validation failure -> HTTP 400 `{ error, fields:{...} }`. Field names below.
 
 **details** (payroll):
-`title ('Mr'|'Mrs'|'Miss'|'Ms'|'Mx'|'Dr'|'')`, `first_names`, `last_name`, `gender ('male'|'female')` (as shown on the birth certificate or gender recognition certificate),
+`title ('Mr'|'Mrs'|'Miss'|'Ms'|'Mx'|'Dr'|'')`, `first_names`, `last_name`, `gender ('male'|'female'|'other'|'prefer_not_to_say')` (Planday only receives male or female; the other two are left off the Planday record),
 `dob (YYYY-MM-DD)`, `address1`, `address2`, `town`, `county`, `postcode`, `country` (default 'United Kingdom'), `email`, `mobile`,
 `eligible_uk (true|false)`, `ni_number` (like `QQ123456C`, blank allowed: "I don't know it yet" -> `ni_unknown:true`),
 `bank_name`, `account_holder`, `sort_code (6 digits)`, `account_number (8 digits)`, `building_society_roll` (optional),
