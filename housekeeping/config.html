@@ -191,6 +191,12 @@ select.cs{width:100%; border:1px solid var(--celadon); border-radius:8px; paddin
 .stline{font-size:14.5px; font-weight:600}
 .stline.todo{color:var(--sage-70); font-weight:500} .stline.ok{color:var(--attention-ink)} .stline.done{color:var(--good)}
 .stsub{font-size:13px; color:var(--sage-70); margin-top:2px; overflow-wrap:anywhere}
+.fbline{margin-top:6px; border-radius:8px; padding:7px 10px; font-size:13.5px; overflow-wrap:anywhere}
+.fbline.ok{background:var(--good-bg); color:var(--good); font-weight:600}
+.fbline.fix{background:var(--alert-bg); color:#5a2c25; border-left:4px solid var(--alert)}
+.fbline.fixed{background:var(--attention-bg); color:var(--attention-ink); border-left:4px solid var(--attention)}
+.fixbox{width:100%; border:1px solid var(--alert); border-radius:8px; padding:8px 10px; min-height:70px; margin:8px 0 0; font-size:14px; resize:vertical}
+.elapsed{font-variant-numeric:tabular-nums; font-weight:700}
 .chknote{width:100%; border:1px solid var(--celadon); border-radius:8px; padding:7px 10px; min-height:38px; margin:8px 0 0; font-size:14px}
 .acts{display:flex; gap:8px; flex-wrap:wrap; margin-top:8px}
 .savedmark{font-size:12px; color:var(--good); font-weight:600; margin-left:6px}
@@ -302,7 +308,7 @@ const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&l
 const S = {
   me:null, today:"", date:"", day:null, tasks:[], plan:null, rooms:[], cleaners:[], all_staff:[], teams:[], planday:{}, log:[],
   loaded:false, loadErr:"", tab:"today", filter:"all", busy:0, mut:0, seq:0, fetchedAt:0, refreshErr:false,
-  ui:{ other:{}, confirm:{}, checkNote:{}, noteDirty:{}, noteDraft:{}, teamOpen:false, teamForm:{ picks:{}, other:false, name:"", err:"" }, teamConfirm:null, parsed:null, parsing:false, parseErr:"", importing:false, addOpen:false, addErr:"", dayDirty:false, logOpen:true, stale:false, roomsDraft:null, roomsDirty:false, roomsErr:{} }
+  ui:{ other:{}, confirm:{}, checkNote:{}, fixOpen:{}, fixText:{}, noteDirty:{}, noteDraft:{}, teamOpen:false, teamForm:{ picks:{}, other:false, name:"", err:"" }, teamConfirm:null, parsed:null, parsing:false, parseErr:"", importing:false, addOpen:false, addErr:"", dayDirty:false, logOpen:true, stale:false, roomsDraft:null, roomsDirty:false, roomsErr:{} }
 };
 
 /* ------------------------------------------------------------- plumbing */
@@ -595,22 +601,34 @@ function cleanerCellHtml(t){
   return `<label class="ml" for="cs_${id}">Cleaners</label><select class="cs" id="cs_${id}" data-fk="cs:${id}" data-cs="${id}">${opts}</select>${lbl}${chips}${add}
     <label class="oth"><input type="checkbox" data-oth="${id}" data-fk="oth:${id}"${all ? " checked" : ""}> <span title="Someone drafted in who is not on a Planday shift today">Other (drafted in)</span></label>`;
 }
+function elapsedTxt(iso){ const m = Math.max(0, Math.floor((Date.now() - Date.parse(iso)) / 60000)); return m < 1 ? "just now" : "(" + fmtMins(m) + " ago)"; }
+setInterval(() => { document.querySelectorAll(".elapsed[data-since]").forEach(el => { el.textContent = elapsedTxt(el.dataset.since); }); }, 20000);
 function cardHtml(t){
   const id = esc(t.id), cleaned = !!t.cleaned_at, checked = !!t.checked_at, gone = !!t.gone, conf = S.ui.confirm[t.id];
   const cls = ["rm", t.kind, cleaned ? "cl" : "", checked ? "ck" : "", gone ? "gone" : ""].filter(Boolean).join(" ");
   const badges = (gone ? `<span class="badge gone">No longer on the report</span>` : "") + (t.manual ? `<span class="badge manual">Added by hand</span>` : "") + (t.issues > 0 ? `<span class="badge issue">${plural(t.issues, "maintenance issue")}</span>` : "");
+  const took = t.took_minutes != null ? ` Took ${fmtMins(t.took_minutes)}${t.minutes ? " (allowed " + fmtMins(t.minutes) + ")" : ""}.` : "";
+  const startedTxt = t.started_at ? `Started at ${esc(fmtTime(t.started_at))}${t.started_by ? " by " + esc(t.started_by) : ""}.` : "";
   let status;
-  if (checked) status = `<div class="stline done">Checked by ${esc(t.checked_by || "the head housekeeper")} at ${esc(fmtTime(t.checked_at))}</div><div class="stsub">Cleaned at ${esc(fmtTime(t.cleaned_at))} by ${esc(t.cleaned_by || "a cleaner")}${t.check_note ? ". Note: " + esc(t.check_note) : ""}</div>`;
-  else if (cleaned) status = `<div class="stline ok">Cleaned at ${esc(fmtTime(t.cleaned_at))} by ${esc(t.cleaned_by || "a cleaner")}</div><div class="stsub">Waiting to be checked</div>`;
+  if (checked) status = `<div class="stline done">${t.feedback === "ok" ? "Thumbs up from" : "Checked by"} ${esc(t.checked_by || "the head housekeeper")} at ${esc(fmtTime(t.checked_at))}</div><div class="stsub">${startedTxt} Cleaned at ${esc(fmtTime(t.cleaned_at))} by ${esc(t.cleaned_by || "a cleaner")}.${took}${t.check_note ? " Note: " + esc(t.check_note) : ""}</div>`;
+  else if (cleaned) status = `<div class="stline ok">Cleaned at ${esc(fmtTime(t.cleaned_at))} by ${esc(t.cleaned_by || "a cleaner")}</div><div class="stsub">${startedTxt}${took} ${t.feedback === "fix" ? "" : "Waiting to be checked"}</div>`;
+  else if (t.started_at) status = `<div class="stline ok">Started at ${esc(fmtTime(t.started_at))} <span class="elapsed" data-since="${esc(t.started_at)}">${esc(elapsedTxt(t.started_at))}</span></div><div class="stsub">${t.started_by ? "Started by " + esc(t.started_by) + ". " : ""}Timer running${t.minutes ? ", allowed " + esc(fmtMins(t.minutes)) : ""}</div>`;
   else status = `<div class="stline todo">Not started</div>`;
+  if (cleaned && t.feedback === "fix") status += `<div class="fbline fix"><b>Needs correcting:</b> ${esc(t.feedback_note || "")}</div>` + (t.fixed_at ? `<div class="fbline fixed">${esc(t.fixed_by || "The cleaner")} says it is fixed (${esc(fmtTime(t.fixed_at))}). Please look again.</div>` : `<div class="stsub">Waiting for the cleaner to fix it</div>`);
   let acts = "";
+  const fixOpen = !!S.ui.fixOpen[t.id];
   if (!gone) {
-    if (checked) acts += `<button class="btn small ghost" type="button" data-act="uncheck" data-id="${id}" data-fk="uncheck:${id}">Undo checked</button>`;
-    else acts += `<button class="btn small" type="button" data-act="check" data-id="${id}" data-fk="check:${id}"${cleaned ? "" : ' disabled title="Available once the cleaner has marked the room cleaned"'}>Confirm checked</button>`;
-    if (cleaned) acts += `<button class="btn small danger" type="button" data-act="reopen-ask" data-id="${id}" data-fk="reopen:${id}">Not right: send back</button>`;
+    if (cleaned && !fixOpen) {
+      acts += `<button class="btn small" type="button" data-act="thumb" data-id="${id}" data-fk="thumb:${id}" aria-label="Thumbs up, room ${esc(t.room)} is fine">&#128077; ${checked ? "Thumbs up sent" : "All OK"}</button>`;
+      acts += `<button class="btn small ghost" type="button" data-act="fix-open" data-id="${id}" data-fk="fixopen:${id}">&#9998; ${t.feedback === "fix" ? "Change the note" : "Needs correcting"}</button>`;
+    }
+    if (cleaned && (checked || t.feedback)) acts += `<button class="btn small ghost" type="button" data-act="${t.feedback ? "fb-clear" : "uncheck"}" data-id="${id}" data-fk="uncheck:${id}">${t.feedback ? "Take feedback off" : "Undo checked"}</button>`;
+    if (!cleaned) acts += `<button class="btn small" type="button" data-act="check" data-id="${id}" data-fk="check:${id}" disabled title="Available once the cleaner has marked the room cleaned">All OK</button>`;
+    if (cleaned) acts += `<button class="btn small danger" type="button" data-act="reopen-ask" data-id="${id}" data-fk="reopen:${id}">Send back to clean again</button>`;
     if (t.manual || !cleaned) acts += `<button class="btn small danger" type="button" data-act="remove-ask" data-id="${id}" data-fk="remove:${id}">Remove</button>`;
   }
-  const checkNote = !gone && cleaned && !checked ? `<label class="sr" for="cn_${id}">Note on the check for room ${esc(t.room)}</label><input class="chknote" id="cn_${id}" data-fk="cn:${id}" data-cn="${id}" maxlength="300" placeholder="Note on the check (optional)" value="${esc(S.ui.checkNote[t.id] || "")}">` : "";
+  const checkNote = !gone && cleaned && !fixOpen && !checked ? `<label class="sr" for="cn_${id}">Note with the thumbs up for room ${esc(t.room)}</label><input class="chknote" id="cn_${id}" data-fk="cn:${id}" data-cn="${id}" maxlength="300" placeholder="Note with the thumbs up (optional)" value="${esc(S.ui.checkNote[t.id] || "")}">` : "";
+  const fixBox = !gone && cleaned && fixOpen ? `<label class="sr" for="fx_${id}">What needs correcting in room ${esc(t.room)}</label><textarea class="fixbox" id="fx_${id}" data-fk="fx:${id}" data-fx="${id}" maxlength="500" placeholder="What needs correcting? The cleaner will see this on their board.">${esc(S.ui.fixText[t.id] != null ? S.ui.fixText[t.id] : (t.feedback === "fix" ? (t.feedback_note || "") : ""))}</textarea><div class="acts"><button class="btn small" type="button" data-act="fix-send" data-id="${id}" data-fk="fixsend:${id}">Send to the cleaner</button><button class="btn small ghost" type="button" data-act="fix-cancel" data-id="${id}">Cancel</button></div>` : "";
   let confirm = "";
   if (conf === "reopen") confirm = `<div class="confirmbox" role="alert">Send room ${esc(t.room)} back? This clears the cleaned${checked ? " and checked" : ""} time and the room needs doing again.<div class="row-actions"><button class="btn small solid-danger" type="button" data-act="reopen-yes" data-id="${id}" data-fk="reopen-yes:${id}">Yes, send it back</button><button class="btn small ghost" type="button" data-act="confirm-cancel" data-id="${id}">Keep as it is</button></div></div>`;
   if (conf === "remove") confirm = `<div class="confirmbox" role="alert">Remove room ${esc(t.room)} from ${esc(fmtShort(t.date))}'s list?${t.manual ? "" : " It will show as no longer on the report."}<div class="row-actions"><button class="btn small solid-danger" type="button" data-act="remove-yes" data-id="${id}" data-fk="remove-yes:${id}">Yes, remove it</button><button class="btn small ghost" type="button" data-act="confirm-cancel" data-id="${id}">Cancel</button></div></div>`;
@@ -625,7 +643,7 @@ function cardHtml(t){
     <div class="c-guest"><span class="ml">Guests</span>${guestHtml(t)}</div>
     <div class="c-notes">${noteCell}</div>
     <div class="c-clean">${cleanerCell}</div>
-    <div class="c-stat"><span class="ml">Status</span>${status}${checkNote}${acts ? `<div class="acts">${acts}</div>` : ""}${confirm}</div>
+    <div class="c-stat"><span class="ml">Status</span>${status}${checkNote}${fixBox}${acts ? `<div class="acts">${acts}</div>` : ""}${confirm}</div>
   </article>`;
 }
 
@@ -796,7 +814,7 @@ function applyData(d, quiet){
   S.cleaners = d.cleaners || []; S.all_staff = d.all_staff || []; S.planday = d.planday || {}; S.log = d.log || [];
   if (d.me) S.me = d.me;
   if (d.rooms) { S.rooms = d.rooms; if (!S.ui.roomsDirty) S.ui.roomsDraft = null; }
-  if (!quiet) { S.loaded = true; S.loadErr = ""; S.ui.noteDirty = {}; S.ui.noteDraft = {}; S.ui.confirm = {}; S.ui.checkNote = {}; S.ui.other = {}; S.ui.dayDirty = false; renderToday(); }
+  if (!quiet) { S.loaded = true; S.loadErr = ""; S.ui.noteDirty = {}; S.ui.noteDraft = {}; S.ui.confirm = {}; S.ui.checkNote = {}; S.ui.fixOpen = {}; S.ui.fixText = {}; S.ui.other = {}; S.ui.dayDirty = false; renderToday(); }
   else {
     S.loaded = true; renderBar(); renderSummary(); renderDayForm(); renderTeamList(); renderBy(); renderBoardTop(); renderLog();
     if (teamsChanged) refreshAllCells();
@@ -815,7 +833,7 @@ function patchList(){
   let stale = false;
   want.forEach((t, i) => {
     const el = have[i]; if (el.dataset.sig === sigOf(t)) return;
-    if (el.contains(act) || S.ui.confirm[t.id] || S.ui.noteDirty[t.id] || S.ui.checkNote[t.id]) { stale = true; return; }
+    if (el.contains(act) || S.ui.confirm[t.id] || S.ui.noteDirty[t.id] || S.ui.checkNote[t.id] || S.ui.fixOpen[t.id]) { stale = true; return; }
     delete S.ui.other[t.id]; el.outerHTML = cardHtml(t);
   });
   S.ui.stale = stale;
@@ -967,6 +985,28 @@ async function taskAction(act, id, btn){
     delete S.ui.checkNote[t.id];
     setTask(r.task || Object.assign({}, t, act === "check" ? { checked_at:new Date().toISOString(), checked_by:S.me && S.me.name, check_note:note || null } : { checked_at:null, checked_by:null, check_note:null }));
     toast(act === "check" ? `Room ${t.room} checked.` : `Room ${t.room} is no longer marked as checked.`); keepFocus(redraw); return;
+  }
+  if (act === "thumb") {
+    const note = (S.ui.checkNote[t.id] || "").trim();
+    const r = await guarded(() => call("task.feedback", { id:t.id, result:"ok", note:note || undefined }), btn);
+    if (!r) return;
+    delete S.ui.checkNote[t.id]; delete S.ui.fixOpen[t.id]; delete S.ui.fixText[t.id];
+    setTask(r.task); toast(`Room ${t.room}: thumbs up sent.`); keepFocus(redraw); return;
+  }
+  if (act === "fix-open") { S.ui.fixOpen[t.id] = true; const el = cardEl(id); if (el) { el.outerHTML = cardHtml(t); const n = document.getElementById("fx_" + id); if (n) n.focus(); } return; }
+  if (act === "fix-cancel") { delete S.ui.fixOpen[t.id]; delete S.ui.fixText[t.id]; const el = cardEl(id); if (el) el.outerHTML = cardHtml(t); return; }
+  if (act === "fix-send") {
+    const note = (S.ui.fixText[t.id] != null ? S.ui.fixText[t.id] : (t.feedback_note || "")).trim();
+    if (!note) { toast("Say what needs correcting first.", true); const n = document.getElementById("fx_" + id); if (n) n.focus(); return; }
+    const r = await guarded(() => call("task.feedback", { id:t.id, result:"fix", note }), btn);
+    if (!r) return;
+    delete S.ui.fixOpen[t.id]; delete S.ui.fixText[t.id];
+    setTask(r.task); toast(`Room ${t.room}: sent to the cleaner.`); keepFocus(redraw); return;
+  }
+  if (act === "fb-clear") {
+    const r = await guarded(() => call("task.feedback", { id:t.id, result:null }), btn);
+    if (!r) return;
+    setTask(r.task); toast(`Room ${t.room}: feedback taken off.`); keepFocus(redraw); return;
   }
   if (act === "reopen-yes") {
     const r = await guarded(() => call("task.reopen", { id:t.id }), btn);
@@ -1133,6 +1173,7 @@ document.addEventListener("input", e => {
   if (t.dataset.note !== undefined) { S.ui.noteDirty[t.dataset.note] = true; S.ui.noteDraft[t.dataset.note] = t.value; return; }
   if (t.id === "tf_name") { S.ui.teamForm.name = t.value; return; }
   if (t.dataset.cn !== undefined) { S.ui.checkNote[t.dataset.cn] = t.value; return; }
+  if (t.dataset.fx !== undefined) { S.ui.fixText[t.dataset.fx] = t.value; return; }
   if (t.hasAttribute("data-day")) { S.ui.dayDirty = true; return; }
   if (t.dataset.ri !== undefined && t.type !== "checkbox") {
     const d = roomsDraft(), r = d[+t.dataset.ri], k = t.dataset.f; r[k] = t.value; S.ui.roomsDirty = true;

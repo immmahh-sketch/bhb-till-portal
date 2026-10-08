@@ -128,6 +128,19 @@ header.top{background:var(--sage); color:var(--white)}
 .room.done .pill{opacity:.8}
 .donerow{display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:4px; color:var(--good); font-weight:700; font-size:15px}
 .donerow svg{flex:none}
+.startrow{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:12px; background:var(--attention-bg); border-radius:10px; padding:10px 12px}
+.startrow .lbl2{font-size:13px; color:#6d5320; font-weight:600}
+.timer{font-family:var(--display); font-size:30px; font-weight:700; line-height:1; color:var(--ink); font-variant-numeric:tabular-nums}
+.timer.over{color:var(--alert)}
+.startrow .of{font-size:13px; color:var(--sage-70)}
+.startrow .sp{margin-left:auto}
+.fb{margin-top:10px; border-radius:10px; padding:10px 12px; font-size:15px; line-height:1.4}
+.fb b{display:block; font-size:14px; margin-bottom:2px}
+.fb.ok{background:var(--good-bg); color:var(--good)}
+.fb.fix{background:var(--alert-bg); color:#5a2c25; border-left:4px solid var(--alert)}
+.fb .fbnote{color:var(--ink); margin-top:2px; overflow-wrap:anywhere}
+.fb .fbact{margin-top:8px}
+.took{font-weight:600; color:var(--sage-70); font-size:14px}
 .donerow .sp{margin-left:auto; display:flex; gap:6px; flex-wrap:wrap}
 .room.done .issues{margin-top:4px; margin-right:6px}
 .room.done .checked{margin-top:6px}
@@ -318,6 +331,29 @@ function paintMini(){
 }
 
 /* ------------------------------------------------------------- render */
+const hmsOf = ms => { const s = Math.max(0, Math.floor(ms / 1000)), h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = s % 60; return (h ? h + ":" + String(m).padStart(2, "0") : String(m)) + ":" + String(x).padStart(2, "0"); };
+function feedbackHtml(t, label){
+  if (t.feedback === "ok") return `<div class="fb ok"><b>${TICK} Thumbs up from ${esc(t.feedback_by || "the head housekeeper")}</b>${t.feedback_note ? `<div class="fbnote">${esc(t.feedback_note)}</div>` : ""}</div>`;
+  if (t.feedback === "fix") {
+    const busy = S.pend.has(String(t.id));
+    return `<div class="fb fix"><b>Needs correcting</b><div class="fbnote">${esc(t.feedback_note || "")}</div>`
+      + (t.fixed_at ? `<div class="fbact took">You said this was fixed at ${esc(timeOf(t.fixed_at))}. Waiting for the head housekeeper to look again.</div><div class="fbact"><button class="linkbtn" type="button" data-act="notfixed" data-id="${esc(t.id)}" ${busy ? "disabled" : ""}>Not fixed yet</button></div>`
+        : `<div class="fbact"><button class="btn" type="button" data-act="fixed" data-id="${esc(t.id)}" ${busy ? "disabled" : ""} aria-label="I have fixed it, ${esc(label)}">${busy ? "Saving..." : "I have fixed it"}</button></div>`) + `</div>`;
+  }
+  return "";
+}
+function startedHtml(t, setup){
+  if (!t.started_at || t.cleaned_at) return "";
+  const allow = +t.my_minutes || +t.minutes || 0;
+  return `<div class="startrow"><span class="lbl2">${setup ? "Set up started" : "Started"} at ${esc(timeOf(t.started_at))}</span><span class="timer" data-since="${esc(t.started_at)}" data-allow="${allow}">${esc(hmsOf(nowDate() - Date.parse(t.started_at)))}</span><span class="of">of ${allow} min</span>`
+    + `<span class="sp"><button class="linkbtn" type="button" data-act="unstart" data-id="${esc(t.id)}" aria-label="Started by mistake, room ${esc(t.room)}">Started by mistake</button></span></div>`;
+}
+function tickTimers(){
+  document.querySelectorAll(".timer[data-since]").forEach(el => {
+    const ms = nowDate() - Date.parse(el.dataset.since); el.textContent = hmsOf(ms);
+    el.classList.toggle("over", +el.dataset.allow > 0 && ms > +el.dataset.allow * 60000);
+  });
+}
 function cardHtml(t, today){
   const busy = S.pend.has(String(t.id)), done = isDone(t) && !S.recent.has(String(t.id));
   const kc = kindClass(t), setup = t.kind === "setup", w = withOf(t);
@@ -325,13 +361,15 @@ function cardHtml(t, today){
   const pill = `<span class="pill ${kc}">${t.kind === "departure" ? "Departure" : setup ? "Set up" : "Stay over"}</span>`;
   const label = `Room ${t.room}${t.name ? " " + t.name : ""}`;
   const issues = t.issues > 0 ? `<span class="issues">${esc(issuesText(t.issues))}</span>` : "";
-  const checked = t.checked_at ? `<div class="checked">${TICK}<span>Checked by the head housekeeper</span></div>` : "";
+  const checked = t.checked_at && t.feedback !== "ok" ? `<div class="checked">${TICK}<span>Checked by the head housekeeper</span></div>` : "";
+  const fbk = feedbackHtml(t, label);
+  const took = t.took_minutes != null ? ` <span class="took">(took ${t.took_minutes >= 60 ? Math.floor(t.took_minutes / 60) + " h " + Math.round(t.took_minutes % 60) + " min" : Math.round(t.took_minutes) + " min"})</span>` : "";
   if (isDone(t) && done) {
     return `<article class="room done ${kc}" data-id="${esc(t.id)}" aria-label="${esc(label)}, ${setup ? "set up done" : "cleaned"}">
       <div class="rhead">${title}${pill}</div>
-      <div class="donerow">${TICK}<span>${setup ? "Set up done" : "Cleaned"} at ${esc(timeOf(t.cleaned_at))}<span class="by">${esc(byWho(t))}</span></span>
+      <div class="donerow">${TICK}<span>${setup ? "Set up done" : "Cleaned"} at ${esc(timeOf(t.cleaned_at))}${took}<span class="by">${esc(byWho(t))}</span></span>
         <span class="sp">${t.checked_at ? "" : `<button class="linkbtn" type="button" data-act="undo" data-id="${esc(t.id)}" ${busy ? "disabled" : ""} aria-label="Undo, ${esc(label)}">Undo</button>`}<button class="linkbtn" type="button" data-act="issue" data-id="${esc(t.id)}" aria-label="Report a maintenance issue, ${esc(label)}">Report an issue</button></span></div>
-      ${issues}${checked}</article>`;
+      ${issues}${checked}${fbk}</article>`;
   }
   const mins = +t.minutes || 0, mine = myMins(t);
   const timeTxt = w.length ? `${mins} min room, about ${mine} min each` : `${mine} min`;
@@ -344,9 +382,11 @@ function cardHtml(t, today){
     ${guestLine(t, today)}
     ${bookingNote}
     ${t.note ? `<div class="note hk"><h4>From the head housekeeper</h4><div>${esc(t.note)}</div></div>` : ""}
-    ${checked}${issues}
+    ${checked}${fbk}${issues}
+    ${startedHtml(t, setup)}
     <div class="acts">
-      <button class="btn" type="button" data-act="clean" data-id="${esc(t.id)}" ${busy ? "disabled" : ""}>${busy ? "Saving..." : (S.recent.has(String(t.id)) ? (setup ? "Done" : "Cleaned") : (setup ? "Set up done" : "Room cleaned"))}</button>
+      ${t.started_at ? "" : `<button class="btn" type="button" data-act="start" data-id="${esc(t.id)}" ${busy ? "disabled" : ""}>${setup ? "Start set up" : "Room started"}</button>`}
+      <button class="btn${t.started_at ? "" : " ghost"}" type="button" data-act="clean" data-id="${esc(t.id)}" ${busy ? "disabled" : ""}>${busy ? "Saving..." : (S.recent.has(String(t.id)) ? (setup ? "Done" : "Cleaned") : (setup ? "Set up done" : "Room cleaned"))}</button>
       <button class="btn ghost" type="button" data-act="issue" data-id="${esc(t.id)}">Report a maintenance issue</button>
     </div></article>`;
 }
@@ -435,6 +475,21 @@ async function setCleaned(id, done){
   } finally { S.pend.delete(String(t.id)); S.mut++; render(); }
 }
 
+async function setStarted(id, started){
+  const t = findTask(id); if (!t || S.pend.has(String(t.id))) return;
+  S.mut++; S.pend.add(String(t.id)); render();
+  try { const r = await call("task.started", { id:t.id, started }); applyServerTask(r.task); S.sig = dataSig(S.d); }
+  catch (e) { toast(e.message || "Could not save that. Please try again.", true); }
+  finally { S.pend.delete(String(t.id)); S.mut++; render(); tickTimers(); }
+}
+async function setFixed(id, done){
+  const t = findTask(id); if (!t || S.pend.has(String(t.id))) return;
+  S.mut++; S.pend.add(String(t.id)); render();
+  try { const r = await call("task.fixed", { id:t.id, done }); applyServerTask(r.task); S.sig = dataSig(S.d); if (done) toast("Thank you. The head housekeeper will look again."); }
+  catch (e) { toast(e.message || "Could not save that. Please try again.", true); }
+  finally { S.pend.delete(String(t.id)); S.mut++; render(); }
+}
+
 /* ------------------------------------------------------------- issue sheet */
 function openSheet(id){
   const t = findTask(id); if (!t || $("#sheet")) return;
@@ -492,6 +547,10 @@ document.addEventListener("click", ev => {
   const act = a.dataset.act, id = a.dataset.id;
   if (act === "clean") setCleaned(id, true);
   else if (act === "undo") setCleaned(id, false);
+  else if (act === "start") setStarted(id, true);
+  else if (act === "unstart") setStarted(id, false);
+  else if (act === "fixed") setFixed(id, true);
+  else if (act === "notfixed") setFixed(id, false);
   else if (act === "issue") openSheet(id);
   else if (act === "retry") { S.d ? refresh(false) : (S.load = "loading", render(), refresh(false)); }
 });
@@ -515,6 +574,7 @@ function boot(){
   $("#whoname").textContent = VIEW_AS ? VIEW_AS.name : staffEmail();
   render(); refresh(false);
   setInterval(paintCountdown, 30000);
+  setInterval(tickTimers, 1000);
   setInterval(() => { if (!document.hidden) refresh(true); }, 60000);
 }
 (function(){ if (staffEmail()) { $("#gate").style.display = "none"; boot(); } else openGate(); })();
