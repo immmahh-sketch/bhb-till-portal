@@ -69,6 +69,15 @@ textarea{min-height:84px; resize:vertical}
 .tag.completed{background:var(--good-bg); color:var(--good)}
 .tag.parked{background:var(--mist); color:var(--sage-70)}
 .tag.late{background:var(--alert-bg); color:var(--alert)}
+.fl{display:grid; gap:10px; max-height:46vh; overflow:auto}
+.flitem{display:flex; gap:12px; align-items:center; border:1px solid var(--mist); border-radius:8px; padding:8px 10px; background:var(--white)}
+.flitem .th{flex:none; width:64px; height:64px; border-radius:6px; overflow:hidden; background:var(--sage-10); display:grid; place-items:center; font-size:11px; font-weight:800; letter-spacing:.06em; color:var(--sage); text-decoration:none}
+.flitem .th img{width:100%; height:100%; object-fit:cover; display:block}
+.flitem .nm{flex:1; min-width:0}
+.flitem .nm b{display:block; overflow-wrap:anywhere; font-size:14.5px}
+.flitem .nm small{color:var(--sage-70); font-size:12.5px}
+.flitem .acts2{display:flex; gap:6px; flex-wrap:wrap}
+.objbtns{display:flex; gap:6px; justify-content:flex-end; margin-top:8px; flex-wrap:wrap}
 .muted{color:var(--sage-70)} .empty{padding:40px 20px; text-align:center; color:var(--sage-70)} .loading{padding:60px; text-align:center; color:var(--sage-70)}
 .sum{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px}
 .sum .pill{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); padding:10px 16px; min-width:110px}
@@ -275,7 +284,7 @@ function actionRow(a){
 }
 async function viewPlan(){
   $("#views").innerHTML = `<div class="loading">Loading…</div>`;
-  try { const d = await call("plan.list", { include_archived: S.filt.archived }); S.objectives = d.objectives || []; S.actions = d.actions || []; }
+  try { const d = await call("plan.list", { include_archived: S.filt.archived }); S.objectives = d.objectives || []; S.actions = d.actions || []; S.fileCounts = d.file_counts || {}; }
   catch(e){ $("#views").innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
   S.sig.plan = ""; S.lastRefresh = clockNow(); renderPlan();
 }
@@ -292,7 +301,7 @@ function renderPlan(){
       <div class="objhead" data-toggle="${esc(o.id)}"><span class="caret">${collapsed ? "&#9656;" : "&#9662;"}</span>
         <div><div class="t">${esc(o.title)}${o.status === "archived" ? ` <span class="tag parked">Archived</span>` : ""}</div>${o.description ? `<div class="d">${esc(o.description)}</div>` : ""}</div>
         <div class="meta">${comp} of ${total} done<div class="bar"><i style="width:${pct}%"></i></div>
-          <button class="btn ghost small" data-editobj="${esc(o.id)}" style="margin-top:8px">Edit</button></div></div>
+          <div class="objbtns"><button class="btn ghost small" data-files="${esc(o.id)}" aria-label="Files and pictures for this objective">Files${(S.fileCounts || {})[o.id] ? " (" + (S.fileCounts || {})[o.id] + ")" : ""}</button><button class="btn ghost small" data-editobj="${esc(o.id)}">Edit</button></div></div></div>
       ${collapsed ? "" : `<div class="objbody">
         ${shown.length ? `<div class="acols"><div>Action</div><div>Who</div><div>Latest update</div><div>Status</div></div>${shown.map(actionRow).join("")}`
           : `<div class="empty" style="padding:22px">${total ? "Nothing matches the filters here." : "No actions yet."}</div>`}
@@ -315,6 +324,7 @@ function renderPlan(){
   $("#newobj").onclick = () => objectiveModal(); wireRefresh();
   $$("[data-toggle]").forEach(h => h.onclick = e => { if (e.target.closest("button")) return; const id = h.dataset.toggle; S.collapsed.has(id) ? S.collapsed.delete(id) : S.collapsed.add(id); saveCollapsed(); renderPlan(); });
   $$("[data-editobj]").forEach(b => b.onclick = () => objectiveModal(S.objectives.find(o => o.id === b.dataset.editobj)));
+  $$("[data-files]").forEach(b => b.onclick = () => filesModal(b.dataset.files));
   $$("[data-addaction]").forEach(b => b.onclick = () => actionModal(null, b.dataset.addaction));
   $$(".arow").forEach(r => r.onclick = e => { if (e.target.closest("select")) return; actionModal(S.actions.find(a => a.id === r.dataset.id)); });
   $$(".arow .stsel").forEach(s => s.onchange = () => quickStatus(s.dataset.id, s.value, s));
@@ -340,6 +350,55 @@ function followOnOffer(a){
 }
 function replaceAction(a){ const i = S.actions.findIndex(x => x.id === a.id); if (i >= 0) S.actions[i] = a; else S.actions.push(a); const j = S.mine.findIndex(x => x.id === a.id); if (j >= 0) S.mine[j] = a; }
 
+/* ------------------------------------------------------------- files and pictures on an objective */
+const fmtBytes = n => { n = +n || 0; return n >= 1048576 ? (n / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(n / 1024)) + " KB"; };
+const isPic = f => /^image\//.test(f.mime || "") || /\.(jpe?g|png|gif|webp|heic|heif)$/i.test(f.name || "");
+const extOf = n => ((/\.([A-Za-z0-9]+)$/.exec(n || "") || [])[1] || "FILE").toUpperCase().slice(0, 4);
+const shortDate = iso => { try { return new Date(iso).toLocaleDateString("en-GB", { day:"numeric", month:"short", year:"numeric" }).replace("Sept", "Sep"); } catch(e){ return ""; } };
+async function filesModal(objId){
+  const o = S.objectives.find(x => x.id === objId); if (!o) return;
+  openModal(`<h3>Files and pictures</h3><p class="hint" style="margin:0 0 10px;font-size:13.5px">${esc(o.title)}</p>
+    <div id="fl_list" class="fl"><div class="muted">Loading...</div></div>
+    <div class="field" style="margin-top:14px"><label for="fl_input">Add pictures or files</label>
+      <input type="file" id="fl_input" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv,.txt,.rtf,.zip,.mp4,.mov,.m4v"><div class="hint" id="fl_hint">Pictures, PDF, Word, Excel, PowerPoint, CSV, text, zip or video. Up to 25 MB each.</div></div>
+    <div id="fl_status" role="status" aria-live="polite" style="font-size:14px;margin:6px 0"></div>
+    <div class="opts"><button class="btn ghost" id="fl_close">Close</button></div>`);
+  const done = () => { closeModal(); if (S.view === "plan") renderPlan(); };
+  $("#fl_close").onclick = done;
+  const list = $("#fl_list");
+  const draw = files => {
+    S.fileCounts = S.fileCounts || {}; S.fileCounts[objId] = files.length;
+    if (!files.length) { list.innerHTML = `<div class="muted">Nothing here yet.</div>`; return; }
+    list.innerHTML = files.map(f => `<div class="flitem"><a class="th" href="${esc(f.url || "#")}" target="_blank" rel="noopener noreferrer" aria-label="Open ${esc(f.name)}">${isPic(f) && f.url ? `<img alt="" loading="lazy" src="${esc(f.url)}">` : esc(extOf(f.name))}</a>
+      <div class="nm"><b>${esc(f.name)}</b><small>${esc(fmtBytes(f.size))} &middot; ${esc(f.by || "")} &middot; ${esc(shortDate(f.at))}</small></div>
+      <div class="acts2"><a class="btn ghost small" href="${esc(f.url || "#")}" target="_blank" rel="noopener noreferrer">Open</a>${f.can_delete ? `<button class="btn ghost small" data-fdel="${esc(f.id)}" aria-label="Remove ${esc(f.name)}">Remove</button>` : ""}</div></div>`).join("");
+    list.querySelectorAll("[data-fdel]").forEach(b => b.onclick = async () => {
+      if (!confirm("Remove this file from the objective? This cannot be undone.")) return;
+      b.disabled = true;
+      try { await call("objective.file_remove", { id:b.dataset.fdel }); S.cur = S.cur.filter(x => x.id !== b.dataset.fdel); draw(S.cur); toast("Removed."); }
+      catch(e){ toast(e.message, true); b.disabled = false; }
+    });
+  };
+  S.cur = [];
+  const load = async () => { const d = await call("objective.files", { objective_id:objId }); S.cur = d.files || []; draw(S.cur); };
+  try { await load(); } catch(e){ list.innerHTML = `<div class="empty" style="padding:14px">${esc(e.message)}</div>`; }
+  $("#fl_input").onchange = async ev => {
+    const files = Array.from(ev.target.files || []); ev.target.value = ""; if (!files.length) return;
+    const st = $("#fl_status"); let ok = 0; const bad = [];
+    for (let i = 0; i < files.length; i++) {
+      const f = files[i]; st.textContent = `Uploading ${i + 1} of ${files.length}: ${f.name} ...`;
+      try {
+        const u = await call("objective.file_url", { objective_id:objId, name:f.name, size:f.size });
+        let r; try { r = await fetch(u.upload_url, { method:"PUT", headers:{ "Content-Type": f.type || "application/octet-stream", "x-upsert":"false" }, body:f }); } catch(e){ throw new Error("Could not reach the server. Check your connection."); }
+        if (!r.ok) throw new Error("The upload was refused (error " + r.status + ").");
+        await call("objective.file_confirm", { objective_id:objId, path:u.path, name:f.name, mime:f.type, size:f.size });
+        ok++;
+      } catch(e){ bad.push(f.name + ": " + e.message); }
+    }
+    st.innerHTML = (ok ? `<span style="color:var(--good);font-weight:600">${ok} file${ok === 1 ? "" : "s"} added.</span> ` : "") + bad.map(b => `<div style="color:var(--alert)">${esc(b)}</div>`).join("");
+    try { await load(); } catch(e){}
+  };
+}
 function objectiveModal(o){
   const edit = !!o;
   openModal(`<h3>${edit ? "Edit objective" : "New objective"}</h3>
@@ -758,7 +817,7 @@ async function refreshNow(manual){
     if (view === "plan") {
       const d = await call("plan.list", { include_archived: S.filt.archived });
       const sig = JSON.stringify(d); changed = sig !== S.sig.plan; S.sig.plan = sig;
-      S.objectives = d.objectives || []; S.actions = d.actions || [];
+      S.objectives = d.objectives || []; S.actions = d.actions || []; S.fileCounts = d.file_counts || {};
       if (S.view === "plan" && (changed || manual) && (manual || !busyTyping())) { renderPlan(); window.scrollTo(0, y); }
     } else if (view === "mine") {
       const d = await call("actions.mine");
