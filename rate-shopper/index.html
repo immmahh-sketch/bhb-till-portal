@@ -126,6 +126,7 @@ nav.tabs{background:var(--sage-dark)}
 .comp{display:flex; gap:12px; align-items:flex-start; flex-wrap:wrap}
 .comp .info{flex:1 1 260px; min-width:0}
 .comp h4{font-size:22px; color:var(--sage)}
+.calbox{border-top:1px solid var(--mist); margin-top:14px; padding-top:12px; flex:1 1 100%}
 .keyrow{display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end; margin-top:10px}
 .keyrow .field{flex:1 1 260px; margin:0}
 .cands{border:1px solid var(--mist); border-radius:8px; margin-top:8px; overflow:hidden}
@@ -181,7 +182,7 @@ const BASES = {
   bk: { label:"Our Booking.com price", key:"price_booking" }
 };
 let savedBasis = "bb"; try { savedBasis = localStorage.getItem("bhb_rs_basis") || "bb"; } catch(e){}
-const S = { me:null, today:"", maxDate:"", props:[], settings:{}, serp:false, used:0, running:null, last:null, month:"", days:{}, sel:"", dayData:null, tab:"calendar", busy:false, stop:false, cands:{}, findBusy:"", formErr:"", basis: BASES[savedBasis] ? savedBasis : "bb", cap:18 };
+const S = { checks:{}, me:null, today:"", maxDate:"", props:[], settings:{}, serp:false, used:0, running:null, last:null, month:"", days:{}, sel:"", dayData:null, tab:"calendar", busy:false, stop:false, cands:{}, findBusy:"", formErr:"", basis: BASES[savedBasis] ? savedBasis : "bb", cap:18 };
 function toast(msg, bad){ const t = $("#toast"); t.textContent = msg; t.className = "toast on" + (bad ? " bad" : ""); clearTimeout(toast._t); toast._t = setTimeout(() => { t.className = "toast"; }, bad ? 6000 : 2800); }
 function staffEmail(){ try { return sessionStorage.getItem("bhb_staff_email") || ""; } catch(e){ return ""; } }
 async function call(action, payload){
@@ -240,7 +241,7 @@ async function showMonth(ym){
 }
 function renderBasis(){
   $("#basisbar").innerHTML = `<div class="field"><label for="basis">Our price shown as</label><select id="basis">${Object.entries(BASES).map(([k, v]) => `<option value="${k}" ${k === S.basis ? "selected" : ""}>${esc(v.label)}</option>`).join("")}</select></div>
-    <div class="hint">Competitor prices are the Booking.com rate for the cheapest room, two adults, one night, and breakfast is not confirmed. To compare like with like, choose <b>Our Booking.com price</b> (or room only if their rate has no breakfast).</div>`;
+    <div class="hint">Competitor figures are estimates of the cheapest price Booking.com shows a visitor for two adults, one night (usually a room-only, non-refundable rate). To compare like with like, choose <b>Our Booking.com price</b>. How close each estimate is: see the Competitors tab.</div>`;
 }
 function renderCal(){
   const ym = S.month, days = S.days[ym] || [];
@@ -291,6 +292,7 @@ async function openDay(date){
   try { const d = await call("day", { date }); if (S.sel !== date) return; S.dayData = d; renderDay(); const el = $("#daypanel"); if (el.getBoundingClientRect().top > window.innerHeight - 160) el.scrollIntoView({ behavior:"smooth", block:"start" }); }
   catch(e){ $("#daypanel").innerHTML = `<div class="notice bad">${esc(e.message)}</div>`; }
 }
+function calNote(id){ const p = S.props.find(x => x.id === id); return p && p.factor_checks ? `, checked on ${p.factor_checks} night${p.factor_checks === 1 ? "" : "s"}` + (p.factor_error != null ? `, up to ${Number(p.factor_error).toFixed(p.factor_error < 1 ? 1 : 0)}% off` : "") : ", not checked yet"; }
 function renderDay(){
   const d = S.dayData; if (!d) { $("#daypanel").innerHTML = ""; return; }
   const key = BASES[S.basis].key;
@@ -322,7 +324,7 @@ function renderDay(){
       sub = bits.join("<br>") + (x.room && S.basis === "bb" ? `<br>${esc(x.room)}, ${esc(x.rate || "")}` : "");
       if (!bits.length) sub = esc(x.rate || "");
     }
-    else if (has) sub = (x.is_booking ? `<span class="tag bk">Booking.com</span> ` : x.source ? `<span class="tag gh">${esc(x.source)}</span> ` : "") + "Cheapest room; breakfast not confirmed" + (x.rate ? "<br>" + esc(x.rate) : "");
+    else if (has) sub = (x.is_booking ? `<span class="tag bk">Booking.com estimate</span> ` : x.source ? `<span class="tag gh">${esc(x.source)}</span> ` : "") + "Cheapest price on Booking.com, room only" + (x.raw != null && x.factor && x.factor !== 1 ? `<br>Feed £${Math.round(x.raw)} x ${Number(x.factor).toFixed(2)}${calNote(x.id)}` : "") + (x.rate ? "<br>" + esc(x.rate) : "");
     else sub = esc(x.checked ? (x.rate || (x.sold_out ? "Sold out" : "No price found")) : "Not checked yet");
     const link = x.link && !isUs ? ` <a href="${esc(x.link)}" target="_blank" rel="noopener noreferrer" class="tiny">View</a>` : "";
     const missing = !has ? (isUs && x.sold_out ? "Full" : x.sold_out ? "Sold out" : "No price") : "";
@@ -393,6 +395,19 @@ async function reloadAfterRefresh(){
 }
 
 /* ------------------------------------------------------------- competitors tab */
+function calBlock(p, edit){
+  const n = p.factor_checks || 0, f = Number(p.price_factor) || 1;
+  const fit = n ? `Conversion <b>x ${f.toFixed(3)}</b> from ${n} spot check${n === 1 ? "" : "s"}; on the nights checked the estimate was never more than <b>${Number(p.factor_error ?? 0).toFixed(p.factor_error < 1 ? 1 : 0)}%</b> away from Booking.com.` : `No spot checks yet, so the feed's figure is used as it is (it runs well below Booking.com).`;
+  const shown = S.checks[p.id];
+  const d0 = addDays(S.today, 30);
+  return `<div class="calbox"><div class="lbl">Match to Booking.com</div><div class="small" style="margin:4px 0 8px">${fit}</div>
+    <div class="keyrow"><div class="field" style="flex:0 1 170px"><label for="cd_${p.id}">Night you checked</label><input type="date" id="cd_${p.id}" value="${d0}" min="${S.today}" max="${S.maxDate}" ${edit ? "" : "disabled"}></div>
+      <div class="field" style="flex:0 1 190px"><label for="cp_${p.id}">Booking.com showed (£)</label><input type="number" id="cp_${p.id}" min="1" step="1" inputmode="numeric" placeholder="e.g. 129" ${edit ? "" : "disabled"}></div>
+      <button class="btn small" type="button" data-act="addcheck" data-id="${p.id}" ${edit ? "" : "disabled"}>Add spot check</button>
+      <button class="btn small ghost" type="button" data-act="showchecks" data-id="${p.id}">${shown ? "Hide checks" : "Show checks"}</button></div>
+    <div class="hint" style="margin-top:6px">Open this hotel on Booking.com for that night, two adults, signed out, and type the price of its cheapest room. Add a few nights, a mix of weekdays and weekends. The conversion updates for the whole year at once.</div>
+    ${shown ? (shown.length ? `<table class="rank" style="margin-top:8px"><thead><tr><th>Night</th><th>Booking.com</th><th>Feed</th><th>Ratio</th><th></th></tr></thead><tbody>${shown.map(c => `<tr><td>${esc(fmtShort(c.stay_date))}</td><td>£${Math.round(c.live_price)}</td><td>£${Math.round(c.raw_price)}</td><td>${Number(c.ratio).toFixed(3)}</td><td>${edit ? `<button class="btn small ghost" type="button" data-act="delcheck" data-id="${esc(c.id)}" data-prop="${p.id}">Remove</button>` : ""}</td></tr>`).join("")}</tbody></table>` : `<div class="hint" style="margin-top:6px">No checks yet.</div>`) : ""}</div>`;
+}
 function keyBox(p, edit){
   return `<div class="keyrow"><div class="field"><label for="xk_${p.id}">Tripadvisor link or key</label><input id="xk_${p.id}" value="${esc(p.xotelo_key || "")}" placeholder="Paste the hotel's Tripadvisor page address" ${edit ? "" : "disabled"}></div><button class="btn small ghost" type="button" data-act="savekey" data-id="${p.id}" ${edit ? "" : "disabled"}>Save</button></div>`;
 }
@@ -401,7 +416,7 @@ function renderComps(){
   const o = own();
   let h = `<div class="pagehead"><h2>Competitors</h2></div><p class="muted small" style="margin:0 0 12px">These are the hotels our price is compared against. Each is found by its Tripadvisor page: open the hotel on Tripadvisor, copy the address from the browser and paste it here. Prices are Booking.com's cheapest rate for two adults, one night.</p>`;
   if (!free && !S.serp) h += `<div class="notice">A paid search method is selected but its key (SERPAPI_KEY) has not been added, so competitor prices cannot be fetched. Switch to the free method below.</div>`;
-  if (o) h += `<div class="card"><div class="comp"><div class="info"><h4>${esc(o.name)} <span class="tag">Us</span></h4><div class="small muted">${o.xotelo_key ? "Our Booking.com price is fetched too, so there is a like-for-like comparison." : "Add our Tripadvisor link to also fetch our Booking.com price."}</div>${keyBox(o, edit)}</div></div></div>`;
+  if (o) h += `<div class="card"><div class="comp"><div class="info"><h4>${esc(o.name)} <span class="tag">Us</span></h4><div class="small muted">${o.xotelo_key ? "Our Booking.com price is fetched too, so there is a like-for-like comparison." : "Add our Tripadvisor link to also fetch our Booking.com price."}</div>${keyBox(o, edit)}</div></div>${calBlock(o, edit)}</div>`;
   for (const p of comps()) {
     const cands = S.cands[p.id];
     h += `<div class="card"><div class="comp"><div class="info"><h4>${esc(p.name)}${p.active ? "" : ` <span class="tiny muted">(paused)</span>`}</h4>
@@ -412,6 +427,7 @@ function renderComps(){
         ${free ? "" : `<button class="btn small ghost" type="button" data-act="find" data-id="${p.id}" ${edit && S.serp && !S.findBusy ? "" : "disabled"}>${S.findBusy === p.id ? "Searching..." : "Find on Google Hotels"}</button>`}
         <button class="btn small ghost" type="button" data-act="toggle" data-id="${p.id}" ${edit ? "" : "disabled"}>${p.active ? "Pause" : "Resume"}</button>
         <button class="btn small danger" type="button" data-act="remove" data-id="${p.id}" ${edit ? "" : "disabled"}>Remove</button></div></div>
+      ${calBlock(p, edit)}
       ${cands ? (cands.length ? `<div class="cands">${cands.map((c, i) => `<button type="button" data-act="pick" data-id="${p.id}" data-i="${i}"><span><b>${esc(c.name)}</b><br><span class="tiny muted">${esc(c.type || "")}</span></span><span>${c.rate != null ? gbp0(c.rate) : ""} &middot; <u>Use this one</u></span></button>`).join("")}</div>` : `<div class="notice">Google Hotels found nothing for that name.</div>`) : ""}
       </div>`;
   }
@@ -440,6 +456,22 @@ document.addEventListener("click", async e => {
     else if (act === "mnext") await showMonth(monthAdd(S.month, 1));
     else if (act === "refresh") startRefresh();
     else if (act === "stop") { S.stop = true; b.disabled = true; b.textContent = "Stopping..."; }
+    else if (act === "addcheck") {
+      const date = $("#cd_" + id).value, price = $("#cp_" + id).value;
+      const r = await call("check.add", { property_id:id, date, live_price:price });
+      S.props = r.properties; S.days = {}; if (S.checks[id]) { const c = await call("check.list", { property_id:id }); S.checks[id] = c.checks; }
+      renderComps(); toast(`Added. Booking.com was x ${Number(r.ratio).toFixed(2)} the feed's £${Math.round(r.raw)}.`);
+      loadMonth(S.month, true).then(renderCal).catch(() => {});
+    }
+    else if (act === "showchecks") {
+      if (S.checks[id]) { delete S.checks[id]; } else { const c = await call("check.list", { property_id:id }); S.checks[id] = c.checks; }
+      renderComps();
+    }
+    else if (act === "delcheck") {
+      const r = await call("check.delete", { id }); S.props = r.properties; S.days = {};
+      const pid = b.dataset.prop; const c = await call("check.list", { property_id:pid }); S.checks[pid] = c.checks; renderComps(); toast("Removed.");
+      loadMonth(S.month, true).then(renderCal).catch(() => {});
+    }
     else if (act === "savekey") {
       const p = S.props.find(x => x.id === id); const v = $("#xk_" + id).value;
       await saveProp(p, { xotelo_key: v }); renderComps(); toast(v.trim() ? "Saved" : "Link removed");
