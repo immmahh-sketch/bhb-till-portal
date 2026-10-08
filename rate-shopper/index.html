@@ -346,12 +346,13 @@ function renderRefresh(){
   }
   const edit = S.me && S.me.edit, l = S.last, paid = S.settings.competitor_mode && S.settings.competitor_mode !== "xotelo";
   const lastTxt = l ? `Last refresh ${ago(l.finished_at || l.started_at)}: ${fmtShort(l.date_from)} to ${fmtShort(l.date_to)}${l.errors.length ? `, ${l.errors.length} check${l.errors.length === 1 ? "" : "s"} missed` : ""}.` : "Prices have not been fetched yet.";
+  const chk = !l ? "" : l.checks_at ? ` Spot check on this refresh: ${l.checks_ok} of ${l.checks_total} Booking.com prices read on 5 nights, and the conversions were updated${l.checks_note ? " (" + l.checks_note + ")" : ""}.` : (l.scope !== "own" && l.status === "done" ? " Spot check on this refresh: waiting for the checker on the manager's PC (it runs within about half an hour while the PC is on)." : "");
   const used = paid && S.settings.monthly_budget ? ` Searches used this month: ${S.used} of ${S.settings.monthly_budget}.` : "";
   el.innerHTML = `<div class="refresh">
     <div class="field"><label for="rs_scope">What to refresh</label><select id="rs_scope"><option value="all">Everything</option><option value="own">Our website price only (about 1 minute)</option><option value="competitors">Competitors and Booking.com only</option></select></div>
     <div class="field"><label for="rs_nights">How far ahead</label><select id="rs_nights"><option value="30">Next 30 nights</option><option value="90">Next 90 nights</option><option value="180">Next 180 nights</option><option value="365" selected>Next year</option></select></div>
     <button class="btn" type="button" data-act="refresh" ${edit ? "" : "disabled"}>Refresh prices</button></div>
-    <p class="hint" style="margin:10px 0 0">${esc(lastTxt)}${esc(used)} A full year takes about 10 minutes.</p>`;
+    <p class="hint" style="margin:10px 0 0">${esc(lastTxt)}${esc(chk)}${esc(used)} A full year takes about 10 minutes.</p>`;
 }
 async function startRefresh(){
   const scope = $("#rs_scope").value, nights = +$("#rs_nights").value;
