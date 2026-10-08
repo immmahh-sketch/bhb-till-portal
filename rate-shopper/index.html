@@ -161,6 +161,7 @@ nav.tabs{background:var(--sage-dark)}
     <div id="v_calendar">
       <div class="pagehead"><h2>Our price against the competition</h2></div>
       <div class="card" id="refreshbox"></div>
+      <div class="card" id="livebox"></div>
       <div id="notices"></div>
       <div class="basis" id="basisbar"></div>
       <div id="sumstrip"></div>
@@ -241,9 +242,10 @@ async function showMonth(ym){
 function renderBasis(){
   const c = chanOf(S.channel);
   const note = S.channel === "direct"
-    ? "Each hotel's own booking engine: the cheapest room that can actually be booked for two adults for one night, so if the cheapest room is full the next room up is shown."
+    ? "Each hotel's own booking engine: the cheapest room that can actually be booked for two adults for one night, so if the cheapest room is full the next room up is shown. Hotels whose engine we cannot read show the price on their own website as Google Hotels lists it, on nights covered by Live prices."
     : S.channel === "booking"
-      ? "Booking.com as the free feed reports it, converted to what Booking.com really shows using spot checks (see the Competitors tab). An estimate."
+      ? "Booking.com as the free feed reports it, converted to what Booking.com really shows using spot checks (see the Competitors tab). An estimate, except on nights covered by Live prices, where it is the price Google Hotels shows for Booking.com."
+      : S.channel.startsWith("l:") ? `${esc(c.label.replace(" (live)", ""))} as Google Hotels shows it, with VAT, only for the nights fetched under Live prices.`
       : `${esc(c.label)} as the free feed reports it, before tax, with 20% VAT added. An estimate.`;
   const mealNote = feedChan() && S.meal === "bb" ? " These sites give room-only prices, so bed and breakfast is estimated as room only plus that hotel's own-website breakfast difference for the night." : "";
   $("#basisbar").innerHTML = `<div class="field"><label for="chan">Where the prices come from</label><select id="chan">${S.channels.map(x => `<option value="${esc(x.key)}" ${x.key === S.channel ? "selected" : ""}>${esc(x.label)}${x.est ? " (estimate)" : ""}</option>`).join("")}</select></div>
@@ -339,6 +341,35 @@ function renderDay(){
   $("#daypanel").innerHTML = `<div class="card daycard"><h3>${esc(fmtLong(d.date))}${occ}</h3><p class="verdict">${verdict}</p>
     <div style="overflow-x:auto"><table class="rank"><thead><tr><th></th><th>Hotel</th><th>Per night</th><th class="hm">Against ours</th><th class="hm">Checked</th></tr></thead><tbody>${rows}</tbody></table></div>
     <p class="hint" style="margin-top:10px">${esc(ch.label)}${est ? " (estimate)" : ""}, ${esc(MEALS[d.meal]).toLowerCase()}, two adults, one night. Occupancy is rooms sold from the forecast, out of ${d.capacity} rooms.</p>${matrix}</div>`;
+}
+
+/* ------------------------------------------------------------- live prices (Google Hotels through SerpApi, free plan) */
+function renderLive(){
+  const el = $("#livebox"), L = S.live, edit = S.me && S.me.edit;
+  if (!L || !S.serp) { el.innerHTML = `<div class="lbl">Live prices</div><p class="hint" style="margin:6px 0 0">Not switched on: the SerpApi key has not been added.</p>`; return; }
+  if (S.liveRun) { el.innerHTML = `<div class="lbl">Fetching live prices. Keep this page open until it finishes.</div><div class="progress"><i style="width:${S.liveRun.pct}%"></i></div><div class="row" style="justify-content:space-between;align-items:center"><span class="small">${S.liveRun.done} hotel-nights fetched this time &middot; ${L.searches_left} searches left this month</span><button class="btn small danger" type="button" data-act="livestop">Stop</button></div>`; return; }
+  const covered = L.hotels ? Math.round((L.nights * L.hotels - L.jobs_left) / L.hotels) : 0;
+  el.innerHTML = `<div class="row" style="align-items:center;justify-content:space-between;gap:12px"><div style="flex:1 1 320px"><div class="lbl">Live prices</div>
+    <p class="hint" style="margin:6px 0 0">Real, current prices from Google Hotels for ${L.hotels} hotels: Booking.com, Expedia, Hotels.com, Trip.com, Agoda and each hotel's own website. It covers ${fmtShort(L.from)} to ${fmtShort(L.to)} only. Each hotel and night costs one search of the free plan (<b>${L.searches_left == null ? "?" : L.searches_left}</b> left this month, ${L.reserve} always kept back), so Friday, Saturday and Sunday nights go first. About ${covered} of ${L.nights} nights are covered so far. A live Booking.com price replaces the estimated one on that night.</p></div>
+    <button class="btn" type="button" data-act="live" ${edit && L.can_do > 0 ? "" : "disabled"}>${L.can_do > 0 ? "Fetch live prices" : "No searches to spend"}</button></div>`;
+}
+async function runLive(){
+  S.liveRun = { done: 0, pct: 0 }; S.liveStop = false; renderLive();
+  const start = S.live.can_do || 1;
+  try {
+    while (!S.liveStop) {
+      const r = await call("live.step", {});
+      S.live = r.live; S.liveRun.done += r.done; S.liveRun.pct = Math.min(100, Math.round(S.liveRun.done / start * 100)); renderLive();
+      if (r.errors && r.errors.length) $("#notices").innerHTML = `<div class="notice">${r.errors.length} hotel-night${r.errors.length === 1 ? "" : "s"} failed: ${esc(r.errors[0])}</div>`;
+      if (r.finished || r.out_of_searches || !r.done) break;
+    }
+  } catch(e){ $("#notices").innerHTML = `<div class="notice bad">${esc(e.message)}</div>`; }
+  S.liveRun = null; renderLive();
+  try { const b = await call("bootstrap"); S.channels = (b.channels && b.channels.length) ? b.channels : S.channels; S.live = b.live; renderBasis(); } catch(e){}
+  S.days = {}; try { await loadMonth(S.month, true); } catch(e){}
+  renderCal(); renderLive();
+  if (S.sel) openDay(S.sel);
+  toast("Live prices fetched");
 }
 
 /* ------------------------------------------------------------- refresh */
@@ -468,6 +499,8 @@ document.addEventListener("click", async e => {
     if (act === "mprev") await showMonth(monthAdd(S.month, -1));
     else if (act === "mnext") await showMonth(monthAdd(S.month, 1));
     else if (act === "refresh") startRefresh();
+    else if (act === "live") runLive();
+    else if (act === "livestop") { S.liveStop = true; b.disabled = true; b.textContent = "Stopping..."; }
     else if (act === "stop") { S.stop = true; b.disabled = true; b.textContent = "Stopping..."; }
     else if (act === "addcheck") {
       const date = $("#cd_" + id).value, price = $("#cp_" + id).value;
@@ -533,12 +566,12 @@ async function boot(){
   $("#app").classList.remove("off");
   try {
     const b = await call("bootstrap");
-    Object.assign(S, { me:b.me, today:b.today, maxDate:b.max_date, props:b.properties, settings:b.settings, serp:b.serp_configured, used:b.searches_used, running:b.running, last:b.last, channels: (b.channels && b.channels.length) ? b.channels : S.channels });
+    Object.assign(S, { me:b.me, today:b.today, maxDate:b.max_date, props:b.properties, settings:b.settings, serp:b.serp_configured, live:b.live, used:b.searches_used, running:b.running, last:b.last, channels: (b.channels && b.channels.length) ? b.channels : S.channels });
   } catch(e){ $("#notices").innerHTML = `<div class="notice bad">${esc(e.message)}</div>`; return; }
   $("#whoname").textContent = S.me.name || S.me.email || "";
   S.month = S.today.slice(0, 7);
   setTab(location.hash === "#competitors" ? "competitors" : "calendar");
-  renderBasis(); renderRefresh();
+  renderBasis(); renderRefresh(); renderLive();
   if (S.running) { S.stop = false; runLoop(S.running.id); }
   await showMonth(S.month);
 }
