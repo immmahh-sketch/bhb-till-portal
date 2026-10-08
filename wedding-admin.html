@@ -316,6 +316,12 @@ details summary::-webkit-details-marker{color:var(--sage-70)}
 .btpop-head .x{margin-left:auto;background:transparent;border:0;font-size:22px;line-height:1;cursor:pointer;color:var(--sage-70)}
 .btpop-body{overflow-y:auto;padding:4px 20px 18px}
 .btpop-body table{width:100%}
+.btpop-foot{border-top:2px solid var(--mist,#E7E7E7);padding:12px 20px;background:var(--bone,#F7F7F7);font-size:.9375rem}
+.btpop-foot b{font-family:var(--display,Georgia,serif);font-size:1.5rem;color:var(--sage,#4E5F4F);margin:0 4px}
+.btavg th,.btavg td{white-space:nowrap}
+.btavg td.n{text-align:right} .btavg small{color:#7B887C;margin-left:4px}
+.btavg tr.tot td,.btavg tr.tot th{border-top:2px solid var(--mist,#E7E7E7);font-weight:700}
+.btavg .nul{color:#A3B0A4}
 .btpop-body tr.urow:hover td{background:var(--bone)}
 .btrole{display:inline-block;font-size:.6875rem;letter-spacing:.08em;text-transform:uppercase;
   padding:2px 8px;border-radius:999px;background:var(--mist);color:var(--sage)}
@@ -5639,6 +5645,36 @@ function bonusMonthChart(st){
     }).join("") + '</div></div>';
 }
 
+/* Average booked revenue. Only bookings that actually have a revenue figure count: a line still waiting for its price would drag every average down. */
+function bonusAvg(rows){
+  var withRev = rows.filter(function(r){ return Number(r.revenue) > 0; });
+  var sum = withRev.reduce(function(t, r){ return t + Number(r.revenue); }, 0);
+  return { n: withRev.length, of: rows.length, sum: sum, avg: withRev.length ? sum / withRev.length : null };
+}
+function bonusNoun(){ return BT.scope === "events" ? "event" : BT.scope === "weddings" ? "wedding" : "booking"; }
+
+/* Average booked revenue per month (down) and per co-ordinator (across), by the month each booking came in and who secured it. */
+function bonusAverageTable(st){
+  var rows = st.scoped.filter(function(r){ return bonusMonthOf(r) && Number(r.revenue) > 0; });
+  if (!rows.length) return "";
+  var months = Object.keys(rows.reduce(function(o, r){ o[bonusMonthOf(r)] = 1; return o; }, {})).sort();
+  var people = st.people.filter(coordinator);       // co-ordinators only: the GM is not on the scheme and stays off per-person tables
+  var cell = function(list){
+    var a = bonusAvg(list);
+    return a.n ? '<td class="n">' + tidy(Math.round(a.avg)) + '<small>(' + a.n + ')</small></td>' : '<td class="n nul">&ndash;</td>';
+  };
+  var head = '<tr><th>Month booked</th><th class="n" style="text-align:right">Everyone</th>' + people.map(function(p){ return '<th style="text-align:right">' + esc(p) + '</th>'; }).join("") + '</tr>';
+  var body = months.map(function(m){
+    var inM = rows.filter(function(r){ return bonusMonthOf(r) === m; });
+    return '<tr><th>' + esc(monthName(m)) + '</th>' + cell(inM) + people.map(function(p){ return cell(inM.filter(function(r){ return r.secured_by === p; })); }).join("") + '</tr>';
+  }).join("");
+  var tot = '<tr class="tot"><th>All months</th>' + cell(rows) + people.map(function(p){ return cell(rows.filter(function(r){ return r.secured_by === p; })); }).join("") + '</tr>';
+  return '<div class="card"><h2 style="margin-bottom:4px">Average booked revenue per ' + bonusNoun() + '</h2>' +
+    '<p class="muted" style="margin:0 0 12px;font-size:.875rem">By the month the booking came in, and by who secured it. The figure in brackets is how many bookings it is the average of. ' +
+    'Only bookings that have a revenue figure are counted.</p>' +
+    '<div class="tw"><table class="btavg"><thead>' + head + '</thead><tbody>' + body + tot + '</tbody></table></div></div>';
+}
+
 /* Who did what. A show-round and a booking are two different jobs earning
    two different bonuses, so they get two columns rather than one total that
    hides which is which. */
@@ -5813,6 +5849,12 @@ function bonusPersonPopup(){
   }).join("");
 
   var title = everyone ? "All bookings" + (month ? " in " + monthName(month) : "") : name;
+  var av = bonusAvg(rows), noun = bonusNoun();
+  var avgFoot = '<div class="btpop-foot">Average booked revenue per ' + noun + ':' +
+    (av.n ? '<b>' + tidy(Math.round(av.avg)) + '</b>' : '<b>&ndash;</b>') +
+    '<span class="muted" style="font-size:.8125rem">' + (av.n
+      ? 'across ' + av.n + ' ' + noun + (av.n === 1 ? '' : 's') + ' with a revenue figure' + (av.of > av.n ? ' (' + (av.of - av.n) + ' on this screen ' + (av.of - av.n === 1 ? 'has' : 'have') + ' none yet)' : '') + ' &middot; ' + tidy(av.sum) + ' in total'
+      : 'none of the ' + av.of + ' on this screen has a revenue figure yet') + '</span></div>';
   return '<div class="btpop-veil" onclick="bonusPersonClose()"></div>' +
     '<div class="btpop" role="dialog" aria-label="' + esc(title) + '">' +
       '<div class="btpop-head"><div><h2>' + esc(title) + '</h2>' +
@@ -5825,7 +5867,7 @@ function bonusPersonPopup(){
         ? '<table><thead><tr><th>Booking</th><th>For</th><th class="money">Bonus</th><th></th></tr></thead>' +
             '<tbody>' + body + '</tbody></table>'
         : '<p class="muted">Nothing here for this month.</p>') +
-      '</div></div>';
+      '</div>' + (rows.length ? avgFoot : '') + '</div>';
 }
 
 /* Show-round bonus with nobody down as having done the show-round.
@@ -5913,7 +5955,7 @@ function viewBonus(){
     tile(tidy(st.bonus), "Bonus earned") +
   '</div>';
 
-  h += bonusMonthChart(st) + bonusPeopleChart(st);
+  h += bonusMonthChart(st) + bonusAverageTable(st) + bonusPeopleChart(st);
 
   /* The two reports above are always the whole tracker. Narrowing them with
      the list would make the four figures at the top mean something different
