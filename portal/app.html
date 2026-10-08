@@ -176,6 +176,17 @@ header.top{background:var(--sage); color:var(--white)}
 .layout-tools .lbtn:hover{background:var(--sage-10)}
 
 /* first-login welcome */
+.wm-grid{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:18px; align-items:start}
+@media (max-width:900px){ .wm-grid{grid-template-columns:minmax(0,1fr)} }
+.wm-two{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+.field textarea{width:100%; padding:10px 12px; border:1px solid var(--mist); border-radius:8px; background:var(--white); font:inherit; line-height:1.5; resize:vertical}
+.wm-check{display:flex; gap:8px; align-items:center; font-size:13px; margin:2px 0 14px; cursor:pointer}
+.wm-check input{width:auto; flex:none}
+.wm-actions{display:flex; gap:8px; flex-wrap:wrap}
+.wm-reset{margin-top:18px; padding-top:14px; border-top:1px solid var(--mist)}
+.wm-label{font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); margin:2px 0 8px; font-weight:700}
+.wm-stage{background:rgba(38,38,38,.55); border-radius:12px; padding:18px; display:flex; justify-content:center}
+.wm-stage .welcome-card{margin:0; box-shadow:0 10px 30px rgba(0,0,0,.3)}
 .welcome-veil{position:fixed; inset:0; z-index:120; background:rgba(38,38,38,.55); display:flex; align-items:flex-start; justify-content:center; padding:16px; overflow:auto}
 .welcome-veil[hidden]{display:none}
 .welcome-card{background:var(--white); border-radius:14px; max-width:520px; width:100%; box-shadow:0 20px 60px rgba(0,0,0,.35); overflow:hidden; margin:auto}
@@ -387,6 +398,37 @@ table.grid td{padding:10px 12px; border-top:1px solid var(--mist); vertical-alig
         <button class="btn" id="tabUsers">Users &amp; profiles</button>
         <button class="btn ghost" id="tabPo">PO Tracker</button>
         <button class="btn ghost" id="tabView">View as</button>
+        <button class="btn ghost" id="tabWelcome">Welcome message</button>
+      </div>
+      <div id="setWelcome" style="display:none">
+        <div class="pagehead"><h2>Settings — Welcome message</h2></div>
+        <p class="hint" style="margin:-8px 0 12px">The message people see the first time they sign in. The preview is exactly how it looks. Write <b>{first}</b> in the heading to put the person's first name in. Leave a blank line between paragraphs.</p>
+        <div class="wm-grid">
+          <div class="card" style="padding:16px">
+            <div class="field"><label for="wmHeading">Heading</label><input id="wmHeading" maxlength="120"></div>
+            <div class="field"><label for="wmBody">Message</label><textarea id="wmBody" rows="12" maxlength="3000"></textarea></div>
+            <div class="wm-two">
+              <div class="field"><label for="wmSign">Signed</label><input id="wmSign" maxlength="80"></div>
+              <div class="field"><label for="wmRole">Title</label><input id="wmRole" maxlength="80"></div>
+            </div>
+            <div class="field"><label for="wmButton">Button</label><input id="wmButton" maxlength="40"></div>
+            <label class="wm-check"><input type="checkbox" id="wmOn"> Show it to people the first time they sign in</label>
+            <div class="wm-actions">
+              <button class="btn" id="wmSave" type="button">Save</button>
+              <button class="btn ghost" id="wmPop" type="button">Show as a pop-up</button>
+            </div>
+            <div id="wmMsg" class="hint" style="margin-top:10px"></div>
+            <div class="wm-reset">
+              <div class="hint" id="wmSeen"></div>
+              <button class="btn ghost" id="wmReset" type="button">Show it to everyone again</button>
+              <div id="wmConfirm" class="hint" style="display:none; margin-top:8px"></div>
+            </div>
+          </div>
+          <div>
+            <div class="wm-label">Preview</div>
+            <div class="wm-stage"><div class="welcome-card" id="wmPreview"></div></div>
+          </div>
+        </div>
       </div>
       <div id="setView" style="display:none">
         <div class="pagehead"><h2>Settings — View as</h2></div>
@@ -467,16 +509,7 @@ table.grid td{padding:10px 12px; border-top:1px solid var(--mist); vertical-alig
 
 
 <div class="welcome-veil" id="welcome" role="dialog" aria-modal="true" aria-labelledby="welcomeTitle" hidden>
-  <div class="welcome-card">
-    <div class="welcome-top"><div class="eyebrow">The Black Horse Beamish</div><h2 id="welcomeTitle">Welcome, <span id="welcomeName"></span></h2></div>
-    <div class="welcome-body">
-      <p>First of all, thank you. Your hard work is what makes this place what it is, and I really do appreciate it.</p>
-      <p>This portal is the one place for the tools you use at work. It has been designed to make communication and processes more streamlined across the whole business, so there is less chasing and fewer things getting lost.</p>
-      <p>For now we are keeping it light, with just the basics. There are lots of great features coming over the next few weeks, and I will release new tiles as we go. If you have an idea that would make your job easier, tell me or your manager.</p>
-      <div class="welcome-sign">Paul Riley<small>General Manager</small></div>
-    </div>
-    <div class="welcome-foot"><button type="button" id="welcomeBtn">Let's get started</button></div>
-  </div>
+  <div class="welcome-card" id="welcomeCard"></div>
 </div>
 <script>
 /* ==================================================================
@@ -536,7 +569,7 @@ async function trySignIn(email, password){
   if(!email || !password){ $("#gerr").textContent = "Enter your email and password."; return; }
   try{
     const d = await api("login", { email, password });
-    S.token = d.token; S.user = d.user; S.portals = d.portals || []; S.serverLayout = d.layout; S.welcome = !!d.welcome;
+    S.token = d.token; S.user = d.user; S.portals = d.portals || []; S.serverLayout = d.layout; S.welcome = !!d.welcome; S.welcomeMsg = d.welcome_msg || null;
     localStorage.setItem(LS_TOKEN, S.token);
     enterApp();
   }catch(e){
@@ -605,8 +638,20 @@ $("#navSignout").addEventListener("click", signOut);
 
 /* -------------------------------------------------------------- app */
 /* ------------------------------------------------- first-login welcome */
-function showWelcome(preview){
-  $("#welcomeName").textContent = (S.user.name || "").trim().split(/\s+/)[0] || "there";
+const WELCOME_FALLBACK = { enabled:true, heading:"Welcome, {first}", button:"Let's get started", sign_name:"", sign_role:"",
+  body:"Thank you for all your hard work. This portal is the one place for the tools you use at work." };
+/* the card as people see it; also used for the live preview in Settings */
+function welcomeCardHtml(m, name, forPreview){
+  const first = (String(name || "").trim().split(/\s+/)[0]) || "there";
+  const heading = String(m.heading || "").split("{first}").join(first);
+  const paras = String(m.body || "").split(/\n\s*\n/).map(p => p.trim()).filter(Boolean).map(p => `<p>${esc(p).replace(/\n/g, "<br>")}</p>`).join("");
+  const sign = m.sign_name ? `<div class="welcome-sign">${esc(m.sign_name)}${m.sign_role ? `<small>${esc(m.sign_role)}</small>` : ""}</div>` : "";
+  return `<div class="welcome-top"><div class="eyebrow">The Black Horse Beamish</div><h2${forPreview ? "" : ` id="welcomeTitle"`}>${esc(heading)}</h2></div>
+    <div class="welcome-body">${paras}${sign}</div>
+    <div class="welcome-foot"><button type="button"${forPreview ? ` tabindex="-1"` : ` id="welcomeBtn"`}>${esc(m.button || "Let's get started")}</button></div>`;
+}
+function showWelcome(preview, msg){
+  $("#welcomeCard").innerHTML = welcomeCardHtml(msg || S.welcomeMsg || WELCOME_FALLBACK, S.user.name, false);
   $("#welcome").hidden = false;
   $("#welcomeBtn").onclick = async () => {
     $("#welcome").hidden = true;
@@ -1236,19 +1281,58 @@ const POS = { data:null };
 const fmtGBP = v => v === null || v === undefined || v === "" ? "—" : "£" + Number(v).toLocaleString("en-GB", { minimumFractionDigits:0, maximumFractionDigits:2 });
 
 function setSettingsTab(which){
-  const po = which === "po", view = which === "view";
+  const po = which === "po", view = which === "view", wel = which === "welcome";
   $("#setPo").style.display = po ? "" : "none";
   $("#setView").style.display = view ? "" : "none";
-  $("#setUsers").style.display = (po || view) ? "none" : "";
+  $("#setWelcome").style.display = wel ? "" : "none";
+  $("#setUsers").style.display = (po || view || wel) ? "none" : "";
   $("#tabPo").className = "btn" + (po ? "" : " ghost");
   $("#tabView").className = "btn" + (view ? "" : " ghost");
-  $("#tabUsers").className = "btn" + (po || view ? " ghost" : "");
+  $("#tabWelcome").className = "btn" + (wel ? "" : " ghost");
+  $("#tabUsers").className = "btn" + (po || view || wel ? " ghost" : "");
   if (po) loadPoSettings();
   if (view) loadViewAs();
+  if (wel) loadWelcomeEditor();
 }
 $("#tabUsers").addEventListener("click", ()=> setSettingsTab("users"));
 $("#tabPo").addEventListener("click", ()=> setSettingsTab("po"));
 $("#tabView").addEventListener("click", ()=> setSettingsTab("view"));
+$("#tabWelcome").addEventListener("click", ()=> setSettingsTab("welcome"));
+
+/* ---- Welcome message editor ---- */
+const WM = { loaded:false };
+function wmCurrent(){
+  return { heading:$("#wmHeading").value, body:$("#wmBody").value, sign_name:$("#wmSign").value, sign_role:$("#wmRole").value, button:$("#wmButton").value, enabled:$("#wmOn").checked };
+}
+function wmRefresh(){ $("#wmPreview").innerHTML = welcomeCardHtml(wmCurrent(), S.user.name, true); }
+async function loadWelcomeEditor(){
+  $("#wmMsg").textContent = ""; $("#wmConfirm").style.display = "none";
+  try{
+    const d = await api("welcome_get");
+    const w = d.welcome;
+    $("#wmHeading").value = w.heading; $("#wmBody").value = w.body; $("#wmSign").value = w.sign_name; $("#wmRole").value = w.sign_role; $("#wmButton").value = w.button; $("#wmOn").checked = w.enabled !== false;
+    $("#wmSeen").textContent = `${d.seen} ${d.seen === 1 ? "person has" : "people have"} seen it; ${d.not_seen} will see it when they first sign in.`;
+    WM.loaded = true; wmRefresh();
+  }catch(e){ $("#wmMsg").textContent = e.message; }
+}
+["wmHeading","wmBody","wmSign","wmRole","wmButton","wmOn"].forEach(id => { $("#" + id).addEventListener("input", wmRefresh); $("#" + id).addEventListener("change", wmRefresh); });
+$("#wmSave").addEventListener("click", async () => {
+  $("#wmMsg").style.color = ""; $("#wmMsg").textContent = "Saving...";
+  try{
+    const d = await api("welcome_save", wmCurrent());
+    S.welcomeMsg = d.welcome; $("#wmMsg").textContent = ""; toast("Welcome message saved.");
+  }catch(e){ $("#wmMsg").style.color = "#B3261E"; $("#wmMsg").textContent = e.message; }
+});
+$("#wmPop").addEventListener("click", () => showWelcome(true, wmCurrent()));
+$("#wmReset").addEventListener("click", () => {
+  const c = $("#wmConfirm");
+  c.style.display = ""; c.innerHTML = `Everyone will see the message again the next time they sign in, including you. <button class="btn small" id="wmResetYes" type="button">Yes, show it again</button> <button class="btn ghost small" id="wmResetNo" type="button">Cancel</button>`;
+  $("#wmResetNo").onclick = () => { c.style.display = "none"; };
+  $("#wmResetYes").onclick = async () => {
+    try{ const d = await api("welcome_reset"); c.style.display = "none"; toast("Done. " + d.count + " people will see it again."); loadWelcomeEditor(); }
+    catch(e){ c.textContent = e.message; }
+  };
+});
 
 /* ---- View as: the portal as one person sees it, worked out from their grants ---- */
 async function loadViewAs(){
@@ -1892,7 +1976,7 @@ function proceedPastInstallGate(){
   if(saved){
     S.token = saved;
     api("me").then(d=>{
-      S.user = d.user; S.portals = d.portals || []; S.serverLayout = d.layout; S.welcome = !!d.welcome;
+      S.user = d.user; S.portals = d.portals || []; S.serverLayout = d.layout; S.welcome = !!d.welcome; S.welcomeMsg = d.welcome_msg || null;
       enterApp();
     }).catch(()=>{
       try{ localStorage.removeItem(LS_TOKEN); }catch(e){}
