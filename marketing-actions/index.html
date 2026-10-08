@@ -78,6 +78,9 @@ textarea{min-height:84px; resize:vertical}
 .flitem .nm small{color:var(--sage-70); font-size:12.5px}
 .flitem .acts2{display:flex; gap:6px; flex-wrap:wrap}
 .objbtns{display:flex; gap:6px; justify-content:flex-end; margin-top:8px; flex-wrap:wrap}
+.pctab{width:100%; border-collapse:collapse} .pctab th{font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--sage-70); text-align:left; padding:6px 8px; border-bottom:2px solid var(--mist)}
+.pctab td{padding:9px 8px; border-bottom:1px solid var(--mist); vertical-align:middle; white-space:nowrap} .pccode{font-family:var(--display); font-size:21px; letter-spacing:.02em}
+.pctoday td{background:var(--good-bg)} .pcpast td{opacity:.55} .pcact{text-align:right}
 .muted{color:var(--sage-70)} .empty{padding:40px 20px; text-align:center; color:var(--sage-70)} .loading{padding:60px; text-align:center; color:var(--sage-70)}
 .sum{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px}
 .sum .pill{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); padding:10px 16px; min-width:110px}
@@ -203,6 +206,7 @@ table.tk tr.det td{background:var(--bone)}
     <button class="tabbtn" data-view="files">File share<span class="badge" id="b_files" hidden></span></button>
     <button class="tabbtn" data-view="social">Social Posts</button>
     <button class="tabbtn" data-view="analytics">Analytics</button>
+    <button class="tabbtn" data-view="postcode">Postcode offer</button>
     <button class="tabbtn" data-view="call">Marketing Call</button>
   </div></nav>
   <div class="shell"><div id="views"></div></div>
@@ -759,6 +763,48 @@ function viewAnalytics(){
 function analyticsStop(){ if (analyticsHandle) { analyticsHandle.unmount(); analyticsHandle = null; } }
 
 /* ============================================================ marketing call */
+/* ------------------------------------------------------------- postcode offer */
+const PC = { d:null, busy:false };
+const pcCall = (action, extra) => post("postcode-offer-api", { action, staff_email: staffEmail(), ...(extra || {}) });
+function pcPostText(row){
+  const dayName = new Date(row.day + "T12:00:00Z").toLocaleDateString("en-GB", { timeZone:"UTC", weekday:"long", day:"numeric", month:"long" });
+  return `POSTCODE OFFER - ${dayName}\n\nLive in ${row.postcode}? Today only (${dayName}) you get 50% off your food bill in our restaurant.\n\nComes in tomorrow? ${row.postcode} still gets 25% off.\n\nHow to claim: pre-book and quote ${row.postcode}, and bring proof of your address (driving licence showing your address, utility bill etc). Food only, for a table of up to 4. Cannot be used with any other offer.\n\nA new postcode is released every day until the end of November. Keep an eye out for yours!`;
+}
+async function viewPostcode(){
+  $("#views").innerHTML = `<div class="loading">Loading…</div>`;
+  try { PC.d = await pcCall("schedule.list"); } catch(e){ $("#views").innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+  renderPostcode();
+}
+function renderPostcode(){
+  const d = PC.d, rows = d.schedule || [], edit = d.me && d.me.edit, tod = today();
+  const prev = i => (i > 0 && rows[i - 1].day === addDay(rows[i].day, -1)) ? rows[i - 1].postcode : null;
+  const body = rows.map((r, i) => {
+    const isToday = r.day === tod, past = r.day < tod;
+    return `<tr class="${isToday ? "pctoday" : ""}${past ? " pcpast" : ""}"><td>${esc(fmtDay(r.day))}${isToday ? ` <span class="tag">Today</span>` : ""}</td>
+      <td><b class="pccode">${esc(r.postcode)}</b></td><td>${esc(r.area || "")}</td>
+      <td>${prev(i) ? esc(prev(i)) : `<span class="muted">-</span>`}</td>
+      <td class="pcact"><button class="btn ghost small" data-pccopy="${esc(r.day)}">Copy post</button>${edit && !past ? ` <button class="btn ghost small" data-pcswap="${esc(r.day)}">Swap</button>` : ""}</td></tr>`;
+  }).join("");
+  const left = d.next_day ? `The next day to fill is <b>${esc(fmtDay(d.next_day))}</b>.` : `Every day of the offer already has a postcode, so there is nothing more to generate. To change a day, press Swap on it.`;
+  $("#views").innerHTML = `<div class="pagehead"><h2>Postcode offer</h2><span class="hint">One local postcode a day gets 50% off food that day, and 25% the day after</span></div>
+    <div class="card"><p style="margin:0 0 10px">Postcodes are real, within ${d.radius_miles} miles of ${esc(d.origin)}, and each has at least 20 homes (houses and flats, not fields or businesses). A postcode is only ever used once. The team sees today's two postcodes in the <b>Postcode offer</b> tile.</p>
+      <div class="opts"><button class="btn" id="pc_gen" ${edit && d.next_day ? "" : "disabled"}>Generate postcode</button>
+        <button class="btn ghost" id="pc_fill" ${edit && d.next_day ? "" : "disabled"}>Fill every remaining day</button></div>
+      <p class="hint" style="margin:10px 0 0">${left} ${rows.length} of ${d.days_in_offer} days have a postcode (${esc(fmtDay(d.start))} to ${esc(fmtDay(d.end))}). ${d.pool_unused} unused postcodes are in the list.</p></div>
+    <div class="card" style="overflow-x:auto"><table class="pctab"><thead><tr><th>Day</th><th>Postcode, 50% off</th><th>Area</th><th>Also 25% off (yesterday's)</th><th></th></tr></thead><tbody>${body || `<tr><td colspan="5" class="muted" style="padding:20px;text-align:center">No postcodes yet. Press Generate postcode.</td></tr>`}</tbody></table></div>`;
+  const run = async (btn, fn) => { if (PC.busy) return; PC.busy = true; btn.disabled = true; try { await fn(); } catch(e){ toast(e.message, true); } PC.busy = false; };
+  $("#pc_gen").onclick = e => run(e.target, async () => { const r = await pcCall("generate"); const m = r.made[0]; await viewPostcode(); toast(`${fmtDay(m.day)}: ${m.postcode}${m.area ? " (" + m.area + ")" : ""}`); });
+  $("#pc_fill").onclick = e => run(e.target, async () => { const r = await pcCall("generate", { fill:true }); await viewPostcode(); toast(`${r.made.length} postcode${r.made.length === 1 ? "" : "s"} added.`); });
+  $$("[data-pccopy]").forEach(b => b.onclick = async () => {
+    const row = rows.find(r => r.day === b.dataset.pccopy); const t = pcPostText(row);
+    try { await navigator.clipboard.writeText(t); toast("Post wording copied."); } catch(e){ prompt("Copy this:", t); }
+  });
+  $$("[data-pcswap]").forEach(b => b.onclick = e => run(e.target, async () => {
+    if (!confirm("Swap this day's postcode for a different one? If it has already been posted, tell people.")) return;
+    const r = await pcCall("swap", { day:b.dataset.pcswap }); await viewPostcode(); toast(`${r.was} swapped for ${r.row.postcode}.`);
+  }));
+}
+const addDay = (d, n) => { const t = new Date(d + "T12:00:00Z"); t.setUTCDate(t.getUTCDate() + n); return t.toISOString().slice(0, 10); };
 function viewCall(){
   $("#views").innerHTML = `<div class="pagehead"><h2>Marketing Call</h2><span class="hint">The marketing team's video room</span></div>
     <div class="card" style="text-align:center; padding:34px 22px">
@@ -852,7 +898,7 @@ function markTab(){ $$(".tabbtn").forEach(b => b.setAttribute("aria-current", b.
 function goView(v){
   chatStop(); tkStop(); fsStop(); socialStop(); analyticsStop();
   S.view = v; markTab(); closeModal();
-  if (v === "plan") viewPlan(); else if (v === "mine") viewMine(); else if (v === "tickets") viewTickets(); else if (v === "files") viewFiles(); else if (v === "call") viewCall(); else if (v === "social") viewSocial(); else if (v === "analytics") viewAnalytics(); else viewChat();
+  if (v === "plan") viewPlan(); else if (v === "mine") viewMine(); else if (v === "tickets") viewTickets(); else if (v === "files") viewFiles(); else if (v === "call") viewCall(); else if (v === "postcode") viewPostcode(); else if (v === "social") viewSocial(); else if (v === "analytics") viewAnalytics(); else viewChat();
   window.scrollTo(0, 0);
 }
 function openGate(msg){ $("#gate").hidden = false; $("#app").hidden = true; if (msg) $("#gerr").textContent = msg; }
