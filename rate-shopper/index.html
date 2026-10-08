@@ -97,6 +97,10 @@ nav.tabs{background:var(--sage-dark)}
 .cell .us{font-family:var(--display); font-size:22px; font-weight:700; line-height:1.05; color:var(--ink)}
 .cell .av{font-size:11.5px; color:var(--sage-70)}
 .cell .gap{font-size:11px; font-weight:800; letter-spacing:.02em}
+.cell .sg{font-size:12px; font-weight:800; color:#A15C00; line-height:1.1}
+.cell .bk{font-size:10.5px; color:var(--sage-70)}
+.sgt{display:inline-block; margin-top:2px; font-size:12px; font-weight:800; color:#A15C00; background:#FFF2B8; border-radius:6px; padding:1px 7px; font-family:var(--body)}
+.rackt{border-collapse:collapse; font-size:13px; margin-top:6px} .rackt th,.rackt td{padding:5px 14px 5px 0; text-align:left; border-bottom:1px solid var(--mist)} .rackt th{font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--sage-70)} .rackt td.chg{font-weight:800}
 .cell .gap.up{color:var(--bad)} .cell .gap.down{color:var(--good)}
 .cell.lo{background:var(--occ-lo); border-color:var(--occ-lo-b)}
 .cell.mid{background:var(--occ-mid); border-color:var(--occ-mid-b)}
@@ -138,7 +142,7 @@ nav.tabs{background:var(--sage-dark)}
   .shell{padding:0 10px 48px} .topin,.tabsin{padding-left:12px; padding-right:12px}
   .cal{gap:3px}
   .cell{min-height:76px; padding:4px 4px}
-  .cell .us{font-size:16px} .cell .av{display:none} .cell .d{font-size:10.5px} .cell .oc{font-size:9.5px} .cell .gap{font-size:10px}
+  .cell .us{font-size:16px} .cell .av,.cell .bk{display:none} .cell .sg{font-size:10.5px} .cell .d{font-size:10.5px} .cell .oc{font-size:9.5px} .cell .gap{font-size:10px}
   .monthbar h3{min-width:0; flex:1; font-size:22px}
   .pagehead h2{font-size:26px}
   .rank th.hm,.rank td.hm{display:none}
@@ -163,7 +167,6 @@ nav.tabs{background:var(--sage-dark)}
       <div class="card" id="refreshbox"></div>
       <div class="card" id="livebox"></div>
       <div id="notices"></div>
-      <div id="scenariobar"></div>
       <div class="basis" id="basisbar"></div>
       <div id="sumstrip"></div>
       <div class="monthbar" id="monthbar"></div>
@@ -228,19 +231,11 @@ function calc(d){
 }
 
 /* ------------------------------------------------------------- calendar */
-/* temporary scenario: our prices shown as if set at the recommended rates from the revenue pricing pack */
-function renderScenario(){
-  const el = $("#scenariobar"), edit = S.me && S.me.edit;
-  if (!S.scenario) { el.innerHTML = ""; return; }
-  el.innerHTML = `<div class="card" style="background:#FFF2B8; border-left:5px solid #C9A400; padding:12px 16px; margin-bottom:12px; display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap:wrap">
-    <div style="flex:1 1 320px; color:#4A3F00"><b>Scenario on: our prices are the recommended rates.</b> Every price shown for our hotel (own website, Booking.com and the other sites) is today's price moved by the recommended rack-rate change for that night. Competitor prices are real. Nothing has been changed in Rezlynx and nothing real is overwritten.</div>
-    <button class="btn small" type="button" data-act="scenoff" ${edit ? "" : "disabled"}>Switch off</button></div>`;
-}
 async function loadMonth(ym, force){
   if (!force && S.days[ym]) return;
   const r = await call("calendar", { from: ym + "-01", to: monthLast(ym), channel: S.channel, meal: S.meal });
   S.days[ym] = r.days;
-  if (S.scenario !== (r.scenario || null)) { S.scenario = r.scenario || null; renderScenario(); }
+  S.suggestOn = !!r.suggest_on;
   if (r.channels && r.channels.length) { S.channels = r.channels; if (!S.channels.some(c => c.key === S.channel)) { S.channel = "direct"; } renderBasis(); }
 }
 async function showMonth(ym){
@@ -277,10 +272,12 @@ function renderCal(){
     let body = "", extra = "";
     if (c.op != null) {
       body = `<span class="us">${gbp0(c.op)}</span>`;
+      if (d.own && d.own.suggested != null) body += `<span class="sg" title="Suggested price from the pricing pack">&rarr; ${gbp0(d.own.suggested)}</span>`;
       if (c.avg != null) body += `<span class="av">avg ${gbp0(c.avg)}</span>`;
       if (c.diff != null && Math.round(Math.abs(c.diff)) > 0) body += `<span class="gap ${c.diff > 0 ? "up" : "down"}">${c.diff > 0 ? "&#9650;" : "&#9660;"} ${gbp0(Math.abs(c.diff))}</span>`;
     } else if (d.own && d.own.sold_out) { body = `<span class="us">Full</span>` + (c.avg != null ? `<span class="av">avg ${gbp0(c.avg)}</span>` : ""); extra = " full"; }
     else { body = `<span class="us">-</span>` + (c.avg != null ? `<span class="av">avg ${gbp0(c.avg)}</span>` : ""); extra = d.own ? "" : " nodata"; }
+    if (d.books && d.books.avg != null) body += `<span class="bk" title="${d.books.rooms} rooms booked">books ${gbp0(d.books.avg)}</span>`;
     const occTxt = d.occ != null ? `${Math.round(d.occ)}%` : "";
     h += `<button type="button" class="cell ${oc}${extra}${past ? " past" : ""}${S.sel === d.date ? " sel" : ""}" data-date="${d.date}" ${past ? "disabled" : ""} aria-label="${esc(fmtLong(d.date))}${d.occ != null ? ", occupancy " + Math.round(d.occ) + " percent" : ""}"><span class="top"><span class="d">${num}</span><span class="oc">${occTxt}</span></span>${body}</button>`;
   }
@@ -300,7 +297,11 @@ function renderSum(days){
   const dearer = cs.filter(c => c.diff > 0).length;
   let h = `<div class="sumstrip">`;
   if (occAvg != null) h += `<div><b>${Math.round(occAvg)}%</b><span>Average occupancy</span></div>`;
-  if (avgUs != null) h += `<div><b>${gbp0(avgUs)}</b><span>Our average price</span></div>`;
+  if (avgUs != null) h += `<div><b>${gbp0(avgUs)}</b><span>Our average price now</span></div>`;
+  const sugg = live.filter(d => d.own.suggested != null);
+  if (sugg.length) { const avgSg = live.reduce((a, d) => a + (d.own.suggested != null ? d.own.suggested : d.own.price), 0) / live.length; h += `<div><b style="color:#A15C00">${gbp0(avgSg)}</b><span>Our average suggested (${sugg.length} nights change)</span></div>`; }
+  const bk = fut.filter(d => d.books && d.books.avg != null);
+  if (bk.length) { const rooms = bk.reduce((a, d) => a + d.books.rooms, 0); const avgBk = bk.reduce((a, d) => a + d.books.avg * d.books.rooms, 0) / rooms; h += `<div><b>${gbp0(avgBk)}</b><span>Average rate on the books (${rooms} room-nights)</span></div>`; }
   if (cav != null) h += `<div><b>${gbp0(cav)}</b><span>Competitor average</span></div><div><b>${gap > 0 ? "+" : gap < 0 ? "-" : ""}${gbp0(Math.abs(gap))}</b><span>${gap > 0 ? "We are above on average" : "We are below on average"}</span></div><div><b>${dearer} of ${cs.length}</b><span>Nights we are dearer</span></div>`;
   else if (live.length) h += `<div><b>-</b><span>No competitor prices yet</span></div>`;
   $("#sumstrip").innerHTML = h + `</div>`;
@@ -341,16 +342,21 @@ function renderDay(){
     } else sub = x.sold_out ? "Every room is taken on its own site" : x.checked ? "Not listed on this site" : "Not checked yet";
     const link = x.link && !isUs ? ` <a href="${esc(x.link)}" target="_blank" rel="noopener noreferrer" class="tiny">Book direct page</a>` : "";
     const missing = !has ? (x.sold_out ? "Full" : "No price") : "";
-    return `<tr class="${isUs ? "us" : ""}"><td class="n">${has ? idx : ""}</td><td><b>${esc(x.name)}</b>${isUs ? `<span class="tag">Us</span>` : ""}${link}<div class="sub">${sub}</div></td><td class="p">${has ? gbp2(x.price) : `<span class="muted" style="font-size:15px;font-family:var(--body);font-weight:600">${missing}</span>`}</td><td class="hm">${vs}</td><td class="hm"><span class="sub">${x.fetched_at ? esc(ago(x.fetched_at)) : ""}</span></td></tr>`;
+    const sg = isUs && x.suggested != null && has ? `<div><span class="sgt">Suggested ${gbp2(x.suggested)} (${x.suggested > x.price ? "+" : "-"}${gbp2(Math.abs(x.suggested - x.price))})</span></div>` : "";
+    return `<tr class="${isUs ? "us" : ""}"><td class="n">${has ? idx : ""}</td><td><b>${esc(x.name)}</b>${isUs ? `<span class="tag">Us</span>` : ""}${link}<div class="sub">${sub}</div></td><td class="p">${has ? gbp2(x.price) : `<span class="muted" style="font-size:15px;font-family:var(--body);font-weight:600">${missing}</span>`}${sg}</td><td class="hm">${vs}</td><td class="hm"><span class="sub">${x.fetched_at ? esc(ago(x.fetched_at)) : ""}</span></td></tr>`;
   }).join("");
   const occ = d.occ != null ? `<span class="occline ${occClass(d.occ)}">${Math.round(d.occ)}% occupied &middot; ${d.rooms} of ${d.capacity} rooms</span>` : "";
   // every channel side by side for this night and meal plan
   const mchs = d.channels.filter(c => d.matrix.some(r => r.cells[c.key] != null));
   const cell = v => v == null ? `<span class="muted">-</span>` : v === "full" ? `<span class="muted">Full</span>` : gbp0(v);
   const matrix = mchs.length ? `<h4 style="font-size:20px;color:var(--sage);margin:18px 0 6px">${esc(MEALS[d.meal])} on every channel</h4><div style="overflow-x:auto"><table class="rank mx"><thead><tr><th>Hotel</th>${mchs.map(c => `<th>${esc(c.label)}${c.est ? "*" : ""}</th>`).join("")}</tr></thead><tbody>${d.matrix.map(r => `<tr class="${r.kind === "own" ? "us" : ""}"><td><b>${esc(r.name)}</b></td>${mchs.map(c => `<td class="${c.key === d.channel ? "selcol" : ""}">${cell(r.cells[c.key])}</td>`).join("")}</tr>`).join("")}</tbody></table></div><p class="hint" style="margin-top:6px">* estimate from the free feed</p>` : "";
-  $("#daypanel").innerHTML = `<div class="card daycard"><h3>${esc(fmtLong(d.date))}${occ}</h3><p class="verdict">${verdict}</p>
+  // average rate on the books, and the rack rates today against the pricing pack's suggestion
+  const bks = d.books && d.books.rooms ? `<p class="hint" style="margin:0 0 8px"><b>On the books:</b> ${d.books.rooms} room${d.books.rooms === 1 ? "" : "s"}${d.books.avg != null ? `, average rate <b>${gbp2(d.books.avg)}</b> a night (the ${d.books.paying} paying room${d.books.paying === 1 ? "" : "s"}; as booked, from the reservation report of ${esc(ago(d.books.as_of))})` : ""}.</p>` : `<p class="hint" style="margin:0 0 8px"><b>On the books:</b> no rooms booked yet.</p>`;
+  const RN = { CLASSIC_DBL: "Classic Double", DLX_DBL_FF: "Deluxe Double 1F", DLX_DBL_GF: "Deluxe Double GF", STU_SUITE: "Studio Suite", ROSEMARY: "Rosemary", HUCKLEBERRY: "Huckleberry", DLX_HT_SUITE: "Hot Tub Suite" };
+  const rk = d.racks ? `<h4 style="font-size:20px;color:var(--sage);margin:18px 0 2px">Rack rates (room only): today and suggested</h4><p class="hint" style="margin:0">${esc(d.racks.action || "")}${d.racks.why ? ". " + esc(d.racks.why) : ""}</p><div style="overflow-x:auto"><table class="rackt"><thead><tr><th>Room</th><th>Today</th><th>Suggested</th><th>Change</th></tr></thead><tbody>${Object.keys(RN).map(k => { const a = d.racks.current[k], b2 = d.racks.suggested[k], df = b2 - a; return `<tr><td>${RN[k]}</td><td>${gbp0(a)}</td><td>${gbp0(b2)}</td><td class="chg" style="color:${df > 0 ? "var(--good)" : df < 0 ? "var(--bad)" : "inherit"}">${df === 0 ? "same" : (df > 0 ? "+" : "-") + gbp0(Math.abs(df))}</td></tr>`; }).join("")}</tbody></table></div>` : "";
+  $("#daypanel").innerHTML = `<div class="card daycard"><h3>${esc(fmtLong(d.date))}${occ}</h3><p class="verdict">${verdict}</p>${bks}
     <div style="overflow-x:auto"><table class="rank"><thead><tr><th></th><th>Hotel</th><th>Per night</th><th class="hm">Against ours</th><th class="hm">Checked</th></tr></thead><tbody>${rows}</tbody></table></div>
-    <p class="hint" style="margin-top:10px">${esc(ch.label)}${est ? " (estimate)" : ""}, ${esc(MEALS[d.meal]).toLowerCase()}, two adults, one night. Occupancy is rooms sold from the forecast, out of ${d.capacity} rooms.</p>${matrix}</div>`;
+    <p class="hint" style="margin-top:10px">${esc(ch.label)}${est ? " (estimate)" : ""}, ${esc(MEALS[d.meal]).toLowerCase()}, two adults, one night. Occupancy is rooms sold from the forecast, out of ${d.capacity} rooms.</p>${rk}${matrix}</div>`;
 }
 
 /* ------------------------------------------------------------- live prices (Google Hotels through SerpApi, free plan) */
@@ -508,7 +514,6 @@ document.addEventListener("click", async e => {
   try {
     if (act === "mprev") await showMonth(monthAdd(S.month, -1));
     else if (act === "mnext") await showMonth(monthAdd(S.month, 1));
-    else if (act === "scenoff") { await call("scenario.off", {}); S.scenario = null; renderScenario(); S.days = {}; await loadMonth(S.month, true); renderCal(); if (S.sel) openDay(S.sel); toast("Scenario switched off"); }
     else if (act === "refresh") startRefresh();
     else if (act === "live") runLive();
     else if (act === "livestop") { S.liveStop = true; b.disabled = true; b.textContent = "Stopping..."; }
@@ -582,7 +587,6 @@ async function boot(){
   $("#whoname").textContent = S.me.name || S.me.email || "";
   S.month = S.today.slice(0, 7);
   setTab(location.hash === "#competitors" ? "competitors" : "calendar");
-  S.scenario = (S.settings && S.settings.scenario) || null; renderScenario();
   renderBasis(); renderRefresh(); renderLive();
   if (S.running) { S.stop = false; runLoop(S.running.id); }
   await showMonth(S.month);
