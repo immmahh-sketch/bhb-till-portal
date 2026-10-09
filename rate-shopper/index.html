@@ -102,6 +102,20 @@ nav.tabs{background:var(--sage-dark)}
 .sgt{display:inline-block; margin-top:2px; font-size:12px; font-weight:800; color:#A15C00; background:#FFF2B8; border-radius:6px; padding:1px 7px; font-family:var(--body)}
 .rackt{border-collapse:collapse; font-size:13px; margin-top:6px} .rackt th,.rackt td{padding:5px 14px 5px 0; text-align:left; border-bottom:1px solid var(--mist)} .rackt th{font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--sage-70)} .rackt td.chg{font-weight:800}
 .cell .gap.up{color:var(--bad)} .cell .gap.down{color:var(--good)}
+.rmwrap{overflow:auto; max-height:72vh; border:1px solid var(--mist); border-radius:var(--radius); background:var(--white)}
+.rmtab{border-collapse:separate; border-spacing:0; width:100%; min-width:900px; font-variant-numeric:tabular-nums; font-size:13.5px}
+.rmtab th{position:sticky; top:0; z-index:2; background:var(--sage); color:#fff; font-size:10.5px; letter-spacing:.1em; text-transform:uppercase; padding:9px 10px; text-align:right; white-space:nowrap}
+.rmtab th.l,.rmtab td.l{text-align:left}
+.rmtab td{padding:6px 10px; border-bottom:1px solid var(--mist); text-align:right; white-space:nowrap}
+.rmtab tr.we td{background:#FAFAF7} .rmtab tr.chg td{background:#FFF9DB}
+.rmtab tr.mon td{border-top:3px solid var(--sage)}
+.rmtab .occb{display:inline-block; min-width:44px; padding:1px 7px; border-radius:99px; font-weight:700; font-size:12px}
+.rmtab .occb.lo{background:var(--occ-lo)} .rmtab .occb.mid{background:var(--occ-mid)} .rmtab .occb.hi{background:var(--occ-hi)}
+.rmtab input.rmin{width:84px; padding:5px 6px; border:1px solid var(--celadon); border-radius:6px; text-align:right; font:inherit; font-weight:700; background:#fff}
+.rmtab input.rmin.ed{background:#FFF2B8; border-color:#C9A400}
+.rmtab .up{color:var(--bad); font-weight:700} .rmtab .down{color:var(--good); font-weight:700}
+.rmtab .rv{border:0; background:transparent; cursor:pointer; color:var(--sage-70); font-size:15px; padding:0 4px}
+.rmtab .dim{color:var(--sage-70)}
 .cell.lo{background:var(--occ-lo); border-color:var(--occ-lo-b)}
 .cell.mid{background:var(--occ-mid); border-color:var(--occ-mid-b)}
 .cell.hi{background:var(--occ-hi); border-color:var(--occ-hi-b)}
@@ -159,6 +173,7 @@ nav.tabs{background:var(--sage-dark)}
     <div class="who"><span id="whoname"></span><button id="signout" type="button">Sign out</button></div></div></header>
   <nav class="tabs" aria-label="Sections"><div class="tabsin">
     <button class="tabbtn" type="button" data-view="calendar" aria-current="page">Calendar</button>
+    <button class="tabbtn" type="button" data-view="ratemgmt" aria-current="false">Rate management</button>
     <button class="tabbtn" type="button" data-view="competitors" aria-current="false">Competitors</button>
   </div></nav>
   <div class="shell"><main>
@@ -174,6 +189,7 @@ nav.tabs{background:var(--sage-dark)}
       <div class="cal" id="cal"></div>
       <div id="daypanel"></div>
     </div>
+    <div id="v_ratemgmt" class="off"></div>
     <div id="v_competitors" class="off"></div>
   </main></div>
 </div>
@@ -508,6 +524,13 @@ document.addEventListener("click", async e => {
   try {
     if (act === "mprev") await showMonth(monthAdd(S.month, -1));
     else if (act === "mnext") await showMonth(monthAdd(S.month, 1));
+    else if (act === "rmcsv") rmCsv(b.dataset.all === "1");
+    else if (act === "rmrev") { const d = RM.days.find(x => x.date === b.dataset.d); await call("ratemgmt.save", { edits: [{ date: d.date, classic: null }] }); d.edit = null; renderRm(); toast("Back to the suggestion."); }
+    else if (act === "rmrefresh") {
+      b.disabled = true; b.textContent = "Refreshing...";
+      try { const r = await fetch(CFG.SUPABASE_URL + "/functions/v1/rm-api", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + CFG.SUPABASE_KEY, apikey: CFG.SUPABASE_KEY }, body: JSON.stringify({ action: "snapshot", offset: 0, count: 92, force: true }) }); const j = await r.json(); if (j.error) throw new Error(j.error); toast("Rooms on the books and rack rates refreshed."); } catch(err){ toast(err.message || "Could not refresh.", true); }
+      RM.loading = false; await loadRm();
+    }
     else if (act === "refresh") startRefresh();
     else if (act === "live") runLive();
     else if (act === "livestop") { S.liveStop = true; b.disabled = true; b.textContent = "Stopping..."; }
@@ -560,15 +583,97 @@ document.addEventListener("click", async e => {
   } catch(err){ toast(err.message, true); }
 });
 
+/* ------------------------------------------------------------- rate management */
+const RM = { days: [], cap: 18, meta: {}, only: false, loading: false };
+const RM_ROOMS = ["CLASSIC_DBL", "DLX_DBL_FF", "DLX_DBL_GF", "DLX_HT_SUITE", "HUCKLEBERRY", "ROSEMARY", "STU_SUITE"];
+const RM_GAP = { CLASSIC_DBL: 0, DLX_DBL_FF: 30, DLX_DBL_GF: 30, STU_SUITE: 50, ROSEMARY: 100, HUCKLEBERRY: 100, DLX_HT_SUITE: 120 };
+const rmTier = c => c <= 109 ? 0 : 1 + Math.floor((c - 114) / 30);
+const rmGrid = c => Object.fromEntries(RM_ROOMS.map(r => [r, c + (r === "CLASSIC_DBL" ? 0 : RM_GAP[r] + 10 * rmTier(c))]));
+const snap49 = x => { x = Math.round(Number(x)); if (!isFinite(x)) return null; x = Math.min(299, Math.max(79, x)); const lo = 5 * Math.floor((x - 4) / 5) + 4, hi = lo + 5; return Math.min(299, (x - lo) <= (hi - x) ? lo : hi); };
+const rmSug = d => d.edit != null ? d.edit : d.sug;
+const rmDow = iso => ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][new Date(iso + "T12:00:00Z").getUTCDay()];
+async function loadRm(){
+  if (RM.loading) return; RM.loading = true;
+  $("#v_ratemgmt").innerHTML = `<div class="pagehead"><h2>Rate management</h2></div><div class="card"><p class="muted">Loading the next three months...</p></div>`;
+  try {
+    const r = await call("ratemgmt.load", {}); RM.cap = r.capacity || 18; RM.meta = r;
+    const c = await call("calendar", { from: r.days[0].date, to: r.days[r.days.length - 1].date, channel: "direct", meal: "bb" });
+    const by = new Map(c.days.map(d => [d.date, d]));
+    RM.days = r.days.map(x => { const cd = by.get(x.date), comps = cd ? cd.comps.filter(k => k.price != null).map(k => k.price) : []; return { ...x, web: cd && cd.own && cd.own.price != null ? cd.own.price : null, comp: comps.length ? comps.reduce((a, b) => a + b, 0) / comps.length : null, nc: comps.length }; });
+    renderRm();
+  } catch(e){ $("#v_ratemgmt").innerHTML = `<div class="pagehead"><h2>Rate management</h2></div><div class="notice bad">${esc(e.message)}</div>`; }
+  RM.loading = false;
+}
+function rmChange(d){ const sg = rmSug(d); return d.cur != null && sg != null ? sg - d.cur : null; }
+function rmRow(d, i){
+  const sg = rmSug(d), ch = rmChange(d), pc = ch != null && d.cur ? ch / d.cur * 100 : null, occ = d.otb != null ? d.otb / RM.cap * 100 : null;
+  const dow = rmDow(d.date), prev = i > 0 ? RM.days[i - 1].date.slice(0, 7) : d.date.slice(0, 7), first = d.date.slice(0, 7) !== prev;
+  const ed = d.edit != null;
+  return `<tr id="rm_${d.date}" class="${dow === "Fri" || dow === "Sat" ? "we" : ""}${ch ? " chg" : ""}${first ? " mon" : ""}"><td class="l"><b>${dow}</b></td><td class="l">${esc(fmtShort(d.date).replace(/ 20\d\d$/, ""))}</td>
+    <td>${d.otb == null ? `<span class="dim">-</span>` : d.otb}</td><td>${occ == null ? "" : `<span class="occb ${occClass(occ)}">${Math.round(occ)}%</span>`}</td>
+    <td title="${d.cur_src === "live" ? "Classic Double rack rate in Rezlynx now" : d.cur_src === "from Deluxe" ? "Classic is sold out that night: worked out from the Deluxe rack rate" : "Classic and Deluxe are sold out that night: the last rate we loaded"}">${d.cur == null ? "" : gbp0(d.cur)}${d.cur_src && d.cur_src !== "live" ? `<span class="dim">*</span>` : ""}</td>
+    <td class="dim">${d.web == null ? "" : gbp0(d.web)}</td><td class="dim" title="${d.nc} competitor${d.nc === 1 ? "" : "s"} with a price">${d.comp == null ? "" : gbp0(d.comp)}</td>
+    <td title="${esc(d.why || "")}"><input class="rmin${ed ? " ed" : ""}" type="number" step="5" min="79" max="299" inputmode="numeric" data-rmd="${d.date}" value="${sg == null ? "" : sg}" aria-label="Suggested Classic rack rate for ${esc(fmtLong(d.date))}">${ed ? `<button class="rv" type="button" data-act="rmrev" data-d="${d.date}" title="Back to the system's suggestion (${gbp0(d.sug)})">&#8634;</button>` : ""}</td>
+    <td class="${ch > 0 ? "up" : ch < 0 ? "down" : "dim"}" id="rmc_${d.date}">${ch == null ? "" : ch === 0 ? "no change" : (ch > 0 ? "+" : "-") + gbp0(Math.abs(ch))}</td><td class="${ch > 0 ? "up" : ch < 0 ? "down" : "dim"}" id="rmp_${d.date}">${pc == null ? "" : ch === 0 ? "" : (pc > 0 ? "+" : "") + pc.toFixed(1) + "%"}</td></tr>`;
+}
+function rmSummary(){
+  const chg = RM.days.filter(d => rmChange(d)), up = chg.filter(d => rmChange(d) > 0).length, dn = chg.filter(d => rmChange(d) < 0).length, ed = RM.days.filter(d => d.edit != null).length;
+  return `<div class="sumstrip"><div><b>${chg.length}</b><span>Nights that change</span></div><div><b>${up} up, ${dn} down</b><span>Direction</span></div><div><b>${ed}</b><span>Typed over by you</span></div></div>`;
+}
+function renderRm(){
+  const edit = S.me && S.me.edit, m = RM.meta, rows = (RM.only ? RM.days.filter(d => rmChange(d) || d.edit != null) : RM.days);
+  $("#v_ratemgmt").innerHTML = `<div class="pagehead"><h2>Rate management</h2></div>
+    <p class="hint" style="margin:-4px 0 10px">The next three months, one row a night. The price is the <b>Classic Double rack rate (room only)</b>: every other room follows it by the pricing ladder (Deluxe +30 and so on, each gap growing by 10 for every 30 pounds), so you only set one number a night. The suggestion comes from the pricing model; type over any figure (it snaps to a price ending in 4 or 9, between 79 and 299). Then download the file and upload it to Rezlynx as you did before.</p>
+    <div class="card" style="padding:12px 16px; display:flex; gap:10px; flex-wrap:wrap; align-items:center">
+      <button class="btn" type="button" data-act="rmcsv" data-all="0">Download CSV for Rezlynx (changed nights)</button>
+      <button class="btn ghost" type="button" data-act="rmcsv" data-all="1">Download all nights</button>
+      <label class="small" style="display:flex; gap:6px; align-items:center; cursor:pointer"><input type="checkbox" id="rm_only" ${RM.only ? "checked" : ""}> Only nights that change</label>
+      <span style="flex:1"></span>
+      <button class="btn small ghost" type="button" data-act="rmrefresh" ${edit ? "" : "disabled"}>Refresh rooms on the books</button></div>
+    <div id="rm_sum">${rmSummary()}</div>
+    <div class="rmwrap"><table class="rmtab"><thead><tr><th class="l">Day</th><th class="l">Date</th><th>On the books</th><th>Occupancy</th><th>Current price</th><th title="Our cheapest room, bed and breakfast, on our own website">Our website (B&amp;B)</th><th title="Average of the competitors' cheapest room, bed and breakfast, own websites">Competitor average</th><th>Suggested price</th><th>Change</th><th>Change %</th></tr></thead><tbody>${rows.map((d, i) => rmRow(d, RM.days.indexOf(d))).join("")}</tbody></table></div>
+    <p class="hint" style="margin-top:8px">Rooms on the books as at ${m.otb_on ? esc(fmtShort(m.otb_on)) : "?"} (out of ${RM.cap} rooms; updated every night, or press Refresh). Rack rates read from Rezlynx's booking engine on ${m.rack_on ? esc(fmtShort(m.rack_on)) : "?"}. Suggestions from the pricing run of ${m.run_on ? esc(fmtShort(m.run_on)) : "?"}. * Classic is sold out that night, so the current figure is worked out from the Deluxe rack rate. Competitor prices more than about three months out are often not set yet.</p>`;
+}
+document.addEventListener("change", async e => {
+  const t = e.target;
+  if (t && t.id === "rm_only") { RM.only = t.checked; renderRm(); return; }
+  if (!t || !t.dataset || !t.dataset.rmd) return;
+  const d = RM.days.find(x => x.date === t.dataset.rmd); if (!d) return;
+  const v = snap49(t.value);
+  if (v == null) { t.value = rmSug(d) ?? ""; return; }
+  t.value = v;
+  const back = v === d.sug;
+  try {
+    await call("ratemgmt.save", { edits: [{ date: d.date, classic: back ? null : v }] });
+    d.edit = back ? null : v; t.classList.toggle("ed", !back);
+    const ch = rmChange(d), pc = ch != null && d.cur ? ch / d.cur * 100 : null, row = $("#rm_" + d.date);
+    row.classList.toggle("chg", !!ch);
+    const c1 = $("#rmc_" + d.date), c2 = $("#rmp_" + d.date), cls = ch > 0 ? "up" : ch < 0 ? "down" : "dim";
+    c1.className = cls; c2.className = cls; c1.textContent = ch == null ? "" : ch === 0 ? "no change" : (ch > 0 ? "+" : "-") + gbp0(Math.abs(ch)); c2.textContent = pc == null || ch === 0 ? "" : (pc > 0 ? "+" : "") + pc.toFixed(1) + "%";
+    $("#rm_sum").innerHTML = rmSummary();
+    const td = t.parentElement, rv = td.querySelector(".rv"); if (back && rv) rv.remove(); if (!back && !rv) td.insertAdjacentHTML("beforeend", `<button class="rv" type="button" data-act="rmrev" data-d="${d.date}" title="Back to the system's suggestion (${gbp0(d.sug)})">&#8634;</button>`);
+  } catch(err){ toast(err.message, true); t.value = rmSug(d) ?? ""; }
+});
+function rmCsv(all){
+  const pick = RM.days.filter(d => rmSug(d) != null && (all || rmChange(d) || d.edit != null) && (d.cur == null || all || rmSug(d) !== d.cur));
+  if (!pick.length) { toast("No nights change, so there is nothing to download.", true); return; }
+  const fmt = iso => iso.slice(8, 10) + "/" + iso.slice(5, 7) + "/" + iso.slice(0, 4), q = n => '"' + Number(n).toFixed(2) + '"';
+  const lines = [" ," + RM_ROOMS.join(",")].concat(pick.map(d => { const g = rmGrid(rmSug(d)); return '"' + fmt(d.date) + '",' + RM_ROOMS.map(r => q(g[r])).join(","); }));
+  const blob = new Blob(["\ufeff" + lines.join("\r\n") + "\r\n"], { type: "text/csv;charset=utf-8" });
+  const a = document.createElement("a"), t = new Date(); const p = n => String(n).padStart(2, "0");
+  a.href = URL.createObjectURL(blob); a.download = `BLACKHORSE_RACK_${p(t.getDate())}_${p(t.getMonth() + 1)}_${t.getFullYear()} ${p(t.getHours())}_${p(t.getMinutes())}_${p(t.getSeconds())}.csv`;
+  document.body.appendChild(a); a.click(); a.remove(); toast(`Downloaded ${pick.length} night${pick.length === 1 ? "" : "s"}.`);
+}
 function setTab(name){
-  S.tab = name === "competitors" ? "competitors" : "calendar";
+  S.tab = name === "competitors" ? "competitors" : name === "ratemgmt" ? "ratemgmt" : "calendar";
   $$(".tabbtn").forEach(x => x.setAttribute("aria-current", x.dataset.view === S.tab ? "page" : "false"));
-  $("#v_calendar").classList.toggle("off", S.tab !== "calendar"); $("#v_competitors").classList.toggle("off", S.tab !== "competitors");
+  $("#v_calendar").classList.toggle("off", S.tab !== "calendar"); $("#v_competitors").classList.toggle("off", S.tab !== "competitors"); $("#v_ratemgmt").classList.toggle("off", S.tab !== "ratemgmt");
   if (S.tab === "competitors") renderComps();
+  if (S.tab === "ratemgmt") loadRm();
   window.scrollTo(0, 0);
 }
-$$(".tabbtn").forEach(x => x.addEventListener("click", () => { location.hash = x.dataset.view === "competitors" ? "#competitors" : "#calendar"; }));
-window.addEventListener("hashchange", () => setTab(location.hash === "#competitors" ? "competitors" : "calendar"));
+$$(".tabbtn").forEach(x => x.addEventListener("click", () => { location.hash = "#" + x.dataset.view; }));
+window.addEventListener("hashchange", () => setTab(location.hash === "#competitors" ? "competitors" : location.hash === "#ratemgmt" ? "ratemgmt" : "calendar"));
 
 function openGate(){ $("#gate").style.display = "flex"; $("#app").classList.add("off"); }
 $("#signout").addEventListener("click", () => { try { sessionStorage.removeItem("bhb_staff_email"); } catch(e){} openGate(); });
@@ -580,7 +685,7 @@ async function boot(){
   } catch(e){ $("#notices").innerHTML = `<div class="notice bad">${esc(e.message)}</div>`; return; }
   $("#whoname").textContent = S.me.name || S.me.email || "";
   S.month = S.today.slice(0, 7);
-  setTab(location.hash === "#competitors" ? "competitors" : "calendar");
+  setTab(location.hash === "#competitors" ? "competitors" : location.hash === "#ratemgmt" ? "ratemgmt" : "calendar");
   renderBasis(); renderRefresh(); renderLive();
   if (S.running) { S.stop = false; runLoop(S.running.id); }
   await showMonth(S.month);
