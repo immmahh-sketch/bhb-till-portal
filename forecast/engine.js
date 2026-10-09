@@ -265,7 +265,7 @@ export function computeDay(input, day) {
 
   // KPIs
   P("occ", div(c.rooms_fc, c.rooms_avail));
-  const oc = feed.occ?.[date];
+  const oc0 = feed.occ?.[date], oc = Array.isArray(oc0) ? oc0 : oc0?.v;           // the importer stores { v: [seven figures] }
   ["occ_classic", "occ_dlx_ff", "occ_dlx_gf", "occ_ht", "occ_huck", "occ_rosemary", "occ_studio"].forEach((k, i) => P(k, oc ? num(oc[i]) : 0));
   P("arr_total", div(c.rev_rooms, c.rooms_fc));
   P("revpar", div(c.rev_rooms, c.rooms_avail));

@@ -2,6 +2,7 @@
 // Month Set up, a Summary of every month, the report data the month used (the workbook's feeder sheets), and a list of everything typed over.
 // Figures are the values calculated online; formulas are not written (yet). ExcelJS is loaded by the page.
 import { LINES, WD } from "./engine.js";
+import { rowMap, dayFormula, aggFormula, LABOUR_NAMES } from "./formulas.js";
 
 const FMT = { n0: "#,##0", n1: "#,##0.0", n2: "#,##0.00", gbp: "£#,##0;[Red]-£#,##0", gbp2: "£#,##0.00;[Red]-£#,##0.00", pct: "0.0%", text: "@" };
 export const TWO_DP = new Set(["arr", "arr_total", "revpar", "trevpar", "bfast_spend", "lunch_spend", "dinner_spend", "bev_lunch_spend", "bev_dinner_spend", "fn_spend", "rate_bob", "rate_pickup", "adr_comb", "py_arr", "covers_per_hour", "sleeper_ratio", "sd_dinner", "bfast_ratio"]);
@@ -14,7 +15,7 @@ export const SETUP_NAMES = ["Sleeper Ratio", "Breakfast diner ratio", "Restauran
 export async function buildWorkbook(ExcelJS, ctx) {
   const { ym, res, setup, months, feed, events, overrides, title } = ctx;
   const wb = new ExcelJS.Workbook();
-  wb.creator = "Black Horse Beamish - Forecast tile"; wb.created = new Date();
+  wb.creator = "Black Horse Beamish - Forecast tile"; wb.created = new Date(); wb.calcProperties = { fullCalcOnLoad: true };
   const mname = new Date(ym + "-01T00:00:00Z").toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" });
 
   // ------------------------------------------------------------------ Forecast
@@ -23,7 +24,7 @@ export async function buildWorkbook(ExcelJS, ctx) {
   for (let c = 5; c <= 52; c++) ws.getColumn(c).width = 11;
   ws.getColumn(36).width = 3; ws.getColumn(43).width = 3; ws.getColumn(51).width = 3;
   ws.getCell("C1").value = title || `Forecast - ${mname}`; ws.getCell("C1").font = { bold: true, size: 14, color: { argb: "FF3B483C" } };
-  ws.getCell("C2").value = "Calculated online. Figures typed over by hand are in blue; finished days are shaded."; ws.getCell("C2").font = { italic: true, color: { argb: "FF7B887C" } };
+  ws.getCell("C2").value = "Live formulas. Figures typed over by hand are fixed values in blue; finished days are shaded. The labour model's numbers are on Month Set up."; ws.getCell("C2").font = { italic: true, color: { argb: "FF7B887C" } };
   const dayCols = res.days.map((_, i) => 5 + i);
   res.days.forEach((d, i) => {
     const c = 5 + i;
@@ -37,23 +38,29 @@ export async function buildWorkbook(ExcelJS, ctx) {
   ws.getCell(6, totCol).value = "Total";
   for (let c = 5; c <= totCol; c++) for (const r of [4, 5, 6]) { const cell = ws.getCell(r, c); cell.font = { bold: true, color: { argb: "FF3B483C" } }; cell.alignment = { horizontal: "center" }; cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFEDEFED" } }; }
 
-  let extra = 151; const placed = [];
+  const R = rowMap(); let firstExtra = true;
+  const WEEKCRIT = (colLetter) => ({ range: "$E$6:$AI$6", crit: `${colLetter}$6` }), WDCRIT = (colLetter) => ({ range: "$E$5:$AI$5", crit: `${colLetter}$6` });
   for (const l of LINES) {
     if (["date", "dow", "week"].includes(l.key)) continue;
-    let r = l.row; if (!r) { r = extra++; if (!placed.length) { ws.getCell(r - 1, 3).value = "Added online (not in the old workbook)"; ws.getCell(r - 1, 3).font = { bold: true, color: { argb: "FF3B483C" } }; ws.getRow(r - 1).eachCell({ includeEmpty: true }, (c) => { c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFDCE3D5" } }; }); } placed.push(l.key); }
+    const r = R[l.key];
+    if (!l.row && firstExtra) { firstExtra = false; ws.getCell(r - 1, 3).value = "Added online (not in the old workbook)"; ws.getCell(r - 1, 3).font = { bold: true, color: { argb: "FF3B483C" } }; for (let c = 1; c <= 52; c++) ws.getCell(r - 1, c).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFDCE3D5" } }; }
     const nf = FMT[fmtOf(l)] || "General";
     ws.getCell(r, 3).value = l.label; ws.getCell(r, 3).font = { bold: !!l.bold };
     res.days.forEach((d, i) => {
-      const cell = ws.getCell(r, 5 + i); let v = d[l.key]; if (v === "" || v === undefined) return;
-      cell.value = v; cell.numFmt = nf;
-      const src = ctx.srcOf ? ctx.srcOf(d.date, l.key) : "";
-      if (src) cell.font = { color: { argb: "FF1F4E8C" }, bold: !!l.bold };
+      const cell = ws.getCell(r, 5 + i), cl = colL(5 + i); let v = d[l.key]; if (v === "" || v === undefined) return;
+      const typed = ctx.ovOf ? ctx.ovOf(d.date, l.key) !== undefined : false, actual = ctx.actualOf ? !!ctx.actualOf(d.date) : false;
+      const f = typed ? null : dayFormula(l.key, cl, actual, R);
+      cell.value = f ? { formula: f, result: v } : v; cell.numFmt = nf;
+      if (typed) cell.font = { color: { argb: "FF1F4E8C" }, bold: !!l.bold };
       else if (l.bold) cell.font = { bold: true };
     });
-    const put = (col, a) => { if (a && a[l.key] !== undefined && l.kind !== "none" && l.kind !== "text") { const cell = ws.getCell(r, col); cell.value = a[l.key]; cell.numFmt = nf; if (l.bold) cell.font = { bold: true }; } };
-    weekKeys.forEach((k, j) => put(weekCol(j), res.weeks[k]));
-    wdKeys.forEach((k, j) => put(wdCol(j), res.weekdays[k]));
-    put(totCol, res.total);
+    const put = (col, a, grp) => {
+      if (!a || a[l.key] === undefined) return; const f = aggFormula(l, colL(col), R, grp); if (!f) return;
+      const cell = ws.getCell(r, col); cell.value = { formula: f, result: a[l.key] }; cell.numFmt = nf; if (l.bold) cell.font = { bold: true };
+    };
+    weekKeys.forEach((k, j) => put(weekCol(j), res.weeks[k], WEEKCRIT(colL(weekCol(j)))));
+    wdKeys.forEach((k, j) => put(wdCol(j), res.weekdays[k], WDCRIT(colL(wdCol(j)))));
+    put(totCol, res.total, null);
   }
   for (const [r, name] of Object.entries(SECTION_ROWS)) {
     const row = ws.getRow(+r); if (row.getCell(3).value) continue;
@@ -73,6 +80,9 @@ export async function buildWorkbook(ExcelJS, ctx) {
     for (let c = 2; c <= 19; c++) { const v = setup.wd?.[w]?.[c]; if (v !== undefined) ms.getCell(4 + i, c).value = v; }
   });
   ms.getCell("A12").value = "Number of rooms"; ms.getCell("B12").value = setup.rooms;
+  ms.getCell("A14").value = "Labour cost model (used by every wage line on the Forecast sheet)"; ms.getCell("A14").font = { bold: true };
+  const LAB = ctx.labour || {}, labVal = { Holiday: LAB.holiday, OnCost: LAB.oncost, HKRate: LAB.hk_rate, HKFixedMins: LAB.hk_fixed_mins, FBCostPct: LAB.fb_cost_pct, FuncBOHHours: LAB.function_boh_hours, FuncBOHRate: LAB.function_boh_rate };
+  LABOUR_NAMES.forEach(([nm, label, dflt], i) => { ms.getCell(15 + i, 1).value = nm; ms.getCell(15 + i, 2).value = labVal[nm] ?? dflt; ms.getCell(15 + i, 3).value = label; ms.getCell(15 + i, 3).font = { color: { argb: "FF7B887C" } }; wb.definedNames.add(`'Month Set up'!$B$${15 + i}`, nm); });
 
   // ------------------------------------------------------------------ Summary (every month)
   const sm = wb.addWorksheet("Summary", { views: [{ state: "frozen", xSplit: 1, ySplit: 1 }] });
@@ -94,7 +104,7 @@ export async function buildWorkbook(ExcelJS, ctx) {
   sheet("Weddings", ["Start", "EventRef", "Event Name", "Event Type", "Status", "Del.", "Accomm", "Food", "Other", "Beverage", "Function_F&B", "Function_Hre", "Total"],
     (events || []).filter((e) => e.date.slice(0, 7) === ym).map((e) => [ymdDate(e.date), e.ref, e.name, e.type, e.status, e.guests, e.accomm, e.food, e.other, e.bev, e.ffb, e.fhire, e.total]));
   sheet("PayrollByDepartment", ["Date", "BOH", "FOH", "Housekeeping", "MAINTENANCE", "Office"], dates.filter((d) => feed.pay?.[d]).map((d) => { const x = feed.pay[d]; return [ymdDate(d), x.boh, x.foh, x.hk, x.maint, x.office]; }));
-  sheet("HKCleaningTarget", ["Date", "StandardTargetMinutes", "LargeTargetMinutes", "TotalTargetMinutes", "RoomCount"], Object.keys(feed.hk || {}).filter((d) => d.slice(0, 7) === ym).sort().map((d) => { const x = feed.hk[d]; return [ymdDate(d), x.std, x.large, x.total, x.rooms]; }));
+  sheet("HKCleaningTarget", ["Date", "StandardTargetMinutes", "LargeTargetMinutes", "TotalTargetMinutes", "RoomCount"], Object.keys(feed.hk || {}).filter((d) => d >= new Date(Date.parse(dates[0]) - 86400000).toISOString().slice(0, 10) && d <= dates[dates.length - 1]).sort().map((d) => { const x = feed.hk[d]; return [ymdDate(d), x.std, x.large, x.total, x.rooms]; }));
   sheet("OccByRoomType", ["Date", "CLASSIC_DBL", "DLX_DBL_FF", "DLX_DBL_GF", "DLX_HT_SUITE", "HUCKLEBERRY", "ROSEMARY", "STU_SUITE"], dates.filter((d) => feed.occ?.[d]).map((d) => [ymdDate(d), ...feed.occ[d].v]));
 
   // ------------------------------------------------------------------ what was typed over

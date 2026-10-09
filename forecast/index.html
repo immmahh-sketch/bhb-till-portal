@@ -237,6 +237,13 @@ const KEY_ONLY = new Set(["rooms_avail","rooms_bob","rooms_pickup","rooms_fc","a
 const NO_EDIT = new Set(["date","dow","week","err_check","pastfuture","bob_since_save"]);
 function groupsOf(){ const out = []; for (const l of LINES) { if (["date","dow","week"].includes(l.key)) continue; let g = out.find(x => x.name === l.group); if (!g) out.push(g = { name:l.group, lines:[] }); g.lines.push(l); } return out; }
 
+const FN_KEYS = new Set(["fn_name", "fn_guests", "fn_food", "fn_prebev", "fn_hire", "fn_spend", "fn_bar"]);
+// hover text for the Weddings & Events rows: every event that day, with its full name, type, status and guest numbers
+function eventTip(day, shownName){
+  const ev = (S.data.events || []).filter(e => e.date === day);
+  if (!ev.length) return typeof shownName === "string" && shownName.length > 14 ? shownName : "";
+  return ev.map((e, i) => `${ev.length > 1 && i === 0 ? "Used in the forecast: " : ""}${e.name}\n${[e.type, e.guests ? e.guests + " guest" + (e.guests === 1 ? "" : "s") : "", e.status].filter(Boolean).join(" · ")}`).join("\n\n");
+}
 function viewMonth(){
   const ym = S.ym, box = $("#views");
   if (!S.data.months.find(m => m.month.slice(0, 7) === ym)) {
@@ -282,7 +289,9 @@ function viewMonth(){
       let tds = "";
       for (const d of res.days) {
         const s = srcOf(d.date, l.key), v = d[l.key], neg = isNum(v) && v < 0 && l.fmt !== "text";
-        tds += `<td class="${edit ? "ed " : ""}${dayRow(d.date)?.actual ? "act " : ""}${s === "pending" ? "pend " : s === "typed" ? "ov " : s ? "srcw " : ""}${neg ? "neg" : ""}" data-d="${d.date}" data-k="${l.key}"${s ? ` title="${s === "pending" ? "Not saved yet" : s === "typed" ? "Typed over by hand" : s === "eod" ? "From the End of Day report" : "From the workbook"}"` : ""}>${show(l, v)}</td>`;
+        const note = s ? (s === "pending" ? "Not saved yet" : s === "typed" ? "Typed over by hand" : s === "eod" ? "From the End of Day report" : "From the workbook") : "";
+        const tip = (FN_KEYS.has(l.key) ? eventTip(d.date, l.key === "fn_name" ? v : null) : "") + (note ? (FN_KEYS.has(l.key) && eventTip(d.date) ? "\n\n" : "") + note : "");
+        tds += `<td class="${edit ? "ed " : ""}${dayRow(d.date)?.actual ? "act " : ""}${s === "pending" ? "pend " : s === "typed" ? "ov " : s ? "srcw " : ""}${neg ? "neg" : ""}" data-d="${d.date}" data-k="${l.key}"${tip ? ` title="${esc(tip)}"` : ""}>${show(l, v)}</td>`;
       }
       const aggs = [...weekKeys.map(k => res.weeks[k]), ...(S.showWeekdays ? ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(k => res.weekdays[k]) : []), res.total];
       tds += aggs.map((a, i) => `<td class="agg${i === 0 || (S.showWeekdays && i === weekKeys.length) || i === aggs.length - 1 ? " sep" : ""}">${a && !["none","text"].includes(l.kind) ? show(l, a[l.key]) : ""}</td>`).join("");
