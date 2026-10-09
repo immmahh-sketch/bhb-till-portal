@@ -161,10 +161,11 @@ table.xg td.hit{background:#fff0a8 !important} table.xg td.hitcur{background:#ff
   <nav class="tabs"><div class="tabsin" role="tablist">
     <button class="tabbtn" data-view="month">Month</button>
     <button class="tabbtn" data-view="summary">Summary</button>
-    <button class="tabbtn" data-view="periods">Periods</button>
+    <button class="tabbtn" data-view="periods">Dates</button>
     <button class="tabbtn" data-view="imports">Imports</button>
     <button class="tabbtn" data-view="setup">Month set up</button>
     <button class="tabbtn" data-view="workbook">Workbook</button>
+    <button class="tabbtn" data-view="parallel">Parallel run</button>
   </div></nav>
   <div class="shell"><div id="views"></div></div>
 </div>
@@ -686,17 +687,15 @@ function jumpHit(){
 }
 function stepHit(d){ const w = S.wb; if (!w || !w.hits.length) return; w.hitIdx = (w.hitIdx + d + w.hits.length) % w.hits.length; jumpHit(); }
 
-/* ------------------------------------------------------------------ periods */
-// This year ran on 4 and 5 week trading periods; from January 2027 it is calendar months. The periods are listed (Periods tab, administrators); any date after the last
-// period is reviewed as a calendar month. The same table can also be read month by month or week by week.
-S.pview = lsGet("fc_pview", "periods"); S.hist = {}; S.histKey = ""; S.pOpen = {}; S.pdraft = null;
+/* ------------------------------------------------------------------ date range review ("Periods" tab) */
+// Pick any two dates. Shows the totals for them and, if wanted, the same figures week by week, month by month or day by day. Named trading periods can be added later.
+S.prange = lsGet("fc_prange", null); S.pview = lsGet("fc_pview2", "weeks"); S.hist = {}; S.histKey = "";
 const dAdd = (d, n) => addDays(d, n);
 const dMon = d => { const dt = new Date(d + "T00:00:00Z"), k = (dt.getUTCDay() + 6) % 7; return dAdd(d, -k); };
 const eomOf = ym => dAdd(addMonths(ym, 1) + "-01", -1);
 const fmtD = d => new Date(d + "T00:00:00Z").toLocaleDateString("en-GB", { day:"numeric", month:"short", timeZone:"UTC" });
-const fmtDY = d => new Date(d + "T00:00:00Z").toLocaleDateString("en-GB", { day:"numeric", month:"short", year:"numeric", timeZone:"UTC" });
+const fmtDY = d => new Date(d + "T00:00:00Z").toLocaleDateString("en-GB", { weekday:"short", day:"numeric", month:"short", year:"numeric", timeZone:"UTC" });
 function firstSetupDay(){ const m = S.data.months.map(x => x.month.slice(0, 7)).sort()[0]; return m ? m + "-01" : "9999-12-31"; }
-
 async function ensureHistory(from, to){
   const firstSet = firstSetupDay(); if (from >= firstSet) return;
   const end = dAdd(firstSet, -1) < to ? dAdd(firstSet, -1) : to, key = from + ">" + end;
@@ -705,7 +704,7 @@ async function ensureHistory(from, to){
 }
 const dayCache = {};
 function monthIndex(ym){ const k = ym + ":" + S.pending.size + ":" + S.data.days.length + ":" + (S.data.months.find(m => m.month.slice(0, 7) === ym)?.month || ""); if (dayCache[ym]?.k === k) return dayCache[ym].map; const res = calc(ym, false); const map = {}; if (res) for (const c of res.days) map[c.date] = c; dayCache[ym] = { k, map }; return map; }
-// one day's headline figures, from this tile's own calculation where the month is set up, otherwise from the dashboard's daily actuals
+// one day's headline figures: this tile's calculation where the month is set up, otherwise the dashboard's daily actuals
 function dayFig(date){
   const c = monthIndex(date.slice(0, 7))[date];
   if (c) return { rooms:c.rooms_fc, avail:c.rooms_avail, rrev:c.rev_rooms, fb:c.rev_food + c.rev_bev, oth:c.rev_hire + c.rev_other, tot:c.rev_total, wages:c.wages_total, fin:!!dayRow(date)?.actual };
@@ -719,84 +718,87 @@ function sumRange(from, to){
   for (let d = from; d <= to; d = dAdd(d, 1)) { const f = dayFig(d); t.days++; if (!f) { t.gaps++; continue; } if (f.fin) t.fin++; t.rooms += f.rooms; t.avail += f.avail; t.rrev += f.rrev; t.fb += f.fb; t.oth += f.oth; t.tot += f.tot; t.wages += f.wages; }
   return t;
 }
-function periodRows(){
-  const per = [...(S.data.periods || [])].sort((a, b) => a.start_day.localeCompare(b.start_day)), out = [];
-  const lastSet = S.data.months.map(x => x.month.slice(0, 7)).sort().pop() || S.ym;
-  if (S.pview === "periods") {
-    for (const p of per) out.push({ label:p.label, from:p.start_day, to:p.end_day, kind:"period" });
-    let from = per.length ? dAdd(per[per.length - 1].end_day, 1) : addMonths(todayYmd().slice(0, 7), -3) + "-01";
-    while (from.slice(0, 7) <= lastSet) { const ym = from.slice(0, 7), e = eomOf(ym); out.push({ label:monthName(ym) + (from.endsWith("-01") ? "" : " (from " + fmtD(from) + ")"), from, to:e, kind:"month" }); from = dAdd(e, 1); }
-  } else if (S.pview === "months") {
-    const start = per.length ? per[0].start_day.slice(0, 7) : addMonths(todayYmd().slice(0, 7), -3);
-    for (let ym = start; ym <= lastSet; ym = addMonths(ym, 1)) out.push({ label:monthName(ym), from:ym + "-01", to:eomOf(ym), kind:"month" });
-  } else {
-    const from = dMon(per.length ? per[0].start_day : addMonths(todayYmd().slice(0, 7), -1) + "-01"), end = eomOf(lastSet);
-    for (let w = from; w <= end && out.length < 160; w = dAdd(w, 7)) out.push({ label:"Wk " + fmtD(w), from:w, to:dAdd(w, 6), kind:"week" });
-  }
+function breakdown(from, to, mode){
+  const out = [];
+  if (mode === "weeks") for (let w = dMon(from); w <= to; w = dAdd(w, 7)) out.push({ label:"Week of " + fmtD(w), from:w < from ? from : w, to:dAdd(w, 6) > to ? to : dAdd(w, 6) });
+  else if (mode === "months") for (let ym = from.slice(0, 7); ym <= to.slice(0, 7); ym = addMonths(ym, 1)) out.push({ label:monthName(ym), from:ym + "-01" < from ? from : ym + "-01", to:eomOf(ym) > to ? to : eomOf(ym) });
+  else if (mode === "days") for (let d = from; d <= to; d = dAdd(d, 1)) out.push({ label:fmtDY(d), from:d, to:d });
   return out;
 }
-function periodTable(rows){
-  const cell = (v, f) => v ? f(v) : "–";
-  const line = (r, sub) => {
+function rangeTable(from, to, mode){
+  const line = (r, total) => {
     const t = sumRange(r.from, r.to), has = t.days - t.gaps;
-    const status = !has ? `<span class="muted">no data</span>` : t.fin === t.days ? `<span class="tag good">actual</span>` : t.fin ? `<span class="tag warn">${t.fin} of ${t.days} days actual</span>` : `<span class="tag">forecast</span>`;
-    return `<tr class="${sub ? "sub" : "prow"}" ${sub ? "" : `data-pk="${r.from}"`} style="${sub ? "" : "cursor:pointer"}"><td>${sub ? "&nbsp;&nbsp;&nbsp;" : (S.pOpen[r.from] ? "▾ " : "▸ ")}<b>${esc(r.label)}</b><br><span class="muted" style="font-size:12px">${fmtD(r.from)} to ${fmtDY(r.to)} &middot; ${t.days} days${t.gaps ? `, ${t.gaps} without figures` : ""}</span></td><td>${status}</td>
-      <td>${cell(t.rooms, FMTS.n0)}</td><td>${t.avail ? FMTS.pct(t.rooms / t.avail) : "–"}</td><td>${t.rooms ? FMTS.gbp2(t.rrev / t.rooms) : "–"}</td><td>${cell(t.rrev, FMTS.gbp)}</td><td>${cell(t.fb, FMTS.gbp)}</td><td>${cell(t.oth, FMTS.gbp)}</td><td><b>${cell(t.tot, FMTS.gbp)}</b></td>
+    const status = !has ? `<span class="muted">no data</span>` : t.fin === t.days ? `<span class="tag good">actual</span>` : t.fin ? `<span class="tag warn">${t.fin} of ${t.days} actual</span>` : `<span class="tag">forecast</span>`;
+    const sub = r.from === r.to ? "" : `<br><span class="muted" style="font-size:12px">${fmtD(r.from)} to ${fmtD(r.to)} &middot; ${t.days} days${t.gaps ? `, ${t.gaps} without figures` : ""}</span>`;
+    return `<tr class="${total ? "tot" : ""}"><td><b>${esc(r.label)}</b>${sub}</td><td>${status}</td>
+      <td>${t.rooms ? FMTS.n0(t.rooms) : "–"}</td><td>${t.avail && t.rooms ? FMTS.pct(t.rooms / t.avail) : "–"}</td><td>${t.rooms ? FMTS.gbp2(t.rrev / t.rooms) : "–"}</td><td>${t.rrev ? FMTS.gbp(t.rrev) : "–"}</td><td>${t.fb ? FMTS.gbp(t.fb) : "–"}</td><td>${t.oth ? FMTS.gbp(t.oth) : "–"}</td><td><b>${t.tot ? FMTS.gbp(t.tot) : "–"}</b></td>
       <td>${t.wages ? FMTS.gbp(t.wages) : "–"}</td><td>${t.wages && t.tot ? FMTS.pct(t.wages / t.tot) : "–"}</td><td>${t.wages ? FMTS.gbp(t.tot - t.wages) : "–"}</td></tr>`;
   };
-  let html = "";
-  for (const r of rows) {
-    html += line(r, false);
-    if (S.pOpen[r.from] && r.kind !== "week") for (let w = dMon(r.from); w <= r.to; w = dAdd(w, 7)) { const a = w < r.from ? r.from : w, b = dAdd(w, 6) > r.to ? r.to : dAdd(w, 6); html += line({ label:"Week of " + fmtD(w), from:a, to:b }, true); }
-  }
-  const all = rows.length ? sumRange(rows[0].from, rows[rows.length - 1].to) : null;
-  return `<div class="card scrollx"><table class="dt"><thead><tr><th>${S.pview === "periods" ? "Period" : S.pview === "months" ? "Month" : "Week"}</th><th>Figures</th><th>Rooms sold</th><th>Occupancy</th><th>ARR</th><th>Rooms</th><th>Food &amp; drink</th><th>Hire &amp; other</th><th>Total revenue</th><th>Wages</th><th>Labour %</th><th>Revenue less wages</th></tr></thead><tbody>${html}</tbody></table></div>
-   <p class="muted" style="font-size:13px; margin:0 0 12px">Finished days are actual, the rest are the forecast as it stands. Before September 2026 only the dashboard's daily actuals exist, with food and drink together and no wages. ${all ? "" : ""}Click a row to see its weeks.</p>`;
+  const rows = breakdown(from, to, mode);
+  return `<div class="card scrollx"><table class="dt"><thead><tr><th></th><th>Figures</th><th>Rooms sold</th><th>Occupancy</th><th>ARR</th><th>Rooms</th><th>Food &amp; drink</th><th>Hire &amp; other</th><th>Total revenue</th><th>Wages</th><th>Labour %</th><th>Revenue less wages</th></tr></thead><tbody>
+    ${line({ label:"The dates chosen", from, to }, true)}${rows.length > 1 || mode === "days" ? rows.map(r => line(r, false)).join("") : ""}</tbody></table></div>
+    <p class="muted" style="font-size:13px; margin:0 0 12px">Finished days are actual, the rest is the forecast as it stands. Before September 2026 only the dashboard's daily actuals exist, so food and drink are together and there are no wages.</p>`;
 }
 async function viewPeriods(){
-  const first = (S.data.periods || [])[0]?.start_day || addMonths(todayYmd().slice(0, 7), -1) + "-01";
-  $("#views").innerHTML = `<div class="loading">Loading the periods…</div>`;
-  try { await ensureHistory(first, addMonths(todayYmd().slice(0, 7), 12) + "-28"); } catch (e) { toast(e.message, true); }
-  const admin = S.me.admin, per = S.data.periods || [];
-  const seg = (k, l) => `<button data-pv="${k}" aria-pressed="${S.pview === k}" class="btn small ${S.pview === k ? "" : "ghost"}">${l}</button>`;
-  $("#views").innerHTML = `<div class="mbar"><h2 style="text-align:left">Periods</h2><span class="spacer"></span><div class="tbar" style="margin:0">${seg("periods", "Trading periods")}${seg("months", "Calendar months")}${seg("weeks", "Weeks")}</div></div>
-    ${per.length ? "" : `<div class="notice">No trading periods are set up yet. ${admin ? "Add them below" : "An administrator needs to add them"}; until then this shows calendar months.</div>`}
-    ${periodTable(periodRows())}
-    <div class="card"><h3>Period set up</h3>
-      <p class="muted" style="margin:0 0 10px">List the trading periods (this year's 4 and 5 week ones). After the last period, every date is reviewed as a calendar month, so January 2027 onwards needs nothing here.${admin ? "" : " (You can look but not change.)"}</p>
-      <div id="pdTable"></div>
-      ${admin ? `<div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px"><button class="btn small ghost" id="pdAdd">Add a period</button><button class="btn" id="pdSave">Save periods</button></div>
-      <h4 style="font-size:18px; color:var(--sage); margin:16px 0 6px">Fill the list from a pattern</h4>
-      <p class="muted" style="margin:0 0 8px; font-size:13px">Give the first day of period 1 and how many weeks each period has, in order (for example 4,4,5 repeats as 4, 4, 5, 4, 4, 5 ...). It fills the list up to the last date you give; you can then change any date by hand before saving.</p>
-      <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end">
-        <div class="field" style="margin:0"><label>Period 1 starts</label><input type="date" id="pgStart"></div>
-        <div class="field" style="margin:0"><label>Weeks in each period</label><input id="pgPat" value="4,4,5" style="width:140px"></div>
-        <div class="field" style="margin:0"><label>Last date</label><input type="date" id="pgEnd" value="${todayYmd().slice(0, 4)}-12-31"></div>
-        <button class="btn small ghost" id="pgGo">Fill the list</button></div>` : ""}
-    </div>`;
-  S.pdraft = per.map(p => ({ label:p.label, start:p.start_day, end:p.end_day }));
-  drawDraft(); bindPeriods();
+  const today = todayYmd();
+  if (!S.prange || !S.prange.from || !S.prange.to || S.prange.to < S.prange.from) S.prange = { from:today.slice(0, 7) + "-01", to:eomOf(today.slice(0, 7)) };
+  const { from, to } = S.prange;
+  const days = Math.round((Date.parse(to) - Date.parse(from)) / 86400000) + 1;
+  const mode = S.pview === "days" && days > 92 ? "weeks" : S.pview;
+  $("#views").innerHTML = `<div class="loading">Working it out…</div>`;
+  try { await ensureHistory(from, to); } catch (e) { toast(e.message, true); }
+  const seg = (k, l) => `<button data-pv="${k}" class="btn small ${mode === k ? "" : "ghost"}">${l}</button>`;
+  const quick = (id, l) => `<button class="btn small ghost" data-q="${id}">${l}</button>`;
+  $("#views").innerHTML = `<div class="mbar"><h2 style="text-align:left">Choose dates</h2></div>
+    <div class="card" style="padding:12px 16px; display:flex; gap:12px 14px; flex-wrap:wrap; align-items:flex-end">
+      <div class="field" style="margin:0"><label>From</label><input type="date" id="prFrom" value="${esc(from)}"></div>
+      <div class="field" style="margin:0"><label>To</label><input type="date" id="prTo" value="${esc(to)}"></div>
+      <button class="btn" id="prGo">Show</button><span class="spacer"></span>
+      ${quick("week", "This week")}${quick("month", "This month")}${quick("last28", "Last 28 days")}${quick("next28", "Next 28 days")}${quick("ytd", "Year to date")}
+    </div>
+    <div class="tbar"><span class="muted">Break it down by</span>${seg("none", "Totals only")}${seg("weeks", "Weeks")}${seg("months", "Calendar months")}${seg("days", "Days")}${S.pview === "days" && days > 92 ? `<span class="muted">(days are shown for up to 92 days)</span>` : ""}</div>
+    ${rangeTable(from, to, mode)}`;
+  const go = () => { const f = $("#prFrom").value, t = $("#prTo").value; if (!f || !t || t < f) return toast("Choose a start date and an end date after it.", true); if (Date.parse(t) - Date.parse(f) > 400 * 86400000) return toast("That is more than a year: choose a shorter range.", true); S.prange = { from:f, to:t }; lsSet("fc_prange", S.prange); viewPeriods(); };
+  $("#prGo").onclick = go; $("#prFrom").onchange = go; $("#prTo").onchange = go;
+  $$("[data-pv]").forEach(b => b.onclick = () => { S.pview = b.dataset.pv; lsSet("fc_pview2", S.pview); viewPeriods(); });
+  $$("[data-q]").forEach(b => b.onclick = () => {
+    const q = b.dataset.q; let f, t;
+    if (q === "week") { f = dMon(today); t = dAdd(f, 6); } else if (q === "month") { f = today.slice(0, 7) + "-01"; t = eomOf(today.slice(0, 7)); }
+    else if (q === "last28") { f = dAdd(today, -28); t = dAdd(today, -1); } else if (q === "next28") { f = today; t = dAdd(today, 27); } else { f = today.slice(0, 4) + "-01-01"; t = dAdd(today, -1); }
+    S.prange = { from:f, to:t }; lsSet("fc_prange", S.prange); viewPeriods();
+  });
 }
-function drawDraft(){
-  const admin = S.me.admin, box = $("#pdTable"); if (!box) return;
-  box.innerHTML = S.pdraft.length ? `<table class="dt"><thead><tr><th>Name</th><th>First day</th><th>Last day</th><th>Weeks</th>${admin ? "<th></th>" : ""}</tr></thead><tbody>${S.pdraft.map((p, i) => `<tr><td><input data-pi="${i}" data-pf="label" value="${esc(p.label)}" style="width:110px" ${admin ? "" : "disabled"}></td><td><input type="date" data-pi="${i}" data-pf="start" value="${esc(p.start)}" ${admin ? "" : "disabled"}></td><td><input type="date" data-pi="${i}" data-pf="end" value="${esc(p.end)}" ${admin ? "" : "disabled"}></td><td>${p.start && p.end ? Math.round(((Date.parse(p.end) - Date.parse(p.start)) / 86400000 + 1) / 7 * 10) / 10 : ""}</td>${admin ? `<td><button class="linkbtn" data-pdel="${i}">Remove</button></td>` : ""}</tr>`).join("")}</tbody></table>` : `<div class="muted">No periods yet.</div>`;
-  $$("#pdTable [data-pi]").forEach(i => i.onchange = () => { S.pdraft[+i.dataset.pi][i.dataset.pf] = i.value; if (i.dataset.pf !== "label") drawDraft(); });
-  $$("#pdTable [data-pdel]").forEach(b => b.onclick = () => { S.pdraft.splice(+b.dataset.pdel, 1); drawDraft(); });
+
+/* ------------------------------------------------------------------ parallel run: this tile's figures beside the workbook push */
+const PR = { rows:null, log:null, lastPush:null, only:true, busy:false };
+async function loadParallel(){
+  const ym = S.ym; const d = await call("shadow.get", { from:ym + "-01", to:eomOf(ym) }); PR.rows = d.rows; PR.log = d.log; PR.lastPush = d.last_push;
 }
-function bindPeriods(){
-  $$("[data-pv]").forEach(b => b.onclick = () => { S.pview = b.dataset.pv; lsSet("fc_pview", S.pview); viewPeriods(); });
-  $$("tr.prow").forEach(r => r.onclick = () => { S.pOpen[r.dataset.pk] = !S.pOpen[r.dataset.pk]; const y = window.scrollY; viewPeriods().then(() => window.scrollTo(0, y)); });
-  const add = $("#pdAdd"); if (add) add.onclick = () => { const last = S.pdraft[S.pdraft.length - 1]; const st = last ? dAdd(last.end, 1) : todayYmd(); S.pdraft.push({ label:"P" + (S.pdraft.length + 1), start:st, end:dAdd(st, 27) }); drawDraft(); };
-  const go = $("#pgGo"); if (go) go.onclick = () => {
-    const st = $("#pgStart").value, end = $("#pgEnd").value, pat = $("#pgPat").value.split(/[,\s]+/).map(Number).filter(n => n > 0);
-    if (!st || !end || !pat.length) return toast("Give the first day, the weeks in each period and the last date.", true);
-    const out = []; let s0 = st, i = 0;
-    while (s0 <= end && out.length < 60) { const w = pat[i % pat.length], e = dAdd(s0, w * 7 - 1); out.push({ label:"P" + (i + 1), start:s0, end:e }); s0 = dAdd(e, 1); i++; }
-    S.pdraft = out; drawDraft(); toast(`${out.length} periods listed. Check the dates, then Save periods.`);
-  };
-  const sv = $("#pdSave"); if (sv) sv.onclick = async () => {
-    try { await call("periods.save", { periods:S.pdraft }); const d = await call("load", { from:S.range.from + "-01", to:S.range.from + "-01" }); S.data.periods = d.periods; toast("Periods saved."); viewPeriods(); } catch (e) { toast(e.message, true); }
-  };
+async function viewParallel(){
+  $("#views").innerHTML = monthBar() + `<div class="loading">Loading the comparison…</div>`; bindMonthBar();
+  try { await loadParallel(); } catch (e) { $("#views").innerHTML = monthBar() + `<div class="card empty err">${esc(e.message)}</div>`; bindMonthBar(); return; }
+  const rows = PR.rows, cmp = rows.filter(r => r.ok !== null), okN = cmp.filter(r => r.ok).length, wait = rows.filter(r => r.ok === null).length, bad = cmp.filter(r => !r.ok).length;
+  const last = PR.log[0], shown = PR.only ? rows.filter(r => r.ok !== true) : rows;
+  const n = (v, f) => v === null || v === undefined ? "–" : f(Number(v));
+  const pair = (e, p, f, tol) => { if (e === null || p === null) return `<td class="muted">–</td>`; const diff = Number(e) - Number(p), off = Math.abs(diff) > tol; return `<td style="${off ? "background:var(--alert-bg); font-weight:700" : ""}" title="Here ${f(Number(e))}, workbook ${f(Number(p))}">${f(Number(e))}<br><span class="muted">${f(Number(p))}${off ? ` (${diff > 0 ? "+" : "-"}${f(Math.abs(diff))})` : ""}</span></td>`; };
+  const tag = r => r.ok === true ? `<span class="tag good">agrees</span>` : r.ok === false ? `<span class="tag" style="background:var(--alert-bg); color:var(--alert)">differs</span>` : `<span class="tag warn">waiting</span>`;
+  $("#views").innerHTML = monthBar() + `
+    <div class="kpis">
+      <div class="kpi"><div class="k">Days compared</div><div class="v">${cmp.length}</div><div class="sub">${esc(monthName(S.ym))}</div></div>
+      <div class="kpi"><div class="k">Agree with the workbook</div><div class="v">${okN}</div><div class="sub ${bad ? "bad" : "good"}">${bad ? bad + " differ" : "none differ"}</div></div>
+      <div class="kpi"><div class="k">Waiting for a push</div><div class="v">${wait}</div><div class="sub">newer data here, or not pushed yet</div></div>
+      <div class="kpi"><div class="k">Last workbook push</div><div class="v" style="font-size:20px">${esc(fmtDT(PR.lastPush) || "–")}</div><div class="sub">compared ${esc(last ? fmtDT(last.run_at) : "never")}</div></div>
+    </div>
+    <div class="card"><p style="margin:0 0 8px">This sets the figures this tile calculates beside what your workbook's push script put in the dashboard, day by day: rooms, rooms revenue, food, beverage and total. It runs by itself every morning and changes nothing anywhere else. Finished days use the actual figures on both sides, other days the forecast.</p>
+      <p class="muted" style="margin:0 0 10px; font-size:13px"><b>Waiting</b> means the tile holds newer report data than the push had, so the two cannot be expected to agree yet: run your usual update and push, then press Compare. Here the live Guestline rooms are left out, so both sides use the same reports. The macros are safe to retire when every day, including a month end, agrees across a few runs in a row.</p>
+      <div class="tbar" style="margin:0"><button class="btn" id="prCmp" ${PR.busy ? "disabled" : ""}>${PR.busy ? "Comparing…" : "Compare now"}</button><label><input type="checkbox" id="prOnly" ${PR.only ? "checked" : ""}> Only days that differ or are waiting</label></div></div>
+    <div class="card scrollx"><table class="dt"><thead><tr><th>Day</th><th>Compared</th><th>Rooms</th><th>Rooms revenue</th><th>Food</th><th>Beverage</th><th>Total</th><th>Result</th></tr></thead><tbody>
+      ${shown.map(r => `<tr><td>${esc(new Date(r.day + "T00:00:00Z").toLocaleDateString("en-GB", { weekday:"short", day:"numeric", month:"short", timeZone:"UTC" }))}</td><td>${esc(r.basis || "–")}</td>${pair(r.e_rooms, r.p_rooms, v => FMTS.n0(v), 0.5)}${pair(r.e_rooms_rev, r.p_rooms_rev, v => FMTS.gbp2(v), 1)}${pair(r.e_food, r.p_food, v => FMTS.gbp2(v), 1)}${pair(r.e_bev, r.p_bev, v => FMTS.gbp2(v), 1)}${pair(r.e_total, r.p_total, v => FMTS.gbp2(v), 1)}<td style="white-space:normal; min-width:190px">${tag(r)}${r.note ? `<div class="muted" style="font-size:12px">${esc(r.note)}</div>` : ""}</td></tr>`).join("") || `<tr><td colspan="8" class="muted" style="text-align:center">${rows.length ? "Every day this month agrees." : "Nothing compared for this month yet."}</td></tr>`}
+    </tbody></table></div>
+    <div class="card scrollx"><h3>Earlier comparisons</h3><table class="dt"><thead><tr><th>When</th><th>Days</th><th>Compared</th><th>Agreed</th><th>Waiting</th><th>Biggest difference</th></tr></thead><tbody>${PR.log.map(l => `<tr><td>${esc(fmtDT(l.run_at))}</td><td>${l.days}</td><td>${l.compared}</td><td>${l.within}</td><td>${l.waiting}</td><td>${Number(l.worst) ? FMTS.gbp2(Number(l.worst)) + " on " + esc(l.worst_day || "") : "none"}</td></tr>`).join("")}</tbody></table></div>`;
+  bindMonthBar();
+  $("#prOnly").onchange = e => { PR.only = e.target.checked; viewParallel(); };
+  $("#prCmp").onclick = async () => { PR.busy = true; $("#prCmp").disabled = true; $("#prCmp").textContent = "Comparing…"; try { const r = await call("shadow.run"); toast(`${r.within} of ${r.compared} agree, ${r.waiting} waiting.`); } catch (e) { toast(e.message, true); } PR.busy = false; viewParallel(); };
 }
 
 /* ------------------------------------------------------------------ shell */
@@ -815,6 +817,7 @@ async function go(v){
   else if (v === "imports") viewImports();
   else if (v === "setup") viewSetup();
   else if (v === "workbook") viewWorkbook();
+  else if (v === "parallel") viewParallel();
 }
 const render = () => go(S.view);
 function openGate(){ $("#gate").hidden = false; $("#app").hidden = true; }
