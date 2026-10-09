@@ -161,6 +161,7 @@ table.xg td.hit{background:#fff0a8 !important} table.xg td.hitcur{background:#ff
   <nav class="tabs"><div class="tabsin" role="tablist">
     <button class="tabbtn" data-view="month">Month</button>
     <button class="tabbtn" data-view="summary">Summary</button>
+    <button class="tabbtn" data-view="periods">Periods</button>
     <button class="tabbtn" data-view="imports">Imports</button>
     <button class="tabbtn" data-view="setup">Month set up</button>
     <button class="tabbtn" data-view="workbook">Workbook</button>
@@ -439,22 +440,50 @@ async function viewSummary(){
 }
 
 /* ------------------------------------------------------------------ month set up */
+
+// Month Set up columns by their number in the old sheet: what each is called here, what it does in the forecast, and whether anything reads it.
+const SETUP_META = {
+  2:  { name:"Guests per room still to sell", does:"Guests expected in each room still to be sold. Drives the breakfast covers on those rooms." },
+  3:  { name:"Share of those guests who take breakfast", does:"Breakfast covers on rooms still to be sold = guests x this share. Guests already booked are counted from the Meal Plan report." },
+  4:  { name:"Lunch covers (at least)", does:"Lunch covers forecast = the higher of this and what is booked." },
+  5:  { name:"Dinner covers (at least)", does:"Dinner covers forecast = the higher of this and what is booked." },
+  6:  { name:"Lunch food spend a head", does:"Lunch food revenue = lunch covers x this." },
+  7:  { name:"Dinner food spend a head", does:"Dinner food revenue = dinner covers x this." },
+  10: { name:"Lunch drinks spend a head", does:"Lunch beverage revenue = lunch covers x this." },
+  11: { name:"Dinner drinks spend a head", does:"Dinner beverage revenue = dinner covers x this." },
+  12: { name:"Rooms to sell (the rooms forecast)", does:"Total rooms forecast for the night. Rooms still to pick up = this less rooms on the books. A figure typed on a day replaces it." },
+  13: { name:"Function bar spend a guest", does:"Function bar revenue = function guests x this (guests come from the Events report)." },
+  14: { name:"Breakfast spend a head", does:"Breakfast revenue = breakfast covers x this." },
+  15: { name:"Rate for rooms still to sell", does:"Average rate on the rooms still to pick up. Rooms already booked keep their own rate." },
+  16: { name:"Diners as a share of guests", does:"Only feeds the 'Diners' count in the Rooms section. No revenue line reads it.", info:true },
+  8:  { name:"Lunch covers for drinks (old)", does:"Not used: drinks are priced on the lunch covers in column 'Lunch covers (at least)'.", unused:true },
+  9:  { name:"Dinner covers for drinks (old)", does:"Not used: drinks are priced on the dinner covers.", unused:true },
+  17: { name:"Start-off rate (old)", does:"Not used by any formula or macro.", unused:true },
+  18: { name:"Rooms if a wedding that night (old)", does:"Not used by any formula or macro.", unused:true },
+  19: { name:"Rooms if a wedding next night (old)", does:"Not used by any formula or macro.", unused:true },
+};
+
 function viewSetup(){
   const ym = S.ym, m = S.data.months.find(x => x.month.slice(0, 7) === ym);
   const draft = S.setupDraft && S.setupDraft.ym === ym ? S.setupDraft : (S.setupDraft = { ym, rooms:m ? m.rooms : 18, note:m ? m.setup_note : "", wd:JSON.parse(JSON.stringify(m ? m.setup : {})) });
-  const order = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"], used = new Set([2,3,4,5,6,7,10,11,12,13,14,15,16]);
+  const order = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+  const live = [2,3,12,15,4,5,6,7,10,11,14,13,16], leftovers = [8,9,17,18,19], showOld = lsGet("fc_setup_old", false);
+  const cols = showOld ? live.concat(leftovers) : live;
   const later = S.data.months.map(x => x.month.slice(0, 7)).filter(x => x > ym);
   $("#views").innerHTML = monthBar() + `${m ? "" : `<div class="notice">${esc(monthName(ym))} has no set up yet. Fill it in and save, or copy it from another month.</div>`}
     <div class="card"><h3>Month set up</h3><p class="muted" style="margin:0 0 10px">One row per weekday. The forecast for every day in the month is worked from its weekday's row.${S.me.admin ? "" : " (You can look but not change.)"}</p>
-    <div class="scrollx"><table class="su"><thead><tr><th></th>${SETUP_NAMES.map((n, i) => `<th>${esc(n)}${used.has(i + 2) ? "" : "<br><span class='muted'>(reference)</span>"}</th>`).join("")}</tr></thead><tbody>
-    ${order.map(w => `<tr><td>${w}</td>${SETUP_NAMES.map((n, i) => { const c = i + 2, v = draft.wd?.[w]?.[c]; return `<td class="${used.has(c) ? "" : "ref"}"><input data-w="${w}" data-c="${c}" value="${v === undefined || v === null ? "" : v}" inputmode="decimal" ${S.me.admin ? "" : "disabled"}></td>`; }).join("")}</tr>`).join("")}</tbody></table></div>
+    <div class="scrollx"><table class="su"><thead><tr><th></th>${cols.map(c => `<th title="${esc(SETUP_META[c].does)}">${esc(SETUP_META[c].name)}${SETUP_META[c].info ? "<br><span class='muted'>(count only)</span>" : ""}${SETUP_META[c].unused ? "<br><span class='muted'>(not used)</span>" : ""}</th>`).join("")}</tr></thead><tbody>
+    ${order.map(w => `<tr><td>${w}</td>${cols.map(c => { const v = draft.wd?.[w]?.[c]; return `<td class="${SETUP_META[c].unused ? "ref" : ""}"><input data-w="${w}" data-c="${c}" value="${v === undefined || v === null ? "" : v}" inputmode="decimal" ${S.me.admin ? "" : "disabled"}></td>`; }).join("")}</tr>`).join("")}</tbody></table></div>
+    <p class="muted" style="margin:8px 0 0; font-size:13px">Hover a heading to see what it does. ${leftovers.length} old columns from the sheet's earlier uses (small hotels, spas, golf, weddings) are not read by anything: <button class="linkbtn" id="suOld">${showOld ? "hide them" : "show them"}</button>.</p>
     <div style="display:flex; gap:14px; flex-wrap:wrap; margin-top:12px; align-items:flex-end">
       <div class="field" style="max-width:150px; margin:0"><label>Number of rooms</label><input id="suRooms" value="${esc(draft.rooms)}" inputmode="numeric" ${S.me.admin ? "" : "disabled"}></div>
       <div class="field" style="flex:1; min-width:220px; margin:0"><label>Note</label><input id="suNote" value="${esc(draft.note || "")}" ${S.me.admin ? "" : "disabled"}></div>
       ${S.me.admin ? `<button class="btn" id="suSave">Save set up</button>` : ""}</div></div>
+    ${realityCheck(ym)}
     ${S.me.admin && m && later.length ? `<div class="card"><h3>Copy this set up forward</h3><p class="muted" style="margin:0 0 8px">Replaces the set up of the months you tick with this one.</p>
       <div class="tbar" id="cpList">${later.map(x => `<label><input type="checkbox" value="${x}"> ${esc(monthName(x).slice(0, 3) + " " + x.slice(2, 4))}</label>`).join("")}</div><button class="btn small ghost" id="cpGo">Copy</button></div>` : ""}`;
   bindMonthBar();
+  const so = $("#suOld"); if (so) so.onclick = () => { lsSet("fc_setup_old", !showOld); viewSetup(); };
   $$("table.su input").forEach(i => i.oninput = () => { const w = i.dataset.w, c = i.dataset.c; (draft.wd[w] ||= {}); if (i.value.trim() === "") delete draft.wd[w][c]; else draft.wd[w][c] = Number(i.value); });
   const sv = $("#suSave"); if (sv) sv.onclick = async () => {
     try { await call("setup.save", { month:ym + "-01", rooms:Number($("#suRooms").value) || 18, setup:draft.wd, note:$("#suNote").value }); await loadRange(ym); S.setupDraft = null; toast("Set up saved. The month has been recalculated."); viewSetup(); } catch (e) { toast(e.message, true); }
@@ -464,6 +493,36 @@ function viewSetup(){
     try { await call("setup.copy", { from:ym + "-01", to }); await loadRange(ym); toast(`Copied to ${to.length} month${to.length === 1 ? "" : "s"}.`); } catch (e) { toast(e.message, true); }
   };
 }
+// How the set-up compares with what really happened: the finished days of this month and the two before, by weekday.
+function realityCheck(ym){
+  const WDS = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"], acc = Object.fromEntries(WDS.map(w => [w, { n:0, rooms:0, guests:0, bfast:0, lc:0, dc:0, food:0, bev:0, bfrev:0, rrev:0, fnb:0, fng:0 }]));
+  const m0 = S.data.months.find(x => x.month.slice(0, 7) === ym); if (!m0) return "";
+  let days = 0;
+  for (const mm of [addMonths(ym, -2), addMonths(ym, -1), ym]) {
+    const res = calc(mm, false); if (!res) continue;
+    for (const c of res.days) {
+      if (!dayRow(c.date)?.actual || !c.rooms_bob_in && !c.lunch_covers) continue;
+      const a = acc[c.dow]; a.n++; days++; a.rooms += c.rooms_bob_in; a.guests += S.data.feed.bob?.[c.date]?.guests || 0; a.bfast += c.bfast_covers; a.lc += c.lunch_covers; a.dc += c.dinner_covers;
+      a.food += c.lunch_food + c.dinner_food; a.bev += c.lunch_bev + c.dinner_bev; a.bfrev += c.bfast_rev; a.rrev += Math.max(0, c.rev_rooms); a.fnb += c.fn_bar; a.fng += c.fn_guests;
+    }
+  }
+  if (!days) return "";
+  const g = (v, d = 1) => (Math.round(v * 10 ** d) / 10 ** d).toLocaleString("en-GB", { minimumFractionDigits:d, maximumFractionDigits:d });
+  const money = v => "£" + g(v, 2).replace(/\.00$/, "");
+  const cell = (set, act, fmt) => { const off = set && act && Math.abs(act - set) / set > 0.2; return `<td title="Set up ${esc(fmt(set))}, actual ${esc(fmt(act))}" style="${off ? "background:var(--attention-bg); font-weight:700" : ""}">${fmt(set)}<br><span class="muted">${fmt(act)}</span></td>`; };
+  const rows = WDS.map(w => {
+    const a = acc[w], s = m0.setup[w] || {}; if (!a.n) return "";
+    const lc = a.lc / a.n, dc = a.dc / a.n, cov = a.lc + a.dc;
+    const setBlendFood = (s[4] * s[6] + s[5] * s[7]) / Math.max(1, s[4] + s[5]), setBlendBev = (s[4] * s[10] + s[5] * s[11]) / Math.max(1, s[4] + s[5]);
+    return `<tr><td>${w}<br><span class="muted">${a.n} days</span></td>
+      ${cell(s[12], a.rooms / a.n, v => g(v, 1))}${cell(s[2], a.guests / Math.max(1, a.rooms), v => g(v, 2))}${cell(s[3], a.bfast / Math.max(1, a.guests), v => g(v, 2))}
+      ${cell(s[4], lc, v => g(v, 0))}${cell(s[5], dc, v => g(v, 0))}${cell(setBlendFood, a.food / Math.max(1, cov), money)}${cell(setBlendBev, a.bev / Math.max(1, cov), money)}${cell(s[14], a.bfrev / Math.max(1, a.bfast), money)}${cell(s[15], a.rrev / Math.max(1, a.rooms), money)}</tr>`;
+  }).join("");
+  return `<div class="card"><h3>Does the set up match what happened?</h3>
+    <p class="muted" style="margin:0 0 10px; font-size:13px">Each weekday, the set-up figure above the figure from the ${days} finished days in this month and the two before. Shaded where they are more than a fifth apart. Food and drinks are per cover, lunch and dinner together, because the End of Day report puts all restaurant food and drink against dinner so they cannot be split. Drinks per cover includes bar-only trade, which has no covers.</p>
+    <div class="scrollx"><table class="su"><thead><tr><th></th><th>Rooms sold</th><th>Guests per room</th><th>Breakfasts per guest</th><th>Lunch covers</th><th>Dinner covers</th><th>Food per cover</th><th>Drinks per cover</th><th>Breakfast spend</th><th>Rate per room sold</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+}
+
 function bindMonthBar(){
   $$("#views [data-mv]").forEach(b => b.onclick = () => goMonth(b.dataset.mv === "today" ? todayYmd().slice(0, 7) : addMonths(S.ym, +b.dataset.mv)));
   const mp = $("#mpick"); if (mp) mp.onchange = () => goMonth(mp.value);
@@ -627,6 +686,119 @@ function jumpHit(){
 }
 function stepHit(d){ const w = S.wb; if (!w || !w.hits.length) return; w.hitIdx = (w.hitIdx + d + w.hits.length) % w.hits.length; jumpHit(); }
 
+/* ------------------------------------------------------------------ periods */
+// This year ran on 4 and 5 week trading periods; from January 2027 it is calendar months. The periods are listed (Periods tab, administrators); any date after the last
+// period is reviewed as a calendar month. The same table can also be read month by month or week by week.
+S.pview = lsGet("fc_pview", "periods"); S.hist = {}; S.histKey = ""; S.pOpen = {}; S.pdraft = null;
+const dAdd = (d, n) => addDays(d, n);
+const dMon = d => { const dt = new Date(d + "T00:00:00Z"), k = (dt.getUTCDay() + 6) % 7; return dAdd(d, -k); };
+const eomOf = ym => dAdd(addMonths(ym, 1) + "-01", -1);
+const fmtD = d => new Date(d + "T00:00:00Z").toLocaleDateString("en-GB", { day:"numeric", month:"short", timeZone:"UTC" });
+const fmtDY = d => new Date(d + "T00:00:00Z").toLocaleDateString("en-GB", { day:"numeric", month:"short", year:"numeric", timeZone:"UTC" });
+function firstSetupDay(){ const m = S.data.months.map(x => x.month.slice(0, 7)).sort()[0]; return m ? m + "-01" : "9999-12-31"; }
+
+async function ensureHistory(from, to){
+  const firstSet = firstSetupDay(); if (from >= firstSet) return;
+  const end = dAdd(firstSet, -1) < to ? dAdd(firstSet, -1) : to, key = from + ">" + end;
+  if (S.histKey === key) return;
+  const d = await call("history", { from, to:end }); S.hist = {}; for (const r of d.days) S.hist[r.date] = r; S.histKey = key;
+}
+const dayCache = {};
+function monthIndex(ym){ const k = ym + ":" + S.pending.size + ":" + S.data.days.length + ":" + (S.data.months.find(m => m.month.slice(0, 7) === ym)?.month || ""); if (dayCache[ym]?.k === k) return dayCache[ym].map; const res = calc(ym, false); const map = {}; if (res) for (const c of res.days) map[c.date] = c; dayCache[ym] = { k, map }; return map; }
+// one day's headline figures, from this tile's own calculation where the month is set up, otherwise from the dashboard's daily actuals
+function dayFig(date){
+  const c = monthIndex(date.slice(0, 7))[date];
+  if (c) return { rooms:c.rooms_fc, avail:c.rooms_avail, rrev:c.rev_rooms, fb:c.rev_food + c.rev_bev, oth:c.rev_hire + c.rev_other, tot:c.rev_total, wages:c.wages_total, fin:!!dayRow(date)?.actual };
+  const h = S.hist[date]; if (!h || h.has_actual === false) return null;
+  const L = S.data.labour || {}, n = x => Number(x) || 0, hol = L.holiday || 1.1207, on = L.oncost || 1.15;
+  const wages = (n(h.payroll_boh) + n(h.payroll_foh) + n(h.payroll_hk) + n(h.payroll_maint)) * hol * on + n(h.payroll_office) * on;
+  return { rooms:n(h.rooms_actual), avail:S.data.capacity || 18, rrev:n(h.rooms_revenue_actual), fb:n(h.food_revenue_actual) + n(h.beverage_revenue_actual), oth:n(h.other_revenue_actual), tot:n(h.total_revenue_actual), wages, fin:true };
+}
+function sumRange(from, to){
+  const t = { days:0, fin:0, rooms:0, avail:0, rrev:0, fb:0, oth:0, tot:0, wages:0, gaps:0 };
+  for (let d = from; d <= to; d = dAdd(d, 1)) { const f = dayFig(d); t.days++; if (!f) { t.gaps++; continue; } if (f.fin) t.fin++; t.rooms += f.rooms; t.avail += f.avail; t.rrev += f.rrev; t.fb += f.fb; t.oth += f.oth; t.tot += f.tot; t.wages += f.wages; }
+  return t;
+}
+function periodRows(){
+  const per = [...(S.data.periods || [])].sort((a, b) => a.start_day.localeCompare(b.start_day)), out = [];
+  const lastSet = S.data.months.map(x => x.month.slice(0, 7)).sort().pop() || S.ym;
+  if (S.pview === "periods") {
+    for (const p of per) out.push({ label:p.label, from:p.start_day, to:p.end_day, kind:"period" });
+    let from = per.length ? dAdd(per[per.length - 1].end_day, 1) : addMonths(todayYmd().slice(0, 7), -3) + "-01";
+    while (from.slice(0, 7) <= lastSet) { const ym = from.slice(0, 7), e = eomOf(ym); out.push({ label:monthName(ym) + (from.endsWith("-01") ? "" : " (from " + fmtD(from) + ")"), from, to:e, kind:"month" }); from = dAdd(e, 1); }
+  } else if (S.pview === "months") {
+    const start = per.length ? per[0].start_day.slice(0, 7) : addMonths(todayYmd().slice(0, 7), -3);
+    for (let ym = start; ym <= lastSet; ym = addMonths(ym, 1)) out.push({ label:monthName(ym), from:ym + "-01", to:eomOf(ym), kind:"month" });
+  } else {
+    const from = dMon(per.length ? per[0].start_day : addMonths(todayYmd().slice(0, 7), -1) + "-01"), end = eomOf(lastSet);
+    for (let w = from; w <= end && out.length < 160; w = dAdd(w, 7)) out.push({ label:"Wk " + fmtD(w), from:w, to:dAdd(w, 6), kind:"week" });
+  }
+  return out;
+}
+function periodTable(rows){
+  const cell = (v, f) => v ? f(v) : "–";
+  const line = (r, sub) => {
+    const t = sumRange(r.from, r.to), has = t.days - t.gaps;
+    const status = !has ? `<span class="muted">no data</span>` : t.fin === t.days ? `<span class="tag good">actual</span>` : t.fin ? `<span class="tag warn">${t.fin} of ${t.days} days actual</span>` : `<span class="tag">forecast</span>`;
+    return `<tr class="${sub ? "sub" : "prow"}" ${sub ? "" : `data-pk="${r.from}"`} style="${sub ? "" : "cursor:pointer"}"><td>${sub ? "&nbsp;&nbsp;&nbsp;" : (S.pOpen[r.from] ? "▾ " : "▸ ")}<b>${esc(r.label)}</b><br><span class="muted" style="font-size:12px">${fmtD(r.from)} to ${fmtDY(r.to)} &middot; ${t.days} days${t.gaps ? `, ${t.gaps} without figures` : ""}</span></td><td>${status}</td>
+      <td>${cell(t.rooms, FMTS.n0)}</td><td>${t.avail ? FMTS.pct(t.rooms / t.avail) : "–"}</td><td>${t.rooms ? FMTS.gbp2(t.rrev / t.rooms) : "–"}</td><td>${cell(t.rrev, FMTS.gbp)}</td><td>${cell(t.fb, FMTS.gbp)}</td><td>${cell(t.oth, FMTS.gbp)}</td><td><b>${cell(t.tot, FMTS.gbp)}</b></td>
+      <td>${t.wages ? FMTS.gbp(t.wages) : "–"}</td><td>${t.wages && t.tot ? FMTS.pct(t.wages / t.tot) : "–"}</td><td>${t.wages ? FMTS.gbp(t.tot - t.wages) : "–"}</td></tr>`;
+  };
+  let html = "";
+  for (const r of rows) {
+    html += line(r, false);
+    if (S.pOpen[r.from] && r.kind !== "week") for (let w = dMon(r.from); w <= r.to; w = dAdd(w, 7)) { const a = w < r.from ? r.from : w, b = dAdd(w, 6) > r.to ? r.to : dAdd(w, 6); html += line({ label:"Week of " + fmtD(w), from:a, to:b }, true); }
+  }
+  const all = rows.length ? sumRange(rows[0].from, rows[rows.length - 1].to) : null;
+  return `<div class="card scrollx"><table class="dt"><thead><tr><th>${S.pview === "periods" ? "Period" : S.pview === "months" ? "Month" : "Week"}</th><th>Figures</th><th>Rooms sold</th><th>Occupancy</th><th>ARR</th><th>Rooms</th><th>Food &amp; drink</th><th>Hire &amp; other</th><th>Total revenue</th><th>Wages</th><th>Labour %</th><th>Revenue less wages</th></tr></thead><tbody>${html}</tbody></table></div>
+   <p class="muted" style="font-size:13px; margin:0 0 12px">Finished days are actual, the rest are the forecast as it stands. Before September 2026 only the dashboard's daily actuals exist, with food and drink together and no wages. ${all ? "" : ""}Click a row to see its weeks.</p>`;
+}
+async function viewPeriods(){
+  const first = (S.data.periods || [])[0]?.start_day || addMonths(todayYmd().slice(0, 7), -1) + "-01";
+  $("#views").innerHTML = `<div class="loading">Loading the periods…</div>`;
+  try { await ensureHistory(first, addMonths(todayYmd().slice(0, 7), 12) + "-28"); } catch (e) { toast(e.message, true); }
+  const admin = S.me.admin, per = S.data.periods || [];
+  const seg = (k, l) => `<button data-pv="${k}" aria-pressed="${S.pview === k}" class="btn small ${S.pview === k ? "" : "ghost"}">${l}</button>`;
+  $("#views").innerHTML = `<div class="mbar"><h2 style="text-align:left">Periods</h2><span class="spacer"></span><div class="tbar" style="margin:0">${seg("periods", "Trading periods")}${seg("months", "Calendar months")}${seg("weeks", "Weeks")}</div></div>
+    ${per.length ? "" : `<div class="notice">No trading periods are set up yet. ${admin ? "Add them below" : "An administrator needs to add them"}; until then this shows calendar months.</div>`}
+    ${periodTable(periodRows())}
+    <div class="card"><h3>Period set up</h3>
+      <p class="muted" style="margin:0 0 10px">List the trading periods (this year's 4 and 5 week ones). After the last period, every date is reviewed as a calendar month, so January 2027 onwards needs nothing here.${admin ? "" : " (You can look but not change.)"}</p>
+      <div id="pdTable"></div>
+      ${admin ? `<div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px"><button class="btn small ghost" id="pdAdd">Add a period</button><button class="btn" id="pdSave">Save periods</button></div>
+      <h4 style="font-size:18px; color:var(--sage); margin:16px 0 6px">Fill the list from a pattern</h4>
+      <p class="muted" style="margin:0 0 8px; font-size:13px">Give the first day of period 1 and how many weeks each period has, in order (for example 4,4,5 repeats as 4, 4, 5, 4, 4, 5 ...). It fills the list up to the last date you give; you can then change any date by hand before saving.</p>
+      <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end">
+        <div class="field" style="margin:0"><label>Period 1 starts</label><input type="date" id="pgStart"></div>
+        <div class="field" style="margin:0"><label>Weeks in each period</label><input id="pgPat" value="4,4,5" style="width:140px"></div>
+        <div class="field" style="margin:0"><label>Last date</label><input type="date" id="pgEnd" value="${todayYmd().slice(0, 4)}-12-31"></div>
+        <button class="btn small ghost" id="pgGo">Fill the list</button></div>` : ""}
+    </div>`;
+  S.pdraft = per.map(p => ({ label:p.label, start:p.start_day, end:p.end_day }));
+  drawDraft(); bindPeriods();
+}
+function drawDraft(){
+  const admin = S.me.admin, box = $("#pdTable"); if (!box) return;
+  box.innerHTML = S.pdraft.length ? `<table class="dt"><thead><tr><th>Name</th><th>First day</th><th>Last day</th><th>Weeks</th>${admin ? "<th></th>" : ""}</tr></thead><tbody>${S.pdraft.map((p, i) => `<tr><td><input data-pi="${i}" data-pf="label" value="${esc(p.label)}" style="width:110px" ${admin ? "" : "disabled"}></td><td><input type="date" data-pi="${i}" data-pf="start" value="${esc(p.start)}" ${admin ? "" : "disabled"}></td><td><input type="date" data-pi="${i}" data-pf="end" value="${esc(p.end)}" ${admin ? "" : "disabled"}></td><td>${p.start && p.end ? Math.round(((Date.parse(p.end) - Date.parse(p.start)) / 86400000 + 1) / 7 * 10) / 10 : ""}</td>${admin ? `<td><button class="linkbtn" data-pdel="${i}">Remove</button></td>` : ""}</tr>`).join("")}</tbody></table>` : `<div class="muted">No periods yet.</div>`;
+  $$("#pdTable [data-pi]").forEach(i => i.onchange = () => { S.pdraft[+i.dataset.pi][i.dataset.pf] = i.value; if (i.dataset.pf !== "label") drawDraft(); });
+  $$("#pdTable [data-pdel]").forEach(b => b.onclick = () => { S.pdraft.splice(+b.dataset.pdel, 1); drawDraft(); });
+}
+function bindPeriods(){
+  $$("[data-pv]").forEach(b => b.onclick = () => { S.pview = b.dataset.pv; lsSet("fc_pview", S.pview); viewPeriods(); });
+  $$("tr.prow").forEach(r => r.onclick = () => { S.pOpen[r.dataset.pk] = !S.pOpen[r.dataset.pk]; const y = window.scrollY; viewPeriods().then(() => window.scrollTo(0, y)); });
+  const add = $("#pdAdd"); if (add) add.onclick = () => { const last = S.pdraft[S.pdraft.length - 1]; const st = last ? dAdd(last.end, 1) : todayYmd(); S.pdraft.push({ label:"P" + (S.pdraft.length + 1), start:st, end:dAdd(st, 27) }); drawDraft(); };
+  const go = $("#pgGo"); if (go) go.onclick = () => {
+    const st = $("#pgStart").value, end = $("#pgEnd").value, pat = $("#pgPat").value.split(/[,\s]+/).map(Number).filter(n => n > 0);
+    if (!st || !end || !pat.length) return toast("Give the first day, the weeks in each period and the last date.", true);
+    const out = []; let s0 = st, i = 0;
+    while (s0 <= end && out.length < 60) { const w = pat[i % pat.length], e = dAdd(s0, w * 7 - 1); out.push({ label:"P" + (i + 1), start:s0, end:e }); s0 = dAdd(e, 1); i++; }
+    S.pdraft = out; drawDraft(); toast(`${out.length} periods listed. Check the dates, then Save periods.`);
+  };
+  const sv = $("#pdSave"); if (sv) sv.onclick = async () => {
+    try { await call("periods.save", { periods:S.pdraft }); const d = await call("load", { from:S.range.from + "-01", to:S.range.from + "-01" }); S.data.periods = d.periods; toast("Periods saved."); viewPeriods(); } catch (e) { toast(e.message, true); }
+  };
+}
+
 /* ------------------------------------------------------------------ shell */
 async function goMonth(ym){
   if (S.pending.size && !confirm("You have changes that are not saved. Leave them behind?")) return;
@@ -639,6 +811,7 @@ async function go(v){
   if (!S.data) return;
   if (v === "month") { await loadLock(); viewMonth(); }
   else if (v === "summary") viewSummary();
+  else if (v === "periods") viewPeriods();
   else if (v === "imports") viewImports();
   else if (v === "setup") viewSetup();
   else if (v === "workbook") viewWorkbook();
