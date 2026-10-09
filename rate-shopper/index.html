@@ -116,7 +116,9 @@ nav.tabs{background:var(--sage-dark)}
 .rmtab .up{color:var(--bad); font-weight:700} .rmtab .down{color:var(--good); font-weight:700}
 .evsel{font:inherit; font-weight:700; font-size:12.5px; padding:5px 8px; border-radius:99px; border:1px solid var(--celadon); background:#fff; cursor:pointer}
 .evsel.high{background:#F4C9C1; border-color:#C98A80} .evsel.medium{background:#FBE3B4; border-color:#D9B261} .evsel.low{background:#DDE8D5; border-color:#A9C29B} .evsel.none{background:#EEEEEA; color:#6b6b66}
-.evsel.ed{box-shadow:0 0 0 2px #C9A400 inset}
+.evsel.ed{box-shadow:0 0 0 2px #C9A400 inset} .evsel.dirty{outline:2px solid #3b6ea5; outline-offset:1px}
+.evsave{display:flex; gap:10px; flex-wrap:wrap; align-items:center; padding:10px 16px}
+.evfloat{position:fixed; right:16px; bottom:calc(16px + env(safe-area-inset-bottom, 0px)); z-index:60; box-shadow:0 8px 24px rgba(38,38,38,.3)}
 .evsrc{font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--sage-70); border:1px solid var(--mist); border-radius:99px; padding:0 6px; margin-left:6px; white-space:nowrap}
 .evname{white-space:normal !important; text-align:left !important; min-width:240px}
 .evname small{display:block; color:var(--sage-70); font-size:12px}
@@ -538,7 +540,18 @@ document.addEventListener("click", async e => {
     else if (act === "mnext") await showMonth(monthAdd(S.month, 1));
     else if (act === "rmcsv") rmCsv(b.dataset.all === "1");
     else if (act === "pureload") { PU.loading = false; await loadPickup(); }
-    else if (act === "evrev") { const ev = EV.list.find(x => x.id === id); await call("events.set_impact", { id, impact: null }); ev.impact = null; ev.shown = ev.suggested; renderEvents(); toast("Back to the suggestion."); }
+    else if (act === "evrev") { const ev = EV.list.find(x => x.id === id); if (ev.suggested === ev.shown) EV.pending.delete(id); else EV.pending.set(id, ev.suggested); renderEventsKeep(); }
+    else if (act === "evdiscard") { EV.pending.clear(); renderEventsKeep(); }
+    else if (act === "evsave") {
+      if (!EV.pending.size) return;
+      const changes = [...EV.pending].map(([id, v]) => { const ev = EV.list.find(x => x.id === id); return { id, impact: ev && v === ev.suggested ? null : v }; });
+      b.disabled = true; const msg = $("#ev_savemsg"); if (msg) msg.textContent = "Saving...";
+      try {
+        const r = await call("events.set_impacts", { changes });
+        for (const c of changes) { const ev = EV.list.find(x => x.id === c.id); if (ev) { ev.impact = c.impact; ev.shown = c.impact || ev.suggested; } }
+        EV.pending.clear(); renderEventsKeep(); toast(`Saved ${r.saved} change${r.saved === 1 ? "" : "s"}.`);
+      } catch(err){ toast(err.message, true); b.disabled = false; if (msg) msg.textContent = err.message; }
+    }
     else if (act === "evdel") { await call("events.remove", { id }); EV.list = EV.list.filter(x => x.id !== id); renderEvents(); toast("Removed."); }
     else if (act === "evadd") { EV.addOpen = !EV.addOpen; renderEvents(); }
     else if (act === "evaddsave") {
@@ -555,7 +568,7 @@ document.addEventListener("click", async e => {
     }
     else if (act === "rmesave") {
       const v = id => $("#" + id), msg = $("#rme_msg"); msg.textContent = "Saving...";
-      const r = await call("ratemgmt.settings", { floor: Number(v("rme_floor").value), adr_target: Number(v("rme_adr").value) / 100, yield_from: v("rme_yield").value, max_move: Number(v("rme_move").value) / 100, email_on: v("rme_email").checked, soldout_alerts: v("rme_sold").checked, enabled: v("rme_on").checked });
+      const r = await call("ratemgmt.settings", { floor: Number(v("rme_floor").value), adr_target: Number(v("rme_adr").value) / 100, yield_from: v("rme_yield").value, max_move: Number(v("rme_move").value) / 100, email_on: v("rme_email").checked, soldout_alerts: v("rme_sold").checked, events_on: v("rme_ev").checked, event_high: Number(v("rme_evh").value) / 100, event_medium: Number(v("rme_evm").value) / 100, enabled: v("rme_on").checked });
       RM.meta.engine.settings = r.settings; msg.textContent = "Saved. It takes effect the next time the model runs (tonight, or press Run the model now)."; toast("Model settings saved.");
     }
     else if (act === "rmerun") {
@@ -680,6 +693,9 @@ function rmEngine(){
       <label class="small">Fill mode until, then Yield mode<br><input id="rme_yield" type="date" value="${esc(String(st.yield_from).slice(0, 10))}"${dis} style="width:100%"></label>
       <label class="small">Biggest move on a night, %<br><input id="rme_move" type="number" min="5" max="50" step="1" value="${Math.round(Number(st.max_move) * 100)}"${dis} style="width:100%"></label>
       <label class="small" style="display:flex; gap:6px; align-items:center"><input type="checkbox" id="rme_email"${st.email_on !== false ? " checked" : ""}${dis}> Email me when changes are waiting</label>
+      <label class="small" style="display:flex; gap:6px; align-items:center"><input type="checkbox" id="rme_ev"${st.events_on !== false ? " checked" : ""}${dis}> Use local events (Events in the area) in the prices</label>
+      <label class="small">Rate rise for a High impact event, %<br><input id="rme_evh" type="number" min="0" max="30" step="0.5" value="${(Number(st.event_high ?? 0.08) * 100).toFixed(1)}"${dis} style="width:100%"></label>
+      <label class="small">Rate rise for a Medium impact event, %<br><input id="rme_evm" type="number" min="0" max="30" step="0.5" value="${(Number(st.event_medium ?? 0.04) * 100).toFixed(1)}"${dis} style="width:100%"></label>
       <label class="small" style="display:flex; gap:6px; align-items:center"><input type="checkbox" id="rme_sold"${st.soldout_alerts !== false ? " checked" : ""}${dis}> Email me when a night sells out</label>
       <label class="small" style="display:flex; gap:6px; align-items:center"><input type="checkbox" id="rme_on"${st.enabled !== false ? " checked" : ""}${dis}> Run every night</label>
     </div>
@@ -731,29 +747,49 @@ function rmCsv(all){
   a.href = URL.createObjectURL(blob); a.download = `BLACKHORSE_RACK_${p(t.getDate())}_${p(t.getMonth() + 1)}_${t.getFullYear()} ${p(t.getHours())}_${p(t.getMinutes())}_${p(t.getSeconds())}.csv`;
   document.body.appendChild(a); a.click(); a.remove(); toast(`Downloaded ${pick.length} night${pick.length === 1 ? "" : "s"}.`);
 }
-const EV = { list: [], meta: {}, hideNone: false, loading: false, addOpen: false };
+const EV = { list: [], meta: {}, hideNone: false, loading: false, addOpen: false, pending: new Map() };      // pending: id -> the impact chosen but not saved yet
+const evShown = e => EV.pending.has(e.id) ? EV.pending.get(e.id) : e.shown;
+window.addEventListener("beforeunload", e => { if (EV.pending.size) { e.preventDefault(); e.returnValue = ""; } });
 const EVL = { high: "High", medium: "Medium", low: "Low", none: "None" };
 async function loadEvents(){
   if (EV.loading) return; EV.loading = true;
   $("#v_events").innerHTML = `<div class="pagehead"><h2>Events in the area</h2></div><div class="card"><p class="muted">Loading...</p></div>`;
-  try { const r = await call("events.list", {}); EV.list = r.events; EV.meta = r; renderEvents(); }
+  try { const r = await call("events.list", {}); EV.list = r.events; EV.meta = r; renderEvents(); evRefreshBar(); }
   catch(e){ $("#v_events").innerHTML = `<div class="pagehead"><h2>Events in the area</h2></div><div class="notice bad">${esc(e.message)}</div>`; }
   EV.loading = false;
 }
 function evRow(e, i){
   const dow = rmDow(e.start_date), prev = i > 0 ? EV.list[i - 1].start_date.slice(0, 7) : e.start_date.slice(0, 7), first = e.start_date.slice(0, 7) !== prev;
   const range = e.end_date && e.end_date > e.start_date ? ` <span class="dim">to ${esc(fmtShort(e.end_date).replace(/ 20\d\d$/, ""))}</span>` : "";
-  const ed = e.impact != null;
-  return `<tr class="${dow === "Fri" || dow === "Sat" ? "we" : ""}${first ? " mon" : ""}"><td class="l"><b>${dow}</b></td><td class="l">${esc(fmtShort(e.start_date).replace(/ 20\d\d$/, ""))}${range}</td>
+  const shownNow = evShown(e), ed = EV.pending.has(e.id) ? shownNow !== e.suggested : e.impact != null, dirty = EV.pending.has(e.id);
+  return `<tr id="evr_${e.id}" class="${dow === "Fri" || dow === "Sat" ? "we" : ""}${first ? " mon" : ""}"><td class="l"><b>${dow}</b></td><td class="l">${esc(fmtShort(e.start_date).replace(/ 20\d\d$/, ""))}${range}</td>
     <td class="evname">${e.link ? `<a href="${esc(e.link)}" target="_blank" rel="noopener">${esc(e.name)}</a>` : esc(e.name)}<span class="evsrc" title="${e.source === "researched" && e.confidence ? "Researched list: " + esc(e.confidence) : ""}">${esc(e.source === "google events" ? "google" : e.source === "researched" ? "researched" : e.source)}</span><small>${esc(e.venue || "")}${e.est_attendance ? ` · about ${Number(e.est_attendance).toLocaleString("en-GB")} people` : ""}</small></td>
     <td>${e.distance_miles == null ? `<span class="dim">?</span>` : e.distance_miles.toFixed(1)}</td>
-    <td title="${esc(e.why || "")}">${(S.me && S.me.edit) ? `<select class="evsel ${e.shown}${ed ? " ed" : ""}" data-evid="${e.id}" aria-label="Impact of ${esc(e.name)}">${["high", "medium", "low", "none"].map(k => `<option value="${k}"${e.shown === k ? " selected" : ""}>${EVL[k]}</option>`).join("")}</select>` : `<span class="evsel ${e.shown}">${EVL[e.shown]}</span>`}${ed ? `<button class="rv" type="button" data-act="evrev" data-id="${e.id}" title="Back to the suggestion (${EVL[e.suggested]})">&#8634;</button>` : ""}${e.source === "manual" && S.me && S.me.edit ? `<button class="rv" type="button" data-act="evdel" data-id="${e.id}" title="Remove this event">&#10005;</button>` : ""}</td></tr>`;
+    <td title="${esc(e.why || "")}">${(S.me && S.me.edit) ? `<select class="evsel ${shownNow}${ed ? " ed" : ""}${dirty ? " dirty" : ""}" data-evid="${e.id}" aria-label="Impact of ${esc(e.name)}">${["high", "medium", "low", "none"].map(k => `<option value="${k}"${shownNow === k ? " selected" : ""}>${EVL[k]}</option>`).join("")}</select>` : `<span class="evsel ${e.shown}">${EVL[e.shown]}</span>`}${ed ? `<button class="rv" type="button" data-act="evrev" data-id="${e.id}" title="Back to the suggestion (${EVL[e.suggested]})">&#8634;</button>` : ""}${e.source === "manual" && S.me && S.me.edit ? `<button class="rv" type="button" data-act="evdel" data-id="${e.id}" title="Remove this event">&#10005;</button>` : ""}</td></tr>`;
+}
+function evSaveBarHtml(){
+  const c = EV.pending.size, edit = S.me && S.me.edit;
+  return `<button class="btn" type="button" data-act="evsave"${edit && c ? "" : " disabled"}>${c ? `Save ${c} change${c === 1 ? "" : "s"}` : "Save changes"}</button>
+    <button class="btn ghost" type="button" data-act="evdiscard"${c ? "" : " disabled"}>Discard</button>
+    <span class="hint" id="ev_savemsg">${c ? "Change as many as you like, then press Save. Nothing is saved until you do." : "Pick an impact on any row, then save them all in one go."}</span>`;
+}
+function evRefreshBar(){
+  const bar = $("#evsavebar"); if (bar) bar.innerHTML = evSaveBarHtml();
+  let f = $("#evfloat"); const c = EV.pending.size;
+  if (c && !f) { f = document.createElement("button"); f.id = "evfloat"; f.type = "button"; f.className = "btn evfloat"; f.dataset.act = "evsave"; document.body.appendChild(f); }
+  if (f) { if (c) f.textContent = `Save ${c} change${c === 1 ? "" : "s"}`; else f.remove(); }
+  const sum = $("#v_events .sumstrip"); if (sum) { const n = k => EV.list.filter(e => evShown(e) === k).length; sum.innerHTML = `<div><b>${n("high")}</b><span>High impact</span></div><div><b>${n("medium")}</b><span>Medium</span></div><div><b>${n("low")}</b><span>Low</span></div><div><b>${n("none")}</b><span>None</span></div>`; }
+}
+// redraw the tab but stay where you were on the page and inside the table
+function renderEventsKeep(){
+  const y = window.scrollY, w = $("#v_events .rmwrap"), st = w ? w.scrollTop : 0, sl = w ? w.scrollLeft : 0;
+  renderEvents(); const w2 = $("#v_events .rmwrap"); if (w2) { w2.scrollTop = st; w2.scrollLeft = sl; } window.scrollTo(0, y); evRefreshBar();
 }
 function renderEvents(){
   const m = EV.meta, st = m.settings || {}, edit = S.me && S.me.edit, rows = EV.hideNone ? EV.list.filter(e => e.shown !== "none") : EV.list;
-  const n = k => EV.list.filter(e => e.shown === k).length;
+  const n = k => EV.list.filter(e => evShown(e) === k).length;
   $("#v_events").innerHTML = `<div class="pagehead"><h2>Events in the area</h2></div>
-    <p class="hint" style="margin:-4px 0 10px">Large events within ${st.radius_miles || 30} miles of ${esc(st.home_postcode || "DH9 0RW")} over the next year. The model suggests how much each could lift local demand (and so room sales and rates) from the size of the venue or crowd, how far away it is and the day; change any row and your choice is kept (the arrow puts it back). Hover over a selection to see why it was suggested. This is a guide only: the pricing model does not use it yet.</p>
+    <p class="hint" style="margin:-4px 0 10px">Large events within ${st.radius_miles || 30} miles of ${esc(st.home_postcode || "DH9 0RW")} over the next year. The model suggests how much each could lift local demand (and so room sales and rates), starting from the assumption that most events do not move us. Change as many rows as you like and press Save to keep them all together (the arrow puts a row back to the suggestion). Hover over a selection to see why it was suggested. High and Medium events lift the suggested rate on those nights, by the amounts in the model settings on the Rates management tab, once the night is already firming up.</p>
     <div class="card" style="padding:12px 16px; display:flex; gap:10px; flex-wrap:wrap; align-items:center">
       <label class="small" style="display:flex; gap:6px; align-items:center; cursor:pointer"><input type="checkbox" id="ev_none" ${EV.hideNone ? "checked" : ""}> Hide events with no impact</label>
       <span style="flex:1"></span>
@@ -767,18 +803,20 @@ function renderEvents(){
       <label class="small">Miles from DH9 0RW (if you know)<br><input id="eva_dist" type="number" step="0.5" min="0" style="width:100%"></label>
       <label class="small">Impact<br><select id="eva_imp" style="width:100%"><option value="">Suggest one</option><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option><option value="none">None</option></select></label>
       <div><button class="btn small" type="button" data-act="evaddsave">Add</button> <span class="hint" id="eva_msg"></span></div></div>` : ""}
+    <div class="card evsave" id="evsavebar">${evSaveBarHtml()}</div>
     <div class="sumstrip"><div><b>${n("high")}</b><span>High impact</span></div><div><b>${n("medium")}</b><span>Medium</span></div><div><b>${n("low")}</b><span>Low</span></div><div><b>${n("none")}</b><span>None</span></div></div>
     <div class="rmwrap"><table class="rmtab" style="min-width:640px"><thead><tr><th class="l">Day</th><th class="l">Date</th><th class="l">Event</th><th>Miles from DH9 0RW</th><th>Impact on local demand</th></tr></thead><tbody>${rows.length ? rows.map(e => evRow(e, EV.list.indexOf(e))).join("") : `<tr><td class="l" colspan="5"><span class="dim">No events yet.</span></td></tr>`}</tbody></table></div>
     <p class="hint" style="margin-top:8px">${st.last_check_at ? "Last full check " + esc(rmAt(st.last_check_at)) + ". " : "No full check has finished yet. "}${st.last_check_note ? esc(st.last_check_note) + ". " : ""}It runs by itself about once a month and uses the free search allowance${m.searches_left != null ? ` (${m.searches_left} searches left this month)` : ""}. Events are read from Google's event listings and, if a free Ticketmaster key is added, Ticketmaster; big annual events were also researched by hand. Small events are left out.</p>`;
 }
 document.addEventListener("change", async e => {
   const t = e.target; if (!t) return;
-  if (t.id === "ev_none") { EV.hideNone = t.checked; renderEvents(); return; }
+  if (t.id === "ev_none") { EV.hideNone = t.checked; renderEventsKeep(); return; }
   if (t.dataset && t.dataset.evid) {
     const ev = EV.list.find(x => x.id === t.dataset.evid); if (!ev) return;
-    const v = t.value, back = v === ev.suggested;
-    try { await call("events.set_impact", { id: ev.id, impact: back ? null : v }); ev.impact = back ? null : v; ev.shown = v; renderEvents(); }
-    catch(err){ toast(err.message, true); t.value = ev.shown; }
+    const v = t.value;
+    if (v === ev.shown) EV.pending.delete(ev.id); else EV.pending.set(ev.id, v);               // held until Save is pressed
+    t.className = `evsel ${v}${(EV.pending.has(ev.id) ? v !== ev.suggested : ev.impact != null) ? " ed" : ""}${EV.pending.has(ev.id) ? " dirty" : ""}`;
+    evRefreshBar();
   }
 });
 const PU = { days: [], meta: {}, only: false, loading: false };
@@ -815,6 +853,7 @@ function setTab(name){
   S.tab = tabOf(name);
   $$(".tabbtn").forEach(x => x.setAttribute("aria-current", x.dataset.view === S.tab ? "page" : "false"));
   TABS.forEach(t => { const el = $("#v_" + t); if (el) el.classList.toggle("off", S.tab !== t); });
+  if (S.tab !== "events") { const f = $("#evfloat"); if (f) f.remove(); }
   if (S.tab === "competitors") renderComps();
   if (S.tab === "ratemgmt") loadRm();
   if (S.tab === "pickup") loadPickup();
