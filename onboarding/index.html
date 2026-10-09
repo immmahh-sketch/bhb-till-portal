@@ -475,9 +475,9 @@ async function showForm(id){
       <div class="grid2"><div class="field pay ${ct === "hourly" ? "" : "off"}" id="w_rate"><label for="f_hourly_rate">Hourly rate</label><span class="cur">£</span><input id="f_hourly_rate" type="number" inputmode="decimal" step="0.01" min="0" value="${esc(fieldVal(s, "hourly_rate", ""))}"${dis}><div class="ferr" data-err="hourly_rate"></div></div>
       <div class="field pay ${ct === "salaried" ? "" : "off"}" id="w_sal"><label for="f_salary">Annual salary</label><span class="cur">£</span><input id="f_salary" type="number" inputmode="decimal" step="0.01" min="0" value="${esc(fieldVal(s, "salary", ""))}"${dis}><div class="ferr" data-err="salary"></div></div>
       <div class="field ${ct === "salaried" ? "" : "off"}" id="w_hours"><label for="f_hours">Hours per week</label><input id="f_hours" type="number" inputmode="decimal" step="0.5" min="0" value="${esc(fieldVal(s, "hours", ""))}"${dis}><div class="ferr" data-err="hours"></div></div></div>
-      <div class="grid2" style="margin-top:6px"><div class="field"><span class="lbl">Full or part time</span>${pickTwo("employment_type", fieldVal(s, "employment_type", "full_time"), [["full_time", "Full time"], ["part_time", "Part time"]])}</div>
+      <div class="grid2" style="margin-top:6px"><div class="field"><span class="lbl">Hours</span>${pickTwo("employment_type", fieldVal(s, "employment_type", "full_time"), [["full_time", "Full time"], ["part_time", "Part time"], ["zero_hours", "Zero hours"]])}</div>
       <div class="field"><span class="lbl">Permanent or temporary</span>${pickTwo("term", fieldVal(s, "term", "permanent"), [["permanent", "Permanent"], ["temporary", "Temporary"]])}</div></div>
-      <label class="switch" style="margin-top:4px"><input type="checkbox" id="f_night_work"${fieldVal(s, "night_work", false) ? " checked" : ""}><span><b>Night work</b><br><span class="hint">Tick if they will work nights. It is passed to the health questionnaire.</span></span></label></div>
+</div>
     <div class="card"><h3 style="font-size:23px;margin-bottom:2px">Line manager</h3><div class="hint" style="margin-bottom:10px">Printed on their health form.</div>
       <div class="grid2"><div class="field"><label for="f_line_manager">Name</label><input id="f_line_manager" value="${esc(fieldVal(s, "line_manager", ""))}"></div>
       <div class="field"><label for="f_line_manager_tel">Phone</label><input id="f_line_manager_tel" type="tel" inputmode="tel" value="${esc(fieldVal(s, "line_manager_tel", ""))}"></div></div>
@@ -490,7 +490,7 @@ function formVals(){
   const v = id => { const e = $("#f_" + id); return e ? e.value.trim() : ""; };
   const checked = n => { const e = $(`input[name="${n}"]:checked`); return e ? e.value : ""; };
   const o = { first_name:v("first_name"), last_name:v("last_name"), email:v("email"), mobile:v("mobile"), job_title:v("job_title"), start_date:v("start_date"), contract_type:checked("ct"),
-    work_location:v("work_location"), employment_type:checked("employment_type"), term:checked("term"), night_work:!!$("#f_night_work").checked, line_manager:v("line_manager"), line_manager_tel:v("line_manager_tel"), notes:$("#f_notes").value.trim() };
+    work_location:v("work_location"), employment_type:checked("employment_type"), term:checked("term"), line_manager:v("line_manager"), line_manager_tel:v("line_manager_tel"), notes:$("#f_notes").value.trim() };
   const dd = $("#f_department"), gg = $("#f_group");
   if (dd && dd.tagName === "SELECT") { const opt = dd.selectedOptions[0]; o.department_id = dd.value ? ((S.planday.departments || []).find(x => String(x.id) === dd.value) || { id:dd.value }).id : null; o.department_name = dd.value && opt ? opt.textContent : ""; }
   else if (dd) { o.department_name = dd.value.trim(); }
@@ -696,7 +696,7 @@ function healthHtml(s){
   if (!Object.keys(ans).length && !(h.jobs || []).length) return `<p class="muted">${esc(s.first_name)} has not answered the health questionnaire yet.</p>`;
   const lvName = { risk:"Risk assessment", review:"Read", exclusion:"Do not start" };
   const part = `<div class="sub-h">Employment details on the form</div><dl class="kvs">
-    ${[["Line manager", [s.line_manager, s.line_manager_tel && "tel " + s.line_manager_tel].filter(Boolean).join(", ")], ["Place of work", s.work_location], ["Reason for the questionnaire", "Pre-employment health check"], ["Job", s.job_title], ["Start date", s.start_date ? fmtDay(s.start_date) : ""], ["Full or part time", s.employment_type === "part_time" ? "Part time" : s.employment_type === "full_time" ? "Full time" : ""], ["Night work", s.night_work ? "Yes" : "No"], ["Permanent or temporary", s.term === "temporary" ? "Temporary" : s.term === "permanent" ? "Permanent" : ""]].map(([l, v]) => `<div class="kv nocopy"><dt>${l}</dt><dd>${v ? esc(v) : '<span class="muted">Not given</span>'}</dd></div>`).join("")}</dl>`;
+    ${[["Line manager", [s.line_manager, s.line_manager_tel && "tel " + s.line_manager_tel].filter(Boolean).join(", ")], ["Place of work", s.work_location], ["Reason for the questionnaire", "Pre-employment health check"], ["Job", s.job_title], ["Start date", s.start_date ? fmtDay(s.start_date) : ""], ["Hours", s.employment_type === "part_time" ? "Part time" : s.employment_type === "zero_hours" ? "Zero hours" : s.employment_type === "full_time" ? "Full time" : ""], ["Permanent or temporary", s.term === "temporary" ? "Temporary" : s.term === "permanent" ? "Permanent" : ""]].map(([l, v]) => `<div class="kv nocopy"><dt>${l}</dt><dd>${v ? esc(v) : '<span class="muted">Not given</span>'}</dd></div>`).join("")}</dl>`;
   const secs = S.health.sections.map(sec => `<div class="sub-h">${esc(sec.title)}</div>${sec.questions.map(q => {
     const a = ans[q.id], f = flags[q.id];
     if (q.type === "jobs") { const j = (h.jobs || []).filter(r => r && (r.company || r.role)); return `<div class="q"><div class="qt">${esc(q.text)}</div><div class="qa"></div>${j.length ? `<div class="qd" style="background:#fff;border-left-color:var(--celadon)">${j.map(r => `<div>${esc(r.company || "")}${r.role ? ", " + esc(r.role) : ""}${r.start || r.finish ? ` <span class="muted">(${esc(r.start || "?")} to ${esc(r.finish || "?")})</span>` : ""}</div>`).join("")}</div>` : `<div class="qh">None given</div>`}</div>`; }
@@ -1044,6 +1044,10 @@ function showSettings(){
       <label class="switch"><input type="checkbox" id="s_auto"${st.auto_planday ? " checked" : ""}><span><b>Create the Planday employee automatically when a starter submits</b><br><span class="hint">Off by default. When it is off, you preview and create each employee yourself from their record, which lets you check the details first. ${pd.can_create ? "" : "Planday cannot create employees yet, so this has no effect until it can."}</span></span></label></div>
     <div class="card"><h3 style="font-size:23px;margin-bottom:2px">Who signs the contract for the employer</h3><div class="hint" style="margin-bottom:10px">Shown at the end of each contract.</div>
       <div class="grid2">${f("s_hs", "Hourly contracts: name", st.hourly_signatory)}${f("s_ht", "Hourly contracts: job title", st.hourly_signatory_title)}${f("s_ss", "Salaried contracts: name", st.salaried_signatory)}${f("s_st", "Salaried contracts: job title", st.salaried_signatory_title)}</div></div>
+    <div class="card"><h3 style="font-size:23px;margin-bottom:2px">The employer's signature</h3><div class="hint" style="margin-bottom:10px">Printed above the name on every contract that is signed from now on. Draw it with a finger or the mouse. Contracts already signed are not changed.</div>
+      <div id="sigcur" style="margin-bottom:8px">${st.signatory_signature ? `<img src="${esc(st.signatory_signature)}" alt="Current signature" style="max-width:260px; max-height:90px; background:#fff; border:1px solid var(--mist); border-radius:8px; padding:6px">` : `<span class="muted">No signature saved yet.</span>`}</div>
+      <canvas id="sigpad" width="520" height="170" style="width:100%; max-width:520px; height:auto; aspect-ratio:520/170; background:#fff; border:1px dashed var(--celadon); border-radius:8px; touch-action:none; cursor:crosshair"></canvas>
+      <div class="row-actions" style="margin-top:8px"><button type="button" class="btn small ghost" data-act="sigclear">Clear the pad</button><button type="button" class="btn small" data-act="sigsave">Save this signature</button>${st.signatory_signature ? `<button type="button" class="btn small ghost" data-act="sigremove">Remove the saved signature</button>` : ""}</div></div>
     <div class="formbtns"><button class="btn" data-act="savesettings">Save settings</button></div>
     <div class="sechead">How it works</div>
     <div class="card"><p style="margin-top:0">A new starter gets one link. On their phone, in their own time, they:</p>
@@ -1056,6 +1060,31 @@ function showSettings(){
       <div class="flagbox review" style="padding:10px 14px;margin-bottom:0"><h3 style="font-size:19px">${esc(lv.review || "Manager to read and consider")}</h3><div class="small">Worth knowing, such as allergies or medicines. No formal assessment is needed.</div></div>
       <div class="row-actions" style="margin-top:14px"><a class="btn small ghost" href="forms/Individual_Health_Risk_Assessment.docx" target="_blank" rel="noopener">Open the risk assessment form</a></div>
       <div class="conf">Health information is confidential: only share what the manager of this person needs.</div></div>`;
+  initSigPad();
+}
+/* The employer's signature pad (Settings). Draws on a transparent canvas; saved as a PNG that is printed above the signatory's name on each contract. */
+function initSigPad(){
+  const c = $("#sigpad"); if (!c) return;
+  const g = c.getContext("2d"); g.lineWidth = 3.2; g.lineCap = "round"; g.lineJoin = "round"; g.strokeStyle = "#1d2a44";
+  let down = false, last = null; S.sigInk = false;
+  const pt = e => { const r = c.getBoundingClientRect(); return { x:(e.clientX - r.left) * c.width / r.width, y:(e.clientY - r.top) * c.height / r.height }; };
+  c.onpointerdown = e => { e.preventDefault(); down = true; last = pt(e); c.setPointerCapture(e.pointerId); g.beginPath(); g.moveTo(last.x, last.y); g.lineTo(last.x + 0.01, last.y + 0.01); g.stroke(); S.sigInk = true; };
+  c.onpointermove = e => { if (!down) return; e.preventDefault(); const p = pt(e); g.beginPath(); g.moveTo(last.x, last.y); g.lineTo(p.x, p.y); g.stroke(); last = p; };
+  const up = () => { down = false; };
+  c.onpointerup = up; c.onpointercancel = up; c.onpointerleave = up;
+}
+async function saveSignature(remove){
+  let png = "";
+  if (!remove) {
+    const c = $("#sigpad"); if (!c || !S.sigInk) return toast("Draw the signature first.", true);
+    // trim the empty margin so it prints at a sensible size
+    const g = c.getContext("2d"), d = g.getImageData(0, 0, c.width, c.height).data; let x0 = c.width, y0 = c.height, x1 = 0, y1 = 0;
+    for (let y = 0; y < c.height; y++) for (let x = 0; x < c.width; x++) if (d[(y * c.width + x) * 4 + 3] > 8) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    const pad = 8, w = Math.min(c.width, x1 - x0 + 2 * pad), h = Math.min(c.height, y1 - y0 + 2 * pad), t = document.createElement("canvas"); t.width = w; t.height = h;
+    t.getContext("2d").drawImage(c, Math.max(0, x0 - pad), Math.max(0, y0 - pad), w, h, 0, 0, w, h); png = t.toDataURL("image/png");
+  }
+  const r = await call("settings.save", { signatory_signature: png });
+  S.settings = r.settings || S.settings; toast(remove ? "Signature removed." : "Signature saved. It will print on contracts signed from now on."); showSettings();
 }
 async function saveSettings(){
   const emails = $("#s_notify").value.split(/[\s,;]+/).map(x => x.trim()).filter(Boolean), bad = emails.filter(x => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x));
@@ -1124,6 +1153,9 @@ document.addEventListener("click", async e => {
     if (a === "preview") { busy(true); try { await previewContract(); } finally { busy(false); } return; }
     if (a === "save" || a === "savesend") { busy(true); try { await saveForm(a === "savesend"); } finally { if (document.body.contains(b)) busy(false); } return; }
     if (a === "savesettings") { busy(true); try { await saveSettings(); } finally { busy(false); } return; }
+    if (a === "sigclear") { const c = $("#sigpad"); if (c) { c.getContext("2d").clearRect(0, 0, c.width, c.height); S.sigInk = false; } return; }
+    if (a === "sigsave") { busy(true); try { await saveSignature(false); } finally { busy(false); } return; }
+    if (a === "sigremove") { busy(true); try { await saveSignature(true); } finally { busy(false); } return; }
     if (a === "copy") { const ok = await copyText(b.dataset.v); return toast(ok ? "Copied." : "Could not copy. Select the text and copy it by hand.", !ok); }
     if (a === "copyfield") { const f = $("#linkfield"); const ok = await copyText(f.value); if (!ok) { f.focus(); f.select(); } return toast(ok ? "Link copied." : "Press Ctrl+C (or hold and copy) to copy the link.", !ok); }
     if (a === "send") {

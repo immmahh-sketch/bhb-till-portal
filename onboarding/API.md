@@ -37,7 +37,7 @@ Newest first. `open` = everything except `complete` and `cancelled`.
 ### `starter.save` { id?, ...fields } -> `{ starter: Full }`
 Creates (no `id`) or updates (editable until `submitted`). Fields:
 `first_name last_name email mobile job_title department_id department_name group_id group_name start_date (YYYY-MM-DD)
-contract_type ('hourly'|'salaried') hourly_rate salary hours work_location employment_type ('full_time'|'part_time') night_work (bool)
+contract_type ('hourly'|'salaried') hourly_rate salary hours work_location employment_type ('full_time'|'part_time'|'zero_hours')
 term ('permanent'|'temporary') line_manager line_manager_tel notes`.
 Rules: hourly needs `hourly_rate`; salaried needs `salary` and `hours`. A changed contract after the starter has signed is refused.
 
