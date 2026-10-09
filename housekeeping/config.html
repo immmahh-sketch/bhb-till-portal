@@ -90,6 +90,16 @@ nav.tabs{background:var(--sage-dark)}
 .confirmbox{background:var(--red-bg); border:1px solid var(--red); border-radius:8px; padding:10px 12px; margin-top:8px; font-size:13.5px}
 .confirmbox .row-actions{margin-top:8px}
 .badge{font-size:10.5px; letter-spacing:.1em; text-transform:uppercase; font-weight:700; padding:3px 9px; border-radius:99px; background:var(--sage-10); color:var(--sage); white-space:nowrap; display:inline-block}
+button.badge{border:0; font-family:inherit; cursor:pointer} button.badge.issue:hover{text-decoration:underline; filter:brightness(.97)}
+.issveil{position:fixed; inset:0; z-index:800; background:rgba(38,38,38,.5); display:flex; align-items:flex-start; justify-content:center; padding:16px; overflow:auto}
+.issbox{background:#fff; border-radius:12px; max-width:520px; width:100%; margin:auto; box-shadow:0 18px 50px rgba(0,0,0,.35); overflow:hidden}
+.issbox h3{margin:0; padding:16px 20px; background:var(--sage); color:#fff; font-size:20px}
+.issbox .ib{padding:6px 20px 16px} .issbox .job{padding:12px 0; border-bottom:1px solid var(--mist)} .issbox .job:last-child{border-bottom:0}
+.issbox .jt{font-weight:700} .issbox .jm{font-size:12.5px; color:#6b6b6b; margin-top:2px} .issbox .jd{margin-top:6px; white-space:pre-wrap}
+.issbox .st{display:inline-block; font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; font-weight:700; border-radius:99px; padding:2px 9px; margin-left:6px; background:var(--red-bg); color:var(--red)} .issbox .st.completed{background:var(--sage-10); color:var(--sage)}
+.issbox .if{padding:12px 20px 18px; text-align:right}
+.btn.checkedout{background:var(--sage); border-color:var(--sage); color:#fff}
+.badge.issue,.badge.gone{}
 .badge.gone{background:var(--mist); color:#6b6b6b} .badge.manual{background:var(--blue-bg); color:var(--blue)} .badge.issue{background:var(--red-bg); color:var(--red)}
 .pill{font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; font-weight:800; padding:3px 10px; border-radius:99px; white-space:nowrap; display:inline-block}
 .pill.departure{background:var(--sage); color:#fff} .pill.stayover{background:var(--blue-bg); color:var(--blue); box-shadow:inset 0 0 0 1px #b9cddd} .pill.none{background:var(--mist); color:#5c635c}
@@ -606,7 +616,7 @@ setInterval(() => { document.querySelectorAll(".elapsed[data-since]").forEach(el
 function cardHtml(t){
   const id = esc(t.id), cleaned = !!t.cleaned_at, checked = !!t.checked_at, gone = !!t.gone, conf = S.ui.confirm[t.id];
   const cls = ["rm", t.kind, cleaned ? "cl" : "", checked ? "ck" : "", gone ? "gone" : ""].filter(Boolean).join(" ");
-  const badges = (gone ? `<span class="badge gone">No longer on the report</span>` : "") + (t.manual ? `<span class="badge manual">Added by hand</span>` : "") + (t.issues > 0 ? `<span class="badge issue">${plural(t.issues, "maintenance issue")}</span>` : "");
+  const badges = (gone ? `<span class="badge gone">No longer on the report</span>` : "") + (t.manual ? `<span class="badge manual">Added by hand</span>` : "") + (t.issues > 0 ? `<button type="button" class="badge issue" data-act="issues" data-id="${esc(t.id)}" title="See what was logged">${plural(t.issues, "maintenance issue")}</button>` : "");
   const took = t.took_minutes != null ? ` Took ${fmtMins(t.took_minutes)}${t.minutes ? " (allowed " + fmtMins(t.minutes) + ")" : ""}.` : "";
   const startedTxt = t.started_at ? `Started at ${esc(fmtTime(t.started_at))}${t.started_by ? " by " + esc(t.started_by) : ""}.` : "";
   let status;
@@ -616,6 +626,9 @@ function cardHtml(t){
   else status = `<div class="stline todo">Not started</div>`;
   if (cleaned && t.feedback === "fix") status += `<div class="fbline fix"><b>Needs correcting:</b> ${esc(t.feedback_note || "")}</div>` + (t.fixed_at ? `<div class="fbline fixed">${esc(t.fixed_by || "The cleaner")} says it is fixed (${esc(fmtTime(t.fixed_at))}). Please look again.</div>` : `<div class="stsub">Waiting for the cleaner to fix it</div>`);
   let acts = "";
+  if (!gone && t.kind === "departure") acts += t.checked_out_at
+    ? `<button class="btn small checkedout" type="button" data-act="checkout" data-on="0" data-id="${id}" data-fk="co:${id}" title="Confirmed by ${esc(t.checked_out_by || "the head housekeeper")} at ${esc(fmtTime(t.checked_out_at))}. Press to take it off.">&#10003; Checked out ${esc(fmtTime(t.checked_out_at))}</button>`
+    : `<button class="btn small gold" type="button" data-act="checkout" data-on="1" data-id="${id}" data-fk="co:${id}" title="Confirm the guest has left, so the cleaners can see the room is ready">Checked out?</button>`;
   const fixOpen = !!S.ui.fixOpen[t.id];
   if (!gone) {
     if (cleaned && !fixOpen) {
@@ -973,6 +986,22 @@ async function deleteTeam(tid, btn){
   S.ui.teamConfirm = null; if (!r) { renderTeamList(); return; }
   S.teams = r.teams || S.teams.filter(x => x.id !== tid); renderTeamList(); refreshAllCells(); toast("Team removed.");
 }
+async function openIssues(t){
+  const veil = document.createElement("div"); veil.className = "issveil"; veil.innerHTML = `<div class="issbox" role="dialog" aria-modal="true" aria-label="Maintenance issues, room ${esc(t.room)}"><h3>Room ${esc(t.room)}: maintenance issues</h3><div class="ib"><p class="muted">Loading...</p></div><div class="if"><button class="btn small ghost" type="button" id="issclose">Close</button></div></div>`;
+  document.body.appendChild(veil);
+  const close = () => { veil.remove(); document.removeEventListener("keydown", onKey); };
+  const onKey = e => { if (e.key === "Escape") close(); };
+  document.addEventListener("keydown", onKey);
+  veil.addEventListener("click", e => { if (e.target === veil) close(); });
+  veil.querySelector("#issclose").onclick = close; veil.querySelector("#issclose").focus();
+  try {
+    const r = await call("issue.list", { task_id: t.id });
+    const when = iso => iso ? new Date(iso).toLocaleString("en-GB", { timeZone:"Europe/London", day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" }) : "";
+    veil.querySelector(".ib").innerHTML = r.issues.length ? r.issues.map(j => `<div class="job"><div class="jt">#${esc(j.job_no)} ${esc(j.type)}<span class="st ${j.status === "completed" ? "completed" : ""}">${j.status === "completed" ? "Done" : j.status === "room_offline" ? "Room off line" : "Outstanding"}</span></div>
+        <div class="jm">Logged by ${esc(j.raised_by || "someone")} at ${esc(when(j.raised_at))}</div><div class="jd">${esc(j.description)}</div>
+        ${j.status === "completed" ? `<div class="jm">Cleared by ${esc(j.completed_by || "maintenance")} at ${esc(when(j.completed_at))}${j.completion_note ? ": " + esc(j.completion_note) : ""}</div>` : ""}</div>`).join("") : `<p class="muted">Nothing found in the Maintenance List for this room today.</p>`;
+  } catch(e){ veil.querySelector(".ib").innerHTML = `<p style="color:var(--red)">${esc(e.message)}</p>`; }
+}
 async function taskAction(act, id, btn){
   const t = S.tasks.find(x => String(x.id) === id); if (!t) return;
   const redraw = () => { renderList(); afterChange(); };
@@ -993,6 +1022,13 @@ async function taskAction(act, id, btn){
     delete S.ui.checkNote[t.id]; delete S.ui.fixOpen[t.id]; delete S.ui.fixText[t.id];
     setTask(r.task); toast(`Room ${t.room}: thumbs up sent.`); keepFocus(redraw); return;
   }
+  if (act === "checkout") {
+    const on = btn.dataset.on === "1";
+    const r = await guarded(() => call("task.checkout", { id:t.id, on }), btn);
+    if (!r) return;
+    setTask(r.task); toast(on ? `Room ${t.room} checked out: the cleaners can see it.` : `Room ${t.room}: checked-out confirmation taken off.`); keepFocus(redraw); return;
+  }
+  if (act === "issues") { openIssues(t); return; }
   if (act === "fix-open") { S.ui.fixOpen[t.id] = true; const el = cardEl(id); if (el) { el.outerHTML = cardHtml(t); const n = document.getElementById("fx_" + id); if (n) n.focus(); } return; }
   if (act === "fix-cancel") { delete S.ui.fixOpen[t.id]; delete S.ui.fixText[t.id]; const el = cardEl(id); if (el) el.outerHTML = cardHtml(t); return; }
   if (act === "fix-send") {

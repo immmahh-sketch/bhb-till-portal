@@ -121,6 +121,15 @@ header.top{background:var(--sage); color:var(--white)}
 .note.hk{background:var(--alert-bg); border:1px solid #d9b4ad} .note.hk h4{color:var(--alert)}
 .checked{display:flex; align-items:center; gap:8px; margin-top:10px; font-size:14px; font-weight:700; color:var(--good); background:var(--good-bg); border-radius:10px; padding:8px 12px}
 .checked svg{flex:none}
+button.issues{border:0; font-family:inherit; cursor:pointer} button.issues:hover{text-decoration:underline}
+.cout{margin:8px 0 0; font-size:14px; font-weight:700} .cout.ok{color:#3E6B45} .cout.wait{color:#9A6A12}
+.issveil{position:fixed; inset:0; z-index:800; background:rgba(38,38,38,.5); display:flex; align-items:flex-start; justify-content:center; padding:16px; overflow:auto}
+.issbox{background:#fff; border-radius:12px; max-width:520px; width:100%; margin:auto; box-shadow:0 18px 50px rgba(0,0,0,.35); overflow:hidden}
+.issbox h3{margin:0; padding:16px 20px; background:var(--sage); color:#fff; font-size:20px}
+.issbox .ib{padding:6px 20px 16px} .issbox .job{padding:12px 0; border-bottom:1px solid #e4e6e1} .issbox .job:last-child{border-bottom:0}
+.issbox .jt{font-weight:700} .issbox .jm{font-size:12.5px; color:#6b6b6b; margin-top:2px} .issbox .jd{margin-top:6px; white-space:pre-wrap}
+.issbox .st{display:inline-block; font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; font-weight:700; border-radius:99px; padding:2px 9px; margin-left:6px; background:#f7dcd6; color:#9b2c1d} .issbox .st.completed{background:#e4ece3; color:#3E6B45}
+.issbox .if{padding:12px 20px 18px; text-align:right}
 .issues{display:inline-block; margin-top:10px; font-size:13px; font-weight:700; color:var(--alert); background:var(--alert-bg); border-radius:99px; padding:4px 11px}
 .acts{display:grid; gap:10px; margin-top:14px}
 .room.done{padding:12px 16px; border-left-color:var(--good); background:#fbfdfb}
@@ -360,7 +369,8 @@ function cardHtml(t, today){
   const title = `<div class="rname">${esc(t.room)} <small>${esc(t.name || "")}</small></div>`;
   const pill = `<span class="pill ${kc}">${t.kind === "departure" ? "Departure" : setup ? "Set up" : "Stay over"}</span>`;
   const label = `Room ${t.room}${t.name ? " " + t.name : ""}`;
-  const issues = t.issues > 0 ? `<span class="issues">${esc(issuesText(t.issues))}</span>` : "";
+  const issues = t.issues > 0 ? `<button type="button" class="issues" data-act="issues" data-id="${esc(t.id)}" title="See what was logged">${esc(issuesText(t.issues))}</button>` : "";
+  const cout = t.kind === "departure" && !t.cleaned_at ? (t.checked_out_at ? `<p class="cout ok">&#10003; Guest has checked out (${esc(timeOf(t.checked_out_at))})</p>` : `<p class="cout wait">Waiting for the guest to check out</p>`) : "";
   const checked = t.checked_at && t.feedback !== "ok" ? `<div class="checked">${TICK}<span>Checked by the head housekeeper</span></div>` : "";
   const fbk = feedbackHtml(t, label);
   const took = t.took_minutes != null ? ` <span class="took">(took ${t.took_minutes >= 60 ? Math.floor(t.took_minutes / 60) + " h " + Math.round(t.took_minutes % 60) + " min" : Math.round(t.took_minutes) + " min"})</span>` : "";
@@ -379,6 +389,7 @@ function cardHtml(t, today){
     ${w.length ? `<p class="with">Cleaning with ${esc(joinNames(w))}</p>` : ""}
     <div class="rmeta"><span class="mins${mins >= 120 ? " long" : ""}">${esc(timeTxt)}</span></div>
     ${setup ? `<p class="setupline">Already clean. Please set it up before the guests arrive.</p>` : ""}
+    ${cout}
     ${guestLine(t, today)}
     ${bookingNote}
     ${t.note ? `<div class="note hk"><h4>From the head housekeeper</h4><div>${esc(t.note)}</div></div>` : ""}
@@ -538,6 +549,23 @@ async function sendIssue(){
   } finally { S.mut++; render(); }
 }
 
+async function openIssues(id){
+  const t = (S.d && S.d.tasks || []).find(x => String(x.id) === String(id)); if (!t) return;
+  const veil = document.createElement("div"); veil.className = "issveil"; veil.innerHTML = `<div class="issbox" role="dialog" aria-modal="true" aria-label="Maintenance issues, room ${esc(t.room)}"><h3>Room ${esc(t.room)}: maintenance issues</h3><div class="ib"><p>Loading...</p></div><div class="if"><button class="btn ghost" type="button" id="issclose">Close</button></div></div>`;
+  document.body.appendChild(veil);
+  const close = () => { veil.remove(); document.removeEventListener("keydown", onKey); };
+  const onKey = e => { if (e.key === "Escape") close(); };
+  document.addEventListener("keydown", onKey);
+  veil.addEventListener("click", e => { if (e.target === veil) close(); });
+  veil.querySelector("#issclose").onclick = close; veil.querySelector("#issclose").focus();
+  try {
+    const r = await call("issue.list", { task_id: t.id });
+    const when = iso => iso ? new Date(iso).toLocaleString("en-GB", { timeZone:"Europe/London", day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" }) : "";
+    veil.querySelector(".ib").innerHTML = r.issues.length ? r.issues.map(j => `<div class="job"><div class="jt">#${esc(j.job_no)} ${esc(j.type)}<span class="st ${j.status === "completed" ? "completed" : ""}">${j.status === "completed" ? "Done" : j.status === "room_offline" ? "Room off line" : "Outstanding"}</span></div>
+        <div class="jm">Logged by ${esc(j.raised_by || "someone")} at ${esc(when(j.raised_at))}</div><div class="jd">${esc(j.description)}</div>
+        ${j.status === "completed" ? `<div class="jm">Cleared by ${esc(j.completed_by || "maintenance")} at ${esc(when(j.completed_at))}${j.completion_note ? ": " + esc(j.completion_note) : ""}</div>` : ""}</div>`).join("") : `<p>Nothing found in the Maintenance List for this room today.</p>`;
+  } catch(e){ veil.querySelector(".ib").innerHTML = `<p style="color:#9b2c1d">${esc(e.message)}</p>`; }
+}
 /* ------------------------------------------------------------- events */
 document.addEventListener("click", ev => {
   const a = ev.target.closest("[data-act]"), sh = ev.target.closest("[data-sheet]");
@@ -552,6 +580,7 @@ document.addEventListener("click", ev => {
   else if (act === "fixed") setFixed(id, true);
   else if (act === "notfixed") setFixed(id, false);
   else if (act === "issue") openSheet(id);
+  else if (act === "issues") openIssues(id);
   else if (act === "retry") { S.d ? refresh(false) : (S.load = "loading", render(), refresh(false)); }
 });
 document.addEventListener("keydown", ev => {
