@@ -212,6 +212,10 @@ header.top{background:var(--sage); color:var(--white)}
 .tile.editing .mid{display:flex; align-items:center; gap:10px; min-width:0}
 .tile.editing .mid .ic{font-size:22px; margin:0}
 .tile.editing .mid h3{font-size:18px; overflow-wrap:anywhere}
+.tile.editing .grip{touch-action:none; cursor:grab; user-select:none; -webkit-user-select:none; color:var(--sage-70); font-size:20px; line-height:1; padding:12px 8px 12px 2px; margin:-12px 0; letter-spacing:-2px}
+.tile.editing .grip:active{cursor:grabbing}
+.tile.editing.picked{opacity:.35}
+.tile-ghost{position:fixed; z-index:400; pointer-events:none; box-shadow:0 14px 34px rgba(38,38,38,.3); transform:scale(1.03); opacity:.97; margin:0}
 .tile .mv{
   width:44px; height:44px; border-radius:8px; border:1px solid var(--mist); background:var(--bone); color:var(--sage);
   cursor:pointer; font-size:16px; line-height:1; display:flex; align-items:center; justify-content:center; padding:0;
@@ -876,7 +880,7 @@ function renderLayoutTools(){
   if (!S.portals.length) { el.innerHTML = ""; return; }
   el.innerHTML = S.editing
     ? `<button class="lbtn main" data-lay="done">Save layout</button><button class="lbtn quiet" data-lay="cancel">Cancel</button><button class="lbtn quiet" data-lay="reset">Reset to standard</button>
-       <p class="layout-note">Use the arrows to move a tile earlier or later${window.matchMedia && matchMedia("(hover:hover)").matches ? ", or drag a tile to where you want it" : ""}. Your order is saved to your account.</p>`
+       <p class="layout-note">Hold the dots on a tile and drag it to where you want it, or use the arrows to move it a place at a time. Your order is saved to your account.</p>`
     : `<button class="lbtn" data-lay="edit">${S.layout ? "Change layout" : "Customise layout"}</button>${S.layout ? `<button class="lbtn quiet" data-lay="reset">Reset</button>` : ""}`;
   el.querySelectorAll("[data-lay]").forEach(b => b.addEventListener("click", () => {
     const a = b.dataset.lay;
@@ -887,9 +891,9 @@ function renderLayoutTools(){
 function editTilesHtml(){
   const list = orderedPortals();
   return `<div class="tiles" id="editGrid">${list.map((p, i) => `
-    <div class="tile editing" draggable="true" style="border-top-color:${esc(p.color||'#4E5F4F')}" data-key="${esc(p.key)}">
+    <div class="tile editing"${window.matchMedia && matchMedia("(hover:hover)").matches ? ` draggable="true"` : ""} style="border-top-color:${esc(p.color||'#4E5F4F')}" data-key="${esc(p.key)}">
       <button type="button" class="mv" data-mv="-1" aria-label="Move ${esc(p.label)} earlier"${i === 0 ? " disabled" : ""}>&#9664;</button>
-      <div class="mid"><div class="ic" style="color:${esc(p.color||'#4E5F4F')}">${iconFor(p.icon)}</div><h3>${esc(p.label)}</h3></div>
+      <div class="mid"><span class="grip" role="button" aria-label="Drag ${esc(p.label)} to move it" title="Hold and drag to move">&#8942;&#8942;</span><div class="ic" style="color:${esc(p.color||'#4E5F4F')}">${iconFor(p.icon)}</div><h3>${esc(p.label)}</h3></div>
       <button type="button" class="mv" data-mv="1" aria-label="Move ${esc(p.label)} later"${i === list.length - 1 ? " disabled" : ""}>&#9654;</button>
     </div>`).join("")}</div>`;
 }
@@ -900,6 +904,36 @@ function wireEditTiles(){
     moveDraft(key, i + Number(b.dataset.mv)); renderTiles();
     const again = $(`#editGrid .tile[data-key="${CSS.escape(key)}"] .mv[data-mv="${b.dataset.mv}"]`) || $(`#editGrid .tile[data-key="${CSS.escape(key)}"] .mv:not(:disabled)`);
     if (again) again.focus();
+  }));
+  // Drag from the grip with a finger, pen or mouse: the tile follows the pointer, the others make room, the page scrolls when you reach the top or bottom of the screen.
+  grid.querySelectorAll(".grip").forEach(g => g.addEventListener("pointerdown", e => {
+    if (e.button !== undefined && e.button > 0) return;
+    e.preventDefault(); e.stopPropagation();
+    const tile = g.closest(".tile"), r = tile.getBoundingClientRect();
+    const ghost = tile.cloneNode(true); ghost.classList.remove("picked"); ghost.classList.add("tile-ghost"); ghost.removeAttribute("draggable");
+    ghost.style.width = r.width + "px"; ghost.style.left = r.left + "px"; ghost.style.top = r.top + "px";
+    document.body.appendChild(ghost); tile.classList.add("picked");
+    const offX = e.clientX - r.left, offY = e.clientY - r.top; let y = e.clientY, scrollTimer = null;
+    try{ g.setPointerCapture(e.pointerId); }catch(x){}
+    const place = (cx, cy) => {
+      ghost.style.left = (cx - offX) + "px"; ghost.style.top = (cy - offY) + "px"; y = cy;
+      const el = document.elementFromPoint(cx, cy), over = el && el.closest && el.closest("#editGrid .tile");
+      if (over && over !== tile) {
+        const o = over.getBoundingClientRect(), after = tile.compareDocumentPosition(over) & Node.DOCUMENT_POSITION_FOLLOWING;
+        if (after ? (cy - o.top) / o.height > 0.35 : (cy - o.top) / o.height < 0.65) { if (after) over.after(tile); else over.before(tile); }
+      }
+    };
+    const move = ev => { if (ev.pointerId === e.pointerId) place(ev.clientX, ev.clientY); };
+    const tick = () => { const h = window.innerHeight, edge = 90; if (y < edge) window.scrollBy(0, -Math.ceil((edge - y) / 6)); else if (y > h - edge) window.scrollBy(0, Math.ceil((y - (h - edge)) / 6)); };
+    scrollTimer = setInterval(tick, 16);
+    const done = ev => {
+      if (ev && ev.pointerId !== e.pointerId) return;
+      clearInterval(scrollTimer); g.removeEventListener("pointermove", move); g.removeEventListener("pointerup", done); g.removeEventListener("pointercancel", done);
+      ghost.remove(); tile.classList.remove("picked");
+      S.draft = [...grid.querySelectorAll(".tile")].map(t => t.dataset.key);     // the order on the screen is the new order
+      renderTiles();
+    };
+    g.addEventListener("pointermove", move); g.addEventListener("pointerup", done); g.addEventListener("pointercancel", done);
   }));
   let dragKey = null;
   grid.querySelectorAll(".tile").forEach(t => {
