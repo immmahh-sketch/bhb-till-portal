@@ -155,8 +155,9 @@ export async function parseFile(XLSX, name, buf) {
     const ws = wb.Sheets[wb.SheetNames[0]];
     const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: "" });
     const a0 = String(aoa[0]?.[0] ?? "").trim(), a1 = String(aoa[1]?.[0] ?? "").trim();
-    if (a0 === "The Black Horse Beamish" || /mealplan|meal_plan|meal plan/i.test(name) || (a1 === "Date" && String(aoa[1]?.[1]).trim() === "RO")) return mealPlan(aoa);
-    if (a0.toLowerCase() === "cola" || /periodend/i.test(name) || /^\d{8}\.xlsx?$/i.test(name)) return endOfDay(aoa, name);
+    const isEod = a0.toLowerCase() === "cola" || /periodend/i.test(name) || /^\d{8}\.xlsx?$/i.test(name) || String(aoa[1]?.[0]).trim() === "Period Status" || String(aoa[6]?.[0]).trim() === "" && String(aoa[7]?.[0]).trim() === "Analysis Codes Revenue";
+    if (isEod) return endOfDay(aoa, name);
+    if (/mealplan|meal_plan|meal plan/i.test(name) || String(aoa[0]?.[10] ?? "") === "Meal Plan Report" || (a1 === "Date" && String(aoa[1]?.[1]).trim() === "RO")) return mealPlan(aoa);
     if (a0 === "Date" && String(aoa[0]?.[3]) === "Total") return actualForecast(aoa.map((r, i) => (i === 0 ? r : r.map((v, j) => (j === 0 && typeof v === "number" ? serToYmd(v) : v)))));
     if (a0 === "EventRef") return events(aoa.map((r, i) => (i === 0 ? r : r.map((v) => (typeof v === "number" && v > 20000 && v < 80000 ? serToYmd(v) : v)))));
     return { error: "I do not recognise that spreadsheet. It should be the Meal Plan report or the End of Day (PeriodEnd) report." };
