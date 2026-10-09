@@ -123,6 +123,7 @@
       <button data-tab="manage">Manage checklists</button>
       <button data-tab="documents">Documents</button>
       <button data-tab="accidents">Accident reports</button>
+      <button data-tab="alerts">Alerts</button>
     </nav>
 
     <section id="tab-overview"></section>
@@ -131,6 +132,7 @@
     <section id="tab-manage" class="hidden"></section>
     <section id="tab-documents" class="hidden"></section>
     <section id="tab-accidents" class="hidden"></section>
+    <section id="tab-alerts" class="hidden"></section>
   </div>
 </div>
 
@@ -157,7 +159,8 @@ function showApp(){
 function setTab(t){
   ST.tab = t;
   Array.prototype.forEach.call(document.querySelectorAll("#tabs button"), function(b){ b.classList.toggle("active", b.getAttribute("data-tab")===t); });
-  ["overview","today","history","manage","documents","accidents"].forEach(function(x){ $("tab-"+x).classList.toggle("hidden", x!==t); });
+  ["overview","today","history","manage","documents","accidents","alerts"].forEach(function(x){ $("tab-"+x).classList.toggle("hidden", x!==t); });
+  ST.alertsDrawn = false;
   renderTab();
 }
 
@@ -185,6 +188,61 @@ function renderTab(){
   else if(ST.tab==="manage") renderManage();
   else if(ST.tab==="documents") renderDocuments();
   else if(ST.tab==="accidents") renderAccidents();
+  else if(ST.tab==="alerts"){ if(!ST.alertsDrawn){ ST.alertsDrawn = true; renderAlerts(); } }      // drawn once: the minute-by-minute refresh must not wipe what is being edited
+}
+
+/* ================= ALERTS (overdue daily checks by email) ================= */
+function alertsCall(action, payload){
+  return new Promise(function(resolve, reject){
+    var staff = ""; try{ staff = sessionStorage.getItem("bhb_staff_email") || ""; }catch(e){}
+    var xhr = new XMLHttpRequest();
+    xhr.open("POST", CFG.SUPABASE_URL + "/functions/v1/checks-alerts", true);
+    xhr.setRequestHeader("Content-Type","application/json"); xhr.setRequestHeader("apikey", CFG.SUPABASE_KEY); xhr.setRequestHeader("Authorization","Bearer " + CFG.SUPABASE_KEY);
+    xhr.timeout = 30000;
+    xhr.onload = function(){ var d = {}; try{ d = JSON.parse(xhr.responseText); }catch(e){} if(xhr.status>=200 && xhr.status<300 && !d.error) resolve(d); else reject(new Error(d.error || ("Request failed (" + xhr.status + ")"))); };
+    xhr.onerror = function(){ reject(new Error("Could not reach the server.")); }; xhr.ontimeout = function(){ reject(new Error("The server took too long.")); };
+    var p = {action:action, staff_email:staff}; for(var k in (payload||{})) p[k]=payload[k];
+    xhr.send(JSON.stringify(p));
+  });
+}
+function escA(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+var AL = null;
+function renderAlerts(){
+  var box = $("tab-alerts"); box.innerHTML = '<div class="card muted">Loading the alert settings…</div>';
+  alertsCall("get").then(function(d){ AL = d; drawAlerts(); }).catch(function(e){ box.innerHTML = '<div class="card"><b>The alert settings could not be opened.</b><br><span class="muted">'+escA(e.message)+'</span></div>'; });
+}
+function drawAlerts(){
+  var d = AL, s = d.settings, box = $("tab-alerts");
+  var have = {}; s.recipients.forEach(function(r){ have[r.email]=1; });
+  var addable = d.people.filter(function(p){ return !have[p.email]; });
+  var html = '<div class="card"><h3 style="font-size:15px;margin-bottom:6px">Overdue check alerts</h3>' +
+    '<p class="muted" style="margin:0 0 10px">When a <b>daily</b> check has not been completed by its due time, an email goes to the people below and to the owner of that checklist. Each check is only reported once a day. Late completion is still allowed in the app: this only tells people it has not been done.</p>' +
+    '<label style="display:flex;align-items:center;margin-bottom:10px;font-weight:700"><input type="checkbox" id="alOn" style="width:20px;height:20px;margin-right:10px"'+(s.enabled?" checked":"")+'> Send overdue check alerts <span class="muted" style="margin-left:10px;font-weight:400">'+(s.enabled?"ON":"OFF")+'</span></label>' +
+    '<label class="muted">Send it <input id="alDelay" type="number" min="0" max="720" value="'+escA(s.delay_minutes)+'" style="width:70px;margin:0 6px"> minutes after the due time (0 = as soon as it is overdue)</label></div>';
+  html += '<div class="card"><h3 style="font-size:15px;margin-bottom:6px">Always told</h3><p class="muted" style="margin:0 0 8px">These people get every overdue daily check.</p><div id="alRecips">' +
+    s.recipients.map(function(r,i){ return '<div class="rowline"><div><div class="nm">'+escA(r.name||r.email)+'</div><div class="meta">'+escA(r.email)+'</div></div><button class="del" data-rm="'+i+'">Remove</button></div>'; }).join("") + '</div>' +
+    '<div style="margin-top:8px"><select id="alAddSel" style="min-width:230px"><option value="">Add someone from the portal…</option>'+addable.map(function(p){ return '<option value="'+escA(p.email)+'">'+escA(p.name)+' ('+escA(p.email)+')</option>'; }).join("")+'</select> <button id="alAdd">Add</button></div>' +
+    '<div style="margin-top:8px"><input id="alAddEmail" placeholder="or type another email address" style="min-width:230px"> <button id="alAddE">Add address</button></div></div>';
+  html += '<div class="card"><h3 style="font-size:15px;margin-bottom:6px">Who owns each daily checklist</h3><p class="muted" style="margin:0 0 8px">The department head here is told as well, when their checklist is overdue. Leave it as "No owner" to tell only the people above.</p><div class="tablewrap"><table><thead><tr><th>Area</th><th>Checklist</th><th>Due</th><th>Owner</th></tr></thead><tbody>' +
+    d.checklists.map(function(c,i){
+      var opts = '<option value="">No owner</option>' + d.people.map(function(p){ return '<option value="'+escA(p.email)+'"'+(p.email===c.owner_email?" selected":"")+'>'+escA(p.name)+'</option>'; }).join("");
+      return '<tr><td>'+escA(c.area)+'</td><td>'+escA(c.name)+'</td><td>'+escA(c.due)+'</td><td><select data-own="'+i+'" style="min-width:200px">'+opts+'</select></td></tr>';
+    }).join("") + '</tbody></table></div></div>';
+  html += '<div class="card"><div style="display:flex;flex-wrap:wrap"><button class="primary" id="alSave" style="margin:0 8px 8px 0">Save</button><button id="alTest" style="margin:0 8px 8px 0">Send me a test email</button><button id="alPrev" style="margin:0 8px 8px 0">Show what would go out now</button></div><div id="alMsg" class="muted" style="margin-top:4px"></div><div id="alPrevOut"></div></div>';
+  html += '<div class="card"><h3 style="font-size:15px;margin-bottom:6px">Recently sent</h3>' + (d.sent.length ? '<div class="tablewrap"><table><thead><tr><th>When</th><th>Checklist</th><th>Day</th><th>Told</th></tr></thead><tbody>' + d.sent.map(function(x){ return '<tr><td>'+escA(new Date(x.at).toLocaleString("en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}))+'</td><td>'+escA(x.name)+'<div class="meta muted">'+escA(x.area)+'</div></td><td>'+escA(x.period)+'</td><td>'+escA((x.to||[]).join(", "))+'</td></tr>'; }).join("") + '</tbody></table></div>' : '<div class="muted">Nothing has been sent yet.</div>') + '</div>';
+  box.innerHTML = html;
+  function msg(t, bad){ var m = $("alMsg"); m.textContent = t; m.style.color = bad ? "#96402f" : ""; }
+  function collect(){ var owners = []; Array.prototype.forEach.call(box.querySelectorAll("select[data-own]"), function(sel){ var c = d.checklists[+sel.getAttribute("data-own")]; owners.push({template_id:c.id, owner_email:sel.value}); });
+    return { enabled:$("alOn").checked, delay_minutes:+$("alDelay").value||0, recipients:s.recipients, owners:owners }; }
+  Array.prototype.forEach.call(box.querySelectorAll("button[data-rm]"), function(b){ b.onclick = function(){ s.recipients.splice(+b.getAttribute("data-rm"),1); keep(); }; });
+  function keep(){ var c = collect(); d.settings.enabled = c.enabled; d.settings.delay_minutes = c.delay_minutes; d.checklists.forEach(function(ch,i){ ch.owner_email = c.owners[i].owner_email; }); drawAlerts(); }
+  $("alAdd").onclick = function(){ var v = $("alAddSel").value; if(!v) return; var p = d.people.filter(function(x){ return x.email===v; })[0]; s.recipients.push({name:p?p.name:"", email:v}); keep(); };
+  $("alAddE").onclick = function(){ var v = $("alAddEmail").value.trim().toLowerCase(); if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v)){ msg("That is not an email address.", true); return; } s.recipients.push({name:"", email:v}); keep(); };
+  $("alSave").onclick = function(){ $("alSave").disabled = true; msg("Saving…"); alertsCall("save", collect()).then(function(r){ d.settings = r.settings; msg("Saved. Alerts are " + (r.settings.enabled ? "ON." : "OFF.")); toast("Saved"); setTimeout(function(){ AL = d; drawAlerts(); },600); }).catch(function(e){ msg(e.message, true); }).then(function(){ var b=$("alSave"); if(b) b.disabled=false; }); };
+  $("alTest").onclick = function(){ $("alTest").disabled = true; msg("Sending the test email…"); alertsCall("test").then(function(r){ msg("A test 'Checklist overdue' email has been sent to " + r.sent_to + ". Nothing is switched on by this."); }).catch(function(e){ msg(e.message, true); }).then(function(){ var b=$("alTest"); if(b) b.disabled=false; }); };
+  $("alPrev").onclick = function(){ msg("Checking…"); alertsCall("preview").then(function(r){
+    var out = r.overdue.length ? '<div class="tablewrap" style="margin-top:8px"><table><thead><tr><th>Overdue now</th><th>Day</th><th>Due</th></tr></thead><tbody>' + r.overdue.map(function(o){ return '<tr><td>'+escA(o.name)+'<div class="meta muted">'+escA(o.area)+'</div></td><td>'+escA(o.day)+'</td><td>'+escA(o.due)+'</td></tr>'; }).join("") + '</tbody></table></div><p class="muted" style="margin:8px 0 0">If alerts were ON these emails would go out now: ' + r.would_email.map(function(w){ return escA(w.email)+' ('+w.checklists.length+')'; }).join(", ") + '.</p>' : '<p class="muted" style="margin-top:8px">Nothing is overdue right now, so nothing would be sent.</p>';
+    $("alPrevOut").innerHTML = out; msg(r.enabled ? "Alerts are ON." : "Alerts are OFF: nothing is being sent. This is only a preview."); }).catch(function(e){ msg(e.message, true); }); };
 }
 
 /* ================= OVERVIEW ================= */
