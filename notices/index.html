@@ -150,6 +150,7 @@ function renderList(archived){
         ${!n.my_read_at && !archived ? `<span class="tag new">New</span>` : ""}
         ${n.requires_ack ? (n.my_acked_at ? `<span class="tag done">Acknowledged</span>` : `<span class="tag ack">Please acknowledge</span>`) : ""}
         ${S.me.canPost && n.requires_ack ? `<span class="muted" style="font-size:12px">${n.ack_count} of ${n.audience_count} acknowledged</span>` : ""}
+        ${S.me.canPost && n.popup ? `<span class="muted" style="font-size:12px">Pop-up seen by ${n.popup_seen_count} of ${n.audience_count}</span>` : ""}
       </div>
     </div>`).join("");
   $("#views").innerHTML = h;
@@ -210,6 +211,7 @@ function viewPost(n){
     <div class="field"><label for="p_body">Notice</label><textarea id="p_body" placeholder="What staff need to know">${esc(n?n.body:"")}</textarea></div>
     <div class="field check"><input id="p_pin" type="checkbox" ${n&&n.pinned?"checked":""}><label for="p_pin">Pin to the top</label></div>
     <div class="field check"><input id="p_ack" type="checkbox" ${n&&n.requires_ack?"checked":""}><label for="p_ack">Staff must acknowledge they've read it (you'll see who has and hasn't)</label></div>
+    <div class="field check"><input id="p_pop" type="checkbox" ${n&&n.popup?"checked":""}><label for="p_pop">Show it as a pop-up the next time each person opens their portal (once each, and only to people who have this tile)</label></div>
     ${n ? (n.doc_name ? `<div class="doc"><span class="ic">&#128196;</span><div>${esc(n.doc_name)} <span class="muted">(to change the document, post a new notice)</span></div></div>` : "") : `
     <div class="field"><label>Document to read (optional)</label>
       <input id="p_doc" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,image/*">
@@ -221,7 +223,7 @@ function viewPost(n){
 function wirePost(n){
   $("#p_save").onclick = async ()=>{
     const btn = $("#p_save"); btn.disabled = true;
-    const payload = { title: $("#p_title").value.trim(), body: $("#p_body").value.trim(), pinned: $("#p_pin").checked, requires_ack: $("#p_ack").checked };
+    const payload = { title: $("#p_title").value.trim(), body: $("#p_body").value.trim(), pinned: $("#p_pin").checked, requires_ack: $("#p_ack").checked, popup: $("#p_pop").checked };
     try {
       if (n) { await call("notices.update", { id: n.id, ...payload }); toast("Saved."); openNotice(n.id); return; }
       const file = $("#p_doc") && $("#p_doc").files[0];

@@ -198,6 +198,9 @@ header.top{background:var(--sage); color:var(--white)}
 .welcome-sign{font-family:var(--display); font-size:21px; color:var(--sage); line-height:1.15; margin-top:4px}
 .welcome-sign small{display:block; font-family:var(--body); font-size:12px; color:var(--sage-70); margin-top:2px}
 .welcome-foot{padding:14px 26px 24px}
+.np-sec{background:transparent !important; color:var(--sage) !important; border:1px solid var(--sage) !important; margin-top:8px}
+.np-link{display:block; margin-top:10px; text-align:center; font-size:13px; color:var(--sage-70)}
+.np-meta{font-size:12.5px; color:var(--sage-70); margin:-6px 0 14px}
 .welcome-foot button{width:100%; padding:13px; border:0; border-radius:8px; background:var(--sage); color:var(--white); font-weight:600; font-size:15px; cursor:pointer}
 .welcome-foot button:hover{background:var(--sage-dark)}
 @media (max-width:480px){ .welcome-top{padding:20px 20px 16px} .welcome-body{padding:18px 20px 4px} .welcome-foot{padding:12px 20px 20px} .welcome-top h2{font-size:26px} }
@@ -555,6 +558,9 @@ table.grid td{padding:10px 12px; border-top:1px solid var(--mist); vertical-alig
 <div class="welcome-veil" id="welcome" role="dialog" aria-modal="true" aria-labelledby="welcomeTitle" hidden>
   <div class="welcome-card" id="welcomeCard"></div>
 </div>
+<div class="welcome-veil" id="noticePop" role="dialog" aria-modal="true" aria-labelledby="npTitle" hidden>
+  <div class="welcome-card" id="noticePopCard"></div>
+</div>
 <script>
 /* ==================================================================
    Staff Portal — one login for every in-house app.
@@ -700,6 +706,7 @@ function showWelcome(preview, msg){
   $("#welcomeBtn").onclick = async () => {
     $("#welcome").hidden = true;
     if(!preview){ try{ await api("welcome_seen"); }catch(e){} }
+    loadNoticePopups();
   };
   setTimeout(()=> $("#welcomeBtn").focus(), 50);
 }
@@ -707,6 +714,32 @@ function maybeWelcome(){
   let preview = false;
   try{ preview = new URLSearchParams(location.search).get("welcome") === "1"; }catch(e){}
   if(S.welcome || preview) showWelcome(!S.welcome);
+}
+
+/* ---- staff notices set to pop up: each person sees one once, the next time they open the portal ---- */
+const NP = { list: [], i: 0 };
+async function loadNoticePopups(){
+  if (!S.token || !$("#welcome").hidden) return;
+  try { const d = await api("notice_popups"); NP.list = d.notices || []; NP.i = 0; if (NP.list.length) showNoticePopup(); } catch(e){}
+}
+function showNoticePopup(){
+  const n = NP.list[NP.i]; if (!n) { $("#noticePop").hidden = true; return; }
+  const paras = String(n.body || "").split(/\n{2,}/).map(t => `<p>${esc(t).replace(/\n/g, "<br>")}</p>`).join("");
+  const when = n.posted_at ? new Date(n.posted_at).toLocaleDateString("en-GB", { day: "numeric", month: "long", timeZone: "Europe/London" }) : "";
+  const ack = n.requires_ack && !n.already_acked;
+  $("#noticePopCard").innerHTML = `<div class="welcome-top"><div class="eyebrow">Staff notice${NP.list.length > 1 ? ` &middot; ${NP.i + 1} of ${NP.list.length}` : ""}</div><h2 id="npTitle">${esc(n.title)}</h2></div>
+    <div class="welcome-body"><div class="np-meta">${esc(n.posted_by_name || "")}${when ? " &middot; " + esc(when) : ""}</div>${paras}${n.doc_name ? `<p class="np-meta">&#128206; ${esc(n.doc_name)} is attached: open the notice to read it.</p>` : ""}</div>
+    <div class="welcome-foot"><button type="button" id="npGo">${ack ? "I've read and understood this" : "Got it"}</button>${ack ? `<button type="button" class="np-sec" id="npLater">Close for now</button>` : ""}<a class="np-link" href="#" id="npOpen">Open in Staff Notices</a></div>`;
+  $("#noticePop").hidden = false;
+  const done = async (doAck, open) => {
+    try { await api("notice_popup_done", { id: n.id, ack: doAck }); } catch(e){}
+    NP.i++; if (open) { $("#noticePop").hidden = true; openPortal("notices"); return; }
+    NP.i < NP.list.length ? showNoticePopup() : ($("#noticePop").hidden = true);
+  };
+  $("#npGo").onclick = () => done(ack, false);
+  if ($("#npLater")) $("#npLater").onclick = () => done(false, false);
+  $("#npOpen").onclick = e => { e.preventDefault(); done(false, true); };
+  setTimeout(() => $("#npGo").focus(), 50);
 }
 
 function enterApp(){
@@ -719,6 +752,7 @@ function enterApp(){
   if (S.user.role !== "admin") $("#page-settings").remove();
   else plCheck(true);
   maybeWelcome();
+  loadNoticePopups();
 }
 
 function iconFor(k){
