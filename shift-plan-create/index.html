@@ -116,7 +116,7 @@ async function call(action, payload){
 const roleOf = key => S.roles.find(r => r.key === key);
 const sameP = (a, b) => (a.planday_id && b.planday_id && a.planday_id === b.planday_id) || norm(a.person_name || a.name) === norm(b.person_name || b.name);
 function peopleToday(){
-  const list = S.onShift.map(p => ({ name:p.name, planday_id:p.planday_id, email:p.email, shift:p.shift, draft:p.draft, job:p.job, drafted:false }));
+  const list = S.onShift.map(p => ({ name:p.name, planday_id:p.planday_id, email:p.email, shift:p.shift, draft:p.draft, job:p.job, clocked_in:p.clocked_in, clocked_out:p.clocked_out, drafted:false }));
   for (const a of S.assigns) {                                       // someone given a role who is not on the rota: typed in, or picked from the wider F&B list
     if (!list.some(p => sameP({ planday_id:a.planday_id, person_name:a.person_name }, { planday_id:p.planday_id, name:p.name }))) list.push({ name:a.person_name, planday_id:a.planday_id, email:a.person_email, shift:null, drafted:true });
   }
@@ -128,7 +128,7 @@ function roleCard(r){
   const as = S.assigns.filter(a => a.role_key === r.key);
   const used = new Set(as.map(a => norm(a.person_name)));
   const typing = !!S.typing[r.key];
-  const onOpts = S.onShift.filter(p => !used.has(norm(p.name))).map(p => `<option value="p:${p.planday_id}">${esc(p.name)} (${esc(p.shift || "")}${p.draft ? ", draft" : ""})</option>`).join("");
+  const onOpts = S.onShift.filter(p => !used.has(norm(p.name))).map(p => `<option value="p:${p.planday_id}">${esc(p.name)} (${esc(p.shift || "not on the rota")}${p.draft ? ", draft" : ""}${p.clocked_in ? (p.clocked_out ? ", clocked out " + esc(p.clocked_out) : ", clocked in " + esc(p.clocked_in)) : ""})</option>`).join("");
   const stOpts = S.staff.filter(p => !used.has(norm(p.name))).map(p => `<option value="p:${p.planday_id}">${esc(p.name)}</option>`).join("");
   return `<div class="card role${as.length ? "" : " empty"}" data-role="${esc(r.key)}">
     <h3>${esc(r.label)}<span class="n">${as.length ? as.length + (as.length === 1 ? " person" : " people") : "nobody yet"}</span></h3>
@@ -136,14 +136,14 @@ function roleCard(r){
     <div class="add">${typing
       ? `<input type="text" id="ty_${esc(r.key)}" maxlength="80" placeholder="Type their name" autocomplete="off"><button class="btn small" type="button" data-act="addtyped" data-role="${esc(r.key)}">Add</button><button class="btn small ghost" type="button" data-act="canceltyped" data-role="${esc(r.key)}">Cancel</button>`
       : `<select data-addsel="${esc(r.key)}" aria-label="Add someone to ${esc(r.label)}"><option value="">+ Add a person</option>
-          ${onOpts ? `<optgroup label="On shift today">${onOpts}</optgroup>` : ""}${stOpts ? `<optgroup label="Other F&amp;B staff (not on today's rota)">${stOpts}</optgroup>` : ""}<option value="__type">Someone else: type a name…</option></select>`}</div></div>`;
+          ${onOpts ? `<optgroup label="On shift today">${onOpts}</optgroup>` : ""}${stOpts ? `<optgroup label="Other FOH staff (not working or clocked in that day)">${stOpts}</optgroup>` : ""}<option value="__type">Someone else: type a name…</option></select>`}</div></div>`;
 }
 function sidePanel(){
   const ppl = peopleToday(), without = ppl.filter(p => !p.roles.length && !p.drafted).length;
   return `<div class="card panel"><h3>On shift ${S.date === S.today ? "today" : "that day"}</h3>
-    <div class="sub">${S.planday.ok ? `${S.onShift.length} on the rota${without ? `, <b>${without} without a role yet</b>` : ", everyone has a role"}.` : esc(S.planday.error || "Planday could not be read.")}</div>
+    <div class="sub">${S.planday.ok ? `${S.onShift.length} on the FOH rota or clocked in${without ? `, <b>${without} without a role yet</b>` : ", everyone has a role"}.` : esc(S.planday.error || "Planday could not be read.")}</div>
     ${ppl.length ? ppl.map(p => `<div class="pp"><div class="nm">${esc(p.name)} ${p.drafted ? `<span class="tag dr">drafted in</span>` : ""}</div>
-      <div class="meta">${p.shift ? esc(p.shift) : ""}${p.draft ? " (draft shift)" : ""}${p.job ? (p.shift ? " · " : "") + esc(p.job) : ""}</div>
+      <div class="meta">${p.shift ? esc(p.shift) : (p.clocked_in ? "not on the rota" : "")}${p.draft ? " (draft shift)" : ""}${p.clocked_in ? ` · <b>${p.clocked_out ? "clocked out " + esc(p.clocked_out) : "clocked in " + esc(p.clocked_in)}</b>` : ""}${p.job ? (p.shift || p.clocked_in ? " · " : "") + esc(p.job) : ""}</div>
       <div class="rl">${p.roles.length ? p.roles.map(k => { const r = roleOf(k); return r ? `<span class="tag${r.area === "marquee" ? " m" : ""}">${esc(r.label)}</span>` : ""; }).join("") : `<span class="tag none">No role yet</span>`}</div></div>`).join("") : `<div class="muted" style="padding:8px 0">Nobody on the rota for this day yet.</div>`}</div>`;
 }
 function render(){
