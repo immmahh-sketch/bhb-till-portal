@@ -219,32 +219,36 @@ function day(){
     <div class="muted" style="font-size:12px">${S.data.rooms_updated ? "Rooms sold and rooms to clean as at " + new Date(S.data.rooms_updated).toLocaleString("en-GB",{ timeZone:"Europe/London", weekday:"short", hour:"2-digit", minute:"2-digit" }) + " (checked with the booking system at about 4am, 12 noon and 5pm). " : ""}${S.data.forecast_updated ? "Covers last updated " + new Date(S.data.forecast_updated).toLocaleString("en-GB",{ timeZone:"Europe/London", weekday:"short", day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" }) + "." : "No forecast figures loaded yet."}</div>`;
 }
 
-function eventView(i){
+async function eventView(i){
   const d = S.data.days[S.idx], e = d.events[i]; if (!e) return;
-  S.view = "detail";
-  const log = e.notes_log || [];
-  const when = iso => new Date(iso).toLocaleString("en-GB",{ timeZone:"Europe/London", day:"numeric", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit" });
+  const tok = S.evTok = (S.evTok || 0) + 1;
   const line = (l, v) => v ? `<div class="ans"><div class="al">${esc(l)}</div><div class="av">${v}</div></div>` : "";
-  const g = e.guests !== null && e.guests !== undefined ? `${num(e.guests)}${e.evening_guests ? " day, " + num(e.evening_guests) + " evening" : ""}` : "";
-  $("#view").innerHTML = `
-    <div class="pagehead"><button class="btn" id="back">‹ Back to ${esc(longDay(d.date))}</button></div>
-    <div class="card">
-      <h3>${esc(e.name)}</h3>
-      <div class="dl">
-        ${line("When", esc(longDay(d.date)))}
-        ${line("Type", esc(e.type))}
-        ${line("Venue", esc(e.venue))}
-        ${line("Guests", esc(g))}
-        ${line("Status", esc(e.status))}
-        ${line("Next action", esc(e.next_action))}
+  const guests = (day, eve) => day !== null && day !== undefined ? `${num(day)}${eve ? " for the day, " + num(eve) + " in the evening" : ""}` : (eve ? `${num(eve)} in the evening` : "");
+  const draw = (x, state) => {
+    const names = x ? x.names : e.name, venue = x ? x.venue : e.venue, vnote = x ? String(x.venue_note || "") : "";
+    const loc = venue !== "Other" ? venue + (vnote && vnote.toLowerCase() !== String(venue).toLowerCase() ? " (" + vnote + ")" : "") : vnote;
+    $("#view").innerHTML = `
+      <div class="pagehead"><button class="btn" id="back">‹ Back to ${esc(longDay(d.date))}</button></div>
+      <div class="card">
+        <h3>${esc(names)}</h3>
+        <div class="dl">
+          ${line("Date", esc(longDay(d.date)))}
+          ${line("Type", esc((x && x.type) || e.type))}
+          ${line("Location", esc(loc))}
+          ${line("Guests", esc(guests(x ? x.guests_day : e.guests, x ? x.guests_evening : e.evening_guests)))}
+        </div>
       </div>
-    </div>
-    <div class="card"><h3>Booking notes</h3><div class="dl">
-      ${e.notes ? `<div class="ans"><div class="av">${esc(e.notes)}</div></div>` : ""}
-      ${log.map(n => `<div class="ans"><div class="al">${esc(n.author || "Note")} · ${esc(when(n.at))}</div><div class="av">${esc(n.body)}</div></div>`).join("")}
-      ${!e.notes && !log.length ? `<div class="empty">No notes on this booking.</div>` : ""}
-    </div></div>`;
-  window.scrollTo(0, 0);
+      <div class="card"><h3>Function sheet</h3>
+        ${state === "loading" ? `<div class="empty">Loading the function sheet…</div>`
+          : x && x.function_sheet ? `<div class="av" style="white-space:pre-wrap; overflow-wrap:anywhere">${esc(x.function_sheet)}</div>`
+          : `<div class="empty">${esc((x && x.function_sheet_error) || (state === "none" ? "This function is not in the tracker, so there is no function sheet." : "There are no notes on the function sheet."))}</div>`}
+      </div>`;
+    window.scrollTo(0, 0);
+  };
+  if (!e.id) return draw(null, "none");
+  draw(null, "loading");
+  try { const x = await call("event", { id: e.id }); if (S.evTok === tok) draw(x, "done"); }
+  catch (err) { if (S.evTok === tok) draw({ names: e.name, venue: e.venue, type: e.type, guests_day: e.guests, guests_evening: e.evening_guests, function_sheet: null, function_sheet_error: err.message || "The function sheet could not be loaded." }, "done"); }
 }
 
 function showround(i){
