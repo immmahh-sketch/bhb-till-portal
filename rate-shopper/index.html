@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Rate Shopper - Black Horse Beamish</title>
+<title>Rates Management - Black Horse Beamish</title>
 <meta name="robots" content="noindex,nofollow">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -165,16 +165,17 @@ nav.tabs{background:var(--sage-dark)}
 </style>
 </head>
 <body>
-<div id="gate"><div class="gatecard"><h1>Rate Shopper</h1><div class="sub">Black Horse Beamish</div>
+<div id="gate"><div class="gatecard"><h1>Rates Management</h1><div class="sub">Black Horse Beamish</div>
   <p style="margin:0 0 16px;font-size:14px;color:var(--sage-70)">This opens from the Staff Portal, which knows who you are.</p>
   <a href="https://app.blackhorsebeamish.co.uk/portal/app.html" style="display:block;padding:12px;border-radius:8px;background:var(--sage);color:#fff;text-decoration:none;font-weight:600;letter-spacing:var(--track-label);text-transform:uppercase;font-size:12px">Open the Staff Portal</a></div></div>
 <div id="app" class="off">
-  <header class="top"><div class="topin"><div class="brand">Rate Shopper<small>Black Horse Beamish</small></div>
+  <header class="top"><div class="topin"><div class="brand">Rates Management<small>Black Horse Beamish</small></div>
     <div class="who"><span id="whoname"></span><button id="signout" type="button">Sign out</button></div></div></header>
   <nav class="tabs" aria-label="Sections"><div class="tabsin">
-    <button class="tabbtn" type="button" data-view="calendar" aria-current="page">Calendar</button>
-    <button class="tabbtn" type="button" data-view="ratemgmt" aria-current="false">Rate management</button>
+    <button class="tabbtn" type="button" data-view="calendar" aria-current="page">Rate shopper</button>
+    <button class="tabbtn" type="button" data-view="ratemgmt" aria-current="false">Rates management</button>
     <button class="tabbtn" type="button" data-view="competitors" aria-current="false">Competitors</button>
+    <button class="tabbtn" type="button" data-view="pickup" aria-current="false">Pick up tracker</button>
   </div></nav>
   <div class="shell"><main>
     <div id="v_calendar">
@@ -191,6 +192,7 @@ nav.tabs{background:var(--sage-dark)}
     </div>
     <div id="v_ratemgmt" class="off"></div>
     <div id="v_competitors" class="off"></div>
+    <div id="v_pickup" class="off"></div>
   </main></div>
 </div>
 <div class="toast" id="toast" role="status"></div>
@@ -525,9 +527,10 @@ document.addEventListener("click", async e => {
     if (act === "mprev") await showMonth(monthAdd(S.month, -1));
     else if (act === "mnext") await showMonth(monthAdd(S.month, 1));
     else if (act === "rmcsv") rmCsv(b.dataset.all === "1");
+    else if (act === "pureload") { PU.loading = false; await loadPickup(); }
     else if (act === "rmesave") {
       const v = id => $("#" + id), msg = $("#rme_msg"); msg.textContent = "Saving...";
-      const r = await call("ratemgmt.settings", { floor: Number(v("rme_floor").value), adr_target: Number(v("rme_adr").value) / 100, yield_from: v("rme_yield").value, max_move: Number(v("rme_move").value) / 100, email_on: v("rme_email").checked, enabled: v("rme_on").checked });
+      const r = await call("ratemgmt.settings", { floor: Number(v("rme_floor").value), adr_target: Number(v("rme_adr").value) / 100, yield_from: v("rme_yield").value, max_move: Number(v("rme_move").value) / 100, email_on: v("rme_email").checked, soldout_alerts: v("rme_sold").checked, enabled: v("rme_on").checked });
       RM.meta.engine.settings = r.settings; msg.textContent = "Saved. It takes effect the next time the model runs (tonight, or press Run the model now)."; toast("Model settings saved.");
     }
     else if (act === "rmerun") {
@@ -604,14 +607,14 @@ const rmSug = d => d.edit != null ? d.edit : d.sug;
 const rmDow = iso => ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][new Date(iso + "T12:00:00Z").getUTCDay()];
 async function loadRm(){
   if (RM.loading) return; RM.loading = true;
-  $("#v_ratemgmt").innerHTML = `<div class="pagehead"><h2>Rate management</h2></div><div class="card"><p class="muted">Loading the next three months...</p></div>`;
+  $("#v_ratemgmt").innerHTML = `<div class="pagehead"><h2>Rates management</h2></div><div class="card"><p class="muted">Loading the next three months...</p></div>`;
   try {
     const r = await call("ratemgmt.load", {}); RM.cap = r.capacity || 18; RM.meta = r;
     const c = await call("calendar", { from: r.days[0].date, to: r.days[r.days.length - 1].date, channel: "direct", meal: "bb" });
     const by = new Map(c.days.map(d => [d.date, d]));
     RM.days = r.days.map(x => { const cd = by.get(x.date), comps = cd ? cd.comps.filter(k => k.price != null).map(k => k.price) : []; return { ...x, web: cd && cd.own && cd.own.price != null ? cd.own.price : null, comp: comps.length ? comps.reduce((a, b) => a + b, 0) / comps.length : null, nc: comps.length }; });
     renderRm();
-  } catch(e){ $("#v_ratemgmt").innerHTML = `<div class="pagehead"><h2>Rate management</h2></div><div class="notice bad">${esc(e.message)}</div>`; }
+  } catch(e){ $("#v_ratemgmt").innerHTML = `<div class="pagehead"><h2>Rates management</h2></div><div class="notice bad">${esc(e.message)}</div>`; }
   RM.loading = false;
 }
 function rmChange(d){ const sg = rmSug(d); return d.cur != null && sg != null ? sg - d.cur : null; }
@@ -652,6 +655,7 @@ function rmEngine(){
       <label class="small">Fill mode until, then Yield mode<br><input id="rme_yield" type="date" value="${esc(String(st.yield_from).slice(0, 10))}"${dis} style="width:100%"></label>
       <label class="small">Biggest move on a night, %<br><input id="rme_move" type="number" min="5" max="50" step="1" value="${Math.round(Number(st.max_move) * 100)}"${dis} style="width:100%"></label>
       <label class="small" style="display:flex; gap:6px; align-items:center"><input type="checkbox" id="rme_email"${st.email_on !== false ? " checked" : ""}${dis}> Email me when changes are waiting</label>
+      <label class="small" style="display:flex; gap:6px; align-items:center"><input type="checkbox" id="rme_sold"${st.soldout_alerts !== false ? " checked" : ""}${dis}> Email me when a night sells out</label>
       <label class="small" style="display:flex; gap:6px; align-items:center"><input type="checkbox" id="rme_on"${st.enabled !== false ? " checked" : ""}${dis}> Run every night</label>
     </div>
     <div style="display:flex; gap:10px; margin-top:12px; flex-wrap:wrap; align-items:center"><button class="btn small" type="button" data-act="rmesave"${dis}>Save settings</button><button class="btn small ghost" type="button" data-act="rmerun"${dis}>Run the model now</button><span class="hint" id="rme_msg"></span></div>
@@ -659,7 +663,7 @@ function rmEngine(){
 }
 function renderRm(){
   const edit = S.me && S.me.edit, m = RM.meta, rows = (RM.only ? RM.days.filter(d => rmChange(d) || d.edit != null) : RM.days);
-  $("#v_ratemgmt").innerHTML = `<div class="pagehead"><h2>Rate management</h2></div>
+  $("#v_ratemgmt").innerHTML = `<div class="pagehead"><h2>Rates management</h2></div>
     <p class="hint" style="margin:-4px 0 10px">The next three months, one row a night. The price is the <b>Classic Double rack rate (room only)</b>: every other room follows it by the pricing ladder (Deluxe +30 and so on, each gap growing by 10 for every 30 pounds), so you only set one number a night. The suggestion comes from the pricing model; type over any figure (it snaps to a price ending in 4 or 9, between 79 and 299). Then download the file and upload it to Rezlynx as you did before.</p>
     <div class="card" style="padding:12px 16px; display:flex; gap:10px; flex-wrap:wrap; align-items:center">
       <button class="btn" type="button" data-act="rmcsv" data-all="0">Download CSV for Rezlynx (changed nights)</button>
@@ -702,16 +706,47 @@ function rmCsv(all){
   a.href = URL.createObjectURL(blob); a.download = `BLACKHORSE_RACK_${p(t.getDate())}_${p(t.getMonth() + 1)}_${t.getFullYear()} ${p(t.getHours())}_${p(t.getMinutes())}_${p(t.getSeconds())}.csv`;
   document.body.appendChild(a); a.click(); a.remove(); toast(`Downloaded ${pick.length} night${pick.length === 1 ? "" : "s"}.`);
 }
+const PU = { days: [], meta: {}, only: false, loading: false };
+async function loadPickup(){
+  if (PU.loading) return; PU.loading = true;
+  $("#v_pickup").innerHTML = `<div class="pagehead"><h2>Pick up tracker</h2></div><div class="card"><p class="muted">Loading every night from tonight...</p></div>`;
+  try { const r = await call("pickup.load", {}); PU.days = r.days; PU.meta = r; PU.cap = r.capacity || 18; renderPickup(); }
+  catch(e){ $("#v_pickup").innerHTML = `<div class="pagehead"><h2>Pick up tracker</h2></div><div class="notice bad">${esc(e.message)}</div>`; }
+  PU.loading = false;
+}
+function puRow(d, i){
+  const dow = rmDow(d.date), prev = i > 0 ? PU.days[i - 1].date.slice(0, 7) : d.date.slice(0, 7), first = d.date.slice(0, 7) !== prev;
+  return `<tr class="${dow === "Fri" || dow === "Sat" ? "we" : ""}${first ? " mon" : ""}"><td class="l"><b>${dow}</b></td><td class="l">${esc(fmtShort(d.date).replace(/ 20\d\d$/, ""))}</td>
+    <td>${d.otb}${d.otb >= PU.cap ? ` <span class="dim" title="Sold out">full</span>` : ""}</td>
+    <td title="${d.cur_src === "live" ? "Classic Double rack rate in Rezlynx now" : d.cur_src === "from Deluxe" ? "Classic is sold out that night: worked out from the Deluxe rack rate" : d.cur_src === "last pack" ? "Classic and Deluxe are sold out that night: the last rate the model saw" : ""}">${d.cur == null ? `<span class="dim">-</span>` : gbp0(d.cur)}${d.cur_src && d.cur_src !== "live" ? `<span class="dim">*</span>` : ""}</td>
+    <td class="pk">${rmPk(d.p1) || `<span class="dim">-</span>`}</td><td class="pk">${rmPk(d.p3) || `<span class="dim">-</span>`}</td><td class="pk">${rmPk(d.p7) || `<span class="dim">-</span>`}</td><td class="pk">${rmPk(d.p28) || `<span class="dim">-</span>`}</td></tr>`;
+}
+function renderPickup(){
+  const m = PU.meta, t = m.totals || {}, rows = PU.only ? PU.days.filter(d => d.p1 || d.p3 || d.p7 || d.p28) : PU.days;
+  const tot = v => v == null ? "-" : (v > 0 ? "+" : "") + v;
+  $("#v_pickup").innerHTML = `<div class="pagehead"><h2>Pick up tracker</h2></div>
+    <p class="hint" style="margin:-4px 0 10px">Every night from tonight, with the rooms on the books and how many rooms were picked up (net of cancellations) over the last 24 hours, 72 hours, week and 28 days. Each figure compares the latest capture of the booking system with the capture at the same time of day that many days ago. The system captures three times a day, so the longer columns fill in as the history builds up.</p>
+    <div class="card" style="padding:12px 16px; display:flex; gap:10px; flex-wrap:wrap; align-items:center">
+      <label class="small" style="display:flex; gap:6px; align-items:center; cursor:pointer"><input type="checkbox" id="pu_only" ${PU.only ? "checked" : ""}> Only nights with pick up</label>
+      <span style="flex:1"></span><button class="btn small ghost" type="button" data-act="pureload">Reload</button></div>
+    <div class="sumstrip"><div><b>${tot(t.p1)}</b><span>Rooms picked up, 24 hours</span></div><div><b>${tot(t.p3)}</b><span>72 hours</span></div><div><b>${tot(t.p7)}</b><span>Last week</span></div><div><b>${tot(t.p28)}</b><span>Last 28 days</span></div></div>
+    <div class="rmwrap"><table class="rmtab" style="min-width:680px"><thead><tr><th class="l">Day</th><th class="l">Date</th><th>Rooms on the books</th><th title="Classic Double rack rate, room only">Current price</th><th>Last 24 hours</th><th>Last 72 hours</th><th>Last week</th><th title="Needs 28 days of captures, so it fills in over the coming weeks">Last 28 days</th></tr></thead><tbody>${rows.map(d => puRow(d, PU.days.indexOf(d))).join("")}</tbody></table></div>
+    <p class="hint" style="margin-top:8px">Rooms on the books as at ${esc(rmAt(m.at))} (out of ${PU.cap}). Pick up is rooms sold less rooms cancelled, so a night can show a minus. - means there is no capture that far back yet. * Classic is sold out that night, so the price is worked out from the Deluxe rack rate (or is the last rate the model saw).</p>`;
+}
+document.addEventListener("change", e => { if (e.target && e.target.id === "pu_only") { PU.only = e.target.checked; renderPickup(); } });
+const TABS = ["calendar", "ratemgmt", "competitors", "pickup"];
+const tabOf = h => TABS.includes(String(h || "").replace("#", "")) ? String(h).replace("#", "") : "calendar";
 function setTab(name){
-  S.tab = name === "competitors" ? "competitors" : name === "ratemgmt" ? "ratemgmt" : "calendar";
+  S.tab = tabOf(name);
   $$(".tabbtn").forEach(x => x.setAttribute("aria-current", x.dataset.view === S.tab ? "page" : "false"));
-  $("#v_calendar").classList.toggle("off", S.tab !== "calendar"); $("#v_competitors").classList.toggle("off", S.tab !== "competitors"); $("#v_ratemgmt").classList.toggle("off", S.tab !== "ratemgmt");
+  TABS.forEach(t => { const el = $("#v_" + t); if (el) el.classList.toggle("off", S.tab !== t); });
   if (S.tab === "competitors") renderComps();
   if (S.tab === "ratemgmt") loadRm();
+  if (S.tab === "pickup") loadPickup();
   window.scrollTo(0, 0);
 }
 $$(".tabbtn").forEach(x => x.addEventListener("click", () => { location.hash = "#" + x.dataset.view; }));
-window.addEventListener("hashchange", () => setTab(location.hash === "#competitors" ? "competitors" : location.hash === "#ratemgmt" ? "ratemgmt" : "calendar"));
+window.addEventListener("hashchange", () => setTab(location.hash));
 
 function openGate(){ $("#gate").style.display = "flex"; $("#app").classList.add("off"); }
 $("#signout").addEventListener("click", () => { try { sessionStorage.removeItem("bhb_staff_email"); } catch(e){} openGate(); });
@@ -723,7 +758,7 @@ async function boot(){
   } catch(e){ $("#notices").innerHTML = `<div class="notice bad">${esc(e.message)}</div>`; return; }
   $("#whoname").textContent = S.me.name || S.me.email || "";
   S.month = S.today.slice(0, 7);
-  setTab(location.hash === "#competitors" ? "competitors" : location.hash === "#ratemgmt" ? "ratemgmt" : "calendar");
+  setTab(location.hash);
   renderBasis(); renderRefresh(); renderLive();
   if (S.running) { S.stop = false; runLoop(S.running.id); }
   await showMonth(S.month);

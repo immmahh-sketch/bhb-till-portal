@@ -410,6 +410,10 @@ function fcActual(fc, act, hasActual, fmt){
 function dayValue(fc, act, hasActual, fmt){
   return hasActual ? `<b>${fmt(act)}</b>` : `<i>${fmt(fc)}</i>`;
 }
+// Rooms on the books for a night that has not happened yet (from the booking system, captured three times a day), shown under the forecast.
+function onBooks(r){
+  return r.rooms_books != null && !r.has_actual ? `<div class="muted" style="font-size:11px">${num(r.rooms_books)} on books</div>` : "";
+}
 function pctDelta(now, then){
   if (!then) return null;
   return ((now - then) / then) * 100;
@@ -557,7 +561,7 @@ function monthRow(r, isLastActual){
   return `<tr class="${r.event_type?'wedrow':''}${isLastActual?' lastactual':''}" data-date="${r.date}">
     <td class="strong">${ukDate(r.date)}<div class="muted" style="font-size:11px">${esc(r.day_of_week||'')}</div></td>
     <td>${eventTag(r)}</td>
-    <td class="num">${dayValue(r.rooms_forecast, r.rooms_actual, r.has_actual, v=>num(v))}</td>
+    <td class="num">${dayValue(r.rooms_forecast, r.rooms_actual, r.has_actual, v=>num(v))}${onBooks(r)}</td>
     <td class="num">${dayValue(r.adr_forecast, r.adr_actual, r.has_actual, v=>gbp(v))}</td>
     <td class="num">${dayValue(r.rooms_revenue_forecast, r.rooms_revenue_actual, r.has_actual, v=>gbp(v))}</td>
     <td class="num">${dayValue(r.food_revenue_forecast, r.food_revenue_actual, r.has_actual, v=>gbp(v))}</td>
@@ -644,6 +648,7 @@ async function openDay(date){
     const lyNum = (f, a) => ly ? (ly[f] || ly[a] || null) : null;
     const rows = [
       ["Rooms", day.rooms_forecast, day.has_actual?day.rooms_actual:null, lyNum('rooms_forecast','rooms_actual')],
+      ...(day.rooms_books != null && !day.has_actual ? [["Rooms on the books now", day.rooms_books, null, null]] : []),
       ["ADR", gbp(day.adr_forecast), day.has_actual?gbp(day.adr_actual):null, lyNum('adr_forecast','adr_actual')!=null?gbp(lyNum('adr_forecast','adr_actual')):null],
       ["Rooms Revenue", gbp(day.rooms_revenue_forecast), day.has_actual?gbp(day.rooms_revenue_actual):null, lyNum('rooms_revenue_forecast','rooms_revenue_actual')!=null?gbp(lyNum('rooms_revenue_forecast','rooms_revenue_actual')):null],
       ["Food Revenue", gbp(day.food_revenue_forecast), day.has_actual?gbp(day.food_revenue_actual):null, lyNum('food_revenue_forecast','food_revenue_actual')!=null?gbp(lyNum('food_revenue_forecast','food_revenue_actual')):null],
@@ -694,6 +699,7 @@ function openWedding(r){
 
   const rows = [
     ["Rooms", dayValue(r.rooms_forecast, r.rooms_actual, r.has_actual, v=>num(v))],
+    ...(r.rooms_books != null && !r.has_actual ? [["Rooms on the books now", num(r.rooms_books)]] : []),
     ["Rooms Revenue", dayValue(r.rooms_revenue_forecast, r.rooms_revenue_actual, r.has_actual, v=>gbp(v))],
     ["Food Revenue", dayValue(r.food_revenue_forecast, r.food_revenue_actual, r.has_actual, v=>gbp(v))],
     ["Beverage Revenue", dayValue(r.beverage_revenue_forecast, r.beverage_revenue_actual, r.has_actual, v=>gbp(v))],
@@ -735,7 +741,7 @@ function periodRow(r, isLastActual){
   return `<tr class="${isLastActual?'lastactual':''}" data-date="${r.date}">
     <td class="strong">${ukDate(r.date)}<div class="muted" style="font-size:11px">${esc(r.day_of_week||'')}</div></td>
     <td>${eventTag(r)}</td>
-    <td class="num">${dayValue(r.rooms_forecast, r.rooms_actual, r.has_actual, v=>num(v))}</td>
+    <td class="num">${dayValue(r.rooms_forecast, r.rooms_actual, r.has_actual, v=>num(v))}${onBooks(r)}</td>
     <td class="num">${dayValue(r.adr_forecast, r.adr_actual, r.has_actual, v=>gbp(v))}</td>
     <td class="num">${dayValue(r.rooms_revenue_forecast, r.rooms_revenue_actual, r.has_actual, v=>gbp(v))}</td>
     <td class="num">${dayValue(r.food_revenue_forecast, r.food_revenue_actual, r.has_actual, v=>gbp(v))}</td>
