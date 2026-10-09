@@ -253,6 +253,14 @@ header.top{background:var(--sage); color:var(--white)}
   border:0; background:transparent; border-radius:8px; cursor:pointer; font-size:14px; color:var(--ink);
   border-left:4px solid transparent;
 }
+.nrow{display:flex; align-items:center; gap:4px}
+.nrow .nitem{flex:1; min-width:0}
+.nrow .nhide{flex:0 0 auto; border:0; background:transparent; color:var(--sage-70); font-size:11.5px; padding:8px 8px; cursor:pointer; border-radius:6px; text-decoration:underline; text-underline-offset:2px; white-space:nowrap}
+.nrow .nhide:hover{background:var(--sage-10); color:var(--ink)}
+.nrow.hid .nitem{opacity:.6}
+.nrow.hid .nitem .hidtag{font-size:10.5px; color:var(--sage-70); border:1px solid var(--mist); border-radius:99px; padding:1px 7px; margin-left:auto}
+.hidnote{margin-top:22px; font-size:13px; color:var(--sage-70)}
+.hidnote button{border:0; background:transparent; color:var(--sage); text-decoration:underline; cursor:pointer; font:inherit; padding:0}
 .nitem:hover{background:var(--sage-10)}
 .nitem.active{background:var(--sage-10); font-weight:600}
 .nitem .dot{width:10px; height:10px; border-radius:50%; flex-shrink:0}
@@ -784,22 +792,27 @@ function renderTiles(){
     wireEditTiles();
     return;
   }
-  if (S.layout) {                           // this person's own order: a flat grid, no headings
-    $("#tiles").innerHTML = `<div class="tiles" style="margin-top:6px">${orderedPortals().map(tileHtml).join("")}</div>`;
+  const shown = S.portals.filter(p => !isHidden(p)), nHidden = S.portals.length - shown.length;
+  const hidNote = nHidden ? `<div class="hidnote">${nHidden} tile${nHidden === 1 ? " is" : "s are"} hidden. Open the menu (the three lines at the top) to open ${nHidden === 1 ? "it" : "them"} or show ${nHidden === 1 ? "it" : "them"} again. <button type="button" data-showall="1">Show all</button></div>` : "";
+  const wireHid = () => { const b = $("#tiles [data-showall]"); if (b) b.addEventListener("click", async () => { S.layout = hasOrder() ? { order: S.layout.order, hidden: [] } : null; renderTiles(); renderNav(); toast("All your tiles are showing."); await persistLayout(S.layout); }); };
+  if (hasOrder()) {                         // this person's own order: a flat grid, no headings
+    $("#tiles").innerHTML = `<div class="tiles" style="margin-top:6px">${orderedPortals().filter(p => !isHidden(p)).map(tileHtml).join("")}</div>${hidNote}`;
     $$("#tiles .tile").forEach(b => b.addEventListener("click", ()=> openPortal(b.dataset.key)));
+    wireHid();
     return;
   }
 
   // Keep each app's own order within its group. An app not in
   // TILE_GROUP_FOR (a new one, not yet categorised) gets its own "Other"
   // group at the end rather than silently disappearing.
-  $("#tiles").innerHTML = groupedPortals().map(([g, list]) => `
+  $("#tiles").innerHTML = groupTiles(shown).map(([g, list]) => `
     <div class="tile-group">
       <h3>${esc(g)}</h3>
       <div class="tiles">${list.map(tileHtml).join("")}</div>
     </div>
-  `).join("");
+  `).join("") + (shown.length ? "" : `<div class="empty">All your tiles are hidden. Open the menu (the three lines at the top) to open one or show them again.</div>`) + hidNote;
   $$("#tiles .tile").forEach(b => b.addEventListener("click", ()=> openPortal(b.dataset.key)));
+  wireHid();
 }
 
 /* ---- personal tile order -------------------------------------------------
@@ -811,7 +824,7 @@ const LS_LAYOUT = () => "bhb_layout_" + String((S.user && S.user.email) || "").t
 
 function loadLayout(fromServer){
   S.layout = null; S.editing = false; S.draft = [];
-  const valid = l => l && Array.isArray(l.order) && l.order.length ? { order: l.order.map(String) } : null;
+  const valid = l => l && ((Array.isArray(l.order) && l.order.length) || (Array.isArray(l.hidden) && l.hidden.length)) ? { order: Array.isArray(l.order) ? l.order.map(String) : [], hidden: Array.isArray(l.hidden) ? l.hidden.map(String) : [] } : null;
   if (fromServer !== undefined) {           // the server knows about layouts: it is the truth (null = none saved)
     S.layout = valid(fromServer);
     try{ localStorage.removeItem(LS_LAYOUT()); }catch(e){}
@@ -834,6 +847,21 @@ function groupTiles(list){
   return order.filter(g => groups.has(g)).map(g => [g, groups.get(g).slice().sort(byLabel)]);
 }
 function groupedPortals(){ return groupTiles(S.portals); }
+
+/* Tiles this person has hidden from their front page. They stay in the menu (the three lines), where they can be shown again. */
+const hiddenKeys = () => new Set((S.layout && S.layout.hidden) || []);
+const hasOrder = () => !!(S.layout && S.layout.order && S.layout.order.length);
+const isHidden = p => hiddenKeys().has(p.key);
+async function toggleHide(key){
+  const h = hiddenKeys(); const was = h.has(key);
+  if (was) h.delete(key); else h.add(key);
+  const hidden = [...h], order = hasOrder() ? S.layout.order : [];
+  S.layout = hidden.length || order.length ? { order, hidden } : null;
+  renderTiles(); renderNav();
+  const p = S.portals.find(x => x.key === key), name = p ? p.label : "That tile";
+  toast(was ? `${name} is back on your front page.` : `${name} is hidden from your front page. You can still open it from the menu.`);
+  await persistLayout(S.layout);
+}
 
 /* Tiles in the order this person has chosen (or being chosen), else the default reading order. */
 function orderedPortals(){
@@ -862,13 +890,14 @@ function startEditLayout(){
 }
 async function finishEditLayout(){
   const order = S.draft.slice();
-  S.editing = false; S.layout = { order }; renderTiles(); renderNav();
+  S.editing = false; S.layout = { order, hidden: [...hiddenKeys()] }; renderTiles(); renderNav();
   if (await persistLayout(S.layout)) toast("Layout saved.");
 }
 function cancelEditLayout(){ S.editing = false; renderTiles(); renderNav(); }
 async function resetLayout(){
-  S.editing = false; S.layout = null; renderTiles(); renderNav();
-  if (await persistLayout(null)) toast("Back to the standard layout.");
+  const keep = [...hiddenKeys()];
+  S.editing = false; S.layout = keep.length ? { order: [], hidden: keep } : null; renderTiles(); renderNav();
+  if (await persistLayout(S.layout)) toast("Back to the standard layout.");
 }
 function moveDraft(key, to){                // put `key` at index `to`
   const from = S.draft.indexOf(key); if (from < 0 || to < 0 || to >= S.draft.length || from === to) return;
@@ -881,7 +910,7 @@ function renderLayoutTools(){
   el.innerHTML = S.editing
     ? `<button class="lbtn main" data-lay="done">Save layout</button><button class="lbtn quiet" data-lay="cancel">Cancel</button><button class="lbtn quiet" data-lay="reset">Reset to standard</button>
        <p class="layout-note">Hold the dots on a tile and drag it to where you want it, or use the arrows to move it a place at a time. Your order is saved to your account.</p>`
-    : `<button class="lbtn" data-lay="edit">${S.layout ? "Change layout" : "Customise layout"}</button>${S.layout ? `<button class="lbtn quiet" data-lay="reset">Reset</button>` : ""}`;
+    : `<button class="lbtn" data-lay="edit">${hasOrder() ? "Change layout" : "Customise layout"}</button>${hasOrder() ? `<button class="lbtn quiet" data-lay="reset">Reset</button>` : ""}`;
   el.querySelectorAll("[data-lay]").forEach(b => b.addEventListener("click", () => {
     const a = b.dataset.lay;
     if (a === "edit") startEditLayout(); else if (a === "done") finishEditLayout(); else if (a === "cancel") cancelEditLayout(); else if (a === "reset") resetLayout();
@@ -950,10 +979,14 @@ function wireEditTiles(){
 
 
 function renderNav(){
+  const hid = hiddenKeys();
   const items = orderedPortals().map(p => `
-    <button class="nitem ${S.current===p.key?'active':''}" data-key="${esc(p.key)}">
-      <span class="dot" style="background:${esc(p.color||'#4E5F4F')}"></span>${esc(p.label)}
-    </button>
+    <div class="nrow${hid.has(p.key) ? " hid" : ""}">
+      <button class="nitem ${S.current===p.key?'active':''}" data-key="${esc(p.key)}">
+        <span class="dot" style="background:${esc(p.color||'#4E5F4F')}"></span>${esc(p.label)}${hid.has(p.key) ? `<span class="hidtag">hidden</span>` : ""}
+      </button>
+      <button class="nhide" type="button" data-hide="${esc(p.key)}" aria-label="${hid.has(p.key) ? "Show" : "Hide"} ${esc(p.label)} ${hid.has(p.key) ? "on" : "from"} the front page">${hid.has(p.key) ? "Show tile" : "Hide tile"}</button>
+    </div>
   `).join("");
   const settingsItem = S.user && S.user.role==="admin"
     ? `<button class="nitem" data-goto="settings"><span class="dot" style="background:#8C4A3F"></span>Settings${S.plNew ? `<span class="dotbadge">${S.plNew}</span>` : ""}</button>`
@@ -963,6 +996,7 @@ function renderNav(){
     ${items}
     ${settingsItem}
   `;
+  $$("#navList .nhide").forEach(b => b.addEventListener("click", e => { e.stopPropagation(); toggleHide(b.dataset.hide); }));
   $$("#navList .nitem").forEach(b => b.addEventListener("click", ()=>{
     closeNav();
     if (b.dataset.goto === "landing") { closeViewer(); showLanding(); }
