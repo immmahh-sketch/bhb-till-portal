@@ -1864,7 +1864,7 @@ function openUserDrawer(id, prefill){
   $("#dBody").innerHTML = `
     ${plNote}
     <div class="field"><label>Name</label><input id="fName" value="${u?esc(u.display_name):(prefill?esc(prefill.name):'')}"></div>
-    <div class="field"><label>Email</label><input id="fEmail" type="email" value="${u?esc(u.email):(prefill?esc(prefill.email||''):'')}" ${u?'readonly':''}></div>
+    <div class="field"><label>Email</label><input id="fEmail" type="email" value="${u?esc(u.email):(prefill?esc(prefill.email||''):'')}">${u ? `<div class="hint" style="font-size:11.5px;color:var(--sage-70);margin-top:6px">Mistyped? Overtype it and press Save: a fresh set-your-password email is sent to the new address.</div>` : ""}</div>
     ${u
       ? `<div class="field"><label>New password (leave blank to keep)</label><input id="fPw" type="password" autocomplete="new-password"></div>`
       : `<p class="hint" style="margin:0 0 14px">An email will be sent to them to set their own password.</p>`}
@@ -2047,8 +2047,13 @@ async function saveUser(id){
       if (pwEl && pwEl.value) payload.password = pwEl.value;
       const activeSel = $("#fActive");
       if (activeSel) payload.active = activeSel.value === "1";
+      const cur = S.users.find(x => x.id === id), newEmail = $("#fEmail").value.trim().toLowerCase(), changed = !!cur && !!newEmail && newEmail !== String(cur.email).toLowerCase();
+      if (changed) payload.email = newEmail;
       await api("update_user", { id, ...payload });
-      toast("Saved.");
+      if (changed) {                                    // a new address: send them a fresh link to set their password
+        try { await api("reinvite_user", { id }); toast(`Email changed to ${newEmail} and a new invite sent.`); }
+        catch(e2){ toast(`Email changed to ${newEmail}, but the invite did not send (${e2.message}). Press Re-invite on their row.`, true); }
+      } else toast("Saved.");
     } else {
       payload.email = $("#fEmail").value.trim();
       await api("create_user", payload);
