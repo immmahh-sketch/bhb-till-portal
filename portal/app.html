@@ -314,8 +314,31 @@ table.grid td{padding:10px 12px; border-top:1px solid var(--mist); vertical-alig
 @media (max-width:760px){
   .shell{padding:0 14px 48px}
   .topin{padding-left:14px; padding-right:14px}
-  .tiles{grid-template-columns:1fr}
+  .tiles{grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px}
+  .tile{padding:12px 12px 14px; border-top-width:4px}
+  .tile .ic{font-size:22px; margin-bottom:6px}
+  .tile h3{font-size:15px; line-height:1.2; overflow-wrap:anywhere}
+  .tile p{font-size:11px; margin-top:4px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
+  .tile .lockNote{font-size:10px; margin-top:6px}
+  .tile-group{margin-top:22px}
+  .tile-group h3{margin-bottom:10px}
+  #editGrid.tiles{grid-template-columns:1fr}
 }
+/* ---- Settings > Tiles */
+.tl-card{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); padding:14px 16px; margin-bottom:14px}
+.tl-head{display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding-bottom:10px; border-bottom:1px solid var(--mist); margin-bottom:6px}
+.tl-head input{font:inherit; font-weight:700; font-size:14px; padding:6px 10px; border:1px solid var(--mist); border-radius:6px; min-width:0; flex:1 1 160px; max-width:280px}
+.tl-head .count{font-size:12px; color:var(--sage-70)}
+.tl-head button{border:1px solid var(--mist); background:var(--white); border-radius:6px; padding:5px 9px; cursor:pointer; font-size:13px; color:var(--ink)}
+.tl-head button:disabled{opacity:.35; cursor:default}
+.tl-row{display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--mist)}
+.tl-row:last-child{border-bottom:0}
+.tl-row .nm{flex:1 1 auto; min-width:0; font-size:14px}
+.tl-row .nm small{display:block; color:var(--sage-70); font-size:11.5px; overflow-wrap:anywhere}
+.tl-row select{font:inherit; font-size:13px; padding:6px 8px; border:1px solid var(--mist); border-radius:6px; max-width:48%; min-width:0}
+.tl-add{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
+.tl-add input{font:inherit; padding:8px 10px; border:1px solid var(--mist); border-radius:6px; flex:1 1 200px; min-width:0; max-width:320px}
+
 </style>
 </head>
 <body>
@@ -399,6 +422,15 @@ table.grid td{padding:10px 12px; border-top:1px solid var(--mist); vertical-alig
         <button class="btn ghost" id="tabPo">PO Tracker</button>
         <button class="btn ghost" id="tabView">View as</button>
         <button class="btn ghost" id="tabWelcome">Welcome message</button>
+        <button class="btn ghost" id="tabTiles">Tiles</button>
+      </div>
+      <div id="setTiles" style="display:none">
+        <div class="pagehead"><h2>Settings — Tiles</h2></div>
+        <p class="hint" style="margin:-8px 0 12px">Every tile, under the heading it shows beneath on everyone's front page. Change a tile's heading with the box beside it, or make a new heading first. Tiles are always listed A to Z inside a heading. Nothing changes for anyone until you press Save.</p>
+        <div class="tl-card"><div class="tl-add"><input id="tlNew" maxlength="40" placeholder="New heading, e.g. Housekeeping"><button class="btn" id="tlAdd" type="button">Add heading</button></div></div>
+        <div id="tlList"></div>
+        <div class="wm-actions" style="margin-top:6px"><button class="btn" id="tlSave" type="button">Save</button><button class="btn ghost" id="tlDiscard" type="button">Discard changes</button></div>
+        <div id="tlMsg" class="hint" style="margin-top:10px"></div>
       </div>
       <div id="setWelcome" style="display:none">
         <div class="pagehead"><h2>Settings — Welcome message</h2></div>
@@ -569,7 +601,7 @@ async function trySignIn(email, password){
   if(!email || !password){ $("#gerr").textContent = "Enter your email and password."; return; }
   try{
     const d = await api("login", { email, password });
-    S.token = d.token; S.user = d.user; S.portals = d.portals || []; S.serverLayout = d.layout; S.welcome = !!d.welcome; S.welcomeMsg = d.welcome_msg || null;
+    S.token = d.token; S.user = d.user; S.portals = d.portals || []; S.groups = d.groups || []; S.serverLayout = d.layout; S.welcome = !!d.welcome; S.welcomeMsg = d.welcome_msg || null;
     localStorage.setItem(LS_TOKEN, S.token);
     enterApp();
   }catch(e){
@@ -630,7 +662,7 @@ $("#rsPw2").addEventListener("keydown", e=>{ if(e.key==="Enter") submitReset(); 
 function signOut(){
   api("logout").catch(()=>{});
   try{ localStorage.removeItem(LS_TOKEN); }catch(e){}
-  S.token = ""; S.user = null; S.portals = []; S.layout = null; S.editing = false; S.serverLayout = undefined;
+  S.token = ""; S.user = null; S.portals = []; S.groups = []; S.layout = null; S.editing = false; S.serverLayout = undefined;
   closeViewer();
   openGate();
 }
@@ -784,16 +816,20 @@ function loadLayout(fromServer){
   try{ const raw = localStorage.getItem(LS_LAYOUT()); if (raw) S.layout = valid(JSON.parse(raw)); }catch(e){}
 }
 
-function groupedPortals(){
-  const groups = new Map();
-  S.portals.forEach(p => {
-    const g = TILE_GROUP_FOR[p.key] || "Other";
-    if (!groups.has(g)) groups.set(g, []);
-    groups.get(g).push(p);
-  });
-  const order = TILE_GROUPS.concat([...groups.keys()].filter(g => !TILE_GROUPS.includes(g)));
-  return order.filter(g => groups.has(g)).map(g => [g, groups.get(g)]);
+/* Which heading a tile sits under: the server's setting (Settings > Tiles) once it has groups, else the old fixed list. */
+function tileGroupOf(p){
+  return S.groups && S.groups.length ? (p.tile_group || "Other") : (TILE_GROUP_FOR[p.key] || "Other");
 }
+const byLabel = (a, b) => String(a.label).localeCompare(String(b.label), "en", { sensitivity: "base" });
+/* [heading, tiles] in heading order, the tiles in each heading A to Z */
+function groupTiles(list){
+  const groups = new Map();
+  list.forEach(p => { const g = tileGroupOf(p); if (!groups.has(g)) groups.set(g, []); groups.get(g).push(p); });
+  const base = S.groups && S.groups.length ? S.groups : TILE_GROUPS;
+  const order = base.concat([...groups.keys()].filter(g => !base.includes(g)));
+  return order.filter(g => groups.has(g)).map(g => [g, groups.get(g).slice().sort(byLabel)]);
+}
+function groupedPortals(){ return groupTiles(S.portals); }
 
 /* Tiles in the order this person has chosen (or being chosen), else the default reading order. */
 function orderedPortals(){
@@ -1150,7 +1186,7 @@ async function loadUsers(){
   $("#usersTable").innerHTML = `<tr><td style="padding:20px">Loading…</td></tr>`;
   try{
     const d = await api("list_users");
-    S.users = d.users; S.apps = d.apps; S.tabCatalogue = d.tabCatalogue || []; S.profiles = d.profiles || [];
+    S.users = d.users; S.apps = d.apps; if (d.groups && d.groups.length) S.groups = d.groups; S.tabCatalogue = d.tabCatalogue || []; S.profiles = d.profiles || [];
     S.poRoles = d.poRoles || []; S.poDepartments = d.poDepartments || [];
     renderUsersTable();
     renderPlanday();
@@ -1281,23 +1317,89 @@ const POS = { data:null };
 const fmtGBP = v => v === null || v === undefined || v === "" ? "—" : "£" + Number(v).toLocaleString("en-GB", { minimumFractionDigits:0, maximumFractionDigits:2 });
 
 function setSettingsTab(which){
-  const po = which === "po", view = which === "view", wel = which === "welcome";
+  const po = which === "po", view = which === "view", wel = which === "welcome", tl = which === "tiles";
   $("#setPo").style.display = po ? "" : "none";
   $("#setView").style.display = view ? "" : "none";
   $("#setWelcome").style.display = wel ? "" : "none";
-  $("#setUsers").style.display = (po || view || wel) ? "none" : "";
+  $("#setTiles").style.display = tl ? "" : "none";
+  $("#setUsers").style.display = (po || view || wel || tl) ? "none" : "";
   $("#tabPo").className = "btn" + (po ? "" : " ghost");
   $("#tabView").className = "btn" + (view ? "" : " ghost");
   $("#tabWelcome").className = "btn" + (wel ? "" : " ghost");
-  $("#tabUsers").className = "btn" + (po || view || wel ? " ghost" : "");
+  $("#tabTiles").className = "btn" + (tl ? "" : " ghost");
+  $("#tabUsers").className = "btn" + (po || view || wel || tl ? " ghost" : "");
   if (po) loadPoSettings();
   if (view) loadViewAs();
   if (wel) loadWelcomeEditor();
+  if (tl) loadTilesEditor();
 }
 $("#tabUsers").addEventListener("click", ()=> setSettingsTab("users"));
 $("#tabPo").addEventListener("click", ()=> setSettingsTab("po"));
 $("#tabView").addEventListener("click", ()=> setSettingsTab("view"));
 $("#tabWelcome").addEventListener("click", ()=> setSettingsTab("welcome"));
+$("#tabTiles").addEventListener("click", ()=> setSettingsTab("tiles"));
+
+/* ---- Tiles: which heading each tile sits under, and the headings themselves ---- */
+const TL = { groups: [], assign: {}, ready: false };
+async function loadTilesEditor(){
+  $("#tlMsg").textContent = "";
+  if (!S.apps || !S.users) { $("#tlList").innerHTML = `<div class="tl-card">Loading…</div>`; await loadUsers(); }
+  if (!S.apps) return;
+  const live = S.apps.filter(a => a.active !== false);
+  const haveGroups = !!(S.groups && S.groups.length);
+  TL.groups = (haveGroups ? S.groups : TILE_GROUPS).slice();
+  TL.assign = {};
+  live.forEach(a => { const g = haveGroups ? a.tile_group : (a.tile_group || TILE_GROUP_FOR[a.key]); TL.assign[a.key] = g && TL.groups.includes(g) ? g : null; });
+  TL.ready = true; renderTilesEditor();
+}
+function renderTilesEditor(){
+  const live = S.apps.filter(a => a.active !== false);
+  const inGroup = g => live.filter(a => (TL.assign[a.key] || null) === g).sort(byLabel);
+  const opts = sel => TL.groups.map(g => `<option value="${esc(g)}"${sel === g ? " selected" : ""}>${esc(g)}</option>`).join("") + `<option value=""${sel ? "" : " selected"}>Other (no heading)</option>`;
+  const row = a => `<div class="tl-row"><div class="nm"><span style="color:${esc(a.color || "#4E5F4F")}">${iconFor(a.icon)}</span> <b>${esc(a.label)}</b>${a.description ? `<small>${esc(a.description)}</small>` : ""}</div>
+      <select data-tile="${esc(a.key)}" aria-label="Heading for ${esc(a.label)}">${opts(TL.assign[a.key] || null)}</select></div>`;
+  const card = (g, i) => { const list = inGroup(g); return `<div class="tl-card"><div class="tl-head">
+      <input value="${esc(g)}" data-ren="${i}" maxlength="40" aria-label="Heading name">
+      <span class="count">${list.length} tile${list.length === 1 ? "" : "s"}</span>
+      <button type="button" data-up="${i}"${i === 0 ? " disabled" : ""} aria-label="Move heading up">&#9650;</button>
+      <button type="button" data-dn="${i}"${i === TL.groups.length - 1 ? " disabled" : ""} aria-label="Move heading down">&#9660;</button>
+      <button type="button" data-del="${i}"${list.length ? " disabled" : ""} title="${list.length ? "Move its tiles elsewhere first" : "Remove this heading"}">Remove</button>
+    </div>${list.length ? list.map(row).join("") : `<div class="hint" style="padding:8px 0">No tiles under this heading yet.</div>`}</div>`; };
+  const other = inGroup(null);
+  $("#tlList").innerHTML = TL.groups.map(card).join("") +
+    (other.length ? `<div class="tl-card"><div class="tl-head"><b style="font-size:14px">Other (no heading)</b><span class="count">${other.length} tile${other.length === 1 ? "" : "s"}, shown last</span></div>${other.map(row).join("")}</div>` : "");
+  $$("#tlList select[data-tile]").forEach(el => el.addEventListener("change", () => { TL.assign[el.dataset.tile] = el.value || null; renderTilesEditor(); }));
+  $$("#tlList [data-ren]").forEach(el => el.addEventListener("change", () => {
+    const i = Number(el.dataset.ren), old = TL.groups[i], n = el.value.trim().replace(/\s+/g, " ");
+    if (!n || TL.groups.some((g, j) => j !== i && g.toLowerCase() === n.toLowerCase())) { toast(n ? "There is already a heading with that name." : "A heading needs a name.", true); el.value = old; return; }
+    TL.groups[i] = n; for (const k of Object.keys(TL.assign)) if (TL.assign[k] === old) TL.assign[k] = n;
+    renderTilesEditor();
+  }));
+  const swap = (i, j) => { const t = TL.groups[i]; TL.groups[i] = TL.groups[j]; TL.groups[j] = t; renderTilesEditor(); };
+  $$("#tlList [data-up]").forEach(b => b.addEventListener("click", () => swap(Number(b.dataset.up), Number(b.dataset.up) - 1)));
+  $$("#tlList [data-dn]").forEach(b => b.addEventListener("click", () => swap(Number(b.dataset.dn), Number(b.dataset.dn) + 1)));
+  $$("#tlList [data-del]").forEach(b => b.addEventListener("click", () => { TL.groups.splice(Number(b.dataset.del), 1); renderTilesEditor(); }));
+}
+$("#tlAdd").addEventListener("click", () => {
+  const n = $("#tlNew").value.trim().replace(/\s+/g, " ");
+  if (!n) return;
+  if (TL.groups.some(g => g.toLowerCase() === n.toLowerCase())) { toast("There is already a heading with that name.", true); return; }
+  TL.groups.push(n); $("#tlNew").value = ""; renderTilesEditor();
+});
+$("#tlNew").addEventListener("keydown", e => { if (e.key === "Enter") $("#tlAdd").click(); });
+$("#tlDiscard").addEventListener("click", () => loadTilesEditor());
+$("#tlSave").addEventListener("click", async () => {
+  const b = $("#tlSave"); b.disabled = true; $("#tlMsg").textContent = "Saving…";
+  try {
+    const d = await api("save_tiles", { groups: TL.groups, assign: TL.assign });
+    S.groups = d.groups || TL.groups;
+    S.apps.forEach(a => { if (a.key in TL.assign) a.tile_group = TL.assign[a.key] && S.groups.includes(TL.assign[a.key]) ? TL.assign[a.key] : null; });
+    const me = await api("me"); S.portals = me.portals || S.portals; S.groups = me.groups || S.groups;   // the front page uses the new headings straight away
+    renderTiles(); $("#tlMsg").textContent = ""; toast("Tiles saved.");
+    loadTilesEditor();
+  } catch (e) { $("#tlMsg").textContent = e.message; toast(e.message, true); }
+  b.disabled = false;
+});
 
 /* ---- Welcome message editor ---- */
 const WM = { loaded:false };
@@ -1371,11 +1473,8 @@ function renderViewAs(){
         ${po ? `<div><b>PO role:</b> ${esc(po.profile || "not set")}${po.department ? " · " + esc(po.department) : ""}${po.spending_limit != null ? " · limit £" + esc(po.spending_limit) : ""}</div>` : ""}
       </div></div>`;
   };
-  const groups = new Map();
-  mine.forEach(a => { const gname = TILE_GROUP_FOR[a.key] || "Other"; (groups.get(gname) || groups.set(gname, []).get(gname)).push(a); });
-  const order = TILE_GROUPS.concat([...groups.keys()].filter(g => !TILE_GROUPS.includes(g)));
   const frontPage = mine.length
-    ? order.filter(g => groups.has(g)).map(g => `<div class="tile-group"><h3>${esc(g)}</h3><div class="tiles">${groups.get(g).map(tileHtml).join("")}</div></div>`).join("")
+    ? groupTiles(mine).map(([g, list]) => `<div class="tile-group"><h3>${esc(g)}</h3><div class="tiles">${list.map(tileHtml).join("")}</div></div>`).join("")
     : `<div class="empty">${esc(u.display_name)} has no portals yet.</div>`;
   out.innerHTML = `
     <div class="card" style="padding:16px; margin-top:14px">
@@ -1976,7 +2075,7 @@ function proceedPastInstallGate(){
   if(saved){
     S.token = saved;
     api("me").then(d=>{
-      S.user = d.user; S.portals = d.portals || []; S.serverLayout = d.layout; S.welcome = !!d.welcome; S.welcomeMsg = d.welcome_msg || null;
+      S.user = d.user; S.portals = d.portals || []; S.groups = d.groups || []; S.serverLayout = d.layout; S.welcome = !!d.welcome; S.welcomeMsg = d.welcome_msg || null;
       enterApp();
     }).catch(()=>{
       try{ localStorage.removeItem(LS_TOKEN); }catch(e){}
