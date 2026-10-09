@@ -561,7 +561,7 @@ document.addEventListener("click", async e => {
       EV.addOpen = false; EV.loading = false; await loadEvents(); toast("Event added.");
     }
     else if (act === "evcheck") {
-      if (!confirm(`Check for events now? This uses up to 24 of the free monthly searches (${EV.meta.searches_left != null ? EV.meta.searches_left + " left" : "allowance unknown"}) and the live price searches share the same allowance.`)) return;
+      if (!confirm(`Check for events now? This uses up to 15 of the free monthly searches (${EV.meta.searches_left != null ? EV.meta.searches_left + " left" : "allowance unknown"}) and the live price searches share the same allowance.`)) return;
       b.disabled = true; b.textContent = "Checking...";
       try { const r = await call("events.check", { force: true }); toast(r.waiting ? "No searches left this month: it will carry on when the allowance renews." : `Checked: ${r.added || 0} added.`); } catch(err){ toast(err.message, true); }
       EV.loading = false; await loadEvents();
@@ -806,7 +806,7 @@ function renderEvents(){
     <div class="card evsave" id="evsavebar">${evSaveBarHtml()}</div>
     <div class="sumstrip"><div><b>${n("high")}</b><span>High impact</span></div><div><b>${n("medium")}</b><span>Medium</span></div><div><b>${n("low")}</b><span>Low</span></div><div><b>${n("none")}</b><span>None</span></div></div>
     <div class="rmwrap"><table class="rmtab" style="min-width:640px"><thead><tr><th class="l">Day</th><th class="l">Date</th><th class="l">Event</th><th>Miles from DH9 0RW</th><th>Impact on local demand</th></tr></thead><tbody>${rows.length ? rows.map(e => evRow(e, EV.list.indexOf(e))).join("") : `<tr><td class="l" colspan="5"><span class="dim">No events yet.</span></td></tr>`}</tbody></table></div>
-    <p class="hint" style="margin-top:8px">${st.last_check_at ? "Last full check " + esc(rmAt(st.last_check_at)) + ". " : "No full check has finished yet. "}${st.last_check_note ? esc(st.last_check_note) + ". " : ""}It runs by itself about once a month and uses the free search allowance${m.searches_left != null ? ` (${m.searches_left} searches left this month)` : ""}. Events are read from Google's event listings and, if a free Ticketmaster key is added, Ticketmaster; big annual events were also researched by hand. Small events are left out.</p>`;
+    <p class="hint" style="margin-top:8px">${st.last_check_at ? "Last full check " + esc(rmAt(st.last_check_at)) + ". " : "No full check has finished yet. "}${st.last_check_note ? esc(st.last_check_note) + ". " : ""}It runs by itself about once a month and uses the free search allowance${m.searches_left != null ? ` (${m.searches_left} searches left this month)` : ""}. Events are read from Google's event listings and, if a free Ticketmaster key is added, Ticketmaster; big annual events were also researched by hand. Every event found is kept here, big or small, so you can judge for yourself: tick "Hide events with no impact" to see only the ones that matter.</p>`;
 }
 document.addEventListener("change", async e => {
   const t = e.target; if (!t) return;
