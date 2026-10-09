@@ -206,6 +206,7 @@ table.tk tr.det td{background:var(--bone)}
     <button class="tabbtn" data-view="files">File share<span class="badge" id="b_files" hidden></span></button>
     <button class="tabbtn" data-view="social">Social Posts</button>
     <button class="tabbtn" data-view="analytics">Analytics</button>
+    <button class="tabbtn" data-view="mailshots">Mail shots</button>
     <button class="tabbtn" data-view="postcode">Postcode offer</button>
     <button class="tabbtn" data-view="call">Marketing Call</button>
   </div></nav>
@@ -217,6 +218,7 @@ table.tk tr.det td{background:var(--bone)}
 <script src="social.js?v=7"></script>
 <script src="insights.js?v=2"></script>
 <script src="analytics.js?v=2"></script>
+<script src="mailshots.js?v=1"></script>
 <script>
 const CFG = { SUPABASE_URL:"https://safcrtrfdzsnftghibot.supabase.co", SUPABASE_KEY:"sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU" };
 const STATUSES = [["outstanding","Outstanding"],["in_progress","In Progress"],["completed","Completed"],["parked","Parked"]];
@@ -762,6 +764,15 @@ function viewAnalytics(){
 }
 function analyticsStop(){ if (analyticsHandle) { analyticsHandle.unmount(); analyticsHandle = null; } }
 
+/* ============================================================ mail shots (Brevo, read only) */
+const brevoCall = (action, payload) => post("brevo-api", { action, staff_email: staffEmail(), ...(payload || {}) });
+let mailshotsHandle = null;
+function viewMailshots(){
+  $("#views").innerHTML = `<div id="mailshotsmount"></div>`;
+  mailshotsHandle = Mailshots.mount($("#mailshotsmount"), { call: brevoCall, toast });
+}
+function mailshotsStop(){ if (mailshotsHandle) { mailshotsHandle.unmount(); mailshotsHandle = null; } }
+
 /* ============================================================ marketing call */
 /* ------------------------------------------------------------- postcode offer */
 const PC = { d:null, busy:false };
@@ -896,9 +907,9 @@ async function refreshBadges(){
 }
 function markTab(){ $$(".tabbtn").forEach(b => b.setAttribute("aria-current", b.dataset.view === S.view ? "page" : "false")); }
 function goView(v){
-  chatStop(); tkStop(); fsStop(); socialStop(); analyticsStop();
+  chatStop(); tkStop(); fsStop(); socialStop(); analyticsStop(); mailshotsStop();
   S.view = v; markTab(); closeModal();
-  if (v === "plan") viewPlan(); else if (v === "mine") viewMine(); else if (v === "tickets") viewTickets(); else if (v === "files") viewFiles(); else if (v === "call") viewCall(); else if (v === "postcode") viewPostcode(); else if (v === "social") viewSocial(); else if (v === "analytics") viewAnalytics(); else viewChat();
+  if (v === "plan") viewPlan(); else if (v === "mine") viewMine(); else if (v === "tickets") viewTickets(); else if (v === "files") viewFiles(); else if (v === "call") viewCall(); else if (v === "postcode") viewPostcode(); else if (v === "mailshots") viewMailshots(); else if (v === "social") viewSocial(); else if (v === "analytics") viewAnalytics(); else viewChat();
   window.scrollTo(0, 0);
 }
 function openGate(msg){ $("#gate").hidden = false; $("#app").hidden = true; if (msg) $("#gerr").textContent = msg; }
