@@ -770,6 +770,7 @@ const TILE_GROUP_FOR = {
   "this-week":           "Team",
   "this-week-managers":  "Office",
   "pl-review":           "Accounts",
+  "forecast":            "Accounts",
   "notices":             "Team",
   "handover":            "FOH",
   "fb-todo":             "FOH",
@@ -1098,6 +1099,7 @@ const AUTOLOGIN = {
   "this-week":    { store:"session", key:"bhb_thisweek_ok", value:()=>"1" },
   "this-week-managers": { store:"session", key:"bhb_thisweekmgr_ok", value:()=>"1" },
   "pl-review":    { store:"session", key:"bhb_plreview_ok", value:()=>"1" },
+  "forecast":     { store:"session", key:"bhb_forecast_ok", value:()=>"1" },
   "notices":      { store:"session", key:"bhb_notices_ok", value:()=>"1" },
   "handover":     { store:"session", key:"bhb_handover_ok", value:()=>"1" },
   "fb-todo":      { store:"session", key:"bhb_fbtodo_ok", value:()=>"1" },
@@ -1208,6 +1210,7 @@ const TAB_SELECTORS = {
   "fire-report":        k => `button[data-view="${k}"]`,
   "labour":             k => `button[data-view="${k}"]`,
   "pl-review":          k => `button[data-view="${k}"]`,
+  "forecast":           k => `button[data-view="${k}"]`,
   "venue-faq":          k => `button[data-view="${k}"]`,
   "team-training":      k => `button[data-view="${k}"]`,
   "onboarding":         k => `button[data-view="${k}"]`,
@@ -1916,20 +1919,27 @@ function applyGrantsToBlocks(grants){
   });
 }
 function wirePortalBlocks(){
-  $$("#dBody .portalGrant").forEach(cb => cb.addEventListener("change", ()=>{
-    cb.closest(".portal-block").querySelector(".portal-detail").style.display = cb.checked ? "" : "none";
-  }));
+  $$("#dBody .portal-block").forEach(b => {
+    const cb = b.querySelector(".portalGrant"), detail = b.querySelector(".portal-detail"), tabs = Array.from(b.querySelectorAll(".tabCheck"));
+    cb.addEventListener("change", ()=>{
+      detail.style.display = cb.checked ? "" : "none";
+      if (cb.checked) tabs.forEach(t => { t.checked = true; });          // ticking a tile (again) starts with every tab on
+    });
+    tabs.forEach(t => t.addEventListener("change", ()=>{                // nothing left ticked inside the tile: the tile is off
+      if (tabs.length && !tabs.some(x => x.checked)) { cb.checked = false; detail.style.display = "none"; }
+    }));
+  });
 }
 /* Read the portal blocks back into the grants list Settings sends. */
 function collectApps(){
-  return $$("#dBody .portal-block").filter(b => b.querySelector(".portalGrant").checked).map(b => {
+  return $$("#dBody .portal-block").filter(b => b.querySelector(".portalGrant").checked && (!b.querySelectorAll(".tabCheck").length || Array.from(b.querySelectorAll(".tabCheck")).some(c => c.checked))).map(b => {
     const allTabs = Array.from(b.querySelectorAll(".tabCheck"));
     const checked = allTabs.filter(c => c.checked).map(c => c.value);
     const editCb = b.querySelector(".editCheck");
     const entry = {
       key: b.dataset.key,
       can_edit: editCb ? editCb.checked : true,
-      tabs: checked.length === allTabs.length && !OPT_IN[b.dataset.key] ? null : checked, // every box ticked = unrestricted (except the opt-in tiles, which always keep the exact list)
+      tabs: allTabs.length ? checked : null,           // always the exact ticks; a tile with nothing ticked was filtered out above, so it is not granted at all
     };
     if (b.dataset.key === "po-tracker" && b.querySelector(".poProfile")) {
       const limitEl = b.querySelector(".poSpendingLimit");
