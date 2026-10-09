@@ -1561,7 +1561,8 @@ function renderViewAs(){
   const missing = live.filter(a => !grants.has(a.key));
   const tileHtml = a => {
     const g = grants.get(a.key), tabs = catalogue.filter(t => t.app_key === a.key);
-    const allowed = g.tabs === null || g.tabs === undefined ? null : g.tabs;
+    let allowed = g.tabs === null || g.tabs === undefined ? null : g.tabs;
+    if (allowed === null && OPT_IN[a.key]) allowed = tabs.map(t => t.tab_key).filter(k => !isOptIn(a.key, k));      // no rows on these tiles means the powerful tab is NOT given
     const shown = tabs.filter(t => !allowed || allowed.includes(t.tab_key)), hidden = tabs.filter(t => allowed && !allowed.includes(t.tab_key));
     const editable = tabs.some(t => t.editable);
     const po = a.key === "po-tracker" && g.po ? g.po : null;
@@ -1906,7 +1907,7 @@ function applyGrantsToBlocks(grants){
     cb.checked = !!g;
     b.querySelector(".portal-detail").style.display = g ? "" : "none";
     const tabs = Array.from(b.querySelectorAll(".tabCheck"));
-    tabs.forEach(t => { t.checked = !g || g.tabs === null || g.tabs === undefined || (Array.isArray(g.tabs) && g.tabs.includes(t.value)); });
+    tabs.forEach(t => { t.checked = (!g || g.tabs === null || g.tabs === undefined) ? !isOptIn(b.dataset.key, t.value) : (Array.isArray(g.tabs) && g.tabs.includes(t.value)); });
     const e = b.querySelector(".editCheck"); if (e) e.checked = !g || g.can_edit !== false;
   });
 }
@@ -1924,7 +1925,7 @@ function collectApps(){
     const entry = {
       key: b.dataset.key,
       can_edit: editCb ? editCb.checked : true,
-      tabs: checked.length === allTabs.length ? null : checked, // every box ticked = unrestricted
+      tabs: checked.length === allTabs.length && !OPT_IN[b.dataset.key] ? null : checked, // every box ticked = unrestricted (except the opt-in tiles, which always keep the exact list)
     };
     if (b.dataset.key === "po-tracker" && b.querySelector(".poProfile")) {
       const limitEl = b.querySelector(".poSpendingLimit");
@@ -1970,6 +1971,12 @@ function openProfileDrawer(key){
   $("#veil").classList.add("on"); $("#drawer").classList.add("on");
 }
 
+/* Three tiles keep their powerful tab OFF unless it is ticked on purpose: posting notices, managing the F&B To-Do, and the Team Training record (everyone's results).
+   Their servers read "no tab rows" as "none of these", while every other tile reads it as "every tab". So for these tiles the form never saves "all ticked" as "no
+   restriction": it always saves the exact tabs, and an old "no restriction" is shown with the powerful tab unticked (which is what the person really has). */
+const OPT_IN = { "notices": "post", "fb-todo": "manage", "team-training": "record" };
+const isOptIn = (appKey, tabKey) => OPT_IN[appKey] === tabKey;
+
 /* The tile tick-boxes (with their tabs, can-edit and PO Tracker fields),
    from a list of grants. Shared by the user and profile drawers. */
 function portalBlocksHtml(grants, showPo, email){
@@ -1985,7 +1992,7 @@ function portalBlocksHtml(grants, showPo, email){
     const grantedTabs = grant ? grant.tabs : null; // null = every tab
     const tabChecks = tabs.map(t => `
       <label><input type="checkbox" class="tabCheck" value="${esc(t.tab_key)}"
-        ${(!grant || grantedTabs===null || grantedTabs.includes(t.tab_key)) ? "checked":""}> ${esc(t.label)}</label>
+        ${((!grant || grantedTabs===null) ? !isOptIn(a.key, t.tab_key) : grantedTabs.includes(t.tab_key)) ? "checked":""}> ${esc(t.label)}</label>
     `).join("");
     const po = (grant && grant.po) || { profile:null, department:null, spending_limit:null };
     const poFields = isPo ? `
