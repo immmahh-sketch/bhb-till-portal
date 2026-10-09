@@ -1868,6 +1868,7 @@ function openUserDrawer(id, prefill){
   $("#dBody").innerHTML = `
     ${plNote}
     <div class="field"><label>Name</label><input id="fName" value="${u?esc(u.display_name):(prefill?esc(prefill.name):'')}"></div>
+    <div class="field"><label>Payroll number (Planday)</label><input id="fPay" value="${u ? esc(u.payroll_number || '') : ''}" maxlength="40" placeholder="Same as in Planday"><div class="hint" style="font-size:11.5px;color:var(--sage-70);margin-top:6px">Links this account to their Planday record whatever email each holds, so the Shift plan finds their roles. Left blank, it is matched by email, then by name.</div></div>
     <div class="field"><label>Email</label><input id="fEmail" type="email" value="${u?esc(u.email):(prefill?esc(prefill.email||''):'')}">${u ? `<div class="hint" style="font-size:11.5px;color:var(--sage-70);margin-top:6px">Mistyped? Overtype it and press Save: a fresh set-your-password email is sent to the new address.</div>` : ""}</div>
     ${u
       ? `<div class="field"><label>New password (leave blank to keep)</label><input id="fPw" type="password" autocomplete="new-password"></div>`
@@ -2057,6 +2058,7 @@ async function saveUser(id){
       if (pwEl && pwEl.value) payload.password = pwEl.value;
       const activeSel = $("#fActive");
       if (activeSel) payload.active = activeSel.value === "1";
+      payload.payroll_number = $("#fPay").value.trim();
       const cur = S.users.find(x => x.id === id), newEmail = $("#fEmail").value.trim().toLowerCase(), changed = !!cur && !!newEmail && newEmail !== String(cur.email).toLowerCase();
       if (changed) payload.email = newEmail;
       await api("update_user", { id, ...payload });
@@ -2066,6 +2068,7 @@ async function saveUser(id){
       } else toast("Saved.");
     } else {
       payload.email = $("#fEmail").value.trim();
+      payload.payroll_number = $("#fPay").value.trim();
       await api("create_user", payload);
       toast("User created — an invite email is on its way to them.");
     }
