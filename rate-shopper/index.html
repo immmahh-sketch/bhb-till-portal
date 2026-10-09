@@ -105,6 +105,8 @@ nav.tabs{background:var(--sage-dark)}
 .rmwrap{overflow:auto; max-height:72vh; border:1px solid var(--mist); border-radius:var(--radius); background:var(--white)}
 .rmtab{border-collapse:separate; border-spacing:0; width:100%; min-width:900px; font-variant-numeric:tabular-nums; font-size:13.5px}
 .rmtab th{position:sticky; top:0; z-index:2; background:var(--sage); color:#fff; font-size:10.5px; letter-spacing:.1em; text-transform:uppercase; padding:9px 10px; text-align:right; white-space:nowrap}
+.upchip{display:inline-block; border-radius:99px; padding:2px 10px; font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase}
+.upchip.strong{background:var(--good); color:#fff} .upchip.worth{background:#F5E3BD; color:var(--attention-ink)} .upchip.weak{background:var(--mist); color:#555} .upchip.none{background:#F6EAE8; color:#8C4A3F}
 .rmtab th.l,.rmtab td.l{text-align:left}
 .rmtab td{padding:6px 10px; border-bottom:1px solid var(--mist); text-align:right; white-space:nowrap}
 .rmtab tr.we td{background:#FAFAF7} .rmtab tr.chg td{background:#FFF9DB}
@@ -184,6 +186,7 @@ nav.tabs{background:var(--sage-dark)}
     <button class="tabbtn" type="button" data-view="ratemgmt" aria-current="false">Rates management</button>
     <button class="tabbtn" type="button" data-view="competitors" aria-current="false">Competitors</button>
     <button class="tabbtn" type="button" data-view="pickup" aria-current="false">Pick up tracker</button>
+    <button class="tabbtn" type="button" data-view="upgrades" aria-current="false">Complimentary upgrades</button>
     <button class="tabbtn" type="button" data-view="events" aria-current="false">Events in the area</button>
   </div></nav>
   <div class="shell"><main>
@@ -202,6 +205,7 @@ nav.tabs{background:var(--sage-dark)}
     <div id="v_ratemgmt" class="off"></div>
     <div id="v_competitors" class="off"></div>
     <div id="v_pickup" class="off"></div>
+    <div id="v_upgrades" class="off"></div>
     <div id="v_events" class="off"></div>
   </main></div>
 </div>
@@ -847,7 +851,61 @@ function renderPickup(){
     <p class="hint" style="margin-top:8px">Rooms on the books as at ${esc(rmAt(m.at))} (out of ${PU.cap}). Pick up is rooms sold less rooms cancelled, so a night can show a minus. - means there is no capture that far back yet. * Classic is sold out that night, so the price is worked out from the Deluxe rack rate (or is the last rate the model saw).</p>`;
 }
 document.addEventListener("change", e => { if (e.target && e.target.id === "pu_only") { PU.only = e.target.checked; renderPickup(); } });
-const TABS = ["calendar", "ratemgmt", "competitors", "pickup", "events"];
+/* ---- Complimentary upgrades: nights where moving a Classic Double guest into a free Deluxe Double lets us sell the cheapest rate ---- */
+const UP = { d:null, loading:false, occ:50, gap:20, miss:false, err:"" };
+try { const sv = JSON.parse(localStorage.getItem("bhb_rs_upg") || "null"); if (sv) { UP.occ = sv.occ || 50; UP.gap = sv.gap ?? 20; } } catch(e){}
+async function loadUpgrades(){
+  if (UP.loading) return; UP.loading = true; UP.err = "";
+  if (!UP.d) $("#v_upgrades").innerHTML = `<div class="pagehead"><h2>Complimentary upgrades</h2></div><div class="card"><p class="muted">Looking at the next 60 nights...</p></div>`;
+  try { UP.d = await call("upgrades.load", { occ:UP.occ, gap:UP.gap }); } catch(e){ UP.err = e.message; }
+  UP.loading = false; renderUpgrades();
+}
+const upSigned = n => n == null ? "" : (n >= 0 ? "+" : "-") + "£" + Math.abs(Math.round(n));
+const upVerdict = { strong:["Upgrade", "strong"], worth:["Worth considering", "worth"], weak:["Probably not worth it", "weak"], none:["Nowhere to move them", "none"] };
+function upRow(d){
+  const dow = rmDow(d.date), v = upVerdict[d.level] || upVerdict.none, best = d.bookings.find(b => b.ok), others = d.bookings.filter(b => b !== best);
+  const bk = b => `<b>${esc(b.ref)}</b> &middot; ${b.nights} night${b.nights === 1 ? "" : "s"} (${esc(fmtShort(b.arrival).replace(/ 20\d\d$/, ""))} to ${esc(fmtShort(b.departure).replace(/ 20\d\d$/, ""))}) &middot; ${esc(b.plan || "")}${b.rate ? " " + gbp0(b.rate) : ""}`;
+  return `<tr class="${dow === "Fri" || dow === "Sat" ? "we" : ""}"><td class="l"><b>${dow}</b></td><td class="l">${esc(fmtShort(d.date).replace(/ 20\d\d$/, ""))}</td>
+    <td>${d.sold} <span class="dim">(${Math.round(d.occ)}%)</span></td>
+    <td title="${esc(d.own_room || "")}">${gbp0(d.own_price)}</td>
+    <td title="${d.comp_n} hotels with a price">${gbp0(d.comp_avg)}</td>
+    <td class="up">${upSigned(d.gap)}</td>
+    <td title="Classic Double rack rate, room only, once it is back on sale">${d.classic_price != null ? gbp0(d.classic_price) : `<span class="dim">-</span>`}${d.after_gap != null ? ` <span class="dim" title="Against the comp set's room-only average of ${gbp0(d.comp_ro_avg)}">(${upSigned(d.after_gap)})</span>` : ""}</td>
+    <td class="l" style="white-space:normal; min-width:330px"><span class="upchip ${v[1]}">${v[0]}</span><div style="margin-top:4px; line-height:1.4">${esc(d.advice)}</div>
+      ${best ? `<div class="dim" style="margin-top:4px">${bk(best)} &rarr; ${esc(best.to)}</div>` : ""}
+      ${others.length ? `<div class="dim" style="margin-top:2px">${d.n_bookings > 1 ? `Other Classic Double guest${others.length === 1 ? "" : "s"}: ` : ""}${others.map(b => `${esc(b.ref)} (${b.nights}n${b.ok ? "" : ", no free Deluxe"})`).join(", ")}</div>` : ""}</td></tr>`;
+}
+function renderUpgrades(){
+  const box = $("#v_upgrades"), d = UP.d;
+  if (!d) { box.innerHTML = `<div class="pagehead"><h2>Complimentary upgrades</h2></div><div class="notice bad">${esc(UP.err || "Could not load.")}</div>`; return; }
+  const n = d.days.length, ups = d.days.filter(x => x.level === "strong" || x.level === "worth").length;
+  box.innerHTML = `<div class="pagehead"><h2>Complimentary upgrades</h2></div>
+    <p class="hint" style="margin:-4px 0 10px">Nights in the next 60 where fewer than <b>${d.rules.occupancy_under}%</b> of the rooms are sold, our online price is more than <b>£${d.rules.gap_over}</b> above the comp set average, and every Classic Double is sold. The price showing online is then a dearer room's. Moving one Classic Double guest up into a free Deluxe Double puts the cheapest rate back on sale, and a cheaper room is easier to sell than a dearer one. The guest gets a better room at the price they paid.</p>
+    <div class="card" style="padding:12px 16px; display:flex; gap:12px 18px; flex-wrap:wrap; align-items:center">
+      <label class="small" style="display:flex; gap:6px; align-items:center">Occupancy under <input type="number" id="up_occ" value="${UP.occ}" min="5" max="100" style="width:64px; padding:6px; border:1px solid var(--celadon); border-radius:6px"> %</label>
+      <label class="small" style="display:flex; gap:6px; align-items:center">Our price more than £ <input type="number" id="up_gap" value="${UP.gap}" min="0" max="200" style="width:64px; padding:6px; border:1px solid var(--celadon); border-radius:6px"> above comp set</label>
+      <button class="btn small" type="button" data-act="upapply">Apply</button>
+      <label class="small" style="display:flex; gap:6px; align-items:center; cursor:pointer"><input type="checkbox" id="up_miss" ${UP.miss ? "checked" : ""}> Show Classic sold-out nights that miss the rules</label>
+      <span style="flex:1"></span><button class="btn small ghost" type="button" data-act="upreload" ${UP.loading ? "disabled" : ""}>Reload</button></div>
+    <div class="sumstrip"><div><b>${n}</b><span>Nights that fit</span></div><div><b>${ups}</b><span>Upgrades worth doing</span></div><div><b>${d.missed.length}</b><span>Other Classic sold-out nights</span></div></div>
+    ${n ? `<div class="rmwrap"><table class="rmtab" style="min-width:960px"><thead><tr><th class="l">Day</th><th class="l">Date</th><th title="Rooms sold and the share of the ${d.capacity} rooms">Rooms sold</th><th title="Our own-website bed and breakfast price now (the cheapest room we have left)">Our price online</th><th title="Average of the comp set's own-website bed and breakfast prices">Comp set average</th><th>Gap</th><th title="Classic Double rack rate (room only) once released, and how far it sits above the comp set's room-only average">Classic if released</th><th class="l">Suggestion</th></tr></thead><tbody>${d.days.map(upRow).join("")}</tbody></table></div>`
+       : `<div class="card"><p class="muted" style="margin:0">No night in the next 60 fits all three rules today. Nights where the Classic Doubles are sold out but the rules are not met are listed below if you tick the box.</p></div>`}
+    ${UP.miss && d.missed.length ? `<h4 style="font-size:20px;color:var(--sage);margin:18px 0 6px">Classic sold out, but not suggested</h4><div class="rmwrap"><table class="rmtab" style="min-width:560px"><thead><tr><th class="l">Day</th><th class="l">Date</th><th>Occupancy</th><th>Our price online</th><th>Comp set average</th><th class="l">Why not</th></tr></thead><tbody>${d.missed.map(m => { const dw = rmDow(m.date); return `<tr class="${dw === "Fri" || dw === "Sat" ? "we" : ""}"><td class="l"><b>${dw}</b></td><td class="l">${esc(fmtShort(m.date).replace(/ 20\d\d$/, ""))}</td><td>${Math.round(m.occ)}%</td><td>${m.own_price != null ? gbp0(m.own_price) : "-"}</td><td>${m.comp_avg != null ? gbp0(m.comp_avg) : "-"}</td><td class="l">${esc(m.why.replace(/only £(-?\d+) above/, (x, v) => Number(v) < 0 ? "£" + Math.abs(v) + " below" : "only £" + v + " above"))}</td></tr>`; }).join("")}</tbody></table></div>` : ""}
+    <p class="hint" style="margin-top:8px">Rooms on the books as at ${esc(rmAt(d.otb_at))}; the booking list (who is in a Classic Double, and for how many nights) is from the Reservations report loaded ${esc(rmAt(d.bookings_as_of))}, so check the booking in Rezlynx before moving anyone. Prices are the own-website bed and breakfast price against the average of the comp set's own-website prices; the figure in brackets compares room-only rates. A guest is only suggested if a Deluxe Double is free on every night of their stay. Nothing is changed in Rezlynx from here.</p>`;
+}
+document.addEventListener("change", e => { if (e.target && e.target.id === "up_miss") { UP.miss = e.target.checked; renderUpgrades(); } });
+document.addEventListener("click", e => {
+  const b = e.target.closest && e.target.closest("[data-act]"); if (!b) return;
+  if (b.dataset.act === "upreload") { UP.d = UP.d; loadUpgrades(); }
+  if (b.dataset.act === "upapply") {
+    const o = Number(($("#up_occ") || {}).value), g = Number(($("#up_gap") || {}).value);
+    if (isFinite(o) && o >= 5 && o <= 100) UP.occ = o; if (isFinite(g) && g >= 0 && g <= 200) UP.gap = g;
+    try { localStorage.setItem("bhb_rs_upg", JSON.stringify({ occ:UP.occ, gap:UP.gap })); } catch(x){}
+    loadUpgrades();
+  }
+});
+
+const TABS = ["calendar", "ratemgmt", "competitors", "pickup", "upgrades", "events"];
 const tabOf = h => TABS.includes(String(h || "").replace("#", "")) ? String(h).replace("#", "") : "calendar";
 function setTab(name){
   S.tab = tabOf(name);
@@ -857,6 +915,7 @@ function setTab(name){
   if (S.tab === "competitors") renderComps();
   if (S.tab === "ratemgmt") loadRm();
   if (S.tab === "pickup") loadPickup();
+  if (S.tab === "upgrades") loadUpgrades();
   if (S.tab === "events") loadEvents();
   window.scrollTo(0, 0);
 }
