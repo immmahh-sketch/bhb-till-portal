@@ -57,6 +57,14 @@ nav.tabs{background:var(--sage-dark)}
 .chip small{font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:#6d5320; font-weight:700}
 .chip button{border:0; background:rgba(0,0,0,.08); width:24px; height:24px; border-radius:50%; cursor:pointer; line-height:1; font-size:15px; color:var(--ink)}
 .chip button:hover{background:var(--alert); color:#fff}
+.tm{border:0; background:rgba(0,0,0,.08); border-radius:999px; padding:2px 8px; font-size:12px; font-weight:600; cursor:pointer; color:var(--sage-dark)}
+.tm:hover{background:var(--sage); color:#fff}
+.tm.set{background:var(--blue-bg); color:var(--blue)}
+.chip.editing{background:var(--attention-bg); padding:6px 8px; flex-wrap:wrap}
+.chip.editing input{padding:5px 6px; border:1px solid var(--mist); border-radius:6px; font-size:14px; background:#fff}
+.chip.editing .sm{width:auto; height:auto; border-radius:6px; padding:5px 10px; font-size:12px; background:var(--sage); color:#fff}
+.tw{display:inline-flex; gap:6px; align-items:center; font-size:12px; color:var(--sage-70)}
+.tw input{min-width:0 !important; width:104px; padding:8px 6px}
 .add{display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:6px}
 .add select,.add input{padding:9px 10px; border:1px solid var(--mist); border-radius:8px; background:var(--white); font-size:15px; min-height:42px; max-width:100%}
 .add select{min-width:210px}
@@ -97,7 +105,9 @@ nav.tabs{background:var(--sage-dark)}
 <script>
 const CFG = { SUPABASE_URL:"https://safcrtrfdzsnftghibot.supabase.co", SUPABASE_KEY:"sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU" };
 const AREA_NAME = { restaurant:"Restaurant", marquee:"Marquee" };
-const S = { me:null, date:"", today:"", area:"restaurant", roles:[], assigns:[], onShift:[], staff:[], planday:{ ok:true }, typing:{}, busy:false };
+const S = { me:null, date:"", today:"", area:"restaurant", roles:[], assigns:[], onShift:[], staff:[], planday:{ ok:true }, typing:{}, busy:false, addT:{}, editT:null };
+const tspan = a => (a.start_time || a.end_time) ? `${a.start_time || ""}–${a.end_time || ""}` : "";
+const clash = (a, b) => a.start_time && a.end_time && b.start_time && b.end_time && a.start_time < b.end_time && b.start_time < a.end_time;
 const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
 const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 const norm = v => String(v ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
@@ -120,7 +130,7 @@ function peopleToday(){
   for (const a of S.assigns) {                                       // someone given a role who is not on the rota: typed in, or picked from the wider F&B list
     if (!list.some(p => sameP({ planday_id:a.planday_id, person_name:a.person_name }, { planday_id:p.planday_id, name:p.name }))) list.push({ name:a.person_name, planday_id:a.planday_id, email:a.person_email, shift:null, drafted:true });
   }
-  return list.map(p => ({ ...p, roles: S.assigns.filter(a => sameP(a, p)).map(a => a.role_key) }));
+  return list.map(p => ({ ...p, roles: S.assigns.filter(a => sameP(a, p)) }));
 }
 
 /* ---- drawing */
@@ -132,8 +142,10 @@ function roleCard(r){
   const stOpts = S.staff.filter(p => !used.has(norm(p.name))).map(p => `<option value="p:${p.planday_id}">${esc(p.name)}</option>`).join("");
   return `<div class="card role${as.length ? "" : " empty"}" data-role="${esc(r.key)}">
     <h3>${esc(r.label)}<span class="n">${as.length ? as.length + (as.length === 1 ? " person" : " people") : "nobody yet"}</span></h3>
-    <div class="chips">${as.map(a => `<span class="chip${a.drafted ? " drafted" : ""}">${esc(a.person_name)}${a.drafted ? ` <small>drafted in</small>` : ""}<button type="button" data-act="rm" data-id="${esc(a.id)}" aria-label="Take ${esc(a.person_name)} off ${esc(r.label)}">&times;</button></span>`).join("")}</div>
-    <div class="add">${typing
+    <div class="chips">${as.map(a => S.editT === a.id
+      ? `<span class="chip editing"><b>${esc(a.person_name)}</b> <input type="time" step="900" data-et="s" value="${esc(a.start_time || "")}" aria-label="From"> – <input type="time" step="900" data-et="e" value="${esc(a.end_time || "")}" aria-label="To"><button type="button" class="sm" data-act="savet" data-id="${esc(a.id)}">Save</button><button type="button" class="sm" style="background:#999" data-act="cancelt">Cancel</button></span>`
+      : `<span class="chip${a.drafted ? " drafted" : ""}">${esc(a.person_name)}${a.drafted ? ` <small>drafted in</small>` : ""}<button type="button" class="tm${tspan(a) ? " set" : ""}" data-act="editt" data-id="${esc(a.id)}" title="${tspan(a) ? "Change the times" : "Give this role set times (for part of the shift)"}">${tspan(a) ? esc(tspan(a)) : "&#9201; times"}</button><button type="button" data-act="rm" data-id="${esc(a.id)}" aria-label="Take ${esc(a.person_name)} off ${esc(r.label)}">&times;</button></span>`).join("")}</div>
+    <div class="add"><span class="tw" title="Optional. Leave blank for the whole shift. A person can be on one role until 15:00 and another after.">From <input type="time" step="900" data-addt="from" data-role="${esc(r.key)}" value="${esc((S.addT[r.key] || {}).from || "")}" aria-label="From"> to <input type="time" step="900" data-addt="to" data-role="${esc(r.key)}" value="${esc((S.addT[r.key] || {}).to || "")}" aria-label="To"></span>${typing
       ? `<input type="text" id="ty_${esc(r.key)}" maxlength="80" placeholder="Type their name" autocomplete="off"><button class="btn small" type="button" data-act="addtyped" data-role="${esc(r.key)}">Add</button><button class="btn small ghost" type="button" data-act="canceltyped" data-role="${esc(r.key)}">Cancel</button>`
       : `<select data-addsel="${esc(r.key)}" aria-label="Add someone to ${esc(r.label)}"><option value="">+ Add a person</option>
           ${onOpts ? `<optgroup label="On shift today">${onOpts}</optgroup>` : ""}${stOpts ? `<optgroup label="Other FOH staff (not working or clocked in that day)">${stOpts}</optgroup>` : ""}<option value="__type">Someone else: type a name…</option></select>`}</div></div>`;
@@ -144,7 +156,7 @@ function sidePanel(){
     <div class="sub">${S.planday.ok ? `${S.onShift.length} on the FOH rota or clocked in${without ? `, <b>${without} without a role yet</b>` : ", everyone has a role"}.` : esc(S.planday.error || "Planday could not be read.")}</div>
     ${ppl.length ? ppl.map(p => `<div class="pp"><div class="nm">${esc(p.name)} ${p.drafted ? `<span class="tag dr">drafted in</span>` : ""}</div>
       <div class="meta">${p.shift ? esc(p.shift) : (p.clocked_in ? "not on the rota" : "")}${p.draft ? " (draft shift)" : ""}${p.clocked_in ? ` · <b>${p.clocked_out ? "clocked out " + esc(p.clocked_out) : "clocked in " + esc(p.clocked_in)}</b>` : ""}${p.job ? (p.shift || p.clocked_in ? " · " : "") + esc(p.job) : ""}</div>
-      <div class="rl">${p.roles.length ? p.roles.map(k => { const r = roleOf(k); return r ? `<span class="tag${r.area === "marquee" ? " m" : ""}">${esc(r.label)}</span>` : ""; }).join("") : `<span class="tag none">No role yet</span>`}</div></div>`).join("") : `<div class="muted" style="padding:8px 0">Nobody on the rota for this day yet.</div>`}</div>`;
+      <div class="rl">${p.roles.length ? p.roles.map(a => { const r = roleOf(a.role_key); return r ? `<span class="tag${r.area === "marquee" ? " m" : ""}">${esc(r.label)}${tspan(a) ? " " + esc(tspan(a)) : ""}</span>` : ""; }).join("") : `<span class="tag none">No role yet</span>`}</div></div>`).join("") : `<div class="muted" style="padding:8px 0">Nobody on the rota for this day yet.</div>`}</div>`;
 }
 function render(){
   const roles = S.roles.filter(r => r.area === S.area), keep = window.scrollY;
@@ -156,7 +168,7 @@ function render(){
       <button class="btn ghost small" data-act="today"${S.date === S.today ? " disabled" : ""}>Today</button>
       <span style="flex:1"></span>
       <button class="btn ghost small" data-act="copy" title="Add the roles from the day before; nothing is removed">Copy the day before</button></div>
-    <p class="muted" style="margin:-4px 0 12px;font-size:13px">${esc(fmtDay(S.date))}. Pick a person under a role to give it to them. A person can have more than one role, and a role can have more than one person. Drafted in at the last minute? Choose "Someone else" and type their name. The team see their roles on the Shift plan tile straight away.</p>
+    <p class="muted" style="margin:-4px 0 12px;font-size:13px">${esc(fmtDay(S.date))}. Pick a person under a role to give it to them. A person can have more than one role, and a role can have more than one person. Set the From and To times first if they are only on that role for part of their shift (say the Pass 12:00 to 15:00), then add them to the next role for the time after (Marquee Bar 15:00 to 18:00); blank times mean the whole shift. Drafted in at the last minute? Choose "Someone else" and type their name. The team see their roles on the Shift plan tile straight away.</p>
     <div class="grid"><div>${roles.map(roleCard).join("") || `<div class="empty-msg">No roles set up.</div>`}</div><div class="side">${sidePanel()}</div></div>`;
   window.scrollTo(0, keep);
 }
@@ -173,14 +185,21 @@ async function load(date){
 async function assign(roleKey, person){
   if (S.busy) return; S.busy = true;
   try {
-    const d = await call("assign", { date:S.date, role_key:roleKey, name:person.name, email:person.email || undefined, planday_id:person.planday_id || undefined, drafted:!!person.drafted });
-    if (!d.already) S.assigns.push(d.assignment);
-    S.typing = {}; render(); toast(d.already ? `${person.name} already has that role.` : `${person.name}: ${roleOf(roleKey).label}`);
+    const t = S.addT[roleKey] || {};
+    const d = await call("assign", { date:S.date, role_key:roleKey, name:person.name, email:person.email || undefined, planday_id:person.planday_id || undefined, drafted:!!person.drafted, start:t.from || undefined, end:t.to || undefined });
+    let note = "";
+    if (!d.already) {
+      S.assigns.push(d.assignment);
+      const over = S.assigns.filter(x => x.id !== d.assignment.id && sameP(x, d.assignment) && clash(x, d.assignment));
+      if (over.length) note = ` (overlaps their ${roleOf(over[0].role_key).label} ${tspan(over[0])})`;
+    }
+    delete S.addT[roleKey]; S.typing = {}; render(); toast(d.already ? `${person.name} already has that role at those times.` : `${person.name}: ${roleOf(roleKey).label}${tspan(d.assignment) ? " " + tspan(d.assignment) : ""}${note}`, !!note);
   } catch(e){ toast(e.message, true); render(); }
   S.busy = false;
 }
 document.addEventListener("change", e => {
   const t = e.target;
+  if (t.dataset && t.dataset.addt) { const r = t.dataset.role; (S.addT[r] = S.addT[r] || {})[t.dataset.addt] = t.value; return; }
   if (t.id === "dsel") { if (t.value) load(t.value); return; }
   if (t.dataset && t.dataset.addsel) {
     const role = t.dataset.addsel, v = t.value; if (!v) return;
@@ -205,6 +224,13 @@ document.addEventListener("click", async e => {
     if (!name) { toast("Type a name first.", true); if (inp) inp.focus(); return; }
     const match = S.onShift.find(x => norm(x.name) === norm(name)) || S.staff.find(x => norm(x.name) === norm(name));        // typed a name that is on the list: use the real person
     return assign(role, match ? { name:match.name, email:match.email, planday_id:match.planday_id, drafted:!S.onShift.includes(match) } : { name, drafted:true });
+  }
+  if (a === "editt") { S.editT = b.dataset.id; render(); return; }
+  if (a === "cancelt") { S.editT = null; render(); return; }
+  if (a === "savet") {
+    const id = b.dataset.id, box = b.closest(".chip"), st = box.querySelector('[data-et="s"]').value, en = box.querySelector('[data-et="e"]').value;
+    try { const d = await call("retime", { id, start:st || undefined, end:en || undefined }); const x = S.assigns.find(y => y.id === id); if (x) { x.start_time = d.start_time; x.end_time = d.end_time; } S.editT = null; render(); toast("Times saved."); } catch(err){ toast(err.message, true); }
+    return;
   }
   if (a === "canceltyped") { delete S.typing[b.dataset.role]; render(); return; }
   if (a === "copy") {

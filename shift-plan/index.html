@@ -43,6 +43,8 @@ header.top{background:var(--sage); color:var(--white)}
 .mine{display:flex; flex-direction:column; gap:10px; margin-top:12px}
 .myrole{border-radius:10px; background:var(--good-bg); padding:14px 16px; font-family:var(--display); font-size:30px; line-height:1.1; color:var(--sage)}
 .myrole.m{background:var(--blue-bg); color:var(--blue)}
+.myrole .tt{display:block; font-family:var(--body); font-size:20px; font-weight:700; margin-bottom:2px}
+.now{display:inline-block; margin-left:8px; font-family:var(--body); font-size:11px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; background:var(--sage); color:#fff; border-radius:999px; padding:2px 10px; vertical-align:middle}
 .myrole small{display:block; font-family:var(--body); font-size:11px; letter-spacing:var(--track-label); text-transform:uppercase; opacity:.75; margin-top:4px}
 .none{font-size:17px; color:var(--sage-70); padding:6px 0}
 .shift{margin-top:12px; font-size:14px; color:var(--sage-70)}
@@ -84,7 +86,10 @@ async function call(action, payload){
 function render(){
   const d = S.d, label = k => (d.roles.find(r => r.key === k) || {}).label || k, area = k => (d.roles.find(r => r.key === k) || {}).area;
   const isToday = d.date === d.today, rel = isToday ? "today" : d.date === addDays(d.today, 1) ? "tomorrow" : d.date === addDays(d.today, -1) ? "yesterday" : "that day";
-  const mine = d.mine.map(k => d.roles.find(r => r.key === k)).filter(Boolean);
+  const ukNow = new Intl.DateTimeFormat("en-GB", { timeZone:"Europe/London", hour:"2-digit", minute:"2-digit", hour12:false }).format(new Date());
+  const span = a => (a.start || a.start_time || a.end || a.end_time) ? `${a.start || a.start_time || ""}–${a.end || a.end_time || ""}` : "";
+  const isNow = a => isToday && (!(a.start || a.start_time) || (a.start || a.start_time) <= ukNow) && (!(a.end || a.end_time) || ukNow < (a.end || a.end_time));
+  const mine = d.mine.map(m => ({ ...m, role: d.roles.find(r => r.key === m.role_key) })).filter(m => m.role).sort((x, y) => (x.start || "").localeCompare(y.start || ""));
   const groups = ["restaurant", "marquee"].map(a => ({ a, rows: d.roles.filter(r => r.area === a).map(r => ({ r, people: d.assignments.filter(x => x.role_key === r.key) })).filter(x => x.people.length) })).filter(g => g.rows.length);
   const meOn = a => (a.person_email && a.person_email.toLowerCase() === d.me.email) || (!a.person_email && norm(a.person_name) === norm(d.me.name));
   $("#views").innerHTML = `
@@ -93,9 +98,9 @@ function render(){
       <button class="btn" data-act="today"${isToday ? " disabled" : ""}>Today</button>
       <button class="btn" data-act="next" aria-label="Day after">&rsaquo;</button></div>
     <div class="card hero"><h3>Your role${mine.length === 1 ? "" : "s"} ${esc(rel)}</h3>
-      ${mine.length ? `<div class="mine">${mine.map(r => `<div class="myrole${r.area === "marquee" ? " m" : ""}">${esc(r.label)}<small>${r.area === "marquee" ? "Marquee" : "Restaurant"}</small></div>`).join("")}</div>` : `<div class="none">Nothing has been given to you ${esc(rel)} yet.${d.assignments.length ? "" : " The plan has not been made yet."} Ask your manager if you are unsure.</div>`}
+      ${mine.length ? `<div class="mine">${mine.map(m => `<div class="myrole${m.role.area === "marquee" ? " m" : ""}">${span(m) ? `<span class="tt">${esc(span(m))}</span>` : ""}${esc(m.role.label)}${isNow(m) && mine.length > 1 ? `<span class="now">now</span>` : ""}<small>${m.role.area === "marquee" ? "Marquee" : "Restaurant"}${span(m) ? "" : mine.length > 1 ? " · whole shift" : ""}</small></div>`).join("")}</div>` : `<div class="none">Nothing has been given to you ${esc(rel)} yet.${d.assignments.length ? "" : " The plan has not been made yet."} Ask your manager if you are unsure.</div>`}
       ${d.shift ? `<div class="shift">Your shift ${esc(rel)}: <b>${esc(d.shift)}</b></div>` : ""}</div>
-    ${groups.length ? groups.map(g => `<div class="card sect"><h3>${g.a === "marquee" ? "Marquee" : "Restaurant"}</h3>${g.rows.map(x => `<div class="row"><div class="r">${esc(x.r.label)}</div><div class="p">${x.people.map(a => meOn(a) ? `<b>${esc(a.person_name)}</b>` : esc(a.person_name)).join(", ")}</div></div>`).join("")}</div>`).join("") : `<div class="card"><div class="muted">No plan has been made for ${esc(rel)} yet.</div></div>`}`;
+    ${groups.length ? groups.map(g => `<div class="card sect"><h3>${g.a === "marquee" ? "Marquee" : "Restaurant"}</h3>${g.rows.map(x => `<div class="row"><div class="r">${esc(x.r.label)}</div><div class="p">${x.people.map(a => { const t = span(a); const nm = esc(a.person_name) + (t ? ` <span class="muted">${esc(t)}</span>` : ""); return meOn(a) ? `<b>${esc(a.person_name)}</b>${t ? ` <span class="muted">${esc(t)}</span>` : ""}` : nm; }).join(", ")}</div></div>`).join("")}</div>`).join("") : `<div class="card"><div class="muted">No plan has been made for ${esc(rel)} yet.</div></div>`}`;
 }
 async function load(date){
   $("#views").innerHTML = `<div class="loading">Loading…</div>`;
