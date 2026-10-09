@@ -525,6 +525,16 @@ document.addEventListener("click", async e => {
     if (act === "mprev") await showMonth(monthAdd(S.month, -1));
     else if (act === "mnext") await showMonth(monthAdd(S.month, 1));
     else if (act === "rmcsv") rmCsv(b.dataset.all === "1");
+    else if (act === "rmesave") {
+      const v = id => $("#" + id), msg = $("#rme_msg"); msg.textContent = "Saving...";
+      const r = await call("ratemgmt.settings", { floor: Number(v("rme_floor").value), adr_target: Number(v("rme_adr").value) / 100, yield_from: v("rme_yield").value, max_move: Number(v("rme_move").value) / 100, email_on: v("rme_email").checked, enabled: v("rme_on").checked });
+      RM.meta.engine.settings = r.settings; msg.textContent = "Saved. It takes effect the next time the model runs (tonight, or press Run the model now)."; toast("Model settings saved.");
+    }
+    else if (act === "rmerun") {
+      const msg = $("#rme_msg"); b.disabled = true; msg.textContent = "Running the model...";
+      try { const r = await call("ratemgmt.run", {}); RM.engOpen = true; toast(`Done: ${r.nights} nights priced, ${r.changes_waiting} changes waiting.`); RM.loading = false; await loadRm(); }
+      catch(err){ msg.textContent = err.message; b.disabled = false; }
+    }
     else if (act === "rmrev") { const d = RM.days.find(x => x.date === b.dataset.d); await call("ratemgmt.save", { edits: [{ date: d.date, classic: null }] }); d.edit = null; renderRm(); toast("Back to the suggestion."); }
     else if (act === "rmrefresh") {
       b.disabled = true; b.textContent = "Refreshing...";
@@ -584,7 +594,7 @@ document.addEventListener("click", async e => {
 });
 
 /* ------------------------------------------------------------- rate management */
-const RM = { days: [], cap: 18, meta: {}, only: false, loading: false };
+const RM = { days: [], cap: 18, meta: {}, only: false, loading: false, engOpen: false };
 const RM_ROOMS = ["CLASSIC_DBL", "DLX_DBL_FF", "DLX_DBL_GF", "DLX_HT_SUITE", "HUCKLEBERRY", "ROSEMARY", "STU_SUITE"];
 const RM_GAP = { CLASSIC_DBL: 0, DLX_DBL_FF: 30, DLX_DBL_GF: 30, STU_SUITE: 50, ROSEMARY: 100, HUCKLEBERRY: 100, DLX_HT_SUITE: 120 };
 const rmTier = c => c <= 109 ? 0 : 1 + Math.floor((c - 114) / 30);
@@ -620,6 +630,31 @@ function rmSummary(){
   const chg = RM.days.filter(d => rmChange(d)), up = chg.filter(d => rmChange(d) > 0).length, dn = chg.filter(d => rmChange(d) < 0).length, ed = RM.days.filter(d => d.edit != null).length;
   return `<div class="sumstrip"><div><b>${chg.length}</b><span>Nights that change</span></div><div><b>${up} up, ${dn} down</b><span>Direction</span></div><div><b>${ed}</b><span>Typed over by you</span></div></div>`;
 }
+const CLS_NAME = { FS: "Friday and Saturday", Su: "Sunday", MT: "Monday to Thursday" };
+function rmEngine(){
+  const e = (RM.meta && RM.meta.engine) || null; if (!e || !e.settings) return "";
+  const st = e.settings, edit = S.me && S.me.edit, bt = e.backtest || {}, acc = new Map((e.accuracy || []).map(a => [Number(a.lead_days), a]));
+  const lastRun = e.last_run ? `${fmtShort(String(e.last_run.started_at).slice(0, 10))}${e.last_run.status === "failed" ? " (failed)" : ""}` : "not yet";
+  const leads = [1, 3, 7, 14, 28, 56, 90, 180];
+  const accRows = leads.map(L => { const a = acc.get(L), b = bt[String(L)]; return `<tr><td class="l">${L === 1 ? "Tomorrow" : L + " days ahead"}</td><td>${b == null ? `<span class="dim">-</span>` : b.toFixed(1)}</td><td>${a ? Number(a.mae).toFixed(1) : `<span class="dim">waiting</span>`}</td><td>${a ? (a.bias > 0 ? "+" : "") + Number(a.bias).toFixed(1) : ""}</td><td>${a ? a.n : ""}</td></tr>`; }).join("");
+  const l = e.learned || {}, learnRows = ["FS", "Su", "MT"].map(c => { const u = l[c + "_up"] || {}, d = l[c + "_down"] || {}; const cell = x => x.used == null ? "" : `${Number(x.used).toFixed(2)} <span class="dim">(${x.n} night${x.n === 1 ? "" : "s"} measured)</span>`; return `<tr><td class="l">${CLS_NAME[c]}</td><td>${cell(u)}</td><td>${cell(d)}</td></tr>`; }).join("");
+  const dis = edit ? "" : " disabled";
+  return `<details class="card" style="padding:12px 16px; margin-top:10px"${RM.engOpen ? " open" : ""} id="rm_eng"><summary style="cursor:pointer; font-weight:600">The model: how accurate it is, what it has learned, and its settings</summary>
+    <p class="hint" style="margin:8px 0">The model runs by itself every night after the rooms on the books are captured (about 4:25am). It forecasts rooms sold for every night, prices each night, scores its own forecasts against what really happened, refits itself every week on the newest figures, and emails you when there are changes waiting. It only suggests: nothing reaches Rezlynx until you download the file and upload it. Last run: <b>${lastRun}</b>${e.last_run && e.last_run.note ? ` <span class="dim">(${esc(e.last_run.note)})</span>` : ""}. Model fitted on ${e.fitted_on ? esc(fmtShort(e.fitted_on)) : "?"} using ${e.n_history || "?"} nights of history.</p>
+    <div class="rmwrap" style="margin-bottom:12px"><table class="rmtab"><thead><tr><th class="l">Forecast of rooms sold</th><th title="Average miss in rooms, tested on past years the model had not seen">History test (rooms out)</th><th title="Average miss in rooms on nights since the model went live">Live (rooms out)</th><th title="Positive = forecasts ran too high">Live bias</th><th>Nights scored</th></tr></thead><tbody>${accRows}</tbody></table></div>
+    <div class="rmwrap" style="margin-bottom:12px"><table class="rmtab"><thead><tr><th class="l">How guests react to price (elasticity)</th><th>After a rise</th><th>After a cut</th></tr></thead><tbody>${learnRows}</tbody></table></div>
+    <p class="hint" style="margin:0 0 12px">Starts from assumed figures and moves towards what the model measures from your own price changes (it needs 8 nights of a kind before it moves at all, and about 60 to trust it fully). A figure of -1.4 means a 10% rise costs about 14% of the late bookings.</p>
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:10px 14px; align-items:end">
+      <label class="small">Lowest Classic price (floor)<br><input id="rme_floor" type="number" min="60" max="199" step="5" value="${st.floor}"${dis} style="width:100%"></label>
+      <label class="small">Growth target on last year's rate (from the date below), %<br><input id="rme_adr" type="number" min="-10" max="40" step="0.5" value="${(Number(st.adr_target) * 100).toFixed(1)}"${dis} style="width:100%"></label>
+      <label class="small">Fill mode until, then Yield mode<br><input id="rme_yield" type="date" value="${esc(String(st.yield_from).slice(0, 10))}"${dis} style="width:100%"></label>
+      <label class="small">Biggest move on a night, %<br><input id="rme_move" type="number" min="5" max="50" step="1" value="${Math.round(Number(st.max_move) * 100)}"${dis} style="width:100%"></label>
+      <label class="small" style="display:flex; gap:6px; align-items:center"><input type="checkbox" id="rme_email"${st.email_on !== false ? " checked" : ""}${dis}> Email me when changes are waiting</label>
+      <label class="small" style="display:flex; gap:6px; align-items:center"><input type="checkbox" id="rme_on"${st.enabled !== false ? " checked" : ""}${dis}> Run every night</label>
+    </div>
+    <div style="display:flex; gap:10px; margin-top:12px; flex-wrap:wrap; align-items:center"><button class="btn small" type="button" data-act="rmesave"${dis}>Save settings</button><button class="btn small ghost" type="button" data-act="rmerun"${dis}>Run the model now</button><span class="hint" id="rme_msg"></span></div>
+    <p class="hint" style="margin:8px 0 0">Fill mode (autumn and winter) puts occupancy first, because a filled room also brings breakfast, bar and restaurant spend. Yield mode aims each month at the growth target. Competitor prices are refreshed every night before the model runs.</p></details>`;
+}
 function renderRm(){
   const edit = S.me && S.me.edit, m = RM.meta, rows = (RM.only ? RM.days.filter(d => rmChange(d) || d.edit != null) : RM.days);
   $("#v_ratemgmt").innerHTML = `<div class="pagehead"><h2>Rate management</h2></div>
@@ -631,7 +666,8 @@ function renderRm(){
       <span style="flex:1"></span>
       <button class="btn small ghost" type="button" data-act="rmrefresh" ${edit ? "" : "disabled"}>Refresh rooms on the books</button></div>
     <div id="rm_sum">${rmSummary()}</div>
-    <div class="rmwrap"><table class="rmtab"><thead><tr><th class="l">Day</th><th class="l">Date</th><th>On the books</th><th>Occupancy</th><th>Current price</th><th title="Our cheapest room, bed and breakfast, on our own website">Our website (B&amp;B)</th><th title="Average of the competitors' cheapest room, bed and breakfast, own websites">Competitor average</th><th>Suggested price</th><th>Change</th><th>Change %</th></tr></thead><tbody>${rows.map((d, i) => rmRow(d, RM.days.indexOf(d))).join("")}</tbody></table></div>
+    ${rmEngine()}
+    <div class="rmwrap" style="margin-top:10px"><table class="rmtab"><thead><tr><th class="l">Day</th><th class="l">Date</th><th>On the books</th><th>Occupancy</th><th>Current price</th><th title="Our cheapest room, bed and breakfast, on our own website">Our website (B&amp;B)</th><th title="Average of the competitors' cheapest room, bed and breakfast, own websites">Competitor average</th><th>Suggested price</th><th>Change</th><th>Change %</th></tr></thead><tbody>${rows.map((d, i) => rmRow(d, RM.days.indexOf(d))).join("")}</tbody></table></div>
     <p class="hint" style="margin-top:8px">Rooms on the books as at ${m.otb_on ? esc(fmtShort(m.otb_on)) : "?"} (out of ${RM.cap} rooms; updated every night, or press Refresh). Rack rates read from Rezlynx's booking engine on ${m.rack_on ? esc(fmtShort(m.rack_on)) : "?"}. Suggestions from the pricing run of ${m.run_on ? esc(fmtShort(m.run_on)) : "?"}. * Classic is sold out that night, so the current figure is worked out from the Deluxe rack rate. Competitor prices more than about three months out are often not set yet.</p>`;
 }
 document.addEventListener("change", async e => {
