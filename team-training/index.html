@@ -584,6 +584,10 @@ document.addEventListener("change", async e => {
     if (t.dataset && t.dataset.role) {
       const s = S.sessions.find(x => x.key === t.dataset.role), r = t.dataset.r;
       s.audience = t.checked ? [...new Set(s.audience.concat(r))] : s.audience.filter(x => x !== r);
+      if (r === "all") {                      // Everyone ticked: tick the whole row; Everyone cleared: clear the whole row
+        s.audience = t.checked ? ["all"].concat(S.profiles.map(d => d.key)) : [];
+        document.querySelectorAll(`input[data-role="${CSS.escape(s.key)}"]`).forEach(x => { x.checked = t.checked; });
+      }
       await call("settings_save", { session_key:s.key, refresh_months:s.refreshMonths, grace_days:s.graceDays, roles:s.audience }); toast("Saved."); return;
     }
     if (t.dataset && t.dataset.set) {
