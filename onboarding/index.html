@@ -258,6 +258,21 @@ a.scard.warnc{border-left-color:var(--attention)}
 @media (prefers-reduced-motion:reduce){.spin{animation:none}}
 @media (max-width:640px){ .stats{grid-template-columns:repeat(3,1fr)} .teamcard .row-actions .btn{flex:1 1 100%} }
 .formbtns{display:flex; gap:8px; flex-wrap:wrap; margin:14px 0 6px}
+
+.rkhead{border-left:4px solid var(--red)} .rkhead.done{border-left-color:var(--good,#4E7A4F)}
+.rksec h3{font-size:22px; color:var(--sage); margin-bottom:2px} .rksec .intro{font-size:13px; color:var(--sage-70); margin:2px 0 12px; line-height:1.5}
+.opts{display:grid; gap:6px; margin:4px 0 12px} .opt{display:flex; gap:10px; align-items:flex-start; padding:8px 10px; border:1px solid var(--mist); border-radius:8px; background:var(--white); font-size:14px; cursor:pointer; line-height:1.35}
+.opt input{margin-top:3px; flex:none; width:18px; height:18px} .opt:has(input:checked){border-color:var(--sage); background:var(--sage-10)}
+.rkrow{border:1px solid var(--mist); border-radius:10px; padding:10px 12px; margin:0 0 10px; background:#fcfcfb} .rkrow .hn{font-weight:700; font-size:14px; margin-bottom:6px}
+.taskrow{display:grid; grid-template-columns:minmax(0,1.4fr) minmax(0,1fr); gap:8px; align-items:center; padding:8px 0; border-bottom:1px solid var(--mist)} .taskrow .tn{font-size:14px}
+.taskrow .tx{grid-column:1 / -1}
+@media(max-width:620px){.taskrow{grid-template-columns:1fr}}
+.rkpadbox{margin:0 0 14px} .rkpad{width:100%; max-width:520px; height:auto; aspect-ratio:520/170; background:#fff; border:1px dashed var(--celadon); border-radius:8px; touch-action:none; cursor:crosshair; display:block}
+.rkpadbox img.saved{max-width:260px; max-height:90px; background:#fff; border:1px solid var(--mist); border-radius:8px; padding:6px; display:block}
+.rkerr{background:var(--red-bg); border-left:4px solid var(--red); color:#3b0f0c; padding:10px 14px; border-radius:6px; margin:0 0 12px; font-size:14px}
+.rkstate{display:inline-block; font-size:11px; letter-spacing:.08em; text-transform:uppercase; font-weight:700; padding:3px 9px; border-radius:999px; background:var(--sage-10); color:var(--sage)} .rkstate.complete{background:#E4EFE4; color:#2F5B31} .rkstate.draft{background:var(--attention-bg); color:var(--attention-ink)}
+.rklist .it{border:1px solid var(--mist); border-radius:10px; padding:12px 14px; margin:0 0 10px; background:#fff}
+.rklist .it .tt{display:flex; gap:8px; align-items:center; justify-content:space-between; flex-wrap:wrap}
 </style>
 </head>
 <body>
@@ -355,6 +370,7 @@ document.addEventListener("keydown", e => { if (e.key === "Escape" && $("#modalb
 function parseRoute(){
   const h = location.hash.replace(/^#\/?/, "").split("/");
   if (h[0] === "new") return { name:"form", id:null };
+  if (h[0] === "s" && h[1] && h[2] === "risk" && h[3]) return { name:"risk", id:h[1], type:h[3] };
   if (h[0] === "s" && h[1]) return h[2] === "edit" ? { name:"form", id:h[1] } : { name:"detail", id:h[1] };
   if (h[0] === "settings") return { name:"settings" };
   if (h[0] === "documents") return { name:"docs" };
@@ -378,6 +394,7 @@ async function route(){
     if (S.route.name === "list") await showList();
     else if (S.route.name === "detail") await showDetail(S.route.id);
     else if (S.route.name === "form") await showForm(S.route.id);
+    else if (S.route.name === "risk") await showRisk(S.route.id, S.route.type);
     else if (S.route.name === "docs") await showDocs();
     else showSettings();
   } catch(e){ $("#views").innerHTML = `<div class="card empty">${esc(e.message)}</div>`; }
@@ -605,23 +622,39 @@ function flagsBanner(s, h){
   if (by("risk").length) {
     const all = [...new Set(by("risk").flatMap(f => f.hazards || []))];
     out += `<section class="flagbox risk" aria-labelledby="fr"><h3 id="fr">${esc(lv.risk || "A personal risk assessment is needed")}</h3><p class="lead">${esc(s.first_name)}'s answers mean their job should be assessed for them personally. Do this together, before or on their first day.</p>${by("risk").map(f => flagHtml(f, h)).join("")}
-      ${all.length ? `<div class="hzall"><span class="lbl">Hazards to look at in this role</span><div class="hz">${all.map(hazChip).join("")}</div></div>` : ""}</section>`;
+      ${all.length ? `<div class="hzall"><span class="lbl">Hazards to look at in this role</span><div class="hz">${all.map(hazChip).join("")}</div></div>` : ""}${riskButtons(s)}</section>`;
   }
   if (by("review").length) out += `<section class="flagbox review" aria-labelledby="fv"><h3 id="fv">${esc(lv.review || "Manager to read and consider")}</h3><p class="lead">Nothing formal is needed, but it is worth knowing before they start.</p>${by("review").map(f => flagHtml(f, h)).join("")}</section>`;
   return out;
 }
+const riskUrl = (id, type) => "#/s/" + encodeURIComponent(id) + "/risk/" + encodeURIComponent(type);
+const RISK_TYPES = [["health", "Health risk assessment"], ["young", "Young worker assessment"], ["expectant", "New or expectant mother assessment"]];
+function riskState(r){ return r.status === "complete" ? `<span class="rkstate complete">Completed${r.completed_at ? " " + esc(fmtDay(r.completed_at)) : ""}</span>` : r.status === "draft" ? `<span class="rkstate draft">Draft saved</span>` : `<span class="rkstate">Not started</span>`; }
+function riskButtons(s){
+  const list = ((S.d && S.d.risks) || []).filter(r => r.needed && r.status !== "complete");
+  if (!list.length) return "";
+  return `<div class="row-actions" style="margin-top:14px">${list.map(r => `<a class="btn small" href="${riskUrl(s.id, r.type)}">${r.status === "draft" ? "Continue" : "Complete"} the ${esc(r.short.toLowerCase())}</a>`).join("")}</div>`;
+}
 function riskBox(s){
-  const flags = (s.health_flags || []).length;
-  if (!flags && !s.risk_required && (!s.risk_status || s.risk_status === "none")) return "";
+  const flags = (s.health_flags || []).length, risks = (S.d && S.d.risks) || [];
+  if (!flags && !s.risk_required && !risks.length && (!s.risk_status || s.risk_status === "none")) return "";
   const cur = S.ui.riskStatus !== null && S.ui.riskStatus !== undefined ? S.ui.riskStatus : (s.risk_status || "none");
   const note = S.ui.riskNote !== null && S.ui.riskNote !== undefined ? S.ui.riskNote : (s.risk_note || "");
-  return `<div class="card"><h3 style="font-size:23px">Risk assessment</h3>
-    <p class="small muted" style="margin:2px 0 10px">Complete the individual health risk assessment with ${esc(s.first_name)}. It is kept confidential.</p>
+  const others = RISK_TYPES.filter(([k]) => !risks.some(r => r.type === k));
+  const items = risks.map(r => `<div class="it"><div class="tt"><b>${esc(r.title)}</b>${riskState(r)}</div>
+      ${r.needed && r.reasons.length ? `<div class="small" style="margin:6px 0 0"><span class="muted">Needed because:</span> ${r.reasons.map(esc).join("; ")}</div>` : (!r.needed ? `<div class="small muted" style="margin-top:6px">Started by hand: the answers did not call for it.</div>` : "")}
+      ${r.status === "complete" ? `<div class="tiny muted" style="margin-top:6px">Completed by ${esc(r.completed_by || "a manager")}${r.review_date ? ". Review due " + esc(fmtDay(r.review_date)) : ""}.${r.waiver ? " Not signed by the employee: " + esc(r.waiver) : ""} The signed PDF is in the documents below.</div>` : ""}
+      <div class="row-actions" style="margin-top:10px"><a class="btn small${r.status === "complete" ? " ghost" : ""}" href="${riskUrl(s.id, r.type)}">${r.status === "complete" ? "View or change it" : r.status === "draft" ? "Continue the draft" : "Complete it now"}</a>${r.file_id ? `<button class="btn small ghost" data-act="openfile" data-id="${esc(r.file_id)}">Open the PDF</button>` : ""}</div></div>`).join("");
+  return `<div class="card rklist"><h3 style="font-size:23px">Risk assessments</h3>
+    <p class="small muted" style="margin:2px 0 12px">Done here, in the app, with ${esc(s.first_name)}. When one is completed and signed it is stored with ${esc(s.first_name)}'s documents. All of it is confidential.</p>
+    ${items || `<p class="small muted">Nothing is needed from the answers so far.</p>`}
+    ${others.length ? `<div class="small" style="margin:6px 0 10px"><span class="muted">Start another:</span> ${others.map(([k, l]) => `<a href="${riskUrl(s.id, k)}">${esc(l)}</a>`).join(" &middot; ")}</div>` : ""}
+    <details class="sec" style="margin-top:8px"><summary>Record it another way (paper form, or an outside assessment)</summary><div class="in">
     <div class="toolrow" style="margin:0 0 10px" role="group" aria-label="Risk assessment status">${RISK.map(([k, l]) => `<button class="chip" data-act="riskstat" data-k="${k}" aria-pressed="${cur === k}">${l}</button>`).join("")}</div>
     <div class="field"><label for="risknote">Note</label><textarea id="risknote" placeholder="For example: met on 8 Oct, adjustments agreed, review in 3 months.">${esc(note)}</textarea></div>
     <div class="row-actions"><button class="btn small" data-act="risksave"${cur === "none" ? " disabled" : ""}>Save</button>
-      <a class="btn small ghost" href="forms/Individual_Health_Risk_Assessment.docx" target="_blank" rel="noopener">Open the risk assessment form</a></div>
-    <div class="tiny muted" style="margin-top:8px">${s.risk_at ? `Last updated${s.risk_by ? " by " + esc(s.risk_by) : ""} on ${esc(fmtDT(s.risk_at))}.` : "Not updated yet."} It is the venue's own form, filled in with the employee, then kept confidential.</div></div>`;
+      <a class="btn small ghost" href="forms/Individual_Health_Risk_Assessment.docx" target="_blank" rel="noopener">Open the blank paper form</a></div>
+    <div class="tiny muted" style="margin-top:8px">${s.risk_at ? `Status last updated${s.risk_by ? " by " + esc(s.risk_by) : ""} on ${esc(fmtDT(s.risk_at))}.` : "Not updated yet."} A paper form can be uploaded in the Documents section as a risk assessment.</div></div></details></div>`;
 }
 function timelineHtml(s, d){
   const items = [
@@ -719,7 +752,7 @@ function whoWhen(f, existing){
   const when = f.created_at ? " on " + fmtDT(f.created_at) : "";
   if (f.source === "starter") return (existing ? "Uploaded by the team member" : "Uploaded by the starter") + when;
   if (f.source === "manager") return "Uploaded by " + (f.uploaded_by || "a manager") + when;
-  return "Made by the system when signed" + when;
+  return (f.kind === "risk" ? "Completed in the app" : "Made by the system when signed") + when;
 }
 function docsHtml(s, files, existing){
   const w = s.wtd && s.wtd.choice;
@@ -1096,6 +1129,119 @@ async function saveSettings(){
   S.settings = r.settings || S.settings; toast("Settings saved."); showSettings();
 }
 
+
+/* ------------------------------------------------------------- risk assessment form (health, young worker, new or expectant mother) */
+async function showRisk(id, type){
+  $("#views").innerHTML = `<button class="back" data-act="back">&larr; Back</button>${skeletonList()}${skeletonList()}`;
+  const r = await call("risk.get", { starter_id:id, type });
+  S.rk = { id, type, def:r.def, hz:r.hazards, v:r.values || {}, sig:r.signatures || {}, ink:{}, waiver:r.waiver || "", status:r.status, reasons:r.reasons || [], who:r.starter, err:"", busy:false };
+  renderRisk();
+}
+const rkOf = k => (S.rk.v.controls || []).find(r => r.h === k);
+function rkField(f){
+  const R = S.rk, v = R.v[f.id], id = "rf_" + f.id, lab = `<label for="${id}">${esc(f.label)}${f.required ? ' <span class="muted">(required)</span>' : ""}</label>`, help = f.help ? `<div class="hint">${esc(f.help)}</div>` : "";
+  if (f.type === "text") return `<div class="field">${lab}<input id="${id}" data-rf="${f.id}" value="${esc(v || "")}" maxlength="200">${help}</div>`;
+  if (f.type === "date") return `<div class="field">${lab}<input id="${id}" data-rf="${f.id}" type="date" value="${esc(v || "")}">${help}</div>`;
+  if (f.type === "textarea") return `<div class="field">${lab}<textarea id="${id}" data-rf="${f.id}" rows="3">${esc(v || "")}</textarea>${help}</div>`;
+  if (f.type === "single" || f.type === "yesno") return `<div class="field"><label>${esc(f.label)}${f.required ? ' <span class="muted">(required)</span>' : ""}</label><div class="toolrow" style="margin:4px 0 4px" role="group" aria-label="${esc(f.label)}">${(f.options || []).map(([k, l]) => `<button type="button" class="chip" data-act="rkpick" data-f="${f.id}" data-k="${esc(k)}" aria-pressed="${v === k}">${esc(l)}</button>`).join("")}</div>${help}</div>`;
+  if (f.type === "multi") return `<div class="field"><label>${esc(f.label)}</label><div class="opts">${(f.options || []).map(([k, l]) => `<label class="opt"><input type="checkbox" data-rm="${f.id}" value="${esc(k)}"${(v || []).includes(k) ? " checked" : ""}><span>${esc(l)}</span></label>`).join("")}</div></div>`;
+  if (f.type === "hazards") return `<div class="field"><label>${esc(f.label)}</label><div class="opts">${Object.entries(R.hz).map(([k, l]) => `<label class="opt"><input type="checkbox" data-rm="${f.id}" value="${esc(k)}"${(v || []).includes(k) ? " checked" : ""}><span>${esc(l)}</span></label>`).join("")}</div></div>`;
+  if (f.type === "ack") return `<label class="opt" style="margin:6px 0 12px"><input type="checkbox" data-rack="${f.id}"${v ? " checked" : ""}><span>${esc(f.label)}</span></label>`;
+  if (f.type === "controls") {
+    const keys = (R.v.hazards || []), other = (R.v.hazard_other || "").trim();
+    if (!keys.length && !other) return `<p class="muted small">Tick the hazards above and a box for each one appears here.</p>`;
+    const row = (k, name) => { const r = rkOf(k) || {}; return `<div class="rkrow"><div class="hn">${esc(name)}</div>
+      <div class="field"><label for="rc_${k}_harm">Who could be harmed, and how</label><textarea id="rc_${k}_harm" data-rc="${k}" data-rcf="harm" rows="2">${esc(r.harm || "")}</textarea></div>
+      <div class="field" style="margin-bottom:0"><label for="rc_${k}_c">Controls and adjustments for ${esc(R.who.first_name)}</label><textarea id="rc_${k}_c" data-rc="${k}" data-rcf="controls" rows="3">${esc(r.controls || "")}</textarea></div></div>`; };
+    return keys.map(k => row(k, R.hz[k] || k)).join("") + (other ? row("other", "Other: " + other) : "");
+  }
+  if (f.type === "tasks") return `<div>${[["cellar_gas", "Cellar work, including changing gas cylinders and CO2"], ["kegs", "Moving and changing kegs and casks"], ["machinery", "Using or cleaning slicers, mixers and other dangerous machinery"], ["hot_kitchen", "Cooking, fryers and hot surfaces"], ["chemicals", "Handling cleaning chemicals (COSHH)"], ["alcohol", "Selling or serving alcohol"], ["height", "Working at height, ladders and event set-up"], ["lone", "Working alone, or opening and closing the venue"], ["late", "Late or night working"], ["cash", "Handling cash and cashing up"]].map(([k, l]) => { const t = (v || {})[k] || {};
+    return `<div class="taskrow"><div class="tn">${esc(l)}</div><select data-rt="${k}" aria-label="${esc(l)}"><option value="">Choose...</option>${[["not_permitted", "Not permitted"], ["supervised", "Only with supervision"], ["after_training", "Permitted after training"], ["not_role", "Not part of this role"]].map(([d, dl]) => `<option value="${d}"${t.d === d ? " selected" : ""}>${dl}</option>`).join("")}</select><input class="tx" data-rtn="${k}" value="${esc(t.note || "")}" placeholder="Note (optional)" maxlength="300" aria-label="Note for ${esc(l)}"></div>`; }).join("")}</div>`;
+  return "";
+}
+function rkPad(k, label){
+  const R = S.rk, saved = R.sig[k];
+  return `<div class="rkpadbox"><div class="sub-h" style="margin-top:0">${esc(label)}</div>
+    ${saved ? `<img class="saved" src="${esc(saved)}" alt="Saved signature"><div class="row-actions" style="margin-top:8px"><button type="button" class="btn small ghost" data-act="rkredraw" data-k="${k}">Draw it again</button></div>`
+      : `<canvas class="rkpad" data-pad="${k}" width="520" height="170" aria-label="${esc(label)}: draw with a finger or the mouse"></canvas><div class="row-actions" style="margin-top:8px"><button type="button" class="btn small ghost" data-act="rkclear" data-k="${k}">Clear</button></div>`}</div>`;
+}
+function renderRisk(){
+  if (!S.rk || S.route.name !== "risk") return;
+  const R = S.rk, d = R.def, keepY = window.scrollY;
+  const secs = d.sections.map(sec => {
+    const fs = []; let i = 0;
+    while (i < sec.fields.length) { const f = sec.fields[i]; if (f.half && sec.fields[i + 1] && sec.fields[i + 1].half) { fs.push(`<div class="grid2">${rkField(f)}${rkField(sec.fields[i + 1])}</div>`); i += 2; } else { fs.push(rkField(f)); i++; } }
+    return `<section class="card rksec"><h3>${esc(sec.title)}</h3>${sec.intro ? `<p class="intro">${esc(sec.intro)}</p>` : ""}${fs.join("")}</section>`;
+  }).join("");
+  const guardian = d.guardian && R.v.school_age === "yes";
+  $("#views").innerHTML = `<button class="back" data-act="back">&larr; Back to ${esc(R.who.name)}</button>
+    <div class="card rkhead${R.status === "complete" ? " done" : ""}"><div style="display:flex;gap:10px;justify-content:space-between;align-items:flex-start;flex-wrap:wrap"><div><h2 style="font-size:28px;color:var(--sage)">${esc(d.title)}</h2><div class="muted">${esc(R.who.name)}</div></div>${riskState({ status:R.status })}</div>
+      <p class="small" style="margin:10px 0 0">${esc(d.lead)}</p>${R.reasons.length ? `<p class="small" style="margin:8px 0 0"><b>Why it is needed:</b> ${R.reasons.map(esc).join("; ")}</p>` : ""}
+      ${R.status === "complete" ? `<p class="small muted" style="margin:8px 0 0">This one has been completed and signed. If you change anything, complete it again at the bottom to make a new PDF, which replaces the old one.</p>` : ""}</div>
+    ${secs}
+    <section class="card rksec"><h3>Sign-off</h3><p class="intro">Draw with a finger or the mouse. The signed PDF is kept in ${esc(R.who.first_name)}'s documents.</p>
+      ${rkPad("assessor", "Assessor / manager")}${rkPad("employee", d.employeeLabel)}${guardian ? rkPad("guardian", "Parent or guardian") : ""}
+      <div class="field"><label for="rk_waiver">If ${esc(R.who.first_name)}${guardian ? " or their parent or guardian has" : " has"} not signed, say why</label><input id="rk_waiver" value="${esc(R.waiver)}" maxlength="300" placeholder="For example: not here today, will sign on the first day"><div class="hint">A reason lets you complete it now; it is printed on the PDF.</div></div>
+      <p class="tiny muted" style="margin:0 0 8px">${esc(d.reviewHint)}</p>
+      ${R.err ? `<div class="rkerr" role="alert">${esc(R.err)}</div>` : ""}
+      <div class="row-actions"><button class="btn ghost" data-act="rksave">Save a draft</button><button class="btn" data-act="rkdone">Complete and make the PDF</button></div></section>`;
+  window.scrollTo(0, keepY); initRiskPads();
+}
+function initRiskPads(){
+  $$("canvas.rkpad").forEach(c => {
+    const k = c.dataset.pad, g = c.getContext("2d"); g.lineWidth = 3.2; g.lineCap = "round"; g.lineJoin = "round"; g.strokeStyle = "#1d2a44";
+    let down = false, last = null;
+    const pt = e => { const r = c.getBoundingClientRect(); return { x:(e.clientX - r.left) * c.width / r.width, y:(e.clientY - r.top) * c.height / r.height }; };
+    c.onpointerdown = e => { e.preventDefault(); down = true; last = pt(e); c.setPointerCapture(e.pointerId); g.beginPath(); g.moveTo(last.x, last.y); g.lineTo(last.x + 0.01, last.y + 0.01); g.stroke(); S.rk.ink[k] = true; };
+    c.onpointermove = e => { if (!down) return; e.preventDefault(); const p = pt(e); g.beginPath(); g.moveTo(last.x, last.y); g.lineTo(p.x, p.y); g.stroke(); last = p; };
+    const up = () => { down = false; }; c.onpointerup = up; c.onpointercancel = up; c.onpointerleave = up;
+  });
+}
+function padPng(c){
+  const g = c.getContext("2d"), d = g.getImageData(0, 0, c.width, c.height).data; let x0 = c.width, y0 = c.height, x1 = 0, y1 = 0;
+  for (let y = 0; y < c.height; y++) for (let x = 0; x < c.width; x++) if (d[(y * c.width + x) * 4 + 3] > 8) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  const pad = 8, w = Math.min(c.width, x1 - x0 + 2 * pad), h = Math.min(c.height, y1 - y0 + 2 * pad), t = document.createElement("canvas"); t.width = w; t.height = h;
+  t.getContext("2d").drawImage(c, Math.max(0, x0 - pad), Math.max(0, y0 - pad), w, h, 0, 0, w, h); return t.toDataURL("image/png");
+}
+function rkCollect(){
+  const R = S.rk, sig = { ...R.sig };
+  $$("canvas.rkpad").forEach(c => { if (R.ink[c.dataset.pad]) sig[c.dataset.pad] = padPng(c); });
+  R.sig = sig; const w = $("#rk_waiver"); if (w) R.waiver = w.value;
+  return { starter_id:R.id, type:R.type, values:R.v, signatures:sig, waiver:R.waiver };
+}
+async function rkSave(complete){
+  const R = S.rk; R.err = "";
+  try {
+    const r = await call("risk.save", { ...rkCollect(), complete });
+    if (complete) { toast(`Completed. The signed PDF is in ${R.who.first_name}'s documents.`); S.list = null; S.d = null; return go("#/s/" + encodeURIComponent(R.id)); }
+    R.status = "draft"; toast("Draft saved."); renderRisk();
+  } catch(err){ R.err = err.message || "Could not save that."; renderRisk(); window.scrollTo(0, document.body.scrollHeight); }
+}
+document.addEventListener("input", e => {
+  if (S.route.name !== "risk" || !S.rk) return;
+  const t = e.target, R = S.rk;
+  if (t.dataset.rf) { R.v[t.dataset.rf] = t.value; if (t.dataset.rf === "hazard_other") { /* rows follow the box on the next redraw */ } }
+  else if (t.dataset.rc) { const k = t.dataset.rc; R.v.controls = R.v.controls || []; let r = R.v.controls.find(x => x.h === k); if (!r) { r = { h:k, label:k === "other" ? (R.v.hazard_other || "") : "", harm:"", controls:"" }; R.v.controls.push(r); } r[t.dataset.rcf] = t.value; }
+  else if (t.dataset.rtn) { R.v.tasks = R.v.tasks || {}; const o = R.v.tasks[t.dataset.rtn] = R.v.tasks[t.dataset.rtn] || { d:"", note:"" }; o.note = t.value; }
+});
+document.addEventListener("change", e => {
+  if (S.route.name !== "risk" || !S.rk) return;
+  const t = e.target, R = S.rk;
+  if (t.dataset.rm) { const id = t.dataset.rm; const cur = new Set(R.v[id] || []); if (t.checked) cur.add(t.value); else cur.delete(t.value); R.v[id] = [...cur]; if (id === "hazards") renderRisk(); return; }
+  if (t.dataset.rack) { R.v[t.dataset.rack] = t.checked; return; }
+  if (t.dataset.rt) { R.v.tasks = R.v.tasks || {}; const o = R.v.tasks[t.dataset.rt] = R.v.tasks[t.dataset.rt] || { d:"", note:"" }; o.d = t.value; if (!t.value) delete R.v.tasks[t.dataset.rt]; return; }
+  if (t.dataset.rf === "hazard_other") renderRisk();
+});
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-act]"); if (!b || S.route.name !== "risk" || !S.rk) return;
+  const a = b.dataset.act, R = S.rk;
+  if (a === "rkpick") { R.v[b.dataset.f] = R.v[b.dataset.f] === b.dataset.k ? "" : b.dataset.k; return renderRisk(); }
+  if (a === "rkclear") { const c = $(`canvas[data-pad="${b.dataset.k}"]`); if (c) { c.getContext("2d").clearRect(0, 0, c.width, c.height); R.ink[b.dataset.k] = false; } return; }
+  if (a === "rkredraw") { delete R.sig[b.dataset.k]; return renderRisk(); }
+  if (a === "rksave") { b.disabled = true; rkCollect(); return rkSave(false).finally(() => { b.disabled = false; }); }
+  if (a === "rkdone") { b.disabled = true; rkCollect(); return rkSave(true).finally(() => { b.disabled = false; }); }
+});
+
 /* ------------------------------------------------------------- actions */
 async function afterAction(){ await loadDetail(S.route.id); S.list = null; }
 document.addEventListener("click", async e => {
@@ -1148,7 +1294,7 @@ document.addEventListener("click", async e => {
     if (a === "filter") { S.filter = b.dataset.k; S.list = null; return showList(); }
     if (a === "refresh") { b.disabled = true; await loadList(); toast("Up to date."); return; }
     if (a === "new") return go("#/new");
-    if (a === "back") { if (S.route.name === "detail" && S.d && S.d.starter.kind === "existing") return go("#/documents"); if (S.route.name === "form" && S.route.id) return go("#/s/" + encodeURIComponent(S.route.id)); return go("#/"); }
+    if (a === "back") { if (S.route.name === "risk") return go("#/s/" + encodeURIComponent(S.route.id)); if (S.route.name === "detail" && S.d && S.d.starter.kind === "existing") return go("#/documents"); if (S.route.name === "form" && S.route.id) return go("#/s/" + encodeURIComponent(S.route.id)); return go("#/"); }
     if (a === "closemodal") return closeModal();
     if (a === "preview") { busy(true); try { await previewContract(); } finally { busy(false); } return; }
     if (a === "save" || a === "savesend") { busy(true); try { await saveForm(a === "savesend"); } finally { if (document.body.contains(b)) busy(false); } return; }
