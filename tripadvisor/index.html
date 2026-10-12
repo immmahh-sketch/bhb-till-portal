@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en-GB" data-brand="bhb">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>TripAdvisor Score Board - Black Horse Beamish</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --sage:#4E5F4F; --sage-70:#7B887C; --sage-10:#EDEFED; --sage-dark:#3B483C;
+  --bone:#F7F7F7; --celadon:#C1C8B4; --mist:#E7E7E7; --white:#fff; --ink:#262626; --gold:#C9A56B;
+  --ta:#2E8B6A; --ta-bg:#E6F3EE; --alert:#8C4A3F; --alert-bg:#F6EAE8; --red:#B3261E; --good:#4F6B4F; --good-bg:#EDF2ED;
+  --display:"Cormorant Garamond",Georgia,serif; --body:Raleway,"Helvetica Neue",Arial,sans-serif;
+  --track-label:.18em; --radius:10px; --shadow:0 1px 2px rgba(38,38,38,.06),0 8px 24px rgba(38,38,38,.07); --maxw:980px;
+}
+*{box-sizing:border-box} html,body{margin:0;padding:0}
+body{font-family:var(--body); color:var(--ink); background:var(--bone); font-size:15px; line-height:1.5; -webkit-text-size-adjust:100%; overflow-x:hidden}
+h1,h2,h3,h4{font-family:var(--display); font-weight:600; margin:0; letter-spacing:.01em}
+button,input,textarea,select{font:inherit; color:inherit}
+[hidden]{display:none!important} .off{display:none!important}
+a{color:var(--sage)}
+#gate{position:fixed; inset:0; background:var(--sage); z-index:500; display:flex; align-items:center; justify-content:center; padding:24px}
+.gatecard{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); width:100%; max-width:380px; padding:32px 28px; text-align:center}
+.gatecard h1{font-size:26px; color:var(--sage); line-height:1.15}
+.gatecard .sub{font-size:11px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); margin:6px 0 22px}
+.gateerr{color:var(--alert); font-size:13px; min-height:18px; margin-top:8px}
+.shell{max-width:var(--maxw); margin:0 auto; padding:0 16px 64px}
+header.top{background:var(--sage); color:var(--white)}
+.topin{max-width:var(--maxw); margin:0 auto; padding:14px 16px; display:flex; align-items:center; gap:18px; flex-wrap:wrap}
+.brand{font-family:var(--display); font-size:21px; line-height:1.1}
+.brand small{display:block; font-family:var(--body); font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; opacity:.75}
+.who{margin-left:auto; display:flex; align-items:center; gap:10px; font-size:12px; opacity:.9}
+.who button{background:transparent; border:1px solid rgba(255,255,255,.4); color:var(--white); border-radius:6px; padding:5px 10px; cursor:pointer; font-size:11px; letter-spacing:.06em; text-transform:uppercase}
+nav.tabs{background:var(--sage-dark)}
+.tabsin{max-width:var(--maxw); margin:0 auto; padding:0 16px; display:flex; gap:2px; overflow-x:auto}
+.tabbtn{background:transparent; border:0; cursor:pointer; color:rgba(255,255,255,.72); padding:12px 16px; font-size:12px; font-weight:600; white-space:nowrap; letter-spacing:var(--track-label); text-transform:uppercase; border-bottom:3px solid transparent}
+.tabbtn[aria-current="page"]{color:var(--white); border-bottom-color:var(--gold)}
+.btn{border:1px solid var(--sage); background:var(--sage); color:var(--white); border-radius:8px; padding:10px 18px; cursor:pointer; font-size:12px; font-weight:700; letter-spacing:var(--track-label); text-transform:uppercase; min-height:42px; display:inline-flex; align-items:center; justify-content:center; gap:6px; line-height:1.2}
+.btn:hover{background:var(--sage-dark)} .btn.ghost{background:var(--white); color:var(--sage)} .btn.ghost:hover{background:var(--sage-10)}
+.btn.small{min-height:34px; padding:6px 12px; font-size:11px} .btn.danger{background:var(--white); color:var(--alert); border-color:var(--alert)} .btn.danger:hover{background:var(--alert-bg)}
+.btn.solid-danger{background:var(--red); border-color:var(--red)} .btn:disabled{opacity:.5; cursor:default}
+.btn:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid var(--gold); outline-offset:2px}
+.card{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); padding:16px 18px; margin-bottom:12px}
+.muted{color:var(--sage-70)} .small{font-size:13px} .tiny{font-size:12px}
+.pagehead{display:flex; align-items:flex-end; gap:12px; flex-wrap:wrap; margin:22px 0 6px} .pagehead h2{font-size:30px; color:var(--sage); line-height:1.1; margin-right:auto}
+.lead{color:var(--sage-70); font-size:14px; margin:2px 0 14px; max-width:720px}
+.toast{position:fixed; left:50%; bottom:22px; transform:translate(-50%,20px); background:var(--ink); color:#fff; padding:10px 16px; border-radius:8px; font-size:13px; opacity:0; pointer-events:none; transition:.2s; z-index:900; max-width:90vw}
+.toast.on{opacity:1; transform:translate(-50%,0)} .toast.bad{background:var(--alert)}
+
+/* week picker */
+.weekbar{display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:0 0 14px}
+.weekbar select{border:1px solid var(--celadon); border-radius:8px; padding:9px 11px; background:#fff; min-height:42px; flex:1 1 260px; min-width:0}
+.weekbar .btn{min-width:46px}
+.weektitle{font-family:var(--display); font-size:22px; color:var(--sage); margin:0 0 10px}
+
+/* leaderboard */
+.lb{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden}
+.lbhead,.lbrow{display:grid; grid-template-columns:minmax(150px,1fr) minmax(0,3fr) 120px; gap:16px; padding:14px 18px; align-items:start}
+.lbhead{background:var(--sage-10); font-size:11px; letter-spacing:var(--track-label); text-transform:uppercase; font-weight:700; color:var(--sage)}
+.lbrow{border-top:1px solid var(--mist)}
+.lbrow .nm{font-family:var(--display); font-size:22px; color:var(--sage); line-height:1.15}
+.lbrow .nm .rank{display:inline-block; min-width:26px; color:var(--gold)}
+.rev{margin:0 0 10px; padding:2px 0 2px 12px; border-left:3px solid var(--ta); font-size:14px; line-height:1.5; white-space:pre-wrap; overflow-wrap:anywhere}
+.rev:last-child{margin-bottom:0} .rev .when{display:block; margin-top:3px; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--sage-70)}
+.money{font-family:var(--display); font-size:26px; font-weight:700; color:var(--ta); text-align:right; line-height:1.1} .money small{display:block; font-family:var(--body); font-size:11px; font-weight:500; color:var(--sage-70); letter-spacing:.04em}
+.totals{background:var(--ta-bg); border:1px solid #BFE0D2; border-radius:var(--radius); padding:16px 18px; margin-top:14px; display:flex; gap:24px; flex-wrap:wrap; align-items:center}
+.totals .t{flex:1 1 180px} .totals .l{font-size:11px; letter-spacing:var(--track-label); text-transform:uppercase; font-weight:700; color:var(--sage)} .totals .v{font-family:var(--display); font-size:34px; color:var(--ta); line-height:1.15; font-weight:700}
+.empty{padding:34px 18px; text-align:center; color:var(--sage-70)}
+@media(max-width:640px){
+  .lbhead{display:none} .lbrow{grid-template-columns:1fr auto; gap:6px 12px} .lbrow .revs{grid-column:1 / -1; order:3} .money{font-size:22px}
+}
+
+/* set up */
+.entry{display:grid; grid-template-columns:minmax(150px,220px) minmax(0,1fr) 150px auto; gap:10px 14px; align-items:start; padding:12px 18px; border-top:1px solid var(--mist)}
+.entry:first-of-type{border-top:0} .entryhead{background:var(--sage-10); font-size:11px; letter-spacing:var(--track-label); text-transform:uppercase; font-weight:700; color:var(--sage); padding:12px 18px; display:grid; grid-template-columns:minmax(150px,220px) minmax(0,1fr) 150px 150px; gap:14px}
+.entry select,.entry input,.entry textarea{border:1px solid var(--celadon); border-radius:8px; padding:9px 10px; background:#fff; width:100%; min-height:42px}
+.entry textarea{min-height:84px; resize:vertical; line-height:1.45}
+.entry .acts{display:flex; gap:6px; flex-wrap:wrap; width:150px} .entry.new{background:#FBFCFB}
+.entry.dirty{background:var(--ta-bg)} .entry .lab{display:none; font-size:11px; letter-spacing:var(--track-label); text-transform:uppercase; font-weight:700; color:var(--sage-70); margin-bottom:3px}
+.err{color:var(--red); font-size:13px; margin:8px 18px 0}
+@media(max-width:760px){
+  .entryhead{display:none} .entry{grid-template-columns:1fr} .entry .lab{display:block} .entry .acts{width:auto}
+}
+</style>
+</head>
+<body>
+<div id="gate"><div class="gatecard"><h1>TripAdvisor Score Board</h1><div class="sub">Black Horse Beamish</div>
+  <p style="margin:0 0 16px;font-size:14px;color:var(--sage-70)">This opens from the Staff Portal, which knows who you are.</p>
+  <a href="https://app.blackhorsebeamish.co.uk/portal/app.html" style="display:block;padding:12px;border-radius:8px;background:var(--sage);color:#fff;text-decoration:none;font-weight:600;letter-spacing:var(--track-label);text-transform:uppercase;font-size:12px">Open the Staff Portal</a>
+  <div class="gateerr" id="gerr"></div></div></div>
+<div id="app" hidden>
+  <header class="top"><div class="topin"><div class="brand">TripAdvisor Score Board<small>Black Horse Beamish</small></div><div class="who"><span id="whoname"></span><button id="signout" type="button">Sign out</button></div></div></header>
+  <nav class="tabs" aria-label="Sections"><div class="tabsin" id="tabs"></div></nav>
+  <main class="shell" id="views"></main>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script>
+const CFG = { SUPABASE_URL:"https://safcrtrfdzsnftghibot.supabase.co", SUPABASE_KEY:"sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU" };
+const S = { me:null, tab:"leaderboard", boot:null, week:null, lb:null, setup:null, drafts:{}, newDraft:{ staff_id:"", review:"", review_date:"" }, confirm:null, err:{} };
+const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
+const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+function toast(msg, bad){ const t = $("#toast"); t.textContent = msg; t.className = "toast on" + (bad ? " bad" : ""); clearTimeout(toast._t); toast._t = setTimeout(() => { t.className = "toast"; }, bad ? 5600 : 2400); }
+function staffEmail(){ try { return sessionStorage.getItem("bhb_staff_email") || ""; } catch(e){ return ""; } }
+async function call(action, payload){
+  const r = await fetch(CFG.SUPABASE_URL + "/functions/v1/tripadvisor-api", { method:"POST", headers:{ "Content-Type":"application/json", Authorization:"Bearer " + CFG.SUPABASE_KEY, apikey:CFG.SUPABASE_KEY }, body: JSON.stringify({ action, staff_email: staffEmail(), ...(payload || {}) }) });
+  let d = {}; try { d = await r.json(); } catch(e){}
+  if (!r.ok || d.error) throw new Error(d.error || `Request failed (${r.status})`);
+  return d;
+}
+const addDays = (iso, n) => { const t = new Date(iso + "T12:00:00Z"); t.setUTCDate(t.getUTCDate() + n); return t.toISOString().slice(0, 10); };
+const fmt = (iso, o) => new Date(iso + "T12:00:00Z").toLocaleDateString("en-GB", { timeZone:"UTC", ...o }).replace("Sept", "Sep");
+const longDay = iso => fmt(iso, { weekday:"long", day:"numeric", month:"long" });
+const shortDay = iso => fmt(iso, { day:"numeric", month:"short", year:"numeric" });
+const gbp = n => "£" + Number(n).toLocaleString("en-GB", { minimumFractionDigits:0, maximumFractionDigits:0 });
+function weekList(){ const out = []; for (let w = S.boot.this_week; w >= S.boot.first_week; w = addDays(w, -7)) out.push(w); return out; }
+
+/* ------------------------------------------------------------- tabs */
+function setTabs(){
+  const tabs = [["leaderboard", "Leaderboard"]]; if (S.me.setup) tabs.push(["setup", "Set up"]);
+  $("#tabs").innerHTML = tabs.map(([k, l]) => `<button class="tabbtn" data-tab="${k}" aria-current="${k === S.tab ? "page" : "false"}">${l}</button>`).join("");
+}
+async function show(tab){
+  S.tab = tab; setTabs(); window.scrollTo(0, 0);
+  if (tab === "leaderboard") await loadWeek(S.week || S.boot.this_week); else await loadSetup();
+}
+
+/* ------------------------------------------------------------- leaderboard */
+async function loadWeek(w){
+  $("#views").innerHTML = `<p class="muted" style="margin-top:24px">Loading…</p>`;
+  try { S.lb = await call("leaderboard", { week_start:w }); S.week = S.lb.week_start; renderLeaderboard(); }
+  catch(e){ $("#views").innerHTML = `<div class="card"><b>${esc(e.message)}</b></div>`; }
+}
+function renderLeaderboard(){
+  const d = S.lb, weeks = weekList();
+  const rows = d.team.map((t, i) => `<div class="lbrow"><div class="nm"><span class="rank">${i + 1}</span>${esc(t.staff_name)}</div>
+      <div class="revs">${t.reviews.map(r => `<blockquote class="rev" style="margin-left:0">${esc(r.review)}<span class="when">${esc(shortDay(r.review_date))}</span></blockquote>`).join("")}</div>
+      <div class="money">${gbp(t.bonus)}<small>${t.mentions} ${t.mentions === 1 ? "mention" : "mentions"} at ${gbp(d.bonus_each)}</small></div></div>`).join("");
+  $("#views").innerHTML = `<div class="pagehead"><h2>Leaderboard</h2></div>
+    <p class="lead">£${S.boot.bonus} for every time a team member is named in a TripAdvisor review. Pick a week, Monday to Sunday.</p>
+    <div class="weekbar"><button class="btn ghost" data-act="prev" aria-label="Previous week"${d.has_prev ? "" : " disabled"}>&larr;</button>
+      <select id="weekpick" aria-label="Week">${weeks.map(w => `<option value="${w}"${w === d.week_start ? " selected" : ""}>Week beginning ${esc(shortDay(w))}${w === S.boot.this_week ? " (this week)" : ""}</option>`).join("")}</select>
+      <button class="btn ghost" data-act="next" aria-label="Next week"${d.has_next ? "" : " disabled"}>&rarr;</button></div>
+    <h3 class="weektitle">${esc(longDay(d.week_start))} to ${esc(longDay(d.week_end))} ${esc(fmt(d.week_end, { year:"numeric" }))}</h3>
+    <div class="lb"><div class="lbhead"><div>Team member</div><div>Review</div><div style="text-align:right">£${S.boot.bonus} bonus</div></div>
+      ${rows || `<div class="empty">Nobody has been named in a review this week yet.</div>`}</div>
+    <div class="totals"><div class="t"><div class="l">Team members with a bonus</div><div class="v">${d.team_count}</div></div>
+      <div class="t"><div class="l">Mentions</div><div class="v">${d.mentions}</div></div>
+      <div class="t"><div class="l">Total bonus for the week</div><div class="v">${gbp(d.total)}</div></div></div>`;
+}
+
+/* ------------------------------------------------------------- set up */
+async function loadSetup(){
+  $("#views").innerHTML = `<p class="muted" style="margin-top:24px">Loading…</p>`;
+  try { S.setup = await call("setup.load"); S.drafts = {}; S.err = {}; S.newDraft.review_date = S.newDraft.review_date || S.setup.today; renderSetup(); }
+  catch(e){ $("#views").innerHTML = `<div class="card"><b>${esc(e.message)}</b></div>`; }
+}
+function staffOptions(sel, current){
+  const list = S.setup.team.slice();
+  if (current && !list.some(t => String(t.id) === String(current.id))) list.unshift(current);
+  return `<option value="">Choose a team member…</option>` + list.map(t => `<option value="${t.id}"${String(sel) === String(t.id) ? " selected" : ""}>${esc(t.name)}</option>`).join("");
+}
+function entryRow(e){
+  const dr = S.drafts[e.id] || {}, v = { staff_id: dr.staff_id ?? e.staff_id, review: dr.review ?? e.review, review_date: dr.review_date ?? e.review_date }, dirty = !!S.drafts[e.id];
+  const asking = S.confirm === e.id;
+  return `<div class="entry${dirty ? " dirty" : ""}" data-id="${esc(e.id)}">
+    <div><div class="lab">Team member</div><select data-f="staff_id" aria-label="Team member">${staffOptions(v.staff_id, { id:e.staff_id, name:e.staff_name })}</select></div>
+    <div><div class="lab">Review</div><textarea data-f="review" aria-label="Review">${esc(v.review)}</textarea></div>
+    <div><div class="lab">Date</div><input type="date" data-f="review_date" value="${esc(v.review_date)}" min="${esc(S.setup.first_date)}" aria-label="Date"></div>
+    <div class="acts">${asking ? `<button class="btn small solid-danger" data-act="delyes" data-id="${esc(e.id)}">Yes, delete</button><button class="btn small ghost" data-act="delno">Keep</button>`
+      : `<button class="btn small" data-act="save" data-id="${esc(e.id)}"${dirty ? "" : " disabled"}>Save</button><button class="btn small danger" data-act="delask" data-id="${esc(e.id)}">Delete</button>`}</div>
+    ${S.err[e.id] ? `<div class="err" style="grid-column:1 / -1;margin:0">${esc(S.err[e.id])}</div>` : ""}</div>`;
+}
+function renderSetup(){
+  const n = S.newDraft, keepY = window.scrollY;
+  $("#views").innerHTML = `<div class="pagehead"><h2>Set up</h2></div>
+    <p class="lead">Add a line each time a team member is named in a TripAdvisor review: choose who, paste the review and give its date. Each line is £${S.boot.bonus} to that person, in the Monday to Sunday week the date falls in. The leaderboard starts with the week beginning ${esc(shortDay(S.setup.first_date))}.</p>
+    <div class="card" style="padding:0;overflow:hidden">
+      <div class="entryhead"><div>Team member</div><div>Review</div><div>Date</div><div></div></div>
+      <div class="entry new"><div><div class="lab">Team member</div><select id="n_staff" aria-label="Team member">${staffOptions(n.staff_id)}</select></div>
+        <div><div class="lab">Review</div><textarea id="n_review" placeholder="Paste the review here" aria-label="Review">${esc(n.review)}</textarea></div>
+        <div><div class="lab">Date</div><input type="date" id="n_date" value="${esc(n.review_date)}" min="${esc(S.setup.first_date)}" aria-label="Date"></div>
+        <div class="acts"><button class="btn" data-act="add">Add</button></div>
+        ${S.err.new ? `<div class="err" style="grid-column:1 / -1;margin:0">${esc(S.err.new)}</div>` : ""}</div>
+      ${S.setup.entries.map(entryRow).join("")}
+      ${S.setup.entries.length ? "" : `<div class="empty">Nothing added yet.</div>`}</div>
+    <p class="tiny muted">${S.setup.entries.length} ${S.setup.entries.length === 1 ? "line" : "lines"}, newest first. The team list is everyone in the FOH department in Planday.</p>`;
+  window.scrollTo(0, keepY);
+}
+
+/* ------------------------------------------------------------- events */
+document.addEventListener("click", async e => {
+  const t = e.target.closest("[data-tab]"); if (t) return show(t.dataset.tab);
+  const b = e.target.closest("[data-act]"); if (!b || b.disabled) return;
+  const a = b.dataset.act;
+  try {
+    if (a === "prev") return loadWeek(addDays(S.lb.week_start, -7));
+    if (a === "next") return loadWeek(addDays(S.lb.week_start, 7));
+    if (a === "add") {
+      const n = S.newDraft; S.err.new = "";
+      if (!n.staff_id) { S.err.new = "Choose a team member."; return renderSetup(); }
+      if (!n.review.trim()) { S.err.new = "Paste in the review."; return renderSetup(); }
+      if (!n.review_date) { S.err.new = "Choose the date of the review."; return renderSetup(); }
+      b.disabled = true;
+      try { const r = await call("entry.save", { staff_id:Number(n.staff_id), review:n.review, review_date:n.review_date }); S.setup.entries.unshift(r.entry); S.setup.entries.sort((x, y) => y.review_date.localeCompare(x.review_date)); S.newDraft = { staff_id:"", review:"", review_date:n.review_date }; toast("Added."); }
+      catch(err){ S.err.new = err.message; }
+      return renderSetup();
+    }
+    if (a === "save") {
+      const id = b.dataset.id, d = S.drafts[id], cur = S.setup.entries.find(x => x.id === id); if (!d || !cur) return;
+      const body = { id, staff_id:Number(d.staff_id ?? cur.staff_id), review:d.review ?? cur.review, review_date:d.review_date ?? cur.review_date };
+      b.disabled = true; delete S.err[id];
+      try { const r = await call("entry.save", body); Object.assign(cur, r.entry); delete S.drafts[id]; S.setup.entries.sort((x, y) => y.review_date.localeCompare(x.review_date)); toast("Saved."); }
+      catch(err){ S.err[id] = err.message; }
+      return renderSetup();
+    }
+    if (a === "delask") { S.confirm = b.dataset.id; return renderSetup(); }
+    if (a === "delno") { S.confirm = null; return renderSetup(); }
+    if (a === "delyes") {
+      const id = b.dataset.id; b.disabled = true;
+      await call("entry.delete", { id }); S.setup.entries = S.setup.entries.filter(x => x.id !== id); delete S.drafts[id]; S.confirm = null; toast("Deleted."); return renderSetup();
+    }
+  } catch(err){ toast(err.message || "Something went wrong.", true); }
+});
+document.addEventListener("input", e => {
+  const t = e.target;
+  if (t.id === "n_review") { S.newDraft.review = t.value; return; }
+  const row = t.closest(".entry[data-id]");
+  if (row && t.dataset.f) { const id = row.dataset.id; (S.drafts[id] = S.drafts[id] || {})[t.dataset.f] = t.value; row.classList.add("dirty"); const sv = row.querySelector('[data-act="save"]'); if (sv) sv.disabled = false; }
+});
+document.addEventListener("change", e => {
+  const t = e.target;
+  if (t.id === "weekpick") return loadWeek(t.value);
+  if (t.id === "n_staff") { S.newDraft.staff_id = t.value; return; }
+  if (t.id === "n_date") { S.newDraft.review_date = t.value; return; }
+  const row = t.closest(".entry[data-id]");
+  if (row && t.dataset.f) { const id = row.dataset.id; (S.drafts[id] = S.drafts[id] || {})[t.dataset.f] = t.value; row.classList.add("dirty"); const sv = row.querySelector('[data-act="save"]'); if (sv) sv.disabled = false; }
+});
+function openGate(msg){ $("#gate").style.display = "flex"; $("#app").hidden = true; if (msg) $("#gerr").textContent = msg; }
+$("#signout").addEventListener("click", () => { try { sessionStorage.removeItem("bhb_staff_email"); } catch(e){} openGate(); });
+async function boot(){
+  $("#app").hidden = false; $("#views").innerHTML = `<p class="muted" style="margin-top:24px">Loading…</p>`;
+  try { S.boot = await call("bootstrap"); } catch(e){ $("#views").innerHTML = `<div class="card"><b>${esc(e.message)}</b><p class="muted">Open this from the Staff Portal so it knows who you are.</p></div>`; return; }
+  S.me = S.boot.me; $("#whoname").textContent = S.me.name; await show("leaderboard");
+}
+(function(){ if (staffEmail()) { $("#gate").style.display = "none"; boot(); } else openGate(); })();
+</script>
+</body>
+</html>
