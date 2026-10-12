@@ -69,6 +69,13 @@ nav.tabs{background:var(--sage-dark)}
 .totals{background:var(--ta-bg); border:1px solid #BFE0D2; border-radius:var(--radius); padding:16px 18px; margin-top:14px; display:flex; gap:24px; flex-wrap:wrap; align-items:center}
 .totals .t{flex:1 1 180px} .totals .l{font-size:11px; letter-spacing:var(--track-label); text-transform:uppercase; font-weight:700; color:var(--sage)} .totals .v{font-family:var(--display); font-size:34px; color:var(--ta); line-height:1.15; font-weight:700}
 .empty{padding:34px 18px; text-align:center; color:var(--sage-70)}
+.rev img.shot{display:block; max-width:100%; max-height:460px; border-radius:10px; border:1px solid var(--mist); margin:0 0 8px; cursor:zoom-in; background:#fff}
+.rev .txt{white-space:pre-wrap}
+.lightbox{position:fixed; inset:0; background:rgba(20,24,20,.86); z-index:800; display:flex; align-items:center; justify-content:center; padding:18px; cursor:zoom-out}
+.lightbox img{max-width:100%; max-height:100%; border-radius:10px; background:#fff}
+.shotbox{display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:8px}
+.shotbox img.shot{display:block; max-width:100%; max-height:230px; border-radius:8px; border:1px solid var(--mist); background:#fff}
+.shotbox .shotimg{flex:1 1 100%}
 @media(max-width:640px){
   .lbhead{display:none} .lbrow{grid-template-columns:1fr auto; gap:6px 12px} .lbrow .revs{grid-column:1 / -1; order:3} .money{font-size:22px}
 }
@@ -99,7 +106,7 @@ nav.tabs{background:var(--sage-dark)}
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script>
 const CFG = { SUPABASE_URL:"https://safcrtrfdzsnftghibot.supabase.co", SUPABASE_KEY:"sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU" };
-const S = { me:null, tab:"leaderboard", boot:null, week:null, lb:null, setup:null, drafts:{}, newDraft:{ staff_id:"", review:"", review_date:"" }, confirm:null, err:{} };
+const S = { me:null, tab:"leaderboard", boot:null, week:null, lb:null, setup:null, drafts:{}, newDraft:{ staff_id:"", review:"", review_date:"", image:"" }, confirm:null, err:{} };
 const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
 const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 function toast(msg, bad){ const t = $("#toast"); t.textContent = msg; t.className = "toast on" + (bad ? " bad" : ""); clearTimeout(toast._t); toast._t = setTimeout(() => { t.className = "toast"; }, bad ? 5600 : 2400); }
@@ -136,7 +143,7 @@ async function loadWeek(w){
 function renderLeaderboard(){
   const d = S.lb, weeks = weekList();
   const rows = d.team.map((t, i) => `<div class="lbrow"><div class="nm"><span class="rank">${i + 1}</span>${esc(t.staff_name)}</div>
-      <div class="revs">${t.reviews.map(r => `<blockquote class="rev" style="margin-left:0">${esc(r.review)}<span class="when">${esc(shortDay(r.review_date))}</span></blockquote>`).join("")}</div>
+      <div class="revs">${t.reviews.map(r => `<blockquote class="rev" style="margin-left:0">${r.image_url ? `<img class="shot" src="${esc(r.image_url)}" alt="The review, as a screenshot" data-zoom="${esc(r.image_url)}" loading="lazy">` : ""}${r.review ? `<span class="txt">${esc(r.review)}</span>` : ""}<span class="when">${esc(shortDay(r.review_date))}</span></blockquote>`).join("")}</div>
       <div class="money">${gbp(t.bonus)}<small>${t.mentions} ${t.mentions === 1 ? "mention" : "mentions"} at ${gbp(d.bonus_each)}</small></div></div>`).join("");
   $("#views").innerHTML = `<div class="pagehead"><h2>Leaderboard</h2></div>
     <p class="lead">£${S.boot.bonus} for every time a team member is named in a TripAdvisor review. Pick a week, Monday to Sunday.</p>
@@ -162,12 +169,17 @@ function staffOptions(sel, current){
   if (current && !list.some(t => String(t.id) === String(current.id))) list.unshift(current);
   return `<option value="">Choose a team member…</option>` + list.map(t => `<option value="${t.id}"${String(sel) === String(t.id) ? " selected" : ""}>${esc(t.name)}</option>`).join("");
 }
+function shotBox(img, target){
+  return `<div class="shotbox">${img ? `<div class="shotimg"><img class="shot" src="${esc(img)}" alt="Screenshot of the review"></div><button class="btn small ghost" type="button" data-act="shotpick" data-t="${esc(target)}">Replace screenshot</button><button class="btn small danger" type="button" data-act="shotdrop" data-t="${esc(target)}">Remove screenshot</button>`
+    : `<button class="btn small ghost" type="button" data-act="shotpick" data-t="${esc(target)}">Add a screenshot</button><span class="tiny muted">or click here and paste one (Ctrl+V)</span>`}</div>`;
+}
 function entryRow(e){
   const dr = S.drafts[e.id] || {}, v = { staff_id: dr.staff_id ?? e.staff_id, review: dr.review ?? e.review, review_date: dr.review_date ?? e.review_date }, dirty = !!S.drafts[e.id];
+  const img = dr.remove_image ? null : (dr.image || e.image_url || null);
   const asking = S.confirm === e.id;
   return `<div class="entry${dirty ? " dirty" : ""}" data-id="${esc(e.id)}">
     <div><div class="lab">Team member</div><select data-f="staff_id" aria-label="Team member">${staffOptions(v.staff_id, { id:e.staff_id, name:e.staff_name })}</select></div>
-    <div><div class="lab">Review</div><textarea data-f="review" aria-label="Review">${esc(v.review)}</textarea></div>
+    <div><div class="lab">Review</div>${shotBox(img, e.id)}<textarea data-f="review" placeholder="Review text (optional if there is a screenshot)" aria-label="Review text">${esc(v.review)}</textarea></div>
     <div><div class="lab">Date</div><input type="date" data-f="review_date" value="${esc(v.review_date)}" min="${esc(S.setup.first_date)}" aria-label="Date"></div>
     <div class="acts">${asking ? `<button class="btn small solid-danger" data-act="delyes" data-id="${esc(e.id)}">Yes, delete</button><button class="btn small ghost" data-act="delno">Keep</button>`
       : `<button class="btn small" data-act="save" data-id="${esc(e.id)}"${dirty ? "" : " disabled"}>Save</button><button class="btn small danger" data-act="delask" data-id="${esc(e.id)}">Delete</button>`}</div>
@@ -176,11 +188,11 @@ function entryRow(e){
 function renderSetup(){
   const n = S.newDraft, keepY = window.scrollY;
   $("#views").innerHTML = `<div class="pagehead"><h2>Set up</h2></div>
-    <p class="lead">Add a line each time a team member is named in a TripAdvisor review: choose who, paste the review and give its date. Each line is £${S.boot.bonus} to that person, in the Monday to Sunday week the date falls in. The leaderboard starts with the week beginning ${esc(shortDay(S.setup.first_date))}.</p>
+    <p class="lead">Add a line each time a team member is named in a TripAdvisor review: choose who, add a screenshot of the review (or paste its text) and give its date. Each line is £${S.boot.bonus} to that person, in the Monday to Sunday week the date falls in. The leaderboard starts with the week beginning ${esc(shortDay(S.setup.first_date))}.</p>
     <div class="card" style="padding:0;overflow:hidden">
       <div class="entryhead"><div>Team member</div><div>Review</div><div>Date</div><div></div></div>
       <div class="entry new"><div><div class="lab">Team member</div><select id="n_staff" aria-label="Team member">${staffOptions(n.staff_id)}</select></div>
-        <div><div class="lab">Review</div><textarea id="n_review" placeholder="Paste the review here" aria-label="Review">${esc(n.review)}</textarea></div>
+        <div><div class="lab">Review</div>${shotBox(n.image, "new")}<textarea id="n_review" placeholder="Review text (optional if there is a screenshot)" aria-label="Review text">${esc(n.review)}</textarea></div>
         <div><div class="lab">Date</div><input type="date" id="n_date" value="${esc(n.review_date)}" min="${esc(S.setup.first_date)}" aria-label="Date"></div>
         <div class="acts"><button class="btn" data-act="add">Add</button></div>
         ${S.err.new ? `<div class="err" style="grid-column:1 / -1;margin:0">${esc(S.err.new)}</div>` : ""}</div>
@@ -201,21 +213,24 @@ document.addEventListener("click", async e => {
     if (a === "add") {
       const n = S.newDraft; S.err.new = "";
       if (!n.staff_id) { S.err.new = "Choose a team member."; return renderSetup(); }
-      if (!n.review.trim()) { S.err.new = "Paste in the review."; return renderSetup(); }
+      if (!n.review.trim() && !n.image) { S.err.new = "Add a screenshot of the review, or paste in its text."; return renderSetup(); }
       if (!n.review_date) { S.err.new = "Choose the date of the review."; return renderSetup(); }
       b.disabled = true;
-      try { const r = await call("entry.save", { staff_id:Number(n.staff_id), review:n.review, review_date:n.review_date }); S.setup.entries.unshift(r.entry); S.setup.entries.sort((x, y) => y.review_date.localeCompare(x.review_date)); S.newDraft = { staff_id:"", review:"", review_date:n.review_date }; toast("Added."); }
+      try { const r = await call("entry.save", { staff_id:Number(n.staff_id), review:n.review, review_date:n.review_date, image:n.image || undefined }); S.setup.entries.unshift(r.entry); S.setup.entries.sort((x, y) => y.review_date.localeCompare(x.review_date)); S.newDraft = { staff_id:"", review:"", review_date:n.review_date, image:"" }; toast("Added."); }
       catch(err){ S.err.new = err.message; }
       return renderSetup();
     }
     if (a === "save") {
       const id = b.dataset.id, d = S.drafts[id], cur = S.setup.entries.find(x => x.id === id); if (!d || !cur) return;
       const body = { id, staff_id:Number(d.staff_id ?? cur.staff_id), review:d.review ?? cur.review, review_date:d.review_date ?? cur.review_date };
+      if (d.image) body.image = d.image; else if (d.remove_image) body.remove_image = true;
       b.disabled = true; delete S.err[id];
       try { const r = await call("entry.save", body); Object.assign(cur, r.entry); delete S.drafts[id]; S.setup.entries.sort((x, y) => y.review_date.localeCompare(x.review_date)); toast("Saved."); }
       catch(err){ S.err[id] = err.message; }
       return renderSetup();
     }
+    if (a === "shotpick") { S.shotTarget = b.dataset.t; $("#shotfile").value = ""; return $("#shotfile").click(); }
+    if (a === "shotdrop") { const t = b.dataset.t; if (t === "new") S.newDraft.image = ""; else { const d = (S.drafts[t] = S.drafts[t] || {}); delete d.image; d.remove_image = true; } return renderSetup(); }
     if (a === "delask") { S.confirm = b.dataset.id; return renderSetup(); }
     if (a === "delno") { S.confirm = null; return renderSetup(); }
     if (a === "delyes") {
@@ -224,6 +239,34 @@ document.addEventListener("click", async e => {
     }
   } catch(err){ toast(err.message || "Something went wrong.", true); }
 });
+/* a screenshot is shrunk to at most 1800 pixels and saved as a JPEG before it goes, so a phone screenshot is a few hundred KB */
+async function toJpeg(file){
+  const bmp = await createImageBitmap(file), sc = Math.min(1, 1800 / Math.max(bmp.width, bmp.height)), c = document.createElement("canvas");
+  c.width = Math.round(bmp.width * sc); c.height = Math.round(bmp.height * sc);
+  const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); g.drawImage(bmp, 0, 0, c.width, c.height);
+  return c.toDataURL("image/jpeg", 0.88);
+}
+async function takeShot(file, target){
+  if (!file || !/^image\//.test(file.type)) return toast("That is not a picture.", true);
+  try {
+    const url = await toJpeg(file);
+    if (target === "new") S.newDraft.image = url; else { const d = (S.drafts[target] = S.drafts[target] || {}); d.image = url; delete d.remove_image; }
+    renderSetup();
+  } catch(err){ toast("Could not read that picture. Try a screenshot saved as PNG or JPEG.", true); }
+}
+const fileInput = document.createElement("input"); fileInput.type = "file"; fileInput.accept = "image/*"; fileInput.id = "shotfile"; fileInput.hidden = true; document.body.appendChild(fileInput);
+fileInput.addEventListener("change", () => { if (fileInput.files[0]) takeShot(fileInput.files[0], S.shotTarget || "new"); });
+document.addEventListener("paste", e => {
+  if (S.tab !== "setup") return;
+  const item = Array.from((e.clipboardData && e.clipboardData.items) || []).find(i => i.kind === "file" && /^image\//.test(i.type)); if (!item) return;
+  e.preventDefault();
+  const row = e.target.closest && e.target.closest(".entry"); takeShot(item.getAsFile(), row && row.dataset.id ? row.dataset.id : "new");
+});
+document.addEventListener("click", e => {
+  const z = e.target.closest("[data-zoom]"); if (!z) return;
+  const box = document.createElement("div"); box.className = "lightbox"; box.innerHTML = `<img src="${esc(z.dataset.zoom)}" alt="The review, full size">`; box.addEventListener("click", () => box.remove()); document.body.appendChild(box);
+});
+document.addEventListener("keydown", e => { if (e.key === "Escape") { const l = document.querySelector(".lightbox"); if (l) l.remove(); } });
 document.addEventListener("input", e => {
   const t = e.target;
   if (t.id === "n_review") { S.newDraft.review = t.value; return; }
