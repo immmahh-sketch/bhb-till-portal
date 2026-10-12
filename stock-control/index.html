@@ -267,6 +267,8 @@ async function lockStock(btn){
 async function showAdmin(){
   const [pl, inv] = await Promise.all([call("plu.uploads"), call("invoice.list")]); S.plu = pl; S.invs = inv.invoices; S.period = pl.period;
   const map = await call("plu.map.list"); S.pmap = map.map;
+  const rc = await call("recipe.list"); S.rc = Object.assign(S.rc || { filter:"need", q:"", edit:null, draft:[] }, { lines:rc.recipes });
+  S.rcSet = new Set(rc.recipes.map(r => r.plu));
   renderAdmin();
 }
 function openState(){ const o = {}; $$("details.sec").forEach(d => { o[d.dataset.k] = d.open; }); return o; }
@@ -279,6 +281,7 @@ function renderAdmin(){
     ${sec("products", `Products (${S.products.length})`, productsHtml(), S.products.length === 0 || true)}
     ${sec("plu", "PLU sales report (Newbridge)", pluHtml(), false)}
     ${sec("match", "Match till buttons to products", matchHtml(), false)}
+    ${sec("recipes", `Cocktail recipes (${(S.rcSet || new Set()).size})`, recipesHtml(), false)}
     ${sec("inv", "Supplier invoices (Matthew Clark, Heineken)", invHtml(), false)}`;
   window.scrollTo(0, keep);
 }
@@ -308,12 +311,46 @@ function pluHtml(){
     ${ups.length ? `<div class="tw" style="max-height:none"><table class="t"><thead><tr><th>File</th><th>Covers</th><th>Uploaded</th><th></th></tr></thead><tbody>${ups.map(u => `<tr><td>${esc(u.filename || "")}${u.period_id !== (S.period && S.period.id) ? ` <span class="tag">earlier period</span>` : ""}</td><td>${esc(ukDay(u.date_from))} to ${esc(ukDay(u.date_to))}</td><td>${esc(ukDay(u.created_at))} ${esc(u.uploaded_by || "")}</td><td class="n">${u.period_id === (S.period && S.period.id) ? `<button class="btn small danger" data-act="plu_del" data-id="${u.id}">Remove</button>` : ""}</td></tr>`).join("")}</tbody></table></div>` : `<p class="muted small">No PLU reports uploaded yet.</p>`}`;
 }
 function matchHtml(){
-  const rows = S.pmap, un = rows.filter(r => !r.product_id && !r.ignored), prods = beverageProducts();
+  const rows = S.pmap, un = rows.filter(r => !r.product_id && !r.ignored && !(S.rcSet && S.rcSet.has(r.plu))), prods = beverageProducts();
   const opts = sel => `<option value="">Not matched</option>` + prods.map(p => `<option value="${p.id}"${p.id === sel ? " selected" : ""}>${esc(p.name)}</option>`).join("");
   const show = S.matchAll ? rows : un;
   return `<p class="small muted">Each button on the till is a PLU code. Match it to the stock product it uses, and say how much of a stock portion one sale is: a half pint is 0.5 of a pint, a double is 2 measures. Food and anything that is not stock is ticked "Not stock".</p>
     <div class="row-actions" style="margin:0 0 10px;align-items:center"><span class="small"><b>${un.length}</b> not matched yet</span><label class="chk"><input type="checkbox" id="m_all"${S.matchAll ? " checked" : ""}> Show all ${rows.length}</label><span style="flex:1"></span>${un.length ? `<button class="btn small" data-act="m_create">Create a product for every unmatched line ticked as stock</button>` : ""}</div>
     ${show.length ? `<div class="tw"><table class="t"><thead><tr><th>PLU</th><th>Till button</th><th class="n">Sold</th><th class="n">Value</th><th style="min-width:220px">Product</th><th class="n">Portion size</th><th>Not stock</th></tr></thead><tbody>${show.map(r => `<tr data-plu="${esc(r.plu)}" data-name="${esc(r.name)}"><td>${esc(r.plu)}</td><td>${esc(r.name)}${r.grp ? `<div class="tiny muted">${esc(r.grp)}</div>` : ""}</td><td class="n">${fnum(r.qty)}</td><td class="n">${gbp(r.value)}</td><td><select data-mf="product_id">${opts(r.product_id)}</select></td><td><input data-mf="portion_size" type="number" step="0.001" min="0.001" value="${r.portion_size}" style="max-width:90px"></td><td style="text-align:center"><input type="checkbox" data-mf="ignored"${r.ignored ? " checked" : ""}></td></tr>`).join("")}</tbody></table></div>` : `<p class="muted small">Nothing to match${rows.length ? "." : ": upload a PLU report first."}</p>`}`;
+}
+const COCKTAIL_GRP = /cocktail|liqueur coffee|shot/i;
+function rcLinesFor(plu){ return (S.rc.lines || []).filter(l => l.plu === plu).map(l => ({ product_id:l.product_id, portions:Number(l.portions) })); }
+function rcCost(draft){
+  let cost = 0, missing = 0;
+  for (const d of draft) { const p = d.product_id ? productById(d.product_id) : null; if (!p || !(Number(d.portions) > 0)) continue; if (p.cost_price === null || p.cost_price === undefined || p.cost_price === "") { missing++; continue; } cost += Number(d.portions) * Number(p.cost_price) / (Number(p.portions_per_unit) || 1); }
+  return { cost, missing };
+}
+function recipesHtml(){
+  const R = S.rc, q = R.q.toLowerCase().trim(), has = S.rcSet || new Set(), btns = S.pmap;
+  const need = btns.filter(b => !has.has(b.plu) && !b.product_id && COCKTAIL_GRP.test(b.grp || ""));
+  let list = btns.filter(b => R.filter === "done" ? has.has(b.plu) : R.filter === "all" ? true : need.includes(b));
+  if (q) list = btns.filter(b => b.name.toLowerCase().includes(q) || (b.grp || "").toLowerCase().includes(q));
+  list = list.slice(0, 200);
+  const prods = beverageProducts(), byCat = {}; prods.forEach(p => (byCat[p.category || "Other"] = byCat[p.category || "Other"] || []).push(p));
+  const opts = sel => `<option value="">Choose a product…</option>` + Object.keys(byCat).sort().map(c => `<optgroup label="${esc(c)}">${byCat[c].map(p => `<option value="${p.id}"${p.id === sel ? " selected" : ""}>${esc(p.name)}</option>`).join("")}</optgroup>`).join("");
+  let editor = "";
+  if (R.edit) {
+    const b = btns.find(x => x.plu === R.edit), c = rcCost(R.draft), sell = b && b.qty ? b.value / b.qty : null;
+    const withRecipe = btns.filter(x => has.has(x.plu) && x.plu !== R.edit);
+    editor = `<div class="card" style="box-shadow:none;border:2px solid var(--sage);margin:0 0 14px"><b style="font-size:17px">${esc(b ? b.name : R.edit)}</b> <span class="muted small">${esc(b && b.grp || "")}</span>
+      <p class="small muted" style="margin:6px 0 10px">Add each product that goes into one sale, and how many of its sales portions: a 25ml measure of a spirit is 1, a double is 2, a 125ml glass of wine or prosecco is 1, one bottle of tonic is 1. Leave out ice, fruit and anything not stocked.</p>
+      <div class="tw" style="max-height:none"><table class="t"><thead><tr><th style="min-width:260px">Product</th><th class="n" style="width:110px">Portions</th><th class="n">Cost</th><th></th></tr></thead><tbody>
+      ${R.draft.map((d, i) => { const p = d.product_id ? productById(d.product_id) : null, pc = p && p.cost_price !== null && p.cost_price !== undefined && p.cost_price !== "" ? Number(d.portions || 0) * Number(p.cost_price) / (Number(p.portions_per_unit) || 1) : null; return `<tr data-rci="${i}"><td><select class="in" data-rc="product">${opts(d.product_id)}</select></td><td><input class="in" data-rc="portions" type="number" step="0.25" min="0" value="${d.portions ?? ""}"></td><td class="n">${pc === null ? '<span class="muted small">no cost</span>' : gbp(pc)}</td><td class="n"><button class="btn small ghost" data-act="rc_del" data-i="${i}">Remove</button></td></tr>`; }).join("")}
+      </tbody></table></div>
+      <div class="row-actions" style="margin:10px 0 0;align-items:center"><button class="btn small ghost" data-act="rc_add">Add a product</button>
+        ${withRecipe.length ? `<select class="in" id="rc_copy" style="max-width:260px"><option value="">Copy the recipe of…</option>${withRecipe.map(x => `<option value="${esc(x.plu)}">${esc(x.name)}</option>`).join("")}</select>` : ""}
+        <span style="flex:1"></span><span class="small">Cost per drink <b>${gbp(c.cost)}</b>${c.missing ? ` <span class="muted">(${c.missing} product${c.missing === 1 ? "" : "s"} without a cost)</span>` : ""}${sell ? ` · sells at ${gbp(sell)} · GP ${Math.round((1 - c.cost / (sell / 1.2)) * 100)}% ex VAT` : ""}</span></div>
+      <div class="row-actions"><button class="btn" data-act="rc_save">Save recipe</button><button class="btn ghost" data-act="rc_cancel">Cancel</button>${has.has(R.edit) ? `<button class="btn ghost" data-act="rc_remove">Remove this recipe</button>` : ""}</div></div>`;
+  }
+  return `<p class="small muted">A till button made of several products (a cocktail, a liqueur coffee, a shot with a chaser) takes each product off stock when it sells. Build the recipe once and every PLU report from then on deducts it. Anything not in the products list needs adding there first.</p>
+    ${editor}
+    <div class="row-actions" style="margin:0 0 10px;align-items:center"><select class="in" id="rc_filter" style="max-width:280px"><option value="need"${R.filter === "need" ? " selected" : ""}>Cocktails and shots without a recipe (${need.length})</option><option value="done"${R.filter === "done" ? " selected" : ""}>Buttons with a recipe (${has.size})</option><option value="all"${R.filter === "all" ? " selected" : ""}>Any till button</option></select><input class="in" id="rc_q" placeholder="Find a till button…" value="${esc(R.q)}" style="max-width:260px"></div>
+    ${list.length ? `<div class="tw" style="max-height:420px"><table class="t"><thead><tr><th>Till button</th><th>Department</th><th class="n">Sold</th><th>Recipe</th><th></th></tr></thead><tbody>${list.map(b => { const n = rcLinesFor(b.plu).length; return `<tr><td>${esc(b.name)}</td><td class="muted small">${esc(b.grp || "")}</td><td class="n">${b.qty ? fnum(b.qty, 0) : ""}</td><td>${n ? `${n} product${n === 1 ? "" : "s"}` : '<span class="muted">none</span>'}</td><td class="n"><button class="btn small${R.edit === b.plu ? "" : " ghost"}" data-act="rc_edit" data-plu="${esc(b.plu)}">${n ? "Edit" : "Add a recipe"}</button></td></tr>`; }).join("")}</tbody></table></div>` : `<p class="small muted">Nothing to show here.</p>`}`;
 }
 function invHtml(){
   const M = S.M && S.M.kind === "invoice" ? S.M : null, prods = beverageProducts();
@@ -450,12 +487,22 @@ document.addEventListener("click", async e => {
       list.forEach(p => { p.areas = a === "bulk_on" ? [...new Set([...(p.areas || []), area])] : (p.areas || []).filter(x => x !== area); });
       S.openSec = openState(); renderAdmin(); return toast("Saved.");
     }
+    if (a === "rc_edit") { S.rc.edit = b.dataset.plu; S.rc.draft = rcLinesFor(b.dataset.plu); if (!S.rc.draft.length) S.rc.draft = [{ product_id:"", portions:1 }]; S.openSec = openState(); S.openSec.recipes = true; return renderAdmin(); }
+    if (a === "rc_add") { S.rc.draft.push({ product_id:"", portions:1 }); S.openSec = openState(); return renderAdmin(); }
+    if (a === "rc_del") { S.rc.draft.splice(Number(b.dataset.i), 1); S.openSec = openState(); return renderAdmin(); }
+    if (a === "rc_cancel") { S.rc.edit = null; S.openSec = openState(); return renderAdmin(); }
+    if (a === "rc_save" || a === "rc_remove") {
+      const lines = a === "rc_remove" ? [] : S.rc.draft.filter(d => d.product_id && Number(d.portions) > 0).map(d => ({ product_id:d.product_id, portions:Number(d.portions) }));
+      if (a === "rc_save" && !lines.length) return toast("Add at least one product with a number of portions.", true);
+      if (a === "rc_remove" && !confirm("Remove this recipe? Its sales will go back to being unmatched.")) return;
+      await call("recipe.save", { plu:S.rc.edit, lines }); S.rc.edit = null; S.openSec = openState(); toast(a === "rc_save" ? "Recipe saved." : "Recipe removed."); return showAdmin();
+    }
     if (a === "pick") { S.pickKind = b.dataset.kind; S.pickSupplier = b.dataset.supplier; const fp = $("#filepick"); fp.accept = ".csv,.xlsx,.xls,.pdf,.txt"; fp.value = ""; return fp.click(); }
     if (a === "m_cancel") { S.M = null; S.openSec = openState(); return renderAdmin(); }
     if (a === "m_import") return runImport(b);
     if (a === "plu_del") { if (!confirm("Remove this PLU report from the stock period?")) return; await call("plu.delete", { id:b.dataset.id }); S.openSec = openState(); return showAdmin(); }
     if (a === "m_create") {
-      const items = S.pmap.filter(r => !r.product_id && !r.ignored).map(r => ({ plu:r.plu, name:r.name, category:r.grp, sell_price:r.qty ? Math.round(r.value / r.qty * 100) / 100 : null }));
+      const items = S.pmap.filter(r => !r.product_id && !r.ignored && !S.rcSet.has(r.plu)).map(r => ({ plu:r.plu, name:r.name, category:r.grp, sell_price:r.qty ? Math.round(r.value / r.qty * 100) / 100 : null }));
       if (!confirm(`Create ${items.length} new product${items.length === 1 ? "" : "s"} from the unmatched till buttons? Tick "Not stock" on any food or non-drink lines first.`)) return;
       const r = await call("plu.products.create", { items }); await refreshBoot(); S.openSec = openState(); toast(`${r.made} products created.`); return showAdmin();
     }
@@ -480,10 +527,16 @@ document.addEventListener("input", e => {
     if (t.id === "d_filter") { D.filter = t.value; const sel = $("#d_product"); sel.innerHTML = productOptions(D.product, D.filter); return; }
     if (t.id === "d_qty") D.qty = t.value; if (t.id === "d_note") D.note = t.value;
   }
+  if (t.id === "rc_q") { S.rc.q = t.value; S.openSec = openState(); S.openSec.recipes = true; renderAdmin(); const n = $("#rc_q"); if (n) { n.focus(); n.setSelectionRange(n.value.length, n.value.length); } return; }
   if (t.id === "c_q") { S.q = t.value; renderCount(true); }
   if (t.id === "p_q") { S.adm.q = t.value; const wrap = t.closest(".in"); S.openSec = openState(); renderAdmin(); const n = $("#p_q"); if (n) { n.focus(); n.setSelectionRange(n.value.length, n.value.length); } }
 });
 document.addEventListener("change", async e => {
+  { const t = e.target;
+    if (t.id === "rc_filter") { S.rc.filter = t.value; S.rc.q = ""; S.openSec = openState(); S.openSec.recipes = true; return renderAdmin(); }
+    if (t.id === "rc_copy" && t.value) { S.rc.draft = rcLinesFor(t.value); S.openSec = openState(); return renderAdmin(); }
+    const row = t.closest && t.closest("tr[data-rci]");
+    if (row && t.dataset.rc) { const d = S.rc.draft[Number(row.dataset.rci)]; if (t.dataset.rc === "product") d.product_id = t.value; else d.portions = t.value; S.openSec = openState(); return renderAdmin(); } }
   const t = e.target;
   try {
     if (S.tab && DAILY[S.tab] && S.daily) { if (t.id === "d_product") S.daily.product = t.value; if (t.id === "d_reason") S.daily.reason = t.value; }
