@@ -236,6 +236,12 @@ table.grid td.num{text-align:right; font-variant-numeric:tabular-nums}
   .checklist{gap:6px}
   .checkpill{font-size:11px; padding:6px 11px}
 }
+.cuLines{margin-top:12px; border-top:1px solid var(--mist)} .cuLines>div{display:flex; justify-content:space-between; gap:12px; padding:7px 2px; font-size:15px}
+.cuLines .tot{border-top:1px solid var(--mist); font-weight:700; font-size:16px} .cuLines .tot.big{font-size:20px; background:#EDF2ED; padding:10px 8px; border-radius:8px; margin-top:6px; border-top:0} .cuLines b.bad{color:#b3261e}
+.cuTable{width:100%; border-collapse:collapse; font-size:14px} .cuTable th{font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--sage-70); text-align:left; padding:6px 6px; border-bottom:1px solid var(--mist)}
+.cuTable td{padding:9px 6px; border-bottom:1px solid var(--mist); vertical-align:top} .cuTable .n{text-align:right; white-space:nowrap} .cuTable tr.tot td{font-weight:700; border-top:2px solid var(--celadon)}
+.cuTable .ok{color:#2F5B31; font-weight:700} .cuTable .bad{color:#b3261e; font-weight:700} .cuTable tr.doneRow td{background:#F3F7F3} .okTag{color:#2F5B31; font-weight:700; font-size:13px}
+.cuBank{border:2px solid var(--celadon)}
 </style>
 </head>
 <body>
@@ -792,13 +798,19 @@ async function loadDashboard(){
 }
 
 /* ============================================================ Cash Up */
+const CU = { opening:null, standard:0, counted:false, stock:[], pending:0, ready:false };
+const numv = id => { const v = Number(($(`#${id}`) || {}).value); return isFinite(v) ? v : 0; };
+const r2 = n => Math.round((Number(n) || 0) * 100) / 100;
+const signed = n => (n < -0.004 ? "-" : n > 0.004 ? "+" : "") + money(Math.abs(n));
 function viewCashUpEntry(){
+  const fld = (id, label, extra = "") => `<div class="field"><label>${label}</label><input type="number" step="0.01" min="0" inputmode="decimal" autocomplete="off" id="${id}" value="0" onfocus="this.select()" ${extra}></div>`;
   return `
     ${VIEW ? "" : `<div class="subnav">
       <button class="on">Add a count</button>
       <button onclick="goView('cashup-history')">History</button>
     </div>`}
-    <div class="pagehead"><h2>Cash Up</h2><div class="hint">Count a till and log the day's cash and card takings.</div></div>
+    <div class="pagehead"><h2>Cash Up</h2><div class="hint">Count the till and the card machine, then check them against what the till expects.</div></div>
+    <div id="cuForm">
     <div class="card">
       <div class="row">
         <div class="field"><label>Date</label><input type="date" id="cu_date" value="${todayIso()}"></div>
@@ -807,39 +819,109 @@ function viewCashUpEntry(){
       </div>
     </div>
     <div class="card">
-      <h3 style="margin-bottom:10px;font-size:18px">Cash counted</h3>
+      <h3 style="margin-bottom:10px;font-size:18px">1. Cash counted</h3>
       ${denomGridHtml("cu")}
+      <div class="field" style="margin-top:14px"><label>Petty cash receipts</label><input type="number" step="0.01" min="0" inputmode="decimal" autocomplete="off" id="cu_petty" value="0" onfocus="this.select()"><div class="hint">Receipts for cash spent out of the till today. They are added to the cash counted.</div></div>
+      <div class="cuLines"><div><span>Notes and coins</span><b id="cu_l_notes">£0.00</b></div><div><span>Petty cash receipts</span><b id="cu_l_petty">£0.00</b></div><div class="tot"><span>Total cash</span><b id="cu_l_cash">£0.00</b></div></div>
     </div>
     <div class="card">
-      <div class="row">
-        <div class="field"><label>Opening float</label><input type="number" step="0.01" autocomplete="off" id="cu_opening" readonly></div>
-        <div class="field"><label>Float retained for tomorrow</label><input type="number" step="0.01" autocomplete="off" id="cu_retained"></div>
-      </div>
+      <h3 style="margin-bottom:10px;font-size:18px">2. Cards from the PDQ</h3>
+      <div class="row">${fld("cu_visa", "Visa")}${fld("cu_mc", "Mastercard")}${fld("cu_amex", "Amex")}</div>
+      <div class="cuLines"><div class="tot"><span>Total cards (PDQ)</span><b id="cu_l_pdq">£0.00</b></div></div>
     </div>
     <div class="card">
-      <h3 style="margin-bottom:10px;font-size:18px">Card &amp; other (from the till's Z-read)</h3>
-      <div class="row">
-        <div class="field"><label>Visa</label><input type="number" step="0.01" autocomplete="off" id="cu_visa" value="0"></div>
-        <div class="field"><label>Mastercard</label><input type="number" step="0.01" autocomplete="off" id="cu_mc" value="0"></div>
-        <div class="field"><label>Amex</label><input type="number" step="0.01" autocomplete="off" id="cu_amex" value="0"></div>
-        <div class="field"><label>Vouchers</label><input type="number" step="0.01" autocomplete="off" id="cu_vouchers" value="0"></div>
-        <div class="field"><label>Room charge</label><input type="number" step="0.01" autocomplete="off" id="cu_room" value="0"></div>
-      </div>
-      <div class="field"><label>Z-Read reported total sales</label><input type="number" step="0.01" autocomplete="off" id="cu_zread" value="0"></div>
-      <div class="field"><label>Notes (optional)</label><textarea id="cu_notes" rows="2"></textarea></div>
+      <h3 style="margin-bottom:4px;font-size:18px">3. Expected from the till</h3>
+      <div class="hint" style="margin-bottom:10px">From the till's own end of day report.</div>
+      <div class="row">${fld("cu_exp_cash", "Cash")}${fld("cu_exp_card", "Cards")}${fld("cu_vouchers", "Vouchers")}${fld("cu_room", "Room charge")}</div>
+      <div class="cuLines"><div class="tot"><span>Total expected from the till</span><b id="cu_l_exp">£0.00</b></div></div>
     </div>
-    <button class="btn" id="cu_save">Save &amp; archive</button>`;
+    <div class="card" id="cu_check"></div>
+    <div class="card" id="cu_stock" style="display:none"></div>
+    <div class="card">
+      <div class="field" style="margin:0"><label>Notes (optional)</label><textarea id="cu_notes" rows="2"></textarea></div>
+    </div>
+    <div class="card cuBank" id="cu_bank"></div>
+    <div id="cu_block" class="hint" style="margin:0 0 10px;color:#b3261e"></div>
+    <button class="btn" id="cu_save">Save &amp; archive</button>
+    </div>`;
+}
+/* The live sums: totals, how the count compares with the till, what to bank. Everything is worked out again on every keystroke. */
+function cuRecalc(){
+  if (!$("#cuForm")) return;
+  updateDenomTotal("cu");
+  const { total: notes } = readDenoms("cu"), petty = r2(numv("cu_petty")), cash = r2(notes + petty);
+  const pdq = r2(numv("cu_visa") + numv("cu_mc") + numv("cu_amex"));
+  const expCash = r2(numv("cu_exp_cash")), expCard = r2(numv("cu_exp_card")), vouch = r2(numv("cu_vouchers")), room = r2(numv("cu_room")), expTotal = r2(expCash + expCard + vouch + room);
+  $("#cu_l_notes").textContent = money(notes); $("#cu_l_petty").textContent = money(petty); $("#cu_l_cash").textContent = money(cash);
+  $("#cu_l_pdq").textContent = money(pdq); $("#cu_l_exp").textContent = money(expTotal);
+  const opening = CU.opening !== null ? CU.opening : CU.standard, std = CU.standard;
+  const takings = r2(cash - opening), cashDiff = r2(takings - expCash), cardDiff = r2(pdq - expCard), totalDiff = r2(takings + pdq + vouch + room - expTotal);
+  const cls = d => Math.abs(d) < 0.005 ? "ok" : "bad";
+  const row = (label, got, want, d) => `<tr><td>${label}</td><td class="n">${money(got)}</td><td class="n">${money(want)}</td><td class="n ${cls(d)}">${Math.abs(d) < 0.005 ? "Level" : signed(d)}</td></tr>`;
+  $("#cu_check").innerHTML = `<h3 style="margin-bottom:10px;font-size:18px">Check against the till</h3>
+    <table class="cuTable"><thead><tr><th></th><th class="n">Counted</th><th class="n">Till expects</th><th class="n">Difference</th></tr></thead><tbody>
+      ${row("Cash taken today <span class='muted'>(total cash less this morning's float)</span>", takings, expCash, cashDiff)}
+      ${row("Cards", pdq, expCard, cardDiff)}
+      <tr><td>Vouchers and room charge</td><td class="n" colspan="2">${money(vouch + room)}</td><td class="n"></td></tr>
+      <tr class="tot"><td>Total</td><td class="n">${money(takings + pdq + vouch + room)}</td><td class="n">${money(expTotal)}</td><td class="n ${cls(totalDiff)}">${Math.abs(totalDiff) < 0.005 ? "Level" : signed(totalDiff)}</td></tr></tbody></table>
+    ${expTotal === 0 && cash === 0 ? `<p class="hint" style="margin:8px 0 0">Fill in the cash and the till's figures above and this shows whether they agree.</p>` : ""}`;
+  const toBank = r2(cash - std), diff = r2(opening - std);
+  let why = "";
+  if (!CU.counted) why = `No float count was recorded for this till this morning, so its standard float of ${money(std)} is assumed.`;
+  else if (Math.abs(diff) < 0.005) why = `This morning's float was ${money(opening)}, exactly right.`;
+  else if (diff > 0) why = `This morning's float was ${money(opening)}, which is ${money(diff)} over ${money(std)}. Taking this amount out leaves exactly ${money(std)}, so the extra ${money(diff)} goes to the bank.`;
+  else why = `This morning's float was ${money(opening)}, which is ${money(-diff)} short of ${money(std)}. Taking this amount out leaves exactly ${money(std)}, so ${money(-diff)} less goes to the bank.`;
+  $("#cu_bank").innerHTML = `<h3 style="margin-bottom:10px;font-size:18px">Cash to bank</h3>
+    <div class="cuLines"><div><span>Total cash (notes, coins and petty cash receipts)</span><b>${money(cash)}</b></div>
+      <div><span>Float to leave in the till</span><b>- ${money(std)}</b></div>
+      <div class="tot big"><span>Cash to bank</span><b class="${toBank < 0 ? "bad" : ""}">${money(toBank)}</b></div></div>
+    <p class="hint" style="margin:10px 0 0">${why}</p>
+    ${toBank < 0 ? `<p class="hint" style="margin:6px 0 0;color:#b3261e">There is not enough cash to leave the float. Check the count.</p>` : ""}`;
+  // saving is held until every stock line has been posted to the till and confirmed
+  const blocked = CU.pending > 0;
+  $("#cu_block").textContent = blocked ? `${CU.pending} stock line${CU.pending === 1 ? "" : "s"} still need${CU.pending === 1 ? "s" : ""} posting to the till at £0 and confirming above before this can be saved.` : "";
+  $("#cu_save").disabled = blocked;
+}
+async function cuLoadContext(){
+  const date = $("#cu_date") && $("#cu_date").value, till = $("#cu_till") && $("#cu_till").value; if (!date || !till) return;
+  try {
+    const c = await call("cashup.context", { business_date:date, till_key:till });
+    CU.standard = Number(c.standard_float) || 0; CU.counted = !!c.float_counted; CU.opening = c.opening_float === null ? null : Number(c.opening_float);
+  } catch(e) {
+    const t = S.tills.find(x => x.key === till); CU.standard = t ? Number(t.float_amount) || 0 : 0; CU.counted = false; CU.opening = null;
+  }
+  cuRecalc();
+}
+const STOCK_KIND = { wastage:"Wastage", rooms:"Rooms", weddings:"Wedding / event", showrounds:"Showround / meeting" };
+async function cuLoadStock(){
+  const date = $("#cu_date") && $("#cu_date").value, box = $("#cu_stock"); if (!date || !box) return;
+  try {
+    const d = await call("stock.pending", { business_date:date });
+    CU.stock = d.groups || []; CU.pending = d.pending || 0;
+  } catch(e) { CU.stock = []; CU.pending = 0; box.style.display = "none"; cuRecalc(); return; }
+  if (!CU.stock.length) { box.style.display = "none"; cuRecalc(); return; }
+  box.style.display = "";
+  box.innerHTML = `<h3 style="margin-bottom:4px;font-size:18px">Stock to post to the till</h3>
+    <div class="hint" style="margin-bottom:10px">Ring each of these through the till at a price of <b>£0</b> (override the price) so the stock comes off, then press Confirm. The cash up cannot be saved until every line is confirmed.</div>
+    <table class="cuTable"><thead><tr><th>Type</th><th>Product</th><th class="n">Qty</th><th>Details</th><th></th></tr></thead><tbody>
+    ${CU.stock.map((g, i) => `<tr class="${g.posted ? "doneRow" : ""}"><td>${esc(STOCK_KIND[g.kind] || g.kind)}${g.usage_date !== date ? `<div class="hint">${esc(ukDate(g.usage_date))}</div>` : ""}</td><td><b>${esc(g.product)}</b></td><td class="n"><b>${g.qty}</b></td><td class="hint">${esc(g.notes.join("; "))}${g.by.length ? `<div>${esc(g.by.join(", "))}</div>` : ""}</td>
+      <td class="n">${g.posted ? `<span class="okTag">Posted &#10003;${g.posted_by ? " " + esc(g.posted_by) : ""}</span>` : `<button class="btn small" data-cu-confirm="${i}">Confirm posted to till</button>`}</td></tr>`).join("")}
+    </tbody></table>`;
+  box.querySelectorAll("[data-cu-confirm]").forEach(b => b.addEventListener("click", async () => {
+    const g = CU.stock[Number(b.dataset.cuConfirm)]; b.disabled = true;
+    try { await call("stock.confirm", { ids:g.ids, till_key:$("#cu_till").value }); toast("Confirmed."); await cuLoadStock(); }
+    catch(e) { toast(e.message, true); b.disabled = false; }
+  }));
+  cuRecalc();
 }
 function wireCashUpEntry(){
-  const fillFloat = () => {
-    const t = S.tills.find(x => x.key === $("#cu_till").value);
-    const f = t ? Number(t.float_amount) || 0 : 0;
-    $("#cu_opening").value = f.toFixed(2);
-    $("#cu_retained").value = f.toFixed(2);
-  };
-  $("#cu_till").addEventListener("change", fillFloat);
-  fillFloat();
+  CU.opening = null; CU.counted = false; CU.pending = 0;
+  const t = S.tills.find(x => x.key === $("#cu_till").value); CU.standard = t ? Number(t.float_amount) || 0 : 0;
+  $("#cuForm").addEventListener("input", cuRecalc);
+  const reload = () => { cuLoadContext(); cuLoadStock(); };
+  $("#cu_till").addEventListener("change", reload); $("#cu_date").addEventListener("change", reload);
   $("#cu_save").addEventListener("click", saveCashUp);
+  cuRecalc(); reload();
 }
 // After a successful save: in the full app, jump to History. In kiosk mode
 // there is no #views router to jump to - refresh the same-day checklist
@@ -857,19 +939,24 @@ function afterSave(kioskView, historyView){
 async function saveCashUp(){
   const btn = $("#cu_save");
   if (denomsBad("cu")) return;
+  if (CU.pending > 0) { toast("Confirm the stock lines first.", true); return; }
   const { values } = readDenoms("cu");
+  const expCash = r2(numv("cu_exp_cash")), expCard = r2(numv("cu_exp_card")), vouch = r2(numv("cu_vouchers")), room = r2(numv("cu_room"));
   const payload = {
     business_date: $("#cu_date").value,
     till_key: $("#cu_till").value,
     ...values,
-    opening_float: $("#cu_opening").value,
-    float_retained_for_tomorrow: $("#cu_retained").value,
+    petty_cash_receipts: $("#cu_petty").value,
+    opening_float: CU.opening !== null ? CU.opening : CU.standard,
+    float_retained_for_tomorrow: CU.standard,
     visa_total: $("#cu_visa").value,
     mastercard_total: $("#cu_mc").value,
     amex_total: $("#cu_amex").value,
-    vouchers_total: $("#cu_vouchers").value,
-    room_charge_total: $("#cu_room").value,
-    zread_reported_total: $("#cu_zread").value,
+    vouchers_total: vouch,
+    room_charge_total: room,
+    expected_cash: expCash,
+    expected_card: expCard,
+    zread_reported_total: r2(expCash + expCard + vouch + room),
     staff_name: $("#cu_staff").value,
     notes: $("#cu_notes").value,
   };
@@ -881,17 +968,18 @@ async function saveCashUp(){
   btn.disabled = true; btn.textContent = "Saving…";
   try {
     const out = await call("cashup.save", payload);
-    toast(`Saved — variance ${money(out.cashup.variance)}.`);
+    toast(`Saved. Difference ${money(out.cashup.variance)}. Cash to bank ${money(out.cashup.cash_banking)}.`);
     if (VIEW === "floatstills") ftBack(); else afterSave("cashup", "cashup-history");
-  } catch(e) { toast(e.message, true); }
-  finally { btn.disabled = false; btn.textContent = "Save & archive"; }
+  } catch(e) { toast(e.message, true); if (e.message && /stock/i.test(e.message)) cuLoadStock(); }
+  finally { btn.disabled = false; btn.textContent = "Save & archive"; cuRecalc(); }
 }
 
 const CASHUP_COLS = [
   { label:"Date", value:r=>ukDate(r.business_date) },
   { label:"Till", value:r=>tillLabel(r.till_key) },
   { label:"Completed By", value:"staff_name" },
-  { label:"Total Cash Counted", value:"total_cash_counted" },
+  { label:"Total Cash Counted (incl. petty cash receipts)", value:"total_cash_counted" },
+  { label:"Petty Cash Receipts", value:"petty_cash_receipts" },
   { label:"Opening Float", value:"opening_float" },
   { label:"Float Retained", value:"float_retained_for_tomorrow" },
   { label:"Cash Banking/Drop", value:"cash_banking" },
@@ -899,6 +987,8 @@ const CASHUP_COLS = [
   { label:"Amex", value:"amex_total" }, { label:"Vouchers", value:"vouchers_total" },
   { label:"Room Charge", value:"room_charge_total" },
   { label:"Total Card & Other", value:"total_card_and_other" },
+  { label:"Expected Cash (till)", value:"expected_cash" }, { label:"Expected Cards (till)", value:"expected_card" },
+  { label:"Cash Difference", value:"cash_variance" }, { label:"Card Difference", value:"card_variance" },
   { label:"Z-Read Reported Total", value:"zread_reported_total" },
   { label:"Grand Total Takings", value:"grand_total_takings" },
   { label:"Variance", value:"variance" },
