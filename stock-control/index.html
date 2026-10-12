@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en-GB" data-brand="bhb">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Stock Control - Black Horse Beamish</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --sage:#4E5F4F; --sage-70:#7B887C; --sage-10:#EDEFED; --sage-dark:#3B483C; --bone:#F7F7F7; --celadon:#C1C8B4; --mist:#E7E7E7; --white:#fff; --ink:#262626; --gold:#C9A56B;
+  --alert:#8C4A3F; --alert-bg:#F6EAE8; --red:#B3261E; --good:#2F5B31; --good-bg:#EDF2ED; --attn:#B08D57; --attn-bg:#F7F0E4;
+  --display:"Cormorant Garamond",Georgia,serif; --body:Raleway,"Helvetica Neue",Arial,sans-serif; --track-label:.18em; --radius:10px; --shadow:0 1px 2px rgba(38,38,38,.06),0 8px 24px rgba(38,38,38,.07); --maxw:1240px;
+}
+*{box-sizing:border-box} html,body{margin:0;padding:0}
+body{font-family:var(--body); color:var(--ink); background:var(--bone); font-size:15px; line-height:1.5; -webkit-text-size-adjust:100%; overflow-x:hidden}
+h1,h2,h3,h4{font-family:var(--display); font-weight:600; margin:0; letter-spacing:.01em}
+button,input,textarea,select{font:inherit; color:inherit}
+[hidden]{display:none!important} a{color:var(--sage)}
+#gate{position:fixed; inset:0; background:var(--sage); z-index:500; display:flex; align-items:center; justify-content:center; padding:24px}
+.gatecard{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); width:100%; max-width:380px; padding:32px 28px; text-align:center}
+.gatecard h1{font-size:26px; color:var(--sage); line-height:1.15} .gatecard .sub{font-size:11px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); margin:6px 0 22px}
+.shell{max-width:var(--maxw); margin:0 auto; padding:0 16px 80px}
+header.top{background:var(--sage); color:var(--white)} .topin{max-width:var(--maxw); margin:0 auto; padding:14px 16px; display:flex; align-items:center; gap:18px; flex-wrap:wrap}
+.brand{font-family:var(--display); font-size:21px; line-height:1.1} .brand small{display:block; font-family:var(--body); font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; opacity:.75}
+.who{margin-left:auto; display:flex; align-items:center; gap:10px; font-size:12px; opacity:.9} .who button{background:transparent; border:1px solid rgba(255,255,255,.4); color:var(--white); border-radius:6px; padding:5px 10px; cursor:pointer; font-size:11px; letter-spacing:.06em; text-transform:uppercase}
+nav.tabs{background:var(--sage-dark)} .tabsin{max-width:var(--maxw); margin:0 auto; padding:0 16px; display:flex; gap:2px; overflow-x:auto}
+.tabbtn{background:transparent; border:0; cursor:pointer; color:rgba(255,255,255,.72); padding:12px 14px; font-size:12px; font-weight:600; white-space:nowrap; letter-spacing:var(--track-label); text-transform:uppercase; border-bottom:3px solid transparent}
+.tabbtn[aria-current="page"]{color:var(--white); border-bottom-color:var(--gold)}
+.btn{border:1px solid var(--sage); background:var(--sage); color:var(--white); border-radius:8px; padding:10px 18px; cursor:pointer; font-size:12px; font-weight:700; letter-spacing:var(--track-label); text-transform:uppercase; min-height:42px; display:inline-flex; align-items:center; justify-content:center; gap:6px; line-height:1.2}
+.btn:hover{background:var(--sage-dark)} .btn.ghost{background:var(--white); color:var(--sage)} .btn.ghost:hover{background:var(--sage-10)} .btn.small{min-height:34px; padding:6px 12px; font-size:11px}
+.btn.danger{background:var(--white); color:var(--alert); border-color:var(--alert)} .btn.solid-danger{background:var(--red); border-color:var(--red)} .btn:disabled{opacity:.5; cursor:default}
+.btn:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid var(--gold); outline-offset:2px}
+.chip{border:1px solid var(--mist); background:var(--white); border-radius:999px; padding:8px 15px; cursor:pointer; font-size:14px; min-height:40px} .chip:hover{background:var(--sage-10)} .chip[aria-pressed="true"]{background:var(--sage); border-color:var(--sage); color:var(--white); font-weight:600}
+.card{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); padding:16px 18px; margin-bottom:14px} .card h3{font-size:24px; color:var(--sage); margin-bottom:4px}
+.muted{color:var(--sage-70)} .small{font-size:13px} .tiny{font-size:12px}
+.pagehead{display:flex; align-items:flex-end; gap:12px; flex-wrap:wrap; margin:22px 0 6px} .pagehead h2{font-size:30px; color:var(--sage); line-height:1.1; margin-right:auto}
+.lead{color:var(--sage-70); font-size:14px; margin:2px 0 14px; max-width:780px}
+.field{display:flex; flex-direction:column; gap:4px; margin-bottom:12px; min-width:0} .field label,.lbl{font-size:11px; letter-spacing:var(--track-label); text-transform:uppercase; font-weight:700; color:var(--sage-70)}
+.field input,.field select,.field textarea,.cell input,.cell select,input.in,select.in{border:1px solid var(--celadon); border-radius:8px; padding:10px 11px; background:#fff; width:100%; min-height:42px}
+.grid{display:grid; gap:0 14px; grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
+.toast{position:fixed; left:50%; bottom:22px; transform:translate(-50%,20px); background:var(--ink); color:#fff; padding:10px 16px; border-radius:8px; font-size:13px; opacity:0; pointer-events:none; transition:.2s; z-index:900; max-width:90vw}
+.toast.on{opacity:1; transform:translate(-50%,0)} .toast.bad{background:var(--alert)}
+.notice{background:var(--attn-bg); border-left:4px solid var(--attn); padding:10px 14px; border-radius:6px; font-size:13px; margin:0 0 12px} .notice.bad{background:var(--alert-bg); border-color:var(--red)}
+.modalbg{position:fixed; inset:0; background:rgba(38,38,38,.5); z-index:600; display:flex; align-items:flex-start; justify-content:center; padding:24px 12px; overflow-y:auto} .modal{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); width:100%; max-width:640px; padding:20px 22px}
+.row-actions{display:flex; gap:8px; flex-wrap:wrap; margin-top:10px}
+/* tables */
+.tw{overflow:auto; border:1px solid var(--mist); border-radius:var(--radius); background:#fff; max-height:75vh}
+table.t{border-collapse:separate; border-spacing:0; width:100%; font-size:13px}
+table.t th{position:sticky; top:0; z-index:2; background:var(--sage-10); font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--sage); text-align:left; padding:9px 8px; white-space:nowrap; border-bottom:1px solid var(--mist); cursor:default}
+table.t th.sortable{cursor:pointer} table.t td{padding:6px 8px; border-bottom:1px solid var(--mist); vertical-align:middle} table.t .n{text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap}
+table.t td input,table.t td select{border:1px solid var(--celadon); border-radius:6px; padding:6px 8px; min-height:34px; background:#fff; width:100%; min-width:70px} table.t td input[type=checkbox]{width:20px; min-width:20px; min-height:20px}
+table.t tr.cat td{background:var(--sage-10); font-family:var(--display); font-size:17px; color:var(--sage)} table.t .bad{color:var(--red); font-weight:700} table.t .good{color:var(--good); font-weight:700}
+.stat{display:flex; gap:14px; flex-wrap:wrap; margin:0 0 14px} .stat .s{background:#fff; border-radius:var(--radius); box-shadow:var(--shadow); padding:12px 16px; flex:1 1 160px} .stat .l{font-size:11px; letter-spacing:var(--track-label); text-transform:uppercase; font-weight:700; color:var(--sage-70)} .stat .v{font-family:var(--display); font-size:28px; line-height:1.15; color:var(--sage)}
+.tag{font-size:10px; letter-spacing:.08em; font-weight:700; padding:2px 6px; border-radius:4px; background:var(--sage-10); color:var(--sage-70); text-transform:uppercase}
+/* counting */
+.count{display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px 14px; padding:12px 14px; border-bottom:1px solid var(--mist); align-items:center}
+.count .nm{font-weight:600} .count .sub{font-size:12px; color:var(--sage-70)} .count .ins{display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-end}
+.count input{width:92px; min-height:46px; font-size:18px; text-align:center; border:1px solid var(--celadon); border-radius:8px} .count .ok{color:var(--good); font-size:12px; font-weight:700; min-width:60px; text-align:right}
+@media(max-width:700px){ .count{grid-template-columns:1fr} .count .ins{justify-content:flex-start} }
+details.sec{background:#fff; border-radius:var(--radius); box-shadow:var(--shadow); margin-bottom:14px} details.sec>summary{padding:14px 18px; cursor:pointer; font-family:var(--display); font-size:24px; color:var(--sage); list-style:none} details.sec>summary::-webkit-details-marker{display:none} details.sec>summary::before{content:"+ "; color:var(--gold)} details.sec[open]>summary::before{content:"- "} details.sec>.in{padding:0 18px 16px}
+.chk{display:flex; gap:8px; align-items:center; font-size:14px; cursor:pointer}
+</style>
+</head>
+<body>
+<div id="gate"><div class="gatecard"><h1>Stock Control</h1><div class="sub">Black Horse Beamish</div>
+  <p style="margin:0 0 16px;font-size:14px;color:var(--sage-70)">This opens from the Staff Portal, which knows who you are.</p>
+  <a href="https://app.blackhorsebeamish.co.uk/portal/app.html" style="display:block;padding:12px;border-radius:8px;background:var(--sage);color:#fff;text-decoration:none;font-weight:600;letter-spacing:var(--track-label);text-transform:uppercase;font-size:12px">Open the Staff Portal</a>
+  <div class="notice bad" id="gerr" style="display:none;margin-top:12px"></div></div></div>
+<div id="app" hidden>
+  <header class="top"><div class="topin"><div class="brand">Stock Control<small>Black Horse Beamish</small></div><div class="who"><span id="whoname"></span><button id="signout" type="button">Sign out</button></div></div></header>
+  <nav class="tabs" aria-label="Sections"><div class="tabsin" id="tabs"></div></nav>
+  <main class="shell" id="views"></main>
+</div>
+<div id="modalroot"></div><div class="toast" id="toast" role="status" aria-live="polite"></div>
+<input type="file" id="filepick" hidden>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+const CFG = { SUPABASE_URL:"https://safcrtrfdzsnftghibot.supabase.co", SUPABASE_KEY:"sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU" };
+const TABS = [["wastage", "Wastage"], ["rooms", "Rooms"], ["weddings", "Weddings / Events"], ["showrounds", "Showrounds / meetings"], ["admin", "Stocktake - Admin"], ["stocktake", "Stocktake"], ["report", "Stock report"]];
+const DAILY = {
+  wastage:    { title:"Wastage", lead:"Record any drink that is wasted today: breakages, spoilage, staff drinks. At cash up it is posted to the till at £0 so the stock comes off.", note:null },
+  rooms:      { title:"Rooms", lead:"Anything complimentary to a bedroom today. It starts on Prosecco: change the product if it was something else.", note:"Room number (optional)", pref:/prosecco/i },
+  weddings:   { title:"Weddings / Events", lead:"Bottles of Prosecco, house wine and bottled beer used at a wedding or event as part of a package.", note:"Which wedding or event", need:true },
+  showrounds: { title:"Showrounds / meetings", lead:"Drinks given to couples on showrounds, or at meetings.", note:"Which couple or meeting", need:true },
+};
+const UOM = { unit:"Per unit", keg:"Kegs", bottle:"Bottles" };
+const KIND_NAME = { wastage:"Wastage", rooms:"Rooms", weddings:"Wedding / event", showrounds:"Showround / meeting" };
+const S = { me:null, boot:null, tab:null, products:[], areas:[], period:null, daily:null, area:"", q:"", all:false, counts:new Map(), casesMode:new Set(), rep:null, repSort:"value", repOnly:false, repPeriod:null, periods:[], M:null, plu:null, invs:null, adm:{ q:"" } };
+const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
+const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const fnum = (n, dp = 2) => n === null || n === undefined || n === "" ? "" : String(+Number(n).toFixed(dp));
+const gbp = n => n === null || n === undefined ? "" : (n < 0 ? "-" : "") + "£" + Math.abs(n).toLocaleString("en-GB", { minimumFractionDigits:2, maximumFractionDigits:2 });
+const ukDay = iso => iso ? new Date(String(iso).slice(0, 10) + "T12:00:00Z").toLocaleDateString("en-GB", { timeZone:"UTC", day:"numeric", month:"short", year:"numeric" }).replace("Sept", "Sep") : "";
+function toast(msg, bad){ const t = $("#toast"); t.textContent = msg; t.className = "toast on" + (bad ? " bad" : ""); clearTimeout(toast._t); toast._t = setTimeout(() => { t.className = "toast"; }, bad ? 6000 : 2400); }
+function staffEmail(){ try { return sessionStorage.getItem("bhb_staff_email") || ""; } catch(e){ return ""; } }
+async function call(action, payload){
+  const r = await fetch(CFG.SUPABASE_URL + "/functions/v1/stock-api", { method:"POST", headers:{ "Content-Type":"application/json", Authorization:"Bearer " + CFG.SUPABASE_KEY, apikey:CFG.SUPABASE_KEY }, body: JSON.stringify({ action, staff_email: staffEmail(), ...(payload || {}) }) });
+  let d = {}; try { d = await r.json(); } catch(e){}
+  if ((!r.ok && r.status !== 409) || (d.error && r.status !== 409)) throw new Error(d.error || `Request failed (${r.status})`);
+  d._status = r.status; return d;
+}
+function openModal(html){ closeModal(); const bg = document.createElement("div"); bg.className = "modalbg"; bg.id = "modalbg"; bg.innerHTML = `<div class="modal">${html}</div>`; bg.addEventListener("mousedown", e => { if (e.target === bg) closeModal(); }); $("#modalroot").appendChild(bg); }
+function closeModal(){ const m = $("#modalbg"); if (m) m.remove(); }
+const productById = id => S.products.find(p => p.id === id);
+const areaById = id => S.areas.find(a => a.id === id);
+const beverageProducts = () => S.products.filter(p => p.active).sort((a, b) => (a.category || "~").localeCompare(b.category || "~") || a.name.localeCompare(b.name));
+
+/* ------------------------------------------------------------- tabs */
+function setTabs(){
+  const mine = TABS.filter(([k]) => S.me.tabs.includes(k));
+  if (!mine.some(([k]) => k === S.tab)) S.tab = mine[0] ? mine[0][0] : null;
+  $("#tabs").innerHTML = mine.map(([k, l]) => `<button class="tabbtn" data-tab="${k}" aria-current="${k === S.tab ? "page" : "false"}">${l}</button>`).join("");
+}
+async function show(tab){
+  S.tab = tab; setTabs(); window.scrollTo(0, 0);
+  if (!tab) { $("#views").innerHTML = `<div class="card">You do not have any tabs in Stock Control yet. Ask the GM.</div>`; return; }
+  $("#views").innerHTML = `<p class="muted" style="margin-top:24px">Loading…</p>`;
+  try {
+    if (DAILY[tab]) await showDaily(tab); else if (tab === "stocktake") await showCount(); else if (tab === "report") await showReport(); else await showAdmin();
+  } catch(e){ $("#views").innerHTML = `<div class="card"><b>${esc(e.message)}</b></div>`; }
+}
+async function refreshBoot(){ S.boot = await call("bootstrap"); S.products = S.boot.products; S.areas = S.boot.areas; S.period = S.boot.period; }
+
+/* ------------------------------------------------------------- daily tabs */
+async function showDaily(kind){
+  const d = DAILY[kind]; const r = await call("usage.list", { kind });
+  S.daily = { kind, date:r.date, rows:r.rows, filter:"", product:"", qty:"", reason:"", note:"" };
+  const pref = d.pref && beverageProducts().find(p => d.pref.test(p.name)); if (pref) S.daily.product = pref.id;
+  renderDaily();
+}
+function productOptions(selected, filter){
+  const f = (filter || "").toLowerCase().trim(); let cur = null, html = `<option value="">Choose a product…</option>`;
+  for (const p of beverageProducts()) {
+    if (f && !p.name.toLowerCase().includes(f) && p.id !== selected) continue;
+    const c = p.category || "Other"; if (c !== cur) { if (cur !== null) html += `</optgroup>`; html += `<optgroup label="${esc(c)}">`; cur = c; }
+    html += `<option value="${p.id}"${p.id === selected ? " selected" : ""}>${esc(p.name)}</option>`;
+  }
+  return html + (cur !== null ? `</optgroup>` : "");
+}
+function renderDaily(){
+  const D = S.daily, d = DAILY[D.kind], keep = window.scrollY;
+  const today = new Date(D.date + "T12:00:00Z").toLocaleDateString("en-GB", { timeZone:"UTC", weekday:"long", day:"numeric", month:"long" });
+  const none = !beverageProducts().length;
+  $("#views").innerHTML = `<div class="pagehead"><h2>${esc(d.title)}</h2><span class="small muted">Today: ${esc(today)}</span></div><p class="lead">${esc(d.lead)}</p>
+    ${none ? `<div class="notice">There are no products yet. The GM adds them in Stocktake - Admin.</div>` : ""}
+    <div class="card"><div class="grid">
+      <div class="field" style="grid-column:span 2"><label>Product</label><input class="in" id="d_filter" placeholder="Type to narrow the list…" value="${esc(D.filter)}" style="margin-bottom:6px"><select class="in" id="d_product" size="1">${productOptions(D.product, D.filter)}</select></div>
+      <div class="field"><label>Quantity</label><input class="in" id="d_qty" type="number" min="0.5" step="0.5" inputmode="decimal" value="${esc(D.qty)}" placeholder="How many"></div>
+      ${D.kind === "wastage" ? `<div class="field"><label>Reason</label><select class="in" id="d_reason"><option value="">Choose…</option>${S.boot.reasons.map(r => `<option${D.reason === r ? " selected" : ""}>${esc(r)}</option>`).join("")}</select></div>` : ""}
+      ${d.note ? `<div class="field"><label>${esc(d.note)}</label><input class="in" id="d_note" maxlength="200" value="${esc(D.note)}"></div>` : ""}
+    </div><div class="row-actions" style="margin-top:0"><button class="btn" data-act="add">Add</button></div></div>
+    <div class="card"><h3>Today's lines</h3>${D.rows.length ? `<div class="tw"><table class="t"><thead><tr><th>Time</th><th>Product</th><th class="n">Qty</th><th>${D.kind === "wastage" ? "Reason" : "Details"}</th><th>Added by</th><th>Till</th><th></th></tr></thead><tbody>${D.rows.map(r => {
+      const p = productById(r.product_id), time = new Date(r.created_at).toLocaleTimeString("en-GB", { timeZone:"Europe/London", hour:"2-digit", minute:"2-digit" });
+      return `<tr><td>${time}</td><td><b>${esc(p ? p.name : "?")}</b></td><td class="n"><b>${fnum(r.qty)}</b></td><td>${esc([r.reason, r.note].filter(Boolean).join(": "))}</td><td>${esc(r.created_by)}</td><td>${r.posted_at ? `<span class="good">Posted &#10003;</span>` : `<span class="muted">Waiting for cash up</span>`}</td><td class="n">${r.posted_at ? "" : `<button class="btn small danger" data-act="del" data-id="${r.id}">Remove</button>`}</td></tr>`;
+    }).join("")}</tbody></table></div>` : `<p class="muted">Nothing recorded today yet.</p>`}
+    <p class="tiny muted" style="margin:8px 0 0">These lines appear in the totals at cash up, where each is posted to the till at a price of £0 and confirmed.</p></div>`;
+  window.scrollTo(0, keep);
+}
+
+/* ------------------------------------------------------------- stocktake: counting */
+async function showCount(){
+  const r = await call("count.load", {}); S.counts = new Map(r.counts.map(c => [c.area_id + "|" + c.product_id, c])); S.period = r.period;
+  S.casesMode = new Set(r.counts.filter(c => c.cases !== null).map(c => c.area_id + "|" + c.product_id));
+  if (!S.area || !areaById(S.area)) S.area = S.areas[0] ? S.areas[0].id : "";
+  renderCount();
+}
+function renderCount(keepFocus){
+  const a = areaById(S.area), q = S.q.toLowerCase().trim();
+  const inArea = beverageProducts().filter(p => S.all || p.areas.includes(S.area));
+  const shown = inArea.filter(p => !q || p.name.toLowerCase().includes(q) || (p.category || "").toLowerCase().includes(q));
+  const done = inArea.filter(p => S.counts.has(S.area + "|" + p.id)).length;
+  let cat = null, rows = "";
+  for (const p of shown) {
+    if ((p.category || "Other") !== cat) { cat = p.category || "Other"; rows += `<div class="count" style="background:var(--sage-10)"><b style="font-family:var(--display);font-size:18px;color:var(--sage)">${esc(cat)}</b><span></span></div>`; }
+    const key = S.area + "|" + p.id, c = S.counts.get(key), cm = S.casesMode.has(key) && p.case_size;
+    rows += `<div class="count" data-key="${key}"><div><div class="nm">${esc(p.name)}</div><div class="sub">${esc(UOM[p.uom])}${p.case_size ? ` · case of ${p.case_size}` : ""}${!p.areas.includes(S.area) ? " · not normally kept here" : ""}${c ? ` · counted ${fnum(c.units)} by ${esc(c.counted_by || "?")}` : ""}</div></div>
+      <div class="ins">${p.case_size ? `<button class="chip" data-act="cases" data-key="${key}" aria-pressed="${!!cm}" style="min-height:40px">${cm ? "Counting in cases" : "Count in cases"}</button>` : ""}
+      ${cm ? `<input data-f="cases" inputmode="decimal" placeholder="cases" value="${c && c.cases !== null ? fnum(c.cases) : ""}" aria-label="Cases of ${esc(p.name)}"><span class="sub">cases +</span><input data-f="loose" inputmode="decimal" placeholder="loose" value="${c && c.loose !== null ? fnum(c.loose) : ""}" aria-label="Loose units of ${esc(p.name)}">`
+        : `<input data-f="loose" inputmode="decimal" placeholder="${esc(UOM[p.uom].toLowerCase())}" value="${c ? fnum(c.units) : ""}" aria-label="Count of ${esc(p.name)}">`}<span class="ok" data-ok></span></div></div>`;
+  }
+  $("#views").innerHTML = `<div class="pagehead"><h2>Stocktake</h2><span class="small muted">${esc(S.period ? S.period.name : "")}</span></div>
+    <p class="lead">Pick an area, find a product and enter what is there. A count saves as soon as you leave the box. Counting the same product again replaces the earlier count for that area.</p>
+    <div class="card"><div class="row-actions" style="margin:0 0 12px">${S.areas.map(x => `<button class="chip" data-act="area" data-id="${x.id}" aria-pressed="${x.id === S.area}">${esc(x.name)}</button>`).join("")}</div>
+      <div class="field" style="margin:0"><input class="in" id="c_q" type="search" placeholder="Start typing a product to find it…" value="${esc(S.q)}" aria-label="Find a product"></div>
+      <label class="chk" style="margin-top:10px"><input type="checkbox" id="c_all"${S.all ? " checked" : ""}> Also show products that are not set up for ${esc(a ? a.name : "this area")}</label>
+      <p class="tiny muted" style="margin:8px 0 0">${a ? esc(a.name) : ""}: ${done} of ${inArea.length} counted${q ? `, ${shown.length} match your search` : ""}.</p></div>
+    <div class="card" style="padding:0;overflow:hidden">${rows || `<p class="muted" style="padding:18px">${inArea.length ? "Nothing matches that search." : "No products are set up for this area yet. The GM ticks them in Stocktake - Admin, or tick the box above to see every product."}</p>`}</div>`;
+  if (keepFocus) { const el = $("#c_q"); if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }
+}
+async function saveCount(row){
+  const key = row.dataset.key, [area, product] = key.split("|"), p = productById(product), cm = S.casesMode.has(key) && p.case_size;
+  const val = f => { const el = row.querySelector(`[data-f="${f}"]`); if (!el || el.value.trim() === "") return null; const n = Number(el.value.replace(/,/g, "")); return isFinite(n) ? n : NaN; };
+  const cases = cm ? val("cases") : null, loose = val("loose"); const ok = row.querySelector("[data-ok]");
+  if (Number.isNaN(cases) || Number.isNaN(loose) || (cases !== null && cases < 0) || (loose !== null && loose < 0)) { ok.textContent = "Not a number"; ok.style.color = "var(--red)"; return; }
+  ok.textContent = "Saving…"; ok.style.color = "";
+  try {
+    const r = await call("count.save", { area_id:area, product_id:product, cases, loose });
+    if (r.cleared) S.counts.delete(key); else S.counts.set(key, { area_id:area, product_id:product, cases, loose, units:r.units, counted_by:S.me.name });
+    ok.textContent = r.cleared ? "Cleared" : "Saved ✓"; ok.style.color = "var(--good)";
+    const sub = row.querySelector(".sub"); if (sub && !r.cleared) sub.textContent = sub.textContent.replace(/ · counted .*$/, "") + ` · counted ${fnum(r.units)} by ${S.me.name}`;
+  } catch(e){ ok.textContent = e.message; ok.style.color = "var(--red)"; }
+}
+
+/* ------------------------------------------------------------- stock report */
+async function showReport(){
+  const pr = await call("report.periods"); S.periods = pr.periods;
+  if (!S.repPeriod || !S.periods.some(p => p.id === S.repPeriod)) S.repPeriod = (S.periods.find(p => p.status === "open") || S.periods[0] || {}).id;
+  await loadReport();
+}
+async function loadReport(){ S.rep = await call("report.load", { period_id:S.repPeriod }); renderReport(); }
+function repRows(){
+  let rows = S.rep.rows.slice(); if (S.repOnly) rows = rows.filter(r => r.variance_qty !== null && Math.abs(r.variance_qty) > 0.004);
+  const by = { value:(a, b) => (a.variance_value ?? 1e12) - (b.variance_value ?? 1e12), abs:(a, b) => Math.abs(b.variance_value ?? 0) - Math.abs(a.variance_value ?? 0), qty:(a, b) => (a.variance_qty ?? 1e12) - (b.variance_qty ?? 1e12), name:(a, b) => a.name.localeCompare(b.name), cat:(a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name) };
+  return rows.sort(by[S.repSort] || by.value);
+}
+function renderReport(){
+  const R = S.rep, locked = R.period.status === "locked", keep = window.scrollY, rows = repRows(), edit = S.me.edit && !locked;
+  const nvar = R.rows.filter(r => r.variance_qty !== null && Math.abs(r.variance_qty) > 0.004).length;
+  $("#views").innerHTML = `<div class="pagehead"><h2>Stock report</h2>
+      <select class="in" id="r_period" style="max-width:300px" aria-label="Stock period">${S.periods.map(p => `<option value="${p.id}"${p.id === S.repPeriod ? " selected" : ""}>${esc(p.name)}${p.status === "locked" ? " (locked " + ukDay(p.end_date) + ")" : " (open)"}</option>`).join("")}</select></div>
+    <p class="lead">${locked ? `Locked on ${esc(ukDay(R.period.end_date))} by ${esc(R.period.locked_by || "")}. This is the final record.` : `Open since ${esc(ukDay(R.period.start_date))}. Opening stock is the last locked stocktake's closing stock; sales come from the PLU reports and deliveries from the invoices uploaded in Stocktake - Admin.`}</p>
+    ${R.unmatched.lines ? `<div class="notice bad"><b>${R.unmatched.lines} PLU line${R.unmatched.lines === 1 ? "" : "s"} (£${R.unmatched.value.toFixed(2)} of sales) are not matched to a product</b>, so they are not in these figures. Match them in Stocktake - Admin.</div>` : ""}
+    ${!R.uploads.length && !locked ? `<div class="notice">No PLU report has been uploaded for this period yet, so nothing shows as sold.</div>` : ""}
+    <div class="stat"><div class="s"><div class="l">Total variance</div><div class="v" style="color:${R.totals.variance_value < 0 ? "var(--red)" : "var(--sage)"}">${gbp(R.totals.variance_value)}</div></div><div class="s"><div class="l">Short</div><div class="v">${gbp(R.totals.short)}</div></div><div class="s"><div class="l">Over</div><div class="v">${gbp(R.totals.over)}</div></div><div class="s"><div class="l">Lines with a variance</div><div class="v">${nvar}</div></div><div class="s"><div class="l">Not counted</div><div class="v">${R.not_counted}</div></div></div>
+    <div class="row-actions" style="margin:0 0 12px;align-items:center"><span class="lbl">Sort by</span><select class="in" id="r_sort" style="max-width:260px"><option value="value"${S.repSort === "value" ? " selected" : ""}>Variance £ (biggest shortage first)</option><option value="abs"${S.repSort === "abs" ? " selected" : ""}>Variance £ (biggest either way)</option><option value="qty"${S.repSort === "qty" ? " selected" : ""}>Variance quantity</option><option value="cat"${S.repSort === "cat" ? " selected" : ""}>Category</option><option value="name"${S.repSort === "name" ? " selected" : ""}>Product name</option></select>
+      <label class="chk"><input type="checkbox" id="r_only"${S.repOnly ? " checked" : ""}> Only lines with a variance</label><span style="flex:1"></span>
+      <button class="btn ghost small" data-act="csv">Download CSV</button><button class="btn ghost small" data-act="pdf">Download PDF</button>${edit ? `<button class="btn small" data-act="lock">Lock stock take</button>` : ""}</div>
+    <div class="tw"><table class="t"><thead><tr><th>Product</th><th class="n">Opening</th><th class="n">Delivered</th><th class="n">Sold (theoretical use)</th><th class="n">Expected closing</th><th class="n">Counted closing</th><th class="n">Actual use</th><th class="n">Variance qty</th><th class="n">Variance £</th><th style="min-width:260px">Investigation</th></tr></thead><tbody>
+    ${rows.map(r => { const bad = r.variance_qty !== null && Math.abs(r.variance_qty) > 0.004;
+      return `<tr data-id="${r.product_id}"><td><b>${esc(r.name)}</b><div class="tiny muted">${esc(r.category)}${r.category ? " · " : ""}${esc(UOM[r.uom] || r.uom)}${r.case_size ? ", case of " + r.case_size : ""}</div></td><td class="n">${fnum(r.opening)}</td><td class="n">${fnum(r.delivered)}</td><td class="n">${fnum(r.sold_units)}<div class="tiny muted">${fnum(r.sold_portions)} sold</div></td><td class="n">${fnum(r.theoretical_closing)}</td>
+      <td class="n">${r.counted_flag ? fnum(r.counted) : `<span class="tag">Not counted</span>`}</td><td class="n">${r.actual_use === null ? "" : fnum(r.actual_use)}</td><td class="n ${bad ? (r.variance_qty < 0 ? "bad" : "good") : ""}">${r.variance_qty === null ? "" : (r.variance_qty > 0 ? "+" : "") + fnum(r.variance_qty)}</td><td class="n ${bad ? (r.variance_value < 0 ? "bad" : "good") : ""}">${r.variance_value === null ? "" : gbp(r.variance_value)}${r.variance_value !== null && r.value_basis === "selling price" ? `<div class="tiny muted">at selling price</div>` : ""}</td>
+      <td>${edit ? `<input data-note="${r.product_id}" value="${esc(r.note)}" placeholder="${bad ? "Why? What was checked?" : "Optional"}" style="${bad && !r.note ? "border-color:var(--red)" : ""}">` : esc(r.note)}${r.note_by ? `<div class="tiny muted">${esc(r.note_by)}</div>` : ""}</td></tr>`; }).join("") || `<tr><td colspan="10" class="muted" style="padding:18px">Nothing to show for this period yet.</td></tr>`}
+    </tbody></table></div>
+    <p class="tiny muted" style="margin-top:8px">Expected closing = opening + delivered - sold. Actual use = opening + delivered - counted. Variance = counted - expected (negative means stock is missing). Valued at cost where a delivery has set one, otherwise at selling price.${R.uploads.length ? ` Sales: ${R.uploads.map(u => ukDay(u.date_from) + " to " + ukDay(u.date_to)).join("; ")}.` : ""}${R.invoices.length ? ` ${R.invoices.length} invoice${R.invoices.length === 1 ? "" : "s"} in.` : ""}</p>`;
+  window.scrollTo(0, keep);
+}
+function downloadBlob(name, blob){ const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); }
+function reportCsv(){
+  const R = S.rep, cell = v => '"' + String(v ?? "").replace(/"/g, '""') + '"';
+  const head = ["Product", "Category", "Unit", "Opening", "Delivered", "Sold (theoretical use)", "Expected closing", "Counted closing", "Actual use", "Variance qty", "Unit value (GBP)", "Value basis", "Variance (GBP)", "Investigation", "Investigated by"];
+  const lines = [head.map(cell).join(",")].concat(repRows().map(r => [r.name, r.category, r.uom, r.opening, r.delivered, r.sold_units, r.theoretical_closing, r.counted_flag ? r.counted : "NOT COUNTED", r.actual_use ?? "", r.variance_qty ?? "", r.unit_value ?? "", r.value_basis, r.variance_value ?? "", r.note, r.note_by || ""].map(cell).join(",")));
+  lines.push(["TOTAL", "", "", "", "", "", "", "", "", "", "", "", R.totals.variance_value, "", ""].map(cell).join(","));
+  downloadBlob(`Stock report - ${R.period.name}.csv`, new Blob(["﻿" + lines.join("\r\n") + "\r\n"], { type:"text/csv;charset=utf-8" }));
+}
+async function reportPdf(btn){
+  btn.disabled = true; try { const r = await call("report.pdf", { period_id:S.repPeriod }); const bin = atob(r.pdf), bytes = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i); downloadBlob(r.filename, new Blob([bytes], { type:"application/pdf" })); } catch(e){ toast(e.message, true); } btn.disabled = false;
+}
+async function lockStock(btn){
+  btn.disabled = true;
+  try {
+    const r = await call("report.lock", { period_id:S.repPeriod });
+    openModal(`<h3 style="font-size:26px;color:var(--sage)">Lock this stock take?</h3><p class="small">Locking makes this the final stocktake. The closing stock becomes the opening stock of the next stock period, and this report can no longer be changed.</p>
+      ${r.not_counted ? `<div class="notice bad"><b>${r.not_counted} product${r.not_counted === 1 ? " was" : "s were"} not counted.</b> ${r.not_counted === 1 ? "It" : "They"} will be recorded as nothing in hand.</div>` : ""}
+      ${r.without_note ? `<div class="notice"><b>${r.without_note} line${r.without_note === 1 ? " has" : "s have"} a variance with no investigation note.</b></div>` : ""}
+      <p class="small">Total variance: <b>${gbp(r.totals.variance_value)}</b> (short ${gbp(r.totals.short)}, over ${gbp(r.totals.over)}).</p>
+      <div class="row-actions"><button class="btn solid-danger" data-act="lockyes">Yes, lock it</button><button class="btn ghost" data-act="close">Not yet</button></div>`);
+  } catch(e){ toast(e.message, true); }
+  btn.disabled = false;
+}
+
+/* ------------------------------------------------------------- stocktake: admin */
+async function showAdmin(){
+  const [pl, inv] = await Promise.all([call("plu.uploads"), call("invoice.list")]); S.plu = pl; S.invs = inv.invoices; S.period = pl.period;
+  const map = await call("plu.map.list"); S.pmap = map.map;
+  renderAdmin();
+}
+function openState(){ const o = {}; $$("details.sec").forEach(d => { o[d.dataset.k] = d.open; }); return o; }
+function renderAdmin(){
+  const os = S.openSec || {}, keep = window.scrollY, edit = S.me.edit;
+  const sec = (k, title, inner, dflt) => `<details class="sec" data-k="${k}"${(os[k] !== undefined ? os[k] : dflt) ? " open" : ""}><summary>${title}</summary><div class="in">${inner}</div></details>`;
+  $("#views").innerHTML = `<div class="pagehead"><h2>Stocktake - Admin</h2><span class="small muted">${esc(S.period ? S.period.name + " (open since " + ukDay(S.period.start_date) + ")" : "")}</span></div>
+    <p class="lead">Set up the stock areas and products, then upload the till's PLU report and the supplier invoices. Everything here feeds the Stock report.</p>
+    ${sec("areas", "Stock areas", areasHtml(), false)}
+    ${sec("products", `Products (${S.products.length})`, productsHtml(), S.products.length === 0 || true)}
+    ${sec("plu", "PLU sales report (Newbridge)", pluHtml(), false)}
+    ${sec("match", "Match till buttons to products", matchHtml(), false)}
+    ${sec("inv", "Supplier invoices (Matthew Clark, Heineken)", invHtml(), false)}`;
+  window.scrollTo(0, keep);
+}
+function areasHtml(){
+  return `<p class="small muted">Where stock is kept. Products are ticked into the areas that hold them, in the products list below.</p>
+    <div class="tw" style="max-height:none"><table class="t"><thead><tr><th>Area</th><th>Order</th><th>In use</th><th></th></tr></thead><tbody>${S.areas.map(a => `<tr data-area="${a.id}"><td><input data-af="name" value="${esc(a.name)}"></td><td style="width:90px"><input data-af="sort_order" type="number" value="${a.sort_order}"></td><td style="width:90px"><input data-af="active" type="checkbox"${a.active !== false ? " checked" : ""}></td><td class="n"><button class="btn small" data-act="area_save" data-id="${a.id}">Save</button></td></tr>`).join("")}
+    <tr><td><input id="na_name" placeholder="New area name"></td><td></td><td></td><td class="n"><button class="btn small" data-act="area_add">Add area</button></td></tr></tbody></table></div>`;
+}
+function productsHtml(){
+  const q = S.adm.q.toLowerCase().trim(), list = S.products.filter(p => !q || p.name.toLowerCase().includes(q) || (p.category || "").toLowerCase().includes(q)).sort((a, b) => (a.category || "~").localeCompare(b.category || "~") || a.name.localeCompare(b.name));
+  const areaHead = S.areas.map(a => `<th title="${esc(a.name)}" style="text-align:center;max-width:74px;white-space:normal">${esc(a.name)}</th>`).join("");
+  return `<p class="small muted">Every beverage product with its prices, how it is counted and which areas hold it. Tick boxes save as you tick; other changes save when you leave the box. <b>Portions per unit</b> turns till sales into stock units: 88 for a pint keg, 28 for a 70cl spirit of 25ml measures, 1 for a bottle sold as a bottle. <b>Case size</b> lets a product be counted and delivered in cases.</p>
+    <div class="row-actions" style="margin:0 0 10px"><input class="in" id="p_q" placeholder="Find a product…" value="${esc(S.adm.q)}" style="max-width:300px"></div>
+    <div class="tw"><table class="t"><thead><tr><th style="min-width:200px">Product</th><th>Category</th><th class="n">Sell £</th><th class="n">Cost £ / unit</th><th>Unit</th><th class="n">Case size</th><th class="n">Portions / unit</th>${areaHead}<th>Active</th><th></th></tr></thead><tbody>
+    <tr style="background:#FBFCFB"><td><input id="np_name" placeholder="New product name"></td><td><input id="np_cat" placeholder="e.g. Draught" list="catlist"></td><td><input id="np_sell" type="number" step="0.01"></td><td><input id="np_cost" type="number" step="0.0001"></td><td><select id="np_uom">${Object.entries(UOM).map(([k, l]) => `<option value="${k}">${l}</option>`).join("")}</select></td><td><input id="np_case" type="number" step="1" min="1"></td><td><input id="np_ppu" type="number" step="0.001" value="1"></td>${S.areas.map(a => `<td style="text-align:center"><input type="checkbox" data-npa="${a.id}"></td>`).join("")}<td></td><td class="n"><button class="btn small" data-act="prod_add">Add</button></td></tr>
+    ${list.map(p => `<tr data-prod="${p.id}"><td><input data-pf="name" value="${esc(p.name)}"></td><td><input data-pf="category" value="${esc(p.category)}" list="catlist"></td><td><input data-pf="sell_price" type="number" step="0.01" value="${p.sell_price ?? ""}"></td><td><input data-pf="cost_price" type="number" step="0.0001" value="${p.cost_price ?? ""}"></td><td><select data-pf="uom">${Object.entries(UOM).map(([k, l]) => `<option value="${k}"${p.uom === k ? " selected" : ""}>${l}</option>`).join("")}</select></td><td><input data-pf="case_size" type="number" step="1" min="1" value="${p.case_size ?? ""}" placeholder="none"></td><td><input data-pf="portions_per_unit" type="number" step="0.001" value="${p.portions_per_unit}"></td>${S.areas.map(a => `<td style="text-align:center"><input type="checkbox" data-pa="${a.id}"${p.areas.includes(a.id) ? " checked" : ""} aria-label="${esc(p.name)} in ${esc(a.name)}"></td>`).join("")}<td style="text-align:center"><input type="checkbox" data-pf="active"${p.active ? " checked" : ""}></td><td></td></tr>`).join("")}
+    </tbody></table></div><datalist id="catlist">${[...new Set(S.products.map(p => p.category).filter(Boolean))].map(c => `<option value="${esc(c)}">`).join("")}</datalist>`;
+}
+function pluHtml(){
+  const M = S.M && S.M.kind === "plu" ? S.M : null, ups = S.plu.uploads;
+  return `<p class="small muted">Upload the Newbridge PLU report for the dates it covers. The first time, say which column is which; it remembers for next time. Reports are added to the open stock period, so upload each week or the whole period at the end.</p>
+    ${M ? mapperHtml(M) : `<div class="row-actions" style="margin:0 0 12px"><button class="btn" data-act="pick" data-kind="plu">Choose the PLU report (CSV, Excel or PDF)</button></div>`}
+    ${ups.length ? `<div class="tw" style="max-height:none"><table class="t"><thead><tr><th>File</th><th>Covers</th><th>Uploaded</th><th></th></tr></thead><tbody>${ups.map(u => `<tr><td>${esc(u.filename || "")}${u.period_id !== (S.period && S.period.id) ? ` <span class="tag">earlier period</span>` : ""}</td><td>${esc(ukDay(u.date_from))} to ${esc(ukDay(u.date_to))}</td><td>${esc(ukDay(u.created_at))} ${esc(u.uploaded_by || "")}</td><td class="n">${u.period_id === (S.period && S.period.id) ? `<button class="btn small danger" data-act="plu_del" data-id="${u.id}">Remove</button>` : ""}</td></tr>`).join("")}</tbody></table></div>` : `<p class="muted small">No PLU reports uploaded yet.</p>`}`;
+}
+function matchHtml(){
+  const rows = S.pmap, un = rows.filter(r => !r.product_id && !r.ignored), prods = beverageProducts();
+  const opts = sel => `<option value="">Not matched</option>` + prods.map(p => `<option value="${p.id}"${p.id === sel ? " selected" : ""}>${esc(p.name)}</option>`).join("");
+  const show = S.matchAll ? rows : un;
+  return `<p class="small muted">Each button on the till is a PLU code. Match it to the stock product it uses, and say how much of a stock portion one sale is: a half pint is 0.5 of a pint, a double is 2 measures. Food and anything that is not stock is ticked "Not stock".</p>
+    <div class="row-actions" style="margin:0 0 10px;align-items:center"><span class="small"><b>${un.length}</b> not matched yet</span><label class="chk"><input type="checkbox" id="m_all"${S.matchAll ? " checked" : ""}> Show all ${rows.length}</label><span style="flex:1"></span>${un.length ? `<button class="btn small" data-act="m_create">Create a product for every unmatched line ticked as stock</button>` : ""}</div>
+    ${show.length ? `<div class="tw"><table class="t"><thead><tr><th>PLU</th><th>Till button</th><th class="n">Sold</th><th class="n">Value</th><th style="min-width:220px">Product</th><th class="n">Portion size</th><th>Not stock</th></tr></thead><tbody>${show.map(r => `<tr data-plu="${esc(r.plu)}" data-name="${esc(r.name)}"><td>${esc(r.plu)}</td><td>${esc(r.name)}${r.grp ? `<div class="tiny muted">${esc(r.grp)}</div>` : ""}</td><td class="n">${fnum(r.qty)}</td><td class="n">${gbp(r.value)}</td><td><select data-mf="product_id">${opts(r.product_id)}</select></td><td><input data-mf="portion_size" type="number" step="0.001" min="0.001" value="${r.portion_size}" style="max-width:90px"></td><td style="text-align:center"><input type="checkbox" data-mf="ignored"${r.ignored ? " checked" : ""}></td></tr>`).join("")}</tbody></table></div>` : `<p class="muted small">Nothing to match${rows.length ? "." : ": upload a PLU report first."}</p>`}`;
+}
+function invHtml(){
+  const M = S.M && S.M.kind === "invoice" ? S.M : null, prods = beverageProducts();
+  const opts = sel => `<option value="">Not matched</option>` + prods.map(p => `<option value="${p.id}"${p.id === sel ? " selected" : ""}>${esc(p.name)}</option>`).join("");
+  return `<p class="small muted">Upload each invoice. The first time for a supplier, say which column is which; after that it is remembered, and so is which product each of their lines means.</p>
+    ${M ? mapperHtml(M) : `<div class="row-actions" style="margin:0 0 12px">${Object.entries(S.boot.suppliers).map(([k, l]) => `<button class="btn" data-act="pick" data-kind="invoice" data-supplier="${k}">${esc(l)} invoice</button>`).join("")}</div>`}
+    ${S.invs.map(i => `<div class="card" style="box-shadow:none;border:1px solid var(--mist);padding:10px 14px"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><b>${esc(i.supplier_name)}</b> <span>${esc(i.invoice_no || "no number")}</span> <span class="muted small">${esc(ukDay(i.invoice_date))}</span><span class="muted small">${i.lines.filter(l => !l.product_id).length ? `<b style="color:var(--red)">${i.lines.filter(l => !l.product_id).length} line(s) not matched</b>` : "all matched"}</span><span style="flex:1"></span><button class="btn small ghost" data-act="inv_toggle" data-id="${i.id}">${S.invOpen === i.id ? "Hide lines" : "Show lines"}</button>${i.period_id === (S.period && S.period.id) ? `<button class="btn small danger" data-act="inv_del" data-id="${i.id}">Remove</button>` : ""}</div>
+      ${S.invOpen === i.id ? `<div class="tw" style="margin-top:8px;max-height:none"><table class="t"><thead><tr><th>Code</th><th>Description</th><th class="n">Qty</th><th class="n">Cost</th><th style="min-width:220px">Product</th><th>Cases</th><th class="n">Units in</th></tr></thead><tbody>${i.lines.map(l => `<tr data-line="${l.id}"><td>${esc(l.code || "")}</td><td>${esc(l.description)}</td><td class="n">${fnum(l.qty)}</td><td class="n">${l.unit_cost === null ? "" : gbp(l.unit_cost)}</td><td><select data-lf="product_id">${opts(l.product_id)}</select></td><td style="text-align:center"><input type="checkbox" data-lf="in_cases"${l.in_cases ? " checked" : ""}></td><td class="n">${fnum(l.units)}</td></tr>`).join("")}</tbody></table></div>` : ""}</div>`).join("") || `<p class="muted small">No invoices uploaded yet.</p>`}`;
+}
+
+/* ------------------------------------------------------------- reading files: CSV / Excel / PDF into a table of rows */
+async function fileToRows(file){
+  const name = file.name.toLowerCase();
+  if (/\.pdf$/.test(name)) return pdfRows(file);
+  const buf = await file.arrayBuffer(), wb = XLSX.read(buf, { type:"array", cellDates:true, raw:false });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  return XLSX.utils.sheet_to_json(ws, { header:1, raw:false, defval:"", blankrows:false }).map(r => r.map(c => String(c ?? "").trim()));
+}
+async function pdfRows(file){
+  const buf = await file.arrayBuffer();
+  if (!pdfjsLib.GlobalWorkerOptions.workerSrc) { try { const t = await (await fetch("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js")).text(); pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(new Blob([t], { type:"text/javascript" })); } catch(e){} }
+  const doc = await pdfjsLib.getDocument({ data:buf }).promise, rows = [];
+  for (let n = 1; n <= doc.numPages; n++) {
+    const items = (await (await doc.getPage(n)).getTextContent()).items.filter(i => i.str.trim());
+    const lines = new Map(); for (const i of items) { const y = Math.round(i.transform[5] / 3); (lines.get(y) || lines.set(y, []).get(y)).push(i); }
+    for (const y of [...lines.keys()].sort((a, b) => b - a)) {
+      const its = lines.get(y).sort((a, b) => a.transform[4] - b.transform[4]), cells = []; let last = null;
+      for (const i of its) { const x = i.transform[4]; if (last !== null && x - last > 14) cells.push(i.str.trim()); else if (cells.length) cells[cells.length - 1] += (last === null ? "" : " ") + i.str.trim(); else cells.push(i.str.trim()); last = x + (i.width || 0); }
+      rows.push(cells);
+    }
+  }
+  const w = Math.max(...rows.map(r => r.length)); return rows.map(r => Array.from({ length:w }, (_, i) => r[i] || ""));
+}
+const PLU_FIELDS = [["plu", "PLU / product code", true], ["name", "Description", true], ["qty", "Quantity sold", true], ["value", "Sales value (optional)", false], ["grp", "Group / department (optional)", false]];
+const INV_FIELDS = [["code", "Supplier product code (optional)", false], ["description", "Description", true], ["qty", "Quantity", true], ["unit_cost", "Price each (optional)", false], ["line_total", "Line total (optional)", false]];
+const norm = s => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+function startMapper(kind, rows, file, supplier, saved){
+  let hi = 0, best = -1; rows.slice(0, 25).forEach((r, i) => { const sc = r.filter(c => c && isNaN(Number(String(c).replace(/[£,]/g, "")))).length; if (sc > best + 0.5 && r.filter(Boolean).length >= 3) { best = sc; hi = i; } });
+  const M = { kind, rows, file, supplier, hi, map:{}, groups:null, from:"", to:"", inv:{ no:"", date:"" }, saved };
+  if (saved && saved.header) { const idx = rows.findIndex(r => r.map(norm).join("|") === saved.header.map(norm).join("|")); if (idx >= 0) M.hi = idx; }
+  autoMap(M); if (kind === "plu") { M.from = S.period ? S.period.start_date : ""; M.to = new Date().toLocaleDateString("en-CA", { timeZone:"Europe/London" }); }
+  S.M = M; S.openSec = openState(); S.openSec[kind === "plu" ? "plu" : "inv"] = true; renderAdmin();
+}
+function autoMap(M){
+  const hdr = M.rows[M.hi] || [], fields = M.kind === "plu" ? PLU_FIELDS : INV_FIELDS, guess = { plu:/plu|code|product no|item no|number/, name:/desc|name|product|item|button/, qty:/qty|quant|sold|units|number sold|cases/, value:/value|net|sales|total|gross|amount/, grp:/group|dept|depart|categor|family/, code:/code|sku|product no|item/, description:/desc|product|item|name/, unit_cost:/price|cost|each|unit/, line_total:/total|amount|value|net/ };
+  M.map = {};
+  for (const [f] of fields) {
+    const s = M.saved && M.saved.cols && M.saved.cols[f]; let i = s ? hdr.findIndex(h => norm(h) === norm(s)) : -1;
+    if (i < 0 && !s) i = hdr.findIndex((h, k) => guess[f] && guess[f].test(String(h).toLowerCase()) && !Object.values(M.map).includes(k));
+    if (i >= 0) M.map[f] = i;
+  }
+  if (M.kind === "plu" && M.map.grp !== undefined) M.groups = null;
+}
+function mapperHtml(M){
+  const hdr = M.rows[M.hi] || [], fields = M.kind === "plu" ? PLU_FIELDS : INV_FIELDS, body = M.rows.slice(M.hi + 1);
+  const colOpts = f => `<option value="">${f[2] ? "Choose…" : "Not in this file"}</option>` + hdr.map((h, i) => `<option value="${i}"${M.map[f[0]] === i ? " selected" : ""}>${esc(String.fromCharCode(65 + (i % 26)))}: ${esc(h || "(blank)")}</option>`).join("");
+  const groups = M.kind === "plu" && M.map.grp !== undefined ? [...new Set(body.map(r => r[M.map.grp]).filter(Boolean))].sort() : [];
+  if (groups.length && !M.groups) M.groups = new Set(groups);
+  const pv = body.slice(0, 6);
+  return `<div class="card" style="box-shadow:none;border:1px solid var(--celadon)"><b>${esc(M.file.name)}</b> <span class="muted small">${M.rows.length} rows read</span>
+    <div class="grid" style="margin-top:10px"><div class="field"><label>Header row</label><select class="in" data-mp="hi">${M.rows.slice(0, 25).map((r, i) => `<option value="${i}"${i === M.hi ? " selected" : ""}>Row ${i + 1}: ${esc(r.filter(Boolean).slice(0, 4).join(" | ")).slice(0, 60)}</option>`).join("")}</select></div>
+    ${fields.map(f => `<div class="field"><label>${f[1]}</label><select class="in" data-mp="col" data-f="${f[0]}">${colOpts(f)}</select></div>`).join("")}
+    ${M.kind === "plu" ? `<div class="field"><label>Report covers from</label><input class="in" type="date" data-mp="from" value="${esc(M.from)}"></div><div class="field"><label>to</label><input class="in" type="date" data-mp="to" value="${esc(M.to)}"></div>` : `<div class="field"><label>Supplier</label><input class="in" value="${esc(S.boot.suppliers[M.supplier])}" disabled></div><div class="field"><label>Invoice number</label><input class="in" data-mp="invno" value="${esc(M.inv.no)}"></div><div class="field"><label>Invoice date</label><input class="in" type="date" data-mp="invdate" value="${esc(M.inv.date)}"></div>`}</div>
+    ${groups.length ? `<div class="field"><label>Include these groups (untick food and anything that is not a drink)</label><div style="display:flex;gap:8px 16px;flex-wrap:wrap">${groups.map(g => `<label class="chk"><input type="checkbox" data-mp="grp" value="${esc(g)}"${M.groups.has(g) ? " checked" : ""}> ${esc(g)}</label>`).join("")}</div></div>` : ""}
+    <div class="tw" style="max-height:none;margin-top:6px"><table class="t"><thead><tr>${hdr.map(h => `<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${pv.map(r => `<tr>${hdr.map((_, i) => `<td>${esc(r[i] || "")}</td>`).join("")}</tr>`).join("")}</tbody></table></div>
+    <div class="row-actions"><button class="btn" data-act="m_import">${M.kind === "plu" ? "Import this PLU report" : "Import this invoice"}</button><button class="btn ghost" data-act="m_cancel">Cancel</button></div></div>`;
+}
+const toNum = v => { const n = Number(String(v ?? "").replace(/[£,\s]/g, "").replace(/^\((.*)\)$/, "-$1")); return isFinite(n) ? n : 0; };
+function mapperLines(M){
+  const body = M.rows.slice(M.hi + 1), g = M.map;
+  if (M.kind === "plu") return body.filter(r => g.plu !== undefined && g.qty !== undefined && String(r[g.plu] || "").trim() && !/^total/i.test(String(r[g.plu] || r[g.name] || ""))).filter(r => !M.groups || g.grp === undefined || M.groups.has(r[g.grp])).map(r => ({ plu:r[g.plu], name:g.name !== undefined ? r[g.name] : r[g.plu], qty:toNum(r[g.qty]), value:g.value !== undefined ? toNum(r[g.value]) : 0, grp:g.grp !== undefined ? r[g.grp] : "" }));
+  return body.filter(r => g.description !== undefined && g.qty !== undefined && String(r[g.description] || "").trim() && toNum(r[g.qty]) !== 0 && !/^(sub)?total|vat|delivery/i.test(String(r[g.description]).trim())).map(r => ({ code:g.code !== undefined ? r[g.code] : "", description:r[g.description], qty:toNum(r[g.qty]), unit_cost:g.unit_cost !== undefined ? toNum(r[g.unit_cost]) : null, line_total:g.line_total !== undefined ? toNum(r[g.line_total]) : null }));
+}
+async function fileB64(file){ const buf = new Uint8Array(await file.arrayBuffer()); let bin = ""; for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode(...buf.subarray(i, i + 0x8000)); return btoa(bin); }
+async function runImport(btn){
+  const M = S.M, g = M.map, need = (M.kind === "plu" ? ["plu", "qty"] : ["description", "qty"]).filter(k => g[k] === undefined);
+  if (need.length) return toast("Say which column holds the " + need.map(k => ({ plu:"PLU code", qty:"quantity", description:"description" }[k])).join(" and ") + ".", true);
+  const lines = mapperLines(M); if (!lines.length) return toast("No lines were found with those columns. Check the header row.", true);
+  const hdr = M.rows[M.hi], profile = { header:hdr, cols:Object.fromEntries(Object.entries(g).map(([f, i]) => [f, hdr[i]])) };
+  btn.disabled = true;
+  try {
+    let r;
+    if (M.kind === "plu") {
+      if (!M.from || !M.to) throw new Error("Say which dates the report covers.");
+      const base = { date_from:M.from, date_to:M.to, lines, filename:M.file.name, profile, file:await fileB64(M.file) };
+      r = await call("plu.import", base);
+      if (r._status === 409 && r.overlap) { if (!confirm(`This overlaps ${r.overlap.length} report${r.overlap.length === 1 ? "" : "s"} already uploaded (${r.overlap.map(o => ukDay(o.date_from) + " to " + ukDay(o.date_to)).join(", ")}). Replace ${r.overlap.length === 1 ? "it" : "them"}?`)) { btn.disabled = false; return; } r = await call("plu.import", { ...base, replace:true }); }
+      toast(`${r.lines} lines imported${r.new_plus ? `, ${r.new_plus} new till buttons to match` : ""}.`);
+    } else {
+      const base = { supplier:M.supplier, invoice_no:M.inv.no, invoice_date:M.inv.date, lines, filename:M.file.name, profile, file:await fileB64(M.file) };
+      r = await call("invoice.import", base);
+      if (r._status === 409 && r.duplicate) { if (!confirm(r.error + " Upload it again anyway?")) { btn.disabled = false; return; } r = await call("invoice.import", { ...base, force:true }); }
+      toast(`${r.lines} lines imported, ${r.matched} matched to products.`);
+      S.invOpen = r.invoice_id;
+    }
+    S.M = null; S.openSec = openState(); await showAdmin(); S.openSec = null;
+  } catch(e){ toast(e.message, true); btn.disabled = false; }
+}
+
+/* ------------------------------------------------------------- events */
+document.addEventListener("click", async e => {
+  const t = e.target.closest("[data-tab]"); if (t) return show(t.dataset.tab);
+  const b = e.target.closest("[data-act]"); if (!b || b.disabled) return;
+  const a = b.dataset.act;
+  try {
+    if (a === "close") return closeModal();
+    if (a === "add") {
+      const D = S.daily, d = DAILY[D.kind];
+      const body = { kind:D.kind, product_id:D.product, qty:Number(D.qty), reason:D.reason, note:D.note };
+      if (!body.product_id) return toast("Choose a product.", true); if (!(body.qty > 0)) return toast("Enter a quantity.", true);
+      if (D.kind === "wastage" && !body.reason) return toast("Choose a reason.", true); if (d.need && !D.note.trim()) return toast(d.note + ".", true);
+      b.disabled = true; await call("usage.add", body); const r = await call("usage.list", { kind:D.kind }); D.rows = r.rows; D.qty = ""; D.note = ""; D.reason = ""; D.filter = ""; const pref = d.pref && beverageProducts().find(p => d.pref.test(p.name)); D.product = pref ? pref.id : ""; toast("Added."); return renderDaily();
+    }
+    if (a === "del") { await call("usage.delete", { id:b.dataset.id }); S.daily.rows = S.daily.rows.filter(r => r.id !== b.dataset.id); toast("Removed."); return renderDaily(); }
+    if (a === "area") { S.area = b.dataset.id; return renderCount(); }
+    if (a === "cases") { const k = b.dataset.key; if (S.casesMode.has(k)) S.casesMode.delete(k); else S.casesMode.add(k); return renderCount(); }
+    if (a === "csv") return reportCsv();
+    if (a === "pdf") return reportPdf(b);
+    if (a === "lock") return lockStock(b);
+    if (a === "lockyes") { b.disabled = true; await call("report.lock", { period_id:S.repPeriod, confirm:true }); closeModal(); toast("Stock take locked. A new stock period has started."); S.repPeriod = null; return showReport(); }
+    // admin
+    if (a === "area_save") { const row = b.closest("tr"), g = f => row.querySelector(`[data-af="${f}"]`); await call("area.save", { id:b.dataset.id, name:g("name").value, sort_order:Number(g("sort_order").value) || 0, active:g("active").checked }); await refreshBoot(); S.openSec = openState(); toast("Saved."); return renderAdmin(); }
+    if (a === "area_add") { await call("area.save", { name:$("#na_name").value }); await refreshBoot(); S.openSec = openState(); toast("Area added."); return renderAdmin(); }
+    if (a === "prod_add") {
+      const v = id => $("#" + id).value; const body = { name:v("np_name"), category:v("np_cat"), sell_price:v("np_sell"), cost_price:v("np_cost"), uom:v("np_uom"), case_size:v("np_case"), portions_per_unit:v("np_ppu") || 1, areas:$$("[data-npa]").filter(x => x.checked).map(x => x.dataset.npa) };
+      await call("product.save", body); await refreshBoot(); S.openSec = openState(); toast("Product added."); return renderAdmin();
+    }
+    if (a === "pick") { S.pickKind = b.dataset.kind; S.pickSupplier = b.dataset.supplier; const fp = $("#filepick"); fp.accept = ".csv,.xlsx,.xls,.pdf,.txt"; fp.value = ""; return fp.click(); }
+    if (a === "m_cancel") { S.M = null; S.openSec = openState(); return renderAdmin(); }
+    if (a === "m_import") return runImport(b);
+    if (a === "plu_del") { if (!confirm("Remove this PLU report from the stock period?")) return; await call("plu.delete", { id:b.dataset.id }); S.openSec = openState(); return showAdmin(); }
+    if (a === "m_create") {
+      const items = S.pmap.filter(r => !r.product_id && !r.ignored).map(r => ({ plu:r.plu, name:r.name, category:r.grp, sell_price:r.qty ? Math.round(r.value / r.qty * 100) / 100 : null }));
+      if (!confirm(`Create ${items.length} new product${items.length === 1 ? "" : "s"} from the unmatched till buttons? Tick "Not stock" on any food or non-drink lines first.`)) return;
+      const r = await call("plu.products.create", { items }); await refreshBoot(); S.openSec = openState(); toast(`${r.made} products created.`); return showAdmin();
+    }
+    if (a === "inv_toggle") { S.invOpen = S.invOpen === b.dataset.id ? null : b.dataset.id; S.openSec = openState(); return renderAdmin(); }
+    if (a === "inv_del") { if (!confirm("Remove this invoice? Its quantities come out of the delivered stock.")) return; await call("invoice.delete", { id:b.dataset.id }); S.openSec = openState(); return showAdmin(); }
+  } catch(err){ toast(err.message || "Something went wrong.", true); if (b) b.disabled = false; }
+});
+$("#filepick").addEventListener("change", async e => {
+  const f = e.target.files[0]; if (!f) return;
+  try {
+    toast("Reading the file…"); const rows = await fileToRows(f); if (!rows.length) return toast("There was nothing readable in that file.", true);
+    const saved = (await call("profile.get", { kind: S.pickKind === "plu" ? "plu" : "invoice:" + S.pickSupplier })).mapping;
+    startMapper(S.pickKind, rows, f, S.pickSupplier, saved);
+  } catch(err){ toast("Could not read that file: " + (err.message || err), true); }
+});
+document.addEventListener("input", e => {
+  const t = e.target;
+  if (S.tab && DAILY[S.tab] && S.daily) {
+    const D = S.daily;
+    if (t.id === "d_filter") { D.filter = t.value; const sel = $("#d_product"); sel.innerHTML = productOptions(D.product, D.filter); return; }
+    if (t.id === "d_qty") D.qty = t.value; if (t.id === "d_note") D.note = t.value;
+  }
+  if (t.id === "c_q") { S.q = t.value; renderCount(true); }
+  if (t.id === "p_q") { S.adm.q = t.value; const wrap = t.closest(".in"); S.openSec = openState(); renderAdmin(); const n = $("#p_q"); if (n) { n.focus(); n.setSelectionRange(n.value.length, n.value.length); } }
+});
+document.addEventListener("change", async e => {
+  const t = e.target;
+  try {
+    if (S.tab && DAILY[S.tab] && S.daily) { if (t.id === "d_product") S.daily.product = t.value; if (t.id === "d_reason") S.daily.reason = t.value; }
+    if (t.id === "c_all") { S.all = t.checked; return renderCount(); }
+    const crow = t.closest(".count[data-key]"); if (crow && t.matches("input")) return saveCount(crow);
+    if (t.id === "r_period") { S.repPeriod = t.value; return loadReport(); }
+    if (t.id === "r_sort") { S.repSort = t.value; return renderReport(); }
+    if (t.id === "r_only") { S.repOnly = t.checked; return renderReport(); }
+    if (t.dataset.note !== undefined && t.dataset.note) { await call("report.note", { period_id:S.repPeriod, product_id:t.dataset.note, note:t.value }); const r = S.rep.rows.find(x => x.product_id === t.dataset.note); if (r) { r.note = t.value.trim(); r.note_by = S.me.name; } t.style.borderColor = ""; toast("Saved."); return; }
+    // admin: product rows
+    const prow = t.closest("tr[data-prod]");
+    if (prow && t.dataset.pa) { await call("product.area", { product_id:prow.dataset.prod, area_id:t.dataset.pa, on:t.checked }); const p = productById(prow.dataset.prod); p.areas = t.checked ? [...new Set([...p.areas, t.dataset.pa])] : p.areas.filter(x => x !== t.dataset.pa); return toast("Saved."); }
+    if (prow && t.dataset.pf) {
+      const g = f => { const el = prow.querySelector(`[data-pf="${f}"]`); return el.type === "checkbox" ? el.checked : el.value; }; const p = productById(prow.dataset.prod);
+      await call("product.save", { id:p.id, name:g("name"), category:g("category"), sell_price:g("sell_price"), cost_price:g("cost_price"), uom:g("uom"), case_size:g("case_size"), portions_per_unit:g("portions_per_unit") || 1, active:g("active") });
+      await refreshBoot(); return toast("Saved.");
+    }
+    if (t.id === "m_all") { S.matchAll = t.checked; S.openSec = openState(); return renderAdmin(); }
+    const mrow = t.closest("tr[data-plu]");
+    if (mrow && t.dataset.mf) {
+      const g = f => { const el = mrow.querySelector(`[data-mf="${f}"]`); return el.type === "checkbox" ? el.checked : el.value; };
+      await call("plu.map.save", { rows:[{ plu:mrow.dataset.plu, name:mrow.dataset.name, product_id:g("product_id") || null, portion_size:Number(g("portion_size")) || 1, ignored:g("ignored") }] });
+      const r = S.pmap.find(x => x.plu === mrow.dataset.plu); if (r) { r.product_id = g("product_id") || null; r.portion_size = Number(g("portion_size")) || 1; r.ignored = g("ignored"); } return toast("Saved.");
+    }
+    const lrow = t.closest("tr[data-line]");
+    if (lrow && t.dataset.lf) {
+      const pid = lrow.querySelector('[data-lf="product_id"]').value, cs = lrow.querySelector('[data-lf="in_cases"]').checked;
+      const r = await call("invoice.line.match", { id:lrow.dataset.line, product_id:pid || null, in_cases:cs }); S.openSec = openState(); await showAdmin(); return toast(`Saved (${fnum(r.units)} units).`);
+    }
+    // mapper
+    const mp = t.dataset.mp, M = S.M;
+    if (M && mp) {
+      if (mp === "hi") { M.hi = Number(t.value); M.groups = null; autoMap(M); } else if (mp === "col") { if (t.value === "") delete M.map[t.dataset.f]; else M.map[t.dataset.f] = Number(t.value); if (t.dataset.f === "grp") M.groups = null; }
+      else if (mp === "from") M.from = t.value; else if (mp === "to") M.to = t.value; else if (mp === "invno") M.inv.no = t.value; else if (mp === "invdate") M.inv.date = t.value;
+      else if (mp === "grp") { if (t.checked) M.groups.add(t.value); else M.groups.delete(t.value); }
+      if (["hi", "col"].includes(mp)) { S.openSec = openState(); renderAdmin(); }
+    }
+  } catch(err){ toast(err.message || "Could not save that.", true); }
+});
+function openGate(msg){ $("#gate").style.display = "flex"; $("#app").hidden = true; if (msg) { const g = $("#gerr"); g.textContent = msg; g.style.display = ""; } }
+$("#signout").addEventListener("click", () => { try { sessionStorage.removeItem("bhb_staff_email"); } catch(e){} openGate(); });
+async function boot(){
+  $("#app").hidden = false; $("#views").innerHTML = `<p class="muted" style="margin-top:24px">Loading…</p>`;
+  try { await refreshBoot(); } catch(e){ $("#views").innerHTML = `<div class="card"><b>${esc(e.message)}</b><p class="muted">Open this from the Staff Portal so it knows who you are.</p></div>`; return; }
+  S.me = S.boot.me; $("#whoname").textContent = S.me.name; await show((TABS.find(([k]) => S.me.tabs.includes(k)) || [])[0] || null);
+}
+(function(){ if (staffEmail()) { $("#gate").style.display = "none"; boot(); } else openGate(); })();
+</script>
+</body>
+</html>
