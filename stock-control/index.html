@@ -78,6 +78,7 @@ details.sec{background:#fff; border-radius:var(--radius); box-shadow:var(--shado
 <input type="file" id="filepick" hidden>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="parsers.js?v=20261012"></script>
 <script>
 const CFG = { SUPABASE_URL:"https://safcrtrfdzsnftghibot.supabase.co", SUPABASE_KEY:"sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU" };
 const TABS = [["wastage", "Wastage"], ["rooms", "Rooms"], ["weddings", "Weddings / Events"], ["showrounds", "Showrounds / meetings"], ["admin", "Stocktake - Admin"], ["stocktake", "Stocktake"], ["report", "Stock report"]];
@@ -286,11 +287,15 @@ function areasHtml(){
     <div class="tw" style="max-height:none"><table class="t"><thead><tr><th>Area</th><th>Order</th><th>In use</th><th></th></tr></thead><tbody>${S.areas.map(a => `<tr data-area="${a.id}"><td><input data-af="name" value="${esc(a.name)}"></td><td style="width:90px"><input data-af="sort_order" type="number" value="${a.sort_order}"></td><td style="width:90px"><input data-af="active" type="checkbox"${a.active !== false ? " checked" : ""}></td><td class="n"><button class="btn small" data-act="area_save" data-id="${a.id}">Save</button></td></tr>`).join("")}
     <tr><td><input id="na_name" placeholder="New area name"></td><td></td><td></td><td class="n"><button class="btn small" data-act="area_add">Add area</button></td></tr></tbody></table></div>`;
 }
+function shownProducts(){
+  const q = S.adm.q.toLowerCase().trim();
+  return S.products.filter(p => !q || p.name.toLowerCase().includes(q) || (p.category || "").toLowerCase().includes(q)).sort((a, b) => (a.category || "~").localeCompare(b.category || "~") || a.name.localeCompare(b.name));
+}
 function productsHtml(){
-  const q = S.adm.q.toLowerCase().trim(), list = S.products.filter(p => !q || p.name.toLowerCase().includes(q) || (p.category || "").toLowerCase().includes(q)).sort((a, b) => (a.category || "~").localeCompare(b.category || "~") || a.name.localeCompare(b.name));
+  const list = shownProducts();
   const areaHead = S.areas.map(a => `<th title="${esc(a.name)}" style="text-align:center;max-width:74px;white-space:normal">${esc(a.name)}</th>`).join("");
   return `<p class="small muted">Every beverage product with its prices, how it is counted and which areas hold it. Tick boxes save as you tick; other changes save when you leave the box. <b>Portions per unit</b> turns till sales into stock units: 88 for a pint keg, 28 for a 70cl spirit of 25ml measures, 1 for a bottle sold as a bottle. <b>Case size</b> lets a product be counted and delivered in cases.</p>
-    <div class="row-actions" style="margin:0 0 10px"><input class="in" id="p_q" placeholder="Find a product…" value="${esc(S.adm.q)}" style="max-width:300px"></div>
+    <div class="row-actions" style="margin:0 0 10px"><input class="in" id="p_q" placeholder="Find a product or category…" value="${esc(S.adm.q)}" style="max-width:300px"><span class="small muted">${list.length} shown. To set up an area quickly, search for a category, then:</span><select class="in" id="bk_area" style="max-width:200px">${S.areas.map(a => `<option value="${a.id}"${a.id === S.adm.bk ? " selected" : ""}>${esc(a.name)}</option>`).join("")}</select><button class="btn small" data-act="bulk_on">Tick for every product shown</button><button class="btn small ghost" data-act="bulk_off">Untick for every product shown</button></div>
     <div class="tw"><table class="t"><thead><tr><th style="min-width:200px">Product</th><th>Category</th><th class="n">Sell £</th><th class="n">Cost £ / unit</th><th>Unit</th><th class="n">Case size</th><th class="n">Portions / unit</th>${areaHead}<th>Active</th><th></th></tr></thead><tbody>
     <tr style="background:#FBFCFB"><td><input id="np_name" placeholder="New product name"></td><td><input id="np_cat" placeholder="e.g. Draught" list="catlist"></td><td><input id="np_sell" type="number" step="0.01"></td><td><input id="np_cost" type="number" step="0.0001"></td><td><select id="np_uom">${Object.entries(UOM).map(([k, l]) => `<option value="${k}">${l}</option>`).join("")}</select></td><td><input id="np_case" type="number" step="1" min="1"></td><td><input id="np_ppu" type="number" step="0.001" value="1"></td>${S.areas.map(a => `<td style="text-align:center"><input type="checkbox" data-npa="${a.id}"></td>`).join("")}<td></td><td class="n"><button class="btn small" data-act="prod_add">Add</button></td></tr>
     ${list.map(p => `<tr data-prod="${p.id}"><td><input data-pf="name" value="${esc(p.name)}"></td><td><input data-pf="category" value="${esc(p.category)}" list="catlist"></td><td><input data-pf="sell_price" type="number" step="0.01" value="${p.sell_price ?? ""}"></td><td><input data-pf="cost_price" type="number" step="0.0001" value="${p.cost_price ?? ""}"></td><td><select data-pf="uom">${Object.entries(UOM).map(([k, l]) => `<option value="${k}"${p.uom === k ? " selected" : ""}>${l}</option>`).join("")}</select></td><td><input data-pf="case_size" type="number" step="1" min="1" value="${p.case_size ?? ""}" placeholder="none"></td><td><input data-pf="portions_per_unit" type="number" step="0.001" value="${p.portions_per_unit}"></td>${S.areas.map(a => `<td style="text-align:center"><input type="checkbox" data-pa="${a.id}"${p.areas.includes(a.id) ? " checked" : ""} aria-label="${esc(p.name)} in ${esc(a.name)}"></td>`).join("")}<td style="text-align:center"><input type="checkbox" data-pf="active"${p.active ? " checked" : ""}></td><td></td></tr>`).join("")}
@@ -323,7 +328,7 @@ function invHtml(){
 async function fileToRows(file){
   const name = file.name.toLowerCase();
   if (/\.pdf$/.test(name)) return pdfRows(file);
-  const buf = await file.arrayBuffer(), wb = XLSX.read(buf, { type:"array", cellDates:true, raw:false });
+  const wb = /\.(csv|txt)$/.test(name) ? XLSX.read(await file.text(), { type:"string", raw:false }) : XLSX.read(await file.arrayBuffer(), { type:"array", cellDates:true, raw:false });
   const ws = wb.Sheets[wb.SheetNames[0]];
   return XLSX.utils.sheet_to_json(ws, { header:1, raw:false, defval:"", blankrows:false }).map(r => r.map(c => String(c ?? "").trim()));
 }
@@ -342,18 +347,18 @@ async function pdfRows(file){
   }
   const w = Math.max(...rows.map(r => r.length)); return rows.map(r => Array.from({ length:w }, (_, i) => r[i] || ""));
 }
-const PLU_FIELDS = [["plu", "PLU / product code", true], ["name", "Description", true], ["qty", "Quantity sold", true], ["value", "Sales value (optional)", false], ["grp", "Group / department (optional)", false]];
-const INV_FIELDS = [["code", "Supplier product code (optional)", false], ["description", "Description", true], ["qty", "Quantity", true], ["unit_cost", "Price each (optional)", false], ["line_total", "Line total (optional)", false]];
+const PLU_FIELDS = [["plu", "PLU / product code", true], ["name", "Description", true], ["qty", "Quantity sold", true], ["refunds", "Refunds, taken off (optional)", false], ["value", "Sales value (optional)", false], ["grp", "Group / department (optional)", false]];
+const INV_FIELDS = [["code", "Supplier product code (optional)", false], ["description", "Description", true], ["qty", "Quantity", true], ["unit", "Unit: EA each or CS case (optional)", false], ["unit_cost", "Price each (optional)", false], ["line_total", "Line total (optional)", false]];
 const norm = s => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
-function startMapper(kind, rows, file, supplier, saved){
+function startMapper(kind, rows, file, supplier, saved, meta){
   let hi = 0, best = -1; rows.slice(0, 25).forEach((r, i) => { const sc = r.filter(c => c && isNaN(Number(String(c).replace(/[£,]/g, "")))).length; if (sc > best + 0.5 && r.filter(Boolean).length >= 3) { best = sc; hi = i; } });
-  const M = { kind, rows, file, supplier, hi, map:{}, groups:null, from:"", to:"", inv:{ no:"", date:"" }, saved };
+  const M = { kind, rows, file, supplier, hi, map:{}, groups:null, from:"", to:"", inv:{ no:(meta && meta.no) || "", date:(meta && meta.date) || "" }, saved };
   if (saved && saved.header) { const idx = rows.findIndex(r => r.map(norm).join("|") === saved.header.map(norm).join("|")); if (idx >= 0) M.hi = idx; }
   autoMap(M); if (kind === "plu") { M.from = S.period ? S.period.start_date : ""; M.to = new Date().toLocaleDateString("en-CA", { timeZone:"Europe/London" }); }
   S.M = M; S.openSec = openState(); S.openSec[kind === "plu" ? "plu" : "inv"] = true; renderAdmin();
 }
 function autoMap(M){
-  const hdr = M.rows[M.hi] || [], fields = M.kind === "plu" ? PLU_FIELDS : INV_FIELDS, guess = { plu:/plu|code|product no|item no|number/, name:/desc|name|product|item|button/, qty:/qty|quant|sold|units|number sold|cases/, value:/value|net|sales|total|gross|amount/, grp:/group|dept|depart|categor|family/, code:/code|sku|product no|item/, description:/desc|product|item|name/, unit_cost:/price|cost|each|unit/, line_total:/total|amount|value|net/ };
+  const hdr = M.rows[M.hi] || [], fields = M.kind === "plu" ? PLU_FIELDS : INV_FIELDS, guess = { plu:/^id$|plu|code|product no|item no|number/, name:/desc|name|product|item|button/, qty:/qty|quant|sold|units|number sold|cases|# of sales/, refunds:/# of refund|^refunds?$|refunds? qty/, unit:/^unit$|uom|^u\/m$/, value:/value|net|sales|total|gross|amount/, grp:/group|dept|depart|categor|family/, code:/code|sku|product no|item/, description:/desc|product|item|name/, unit_cost:/price|cost|each|unit/, line_total:/total|amount|value|net/ };
   M.map = {};
   for (const [f] of fields) {
     const s = M.saved && M.saved.cols && M.saved.cols[f]; let i = s ? hdr.findIndex(h => norm(h) === norm(s)) : -1;
@@ -376,11 +381,11 @@ function mapperHtml(M){
     <div class="tw" style="max-height:none;margin-top:6px"><table class="t"><thead><tr>${hdr.map(h => `<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${pv.map(r => `<tr>${hdr.map((_, i) => `<td>${esc(r[i] || "")}</td>`).join("")}</tr>`).join("")}</tbody></table></div>
     <div class="row-actions"><button class="btn" data-act="m_import">${M.kind === "plu" ? "Import this PLU report" : "Import this invoice"}</button><button class="btn ghost" data-act="m_cancel">Cancel</button></div></div>`;
 }
-const toNum = v => { const n = Number(String(v ?? "").replace(/[£,\s]/g, "").replace(/^\((.*)\)$/, "-$1")); return isFinite(n) ? n : 0; };
+const toNum = v => { const n = Number(String(v ?? "").replace(/[£Â,\s ]/g, "").replace(/^\((.*)\)$/, "-$1")); return isFinite(n) ? n : 0; };
 function mapperLines(M){
   const body = M.rows.slice(M.hi + 1), g = M.map;
-  if (M.kind === "plu") return body.filter(r => g.plu !== undefined && g.qty !== undefined && String(r[g.plu] || "").trim() && !/^total/i.test(String(r[g.plu] || r[g.name] || ""))).filter(r => !M.groups || g.grp === undefined || M.groups.has(r[g.grp])).map(r => ({ plu:r[g.plu], name:g.name !== undefined ? r[g.name] : r[g.plu], qty:toNum(r[g.qty]), value:g.value !== undefined ? toNum(r[g.value]) : 0, grp:g.grp !== undefined ? r[g.grp] : "" }));
-  return body.filter(r => g.description !== undefined && g.qty !== undefined && String(r[g.description] || "").trim() && toNum(r[g.qty]) !== 0 && !/^(sub)?total|vat|delivery/i.test(String(r[g.description]).trim())).map(r => ({ code:g.code !== undefined ? r[g.code] : "", description:r[g.description], qty:toNum(r[g.qty]), unit_cost:g.unit_cost !== undefined ? toNum(r[g.unit_cost]) : null, line_total:g.line_total !== undefined ? toNum(r[g.line_total]) : null }));
+  if (M.kind === "plu") return body.filter(r => g.plu !== undefined && g.qty !== undefined && String(r[g.plu] || "").trim() && !/^total/i.test(String(r[g.plu] || r[g.name] || ""))).filter(r => !M.groups || g.grp === undefined || M.groups.has(r[g.grp])).map(r => ({ plu:r[g.plu], name:g.name !== undefined ? r[g.name] : r[g.plu], qty:toNum(r[g.qty]) - (g.refunds !== undefined ? toNum(r[g.refunds]) : 0), value:g.value !== undefined ? toNum(r[g.value]) : 0, grp:g.grp !== undefined ? r[g.grp] : "" }));
+  return body.filter(r => g.description !== undefined && g.qty !== undefined && String(r[g.description] || "").trim() && toNum(r[g.qty]) !== 0 && !/^(sub)?total|vat|delivery/i.test(String(r[g.description]).trim())).map(r => ({ code:g.code !== undefined ? r[g.code] : "", description:r[g.description], qty:toNum(r[g.qty]), in_cases:g.unit !== undefined ? /^(cs|ca|case|cases)$/i.test(String(r[g.unit] || "").trim()) : undefined, unit_cost:g.unit_cost !== undefined ? toNum(r[g.unit_cost]) : null, line_total:g.line_total !== undefined ? toNum(r[g.line_total]) : null }));
 }
 async function fileB64(file){ const buf = new Uint8Array(await file.arrayBuffer()); let bin = ""; for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode(...buf.subarray(i, i + 0x8000)); return btoa(bin); }
 async function runImport(btn){
@@ -436,6 +441,15 @@ document.addEventListener("click", async e => {
       const v = id => $("#" + id).value; const body = { name:v("np_name"), category:v("np_cat"), sell_price:v("np_sell"), cost_price:v("np_cost"), uom:v("np_uom"), case_size:v("np_case"), portions_per_unit:v("np_ppu") || 1, areas:$$("[data-npa]").filter(x => x.checked).map(x => x.dataset.npa) };
       await call("product.save", body); await refreshBoot(); S.openSec = openState(); toast("Product added."); return renderAdmin();
     }
+    if (a === "bulk_on" || a === "bulk_off") {
+      const list = shownProducts(), area = $("#bk_area").value, an = (S.areas.find(x => x.id === area) || {}).name || "that area";
+      if (!list.length) return toast("No products are shown.", true);
+      if (!confirm(`${a === "bulk_on" ? "Tick" : "Untick"} ${an} for all ${list.length} products shown?`)) return;
+      S.adm.bk = area;
+      await call("product.area.bulk", { product_ids:list.map(p => p.id), area_id:area, on:a === "bulk_on" });
+      list.forEach(p => { p.areas = a === "bulk_on" ? [...new Set([...(p.areas || []), area])] : (p.areas || []).filter(x => x !== area); });
+      S.openSec = openState(); renderAdmin(); return toast("Saved.");
+    }
     if (a === "pick") { S.pickKind = b.dataset.kind; S.pickSupplier = b.dataset.supplier; const fp = $("#filepick"); fp.accept = ".csv,.xlsx,.xls,.pdf,.txt"; fp.value = ""; return fp.click(); }
     if (a === "m_cancel") { S.M = null; S.openSec = openState(); return renderAdmin(); }
     if (a === "m_import") return runImport(b);
@@ -452,9 +466,11 @@ document.addEventListener("click", async e => {
 $("#filepick").addEventListener("change", async e => {
   const f = e.target.files[0]; if (!f) return;
   try {
-    toast("Reading the file…"); const rows = await fileToRows(f); if (!rows.length) return toast("There was nothing readable in that file.", true);
+    toast("Reading the file…"); let rows = await fileToRows(f), meta = null; if (!rows.length) return toast("There was nothing readable in that file.", true);
+    if (S.pickKind === "plu") rows = StockParsers.foldSections(rows);
+    else { const n = StockParsers.invoiceRows(S.pickSupplier, rows); if (n) { rows = n.rows; meta = n.meta; } }
     const saved = (await call("profile.get", { kind: S.pickKind === "plu" ? "plu" : "invoice:" + S.pickSupplier })).mapping;
-    startMapper(S.pickKind, rows, f, S.pickSupplier, saved);
+    startMapper(S.pickKind, rows, f, S.pickSupplier, saved, meta);
   } catch(err){ toast("Could not read that file: " + (err.message || err), true); }
 });
 document.addEventListener("input", e => {
