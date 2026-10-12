@@ -964,6 +964,7 @@ body.va-lock{overflow:hidden}
       <div class="dbody" id="dBody"></div>
       <div class="dfoot">
         <button class="btn" id="dSave">Save</button>
+        <button class="btn ghost" id="dBonus" style="display:none">Add to bonus tracker</button>
         <button class="btn ghost" id="dWhats">WhatsApp</button>
         <button class="btn ghost" id="dCancel">Cancel</button>
       </div>
@@ -6812,6 +6813,7 @@ var TrackerApp = (function(){
       ? [r.event_type, r.venue, ukDate(r.event_date)].filter(Boolean).join(" · ")
       : "";
     $("#dWhats").style.display = r.phone ? "" : "none";
+    bonusButton(r);
 
     $("#dBody").innerHTML = `
       ${r.guestline_event_id ? `<div class="syncnote">
@@ -7034,6 +7036,78 @@ var TrackerApp = (function(){
     if(lc) lc.value = S.today;
     if(lb) lb.value = S.who + " - WhatsApp";
     toast("Contact stamped — Save to keep it.");
+  };
+
+
+  /* ---------------------------------------------- add to the bonus tracker
+     A booking that is about to be (or has been) won goes on the bonus tracker
+     from here, so nobody types the name, date, email and reference twice.
+     Only people who can change the bonus tracker see the button. A booking
+     already on it shows a link to its line instead, so it cannot go on twice. */
+  const normName = x => String(x || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  function bonusMatch(r){
+    const rows = (typeof BT !== "undefined" && BT.rows) || [];
+    const ref = String(r.guestline_event_id || "").trim().toUpperCase();
+    if(ref){ const m = rows.filter(x => String(x.event_ref || "").toUpperCase() === ref)[0]; if(m) return m; }
+    const day = String(r.event_date || "").slice(0, 10), nm = normName(r.name);
+    return rows.filter(x => day && String(x.event_date || "").slice(0, 10) === day && normName(x.booking_name) === nm)[0] || null;
+  }
+  /* "Wedding (all day)" and "Wedding (Twilight)" are weddings; "Wedding (Dry hire)" is a dry hire;
+     "Party (Birthday)" is a Birthday; "Corporate event" is Corporate. The bonus tracker's own words. */
+  function bonusType(t){
+    const x = String(t || "").trim();
+    if(!x) return "";
+    if(/dry\s*hire/i.test(x)) return "Dry hire";
+    if(/^wedding/i.test(x)) return "Wedding";
+    const m = x.match(/\(([^)]+)\)/); if(m) return m[1].trim();
+    return /^corporate/i.test(x) ? "Corporate" : x;
+  }
+  async function bonusButton(r){
+    const b = $("#dBonus"); if(!b) return;
+    b.style.display = "none";
+    if(!r || !r.id) return;
+    try{
+      if(BT.level === null){
+        const out = await call("bonus.list", {});
+        BT.level = out.level; BT.rows = out.rows || []; BT.inApp = out.inApp || {};
+      }
+    }catch(e){ return; }                              // no access to the bonus tracker: no button
+    if(S.editing !== r) return;                      // the drawer moved on while we asked
+    const m = bonusMatch(r);
+    if(m){ b.textContent = "On the bonus tracker: open it"; b.style.display = ""; b.dataset.open = m.id; return; }
+    if(BT.level !== "edit") return;
+    b.textContent = "Add to bonus tracker"; b.style.display = ""; delete b.dataset.open;
+  }
+  $("#dBonus").onclick = async () => {
+    const r = S.editing, b = $("#dBonus"); if(!r || !r.id) return;
+    if(b.dataset.open){ const id = b.dataset.open; showDrawer(false); overviewOpenBonus(id); return; }
+    const rec = collect(), v = k => (rec[k] !== undefined ? rec[k] : r[k]);
+    const name = String(v("name") || "").trim();
+    if(!name){ toast("Please enter a name for the booking.", true); return; }
+    b.disabled = true; b.textContent = "Adding…";
+    try{
+      const fresh = await call("bonus.list", {});                     // in case it was added from somewhere else a moment ago
+      BT.level = fresh.level; BT.rows = fresh.rows || []; BT.inApp = fresh.inApp || {};
+      const m = bonusMatch({ ...r, name, event_date: v("event_date"), guestline_event_id: v("guestline_event_id") });
+      if(m){ toast("Already on the bonus tracker."); bonusButton(r); return; }
+      const parts = name.split(/\s+(?:&|and|\+)\s+/i);
+      const ref = String(v("guestline_event_id") || "").trim().toUpperCase();
+      const save = {
+        booking_month: S.today, event_type: bonusType(v("event_type")) || null,
+        event_date: v("event_date") || null, booking_name: name, event_ref: ref || null,
+        partner1_name: parts[0] ? parts[0].trim() : null, partner2_name: parts[1] ? parts[1].trim() : null,
+        primary_email: (v("email") || "").trim() || null, mobile: (v("phone") || "").trim() || null,
+        notes: "Added from the enquiries tracker.",
+      };
+      const out = await call("bonus.save", save);
+      if(out && out.row) BT.rows.unshift(out.row);
+      toast("Added to the bonus tracker. Add the revenue and who did the show-round there.");
+      bonusButton(r);
+    }catch(e){
+      toast(e.message, true); bonusButton(r);
+    }finally{
+      b.disabled = false;
+    }
   };
 
   function blank(){
