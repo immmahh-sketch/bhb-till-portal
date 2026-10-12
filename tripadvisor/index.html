@@ -69,6 +69,11 @@ nav.tabs{background:var(--sage-dark)}
 .totals{background:var(--ta-bg); border:1px solid #BFE0D2; border-radius:var(--radius); padding:16px 18px; margin-top:14px; display:flex; gap:24px; flex-wrap:wrap; align-items:center}
 .totals .t{flex:1 1 180px} .totals .l{font-size:11px; letter-spacing:var(--track-label); text-transform:uppercase; font-weight:700; color:var(--sage)} .totals .v{font-family:var(--display); font-size:34px; color:var(--ta); line-height:1.15; font-weight:700}
 .empty{padding:34px 18px; text-align:center; color:var(--sage-70)}
+.payout{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); margin-top:14px; overflow:hidden}
+.payout h3{font-size:22px; color:var(--sage); padding:14px 18px 2px} .payout .sub{padding:0 18px 10px; font-size:13px; color:var(--sage-70)}
+.payout table{width:100%; border-collapse:collapse; font-size:15px} .payout th{font-size:11px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage); background:var(--sage-10); text-align:left; padding:9px 18px}
+.payout td{padding:10px 18px; border-top:1px solid var(--mist)} .payout .n{text-align:right; font-variant-numeric:tabular-nums} .payout tfoot td{font-weight:700; border-top:2px solid var(--celadon); background:var(--ta-bg); color:var(--sage-dark)}
+.payout .acts{padding:12px 18px; border-top:1px solid var(--mist)}
 .rev img.shot{display:block; max-width:100%; max-height:460px; border-radius:10px; border:1px solid var(--mist); margin:0 0 8px; cursor:zoom-in; background:#fff}
 .rev .txt{white-space:pre-wrap}
 .lightbox{position:fixed; inset:0; background:rgba(20,24,20,.86); z-index:800; display:flex; align-items:center; justify-content:center; padding:18px; cursor:zoom-out}
@@ -155,7 +160,20 @@ function renderLeaderboard(){
       ${rows || `<div class="empty">Nobody has been named in a review this week yet.</div>`}</div>
     <div class="totals"><div class="t"><div class="l">Team members with a bonus</div><div class="v">${d.team_count}</div></div>
       <div class="t"><div class="l">Mentions</div><div class="v">${d.mentions}</div></div>
-      <div class="t"><div class="l">Total bonus for the week</div><div class="v">${gbp(d.total)}</div></div></div>`;
+      <div class="t"><div class="l">Total bonus for the week</div><div class="v">${gbp(d.total)}</div></div></div>
+    ${d.team.length ? `<div class="payout"><h3>Bonus to pay</h3><div class="sub">Who is paid for the week beginning ${esc(shortDay(d.week_start))}, and how much. Each mention is £${d.bonus_each}.</div>
+      <table><thead><tr><th>Team member</th><th class="n">Mentions</th><th class="n">Bonus</th></tr></thead>
+      <tbody>${d.team.map(t => `<tr><td>${esc(t.staff_name)}</td><td class="n">${t.mentions}</td><td class="n">${gbp(t.bonus)}</td></tr>`).join("")}</tbody>
+      <tfoot><tr><td>Total (${d.team_count} ${d.team_count === 1 ? "team member" : "team members"})</td><td class="n">${d.mentions}</td><td class="n">${gbp(d.total)}</td></tr></tfoot></table>
+      <div class="acts"><button class="btn small ghost" data-act="csv">Download for Accounts (CSV)</button></div></div>` : ""}`;
+}
+function downloadCsv(){
+  const d = S.lb, cell = v => '"' + String(v ?? "").replace(/"/g, '""') + '"';
+  const lines = [["Week beginning", "Week ending", "Team member", "Mentions", "Bonus per mention (GBP)", "Bonus (GBP)"].map(cell).join(",")]
+    .concat(d.team.map(t => [d.week_start, d.week_end, t.staff_name, t.mentions, d.bonus_each, t.bonus].map(cell).join(",")))
+    .concat([["", "", "TOTAL", d.mentions, "", d.total].map(cell).join(",")]);
+  const blob = new Blob(["\ufeff" + lines.join("\r\n") + "\r\n"], { type:"text/csv;charset=utf-8" }), a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = `TripAdvisor bonus week beginning ${d.week_start}.csv`; document.body.appendChild(a); a.click(); a.remove();
 }
 
 /* ------------------------------------------------------------- set up */
@@ -208,6 +226,7 @@ document.addEventListener("click", async e => {
   const b = e.target.closest("[data-act]"); if (!b || b.disabled) return;
   const a = b.dataset.act;
   try {
+    if (a === "csv") return downloadCsv();
     if (a === "prev") return loadWeek(addDays(S.lb.week_start, -7));
     if (a === "next") return loadWeek(addDays(S.lb.week_start, 7));
     if (a === "add") {
