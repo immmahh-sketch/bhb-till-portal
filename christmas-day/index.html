@@ -60,6 +60,13 @@ button{font:inherit;cursor:pointer}
 .small{font-size:14px}
 .spin{display:inline-block;width:20px;height:20px;border:3px solid var(--celadon);border-top-color:var(--sage);border-radius:50%;animation:s 1s linear infinite;vertical-align:middle}
 @keyframes s{to{transform:rotate(360deg)}}
+.modal{position:fixed;inset:0;background:rgba(38,38,38,.55);display:none;align-items:center;justify-content:center;padding:16px;z-index:50}
+.modal.on{display:flex}
+.modal .box{background:var(--white);border-radius:var(--radius);max-width:460px;width:100%;padding:22px 20px;box-shadow:0 20px 60px rgba(38,38,38,.35)}
+.modal h2{font-size:26px;margin-bottom:8px}
+.modal label.chk{display:flex;gap:10px;align-items:flex-start;margin:16px 0;padding:12px;border:1px solid var(--celadon);border-radius:10px;cursor:pointer;font-weight:600}
+.modal label.chk input{width:22px;height:22px;margin:0;accent-color:var(--sage);flex:0 0 auto}
+.timebox{display:none;margin-top:10px}.timebox.on{display:block}
 footer{max-width:760px;margin:0 auto;padding:0 14px 30px;font-size:14px;color:var(--sage-70)}
 </style>
 </head>
@@ -67,13 +74,20 @@ footer{max-width:760px;margin:0 auto;padding:0 14px 30px;font-size:14px;color:va
 <header class="top"><div class="in"><div class="brand">Black Horse Beamish</div><div class="sub">Christmas Day pre-order</div></div></header>
 <main id="app"><div class="card" style="text-align:center"><span class="spin"></span></div></main>
 <footer id="foot"></footer>
+<div class="modal" id="timeModal" role="dialog" aria-modal="true" aria-labelledby="tmTitle"><div class="box">
+<h2 id="tmTitle">Your preferred time</h2>
+<p style="margin:0 0 8px"><b id="tmPicked"></b> is a <b>preferred time</b>, and is not guaranteed. We will do our best to give you the time you have chosen.</p>
+<p style="margin:0">Table times are confirmed <b>on or before 25 November</b>. If your chosen time is full, we will allocate you a time to keep our bookings spread across the day.</p>
+<label class="chk" for="tmAck"><input type="checkbox" id="tmAck"><span>I have read and understand this</span></label>
+<button type="button" class="btn" id="tmClose" disabled>Close</button>
+</div></div>
 <script>
 const API = "https://safcrtrfdzsnftghibot.supabase.co/functions/v1/xmas-api";
 const KEY = "sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU";
 const T = new URLSearchParams(location.search).get("t") || "";
 const $ = s => document.querySelector(s);
 const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
-const S = { d:null, guests:[], time:"", dietary:"", notes:"", under3:0, chairs:0, busy:false, msg:null };
+const S = { d:null, guests:[], time:"", dietary:"", notes:"", under3:0, chairs:0, busy:false, msg:null, pref:"", ack:"" };
 
 async function call(action, payload){
   const r = await fetch(API, { method:"POST", headers:{ "Content-Type":"application/json", Authorization:"Bearer " + KEY, apikey:KEY }, body:JSON.stringify(Object.assign({ action, t:T }, payload || {})) });
@@ -92,7 +106,7 @@ async function load(){
     S.guests = []; let seq = 0;
     for (let i = 0; i < d.booking.adults; i++) { seq++; const g = have[seq] || {}; S.guests.push({ seq, kind:"adult", n:i + 1, name:g.name || "", starter:g.starter || "", main:g.main || "", dessert:g.dessert || "", dietary:g.dietary || "" }); }
     for (let i = 0; i < d.booking.children; i++) { seq++; const g = have[seq] || {}; S.guests.push({ seq, kind:"child", n:i + 1, name:g.name || "", starter:g.starter || "", main:g.main || "", dessert:g.dessert || "", dietary:g.dietary || "" }); }
-    S.time = d.answers.preferred_time || ""; S.dietary = d.answers.dietary || ""; S.notes = d.answers.notes || ""; S.under3 = d.answers.under3 || 0; S.chairs = d.answers.high_chairs || 0;
+    S.time = d.answers.preferred_time || ""; S.pref = S.time === "none" ? "any" : S.time ? "pref" : ""; S.ack = S.time && S.time !== "none" ? S.time : ""; S.dietary = d.answers.dietary || ""; S.notes = d.answers.notes || ""; S.under3 = d.answers.under3 || 0; S.chairs = d.answers.high_chairs || 0;
     render();
   } catch(e){ fail(e.message); }
 }
@@ -137,8 +151,10 @@ function render(){
       '<div class="note"><b>Please complete this form by ' + esc(d.deadline.text) + '.</b> If we have not received your choices by then, each guest will be served our standard menu: ' + esc(d.standard.starter) + ', ' + esc(d.standard.main) + ' and ' + esc(d.standard.dessert) + '.</div>') +
     (d.answers.submitted_at ? '<div class="ok">Your pre-order has been received.' + (d.deadline.closed ? '' : ' You can still change it below.') + '</div>' : "") + '<div id="topMsg"></div></div>' +
 
-    '<div class="card"><h2>When would you like to sit down?</h2><p class="lead">Please tell us your preferred table time.</p>' +
-    '<label class="f" for="tm">Preferred table time</label><select id="tm"><option value="">Choose a time</option>' + d.times.map(t => '<option value="' + t + '"' + (S.time === t ? " selected" : "") + '>' + timeLabel(t) + '</option>').join("") + '<option value="none"' + (S.time === "none" ? " selected" : "") + '>No preference</option></select>' +
+    '<div class="card"><h2>When would you like to sit down?</h2><p class="lead">Please tell us about your table time.</p>' +
+    '<label class="opt' + (S.pref === "any" ? " on" : "") + '" for="tpAny"><input type="radio" id="tpAny" name="tpref" value="any"' + (S.pref === "any" ? " checked" : "") + '><span class="n">Any time between 12pm and 4pm is great</span></label>' +
+    '<label class="opt' + (S.pref === "pref" ? " on" : "") + '" for="tpPref"><input type="radio" id="tpPref" name="tpref" value="pref"' + (S.pref === "pref" ? " checked" : "") + '><span class="n">I have a preferred time</span></label>' +
+    '<div class="timebox' + (S.pref === "pref" ? " on" : "") + '" id="timeBox"><label class="f" for="tm">Preferred table time</label><select id="tm"><option value="">Choose a time</option>' + d.times.map(t => '<option value="' + t + '"' + (S.time === t ? " selected" : "") + '>' + timeLabel(t) + '</option>').join("") + '</select></div>' +
     '<div class="note"><b>Table times are confirmed one month before, on 25 November.</b> If you have no preferred time, or there is no space left at the time you choose, we will give you a time that spreads our bookings across the day, so service runs smoothly for everyone.</div></div>' +
 
     '<div class="card"><h2>Choose your meals</h2><p class="lead">One choice for each guest. Festive canapés on arrival, a palate cleanser, and mince pies with tea or filter coffee to finish are included for everyone.</p>' +
@@ -159,10 +175,20 @@ function render(){
 }
 
 /* ---- state follows the form */
+function askTime(v){
+  $("#tmPicked").textContent = timeLabel(v); $("#tmAck").checked = false; $("#tmClose").disabled = true; $("#timeModal").classList.add("on"); $("#tmAck").focus();
+}
 document.addEventListener("change", e => {
   const t = e.target;
+  if (t.id === "tmAck") { $("#tmClose").disabled = !t.checked; return; }
+  if (t.name === "tpref") {
+    S.pref = t.value; document.querySelectorAll('input[name="tpref"]').forEach(r => r.closest(".opt").classList.toggle("on", r.checked));
+    $("#timeBox").classList.toggle("on", t.value === "pref");
+    if (t.value === "any") { S.time = "none"; S.ack = ""; } else { if (S.time === "none") S.time = ""; const sel = $("#tm"); if (sel) sel.value = S.time; }
+    return;
+  }
   if (t.matches("input[type=radio][data-seq]")) { const g = S.guests.find(x => x.seq === Number(t.dataset.seq)); g[t.dataset.course] = t.value; t.closest(".course").querySelectorAll(".opt").forEach(o => o.classList.toggle("on", o.contains(t))); return; }
-  if (t.id === "tm") S.time = t.value;
+  if (t.id === "tm") { S.time = t.value; if (t.value && S.ack !== t.value) askTime(t.value); }
 });
 document.addEventListener("input", e => {
   const t = e.target;
@@ -174,6 +200,7 @@ function payload(final){ return { final, preferred_time:S.time, dietary:S.dietar
 function firstIncomplete(){ for (const g of S.guests) if (!g.starter || !g.main || !g.dessert) return g; return null; }
 async function save(final, btn){
   msg("#saveMsg", "", "");
+  if (final && (!S.time || (S.pref === "pref" && S.time === "none"))) { msg("#saveMsg", "err", "Please tell us your table time: any time between 12pm and 4pm, or choose a preferred time."); const el = $("#timeBox"); if (el) el.scrollIntoView({ behavior:"smooth", block:"center" }); return; }
   if (final) {
     const g = firstIncomplete();
     if (g) { msg("#saveMsg", "err", "Please choose a starter, main and dessert for " + (g.kind === "adult" ? "Adult " : "Child ") + g.n + "."); const el = $("#guest" + g.seq); if (el) el.scrollIntoView({ behavior:"smooth", block:"start" }); return; }
@@ -189,6 +216,7 @@ async function save(final, btn){
 }
 document.addEventListener("click", async e => {
   const b = e.target.closest("button"); if (!b) return;
+  if (b.id === "tmClose") { if ($("#tmAck").checked) { S.ack = S.time; $("#timeModal").classList.remove("on"); } return; }
   if (b.id === "draft") return save(false, b);
   if (b.id === "final") return save(true, b);
   if (b.dataset.copy) {
