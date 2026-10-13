@@ -1519,6 +1519,19 @@ function tkBooked(iso){
            timeZone:"Europe/London" }).format(new Date(iso));
 }
 
+/* What is still to pay on a booking: the total price less what TicketSource took and any payments added here. null when the total is not known. */
+function tkDue(b){
+  if (b.total_price == null || !(b.tickets > 0 || Number(b.gross) > 0)) return null;
+  return Math.round((Number(b.total_price) - (Number(b.gross) || 0) - (Number(b.extra_paid) || 0)) * 100) / 100;
+}
+function tkDueHtml(b, cell){
+  var d = tkDue(b);
+  if (d === null) return cell ? '<span class="muted">-</span>' : '<span class="muted">not known</span>';
+  if (d > 0.004) return '<b>' + money(d) + '</b>';
+  if (d < -0.004) return 'Overpaid by ' + money(-d);
+  return '<span style="color:#4F6B4F">Paid in full</span>';
+}
+
 function tkDetailHtml(id){
   var d = TK.detail[id] || {};
   if (d.loading) return '<div class="empty" style="padding:14px"><span class="spin"></span></div>';
@@ -1528,10 +1541,11 @@ function tkDetailHtml(id){
   var live = rows.filter(function(b){ return b.tickets > 0 || Number(b.gross) > 0; });
   var tk = live.reduce(function(s, b){ return s + (b.tickets || 0); }, 0);
   var paid = live.reduce(function(s, b){ return s + (Number(b.gross) || 0) + (Number(b.extra_paid) || 0); }, 0);
+  var owed = live.reduce(function(s, b){ var d = tkDue(b); return s + (d > 0 ? d : 0); }, 0);
   var h = '<div class="split" style="margin-bottom:8px"><span class="label">' + live.length + ' booking' +
-    (live.length === 1 ? '' : 's') + ' &middot; ' + tk + ' ticket' + (tk === 1 ? '' : 's') + ' &middot; ' + money(paid) +
+    (live.length === 1 ? '' : 's') + ' &middot; ' + tk + ' ticket' + (tk === 1 ? '' : 's') + ' &middot; ' + money(paid) + ' paid' + (owed > 0 ? ' &middot; ' + money(owed) + ' still to collect' : '') +
     '</span><button class="btn btn--sm" onclick="tkCsvBookings(\'date\',\'' + esc(id) + '\',this)">Export</button></div>' +
-    '<table><thead><tr><th>Booked by</th><th>Booked</th><th class="money">Tickets</th><th class="money">Paid</th><th>Ref</th></tr></thead><tbody>';
+    '<table><thead><tr><th>Booked by</th><th>Booked</th><th class="money">Tickets</th><th class="money">Paid</th><th class="money">Balance due</th><th>Ref</th></tr></thead><tbody>';
   rows.forEach(function(b){
     var gone = !(b.tickets > 0 || Number(b.gross) > 0);
     var cats = tkCats(b.categories);
@@ -1541,7 +1555,7 @@ function tkDetailHtml(id){
       '<td class="money">' + (gone ? 'Cancelled' : b.tickets) +
       (cats && !gone ? '<div class="muted" style="font-size:.8125rem">' + cats + '</div>' : '') + '</td>' +
       '<td class="money">' + money((Number(b.gross) || 0) + (Number(b.extra_paid) || 0)) +
-      (Number(b.extra_paid) ? '<div class="muted" style="font-size:.8125rem">incl. ' + money(b.extra_paid) + ' added</div>' : '') + '</td><td>' + esc(b.booking_ref || '') +
+      (Number(b.extra_paid) ? '<div class="muted" style="font-size:.8125rem">incl. ' + money(b.extra_paid) + ' added</div>' : '') + '</td><td class="money">' + (gone ? '' : tkDueHtml(b, true)) + '</td><td>' + esc(b.booking_ref || '') +
       (b.comment_count ? '<div class="muted" style="font-size:.8125rem">' + b.comment_count + ' comment' + (b.comment_count === 1 ? '' : 's') + '</div>' : '') + '</td></tr>';
   });
   return h + '</tbody></table>';
@@ -1637,9 +1651,13 @@ async function tkExtrasLoad(dateId, bookingId, b){
   } catch (e) { box = $("tkx"); if (box) box.innerHTML = '<div class="err" style="margin:12px 0 0">' + esc(e.message) + '</div>'; }
 }
 function tkExtrasHtml(d, b, extra){
-  var ts = Number(b.gross) || 0, total = ts + extra;
-  var h = '<h4>Additional payments made</h4><dl><dt>Paid via TicketSource</dt><dd>' + esc(money(ts)) + '</dd><dt>Additional payments</dt><dd>' + esc(money(extra)) +
-    '</dd><dt><b>Total paid</b></dt><dd><b>' + esc(money(total)) + '</b></dd></dl>';
+  var ts = Number(b.gross) || 0, total = ts + extra, due = tkDue(Object.assign({}, b, { extra_paid:extra }));
+  var dep = Object.keys(b.categories || {}).some(function(k){ return /deposit/i.test(k) && Number(b.categories[k]); });
+  var h = '<h4>Payments</h4><dl><dt>Total price</dt><dd>' + (b.total_price == null ? '<span class="muted">not known for this mix of tickets</span>' : esc(money(b.total_price)) +
+      (dep ? ' <span class="muted">(deposit tickets counted at double what was paid)</span>' : '')) + '</dd>' +
+    '<dt>Paid via TicketSource</dt><dd>' + esc(money(ts)) + '</dd><dt>Additional payments</dt><dd>' + esc(money(extra)) +
+    '</dd><dt><b>Total paid</b></dt><dd><b>' + esc(money(total)) + '</b></dd><dt><b>Remaining</b></dt><dd>' + tkDueHtml(Object.assign({}, b, { extra_paid:extra }), false) + '</dd></dl>' +
+    '<h4>Additional payments made</h4>';
   if ((d.payments || []).length) {
     h += '<div style="overflow-x:auto;margin-top:8px"><table><thead><tr><th>Added</th><th>By</th><th>Note</th><th class="money">Amount</th><th></th></tr></thead><tbody>' +
       d.payments.map(function(x){
@@ -1698,7 +1716,7 @@ async function tkCsvBookings(key, id, btn){
     var cell = function(v){ v = String(v == null ? "" : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
     var yn = function(v){ return v === true ? "Yes" : (v === false ? "No" : ""); };
     var out = [["Event","Show","Booking ref","Status","Booked","Booked by","Email","Telephone","Address","Postcode",
-      "Tickets","Ticket types","Paid via TicketSource","Additional payments","Total paid","Comments","Attendees","Consent email","Consent post","Consent SMS","Consent third party","Booked by (staff)"]];
+      "Tickets","Ticket types","Total price","Paid via TicketSource","Additional payments","Total paid","Balance due","Comments","Attendees","Consent email","Consent post","Consent SMS","Consent third party","Booked by (staff)"]];
     (d.bookings || []).forEach(function(b){
       var sh = shows[b.date_id] || {}, by = b.buyer || {}, c = by.consent || {};
       var gone = !(b.tickets > 0 || Number(b.gross) > 0);
@@ -1711,7 +1729,7 @@ async function tkCsvBookings(key, id, btn){
       }).join("; ");
       out.push([sh.event_name, tkWhen(sh.starts_at), b.booking_ref, gone ? "Cancelled" : "Booked", tkBooked(b.booked_at),
         b.customer_name, b.customer_email || by.email, by.telephone, by.address, by.postcode,
-        b.tickets, tkCats(b.categories).replace(/&amp;/g, "&"), Number(b.gross || 0).toFixed(2), Number(b.extra_paid || 0).toFixed(2), (Number(b.gross || 0) + Number(b.extra_paid || 0)).toFixed(2), b.comments || "", who,
+        b.tickets, tkCats(b.categories).replace(/&amp;/g, "&"), b.total_price == null ? "" : Number(b.total_price).toFixed(2), Number(b.gross || 0).toFixed(2), Number(b.extra_paid || 0).toFixed(2), (Number(b.gross || 0) + Number(b.extra_paid || 0)).toFixed(2), gone || b.total_price == null ? "" : Math.max(0, Number(b.total_price) - Number(b.gross || 0) - Number(b.extra_paid || 0)).toFixed(2), b.comments || "", who,
         yn(c.email), yn(c.post), yn(c.sms), c.third_party, by.booked_by]);
     });
     var csv = out.map(function(r){ return r.map(cell).join(","); }).join("\r\n");
