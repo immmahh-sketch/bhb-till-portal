@@ -1639,7 +1639,7 @@ function xmRender(){
   var h = (XM.err ? '<div class="err">' + esc(XM.err) + '</div>' : '') + (XM.note ? '<div class="ok" style="margin:0 0 12px">' + esc(XM.note) + '</div>' : '') +
     '<div class="tiles"><div class="tile"><b>' + t.bookings + '</b><span>Bookings</span></div><div class="tile"><b>' + t.tickets + '</b><span>Guests (' + t.adults + ' adults, ' + t.children + ' children)</span></div>' +
     '<div class="tile"><b>' + t.submitted + '</b><span>Submitted</span></div><div class="tile"><b>' + t.started + '</b><span>Started</span></div><div class="tile"><b>' + t.not_started + '</b><span>Not started</span></div>' +
-    '<div class="tile"><b>' + t.invited + '</b><span>Invited</span></div><div class="tile"><b>' + t.with_dietary + '</b><span>With dietary notes</span></div><div class="tile"><b>' + d.tables.length + '</b><span>Linked tables</span></div></div>' +
+    '<div class="tile"><b>' + t.invited + '</b><span>Invited</span></div><div class="tile"><b>' + t.with_dietary + '</b><span>With dietary notes</span></div><div class="tile"><b>' + t.under3 + '</b><span>Under 3s</span></div><div class="tile"><b>' + t.high_chairs + '</b><span>High chairs</span></div><div class="tile"><b>' + d.tables.length + '</b><span>Linked tables</span></div></div>' +
     '<div class="split" style="margin-bottom:10px"><div class="tabs" style="margin:0">' +
     ["bookings", "kitchen", "tables", "send"].map(function(k){ return '<button class="btn btn--sm' + (XM.tab === k ? ' on' : '') + '" onclick="xmTab(\'' + k + '\')">' + ({ bookings:"Bookings", kitchen:"Kitchen totals", tables:"Tables", send:"Send invitations" })[k] + '</button>'; }).join("") +
     '</div><span><button class="btn btn--sm" onclick="xmCsv(this)">Export every guest (CSV)</button></span></div>';
@@ -1655,7 +1655,7 @@ function xmBookings(d){
     d.rows.map(function(r){
       return '<tr><td>' + esc(r.ref) + '</td><td>' + esc(r.name) + '<div class="muted" style="font-size:.8125rem">' + esc(r.email) + '</div></td><td class="money">' + (r.adults + r.children) + '<div class="muted" style="font-size:.8125rem">' + r.adults + ' A' + (r.children ? ', ' + r.children + ' C' : '') + '</div></td>' +
         '<td>' + xmStatus(r) + (r.meals_done ? '<div class="muted" style="font-size:.8125rem">' + r.meals_done + ' of ' + (r.adults + r.children) + ' meals</div>' : '') + '</td><td>' + esc(xmTime(r.preferred_time)) + '</td>' +
-        '<td>' + (r.has_dietary ? '<span class="g n">Dietary</span> ' : '') + (r.has_notes ? '<span class="g p">Notes</span>' : '') + '</td><td>' + (r.linked_with.length ? 'With ' + esc(r.linked_with.join(", ")) : '') + '</td>' +
+        '<td>' + (r.has_dietary ? '<span class="g n">Dietary</span> ' : '') + (r.has_notes ? '<span class="g p">Notes</span> ' : '') + (r.under3 ? '<span class="g p">' + r.under3 + ' under 3' + (r.high_chairs ? ', ' + r.high_chairs + ' high chair' + (r.high_chairs === 1 ? '' : 's') : '') + '</span>' : '') + '</td><td>' + (r.linked_with.length ? 'With ' + esc(r.linked_with.join(", ")) : '') + '</td>' +
         '<td>' + (r.invite_sent_at ? esc(tkBooked(r.invite_sent_at)) : '<span class="muted">Not sent</span>') + '</td>' +
         '<td style="white-space:nowrap"><button class="btn btn--sm" onclick="xmView(\'' + esc(r.booking_id) + '\')">View</button> <button class="btn btn--sm" onclick="xmCopy(\'' + esc(r.link) + '\',this)">Copy link</button></td></tr>';
     }).join("") + '</tbody></table></div>';
@@ -1672,7 +1672,8 @@ function xmKitchen(d){
   }).join("");
   var times = Object.keys(d.times).sort().map(function(k){ return '<tr><td>' + esc(xmTime(k)) + '</td><td class="money"><b>' + d.times[k] + '</b> guests</td></tr>'; }).join("");
   return '<div style="display:flex;gap:24px;flex-wrap:wrap">' + cols + '<div style="flex:1 1 220px"><h3 style="font-family:var(--display);margin:0 0 6px">Preferred table times</h3>' + (times ? '<table><tbody>' + times + '</tbody></table>' : '<p class="muted" style="margin:0">None chosen yet.</p>') + '</div></div>' +
-    '<p class="muted" style="margin:14px 0 0">Counts are for pre-orders received so far (' + d.totals.submitted + ' submitted). Meal choices saved as drafts are included.</p>';
+    '<div class="card" style="margin:14px 0 0"><h3 style="font-family:var(--display);margin:0 0 4px">Standard meal for guests with no pre-order</h3><p style="margin:0">Pre-orders ' + (d.deadline.closed ? 'closed' : 'close') + ' on ' + esc(d.deadline.text) + '. Anyone without choices gets <b>' + esc(d.standard.meal) + '</b>: <b>' + d.standard.adults + '</b> adult' + (d.standard.adults === 1 ? '' : 's') + ' and <b>' + d.standard.children + '</b> child' + (d.standard.children === 1 ? 'ren'.slice(0,0) : 'ren') + ' at the moment. These are not included in the counts above; the CSV marks them "No, standard meal".</p></div>' +
+    '<p class="muted" style="margin:10px 0 0">Counts above are for choices received so far (' + d.totals.submitted + ' bookings submitted). Meal choices saved as drafts are included.</p>';
 }
 function xmTables(d){
   if (!d.tables.length) return '<p class="muted">No bookings have been linked yet. When two bookings link themselves on the form, they appear here as one table.</p>';
@@ -1691,7 +1692,7 @@ async function xmView(bookingId){
     var r = await callXmas("admin.booking", { booking_id:bookingId }), b = r.booking, p = r.preorder;
     var h = '<h3 style="font-family:var(--display);margin:0 0 4px">' + esc(b.name) + ' <span class="muted" style="font-size:1rem">booking ' + esc(b.ref) + '</span></h3>' +
       '<p class="muted" style="margin:0 0 8px">' + b.adults + ' adult' + (b.adults === 1 ? '' : 's') + (b.children ? ', ' + b.children + ' child' + (b.children === 1 ? '' : 'ren') : '') + (p.preferred_time ? ' &middot; prefers ' + esc(xmTime(p.preferred_time)) : '') + (p.submitted_at ? ' &middot; submitted ' + esc(tkBooked(p.submitted_at)) : ' &middot; not submitted') + '</p>' +
-      (p.dietary ? '<p style="color:#8C4A3F;margin:0 0 6px"><b>Dietary:</b> ' + esc(p.dietary) + '</p>' : '') + (p.notes ? '<p style="margin:0 0 6px"><b>Notes:</b> ' + esc(p.notes) + '</p>' : '') +
+      (p.under3 ? '<p style="margin:0 0 6px"><b>Under 3s:</b> ' + p.under3 + (p.high_chairs ? ', ' + p.high_chairs + ' high chair' + (p.high_chairs === 1 ? '' : 's') : '') + '</p>' : '') + (p.dietary ? '<p style="color:#8C4A3F;margin:0 0 6px"><b>Dietary:</b> ' + esc(p.dietary) + '</p>' : '') + (p.notes ? '<p style="margin:0 0 6px"><b>Notes:</b> ' + esc(p.notes) + '</p>' : '') +
       (r.guests.length ? '<table><thead><tr><th>Guest</th><th>Starter</th><th>Main</th><th>Dessert</th><th>Allergies</th></tr></thead><tbody>' + r.guests.map(function(g){
         return '<tr><td>' + (g.kind === "adult" ? "Adult " : "Child ") + g.seq + (g.name ? ' <span class="muted">' + esc(g.name) + '</span>' : '') + '</td><td>' + esc(g.starter_name) + '</td><td>' + esc(g.main_name) + '</td><td>' + esc(g.dessert_name) + '</td><td>' + esc(g.dietary || "") + '</td></tr>'; }).join("") + '</tbody></table>' : '<p class="muted">No meals chosen yet.</p>') +
       '<p style="margin:12px 0 0"><button class="btn btn--sm" onclick="xmRender()">Back</button></p>';
@@ -1708,9 +1709,9 @@ async function xmCsv(btn){
   try {
     var d = await callXmas("admin.export", { date_id:XM.id });
     var cell = function(v){ v = String(v == null ? "" : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
-    var head = ["Booking ref", "Booked by", "Email", "Table (linked bookings)", "Guests at table", "Preferred time", "Guest", "Type", "Name", "Starter", "Main", "Dessert", "Guest allergies", "Booking dietary", "Notes", "Submitted"];
+    var head = ["Booking ref", "Booked by", "Email", "Table (linked bookings)", "Guests at table", "Preferred time", "Guest", "Type", "Name", "Starter", "Main", "Dessert", "Pre-ordered", "Guest allergies", "Booking dietary", "Notes", "Under 3s", "High chairs", "Submitted"];
     var out = [head].concat((d.rows || []).map(function(r){
-      return [r.ref, r.booked_by, r.email, r.table, r.table_guests, xmTime(r.preferred_time), r.guest, r.kind, r.name, r.starter, r.main, r.dessert, r.guest_dietary, r.booking_dietary, r.notes, r.submitted];
+      return [r.ref, r.booked_by, r.email, r.table, r.table_guests, xmTime(r.preferred_time), r.guest, r.kind, r.name, r.starter, r.main, r.dessert, r.pre_ordered, r.guest_dietary, r.booking_dietary, r.notes, r.under3, r.high_chairs, r.submitted];
     }));
     var csv = out.map(function(r){ return r.map(cell).join(","); }).join("\r\n");
     var a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["\ufeff" + csv], { type:"text/csv" })); a.download = "christmas-day-preorders.csv";
