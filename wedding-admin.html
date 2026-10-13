@@ -1544,7 +1544,7 @@ function tkDetailHtml(id){
   var owed = live.reduce(function(s, b){ var d = tkDue(b); return s + (d > 0 ? d : 0); }, 0);
   var h = '<div class="split" style="margin-bottom:8px"><span class="label">' + live.length + ' booking' +
     (live.length === 1 ? '' : 's') + ' &middot; ' + tk + ' ticket' + (tk === 1 ? '' : 's') + ' &middot; ' + money(paid) + ' paid' + (owed > 0 ? ' &middot; ' + money(owed) + ' still to collect' : '') +
-    '</span><button class="btn btn--sm" onclick="tkCsvBookings(\'date\',\'' + esc(id) + '\',this)">Export</button></div>' +
+    '</span><span>' + (xmIsXmas(id) ? '<button class="btn btn--sm" onclick="xmOpen(\'' + esc(id) + '\')">Pre-orders</button> ' : '') + '<button class="btn btn--sm" onclick="tkCsvBookings(\'date\',\'' + esc(id) + '\',this)">Export</button></span></div>' +
     '<table><thead><tr><th>Booked by</th><th>Booked</th><th class="money">Tickets</th><th class="money">Paid</th><th class="money">Balance due</th><th>Ref</th></tr></thead><tbody>';
   rows.forEach(function(b){
     var gone = !(b.tickets > 0 || Number(b.gross) > 0);
@@ -1588,6 +1588,179 @@ function tkModal(){
 }
 
 function tkBookingClose(){ var m = $("tkv"); if (m) m.classList.remove("on"); }
+
+/* ===== Christmas Day pre-orders: who has chosen their meals, kitchen totals, tables, and sending the invitations ===== */
+var XM = { id:null, data:null, tab:"bookings", busy:false, err:"", note:"" };
+function xmIsXmas(dateId){
+  var sh = ((TK.data && TK.data.dates) || []).filter(function(x){ return x.date_id === dateId; })[0];
+  return !!(sh && /christmas day/i.test(sh.event_name || ""));
+}
+async function callXmas(action, payload){
+  var body = Object.assign({ action:action, password:S.pw, staff_email:staffEmail() }, payload || {});
+  var r = await fetch(CFG.SUPABASE_URL + "/functions/v1/xmas-api", { method:"POST", headers:{ "Content-Type":"application/json", Authorization:"Bearer " + CFG.SUPABASE_KEY, apikey:CFG.SUPABASE_KEY }, body:JSON.stringify(body) });
+  var d = await r.json().catch(function(){ return {}; });
+  if (!r.ok) throw new Error(d.error || ("Request failed (" + r.status + ")"));
+  return d;
+}
+function xmModal(){
+  var m = $("xmv"); if (m) return m;
+  var st = document.createElement("style");
+  st.textContent = "#xmv{position:fixed;inset:0;z-index:95;display:none;background:rgba(38,38,38,.5);align-items:flex-start;justify-content:center;padding:16px;overflow:auto}#xmv.on{display:flex}" +
+    "#xmv .xb{background:var(--bone);border-radius:var(--radius,8px);width:min(1100px,100%);box-shadow:0 20px 60px rgba(38,38,38,.3)}" +
+    "#xmv .xh{background:var(--sage);color:var(--white);padding:14px 20px;display:flex;gap:12px;align-items:center;border-radius:var(--radius,8px) var(--radius,8px) 0 0}" +
+    "#xmv .xh h3{font-family:var(--display);font-size:1.25rem;margin:0}#xmv .xh .x{margin-left:auto;background:transparent;border:0;color:#fff;font-size:26px;cursor:pointer}" +
+    "#xmv .xc{padding:16px 20px 22px}#xmv .tiles{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 14px}#xmv .tile{background:var(--white);border:1px solid var(--mist);border-radius:8px;padding:10px 14px;min-width:110px}" +
+    "#xmv .tile b{display:block;font-size:1.5rem;font-family:var(--display);color:var(--sage)}#xmv .tile span{font-size:.75rem;letter-spacing:.06em;text-transform:uppercase;color:var(--sage-70)}" +
+    "#xmv .tabs{display:flex;gap:6px;margin:0 0 12px;flex-wrap:wrap}#xmv .tabs button.on{background:var(--sage);color:var(--white)}" +
+    "#xmv table{width:100%}#xmv .g{display:inline-block;border-radius:999px;padding:2px 10px;font-size:.8125rem;font-weight:600}" +
+    "#xmv .g.s{background:#EDF2ED;color:#4F6B4F}#xmv .g.p{background:#F7F0E4;color:#8a6a2f}#xmv .g.n{background:#F6EAE8;color:#8C4A3F}";
+  document.head.appendChild(st);
+  m = document.createElement("div"); m.id = "xmv"; m.setAttribute("role", "dialog"); m.setAttribute("aria-modal", "true");
+  m.innerHTML = '<div class="xb"><div class="xh"><h3 id="xmT">Christmas Day pre-orders</h3><button class="x" title="Close" onclick="xmClose()">&times;</button></div><div class="xc" id="xmB"></div></div>';
+  m.addEventListener("click", function(e){ if (e.target === m) xmClose(); });
+  document.body.appendChild(m); return m;
+}
+function xmClose(){ var m = $("xmv"); if (m) m.classList.remove("on"); }
+async function xmOpen(dateId){
+  xmModal(); XM.id = dateId; XM.tab = "bookings"; XM.err = ""; XM.note = ""; XM.data = null;
+  $("xmB").innerHTML = '<div class="empty" style="padding:30px"><span class="spin"></span></div>'; $("xmv").classList.add("on");
+  await xmLoad();
+}
+async function xmLoad(){
+  try { XM.data = await callXmas("admin.overview", { date_id:XM.id }); XM.err = ""; } catch (e) { XM.err = e.message; }
+  xmRender();
+}
+function xmStatus(r){ return r.status === "submitted" ? '<span class="g s">Submitted</span>' : r.status === "started" ? '<span class="g p">Started</span>' : '<span class="g n">Not started</span>'; }
+function xmTime(t){ if (!t) return ""; if (t === "none") return "No preference"; var p = t.split(":").map(Number); return (p[0] > 12 ? p[0] - 12 : p[0]) + ":" + String(p[1]).padStart(2, "0") + (p[0] >= 12 ? (p[0] === 12 && p[1] === 0 ? " noon" : "pm") : "am"); }
+function xmRender(){
+  var d = XM.data, box = $("xmB"); if (!box) return;
+  if (!d) { box.innerHTML = '<div class="err" style="margin:0">' + esc(XM.err || "Could not load.") + '</div>'; return; }
+  var t = d.totals;
+  var h = (XM.err ? '<div class="err">' + esc(XM.err) + '</div>' : '') + (XM.note ? '<div class="ok" style="margin:0 0 12px">' + esc(XM.note) + '</div>' : '') +
+    '<div class="tiles"><div class="tile"><b>' + t.bookings + '</b><span>Bookings</span></div><div class="tile"><b>' + t.tickets + '</b><span>Guests (' + t.adults + ' adults, ' + t.children + ' children)</span></div>' +
+    '<div class="tile"><b>' + t.submitted + '</b><span>Submitted</span></div><div class="tile"><b>' + t.started + '</b><span>Started</span></div><div class="tile"><b>' + t.not_started + '</b><span>Not started</span></div>' +
+    '<div class="tile"><b>' + t.invited + '</b><span>Invited</span></div><div class="tile"><b>' + t.with_dietary + '</b><span>With dietary notes</span></div><div class="tile"><b>' + d.tables.length + '</b><span>Linked tables</span></div></div>' +
+    '<div class="split" style="margin-bottom:10px"><div class="tabs" style="margin:0">' +
+    ["bookings", "kitchen", "tables", "send"].map(function(k){ return '<button class="btn btn--sm' + (XM.tab === k ? ' on' : '') + '" onclick="xmTab(\'' + k + '\')">' + ({ bookings:"Bookings", kitchen:"Kitchen totals", tables:"Tables", send:"Send invitations" })[k] + '</button>'; }).join("") +
+    '</div><span><button class="btn btn--sm" onclick="xmCsv(this)">Export every guest (CSV)</button></span></div>';
+  if (XM.tab === "bookings") h += xmBookings(d);
+  else if (XM.tab === "kitchen") h += xmKitchen(d);
+  else if (XM.tab === "tables") h += xmTables(d);
+  else h += xmSend(d);
+  box.innerHTML = h;
+}
+function xmTab(k){ XM.tab = k; XM.note = ""; xmRender(); }
+function xmBookings(d){
+  return '<div style="overflow-x:auto"><table><thead><tr><th>Ref</th><th>Booked by</th><th class="money">Guests</th><th>Status</th><th>Time</th><th>Notes</th><th>Table</th><th>Invite</th><th></th></tr></thead><tbody>' +
+    d.rows.map(function(r){
+      return '<tr><td>' + esc(r.ref) + '</td><td>' + esc(r.name) + '<div class="muted" style="font-size:.8125rem">' + esc(r.email) + '</div></td><td class="money">' + (r.adults + r.children) + '<div class="muted" style="font-size:.8125rem">' + r.adults + ' A' + (r.children ? ', ' + r.children + ' C' : '') + '</div></td>' +
+        '<td>' + xmStatus(r) + (r.meals_done ? '<div class="muted" style="font-size:.8125rem">' + r.meals_done + ' of ' + (r.adults + r.children) + ' meals</div>' : '') + '</td><td>' + esc(xmTime(r.preferred_time)) + '</td>' +
+        '<td>' + (r.has_dietary ? '<span class="g n">Dietary</span> ' : '') + (r.has_notes ? '<span class="g p">Notes</span>' : '') + '</td><td>' + (r.linked_with.length ? 'With ' + esc(r.linked_with.join(", ")) : '') + '</td>' +
+        '<td>' + (r.invite_sent_at ? esc(tkBooked(r.invite_sent_at)) : '<span class="muted">Not sent</span>') + '</td>' +
+        '<td style="white-space:nowrap"><button class="btn btn--sm" onclick="xmView(\'' + esc(r.booking_id) + '\')">View</button> <button class="btn btn--sm" onclick="xmCopy(\'' + esc(r.link) + '\',this)">Copy link</button></td></tr>';
+    }).join("") + '</tbody></table></div>';
+}
+function xmKitchen(d){
+  var names = { starter:"Starters", main:"Mains", dessert:"Desserts" };
+  var cols = ["adult", "child"].map(function(kind){
+    return '<div style="flex:1 1 320px"><h3 style="font-family:var(--display);margin:0 0 6px">' + (kind === "adult" ? "Adults" : "Children") + '</h3>' +
+      ["starter", "main", "dessert"].map(function(c){
+        var list = d.dishes[kind][c] || [], tot = list.reduce(function(s, x){ return s + x.n; }, 0);
+        return '<h4 style="margin:12px 0 4px;font-size:.75rem;letter-spacing:.08em;text-transform:uppercase;color:var(--sage-70)">' + names[c] + ' (' + tot + ' chosen)</h4>' +
+          (list.length ? '<table><tbody>' + list.map(function(x){ return '<tr><td>' + esc(x.name) + '</td><td class="money"><b>' + x.n + '</b></td></tr>'; }).join("") + '</tbody></table>' : '<p class="muted" style="margin:0">Nothing chosen yet.</p>');
+      }).join("") + '</div>';
+  }).join("");
+  var times = Object.keys(d.times).sort().map(function(k){ return '<tr><td>' + esc(xmTime(k)) + '</td><td class="money"><b>' + d.times[k] + '</b> guests</td></tr>'; }).join("");
+  return '<div style="display:flex;gap:24px;flex-wrap:wrap">' + cols + '<div style="flex:1 1 220px"><h3 style="font-family:var(--display);margin:0 0 6px">Preferred table times</h3>' + (times ? '<table><tbody>' + times + '</tbody></table>' : '<p class="muted" style="margin:0">None chosen yet.</p>') + '</div></div>' +
+    '<p class="muted" style="margin:14px 0 0">Counts are for pre-orders received so far (' + d.totals.submitted + ' submitted). Meal choices saved as drafts are included.</p>';
+}
+function xmTables(d){
+  if (!d.tables.length) return '<p class="muted">No bookings have been linked yet. When two bookings link themselves on the form, they appear here as one table.</p>';
+  return d.tables.map(function(t, i){
+    return '<div class="card" style="margin:0 0 12px"><div class="split"><h3 style="font-family:var(--display);margin:0">Table of ' + t.guests + '</h3><span class="muted">' + t.bookings.map(function(b){ return esc(b.ref); }).join(" + ") + '</span></div>' +
+      t.bookings.map(function(b){
+        return '<div style="margin-top:10px"><b>' + esc(b.name) + '</b> <span class="muted">booking ' + esc(b.ref) + ', ' + b.adults + ' adult' + (b.adults === 1 ? '' : 's') + (b.children ? ', ' + b.children + ' child' + (b.children === 1 ? '' : 'ren') : '') + (b.preferred_time ? ', prefers ' + esc(xmTime(b.preferred_time)) : '') + '</span>' +
+          (b.dietary ? '<div style="color:#8C4A3F">Dietary: ' + esc(b.dietary) + '</div>' : '') + (b.notes ? '<div>Notes: ' + esc(b.notes) + '</div>' : '') +
+          (b.guests.length ? '<table style="margin-top:6px"><thead><tr><th>Guest</th><th>Starter</th><th>Main</th><th>Dessert</th><th>Allergies</th></tr></thead><tbody>' + b.guests.map(function(g){
+            return '<tr><td>' + (g.kind === "adult" ? "Adult " : "Child ") + g.seq + (g.name ? ' <span class="muted">' + esc(g.name) + '</span>' : '') + '</td><td>' + esc(g.starter_name || "") + '</td><td>' + esc(g.main_name || "") + '</td><td>' + esc(g.dessert_name || "") + '</td><td>' + esc(g.dietary || "") + '</td></tr>'; }).join("") + '</tbody></table>' : '<p class="muted" style="margin:4px 0 0">No meals chosen yet.</p>') + '</div>';
+      }).join("") + '</div>';
+  }).join("");
+}
+async function xmView(bookingId){
+  try {
+    var r = await callXmas("admin.booking", { booking_id:bookingId }), b = r.booking, p = r.preorder;
+    var h = '<h3 style="font-family:var(--display);margin:0 0 4px">' + esc(b.name) + ' <span class="muted" style="font-size:1rem">booking ' + esc(b.ref) + '</span></h3>' +
+      '<p class="muted" style="margin:0 0 8px">' + b.adults + ' adult' + (b.adults === 1 ? '' : 's') + (b.children ? ', ' + b.children + ' child' + (b.children === 1 ? '' : 'ren') : '') + (p.preferred_time ? ' &middot; prefers ' + esc(xmTime(p.preferred_time)) : '') + (p.submitted_at ? ' &middot; submitted ' + esc(tkBooked(p.submitted_at)) : ' &middot; not submitted') + '</p>' +
+      (p.dietary ? '<p style="color:#8C4A3F;margin:0 0 6px"><b>Dietary:</b> ' + esc(p.dietary) + '</p>' : '') + (p.notes ? '<p style="margin:0 0 6px"><b>Notes:</b> ' + esc(p.notes) + '</p>' : '') +
+      (r.guests.length ? '<table><thead><tr><th>Guest</th><th>Starter</th><th>Main</th><th>Dessert</th><th>Allergies</th></tr></thead><tbody>' + r.guests.map(function(g){
+        return '<tr><td>' + (g.kind === "adult" ? "Adult " : "Child ") + g.seq + (g.name ? ' <span class="muted">' + esc(g.name) + '</span>' : '') + '</td><td>' + esc(g.starter_name) + '</td><td>' + esc(g.main_name) + '</td><td>' + esc(g.dessert_name) + '</td><td>' + esc(g.dietary || "") + '</td></tr>'; }).join("") + '</tbody></table>' : '<p class="muted">No meals chosen yet.</p>') +
+      '<p style="margin:12px 0 0"><button class="btn btn--sm" onclick="xmRender()">Back</button></p>';
+    $("xmB").innerHTML = h;
+  } catch (e) { XM.err = e.message; xmRender(); }
+}
+function xmCopy(link, btn){
+  var done = function(){ var t = btn.textContent; btn.textContent = "Copied"; setTimeout(function(){ btn.textContent = t; }, 1500); };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(link).then(done, function(){ window.prompt("Copy this link", link); });
+  else window.prompt("Copy this link", link);
+}
+async function xmCsv(btn){
+  var label = btn.textContent; btn.disabled = true; btn.textContent = "Preparing...";
+  try {
+    var d = await callXmas("admin.export", { date_id:XM.id });
+    var cell = function(v){ v = String(v == null ? "" : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+    var head = ["Booking ref", "Booked by", "Email", "Table (linked bookings)", "Guests at table", "Preferred time", "Guest", "Type", "Name", "Starter", "Main", "Dessert", "Guest allergies", "Booking dietary", "Notes", "Submitted"];
+    var out = [head].concat((d.rows || []).map(function(r){
+      return [r.ref, r.booked_by, r.email, r.table, r.table_guests, xmTime(r.preferred_time), r.guest, r.kind, r.name, r.starter, r.main, r.dessert, r.guest_dietary, r.booking_dietary, r.notes, r.submitted];
+    }));
+    var csv = out.map(function(r){ return r.map(cell).join(","); }).join("\r\n");
+    var a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["\ufeff" + csv], { type:"text/csv" })); a.download = "christmas-day-preorders.csv";
+    document.body.appendChild(a); a.click(); a.remove();
+  } catch (e) { XM.err = e.message; xmRender(); }
+  btn.disabled = false; btn.textContent = label;
+}
+
+/* Sending: a test to yourself first, then everyone not yet invited, then reminders. Nothing is sent without pressing a button and confirming. */
+function xmSend(d){
+  var notInvited = d.rows.filter(function(r){ return !r.invite_sent_at && r.email; }).length, noEmail = d.rows.filter(function(r){ return !r.email; }).length;
+  var pending = d.rows.filter(function(r){ return r.invite_sent_at && r.status !== "submitted" && r.email; }).length;
+  return '<p style="margin:0 0 10px">Each booking gets its own private link. The email says what to do, and links to the form. <b>Nothing is sent until you press a send button below.</b></p>' +
+    '<div class="card" style="margin:0 0 12px"><h3 style="font-family:var(--display);margin:0 0 6px">1. Send yourself a test</h3><p class="muted" style="margin:0 0 8px">Sends the first booking\'s email to the address you enter, marked [TEST]. It is not recorded as sent.</p>' +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap"><input id="xmTest" type="email" placeholder="your email address" style="flex:1 1 240px"><button class="btn btn--sm" onclick="xmSendTest(this)">Send test</button><button class="btn btn--sm" onclick="xmPreview()">Preview the email</button></div></div>' +
+    '<div class="card" style="margin:0 0 12px"><h3 style="font-family:var(--display);margin:0 0 6px">2. Send the invitations</h3><p class="muted" style="margin:0 0 8px">' + notInvited + ' booking' + (notInvited === 1 ? '' : 's') + ' not yet invited' + (noEmail ? ' (' + noEmail + ' with no email address, who are skipped)' : '') + '.</p>' +
+    '<button class="btn" onclick="xmSendAll(false,this)"' + (notInvited ? '' : ' disabled') + '>Send to the ' + notInvited + ' not yet invited</button></div>' +
+    '<div class="card" style="margin:0"><h3 style="font-family:var(--display);margin:0 0 6px">3. Reminders</h3><p class="muted" style="margin:0 0 8px">' + pending + ' invited booking' + (pending === 1 ? '' : 's') + ' have not submitted yet.</p>' +
+    '<button class="btn btn--sm" onclick="xmSendAll(true,this)"' + (pending ? '' : ' disabled') + '>Send a reminder to the ' + pending + '</button></div>';
+}
+async function xmPreview(){
+  try {
+    var first = XM.data.rows[0]; var r = await callXmas("admin.preview", { date_id:XM.id, booking_id:first.booking_id });
+    var w = window.open("", "_blank"); if (w) { w.document.write(r.html); w.document.title = r.subject; w.document.close(); } else XM.err = "Allow pop-ups to see the preview.";
+  } catch (e) { XM.err = e.message; }
+  xmRender();
+}
+async function xmSendTest(btn){
+  var to = ($("xmTest").value || "").trim(); if (!to) { alert("Enter your email address first."); return; }
+  btn.disabled = true;
+  try { var r = await callXmas("admin.send", { date_id:XM.id, booking_ids:[XM.data.rows[0].booking_id], test_to:to }); XM.note = r.results[0].ok ? "Test sent to " + to + "." : "The test did not go: " + r.results[0].error; XM.err = ""; }
+  catch (e) { XM.err = e.message; }
+  xmRender();
+}
+async function xmSendAll(reminder, btn){
+  var rows = XM.data.rows.filter(function(r){ return r.email && (reminder ? (r.invite_sent_at && r.status !== "submitted") : !r.invite_sent_at); });
+  if (!rows.length) return;
+  if (!confirm((reminder ? "Send a reminder to " : "Send the Christmas Day pre-order email to ") + rows.length + " booking" + (rows.length === 1 ? "" : "s") + "? This emails real customers and cannot be undone.")) return;
+  btn.disabled = true; var ok = 0, bad = [];
+  try {
+    for (var i = 0; i < rows.length; i += 10) {
+      btn.textContent = "Sending " + Math.min(i + 10, rows.length) + " of " + rows.length + "...";
+      var r = await callXmas("admin.send", { date_id:XM.id, booking_ids:rows.slice(i, i + 10).map(function(x){ return x.booking_id; }), reminder:reminder });
+      r.results.forEach(function(x){ if (x.ok) ok++; else bad.push(x.ref + " (" + x.error + ")"); });
+    }
+    XM.note = ok + " sent." + (bad.length ? " Not sent: " + bad.join(", ") + "." : ""); XM.err = "";
+  } catch (e) { XM.err = e.message; XM.note = ok + " sent before it stopped."; }
+  await xmLoad();
+}
+
 
 function tkBooking(dateId, bookingId){
   var d = TK.detail[dateId] || {};
