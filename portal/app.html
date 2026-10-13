@@ -163,6 +163,20 @@ header.top{background:var(--sage); color:var(--white)}
 .tile p{font-size:12.5px; color:var(--sage-70); margin:6px 0 0}
 .tile.locked{opacity:.6}
 .tile.locked:hover{transform:none; box-shadow:var(--shadow)}
+.tile{position:relative}
+.bdg{position:absolute; top:12px; right:12px; min-width:26px; height:26px; padding:0 8px; border-radius:99px; background:#B3402F; color:#fff; font-size:13px; font-weight:700;
+  display:flex; align-items:center; justify-content:center; box-shadow:0 1px 3px rgba(0,0,0,.25); letter-spacing:0}
+.nbdg{display:inline-block; min-width:18px; padding:0 6px; margin-left:8px; border-radius:99px; background:#B3402F; color:#fff; font-size:11px; font-weight:700; line-height:18px; text-align:center}
+.pushveil{position:fixed; inset:0; z-index:300; background:rgba(38,38,38,.5); display:none; align-items:flex-end; justify-content:center; padding:14px}
+.pushveil.on{display:flex}
+.pushbox{background:var(--white); border-radius:14px; max-width:460px; width:100%; padding:22px 20px 18px; box-shadow:0 20px 60px rgba(38,38,38,.35)}
+.pushbox h2{font-family:var(--display); font-size:26px; margin:0 0 8px; color:var(--sage-dark,#3B483C)}
+.pushbox p{margin:0 0 10px; font-size:14.5px; line-height:1.5}
+.pushbox .pbtns{display:flex; flex-direction:column; gap:8px; margin-top:14px}
+.pushbox button{font:inherit; border-radius:8px; padding:13px 16px; cursor:pointer; font-weight:700; letter-spacing:.02em; border:1px solid var(--sage); background:var(--white); color:var(--sage)}
+.pushbox button.go{background:var(--sage); color:#fff}
+.pushbox button.quiet{border-color:transparent; color:var(--sage-70); font-weight:600}
+.pushbox .pmsg{font-size:13.5px; color:var(--alert,#8C4A3F); min-height:18px}
 .tile .lockNote{font-size:11px; font-weight:600; color:var(--attention); margin-top:8px; letter-spacing:.02em}
 .empty{padding:60px 20px; text-align:center; color:var(--sage-70)}
 
@@ -678,7 +692,10 @@ $("#rsBtn").addEventListener("click", submitReset);
 $("#rsPw2").addEventListener("keydown", e=>{ if(e.key==="Enter") submitReset(); });
 
 function signOut(){
-  api("logout").catch(()=>{});
+  // this device stops getting this person's notifications; the server is told with the old token before the session is ended
+  const tok = S.token, raw = a => fetch(FN, { method:"POST", headers:{ "apikey":ANON, "Content-Type":"application/json" }, body: JSON.stringify(Object.assign({ token:tok }, a)) }).catch(()=>{});
+  (async () => { try{ if (pushSupported()) { const sub = await pushSub(); if (sub) await raw({ action:"push_unsubscribe", endpoint:sub.endpoint }); } }catch(e){} await raw({ action:"logout" }); })();
+  clearInterval(S.badgeT); S.badges = {}; S.badgeTotal = 0; setIconBadge(0);
   try{ localStorage.removeItem(LS_TOKEN); }catch(e){}
   S.token = ""; S.user = null; S.portals = []; S.groups = []; S.layout = null; S.editing = false; S.serverLayout = undefined;
   closeViewer();
@@ -753,6 +770,102 @@ function enterApp(){
   else plCheck(true);
   maybeWelcome();
   loadNoticePopups();
+  startBadges();
+  setTimeout(pushInit, 2500);
+}
+
+
+/* ---------------------------------------------------- what needs me: tile numbers, icon badge, push */
+const VAPID_PUBLIC = "BCYMC9fNp9qbEO69PkziE_1miOTg1QcrqTUyeb2JN-ktT8pCeMkEssnsnTH3ue7uyw1n53P0752FB60nmBQDLnE";
+S.badges = {}; S.badgeTotal = 0;
+function badgeHtml(key){ const n = S.badges && S.badges[key]; return n ? `<span class="bdg" title="${n} to look at">${n > 99 ? "99+" : n}</span>` : ""; }
+function setIconBadge(n){
+  try{ if (navigator.setAppBadge) { if (n > 0) navigator.setAppBadge(n); else navigator.clearAppBadge(); } }catch(e){}
+}
+function paintBadges(){
+  $$("#tiles .tile").forEach(t => { const had = t.querySelector(".bdg"); if (had) had.remove(); const h = badgeHtml(t.dataset.key); if (h) t.insertAdjacentHTML("afterbegin", h); });
+  if ($("#navmenu") && $("#navmenu").classList.contains("on")) renderNav();
+}
+async function refreshBadges(){
+  if (!S.token) return;
+  try{
+    const d = await api("badges");
+    S.badges = d.counts || {}; S.badgeTotal = d.total || 0;
+    paintBadges(); setIconBadge(S.badgeTotal);
+  }catch(e){ /* the numbers are a courtesy: if they cannot load, the tiles still work */ }
+}
+function startBadges(){
+  refreshBadges();
+  clearInterval(S.badgeT); S.badgeT = setInterval(refreshBadges, 4 * 60 * 1000);
+  if (!startBadges.wired) { startBadges.wired = true; document.addEventListener("visibilitychange", () => { if (!document.hidden) refreshBadges(); }); }
+}
+
+const pushSupported = () => "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+const LS_PUSH_NEVER = () => "bhb_push_never_" + String((S.user && S.user.email) || "").toLowerCase();
+const b64uToU8 = v => { const p = (v + "===".slice((v.length + 3) % 4)).replace(/-/g, "+").replace(/_/g, "/"), r = atob(p); return Uint8Array.from(r, c => c.charCodeAt(0)); };
+async function swReady(){ await navigator.serviceWorker.register("sw.js", { scope:"./" }); return navigator.serviceWorker.ready; }
+async function pushSub(){ const reg = await swReady(); return reg.pushManager.getSubscription(); }
+async function pushEnable(){
+  const perm = Notification.permission === "granted" ? "granted" : await Notification.requestPermission();
+  if (perm !== "granted") throw new Error("Notifications were not allowed on this device. You can allow them in your phone or browser settings for this app.");
+  const reg = await swReady();
+  const sub = (await reg.pushManager.getSubscription()) || await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:b64uToU8(VAPID_PUBLIC) });
+  await api("push_subscribe", { subscription: sub.toJSON(), ua: navigator.userAgent });
+}
+async function pushDisable(){
+  const sub = await pushSub();
+  if (sub) { const ep = sub.endpoint; await sub.unsubscribe().catch(()=>{}); await api("push_unsubscribe", { endpoint: ep }).catch(()=>{}); }
+}
+
+function pushVeil(){
+  let v = $("#pushveil"); if (v) return v;
+  v = document.createElement("div"); v.id = "pushveil"; v.className = "pushveil"; v.setAttribute("role", "dialog"); v.setAttribute("aria-modal", "true");
+  document.body.appendChild(v); return v;
+}
+function closePushBox(){ const v = $("#pushveil"); if (v) v.classList.remove("on"); }
+/* manage = opened from the menu (shows the current state and lets them switch it off); otherwise it is the prompt on opening the portal */
+async function openPushBox(manage){
+  if (!pushSupported()) return;
+  const sub = await pushSub().catch(()=>null), on = !!sub && Notification.permission === "granted", denied = Notification.permission === "denied";
+  const v = pushVeil();
+  const head = on ? "Notifications are on" : "Get a nudge when something needs you";
+  const text = on
+    ? "This device will tell you when there is something new: a staff notice, a PO to approve, a job or task for you, or a message waiting. The number on the app icon shows how many things need you."
+    : "Turn on notifications and this device will tell you when there is something new for you: a staff notice, a PO to approve, a job or task, a message waiting. You will also see a number on the app icon. It never sends anything between 9pm and 7am.";
+  const buttons = on
+    ? `<button class="go" data-p="close">Done</button><button class="quiet" data-p="off">Turn notifications off on this device</button>`
+    : denied
+      ? `<button class="go" data-p="close">OK</button>`
+      : `<button class="go" data-p="on">Turn on notifications</button>${manage ? `<button class="quiet" data-p="close">Not now</button>` : `<button data-p="later">Not now</button><button class="quiet" data-p="never">Do not show again</button>`}`;
+  v.innerHTML = `<div class="pushbox"><h2>${head}</h2><p>${esc(text)}</p>${denied && !on ? `<p>Notifications are blocked for this app on this device. To turn them on, allow notifications for it in your phone or browser settings, then come back here.</p>` : ""}<div class="pmsg" id="pmsg"></div><div class="pbtns">${buttons}</div></div>`;
+  v.classList.add("on");
+  v.querySelectorAll("[data-p]").forEach(b => b.addEventListener("click", async () => {
+    const a = b.dataset.p;
+    if (a === "close" || a === "later") return closePushBox();
+    if (a === "never") { try{ localStorage.setItem(LS_PUSH_NEVER(), "1"); }catch(e){} return closePushBox(); }
+    b.disabled = true;
+    try{
+      if (a === "on") { await pushEnable(); try{ localStorage.removeItem(LS_PUSH_NEVER()); }catch(e){} closePushBox(); toast("Notifications are on."); }
+      if (a === "off") { await pushDisable(); closePushBox(); toast("Notifications are off on this device."); }
+    }catch(e){ b.disabled = false; $("#pmsg").textContent = e.message; }
+  }));
+}
+/* On opening the portal: keep an existing subscription alive on the server, or ask. The ask returns every time until "Do not show again". */
+async function pushInit(){
+  try{
+    if (!pushSupported() || !S.token) return;
+    const sub = await pushSub();
+    if (sub && Notification.permission === "granted") {
+      const st = await api("push_status", { endpoint: sub.endpoint }).catch(()=>null);
+      if (st && !st.subscribed) await api("push_subscribe", { subscription: sub.toJSON(), ua: navigator.userAgent }).catch(()=>{});
+      return;
+    }
+    if (Notification.permission === "denied") return;
+    let never = false; try{ never = localStorage.getItem(LS_PUSH_NEVER()) === "1"; }catch(e){}
+    if (never) return;
+    if (document.querySelector(".modal.on, .welcome.on, #welcomeveil.on")) return setTimeout(pushInit, 8000);   // let a welcome or notice pop-up finish first
+    openPushBox(false);
+  }catch(e){ /* push is a bonus: never get in the way of the portal */ }
 }
 
 function iconFor(k){
@@ -819,6 +932,7 @@ function renderTiles(){
     const locked = p.granted === false;
     return `
     <button class="tile${locked?' locked':''}" style="border-top-color:${esc(p.color||'#4E5F4F')}" data-key="${esc(p.key)}">
+      ${badgeHtml(p.key)}
       <div class="ic" style="color:${esc(p.color||'#4E5F4F')}">${iconFor(p.icon)}</div>
       <h3>${esc(p.label)}</h3>
       <p>${esc(p.description||'')}</p>
@@ -1022,7 +1136,7 @@ function renderNav(){
   const items = orderedPortals().map(p => `
     <div class="nrow${hid.has(p.key) ? " hid" : ""}">
       <button class="nitem ${S.current===p.key?'active':''}" data-key="${esc(p.key)}">
-        <span class="dot" style="background:${esc(p.color||'#4E5F4F')}"></span>${esc(p.label)}${hid.has(p.key) ? `<span class="hidtag">hidden</span>` : ""}
+        <span class="dot" style="background:${esc(p.color||'#4E5F4F')}"></span>${esc(p.label)}${hid.has(p.key) ? `<span class="hidtag">hidden</span>` : ""}${S.badges && S.badges[p.key] ? `<span class="nbdg">${S.badges[p.key]}</span>` : ""}
       </button>
       <button class="nhide" type="button" data-hide="${esc(p.key)}" aria-label="${hid.has(p.key) ? "Show" : "Hide"} ${esc(p.label)} ${hid.has(p.key) ? "on" : "from"} the front page">${hid.has(p.key) ? "Show tile" : "Hide tile"}</button>
     </div>
@@ -1030,14 +1144,17 @@ function renderNav(){
   const settingsItem = S.user && S.user.role==="admin"
     ? `<button class="nitem" data-goto="settings"><span class="dot" style="background:#8C4A3F"></span>Settings${S.plNew ? `<span class="dotbadge">${S.plNew}</span>` : ""}</button>`
     : "";
+  const pushItem = pushSupported() ? `<button class="nitem" data-goto="push"><span class="dot" style="background:#C9A56B"></span>Notifications</button>` : "";
   $("#navList").innerHTML = `
     <button class="nitem" data-goto="landing"><span class="dot" style="background:#7B887C"></span>All Portals</button>
     ${items}
     ${settingsItem}
+    ${pushItem}
   `;
   $$("#navList .nhide").forEach(b => b.addEventListener("click", e => { e.stopPropagation(); toggleHide(b.dataset.hide); }));
   $$("#navList .nitem").forEach(b => b.addEventListener("click", ()=>{
     closeNav();
+    if (b.dataset.goto === "push") { openPushBox(true); return; }
     if (b.dataset.goto === "landing") { closeViewer(); showLanding(); }
     else if (b.dataset.goto === "settings") { closeViewer(); showSettings(); }
     else openPortal(b.dataset.key);
@@ -1295,6 +1412,7 @@ function closeViewer(){
   $("#viewer").classList.remove("on");
   $("#vframe").src = "about:blank";
   S.current = null;
+  if (S.token) setTimeout(refreshBadges, 600);          // what was just dealt with comes off the tiles
 }
 $("#vHome").addEventListener("click", ()=>{ closeViewer(); showLanding(); });
 
