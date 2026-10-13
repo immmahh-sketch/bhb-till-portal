@@ -1527,7 +1527,7 @@ function tkDetailHtml(id){
   if (!rows.length) return '<p class="muted" style="margin:0">No bookings counted for this show yet.</p>';
   var live = rows.filter(function(b){ return b.tickets > 0 || Number(b.gross) > 0; });
   var tk = live.reduce(function(s, b){ return s + (b.tickets || 0); }, 0);
-  var paid = live.reduce(function(s, b){ return s + (Number(b.gross) || 0); }, 0);
+  var paid = live.reduce(function(s, b){ return s + (Number(b.gross) || 0) + (Number(b.extra_paid) || 0); }, 0);
   var h = '<div class="split" style="margin-bottom:8px"><span class="label">' + live.length + ' booking' +
     (live.length === 1 ? '' : 's') + ' &middot; ' + tk + ' ticket' + (tk === 1 ? '' : 's') + ' &middot; ' + money(paid) +
     '</span><button class="btn btn--sm" onclick="tkCsvBookings(\'date\',\'' + esc(id) + '\',this)">Export</button></div>' +
@@ -1540,7 +1540,9 @@ function tkDetailHtml(id){
       '<td>' + esc(tkBooked(b.booked_at)) + '</td>' +
       '<td class="money">' + (gone ? 'Cancelled' : b.tickets) +
       (cats && !gone ? '<div class="muted" style="font-size:.8125rem">' + cats + '</div>' : '') + '</td>' +
-      '<td class="money">' + money(b.gross) + '</td><td>' + esc(b.booking_ref || '') + '</td></tr>';
+      '<td class="money">' + money((Number(b.gross) || 0) + (Number(b.extra_paid) || 0)) +
+      (Number(b.extra_paid) ? '<div class="muted" style="font-size:.8125rem">incl. ' + money(b.extra_paid) + ' added</div>' : '') + '</td><td>' + esc(b.booking_ref || '') +
+      (b.comment_count ? '<div class="muted" style="font-size:.8125rem">' + b.comment_count + ' comment' + (b.comment_count === 1 ? '' : 's') + '</div>' : '') + '</td></tr>';
   });
   return h + '</tbody></table>';
 }
@@ -1597,9 +1599,10 @@ function tkBooking(dateId, bookingId){
     row("Booked via", by && by.booked_by ? esc(by.booked_by) : "") +
     row("Tickets", gone ? "Cancelled" + (b.cancelled_tickets ? " (" + b.cancelled_tickets + ")" : "") : String(b.tickets)) +
     row("Ticket types", tkCats(b.categories)) +
-    row("Paid", esc(money(b.gross))) +
+    row("Paid via TicketSource", esc(money(b.gross))) +
     row("Show", esc((show.event_name || "") + (show.starts_at ? " - " + tkWhen(show.starts_at) : ""))) +
-    '</dl>';
+    '</dl>' +
+    '<div id="tkx" data-date="' + esc(dateId) + '" data-booking="' + esc(bookingId) + '"><p class="muted" style="margin:14px 0 0"><span class="spin"></span></p></div>';
   if (b.attendees && b.attendees.length) {
     h += '<h4>Attendees</h4><div style="overflow-x:auto"><table><thead><tr><th>Name</th><th>Ticket</th><th>Email</th><th>Telephone</th><th>Company</th><th>Seat</th></tr></thead><tbody>' +
       b.attendees.map(function(a){
@@ -1616,6 +1619,74 @@ function tkBooking(dateId, bookingId){
   $("tkvS").textContent = "Booking " + (b.booking_ref || "") + (gone ? " - cancelled" : "");
   $("tkvB").innerHTML = h;
   $("tkv").classList.add("on");
+  tkExtrasLoad(dateId, bookingId, b);
+}
+
+/* Extra payments (taken outside TicketSource) and comments on one booking. */
+function tkRowOf(dateId, bookingId){ return ((TK.detail[dateId] || {}).rows || []).filter(function(x){ return x.booking_id === bookingId; })[0]; }
+function tkWhenShort(iso){ return iso ? new Intl.DateTimeFormat("en-GB", { day:"numeric", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit", timeZone:"Europe/London" }).format(new Date(iso)) : ""; }
+async function tkExtrasLoad(dateId, bookingId, b){
+  var box = $("tkx"); if (!box) return;
+  try {
+    var d = await callTickets("tickets.booking", { booking_id:bookingId });
+    var row = tkRowOf(dateId, bookingId);
+    var extra = (d.payments || []).filter(function(x){ return !x.voided_at; }).reduce(function(t, x){ return t + Number(x.amount); }, 0);
+    if (row) { row.extra_paid = Math.round(extra * 100) / 100; row.comment_count = (d.comments || []).length; }
+    box = $("tkx"); if (!box || box.getAttribute("data-booking") !== bookingId) return;
+    box.innerHTML = tkExtrasHtml(d, b, extra);
+  } catch (e) { box = $("tkx"); if (box) box.innerHTML = '<div class="err" style="margin:12px 0 0">' + esc(e.message) + '</div>'; }
+}
+function tkExtrasHtml(d, b, extra){
+  var ts = Number(b.gross) || 0, total = ts + extra;
+  var h = '<h4>Additional payments made</h4><dl><dt>Paid via TicketSource</dt><dd>' + esc(money(ts)) + '</dd><dt>Additional payments</dt><dd>' + esc(money(extra)) +
+    '</dd><dt><b>Total paid</b></dt><dd><b>' + esc(money(total)) + '</b></dd></dl>';
+  if ((d.payments || []).length) {
+    h += '<div style="overflow-x:auto;margin-top:8px"><table><thead><tr><th>Added</th><th>By</th><th>Note</th><th class="money">Amount</th><th></th></tr></thead><tbody>' +
+      d.payments.map(function(x){
+        var v = !!x.voided_at;
+        return '<tr' + (v ? ' style="opacity:.5;text-decoration:line-through"' : '') + '><td>' + esc(tkWhenShort(x.created_at)) + '</td><td>' + esc(x.by_name || "") + '</td><td>' + esc(x.note || "") +
+          '</td><td class="money">' + esc(money(x.amount)) + '</td><td>' + (v ? '<span class="muted" style="text-decoration:none">removed</span>' : '<a href="#" onclick="tkPayVoid(event,\'' + esc(x.id) + '\')">Remove</a>') + '</td></tr>';
+      }).join("") + '</tbody></table></div>';
+  }
+  h += '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:10px">' +
+    '<label style="flex:0 0 130px"><span class="muted" style="font-size:.75rem">Amount paid (£)</span><input id="tkpAmt" type="number" min="0" step="0.01" placeholder="0.00"></label>' +
+    '<label style="flex:1 1 180px"><span class="muted" style="font-size:.75rem">Note (optional)</span><input id="tkpNote" type="text" maxlength="300" placeholder="e.g. balance by bank transfer"></label>' +
+    '<button class="btn btn--sm" onclick="tkPayAdd(this)">Add</button></div>';
+  h += '<h4>Comments</h4>';
+  if ((d.comments || []).length) {
+    h += d.comments.map(function(c){
+      return '<div style="padding:8px 0;border-bottom:1px solid var(--mist)"><div style="white-space:pre-wrap">' + esc(c.comment) + '</div><div class="muted" style="font-size:.8125rem">' + esc(c.by_name || "") + ' &middot; ' + esc(tkWhenShort(c.created_at)) + '</div></div>';
+    }).join("");
+  } else h += '<p class="muted" style="margin:0 0 6px">No comments yet.</p>';
+  h += '<textarea id="tkcText" maxlength="2000" placeholder="Add a comment about this booking" style="margin-top:8px"></textarea>' +
+    '<div style="margin-top:6px"><button class="btn btn--sm" onclick="tkComAdd(this)">Add comment</button></div>';
+  return h;
+}
+async function tkExtraAction(btn, action, payload){
+  var box = $("tkx"); if (!box) return;
+  var dateId = box.getAttribute("data-date"), bookingId = box.getAttribute("data-booking");
+  if (btn) btn.disabled = true;
+  try {
+    await callTickets(action, Object.assign({ booking_id:bookingId }, payload));
+    clearErr();
+    await tkExtrasLoad(dateId, bookingId, tkRowOf(dateId, bookingId) || {});
+    $("views").innerHTML = viewTickets();
+  } catch (e) { if (btn) btn.disabled = false; alert(e.message); }
+}
+function tkPayAdd(btn){
+  var a = $("tkpAmt").value;
+  if (!(Number(a) > 0)) { alert("Enter the amount paid, as a number above zero."); return; }
+  tkExtraAction(btn, "tickets.payment.add", { amount:Number(a), note:$("tkpNote").value });
+}
+function tkPayVoid(ev, id){
+  ev.preventDefault();
+  if (!confirm("Remove this payment? It stays on the record, struck through.")) return;
+  tkExtraAction(null, "tickets.payment.void", { payment_id:id });
+}
+function tkComAdd(btn){
+  var t = $("tkcText").value.trim();
+  if (!t) { alert("Write a comment first."); return; }
+  tkExtraAction(btn, "tickets.comment.add", { comment:t });
 }
 
 async function tkCsvBookings(key, id, btn){
@@ -1627,7 +1698,7 @@ async function tkCsvBookings(key, id, btn){
     var cell = function(v){ v = String(v == null ? "" : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
     var yn = function(v){ return v === true ? "Yes" : (v === false ? "No" : ""); };
     var out = [["Event","Show","Booking ref","Status","Booked","Booked by","Email","Telephone","Address","Postcode",
-      "Tickets","Ticket types","Paid","Attendees","Consent email","Consent post","Consent SMS","Consent third party","Booked by (staff)"]];
+      "Tickets","Ticket types","Paid via TicketSource","Additional payments","Total paid","Comments","Attendees","Consent email","Consent post","Consent SMS","Consent third party","Booked by (staff)"]];
     (d.bookings || []).forEach(function(b){
       var sh = shows[b.date_id] || {}, by = b.buyer || {}, c = by.consent || {};
       var gone = !(b.tickets > 0 || Number(b.gross) > 0);
@@ -1640,7 +1711,7 @@ async function tkCsvBookings(key, id, btn){
       }).join("; ");
       out.push([sh.event_name, tkWhen(sh.starts_at), b.booking_ref, gone ? "Cancelled" : "Booked", tkBooked(b.booked_at),
         b.customer_name, b.customer_email || by.email, by.telephone, by.address, by.postcode,
-        b.tickets, tkCats(b.categories).replace(/&amp;/g, "&"), Number(b.gross || 0).toFixed(2), who,
+        b.tickets, tkCats(b.categories).replace(/&amp;/g, "&"), Number(b.gross || 0).toFixed(2), Number(b.extra_paid || 0).toFixed(2), (Number(b.gross || 0) + Number(b.extra_paid || 0)).toFixed(2), b.comments || "", who,
         yn(c.email), yn(c.post), yn(c.sms), c.third_party, by.booked_by]);
     });
     var csv = out.map(function(r){ return r.map(cell).join(","); }).join("\r\n");
