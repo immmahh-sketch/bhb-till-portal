@@ -880,6 +880,45 @@ async function pushInit(){
   }catch(e){ /* push is a bonus: never get in the way of the portal */ }
 }
 
+/* ---------------------------------------------------- step-up: a six-digit code, emailed, before a tile that holds personal information opens */
+function stepVeil(){
+  let v = $("#stepveil"); if (v) return v;
+  v = document.createElement("div"); v.id = "stepveil"; v.className = "pushveil"; v.setAttribute("role", "dialog"); v.setAttribute("aria-modal", "true");
+  document.body.appendChild(v); return v;
+}
+function stepupBox(){
+  return new Promise(resolve => {
+    const v = stepVeil(); let done = false;
+    const finish = ok => { if (done) return; done = true; v.classList.remove("on"); v.innerHTML = ""; resolve(ok); };
+    const render = (sentTo, msg) => {
+      v.innerHTML = `<div class="pushbox"><h2>Confirm it is you</h2><p>This part of the portal holds personal information. ${sentTo ? "We have emailed a six-digit code to <b>" + esc(sentTo) + "</b>. It works for 10 minutes." : "We need to send a six-digit code to your email first."}</p>
+        <input id="stepcode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" aria-label="Six-digit code" style="width:100%;box-sizing:border-box;font:inherit;font-size:28px;letter-spacing:8px;text-align:center;padding:12px;border:1px solid var(--sage);border-radius:8px;margin:4px 0 6px">
+        <div class="pmsg" id="smsg">${esc(msg || "")}</div>
+        <div class="pbtns"><button class="go" data-s="ok">Confirm</button><button data-s="again">Email me a new code</button><button class="quiet" data-s="cancel">Cancel</button></div></div>`;
+      v.classList.add("on");
+      const inp = $("#stepcode"); if (inp) { inp.focus(); inp.addEventListener("input", () => { inp.value = inp.value.replace(/\D/g, "").slice(0, 6); }); inp.addEventListener("keydown", e => { if (e.key === "Enter") verify(); }); }
+      v.querySelectorAll("[data-s]").forEach(b => b.addEventListener("click", () => { const a = b.dataset.s; if (a === "cancel") finish(false); else if (a === "again") send(); else verify(); }));
+    };
+    const send = async () => { try { const r = await api("stepup_send"); render(r.sent_to, ""); } catch(e){ render("", e.message); } };
+    const verify = async () => {
+      const code = (($("#stepcode") || {}).value || "").replace(/\D/g, "");
+      if (code.length !== 6) { const m = $("#smsg"); if (m) m.textContent = "Enter the six digits from the email."; return; }
+      const ok = v.querySelector('[data-s="ok"]'); if (ok) ok.disabled = true;
+      try { await api("stepup_verify", { code }); finish(true); } catch(e){ if (ok) ok.disabled = false; const m = $("#smsg"); if (m) m.textContent = e.message; }
+    };
+    render("", "Sending your code..."); send();
+  });
+}
+async function ensureStepup(){
+  try { const st = await api("stepup_status"); if (st.verified) return true; }
+  catch(e){ toast(e.message, true); return false; }
+  return stepupBox();
+}
+window.addEventListener("message", async ev => {
+  if (ev.origin !== location.origin || !ev.data || ev.data.type !== "bhb-stepup") return;
+  if (await ensureStepup()) { try { $("#vframe").contentWindow.location.reload(); } catch(e){} }
+});
+
 function iconFor(k){
   const m = { heart:"&#10084;", chart:"&#128200;", calendar:"&#128197;", receipt:"&#128179;", till:"&#128176;",
               ledger:"&#128209;", safe:"&#128274;", checks:"&#9989;", wrench:"&#128295;", pound:"&#128202;", notice:"&#128227;", clipboard:"&#128203;", tasks:"&#128221;", cart:"&#128722;", megaphone:"&#128226;", transfer:"&#128228;", calendar:"&#128197;", alert:"&#128680;", faq:"&#10067;", training:"&#127891;", onboarding:"&#129309;", bed:"&#128719;", trophy:"&#127942;" };
@@ -1267,6 +1306,8 @@ async function openPortal(key, ref){
     return;
   }
 
+  if (p.requires_2fa && !(await ensureStepup())) return;
+
   S.current = key;
 
   if (key === "po-tracker") {
@@ -1403,7 +1444,7 @@ $("#vframe").addEventListener("load", function(){
   // this iframe's own window on every load, same as a session-store app's
   // password - wedding-admin's bonus tracker uses it to tell the GM's
   // account apart from everyone else's for edit access.
-  try { this.contentWindow.sessionStorage.setItem("bhb_staff_email", S.user.email || ""); } catch(e){}
+  try { this.contentWindow.sessionStorage.setItem("bhb_staff_email", S.user.email || ""); this.contentWindow.sessionStorage.setItem("bhb_staff_token", S.token || ""); } catch(e){}
   // The app's own script has already run by the time this load event
   // fires, so it booted before it could see who's signed in. One reload
   // after the first injection fixes that for every same-origin app - the

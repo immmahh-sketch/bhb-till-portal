@@ -300,16 +300,17 @@ const S = { reg:null, regSig:"", regFilter:"all", regFind:"", me:null, settings:
 
 /* ------------------------------------------------------------- plumbing */
 function toast(msg, bad){ const t = $("#toast"); t.textContent = msg; t.className = "toast on" + (bad ? " bad" : ""); clearTimeout(toast._t); toast._t = setTimeout(() => { t.className = "toast"; }, bad ? 5600 : 2800); }
+function staffToken(){ try { return sessionStorage.getItem("bhb_staff_token") || ""; } catch(e){ return ""; } }
 function staffEmail(){ try { return sessionStorage.getItem("bhb_staff_email") || ""; } catch(e){ return ""; } }
 async function call(action, payload){
-  const body = { action, staff_email: staffEmail(), ...(payload || {}) };
+  const body = { action, staff_email: staffEmail(), staff_token: staffToken(), ...(payload || {}) };
   if (typeof window.__MOCK_API__ === "function") {
     const r = await window.__MOCK_API__(action, JSON.parse(JSON.stringify(body)));
     return JSON.parse(JSON.stringify(r === undefined ? {} : r));
   }
   const r = await fetch(CFG.SUPABASE_URL + "/functions/v1/onboarding-api", { method:"POST", headers:{ "Content-Type":"application/json", Authorization:"Bearer " + CFG.SUPABASE_KEY, apikey:CFG.SUPABASE_KEY }, body: JSON.stringify(body) });
   let d = {}; try { d = await r.json(); } catch(e){}
-  if (!r.ok || d.error) { const err = new Error(d.error || `Request failed (${r.status})`); err.fields = d.fields || null; throw err; }
+  if (!r.ok || d.error) { const err = new Error(d.error || `Request failed (${r.status})`); err.fields = d.fields || null; err.code = d.code || null; throw err; }
   return d;
 }
 const LON = "Europe/London";
@@ -691,6 +692,17 @@ function kvRow(label, show, copy){
   const c = copy === undefined ? String(show) : copy;
   return `<div class="kv"><dt>${esc(label)}</dt><dd>${esc(show)}</dd><button class="btn small ghost copy" data-act="copy" data-v="${esc(c)}" aria-label="Copy ${esc(label)}">Copy</button></div>`;
 }
+function retentionHtml(s){
+  const r = s.retention || {}, admin = !!(S.me && S.me.admin);
+  const ask = S.ui.confirm === "erase" ? `<div class="confirmbox" role="alertdialog" aria-label="Erase this record"><b>Erase everything held about ${esc(fullName(s))}?</b><div class="small" style="margin:4px 0 10px">The record, the signed forms and every uploaded document are deleted for good and cannot be brought back. Planday and Xero are separate and are not touched. Keep the person's written request somewhere safe.</div><div class="row-actions"><button class="btn small solid-danger" data-act="eraseyes" data-k="requested_by_person">Erase: they asked in writing</button><button class="btn small ghost" data-act="eraseyes" data-k="manual">Erase for another reason</button><button class="btn small ghost" data-act="eraseno">Keep it</button></div></div>` : "";
+  let line;
+  if (r.rule === "cancelled") line = `This starter was cancelled, so the record is deleted automatically on <b>${esc(fmtDay(r.delete_on))}</b> (30 days after the cancellation).`;
+  else if (r.rule === "left") line = `Left on <b>${esc(fmtDay(r.left_on))}</b>${r.left_by ? " (recorded by " + esc(r.left_by) + ")" : ""}. Everything is deleted automatically on <b>${esc(fmtDay(r.delete_on))}</b>, three years after they left.`;
+  else line = `Still working here, so the record is kept. Three years after they leave it is deleted automatically.${admin ? " The leaving date is picked up from Planday, or you can enter it here." : ""}`;
+  const edit = admin && r.rule !== "cancelled" ? `<div class="row-actions" style="margin-top:10px;align-items:flex-end"><div class="field" style="margin:0"><label for="ret_left">Date they left</label><input id="ret_left" type="date" value="${esc(r.left_on || "")}"></div><button class="btn small" data-act="leftsave">Save leaving date</button>${r.left_on ? `<button class="btn small ghost" data-act="leftclear">They have not left</button>` : ""}</div>` : "";
+  const erase = admin && S.ui.confirm !== "erase" ? `<div class="row-actions" style="margin-top:12px"><button class="btn small danger" data-act="eraseask">Erase now (they asked us to in writing)</button></div>` : "";
+  return `<p style="margin-top:0">${line}</p>${edit}${erase}${ask}`;
+}
 function ukDate(iso){ const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || ""); return m ? `${m[3]}/${m[2]}/${m[1]}` : iso; }
 function payrollHtml(s){
   const x = s.details;
@@ -1029,6 +1041,7 @@ function teamDetailHtml(s, d){
       ${sendNote}${lk}${ask}</div>
     ${checksCard(s, d.files, true)}
     <details class="sec" data-key="files"${openKey("files", true) ? " open" : ""}><summary>Documents${d.files && d.files.length ? `<span class="badge kind">${d.files.length}</span>` : ""}</summary><div class="in">${docsHtml(s, d.files, true)}</div></details>
+    <details class="sec" data-key="retention"${openKey("retention", false) ? " open" : ""}><summary>Keeping and deleting this record</summary><div class="in">${retentionHtml(s)}</div></details>
     <details class="sec" data-key="log"${openKey("log", false) ? " open" : ""}><summary>Activity</summary><div class="in">${logHtml(d.log)}</div></details>
     <p class="muted tiny" style="margin:14px 2px">Opening this record is logged against your name.</p>`;
 }
@@ -1060,6 +1073,7 @@ function renderDetail(){
     ${checksCard(s, d.files)}
     ${sec("files", "Documents", docsHtml(s, d.files), true, d.files && d.files.length ? `<span class="badge kind">${d.files.length}</span>` : "")}
     ${sec("planday", "Planday", plandayHtml(s), ["submitted", "in_planday"].includes(s.status))}
+    ${sec("retention", "Keeping and deleting this record", retentionHtml(s), s.retention && s.retention.rule === "left" || !!S.ui.confirm && S.ui.confirm === "erase")}
     ${sec("log", "Activity", logHtml(d.log), false)}
     <p class="muted tiny" style="margin:14px 2px">Opening this record is logged against your name, as it holds personal and health information.</p>`;
   window.scrollTo(0, keepY);
@@ -1082,6 +1096,8 @@ function showSettings(){
       <canvas id="sigpad" width="520" height="170" style="width:100%; max-width:520px; height:auto; aspect-ratio:520/170; background:#fff; border:1px dashed var(--celadon); border-radius:8px; touch-action:none; cursor:crosshair"></canvas>
       <div class="row-actions" style="margin-top:8px"><button type="button" class="btn small ghost" data-act="sigclear">Clear the pad</button><button type="button" class="btn small" data-act="sigsave">Save this signature</button>${st.signatory_signature ? `<button type="button" class="btn small ghost" data-act="sigremove">Remove the saved signature</button>` : ""}</div></div>
     <div class="formbtns"><button class="btn" data-act="savesettings">Save settings</button></div>
+    <div class="sechead">Keeping and deleting data</div>
+    <div class="card" id="retcard"><p class="muted" style="margin:0">Loading...</p></div>
     <div class="sechead">How it works</div>
     <div class="card"><p style="margin-top:0">A new starter gets one link. On their phone, in their own time, they:</p>
       <ol style="margin:0 0 10px;padding-left:20px"><li>enter their payroll details and bank details</li><li>answer the HMRC starter checklist (the tax questions)</li><li>complete a confidential health questionnaire and sign it</li><li>choose whether to opt out of the 48-hour working week, and sign</li><li>read and sign their contract</li></ol>
@@ -1094,6 +1110,20 @@ function showSettings(){
       <div class="row-actions" style="margin-top:14px"><a class="btn small ghost" href="forms/Individual_Health_Risk_Assessment.docx" target="_blank" rel="noopener">Open the risk assessment form</a></div>
       <div class="conf">Health information is confidential: only share what the manager of this person needs.</div></div>`;
   initSigPad();
+  loadRetention();
+}
+async function loadRetention(){
+  const el = $("#retcard"); if (!el) return;
+  try {
+    const d = await call("retention.list");
+    const rows = d.people || [], er = d.erasures || [];
+    const why = { left_3_years:"Three years after leaving", requested_by_person:"Asked in writing", cancelled_never_started:"Cancelled starter, 30 days", manual:"Erased by an administrator" };
+    el.innerHTML = `<p style="margin-top:0">Personal data is kept while someone works here and for <b>three years after they leave</b>, then deleted automatically each night. A cancelled starter is deleted 30 days after the cancellation. If someone asks in writing for their data to be removed sooner, open their record and use <b>Erase now</b>.</p>
+      <p class="small muted">Leaving dates are taken from Planday (when someone stops being an active employee there). You can correct a date on the person's record. ${d.employed} ${d.employed === 1 ? "person is" : "people are"} still employed, so ${d.employed === 1 ? "has" : "have"} no deletion date.</p>
+      ${rows.length ? `<div class="sub-h">Coming up for deletion</div><div class="small">${rows.map(x => `<div style="display:flex;gap:10px;justify-content:space-between;border-bottom:1px solid var(--line,#e4e1d8);padding:5px 0"><span>${esc(x.name)}${x.kind === "existing" ? " (team)" : ""}</span><span class="muted">${esc(fmtDay(x.delete_on))}${x.rule === "cancelled" ? " (cancelled)" : ""}</span></div>`).join("")}</div>` : `<p class="small muted">Nothing is waiting to be deleted.</p>`}
+      <div class="sub-h" style="margin-top:14px">Register of deletions</div>
+      ${er.length ? `<div class="small">${er.map(x => `<div style="display:flex;gap:10px;justify-content:space-between;border-bottom:1px solid var(--line,#e4e1d8);padding:5px 0"><span>${esc(fmtDT(x.erased_at))}: ${esc(why[x.reason] || x.reason)}</span><span class="muted">${x.files_removed} file${x.files_removed === 1 ? "" : "s"}, by ${esc(x.erased_by)}</span></div>`).join("")}</div><p class="tiny muted">Names are not kept in this register.</p>` : `<p class="small muted">Nothing has been deleted yet.</p>`}`;
+  } catch(e){ el.innerHTML = `<p class="muted" style="margin:0">${esc(e.message)}</p>`; }
 }
 /* The employer's signature pad (Settings). Draws on a transparent canvas; saved as a PNG that is printed above the signatory's name on each contract. */
 function initSigPad(){
@@ -1298,6 +1328,7 @@ document.addEventListener("click", async e => {
     if (a === "closemodal") return closeModal();
     if (a === "preview") { busy(true); try { await previewContract(); } finally { busy(false); } return; }
     if (a === "save" || a === "savesend") { busy(true); try { await saveForm(a === "savesend"); } finally { if (document.body.contains(b)) busy(false); } return; }
+    if (a === "stepup") { try { parent.postMessage({ type:"bhb-stepup" }, location.origin); } catch(e){} return toast("Opening the code box in the portal..."); }
     if (a === "savesettings") { busy(true); try { await saveSettings(); } finally { busy(false); } return; }
     if (a === "sigclear") { const c = $("#sigpad"); if (c) { c.getContext("2d").clearRect(0, 0, c.width, c.height); S.sigInk = false; } return; }
     if (a === "sigsave") { busy(true); try { await saveSignature(false); } finally { busy(false); } return; }
@@ -1311,6 +1342,11 @@ document.addEventListener("click", async e => {
       return afterAction();
     }
     if (a === "copylink") { busy(true); const r = await call("starter.link", { id:sid }); S.ui.link = { link:r.link, expires_at:r.expires_at }; S.ui.sendNote = null; renderDetail(); const ok = await copyText(r.link); return toast(ok ? "Link copied." : "Here is the link. Select it and copy.", !ok); }
+    if (a === "leftsave") { const v = ($("#ret_left") || {}).value || ""; if (!v) return toast("Choose the date they left.", true); busy(true); await call("starter.left", { id:sid, left_on:v }); toast("Leaving date saved."); return afterAction(); }
+    if (a === "leftclear") { busy(true); await call("starter.left", { id:sid, left_on:null }); toast("Leaving date removed."); return afterAction(); }
+    if (a === "eraseask") { S.ui.confirm = "erase"; return renderDetail(); }
+    if (a === "eraseno") { S.ui.confirm = null; return renderDetail(); }
+    if (a === "eraseyes") { busy(true); await call("starter.erase", { id:sid, confirm:true, reason:b.dataset.k }); S.ui.confirm = null; S.d = null; S.list = null; S.regSig = ""; toast("Erased."); return go("#/"); }
     if (a === "cancelask") { S.ui.confirm = "cancel"; return renderDetail(); }
     if (a === "cancelno") { S.ui.confirm = null; return renderDetail(); }
     if (a === "cancelyes") { busy(true); await call("starter.cancel", { id:sid }); S.ui.confirm = null; S.ui.link = null; if (S.d && S.d.starter.kind === "existing") { toast("Removed from the register."); S.regSig = ""; S.d = null; return go("#/documents"); } toast("Starter cancelled."); return afterAction(); }
@@ -1387,7 +1423,12 @@ async function boot(){
   try {
     const [d, hj] = await Promise.all([call("bootstrap"), fetch("health.json", { cache:"no-cache" }).then(r => r.ok ? r.json() : null).catch(() => null)]);
     S.me = d.me; S.settings = d.settings || {}; S.planday = d.planday || {}; S.templates = d.templates || []; S.health = hj;
-  } catch(e){ $("#views").innerHTML = `<div class="card empty">${esc(e.message)}<br><br><span class="muted">Open this from the Staff Portal so it knows who you are.</span></div>`; return; }
+  } catch(e){
+    $("#views").innerHTML = e.code === "2fa"
+      ? `<div class="card empty"><h3 style="font-size:24px;margin-bottom:6px">Please confirm it is you</h3>This part of the portal holds personal information, so we email you a six-digit code first.<div class="row-actions" style="justify-content:center;margin-top:14px"><button class="btn" data-act="stepup">Send me a code</button></div></div>`
+      : `<div class="card empty">${esc(e.message)}<br><br><span class="muted">Open this from the Staff Portal so it knows who you are.</span></div>`;
+    return;
+  }
   $("#whoname").textContent = S.me.name || S.me.email || "";
   await route();
 }
