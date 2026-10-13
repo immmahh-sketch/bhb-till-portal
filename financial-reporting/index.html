@@ -904,7 +904,7 @@ async function cuLoadStock(){
   box.innerHTML = `<h3 style="margin-bottom:4px;font-size:18px">Stock to post to the till</h3>
     <div class="hint" style="margin-bottom:10px">Ring each of these through the till at a price of <b>£0</b> (override the price) so the stock comes off, then press Confirm. The cash up cannot be saved until every line is confirmed.</div>
     <table class="cuTable"><thead><tr><th>Type</th><th>Product</th><th class="n">Qty</th><th>Details</th><th></th></tr></thead><tbody>
-    ${CU.stock.map((g, i) => `<tr class="${g.posted ? "doneRow" : ""}"><td>${esc(STOCK_KIND[g.kind] || g.kind)}${g.usage_date !== date ? `<div class="hint">${esc(ukDate(g.usage_date))}</div>` : ""}</td><td><b>${esc(g.product)}</b></td><td class="n"><b>${g.qty}</b></td><td class="hint">${esc(g.notes.join("; "))}${g.by.length ? `<div>${esc(g.by.join(", "))}</div>` : ""}</td>
+    ${CU.stock.map((g, i) => `<tr class="${g.posted ? "doneRow" : ""}"><td>${esc(STOCK_KIND[g.kind] || g.kind)}${g.usage_date !== date ? `<div class="hint">${esc(ukDate(g.usage_date))}</div>` : ""}</td><td><b>${esc(g.product)}</b></td><td class="n"><b>${g.qty}</b> ${esc(g.unit || "")}</td><td class="hint">${esc(g.notes.join("; "))}${g.by.length ? `<div>${esc(g.by.join(", "))}</div>` : ""}</td>
       <td class="n">${g.posted ? `<span class="okTag">Posted &#10003;${g.posted_by ? " " + esc(g.posted_by) : ""}</span>` : `<button class="btn small" data-cu-confirm="${i}">Confirm posted to till</button>`}</td></tr>`).join("")}
     </tbody></table>`;
   box.querySelectorAll("[data-cu-confirm]").forEach(b => b.addEventListener("click", async () => {

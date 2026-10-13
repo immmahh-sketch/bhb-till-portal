@@ -127,10 +127,29 @@ async function show(tab){
 async function refreshBoot(){ S.boot = await call("bootstrap"); S.products = S.boot.products; S.areas = S.boot.areas; S.period = S.boot.period; }
 
 /* ------------------------------------------------------------- daily tabs */
+/* What a quantity is counted in. The first is the usual one for that kind of product; the rest are there if the drink went another way. */
+const ALL_UNITS = ["pints", "halves", "shots", "doubles", "dashes", "glasses", "bottles", "cans", "cases", "kegs"];
+function unitsFor(p){
+  if (!p) return ALL_UNITS;
+  const c = String(p.category || ""), n = String(p.name || ""), first = [];
+  if (p.uom === "keg") first.push("pints", "halves", p.uom === "keg" && /cask/i.test(n + c) ? "casks" : "kegs");
+  else if (/^(gin|vodka|rum|whisky|brandy|liqueurs|shots|spirits|fortified wine)$/i.test(c)) first.push("shots", "doubles", "dashes", "bottles");
+  else if (/wine|sparkling|champagne/i.test(c)) first.push("glasses", "bottles");
+  else if (/mixer|soft/i.test(c)) first.push("bottles", "glasses", "dashes", "pints", "cans");
+  else if (/\bcans?\b/i.test(n)) first.push("cans", "bottles");
+  else first.push("bottles", "cans", "pints", "halves");
+  if (p.case_size) first.push("cases");
+  return [...new Set(first)];
+}
+function unitOptions(p, sel){
+  const mine = unitsFor(p), rest = ALL_UNITS.filter(u => !mine.includes(u));
+  return `<optgroup label="Usual for this product">${mine.map(u => `<option${u === sel ? " selected" : ""}>${esc(u)}</option>`).join("")}</optgroup>` + (rest.length ? `<optgroup label="Other">${rest.map(u => `<option${u === sel ? " selected" : ""}>${esc(u)}</option>`).join("")}</optgroup>` : "");
+}
 async function showDaily(kind){
   const d = DAILY[kind]; const r = await call("usage.list", { kind });
-  S.daily = { kind, date:r.date, rows:r.rows, filter:"", product:"", qty:"", reason:"", note:"" };
+  S.daily = { kind, date:r.date, rows:r.rows, filter:"", product:"", qty:"", unit:"", reason:"", note:"" };
   const pref = d.pref && beverageProducts().find(p => d.pref.test(p.name)); if (pref) S.daily.product = pref.id;
+  S.daily.unit = unitsFor(productById(S.daily.product))[0];
   renderDaily();
 }
 function productOptions(selected, filter){
@@ -151,12 +170,13 @@ function renderDaily(){
     <div class="card"><div class="grid">
       <div class="field" style="grid-column:span 2"><label>Product</label><input class="in" id="d_filter" placeholder="Type to narrow the list…" value="${esc(D.filter)}" style="margin-bottom:6px"><select class="in" id="d_product" size="1">${productOptions(D.product, D.filter)}</select></div>
       <div class="field"><label>Quantity</label><input class="in" id="d_qty" type="number" min="0.5" step="0.5" inputmode="decimal" value="${esc(D.qty)}" placeholder="How many"></div>
+      <div class="field"><label>Unit</label><select class="in" id="d_unit">${unitOptions(productById(D.product), D.unit)}</select></div>
       ${D.kind === "wastage" ? `<div class="field"><label>Reason</label><select class="in" id="d_reason"><option value="">Choose…</option>${S.boot.reasons.map(r => `<option${D.reason === r ? " selected" : ""}>${esc(r)}</option>`).join("")}</select></div>` : ""}
       ${d.note ? `<div class="field"><label>${esc(d.note)}</label><input class="in" id="d_note" maxlength="200" value="${esc(D.note)}"></div>` : ""}
     </div><div class="row-actions" style="margin-top:0"><button class="btn" data-act="add">Add</button></div></div>
     <div class="card"><h3>Today's lines</h3>${D.rows.length ? `<div class="tw"><table class="t"><thead><tr><th>Time</th><th>Product</th><th class="n">Qty</th><th>${D.kind === "wastage" ? "Reason" : "Details"}</th><th>Added by</th><th>Till</th><th></th></tr></thead><tbody>${D.rows.map(r => {
       const p = productById(r.product_id), time = new Date(r.created_at).toLocaleTimeString("en-GB", { timeZone:"Europe/London", hour:"2-digit", minute:"2-digit" });
-      return `<tr><td>${time}</td><td><b>${esc(p ? p.name : "?")}</b></td><td class="n"><b>${fnum(r.qty)}</b></td><td>${esc([r.reason, r.note].filter(Boolean).join(": "))}</td><td>${esc(r.created_by)}</td><td>${r.posted_at ? `<span class="good">Posted &#10003;</span>` : `<span class="muted">Waiting for cash up</span>`}</td><td class="n">${r.posted_at ? "" : `<button class="btn small danger" data-act="del" data-id="${r.id}">Remove</button>`}</td></tr>`;
+      return `<tr><td>${time}</td><td><b>${esc(p ? p.name : "?")}</b></td><td class="n"><b>${fnum(r.qty)}</b> ${esc(r.unit || "")}</td><td>${esc([r.reason, r.note].filter(Boolean).join(": "))}</td><td>${esc(r.created_by)}</td><td>${r.posted_at ? `<span class="good">Posted &#10003;</span>` : `<span class="muted">Waiting for cash up</span>`}</td><td class="n">${r.posted_at ? "" : `<button class="btn small danger" data-act="del" data-id="${r.id}">Remove</button>`}</td></tr>`;
     }).join("")}</tbody></table></div>` : `<p class="muted">Nothing recorded today yet.</p>`}
     <p class="tiny muted" style="margin:8px 0 0">These lines appear in the totals at cash up, where each is posted to the till at a price of £0 and confirmed.</p></div>`;
   window.scrollTo(0, keep);
@@ -459,10 +479,10 @@ document.addEventListener("click", async e => {
     if (a === "close") return closeModal();
     if (a === "add") {
       const D = S.daily, d = DAILY[D.kind];
-      const body = { kind:D.kind, product_id:D.product, qty:Number(D.qty), reason:D.reason, note:D.note };
+      const body = { kind:D.kind, product_id:D.product, qty:Number(D.qty), unit:D.unit, reason:D.reason, note:D.note };
       if (!body.product_id) return toast("Choose a product.", true); if (!(body.qty > 0)) return toast("Enter a quantity.", true);
       if (D.kind === "wastage" && !body.reason) return toast("Choose a reason.", true); if (d.need && !D.note.trim()) return toast(d.note + ".", true);
-      b.disabled = true; await call("usage.add", body); const r = await call("usage.list", { kind:D.kind }); D.rows = r.rows; D.qty = ""; D.note = ""; D.reason = ""; D.filter = ""; const pref = d.pref && beverageProducts().find(p => d.pref.test(p.name)); D.product = pref ? pref.id : ""; toast("Added."); return renderDaily();
+      b.disabled = true; await call("usage.add", body); const r = await call("usage.list", { kind:D.kind }); D.rows = r.rows; D.qty = ""; D.note = ""; D.reason = ""; D.filter = ""; const pref = d.pref && beverageProducts().find(p => d.pref.test(p.name)); D.product = pref ? pref.id : ""; D.unit = unitsFor(productById(D.product))[0]; toast("Added."); return renderDaily();
     }
     if (a === "del") { await call("usage.delete", { id:b.dataset.id }); S.daily.rows = S.daily.rows.filter(r => r.id !== b.dataset.id); toast("Removed."); return renderDaily(); }
     if (a === "area") { S.area = b.dataset.id; return renderCount(); }
@@ -539,7 +559,7 @@ document.addEventListener("change", async e => {
     if (row && t.dataset.rc) { const d = S.rc.draft[Number(row.dataset.rci)]; if (t.dataset.rc === "product") d.product_id = t.value; else d.portions = t.value; S.openSec = openState(); return renderAdmin(); } }
   const t = e.target;
   try {
-    if (S.tab && DAILY[S.tab] && S.daily) { if (t.id === "d_product") S.daily.product = t.value; if (t.id === "d_reason") S.daily.reason = t.value; }
+    if (S.tab && DAILY[S.tab] && S.daily) { if (t.id === "d_product") { S.daily.product = t.value; S.daily.unit = unitsFor(productById(t.value))[0]; const u = $("#d_unit"); if (u) u.innerHTML = unitOptions(productById(t.value), S.daily.unit); } if (t.id === "d_unit") S.daily.unit = t.value; if (t.id === "d_reason") S.daily.reason = t.value; }
     if (t.id === "c_all") { S.all = t.checked; return renderCount(); }
     const crow = t.closest(".count[data-key]"); if (crow && t.matches("input")) return saveCount(crow);
     if (t.id === "r_period") { S.repPeriod = t.value; return loadReport(); }
