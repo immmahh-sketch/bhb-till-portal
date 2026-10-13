@@ -768,9 +768,9 @@ function enterApp(){
   renderNav();
   if (S.user.role !== "admin") $("#page-settings").remove();
   else plCheck(true);
-  maybeWelcome();
-  loadNoticePopups();
-  startBadges();
+  try{ maybeWelcome(); }catch(e){ console.error(e); }
+  try{ loadNoticePopups(); }catch(e){ console.error(e); }
+  try{ startBadges(); }catch(e){ console.error(e); }
   setTimeout(pushInit, 2500);
 }
 
@@ -824,9 +824,19 @@ function pushVeil(){
 }
 function closePushBox(){ const v = $("#pushveil"); if (v) v.classList.remove("on"); }
 /* manage = opened from the menu (shows the current state and lets them switch it off); otherwise it is the prompt on opening the portal */
+function pushWhyNot(){
+  const ua = navigator.userAgent || "", ios = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  if (ios && !isStandalone()) return "On an iPhone or iPad, notifications only work when the portal is opened from its Home Screen icon, not from Safari. Open it from the icon on your Home Screen and try again. If there is no icon, add it with Share, then Add to Home Screen.";
+  if (ios) return "This iPhone or iPad does not offer notifications to the portal. It needs iOS 16.4 or newer: check Settings, General, Software Update.";
+  return "This browser does not offer notifications to the portal. Try the latest Chrome, Edge or Safari.";
+}
 async function openPushBox(manage){
-  if (!pushSupported()) return;
-  const sub = await pushSub().catch(()=>null), on = !!sub && Notification.permission === "granted", denied = Notification.permission === "denied";
+  if (!pushSupported()) {
+    const v0 = pushVeil();
+    v0.innerHTML = `<div class="pushbox"><h2>Notifications are not available here</h2><p>${esc(pushWhyNot())}</p><div class="pbtns"><button class="go" data-p="close">OK</button>${manage ? "" : '<button class="quiet" data-p="never">Do not show again</button>'}</div></div>`;
+    v0.classList.add("on"); v0.querySelectorAll("[data-p]").forEach(b => b.addEventListener("click", () => { if (b.dataset.p === "never") { try{ localStorage.setItem(LS_PUSH_NEVER(), "1"); }catch(e){} } closePushBox(); })); return;
+  }
+  const sub = await Promise.race([pushSub().catch(()=>null), new Promise(r => setTimeout(() => r(null), 5000))]), on = !!sub && Notification.permission === "granted", denied = Notification.permission === "denied";
   const v = pushVeil();
   const head = on ? "Notifications are on" : "Get a nudge when something needs you";
   const text = on
@@ -853,8 +863,10 @@ async function openPushBox(manage){
 /* On opening the portal: keep an existing subscription alive on the server, or ask. The ask returns every time until "Do not show again". */
 async function pushInit(){
   try{
-    if (!pushSupported() || !S.token) return;
-    const sub = await pushSub();
+    if (!S.token) return;
+    let never0 = false; try{ never0 = localStorage.getItem(LS_PUSH_NEVER()) === "1"; }catch(e){}
+    if (!pushSupported()) { if (!never0) openPushBox(false); return; }
+    const sub = await Promise.race([pushSub(), new Promise(r => setTimeout(() => r(null), 5000))]);
     if (sub && Notification.permission === "granted") {
       const st = await api("push_status", { endpoint: sub.endpoint }).catch(()=>null);
       if (st && !st.subscribed) await api("push_subscribe", { subscription: sub.toJSON(), ua: navigator.userAgent }).catch(()=>{});
@@ -1144,7 +1156,7 @@ function renderNav(){
   const settingsItem = S.user && S.user.role==="admin"
     ? `<button class="nitem" data-goto="settings"><span class="dot" style="background:#8C4A3F"></span>Settings${S.plNew ? `<span class="dotbadge">${S.plNew}</span>` : ""}</button>`
     : "";
-  const pushItem = pushSupported() ? `<button class="nitem" data-goto="push"><span class="dot" style="background:#C9A56B"></span>Notifications</button>` : "";
+  const pushItem = S.user ? `<button class="nitem" data-goto="push"><span class="dot" style="background:#C9A56B"></span>Notifications</button>` : "";
   $("#navList").innerHTML = `
     <button class="nitem" data-goto="landing"><span class="dot" style="background:#7B887C"></span>All Portals</button>
     ${items}
