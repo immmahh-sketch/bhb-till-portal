@@ -1653,7 +1653,8 @@ async function checkBusyNotice(){
   if(params.get("camper") === "1") lockedRoom = null; // camper links never lock a room/table - the guest types their registration
   var isStaffLink = params.get("staff") === "1";
   var isCamperLink = params.get("camper") === "1" && !isStaffLink;
-  S.channel = isStaffLink ? "staff_food" : (isCamperLink ? "camper" : (lockedTable ? "outside" : "room_service"));
+  // A table link with no number after the = (the printed table signs) is still outside ordering: the guest types their table number.
+  S.channel = isStaffLink ? "staff_food" : (isCamperLink ? "camper" : ((lockedTable || params.has("table")) ? "outside" : "room_service"));
   S.isComp = params.get("comp") === "1";
   loadPersistedGuestEmail();
   loadPersistedCart();
