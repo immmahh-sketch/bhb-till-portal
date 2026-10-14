@@ -427,7 +427,7 @@ function renderList(){
   const body = L === null ? skeletonList()
     : L.length ? L.map(cardHtml).join("")
     : `<div class="card empty">${S.filter === "open" ? "No new starters yet. Press New starter when someone accepts a job." : S.filter === "cancelled" ? "No cancelled starters." : "No starters yet. Press New starter when someone accepts a job."}</div>`;
-  $("#views").innerHTML = `<div class="pagehead"><h2>New starters</h2><button class="btn small ghost" data-act="refresh">Refresh</button><button class="btn" data-act="new">New starter</button></div>
+  $("#views").innerHTML = `<div class="pagehead"><h2>New starters</h2><button class="btn small ghost" data-act="refresh">Refresh</button>${S.me && S.me.payroll_only ? "" : '<button class="btn" data-act="new">New starter</button>'}</div>
     <div class="toolrow" style="margin-top:6px" role="group" aria-label="Show">${chips}</div>${body}
     <p class="muted tiny" style="margin-top:14px">Updates itself every minute${S.fetchedAt ? ". Last checked " + esc(new Date(S.fetchedAt).toLocaleTimeString("en-GB", { hour:"2-digit", minute:"2-digit" })) : ""}.</p>`;
   window.scrollTo(0, keepY);
@@ -670,6 +670,7 @@ function timelineHtml(s, d){
 }
 function openKey(k, dflt){ return S.ui.open && S.ui.open[k] !== undefined ? S.ui.open[k] : dflt; }
 function headerActions(s, d){
+  if (S.me && S.me.payroll_only) return `<div class="notice info" style="margin-top:12px">Payroll view: you can look at this record but not change it. Health answers and right to work documents are not shown.</div>`;
   const st = s.status, ex = expiryText(s), expired = ex && ex.bad, btns = [];
   const live = ["draft", "link_sent", "in_progress", "signed"].includes(st);
   if (st === "draft") btns.push(`<button class="btn" data-act="send">Send link</button>`);
@@ -1056,7 +1057,8 @@ function renderDetail(){
     return;
   }
   const hasPayroll = s.details && Object.keys(s.details).length;
-  const sec = (key, title, inner, dflt, badge) => `<details class="sec" data-key="${key}"${openKey(key, dflt) ? " open" : ""}><summary>${title}${badge || ""}</summary><div class="in">${inner}</div></details>`;
+  const po = !!(S.me && S.me.payroll_only);
+  const sec = (key, title, inner, dflt, badge) => (po && key === "health") ? "" : `<details class="sec" data-key="${key}"${openKey(key, dflt) ? " open" : ""}><summary>${title}${badge || ""}</summary><div class="in">${inner}</div></details>`;
   $("#views").innerHTML = `<button class="back" data-act="back">&larr; All starters</button>
     <div class="card dhead"><div style="display:flex;gap:10px;justify-content:space-between;align-items:flex-start;flex-wrap:wrap"><div><h2>${esc(fullName(s))}</h2>
       <div class="muted">${esc(s.job_title || "")}${s.department_name ? " &middot; " + esc(s.department_name) : ""}</div>
@@ -1070,7 +1072,7 @@ function renderDetail(){
     <div class="sechead">Progress</div><div class="card">${timelineHtml(s, d)}</div>
     ${sec("health", "Health questionnaire", `<div class="conf" style="margin-top:0">Health information is confidential: only share what the manager of this person needs.</div>${healthHtml(s)}`, flags > 0, flags ? `<span class="badge flags">${flags} flag${flags === 1 ? "" : "s"}</span>` : "")}
     ${sec("payroll", "Payroll details", `<div class="conf" style="margin-top:0">This is confidential: bank and personal details. Use Copy to paste into Planday or Xero, and do not share it further.</div>${payrollHtml(s)}<div class="sub-h" style="margin-top:20px">Tax checklist</div>${checklistHtml(s)}`, !!hasPayroll && s.status === "submitted")}
-    ${checksCard(s, d.files)}
+    ${po ? "" : checksCard(s, d.files)}
     ${sec("files", "Documents", docsHtml(s, d.files), true, d.files && d.files.length ? `<span class="badge kind">${d.files.length}</span>` : "")}
     ${sec("planday", "Planday", plandayHtml(s), ["submitted", "in_planday"].includes(s.status))}
     ${sec("retention", "Keeping and deleting this record", retentionHtml(s), s.retention && s.retention.rule === "left" || !!S.ui.confirm && S.ui.confirm === "erase")}
@@ -1086,6 +1088,7 @@ function showSettings(){
   const f = (id, l, v, ph) => `<div class="field"><label for="${id}">${l}</label><input id="${id}" value="${esc(v || "")}" placeholder="${esc(ph || "")}"></div>`;
   $("#views").innerHTML = `<div class="pagehead"><h2>Settings</h2></div>
     <div class="card"><h3 style="font-size:23px;margin-bottom:8px">Notifications and links</h3>
+      <div class="field"><label for="s_payview">Payroll view: see every new starter, read only</label><textarea id="s_payview" placeholder="name@example.com">${esc((st.payroll_view_emails || []).join("\n"))}</textarea><div class="hint">For accounts. They can see every starter's payroll details, including bank and National Insurance numbers, and the signed contract. They cannot see health answers, risk assessments or right to work documents, and cannot change anything. Use the email they sign in to the portal with, one per line. Administrators always see everything.</div><div class="err" id="e_payview"></div></div>
       <div class="field"><label for="s_notify">Who is told when someone submits</label><textarea id="s_notify" placeholder="name@example.com">${esc((st.notify_emails || []).join("\n"))}</textarea><div class="hint">One email address per line, or separated by commas.</div><div class="ferr" id="e_notify"></div></div>
       <div class="field" style="max-width:240px"><label for="s_days">Link valid for (days)</label><input id="s_days" type="number" min="1" max="90" value="${esc(st.link_valid_days || 14)}"><div class="hint">After this a new link has to be sent.</div><div class="ferr" id="e_days"></div></div>
       <label class="switch"><input type="checkbox" id="s_auto"${st.auto_planday ? " checked" : ""}><span><b>Create the Planday employee automatically when a starter submits</b><br><span class="hint">Off by default. When it is off, you preview and create each employee yourself from their record, which lets you check the details first. ${pd.can_create ? "" : "Planday cannot create employees yet, so this has no effect until it can."}</span></span></label></div>
@@ -1151,11 +1154,13 @@ async function saveSignature(remove){
 }
 async function saveSettings(){
   const emails = $("#s_notify").value.split(/[\s,;]+/).map(x => x.trim()).filter(Boolean), bad = emails.filter(x => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x));
+  const payView = $("#s_payview").value.split(/[\s,;]+/).map(x => x.trim()).filter(Boolean), badV = payView.filter(x => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x));
+  $("#e_payview").textContent = badV.length ? `Check ${badV.join(", ")}: not a valid email address.` : ""; if (badV.length) return;
   const days = Math.round(+$("#s_days").value);
   $("#e_notify").textContent = bad.length ? `Check ${bad.join(", ")}: not a valid email address.` : "";
   $("#e_days").textContent = !(days >= 1 && days <= 90) ? "Enter a number of days from 1 to 90." : "";
   if (bad.length || !(days >= 1 && days <= 90)) return;
-  const r = await call("settings.save", { notify_emails:emails, link_valid_days:days, auto_planday:$("#s_auto").checked, hourly_signatory:$("#s_hs").value.trim(), hourly_signatory_title:$("#s_ht").value.trim(), salaried_signatory:$("#s_ss").value.trim(), salaried_signatory_title:$("#s_st").value.trim() });
+  const r = await call("settings.save", { payroll_view_emails:payView, notify_emails:emails, link_valid_days:days, auto_planday:$("#s_auto").checked, hourly_signatory:$("#s_hs").value.trim(), hourly_signatory_title:$("#s_ht").value.trim(), salaried_signatory:$("#s_ss").value.trim(), salaried_signatory_title:$("#s_st").value.trim() });
   S.settings = r.settings || S.settings; toast("Settings saved."); showSettings();
 }
 
