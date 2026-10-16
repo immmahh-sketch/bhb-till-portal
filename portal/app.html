@@ -452,6 +452,16 @@ table.grid td{padding:10px 12px; border-top:1px solid var(--mist); vertical-alig
         <button class="btn ghost" id="tabView">View as</button>
         <button class="btn ghost" id="tabWelcome">Welcome message</button>
         <button class="btn ghost" id="tabTiles">Tiles</button>
+        <button class="btn ghost" id="tabLog">Changes log</button>
+      </div>
+      <div id="setLog" style="display:none">
+        <div class="pagehead"><h2>Settings — Changes log</h2></div>
+        <p class="hint" style="margin:-8px 0 12px">Every change to an account or to who can see what: who made it, when, and what changed. It cannot be edited or deleted. A change made straight in the database, not through this page, shows as "database (not through the portal)".</p>
+        <div class="card" style="padding:14px">
+          <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px"><input id="logFilter" placeholder="Search by name, email, tile or change" style="flex:1; min-width:200px"><button class="btn ghost" id="logCsv" type="button">Export CSV</button></div>
+          <div id="logList" class="hint">Loading...</div>
+          <div style="margin-top:10px"><button class="btn ghost" id="logMore" type="button" style="display:none">Show older changes</button></div>
+        </div>
       </div>
       <div id="setTiles" style="display:none">
         <div class="pagehead"><h2>Settings — Tiles</h2></div>
@@ -1607,27 +1617,70 @@ const POS = { data:null };
 const fmtGBP = v => v === null || v === undefined || v === "" ? "—" : "£" + Number(v).toLocaleString("en-GB", { minimumFractionDigits:0, maximumFractionDigits:2 });
 
 function setSettingsTab(which){
-  const po = which === "po", view = which === "view", wel = which === "welcome", tl = which === "tiles";
+  const po = which === "po", view = which === "view", wel = which === "welcome", tl = which === "tiles", lg = which === "log";
+  const other = po || view || wel || tl || lg;
   $("#setPo").style.display = po ? "" : "none";
   $("#setView").style.display = view ? "" : "none";
   $("#setWelcome").style.display = wel ? "" : "none";
   $("#setTiles").style.display = tl ? "" : "none";
-  $("#setUsers").style.display = (po || view || wel || tl) ? "none" : "";
+  $("#setLog").style.display = lg ? "" : "none";
+  $("#setUsers").style.display = other ? "none" : "";
   $("#tabPo").className = "btn" + (po ? "" : " ghost");
   $("#tabView").className = "btn" + (view ? "" : " ghost");
   $("#tabWelcome").className = "btn" + (wel ? "" : " ghost");
   $("#tabTiles").className = "btn" + (tl ? "" : " ghost");
-  $("#tabUsers").className = "btn" + (po || view || wel || tl ? " ghost" : "");
+  $("#tabLog").className = "btn" + (lg ? "" : " ghost");
+  $("#tabUsers").className = "btn" + (other ? " ghost" : "");
   if (po) loadPoSettings();
   if (view) loadViewAs();
   if (wel) loadWelcomeEditor();
   if (tl) loadTilesEditor();
+  if (lg) loadAuditLog(true);
 }
+/* ---------------------------------------------------- changes log (accounts and access) */
+const AUDIT = { rows: [], done: false };
+const auditWhen = v => { try { return new Date(v).toLocaleString("en-GB", { timeZone:"Europe/London", day:"numeric", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit" }); } catch(e){ return String(v); } };
+async function loadAuditLog(reset){
+  const list = $("#logList"); if (reset) { AUDIT.rows = []; AUDIT.done = false; list.textContent = "Loading..."; }
+  try {
+    const before = AUDIT.rows.length ? AUDIT.rows[AUDIT.rows.length - 1].id : 0;
+    const d = await api("audit_list", { limit:300, before_id:before });
+    AUDIT.rows = AUDIT.rows.concat(d.entries || []); AUDIT.done = (d.entries || []).length < 300;
+    renderAuditLog();
+  } catch(e){ list.textContent = e.message; }
+}
+function renderAuditLog(){
+  const q = ($("#logFilter").value || "").trim().toLowerCase(), groups = [];
+  for (const r of AUDIT.rows) {                       // several rows made by the same person to the same account in the same minute read as one line
+    const key = [r.actor, r.target_email || "", r.action.replace(/^(Tile access|Tab) (granted|removed|ticked|unticked|changed)$/, "$1"), String(r.at).slice(0, 16)].join("|");
+    const g = groups[groups.length - 1];
+    if (g && g.key === key) { g.items.push(r); } else groups.push({ key, items:[r] });
+  }
+  const html = groups.map(g => {
+    const r = g.items[0], what = g.items.length > 1 ? g.items.map(x => x.action + (x.detail ? ": " + x.detail : "")).join("; ") : r.action + (r.detail ? ": " + r.detail : "");
+    const who = r.target_email ? `${r.target_name || ""} (${r.target_email})` : "";
+    const text = (auditWhen(r.at) + " " + r.actor + " " + who + " " + what).toLowerCase();
+    if (q && text.indexOf(q) < 0) return "";
+    return `<div style="padding:9px 0; border-bottom:1px solid var(--mist)"><div style="display:flex; gap:10px; justify-content:space-between; flex-wrap:wrap"><b>${esc(r.actor)}</b><span style="color:var(--sage-70)">${esc(auditWhen(r.at))}</span></div>${who ? `<div style="font-size:14px">${esc(who)}</div>` : ""}<div style="font-size:14px; color:var(--ink-2,#4a4f4a)">${esc(what)}</div></div>`;
+  }).join("");
+  $("#logList").innerHTML = html || "Nothing matches.";
+  $("#logMore").style.display = AUDIT.done ? "none" : "";
+}
+function auditCsv(){
+  const c = v => { const t = String(v == null ? "" : v); return /[",\r\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
+  const lines = [["When", "Who made the change", "Change", "Account", "Email", "Detail", "Source"].join(",")].concat(AUDIT.rows.map(r => [auditWhen(r.at), r.actor, r.action, r.target_name, r.target_email, r.detail, r.source].map(c).join(",")));
+  const blob = new Blob(["\ufeff" + lines.join("\r\n")], { type:"text/csv" }), a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = "portal-changes-log.csv"; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 30000);
+}
+$("#logFilter").addEventListener("input", renderAuditLog);
+$("#logMore").addEventListener("click", () => loadAuditLog(false));
+$("#logCsv").addEventListener("click", auditCsv);
 $("#tabUsers").addEventListener("click", ()=> setSettingsTab("users"));
 $("#tabPo").addEventListener("click", ()=> setSettingsTab("po"));
 $("#tabView").addEventListener("click", ()=> setSettingsTab("view"));
 $("#tabWelcome").addEventListener("click", ()=> setSettingsTab("welcome"));
 $("#tabTiles").addEventListener("click", ()=> setSettingsTab("tiles"));
+$("#tabLog").addEventListener("click", ()=> setSettingsTab("log"));
 
 /* ---- Tiles: which heading each tile sits under, and the headings themselves ---- */
 const TL = { groups: [], assign: {}, ready: false };
