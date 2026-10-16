@@ -1159,10 +1159,11 @@ function askModal(html){
   });
 }
 function recordText(s, files, lg, risks){
+  const LBL = { dob:"Date of birth", ni_number:"National Insurance number", sort_code:"Sort code", account_number:"Account number", bank_name:"Bank or branch", first_names:"First names", last_name:"Last name", address1:"Address line 1", address2:"Address line 2", rtw_later:"Will bring right to work on first day" }, lab = k => LBL[k] || human(k);
   const L = [], add = t => L.push(t), val = (v, ind) => {
     if (v === null || v === undefined || v === "") return;
     if (Array.isArray(v)) { v.forEach((x, i) => { if (x && typeof x === "object") { add(ind + "- " + (i + 1) + ":"); val(x, ind + "    "); } else add(ind + "- " + x); }); return; }
-    if (typeof v === "object") { Object.keys(v).forEach(k => { const x = v[k]; if (x === null || x === undefined || x === "") return; if (typeof x === "object") { add(ind + human(k) + ":"); val(x, ind + "  "); } else add(ind + human(k) + ": " + x); }); return; }
+    if (typeof v === "object") { Object.keys(v).forEach(k => { const x = v[k]; if (x === null || x === undefined || x === "") return; if (typeof x === "object") { add(ind + lab(k) + ":"); val(x, ind + "  "); } else add(ind + lab(k) + ": " + x); }); return; }
     add(ind + v);
   };
   const sec = (title, obj) => { if (obj === null || obj === undefined) return; const n = L.length; add(""); add(title.toUpperCase()); add("-".repeat(title.length)); const before = L.length; val(obj, ""); if (L.length === before) { L.length = n; } };
