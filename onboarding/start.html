@@ -710,7 +710,7 @@ function qHTML(q){
   if (q.type === 'yesno') {
     const btn = (v, label, cls) => '<button type="button" role="radio" aria-checked="' + (a.a === v) + '" class="opt' + (cls ? ' ' + cls : '') + (a.a === v ? ' sel' : '') + '" data-act="hq" data-q="' + q.id + '" data-v="' + v + '">' + label + '</button>';
     h += '<div class="tfrow" role="radiogroup" aria-label="' + esc(q.text) + '">' + btn('yes', 'Yes') + btn('no', 'No') + (q.allowSkip ? btn('skip', 'Prefer not to say', 'skip') : '') + '</div>';
-    if (q.details && a.a === concernOf(q)) h += '<div class="more"><label for="' + id + '-d">' + esc(q.details) + (concernOf(q) === 'no' ? ' <span class="opt-tag">(optional)</span>' : '') + '</label><textarea id="' + id + '-d" data-hd="' + q.id + '" rows="3" autocomplete="off" enterkeyhint="done">' + esc(a.d || '') + '</textarea></div>';
+    if (q.details && a.a === concernOf(q)) h += '<div class="more"><label for="' + id + '-d">' + esc(q.details) + ((concernOf(q) === 'no' || q.detailsOptional) ? ' <span class="opt-tag">(optional)</span>' : '') + '</label><textarea id="' + id + '-d" data-hd="' + q.id + '" rows="3" autocomplete="off" enterkeyhint="done">' + esc(a.d || '') + '</textarea></div>';
   } else if (q.type === 'number') {
     h += '<div class="field" style="margin:0"><label class="sr" for="' + id + '-v">' + esc(q.text) + '</label><input type="number" id="' + id + '-v" data-hv="' + q.id + '" inputmode="' + (q.step && q.step < 1 ? 'decimal' : 'numeric') + '" min="' + (q.min != null ? q.min : 0) + '" max="' + (q.max != null ? q.max : 999) + '" step="' + (q.step || 1) + '" value="' + esc(a.v == null ? '' : a.v) + '" autocomplete="off" placeholder="0"></div>';
   } else if (q.type === 'text') {
@@ -735,7 +735,7 @@ function validateQ(q, e){
   const a = S.health.answers[q.id] || {}, k = 'health.' + q.id;
   if (q.type === 'yesno') {
     if (!a.a) e[k] = q.allowSkip ? 'Please choose Yes, No or Prefer not to say.' : 'Please choose Yes or No.';
-    else if (a.a === 'yes' && q.details && concernOf(q) === 'yes' && !str(a.d)) e[k] = 'Please add a few words so we can understand. Share only what you are comfortable with.';
+    else if (a.a === 'yes' && q.details && concernOf(q) === 'yes' && !q.detailsOptional && !str(a.d)) e[k] = 'Please add a few words so we can understand. Share only what you are comfortable with.';
   } else if (q.type === 'number') {
     const v = str(a.v);
     if (!v) { if (qRequired(q)) e[k] = 'Please enter a number, or 0 if none.'; }
