@@ -1099,6 +1099,8 @@ function showSettings(){
       <canvas id="sigpad" width="520" height="170" style="width:100%; max-width:520px; height:auto; aspect-ratio:520/170; background:#fff; border:1px dashed var(--celadon); border-radius:8px; touch-action:none; cursor:crosshair"></canvas>
       <div class="row-actions" style="margin-top:8px"><button type="button" class="btn small ghost" data-act="sigclear">Clear the pad</button><button type="button" class="btn small" data-act="sigsave">Save this signature</button>${st.signatory_signature ? `<button type="button" class="btn small ghost" data-act="sigremove">Remove the saved signature</button>` : ""}</div></div>
     <div class="formbtns"><button class="btn" data-act="savesettings">Save settings</button></div>
+    <div class="sechead">Protecting National Insurance and bank numbers</div>
+    <div class="card" id="cryptcard"><p class="muted" style="margin:0">Loading...</p></div>
     <div class="sechead">Keeping and deleting data</div>
     <div class="card" id="retcard"><p class="muted" style="margin:0">Loading...</p></div>
     <div class="sechead">How it works</div>
@@ -1113,7 +1115,16 @@ function showSettings(){
       <div class="row-actions" style="margin-top:14px"><a class="btn small ghost" href="forms/Individual_Health_Risk_Assessment.docx" target="_blank" rel="noopener">Open the risk assessment form</a></div>
       <div class="conf">Health information is confidential: only share what the manager of this person needs.</div></div>`;
   initSigPad();
-  loadRetention();
+  loadRetention(); loadCrypt();
+}
+async function loadCrypt(){
+  const el = $("#cryptcard"); if (!el) return;
+  try {
+    const c = await call("crypt.status");
+    el.innerHTML = c.configured
+      ? `<p style="margin-top:0"><b>On.</b> National Insurance numbers, sort codes and account numbers are stored scrambled in the database and only unscrambled when needed to show you, build the payroll form or send to Planday. <b>${c.protected}</b> number${c.protected === 1 ? " is" : "s are"} protected${c.plain ? `, <b>${c.plain}</b> still stored as plain text` : ""}.</p>${c.plain ? `<div class="row-actions"><button class="btn" data-act="cryptnow">Encrypt now</button></div>` : `<p class="small muted">Everything is protected. Use Encrypt now again only after changing the key.</p><div class="row-actions"><button class="btn small ghost" data-act="cryptnow">Encrypt now</button></div>`}`
+      : `<p style="margin-top:0"><b>Not switched on yet.</b> The key has not been set in the project secrets, so these numbers are still stored as plain text (${c.plain} at the moment). Once the key is set, come back here and press Encrypt now.</p>`;
+  } catch(e){ el.innerHTML = `<p class="muted" style="margin:0">${esc(e.message)}</p>`; }
 }
 async function loadRetention(){
   const el = $("#retcard"); if (!el) return;
@@ -1462,6 +1473,7 @@ document.addEventListener("click", async e => {
       return afterAction();
     }
     if (a === "copylink") { busy(true); const r = await call("starter.link", { id:sid }); S.ui.link = { link:r.link, expires_at:r.expires_at }; S.ui.sendNote = null; renderDetail(); const ok = await copyText(r.link); return toast(ok ? "Link copied." : "Here is the link. Select it and copy.", !ok); }
+    if (a === "cryptnow") { busy(true); try { const r = await call("crypt.sweep"); toast(`Protected ${r.records} record${r.records === 1 ? "" : "s"}.`); loadCrypt(); } finally { if (document.body.contains(b)) busy(false); } return; }
     if (a === "dlall") { busy(true); try { await downloadAll(sid); } finally { if (document.body.contains(b)) busy(false); } return; }
     if (a === "leftsave") { const v = ($("#ret_left") || {}).value || ""; if (!v) return toast("Choose the date they left.", true); busy(true); await call("starter.left", { id:sid, left_on:v }); toast("Leaving date saved."); return afterAction(); }
     if (a === "leftclear") { busy(true); await call("starter.left", { id:sid, left_on:null }); toast("Leaving date removed."); return afterAction(); }
