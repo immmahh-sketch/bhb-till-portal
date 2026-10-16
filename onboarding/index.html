@@ -677,6 +677,7 @@ function headerActions(s, d){
   if (["link_sent", "in_progress", "signed"].includes(st)) btns.push(`<button class="btn${expired ? " gold" : " ghost"}" data-act="send">${expired ? "Send a new link" : "Resend link"}</button>`);
   if (live) btns.push(`<button class="btn ghost" data-act="copylink">Copy link</button>`);
   if (!LOCKED.includes(st)) btns.push(`<a class="btn ghost" href="#/s/${encodeURIComponent(s.id)}/edit">Edit</a>`);
+  if (S.me && S.me.admin && st !== "cancelled") btns.push(`<button class="btn gold" data-act="dlall">Download all</button>`);
   if (st !== "cancelled" && st !== "complete") btns.push(`<button class="btn danger" data-act="cancelask">Cancel starter</button>`);
   let note = "";
   if (["submitted", "in_planday", "complete"].includes(st)) note = `<div class="notice info">Editing is locked now that ${esc(s.first_name)} has submitted: the contract and forms were made from what was entered. If something is wrong, change it in Planday, or cancel this starter and start again.</div>`;
@@ -695,14 +696,13 @@ function kvRow(label, show, copy){
 }
 function retentionHtml(s){
   const r = s.retention || {}, admin = !!(S.me && S.me.admin);
-  const ask = S.ui.confirm === "erase" ? `<div class="confirmbox" role="alertdialog" aria-label="Erase this record"><b>Erase everything held about ${esc(fullName(s))}?</b><div class="small" style="margin:4px 0 10px">The record, the signed forms and every uploaded document are deleted for good and cannot be brought back. Planday and Xero are separate and are not touched. Keep the person's written request somewhere safe.</div><div class="row-actions"><button class="btn small solid-danger" data-act="eraseyes" data-k="requested_by_person">Erase: they asked in writing</button><button class="btn small ghost" data-act="eraseyes" data-k="manual">Erase for another reason</button><button class="btn small ghost" data-act="eraseno">Keep it</button></div></div>` : "";
+  const ask = S.ui.confirm === "erase" ? `<div class="confirmbox" role="alertdialog" aria-label="Erase this record"><b>Erase everything held about ${esc(fullName(s))} without downloading it?</b><div class="small" style="margin:4px 0 10px">The record, the signed forms and every uploaded document are deleted for good and cannot be brought back. Planday and Xero are separate and are not touched. Keep the person's written request somewhere safe. To keep a copy first, use Download all instead.</div><div class="row-actions"><button class="btn small solid-danger" data-act="eraseyes" data-k="requested_by_person">Erase: they asked in writing</button><button class="btn small ghost" data-act="eraseyes" data-k="manual">Erase for another reason</button><button class="btn small ghost" data-act="eraseno">Keep it</button></div></div>` : "";
   let line;
-  if (r.rule === "cancelled") line = `This starter was cancelled, so the record is deleted automatically on <b>${esc(fmtDay(r.delete_on))}</b> (30 days after the cancellation).`;
-  else if (r.rule === "left") line = `Left on <b>${esc(fmtDay(r.left_on))}</b>${r.left_by ? " (recorded by " + esc(r.left_by) + ")" : ""}. Everything is deleted automatically on <b>${esc(fmtDay(r.delete_on))}</b>, three years after they left.`;
-  else line = `Still working here, so the record is kept. Three years after they leave it is deleted automatically.${admin ? " The leaving date is picked up from Planday, or you can enter it here." : ""}`;
-  const edit = admin && r.rule !== "cancelled" ? `<div class="row-actions" style="margin-top:10px;align-items:flex-end"><div class="field" style="margin:0"><label for="ret_left">Date they left</label><input id="ret_left" type="date" value="${esc(r.left_on || "")}"></div><button class="btn small" data-act="leftsave">Save leaving date</button>${r.left_on ? `<button class="btn small ghost" data-act="leftclear">They have not left</button>` : ""}</div>` : "";
-  const erase = admin && S.ui.confirm !== "erase" ? `<div class="row-actions" style="margin-top:12px"><button class="btn small danger" data-act="eraseask">Erase now (they asked us to in writing)</button></div>` : "";
-  return `<p style="margin-top:0">${line}</p>${edit}${erase}${ask}`;
+  if (r.rule === "cancelled") line = `This starter was cancelled, so the record is cleared automatically on <b>${esc(fmtDay(r.delete_on))}</b> (30 days after the cancellation).`;
+  else line = `Nothing here is deleted by date. When you are done with ${esc(s.first_name)}, press <b>Download all</b> to save everything into a passworded zip, then choose to remove them from the app. Planday keeps their employee record.${r.completed_at ? ` Marked complete on <b>${esc(fmtDay(r.completed_at))}</b>${r.reminder_sent_at ? ", reminder emailed " + esc(fmtDay(r.reminder_sent_at)) : ", a reminder email goes 24 hours after"}.` : " You are emailed a reminder 24 hours after you mark them complete."}`;
+  const dl = admin && r.rule !== "cancelled" ? `<div class="row-actions" style="margin-top:10px"><button class="btn gold" data-act="dlall">Download all</button></div>` : "";
+  const erase = admin && S.ui.confirm !== "erase" ? `<div class="row-actions" style="margin-top:12px"><button class="btn small danger" data-act="eraseask">Erase now without downloading (they asked in writing)</button></div>` : "";
+  return `<p style="margin-top:0">${line}</p>${dl}${erase}${ask}`;
 }
 function ukDate(iso){ const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || ""); return m ? `${m[3]}/${m[2]}/${m[1]}` : iso; }
 function payrollHtml(s){
@@ -1075,7 +1075,7 @@ function renderDetail(){
     ${po ? "" : checksCard(s, d.files)}
     ${sec("files", "Documents", docsHtml(s, d.files), true, d.files && d.files.length ? `<span class="badge kind">${d.files.length}</span>` : "")}
     ${sec("planday", "Planday", plandayHtml(s), ["submitted", "in_planday"].includes(s.status))}
-    ${sec("retention", "Keeping and deleting this record", retentionHtml(s), s.retention && s.retention.rule === "left" || !!S.ui.confirm && S.ui.confirm === "erase")}
+    ${sec("retention", "Keeping and deleting this record", retentionHtml(s), (s.status === "complete") || (!!S.ui.confirm && S.ui.confirm === "erase"))}
     ${sec("log", "Activity", logHtml(d.log), false)}
     <p class="muted tiny" style="margin:14px 2px">Opening this record is logged against your name, as it holds personal and health information.</p>`;
   window.scrollTo(0, keepY);
@@ -1119,14 +1119,128 @@ async function loadRetention(){
   const el = $("#retcard"); if (!el) return;
   try {
     const d = await call("retention.list");
-    const rows = d.people || [], er = d.erasures || [];
-    const why = { left_3_years:"Three years after leaving", requested_by_person:"Asked in writing", cancelled_never_started:"Cancelled starter, 30 days", manual:"Erased by an administrator" };
-    el.innerHTML = `<p style="margin-top:0">Personal data is kept while someone works here and for <b>three years after they leave</b>, then deleted automatically each night. A cancelled starter is deleted 30 days after the cancellation. If someone asks in writing for their data to be removed sooner, open their record and use <b>Erase now</b>.</p>
-      <p class="small muted">Leaving dates are taken from Planday (when someone stops being an active employee there). You can correct a date on the person's record. ${d.employed} ${d.employed === 1 ? "person is" : "people are"} still employed, so ${d.employed === 1 ? "has" : "have"} no deletion date.</p>
-      ${rows.length ? `<div class="sub-h">Coming up for deletion</div><div class="small">${rows.map(x => `<div style="display:flex;gap:10px;justify-content:space-between;border-bottom:1px solid var(--line,#e4e1d8);padding:5px 0"><span>${esc(x.name)}${x.kind === "existing" ? " (team)" : ""}</span><span class="muted">${esc(fmtDay(x.delete_on))}${x.rule === "cancelled" ? " (cancelled)" : ""}</span></div>`).join("")}</div>` : `<p class="small muted">Nothing is waiting to be deleted.</p>`}
+    const rows = d.people || [], held = d.held || [], er = d.erasures || [];
+    const why = { left_3_years:"Three years after leaving (old rule)", requested_by_person:"Asked in writing", cancelled_never_started:"Cancelled starter, 30 days", manual:"Erased by an administrator", downloaded_and_removed:"Downloaded, then removed" };
+    const link = x => `<a href="#/s/${encodeURIComponent(x.id)}">${esc(x.name)}</a>`;
+    el.innerHTML = `<p style="margin-top:0">Nothing is deleted by date. This app is where a starter is set up: when you have finished with someone, open their record, press <b>Download all</b> (everything in one passworded zip, password is their initials, date of birth and @bhb) and then remove them from the app. Planday keeps their employee record. You are emailed a reminder 24 hours after you mark someone complete.</p>
+      <p class="small muted">The only automatic clearing is a cancelled starter who never joined, 30 days after the cancellation. If someone asks in writing for their data to be removed, use <b>Erase now</b> on their record.</p>
+      <div class="sub-h">Still held in the app (${held.length})</div>
+      ${held.length ? `<div class="small">${held.map(x => `<div style="display:flex;gap:10px;justify-content:space-between;border-bottom:1px solid var(--line,#e4e1d8);padding:5px 0"><span>${link(x)}${x.kind === "existing" ? " (team)" : ""}</span><span class="muted">${esc(STATUS[x.status] || x.status)}${x.completed_at ? ", complete " + esc(fmtDay(x.completed_at)) : ""}</span></div>`).join("")}</div>` : `<p class="small muted">Nobody is held in the app.</p>`}
+      ${rows.length ? `<div class="sub-h" style="margin-top:14px">Cancelled, clearing automatically</div><div class="small">${rows.map(x => `<div style="display:flex;gap:10px;justify-content:space-between;border-bottom:1px solid var(--line,#e4e1d8);padding:5px 0"><span>${esc(x.name)}</span><span class="muted">${esc(fmtDay(x.delete_on))}</span></div>`).join("")}</div>` : ""}
       <div class="sub-h" style="margin-top:14px">Register of deletions</div>
       ${er.length ? `<div class="small">${er.map(x => `<div style="display:flex;gap:10px;justify-content:space-between;border-bottom:1px solid var(--line,#e4e1d8);padding:5px 0"><span>${esc(fmtDT(x.erased_at))}: ${esc(why[x.reason] || x.reason)}</span><span class="muted">${x.files_removed} file${x.files_removed === 1 ? "" : "s"}, by ${esc(x.erased_by)}</span></div>`).join("")}</div><p class="tiny muted">Names are not kept in this register.</p>` : `<p class="small muted">Nothing has been deleted yet.</p>`}`;
   } catch(e){ el.innerHTML = `<p class="muted" style="margin:0">${esc(e.message)}</p>`; }
+}
+
+/* ------------------------------------------------------------- Download all: one passworded zip per person, then offer to remove them from the app */
+const zipSafe = v => String(v || "file").replace(/[\\/:*?"<>|\x00-\x1f]/g, "_").replace(/\s+/g, " ").trim().slice(0, 100) || "file";
+async function loadZip(){
+  if (window.zip) return;
+  await new Promise((ok, bad) => { const sc = document.createElement("script"); sc.src = "/shared/vendor/zip.min.js"; sc.onload = ok; sc.onerror = () => bad(new Error("Could not load the zip tool. Check your connection and try again.")); document.head.appendChild(sc); });
+  window.zip.configure({ useWebWorkers:false });
+}
+/** Initials + date of birth (ddmmyyyy) + @bhb, for example BD25011952@bhb. null when the date of birth is not held. */
+function zipPassword(s, dobIso){
+  const d = s.details || {}, f = String(d.first_names || s.first_name || "").trim(), l = String(d.last_name || s.last_name || "").trim();
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(dobIso || d.dob || "");
+  if (!f || !l || !m) return null;
+  return (f[0] + l[0]).toUpperCase() + m[3] + m[2] + m[1] + "@bhb";
+}
+function askModal(html){
+  return new Promise(resolve => {
+    const v = document.createElement("div");
+    v.style.cssText = "position:fixed;inset:0;z-index:500;background:rgba(38,38,38,.55);display:flex;align-items:center;justify-content:center;padding:16px";
+    v.innerHTML = `<div role="dialog" aria-modal="true" style="background:#fff;border-radius:12px;max-width:500px;width:100%;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,.35);max-height:90vh;overflow:auto">${html}</div>`;
+    document.body.appendChild(v);
+    const chk = v.querySelector("#mchk"), gated = v.querySelector("[data-gated]");
+    if (chk && gated) { gated.disabled = true; chk.addEventListener("change", () => { gated.disabled = !chk.checked; }); }
+    const inp = v.querySelector("input[type=text]"); if (inp) inp.focus();
+    v.addEventListener("click", e => { const b = e.target.closest("[data-m]"); if (!b || b.disabled) return; const val = inp ? inp.value : ""; v.remove(); resolve({ act:b.dataset.m, value:val }); });
+  });
+}
+function recordText(s, files, lg, risks){
+  const L = [], add = t => L.push(t), val = (v, ind) => {
+    if (v === null || v === undefined || v === "") return;
+    if (Array.isArray(v)) { v.forEach((x, i) => { if (x && typeof x === "object") { add(ind + "- " + (i + 1) + ":"); val(x, ind + "    "); } else add(ind + "- " + x); }); return; }
+    if (typeof v === "object") { Object.keys(v).forEach(k => { const x = v[k]; if (x === null || x === undefined || x === "") return; if (typeof x === "object") { add(ind + human(k) + ":"); val(x, ind + "  "); } else add(ind + human(k) + ": " + x); }); return; }
+    add(ind + v);
+  };
+  const sec = (title, obj) => { if (obj === null || obj === undefined) return; const n = L.length; add(""); add(title.toUpperCase()); add("-".repeat(title.length)); const before = L.length; val(obj, ""); if (L.length === before) { L.length = n; } };
+  add(fullName(s) + ": onboarding record"); add("Downloaded " + fmtDT(new Date().toISOString()) + ". Planday keeps the employee record.");
+  sec("Employment, set by the manager", { job_title:s.job_title, department:s.department_name, group:s.group_name, start_date:s.start_date, contract_type:s.contract_type, hourly_rate:s.hourly_rate, salary:s.salary, weekly_hours:s.hours, work_location:s.work_location, employment_type:s.employment_type, night_work:s.night_work ? "Yes" : "", term:s.term, line_manager:s.line_manager, line_manager_tel:s.line_manager_tel, notes:s.notes, email:s.email, mobile:s.mobile });
+  sec("Starter's payroll details", s.details); sec("HMRC starter checklist", s.checklist); sec("Health questionnaire", s.health);
+  sec("Health flags", (s.health_flags || []).map(f => ({ level:f.level, title:f.title, reason:f.reason })));
+  sec("Working time agreement", s.wtd); sec("Right to work and National Insurance checks", s.checks);
+  sec("Risk assessment", { status:s.risk_status, note:s.risk_note, by:s.risk_by, at:s.risk_at });
+  sec("Contract", { date:s.contract_date, signed_at:s.signed_at, signed_from_ip:s.sign_ip, signed_on_device:s.sign_agent });
+  sec("Planday", { planday_id:s.planday_id, created_in_planday:s.planday_at });
+  sec("Timeline", { created:s.created_at, link_sent:s.link_sent_at, first_opened:s.first_opened_at, submitted:s.submitted_at, marked_complete:s.completed_at });
+  add(""); add("DOCUMENTS IN THIS ZIP"); add("---------------------"); files.forEach(f => add("- " + f.zipName + (f.label ? " (" + f.label + ")" : "")));
+  add(""); add("ACTIVITY"); add("--------"); (lg || []).forEach(x => add(fmtDT(x.at) + ": " + x.who + " " + x.what));
+  return L.join("\r\n");
+}
+async function downloadAll(sid){
+  const prog = document.createElement("div");
+  prog.style.cssText = "position:fixed;inset:0;z-index:490;background:rgba(38,38,38,.55);display:flex;align-items:center;justify-content:center;padding:16px";
+  prog.innerHTML = `<div style="background:#fff;border-radius:12px;max-width:420px;width:100%;padding:20px;text-align:center"><b>Making the zip</b><div id="dlmsg" class="small muted" style="margin-top:8px">Starting...</div></div>`;
+  const say = t => { const m = prog.querySelector("#dlmsg"); if (m) m.textContent = t; };
+  document.body.appendChild(prog);
+  let blob, name, pw, count;
+  try {
+    await loadZip();
+    say("Collecting the record...");
+    const r = await call("starter.export", { id:sid }), st = r.starter;
+    name = zipSafe(fullName(st));
+    pw = zipPassword(st);
+    if (!pw) {
+      prog.style.display = "none";
+      const a = await askModal(`<h3 style="font-size:23px;margin:0 0 8px">Date of birth needed</h3><p>No date of birth is held for ${esc(fullName(st))}, which the zip password needs. Enter it as dd/mm/yyyy.</p><div class="field"><input type="text" id="dobin" placeholder="25/01/1952" inputmode="numeric" autocomplete="off" aria-label="Date of birth"></div><div class="row-actions"><button class="btn" data-m="ok">Continue</button><button class="btn ghost" data-m="cancel">Cancel</button></div>`);
+      prog.style.display = "flex";
+      if (a.act !== "ok") { prog.remove(); return; }
+      const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(String(a.value || "").trim());
+      if (!m) throw new Error("That date of birth is not in the form dd/mm/yyyy.");
+      pw = zipPassword(st, `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`);
+    }
+    const writer = new window.zip.ZipWriter(new window.zip.BlobWriter("application/zip"), { password:pw, encryptionStrength:3 });
+    const used = new Set(), files = [];
+    for (let i = 0; i < r.files.length; i++) {
+      const f = r.files[i];
+      say(`Adding document ${i + 1} of ${r.files.length}...`);
+      const resp = await fetch(f.url);
+      if (!resp.ok) throw new Error(`Could not read "${f.name}" (${resp.status}). Nothing was saved and nothing was deleted.`);
+      const fb = await resp.blob();
+      let zn = zipSafe(f.name), k = 1; while (used.has(zn.toLowerCase())) { const dot = zn.lastIndexOf("."); zn = (dot > 0 ? zn.slice(0, dot) : zn) + " (" + (++k) + ")" + (dot > 0 ? zn.slice(dot) : ""); }
+      used.add(zn.toLowerCase()); f.zipName = "Documents/" + zn; files.push(f);
+      await writer.add(name + "/Documents/" + zn, new window.zip.BlobReader(fb));
+    }
+    say("Adding the record...");
+    const { signature, ...rest } = st;
+    await writer.add(name + "/Record.txt", new window.zip.TextReader(recordText(st, files, r.log, r.risks)));
+    await writer.add(name + "/record.json", new window.zip.TextReader(JSON.stringify({ starter:rest, files:files.map(f => ({ kind:f.kind, name:f.name, source:f.source, label:f.label, created_at:f.created_at })), activity:r.log, risk_assessments:r.risks }, null, 2)));
+    let extra = 0;
+    if (signature && /^data:image\/png;base64,/.test(signature)) { await writer.add(name + "/Documents/Employee signature.png", new window.zip.BlobReader(await (await fetch(signature)).blob())); extra = 1; }
+    say("Locking it with the password...");
+    blob = await writer.close();
+    count = files.length + extra;
+  } catch (e) { prog.remove(); toast(e.message, true); return; }
+  prog.remove();
+  const url = URL.createObjectURL(blob), a = document.createElement("a");
+  a.href = url; a.download = name + ".zip"; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 60000);
+  const fn = S.d && S.d.starter ? S.d.starter.first_name : "them";
+  const ans = await askModal(`<h3 style="font-size:23px;margin:0 0 8px">${esc(name)}.zip is saved</h3>
+    <p>It is in your Downloads folder. It holds ${count} document${count === 1 ? "" : "s"}, a readable Record.txt and the full record. Opening it needs 7-Zip or WinZip (Windows' own zip tool cannot open this kind of lock).</p>
+    <p><b>Password:</b> <span style="font-family:monospace;font-size:16px;user-select:all">${esc(pw)}</span><br><span class="small muted">Initials, date of birth (ddmmyyyy) and @bhb.</span></p>
+    <hr style="border:0;border-top:1px solid #e4e1d8;margin:12px 0">
+    <p><b>Remove ${esc(fn)} from the app now?</b> This deletes the record, the signed forms and the uploads from here for good. Planday keeps their employee record.</p>
+    <label class="small" style="display:flex;gap:8px;align-items:flex-start;margin:8px 0 12px"><input type="checkbox" id="mchk" style="margin-top:3px"><span>I have opened the zip and the files are all there.</span></label>
+    <div class="row-actions"><button class="btn solid-danger" data-m="delete" data-gated="1">Remove from the app</button><button class="btn ghost" data-m="keep">Keep in the app</button></div>`);
+  if (ans.act !== "delete") { toast("Kept in the app. You can download again any time."); return; }
+  try {
+    await call("starter.erase", { id:sid, confirm:true, reason:"downloaded_and_removed" });
+    S.ui.confirm = null; S.d = null; S.list = null; S.regSig = "";
+    toast("Removed from the app. Planday still has their employee record."); go("#/");
+  } catch (e) { toast(e.message, true); }
+
 }
 /* The employer's signature pad (Settings). Draws on a transparent canvas; saved as a PNG that is printed above the signatory's name on each contract. */
 function initSigPad(){
@@ -1347,6 +1461,7 @@ document.addEventListener("click", async e => {
       return afterAction();
     }
     if (a === "copylink") { busy(true); const r = await call("starter.link", { id:sid }); S.ui.link = { link:r.link, expires_at:r.expires_at }; S.ui.sendNote = null; renderDetail(); const ok = await copyText(r.link); return toast(ok ? "Link copied." : "Here is the link. Select it and copy.", !ok); }
+    if (a === "dlall") { busy(true); try { await downloadAll(sid); } finally { if (document.body.contains(b)) busy(false); } return; }
     if (a === "leftsave") { const v = ($("#ret_left") || {}).value || ""; if (!v) return toast("Choose the date they left.", true); busy(true); await call("starter.left", { id:sid, left_on:v }); toast("Leaving date saved."); return afterAction(); }
     if (a === "leftclear") { busy(true); await call("starter.left", { id:sid, left_on:null }); toast("Leaving date removed."); return afterAction(); }
     if (a === "eraseask") { S.ui.confirm = "erase"; return renderDetail(); }

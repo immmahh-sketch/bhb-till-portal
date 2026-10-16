@@ -1,0 +1,1 @@
+zip.min.js is @zip.js/zip.js 2.23.0 (BSD-3-Clause), copied unmodified from the npm package whose published hash is sha512-K5obAqfrO7zhycnCupM9aaoZ9kx0SA0kv7+Z2oOUsdpWquv4s/Z4zyD7AdTqxrK3pgPM+ozaUi8kdRQbCWaIrQ==. Kept on our own site so no third party serves code to a page that handles personal data.
