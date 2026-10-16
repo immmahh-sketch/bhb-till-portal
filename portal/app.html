@@ -144,6 +144,14 @@ header.top{background:var(--sage); color:var(--white)}
 .landing-head{padding:32px 0 8px}
 .landing-head h2{font-size:28px; color:var(--sage)}
 .landing-head .hint{font-size:13px; color:var(--sage-70); margin-top:4px}
+.searchbar{position:relative; margin:6px 0 4px; max-width:560px}
+.searchbar input, .nsearch input{width:100%; box-sizing:border-box; font:inherit; font-size:16px; padding:12px 40px 12px 14px; border:1px solid var(--celadon,#C1C8B4); border-radius:10px; background:var(--white,#fff); color:var(--ink,#262626)}
+.searchbar input:focus, .nsearch input:focus{outline:2px solid var(--sage,#4E5F4F); outline-offset:1px}
+.searchbar .sx, .nsearch .sx{position:absolute; right:6px; top:50%; transform:translateY(-50%); border:0; background:transparent; color:var(--sage-70); font-size:22px; line-height:1; padding:6px 10px; cursor:pointer; display:none}
+.searchbar .sx.on, .nsearch .sx.on{display:block}
+.nsearch{position:relative; padding:10px 10px 0}
+.nsearch .sx{right:16px; top:calc(50% + 5px)}
+.searchnote{font-size:13px; color:var(--sage-70); margin:8px 2px}
 .tile-group{margin-top:30px}
 .tile-group:first-child{margin-top:0}
 .tile-group h3{
@@ -442,6 +450,7 @@ table.grid td{padding:10px 12px; border-top:1px solid var(--mist); vertical-alig
         </div>
         <div class="layout-tools" id="layoutTools"></div>
       </div>
+      <div class="searchbar" id="tileSearchBar"><input id="tileSearch" type="search" placeholder="Search your portals" aria-label="Search your portals" autocomplete="off" enterkeyhint="go"><button class="sx" id="tileSearchX" type="button" aria-label="Clear the search">&times;</button></div>
       <div id="tiles"></div>
     </section>
 
@@ -562,6 +571,7 @@ table.grid td{padding:10px 12px; border-top:1px solid var(--mist); vertical-alig
 <div id="navveil"></div>
 <div id="navmenu">
   <div class="nhead"><span>Switch Portal</span><button class="x" id="navClose">&times;</button></div>
+  <div class="nsearch"><input id="navSearch" type="search" placeholder="Search portals" aria-label="Search portals" autocomplete="off" enterkeyhint="go"><button class="sx" id="navSearchX" type="button" aria-label="Clear the search">&times;</button></div>
   <div class="nlist" id="navList"></div>
   <div class="nfoot"><button id="navSignout">Sign out</button></div>
 </div>
@@ -983,7 +993,29 @@ const TILE_GROUP_FOR = {
   "wedding-admin":       "Weddings and events",
 };
 
+/* Search: every word typed must appear in the tile's name, description or heading. Names that start with what was typed come first, then A to Z. */
+function searchPortals(list, q){
+  const terms = String(q || "").toLowerCase().split(/\s+/).filter(Boolean);
+  const hay = p => (String(p.label) + " " + String(p.description || "") + " " + String(p.tile_group || "")).toLowerCase();
+  const hits = list.filter(p => terms.every(t => hay(p).indexOf(t) >= 0));
+  const first = String(q || "").trim().toLowerCase();
+  return hits.sort((a, b) => ((String(a.label).toLowerCase().indexOf(first) === 0 ? 0 : 1) - (String(b.label).toLowerCase().indexOf(first) === 0 ? 0 : 1)) || byLabel(a, b));
+}
+function wireSearch(){
+  const wire = (inp, x, onChange, onEnter) => {
+    const sync = () => x.classList.toggle("on", !!inp.value);
+    inp.addEventListener("input", () => { onChange(inp.value); sync(); });
+    inp.addEventListener("keydown", e => { if (e.key === "Escape") { inp.value = ""; onChange(""); sync(); } else if (e.key === "Enter") { e.preventDefault(); onEnter(); } });
+    x.addEventListener("click", () => { inp.value = ""; onChange(""); sync(); inp.focus(); });
+  };
+  wire($("#tileSearch"), $("#tileSearchX"), v => { S.tq = v; renderTiles(); }, () => { const h = searchPortals(S.portals, S.tq || ""); if (h.length && (S.tq || "").trim()) openPortal(h[0].key); });
+  wire($("#navSearch"), $("#navSearchX"), v => { S.nq = v; renderNav(); }, () => { const h = searchPortals(S.portals, S.nq || ""); if (h.length && (S.nq || "").trim()) { closeNav(); openPortal(h[0].key); } });
+}
+
+wireSearch();
+
 function renderTiles(){
+  $("#tileSearchBar").style.display = S.editing ? "none" : "";
   renderLayoutTools();
   if(!S.portals.length){
     $("#tiles").innerHTML = `<div class="empty">No portals assigned to your account yet — ask an admin to give you access.</div>`;
@@ -1004,6 +1036,15 @@ function renderTiles(){
   if (S.editing) {                          // arranging: a flat grid with move controls
     $("#tiles").innerHTML = editTilesHtml();
     wireEditTiles();
+    return;
+  }
+  const tq = (S.tq || "").trim();
+  if (tq) {
+    const hits = searchPortals(S.portals, tq);
+    $("#tiles").innerHTML = hits.length
+      ? `<div class="searchnote">${hits.length} portal${hits.length === 1 ? "" : "s"} match${hits.length === 1 ? "es" : ""} "${esc(tq)}". Press Enter to open the first.</div><div class="tiles">${hits.map(tileHtml).join("")}</div>`
+      : `<div class="empty">No portal matches "${esc(tq)}". Clear the search to see them all.</div>`;
+    $$("#tiles .tile").forEach(b => b.addEventListener("click", ()=> openPortal(b.dataset.key)));
     return;
   }
   const shown = S.portals.filter(p => !isHidden(p)), nHidden = S.portals.length - shown.length;
@@ -1194,7 +1235,9 @@ function wireEditTiles(){
 
 function renderNav(){
   const hid = hiddenKeys();
-  const items = orderedPortals().map(p => `
+  const nq = (S.nq || "").trim();
+  const menuList = nq ? searchPortals(S.portals, nq) : S.portals.slice().sort(byLabel);   // always A to Z, whatever order the front page uses
+  const items = (menuList.length ? menuList : []).map(p => `
     <div class="nrow${hid.has(p.key) ? " hid" : ""}">
       <button class="nitem ${S.current===p.key?'active':''}" data-key="${esc(p.key)}">
         <span class="dot" style="background:${esc(p.color||'#4E5F4F')}"></span>${esc(p.label)}${hid.has(p.key) ? `<span class="hidtag">hidden</span>` : ""}${S.badges && S.badges[p.key] ? `<span class="nbdg">${S.badges[p.key]}</span>` : ""}
@@ -1208,7 +1251,7 @@ function renderNav(){
   const pushItem = S.user ? `<button class="nitem" data-goto="push"><span class="dot" style="background:#C9A56B"></span>Notifications</button>` : "";
   $("#navList").innerHTML = `
     <button class="nitem" data-goto="landing"><span class="dot" style="background:#7B887C"></span>All Portals</button>
-    ${items}
+    ${items || `<div class="searchnote">No portal matches "${esc(nq)}".</div>`}
     ${settingsItem}
     ${pushItem}
   `;
@@ -1234,7 +1277,7 @@ function showSettings(){
 }
 
 /* ----------------------------------------------------- hamburger nav */
-function openNav(){ $("#navveil").classList.add("on"); $("#navmenu").classList.add("on"); renderNav(); }
+function openNav(){ S.nq = ""; const ni = $("#navSearch"); if (ni) { ni.value = ""; $("#navSearchX").classList.remove("on"); } $("#navveil").classList.add("on"); $("#navmenu").classList.add("on"); renderNav(); if (ni && window.matchMedia && matchMedia("(pointer:fine)").matches) setTimeout(() => ni.focus(), 50); }
 function closeNav(){ $("#navveil").classList.remove("on"); $("#navmenu").classList.remove("on"); }
 $("#hamBtn").addEventListener("click", openNav);
 $("#vMenu").addEventListener("click", openNav);
