@@ -82,7 +82,7 @@ details.sec{background:#fff; border-radius:var(--radius); box-shadow:var(--shado
 <script src="parsers.js?v=20261012"></script>
 <script>
 const CFG = { SUPABASE_URL:"https://safcrtrfdzsnftghibot.supabase.co", SUPABASE_KEY:"sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU" };
-const TABS = [["wastage", "Wastage"], ["rooms", "Rooms"], ["weddings", "Weddings / Events"], ["showrounds", "Showrounds / meetings"], ["admin", "Stocktake - Admin"], ["stocktake", "Stocktake"], ["report", "Stock report"]];
+const TABS = [["wastage", "Wastage"], ["rooms", "Rooms"], ["weddings", "Weddings / Events"], ["showrounds", "Showrounds / meetings"], ["admin", "Stocktake - Admin"], ["stocktake", "Stocktake"], ["report", "Stock report"], ["gp", "GP calculator"]];
 const DAILY = {
   wastage:    { title:"Wastage", lead:"Record any drink that is wasted today: breakages, spoilage, staff drinks. At cash up it is posted to the till at £0 so the stock comes off.", note:null },
   rooms:      { title:"Rooms", lead:"Anything complimentary to a bedroom today. It starts on Prosecco: change the product if it was something else.", note:"Room number (optional)", pref:/prosecco/i },
@@ -122,7 +122,7 @@ async function show(tab){
   if (!tab) { $("#views").innerHTML = `<div class="card">You do not have any tabs in Stock Control yet. Ask the GM.</div>`; return; }
   $("#views").innerHTML = `<p class="muted" style="margin-top:24px">Loading…</p>`;
   try {
-    if (DAILY[tab]) await showDaily(tab); else if (tab === "stocktake") await showCount(); else if (tab === "report") await showReport(); else await showAdmin();
+    if (DAILY[tab]) await showDaily(tab); else if (tab === "stocktake") await showCount(); else if (tab === "report") await showReport(); else if (tab === "gp") await showGp(); else await showAdmin();
   } catch(e){ $("#views").innerHTML = `<div class="card"><b>${esc(e.message)}</b></div>`; }
 }
 async function refreshBoot(){ S.boot = await call("bootstrap"); S.products = S.boot.products; S.areas = S.boot.areas; S.period = S.boot.period; }
@@ -470,6 +470,178 @@ async function runImport(btn){
     S.M = null; S.openSec = openState(); await showAdmin(); S.openSec = null;
   } catch(e){ toast(e.message, true); btn.disabled = false; }
 }
+
+/* ------------------------------------------------------------- GP calculator
+   Every till button made of a stock product (or recipe): the price it sells at against what the product cost on the supplier invoices, the theoretical GP
+   (profit on net sales, VAT taken out, no wastage or stock loss), where it falls short, and a what-if price. The arithmetic is here so it recalculates as you type. */
+const GP = { d:null, edits:new Map(), q:"", cat:"", view:"attention", sort:"gp", weighted:true };
+async function showGp(){ GP.d = await call("gp.load"); GP.edits = new Map(); GP.d.rows.forEach(r => { if (r.proposed !== null) GP.edits.set(r.plu, r.proposed); }); renderGp(); }
+const gpVat = () => 1 + (GP.d.settings.vat_rate || 0) / 100;
+const gpNet = price => price / gpVat();
+const gpPct = (price, cost) => (price > 0 && cost !== null && cost !== undefined) ? (gpNet(price) - cost) / gpNet(price) : null;
+const gpTarget = cat => { const t = GP.d.targets.find(x => x.category === cat); return (t ? t.target_pct : GP.d.settings.default_target) / 100; };
+const pct = v => v === null || v === undefined ? "" : (v * 100).toFixed(1) + "%";
+const money4 = n => n === null || n === undefined ? "" : "£" + Number(n).toFixed(n < 1 ? 3 : 2);
+function gpSuggest(r){      // the lowest tidy price that reaches the target GP
+  if (r.cost === null) return null; const t = gpTarget(r.category);
+  const need = r.cost / (1 - t) * gpVat(), step = need >= 3 ? 0.10 : 0.05, v = Math.ceil(need / step - 1e-9) * step;
+  return Math.round(v * 100) / 100;
+}
+function gpAnalyse(){        // flags for every row, from what is priced and costed now
+  const rows = GP.d.rows, by = new Map(), cats = new Map();
+  rows.forEach(r => { r.flags = []; r.gp = gpPct(r.price, r.cost); if (r.kind === "single" && r.product_id) (by.get(r.product_id) || by.set(r.product_id, []).get(r.product_id)).push(r); if (r.gp !== null) (cats.get(r.category) || cats.set(r.category, []).get(r.category)).push(r.gp); });
+  const median = a => { const x = a.slice().sort((m, n) => m - n), h = x.length >> 1; return x.length % 2 ? x[h] : (x[h - 1] + x[h]) / 2; };
+  rows.forEach(r => {
+    if (r.cost === null) { r.flags.push({ k:"nocost", t:"No cost yet: upload the invoice that includes " + (r.missing.join(", ") || "it") }); return; }
+    if (r.price === null) { r.flags.push({ k:"noprice", t:"No price: type the till price" }); return; }
+    const target = gpTarget(r.category);
+    if (gpNet(r.price) < r.cost) r.flags.push({ k:"bad", t:"Sells below cost" });
+    else if (r.gp < target - 0.10) r.flags.push({ k:"bad", t:"More than 10 points under the " + Math.round(target * 100) + "% target" });
+    else if (r.gp < target) r.flags.push({ k:"warn", t:"Under the " + Math.round(target * 100) + "% target" });
+    const peers = cats.get(r.category) || [];
+    if (peers.length >= 4) { const m = median(peers); if (r.gp < m - 0.15) r.flags.push({ k:"warn", t:"Well below the rest of " + r.category + " (typically " + pct(m) + ")" }); }
+    if (r.price_source !== "set" && Math.round(r.price * 100) % 5 !== 0) r.flags.push({ k:"info", t:"Odd price (" + (r.price_source === "sales" ? "an average of what it sold for" : "stored figure") + "): confirm the till price" });
+  });
+  // portions of one product should scale sensibly: a half costs at least half a pint, a double no more than two singles
+  by.forEach(list => {
+    const base = list.find(x => x.portion_size === 1 && x.price !== null && !/shandy/i.test(x.name)); if (!base) return;
+    list.forEach(x => { if (x === base || x.price === null || /shandy|\bCB\b/i.test(x.name)) return;
+      const ratio = (x.price / x.portion_size) / base.price;
+      if (x.portion_size < 1 && ratio < 0.999) x.flags.push({ k:"warn", t:"Cheaper per measure than the standard (" + money(base.price) + ") : a smaller measure should not cost proportionally less" });
+      if (x.portion_size > 1 && ratio > 1.02) x.flags.push({ k:"warn", t:"Dearer per measure than the standard single" });
+      if (x.portion_size > 1 && ratio < 0.85) x.flags.push({ k:"info", t:"Big discount for the larger measure (" + Math.round((1 - ratio) * 100) + "% off per measure)" }); });
+  });
+  rows.forEach(r => { const sg = gpSuggest(r); r.suggest = (r.gp !== null && r.gp < gpTarget(r.category) && sg !== null && sg > r.price) ? sg : null; });
+}
+const money = n => n === null || n === undefined ? "" : "£" + Number(n).toFixed(2);
+const gpNew = r => GP.edits.has(r.plu) ? GP.edits.get(r.plu) : null;
+function gpBlend(useNew){
+  let p = 0, n = 0; GP.d.rows.forEach(r => { const price = useNew && gpNew(r) !== null ? gpNew(r) : r.price; if (price === null || price <= 0 || r.cost === null) return;
+    const w = (GP.weighted && GP.d.has_sales) ? (r.sold || 0) : 1; p += (gpNet(price) - r.cost) * w; n += gpNet(price) * w; });
+  return n > 0 ? p / n : null;
+}
+function gpRows(){
+  const q = GP.q.trim().toLowerCase();
+  let rows = GP.d.rows.filter(r => (!GP.cat || r.category === GP.cat) && (!q || (r.name + " " + r.product + " " + r.plu).toLowerCase().includes(q)));
+  if (GP.view === "attention") rows = rows.filter(r => r.flags.some(f => f.k === "bad" || f.k === "warn"));
+  if (GP.view === "under") rows = rows.filter(r => r.gp !== null && r.gp < gpTarget(r.category));
+  if (GP.view === "nocost") rows = rows.filter(r => r.cost === null);
+  if (GP.view === "noprice") rows = rows.filter(r => r.cost !== null && r.price === null);
+  if (GP.view === "changed") rows = rows.filter(r => gpNew(r) !== null);
+  const key = { gp:(a, b) => (a.gp ?? 9) - (b.gp ?? 9), name:(a, b) => a.name.localeCompare(b.name), cat:(a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name), price:(a, b) => (b.price ?? 0) - (a.price ?? 0), sold:(a, b) => b.sold - a.sold }[GP.sort];
+  return rows.sort(key);
+}
+function gpRowHtml(r){
+  const nw = gpNew(r), ngp = nw !== null ? gpPct(nw, r.cost) : null, t = gpTarget(r.category);
+  const cls = r.gp === null ? "" : r.gp < t - 0.10 ? "bad" : r.gp < t ? "" : "good";
+  const src = r.price_source === "set" ? "" : r.price_source === "sales" ? `<span class="tag" title="Average of what it sold for in the latest PLU report">sales avg</span>` : r.price_source === "product" ? `<span class="tag" title="The product's stored selling price">stored</span>` : "";
+  return `<tr data-plu="${esc(r.plu)}"><td><b>${esc(r.name)}</b><div class="tiny muted">${esc(r.plu)}${r.kind === "recipe" ? " · recipe" : r.portion_size !== 1 ? " · " + r.portion_size + " of a measure" : ""}</div></td>
+    <td>${esc(r.product)}<div class="tiny muted">${esc(r.category)}</div></td>
+    <td class="n">${r.price === null ? (S.me.edit ? `<input data-gpcur="${esc(r.plu)}" inputmode="decimal" placeholder="£" style="max-width:80px" aria-label="Till price for ${esc(r.name)}">` : "") : money(r.price) + " " + src}</td>
+    <td class="n">${r.cost === null ? `<span class="tag">No cost</span>` : money4(r.cost)}</td>
+    <td class="n">${r.price !== null && r.cost !== null ? money(gpNet(r.price) - r.cost) : ""}</td>
+    <td class="n ${cls}" data-c="gp">${pct(r.gp)}</td><td class="n muted">${Math.round(t * 100)}%</td>
+    <td class="n"><input data-gpnew="${esc(r.plu)}" inputmode="decimal" value="${nw !== null ? nw.toFixed(2) : ""}" placeholder="${r.suggest !== null ? r.suggest.toFixed(2) : "new £"}" style="max-width:84px"${S.me.edit ? "" : " disabled"} aria-label="New price for ${esc(r.name)}"></td>
+    <td class="n" data-c="ngp">${nw !== null ? money(gpNet(nw) - (r.cost ?? 0)) : ""}</td><td class="n" data-c="ngpp">${ngp !== null ? pct(ngp) : ""}</td>
+    <td class="small" data-c="notes">${gpNotesHtml(r)}</td></tr>`;
+}
+function gpNotesHtml(r){
+  const f = r.flags.map(x => `<div class="${x.k === "bad" ? "bad" : x.k === "warn" ? "" : "muted"}" style="${x.k === "warn" ? "color:var(--attn);font-weight:600" : ""}">${esc(x.t)}</div>`).join("");
+  return f + (r.suggest !== null ? `<div><button class="btn ghost small" data-gpuse="${esc(r.plu)}" style="margin-top:4px">Try ${money(r.suggest)} (${pct(gpPct(r.suggest, r.cost))}, ${r.price ? "+" + Math.round((r.suggest / r.price - 1) * 100) + "%" : ""})</button></div>` : "");
+}
+function gpStats(){
+  const rows = GP.d.rows, ok = rows.filter(r => r.gp !== null), now = gpBlend(false), after = gpBlend(true), changed = rows.filter(r => gpNew(r) !== null).length;
+  const el = $("#gp_stats"); if (!el) return;
+  el.innerHTML = `<div class="s"><div class="l">Lines worked out</div><div class="v">${ok.length}<span class="tiny muted"> of ${rows.length}</span></div></div>
+    <div class="s"><div class="l">GP today${GP.weighted && GP.d.has_sales ? " (by sales)" : ""}</div><div class="v">${pct(now)}</div></div>
+    <div class="s"><div class="l">GP with new prices</div><div class="v" style="color:${after !== null && now !== null && after > now ? "var(--good)" : "inherit"}">${changed ? pct(after) : "–"}</div><div class="tiny muted">${changed} price${changed === 1 ? "" : "s"} changed</div></div>
+    <div class="s"><div class="l">Under target</div><div class="v">${ok.filter(r => r.gp < gpTarget(r.category)).length}</div></div>
+    <div class="s"><div class="l">Need a cost</div><div class="v">${rows.filter(r => r.cost === null).length}</div></div>`;
+}
+function renderGp(){
+  const D = GP.d, keep = window.scrollY; gpAnalyse();
+  const cats = [...new Set(D.rows.map(r => r.category))].sort(), rows = gpRows(), edit = S.me.edit;
+  const nflag = D.rows.filter(r => r.flags.some(f => f.k === "bad" || f.k === "warn")).length;
+  $("#views").innerHTML = `<div class="pagehead"><h2>GP calculator</h2><button class="btn ghost small" data-gp="targets">Targets and VAT</button></div>
+    <p class="lead">Each till button against its cost from the supplier invoices (the latest delivery price of the product, per measure). GP is profit on net sales, VAT taken out, with no wastage or stock loss, so it is the most the button can earn. Type a new price in the New price column to see its GP; nothing changes on the till.</p>
+    ${D.costed_products < D.products ? `<div class="notice"><b>${D.costed_products} of ${D.products} drinks products have a cost so far.</b> Costs come from the invoices uploaded under Stocktake - Admin, so more lines fill in as invoices arrive.</div>` : ""}
+    <div class="stat" id="gp_stats"></div>
+    <div class="row-actions" style="margin:0 0 12px;align-items:center">
+      <input class="in" id="gp_q" placeholder="Search a button or product" value="${esc(GP.q)}" style="max-width:240px">
+      <select class="in" id="gp_cat" style="max-width:200px" aria-label="Category"><option value="">All categories</option>${cats.map(c => `<option${GP.cat === c ? " selected" : ""}>${esc(c)}</option>`).join("")}</select>
+      <select class="in" id="gp_view" style="max-width:240px" aria-label="Show"><option value="attention"${GP.view === "attention" ? " selected" : ""}>Needs attention (${nflag})</option><option value="all"${GP.view === "all" ? " selected" : ""}>Everything (${D.rows.length})</option><option value="under"${GP.view === "under" ? " selected" : ""}>Under target</option><option value="nocost"${GP.view === "nocost" ? " selected" : ""}>No cost yet</option><option value="noprice"${GP.view === "noprice" ? " selected" : ""}>Costed but no price</option><option value="changed"${GP.view === "changed" ? " selected" : ""}>Prices I have changed</option></select>
+      <select class="in" id="gp_sort" style="max-width:200px" aria-label="Sort"><option value="gp"${GP.sort === "gp" ? " selected" : ""}>Lowest GP first</option><option value="name"${GP.sort === "name" ? " selected" : ""}>Name</option><option value="cat"${GP.sort === "cat" ? " selected" : ""}>Category</option><option value="price"${GP.sort === "price" ? " selected" : ""}>Highest price</option>${D.has_sales ? `<option value="sold"${GP.sort === "sold" ? " selected" : ""}>Best sellers</option>` : ""}</select>
+      ${D.has_sales ? `<label class="chk"><input type="checkbox" id="gp_w"${GP.weighted ? " checked" : ""}> Weight GP by sales</label>` : ""}
+    </div>
+    <div class="row-actions" style="margin:0 0 12px"><button class="btn small" data-gp="suggest"${edit ? "" : " disabled"}>Fill in suggested prices</button><button class="btn ghost small" data-gp="clear">Clear my changes</button>
+      <button class="btn small" data-gp="save"${edit ? "" : " disabled"}>Save these as proposals</button><button class="btn ghost small" data-gp="golive"${edit ? "" : " disabled"}>Proposals are now on the till</button><button class="btn ghost small" data-gp="csv">Download CSV</button></div>
+    ${rows.length ? "" : `<div class="card">Nothing to show with these filters.</div>`}
+    <div class="tw"><table class="t" id="gp_table"><thead><tr><th>Till button</th><th>Product</th><th class="n">Price (inc VAT)</th><th class="n">Cost per measure</th><th class="n">GP £ (net)</th><th class="n">GP %</th><th class="n">Target</th><th class="n">New price</th><th class="n">New GP £</th><th class="n">New GP %</th><th>Notes</th></tr></thead>
+      <tbody>${rows.map(gpRowHtml).join("")}</tbody></table></div>
+    <p class="tiny muted" style="margin-top:8px">Prices come from what you type here, otherwise the average of what the button sold for in the latest PLU reports, otherwise the product's stored price (single measures only). Suggested prices are the lowest tidy price (5p, or 10p above £3) that reaches the category target. Recipe buttons add up their ingredients. The calculator never changes the till.</p>`;
+  gpStats(); window.scrollTo(0, keep);
+}
+function gpRecalcRow(tr){
+  const r = GP.d.rows.find(x => x.plu === tr.dataset.plu); if (!r) return; const nw = gpNew(r), ngp = nw !== null ? gpPct(nw, r.cost) : null;
+  tr.querySelector('[data-c="ngp"]').textContent = nw !== null && r.cost !== null ? money(gpNet(nw) - r.cost) : ""; tr.querySelector('[data-c="ngpp"]').textContent = ngp !== null ? pct(ngp) : "";
+  const c = tr.querySelector('[data-c="ngpp"]'); c.className = "n " + (ngp === null ? "" : ngp < gpTarget(r.category) ? "bad" : "good"); gpStats();
+}
+function gpCsv(){
+  const q = v => '"' + String(v ?? "").replace(/"/g, '""') + '"', head = ["PLU", "Till button", "Product", "Category", "Price now", "Cost per measure", "GP now", "Target", "New price", "GP at new price", "Change", "Notes"];
+  const lines = [head.map(q).join(",")];
+  GP.d.rows.filter(r => GP.view !== "changed" || gpNew(r) !== null).forEach(r => { const nw = gpNew(r);
+    lines.push([r.plu, r.name, r.product, r.category, r.price ?? "", r.cost === null ? "" : r.cost.toFixed(4), r.gp === null ? "" : (r.gp * 100).toFixed(1) + "%", Math.round(gpTarget(r.category) * 100) + "%", nw ?? "", nw !== null && r.cost !== null ? (gpPct(nw, r.cost) * 100).toFixed(1) + "%" : "", nw !== null && r.price !== null ? (nw - r.price).toFixed(2) : "", r.flags.map(f => f.t).join("; ")].map(q).join(",")); });
+  downloadBlob("GP calculator " + new Date().toISOString().slice(0, 10) + ".csv", new Blob(["\ufeff" + lines.join("\r\n") + "\r\n"], { type:"text/csv;charset=utf-8" }));
+}
+function gpTargetsModal(){
+  const cats = [...new Set(GP.d.rows.map(r => r.category))].sort();
+  openModal(`<h3 style="font-size:26px;color:var(--sage)">Targets and VAT</h3><p class="small muted">Target GP is on net sales (VAT taken out). Till prices are taken to include the VAT rate below.</p>
+    <div class="grid"><div class="field"><label>VAT rate %</label><input class="in" id="tg_vat" inputmode="decimal" value="${GP.d.settings.vat_rate}"></div><div class="field"><label>Default target GP %</label><input class="in" id="tg_def" inputmode="decimal" value="${GP.d.settings.default_target}"></div></div>
+    <div class="grid">${cats.map(c => `<div class="field"><label>${esc(c)}</label><input class="in" data-tg="${esc(c)}" inputmode="decimal" value="${Math.round(gpTarget(c) * 100)}"></div>`).join("")}</div>
+    <div class="row-actions"><button class="btn" data-gp="tgsave">Save</button><button class="btn ghost" data-act="close">Cancel</button></div>`);
+}
+document.addEventListener("input", e => {
+  const t = e.target; if (!GP.d || S.tab !== "gp") return;
+  if (t.dataset.gpnew !== undefined) { const v = parseFloat(String(t.value).replace(/[£,\s]/g, "")); if (isFinite(v) && v > 0) GP.edits.set(t.dataset.gpnew, Math.round(v * 100) / 100); else GP.edits.delete(t.dataset.gpnew); gpRecalcRow(t.closest("tr")); }
+});
+document.addEventListener("change", async e => {
+  const t = e.target; if (!GP.d || S.tab !== "gp") return;
+  if (t.id === "gp_cat") { GP.cat = t.value; return renderGp(); } if (t.id === "gp_view") { GP.view = t.value; return renderGp(); } if (t.id === "gp_sort") { GP.sort = t.value; return renderGp(); }
+  if (t.id === "gp_w") { GP.weighted = t.checked; return renderGp(); }
+  if (t.id === "gp_q") { GP.q = t.value; return renderGp(); }
+  if (t.dataset.gpcur !== undefined) {       // a till price typed for a button that had none
+    const v = parseFloat(String(t.value).replace(/[£,\s]/g, "")); if (!(v > 0)) return;
+    try { await call("gp.price.save", { rows:[{ plu:t.dataset.gpcur, sell_price:Math.round(v * 100) / 100 }] }); const r = GP.d.rows.find(x => x.plu === t.dataset.gpcur); r.price = Math.round(v * 100) / 100; r.price_source = "set"; toast("Price saved."); renderGp(); } catch(err){ toast(err.message, true); }
+  }
+});
+document.addEventListener("click", async e => {
+  const b = e.target.closest("[data-gp],[data-gpuse]"); if (!b || !GP.d) return;
+  try {
+    if (b.dataset.gpuse) { const r = GP.d.rows.find(x => x.plu === b.dataset.gpuse); GP.edits.set(r.plu, r.suggest); return renderGp(); }
+    const a = b.dataset.gp;
+    if (a === "targets") return gpTargetsModal();
+    if (a === "clear") { GP.edits = new Map(); return renderGp(); }
+    if (a === "suggest") { GP.d.rows.forEach(r => { if (r.suggest !== null && !GP.edits.has(r.plu)) GP.edits.set(r.plu, r.suggest); }); return renderGp(); }
+    if (a === "csv") return gpCsv();
+    if (a === "save") {
+      const rows = GP.d.rows.filter(r => (gpNew(r) ?? null) !== (r.proposed ?? null)).map(r => ({ plu:r.plu, proposed_price:gpNew(r) }));
+      if (!rows.length) return toast("Nothing has changed since the last save.");
+      b.disabled = true; await call("gp.price.save", { rows }); rows.forEach(x => { const r = GP.d.rows.find(y => y.plu === x.plu); r.proposed = x.proposed_price; }); toast(rows.length + " proposal" + (rows.length === 1 ? "" : "s") + " saved."); b.disabled = false; return;
+    }
+    if (a === "golive") {
+      const rows = GP.d.rows.filter(r => r.proposed !== null); if (!rows.length) return toast("There are no saved proposals.", true);
+      if (!confirm("Mark " + rows.length + " proposed price" + (rows.length === 1 ? "" : "s") + " as now live on the till? They become the current prices.")) return;
+      await call("gp.price.save", { rows:rows.map(r => ({ plu:r.plu, sell_price:r.proposed, proposed_price:null })) });
+      rows.forEach(r => { r.price = r.proposed; r.price_source = "set"; r.proposed = null; GP.edits.delete(r.plu); }); toast("Current prices updated."); return renderGp();
+    }
+    if (a === "tgsave") {
+      const targets = $$("[data-tg]").map(i => ({ category:i.dataset.tg, target_pct:Number(i.value) }));
+      await call("gp.targets.save", { settings:{ vat_rate:Number($("#tg_vat").value), default_target:Number($("#tg_def").value) }, targets });
+      GP.d.settings = { vat_rate:Number($("#tg_vat").value), default_target:Number($("#tg_def").value) }; targets.forEach(t => { const x = GP.d.targets.find(y => y.category === t.category); if (x) x.target_pct = t.target_pct; else GP.d.targets.push(t); });
+      closeModal(); toast("Saved."); return renderGp();
+    }
+  } catch(err){ toast(err.message, true); b.disabled = false; }
+});
 
 /* ------------------------------------------------------------- events */
 document.addEventListener("click", async e => {
