@@ -790,15 +790,14 @@ var STORAGE_KEY = "bhb_saved_quotes_v1";
 
 var defaultWeddingItemNames = (D.DEFAULT_WEDDING_ITEMS || []);
 
-function loadAllSavedQuotes() {
-  try {
-    var raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch (e) { return []; }
+// Saved quotes are shared: they live on the server (quote-api), and this is the copy this page holds, refreshed whenever the Saved tab opens.
+var SHARED = { quotes: (window.BHB_QUOTES0 || []).slice() };
+function loadAllSavedQuotes() { return SHARED.quotes; }
+// Quotes kept in this browser before sharing began (offered once, on the Saved tab).
+function legacyQuotes() {
+  try { var raw = localStorage.getItem(STORAGE_KEY); var l = raw ? JSON.parse(raw) : []; return Array.isArray(l) ? l : []; } catch (e) { return []; }
 }
-function persistAllSavedQuotes(list) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(list)); } catch (e) { /* storage full/unavailable — non-fatal */ }
-}
+function toast(msg) { if (window.BHB_UI && window.BHB_UI.showToast) window.BHB_UI.showToast(msg); }
 
 function catalogFor(quoteType) { return D.QUOTE_REGISTRY[quoteType].catalog; }
 
@@ -807,6 +806,8 @@ var Store = {
   lineItems: [], // {localId, itemName, priceEach, quantity, includedInQuote}
   nextLocalId: 0,
   currentQuoteId: 0,
+  baseUpdatedAt: null, // the server's updated_at of the copy this page opened or last saved: a save made on an out-of-date copy is kept as a separate quote, not over the top of someone else's
+  saving: false, pendingSave: false,
   listeners: [],
   saveTimer: null,
 
@@ -820,7 +821,7 @@ var Store = {
   scheduleAutosave: function () {
     var self = this;
     if (this.saveTimer) clearTimeout(this.saveTimer);
-    this.saveTimer = setTimeout(function () { self.autosave(); }, 600);
+    this.saveTimer = setTimeout(function () { self.autosave(); }, 1200);
   },
 
   hasContent: function () {
@@ -832,20 +833,37 @@ var Store = {
 
   autosave: function () {
     if (!this.hasContent()) return;
-    var all = loadAllSavedQuotes();
-    var now = Date.now();
-    var record = {
-      id: this.currentQuoteId || now,
-      details: this.details,
-      lineItems: this.lineItems.map(function (it) {
-        return { itemName: it.itemName, priceEach: it.priceEach, quantity: it.quantity, includedInQuote: it.includedInQuote };
-      }),
-      updatedAtEpochMillis: now
-    };
-    if (!this.currentQuoteId) this.currentQuoteId = record.id;
-    var idx = all.findIndex(function (q) { return q.id === record.id; });
-    if (idx >= 0) all[idx] = record; else all.push(record);
-    persistAllSavedQuotes(all);
+    if (this.saving) { this.pendingSave = true; return; }
+    var self = this;
+    var lines = this.lineItems.map(function (it) {
+      return { itemName: it.itemName, priceEach: it.priceEach, quantity: it.quantity, includedInQuote: it.includedInQuote };
+    });
+    var details = this.details;
+    this.saving = true;
+    window.BHB_API("quotes.save", { id: this.currentQuoteId || undefined, base_updated_at: this.baseUpdatedAt || undefined, details: details, line_items: lines }).then(function (r) {
+      self.saving = false;
+      if (r.conflict) {
+        // someone else saved this quote, or removed it, since it was opened here: keep these changes as their own quote
+        self.currentQuoteId = 0; self.baseUpdatedAt = null;
+        toast(r.conflict === "gone" ? "This quote was deleted by someone else, so your changes are being kept as a new quote."
+          : (r.by || "Someone") + " changed this quote while you were editing it, so your changes are being kept as a separate copy.");
+        self.scheduleAutosave();
+        return;
+      }
+      var rec = r.quote; rec.details = details; rec.lineItems = lines;
+      self.currentQuoteId = rec.id; self.baseUpdatedAt = rec.updated_at;
+      var all = loadAllSavedQuotes(), idx = all.findIndex(function (q) { return q.id === rec.id; });
+      if (idx >= 0) all[idx] = rec; else all.unshift(rec);
+      if (self.pendingSave) { self.pendingSave = false; self.scheduleAutosave(); }
+    }).catch(function (e) {
+      self.saving = false;
+      toast("Could not save this quote just now (" + (e && e.message ? e.message : "no connection") + "). It will try again when you make the next change.");
+    });
+  },
+
+  // bring the shared list up to date (when the Saved tab opens)
+  refreshSaved: function () {
+    return window.BHB_API("quotes.list").then(function (r) { SHARED.quotes = (r.quotes || []).slice(); });
   },
 
   updateDetails: function (transform) {
@@ -945,6 +963,7 @@ var Store = {
     var saved = all.filter(function (q) { return q.id === id; })[0];
     if (!saved) return;
     this.currentQuoteId = saved.id;
+    this.baseUpdatedAt = saved.updated_at || null;
     this.details = saved.details;
     this.nextLocalId = 0;
     var self = this;
@@ -955,9 +974,22 @@ var Store = {
   },
 
   deleteQuote: function (id) {
-    var all = loadAllSavedQuotes().filter(function (q) { return q.id !== id; });
-    persistAllSavedQuotes(all);
-    this.notify();
+    var self = this;
+    SHARED.quotes = loadAllSavedQuotes().filter(function (q) { return q.id !== id; });
+    if (id === this.currentQuoteId) { this.currentQuoteId = 0; this.baseUpdatedAt = null; if (this.saveTimer) clearTimeout(this.saveTimer); }
+    window.BHB_API("quotes.delete", { id: id }).catch(function (e) {
+      toast("Could not delete that quote (" + (e && e.message ? e.message : "no connection") + ").");
+      self.refreshSaved().then(function () { if (window.BHB_UI) window.BHB_UI.render(); });
+    });
+  },
+
+  legacyCount: function () { return legacyQuotes().length; },
+  importLegacy: function () {
+    var old = legacyQuotes(), self = this;
+    return window.BHB_API("quotes.import", { quotes: old }).then(function (r) {
+      try { localStorage.setItem(STORAGE_KEY + "_imported", JSON.stringify(old)); localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+      return self.refreshSaved().then(function () { return r.imported; });
+    });
   },
 
   savedQuotes: function () {
@@ -1009,7 +1041,16 @@ function showToast(msg) {
 /* ---------------- navigation ---------------- */
 function goHome() { screen = "home"; render(); }
 function selectQuoteType(type) { Store.startNewQuote(type); screen = "details"; render(); }
-function goTab(tab) { screen = tab; render(); }
+function goTab(tab) {
+  screen = tab; render();
+  if (tab === "saved") Store.refreshSaved().then(function () { if (screen === "saved") render(); }).catch(function () {});
+}
+function dismissLegacy() { try { sessionStorage.setItem("bhb_legacy_dismissed", "1"); } catch (e) {} render(); }
+function importLegacy() {
+  var n = Store.legacyCount();
+  Store.importLegacy().then(function (done) { showToast(done + " of " + n + " quote" + (n === 1 ? "" : "s") + " added to the shared list."); render(); })
+    .catch(function (e) { showToast("Could not add them just now (" + (e && e.message ? e.message : "no connection") + ")."); });
+}
 function nextFromDetails() { screen = "package"; render(); }
 function backToDetails() { screen = "details"; render(); }
 function nextFromPackage() { screen = "summary"; render(); }
@@ -1336,10 +1377,17 @@ function summaryRow(label, value) {
 }
 
 /* ---------------- SAVED ---------------- */
+function legacyBannerHtml() {
+  var n = Store.legacyCount(), gone = false;
+  try { gone = sessionStorage.getItem("bhb_legacy_dismissed") === "1"; } catch (e) {}
+  if (!n || gone) return "";
+  return '<div class="bhb-card" style="border-left:4px solid var(--gold)"><div style="margin-bottom:8px"><b>' + n + ' quote' + (n === 1 ? "" : "s") + ' saved in this browser</b> from before quotes were shared. Add ' + (n === 1 ? "it" : "them") + ' to the shared list so every coordinator can open ' + (n === 1 ? "it" : "them") + '?</div>' +
+    '<div class="bhb-row" style="justify-content:flex-start;gap:12px"><button class="bhb-btn" onclick="BHB_UI.importLegacy()">Add to the shared list</button><button class="bhb-btn-text" onclick="BHB_UI.dismissLegacy()">Not now</button></div></div>';
+}
 function renderSaved() {
   var quotes = Store.savedQuotes();
   if (quotes.length === 0) {
-    return '<div class="bhb-empty-state">No saved quotes yet. Quotes autosave as you build them.</div>';
+    return legacyBannerHtml() + '<div class="bhb-empty-state">No saved quotes yet. Quotes autosave as you build them, and every coordinator sees them.</div>';
   }
   var rows = quotes.map(function (q) {
     var cfg = D.QUOTE_REGISTRY[q.details.quoteType];
@@ -1355,14 +1403,14 @@ function renderSaved() {
       '<div class="bhb-saved-card" onclick="BHB_UI.openSavedQuote(' + q.id + ')">' +
         "<div>" +
           '<div class="bhb-saved-name">' + esc(name) + "</div>" +
-          '<div class="bhb-saved-meta">' + esc(cfg.label) + " &middot; Saved " + esc(dateStr) + "</div>" +
+          '<div class="bhb-saved-meta">' + esc(cfg.label) + " &middot; Saved " + esc(dateStr) + (q.by ? " by " + esc(q.by) : "") + "</div>" +
           '<div class="bhb-saved-total">' + esc(gbp(t.totalCostIncVenueHire)) + "</div>" +
         "</div>" +
         '<button class="bhb-remove-btn" onclick="event.stopPropagation(); BHB_UI.deleteQuote(' + q.id + ')" title="Delete">&#128465;</button>' +
       "</div>"
     );
   }).join("");
-  return rows;
+  return legacyBannerHtml() + rows;
 }
 
 /* ---------------- render dispatch ---------------- */
@@ -1447,6 +1495,7 @@ window.BHB_UI = {
   setDetail: setDetail, setDetailSilent: setDetailSilent, setGuestCountSilent: setGuestCountSilent,
   toggleExactDate: toggleExactDate, setExactDate: setExactDate, clearQuote: clearQuote,
   overrideValue: overrideValue, resetOverride: resetOverride, setOverrideSilent: setOverrideSilent,
+  importLegacy: importLegacy, dismissLegacy: dismissLegacy,
   addLineItem: addLineItem, removeLineItem: removeLineItem, setLineItem: setLineItem,
   setLineItemNumberSilent: setLineItemNumberSilent, changeCategory: changeCategory, changeItemName: changeItemName,
   generatePdf: function () { window.BHB_PDF.generateAndDownload(Store.details, Store.lineItems); },
@@ -1735,9 +1784,13 @@ window.BHB_PDF = { generate: generate, generateAndDownload: generateAndDownload,
   }
   if (!email()) { gate("Wedding Quotes", 'This opens from the Staff Portal, which knows who you are. <a href="../portal/app.html">Open the Staff Portal</a>'); return; }
   document.getElementById("bhb-app").innerHTML = '<div id="bhb-gate"><p>Loading prices\u2026</p></div>';
-  fetch(CFG.SUPABASE_URL + "/functions/v1/quote-api", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + CFG.SUPABASE_KEY, apikey: CFG.SUPABASE_KEY }, body: JSON.stringify({ action: "load", staff_email: email() }) })
-    .then(function (r) { return r.json().then(function (d) { if (!r.ok || d.error) throw new Error(d.error || "Request failed (" + r.status + ")"); return d; }); })
-    .then(function (api) { window.BHB_BUILD(api); window.BHB_ME = api.me; document.getElementById("bhb-app").innerHTML = ""; startApp(); })
+  window.BHB_API = function (action, payload) {
+    return fetch(CFG.SUPABASE_URL + "/functions/v1/quote-api", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + CFG.SUPABASE_KEY, apikey: CFG.SUPABASE_KEY }, body: JSON.stringify(Object.assign({ action: action, staff_email: email() }, payload || {})) })
+      .then(function (r) { return r.json().then(function (d) { if (!r.ok || d.error) throw new Error(d.error || "Request failed (" + r.status + ")"); return d; }); });
+  };
+  window.BHB_API("load")
+    .then(function (api) { window.BHB_BUILD(api); window.BHB_ME = api.me; return window.BHB_API("quotes.list").then(function (q) { window.BHB_QUOTES0 = q.quotes || []; }, function () { window.BHB_QUOTES0 = []; }); })
+    .then(function () { document.getElementById("bhb-app").innerHTML = ""; startApp(); })
     .catch(function (e) { gate("Could not load the quote tool", String(e.message || e) + '<br><br>Open it from the Staff Portal, or ask the GM for access.'); });
 })();
 </script>
