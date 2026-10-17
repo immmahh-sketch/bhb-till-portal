@@ -495,6 +495,7 @@ async function showForm(id){
       <div class="field ${ct === "salaried" ? "" : "off"}" id="w_hours"><label for="f_hours">Hours per week</label><input id="f_hours" type="number" inputmode="decimal" step="0.5" min="0" value="${esc(fieldVal(s, "hours", ""))}"${dis}><div class="ferr" data-err="hours"></div></div></div>
       <div class="grid2" style="margin-top:6px"><div class="field"><span class="lbl">Hours</span>${pickTwo("employment_type", fieldVal(s, "employment_type", "full_time"), [["full_time", "Full time"], ["part_time", "Part time"], ["zero_hours", "Zero hours"]])}</div>
       <div class="field"><span class="lbl">Permanent or temporary</span>${pickTwo("term", fieldVal(s, "term", "permanent"), [["permanent", "Permanent"], ["temporary", "Temporary"]])}</div></div>
+      <div class="field ${fieldVal(s, "term", "permanent") === "temporary" ? "" : "off"}" id="w_termend" style="margin-top:6px"><label for="f_term_end_date">Fixed term contract ends on</label><input id="f_term_end_date" type="date" value="${esc(String(fieldVal(s, "term_end_date", "")).slice(0, 10))}"${dis}><div class="hint">This goes into clause 2.1 of the contract they sign.</div><div class="ferr" data-err="term_end_date"></div></div>
 </div>
     <div class="card"><h3 style="font-size:23px;margin-bottom:2px">Line manager</h3><div class="hint" style="margin-bottom:10px">Printed on their health form.</div>
       <div class="grid2"><div class="field"><label for="f_line_manager">Name</label><input id="f_line_manager" value="${esc(fieldVal(s, "line_manager", ""))}"></div>
@@ -508,7 +509,7 @@ function formVals(){
   const v = id => { const e = $("#f_" + id); return e ? e.value.trim() : ""; };
   const checked = n => { const e = $(`input[name="${n}"]:checked`); return e ? e.value : ""; };
   const o = { first_name:v("first_name"), last_name:v("last_name"), email:v("email"), mobile:v("mobile"), job_title:v("job_title"), start_date:v("start_date"), contract_type:checked("ct"),
-    work_location:v("work_location"), employment_type:checked("employment_type"), term:checked("term"), line_manager:v("line_manager"), line_manager_tel:v("line_manager_tel"), notes:$("#f_notes").value.trim() };
+    work_location:v("work_location"), employment_type:checked("employment_type"), term:checked("term"), term_end_date:v("term_end_date"), line_manager:v("line_manager"), line_manager_tel:v("line_manager_tel"), notes:$("#f_notes").value.trim() };
   const dd = $("#f_department"), gg = $("#f_group");
   if (dd && dd.tagName === "SELECT") { const opt = dd.selectedOptions[0]; o.department_id = dd.value ? ((S.planday.departments || []).find(x => String(x.id) === dd.value) || { id:dd.value }).id : null; o.department_name = dd.value && opt ? opt.textContent : ""; }
   else if (dd) { o.department_name = dd.value.trim(); }
@@ -526,6 +527,7 @@ function validate(o, forPreview){
   if (!o.job_title) e.job_title = "Enter the job title.";
   if (!o.start_date) e.start_date = "Pick the start date.";
   if (!o.contract_type) e.contract_type = "Choose hourly paid or salaried.";
+  if (o.term === "temporary") { if (!o.term_end_date) e.term_end_date = "Pick the date the fixed term contract ends."; else if (o.start_date && o.term_end_date <= o.start_date) e.term_end_date = "The end date has to be after the start date."; }
   if (o.contract_type === "hourly" && !(o.hourly_rate > 0)) e.hourly_rate = "Enter the hourly rate in pounds.";
   if (o.contract_type === "salaried") { if (!(o.salary > 0)) e.salary = "Enter the annual salary in pounds."; if (!(o.hours > 0)) e.hours = "Enter the hours per week."; }
   return e;
@@ -557,7 +559,7 @@ async function previewContract(){
   const o = formVals(), errs = validate(o, true); delete errs.email; showErrors(errs);
   if (Object.keys(errs).length) { $("#formerr").textContent = "Fill in the highlighted fields to preview the contract."; return; }
   $("#formerr").textContent = "";
-  const r = await call("contract.preview", { contract_type:o.contract_type, first_name:o.first_name, last_name:o.last_name, job_title:o.job_title, hourly_rate:o.hourly_rate, salary:o.salary, hours:o.hours, start_date:o.start_date });
+  const r = await call("contract.preview", { contract_type:o.contract_type, first_name:o.first_name, last_name:o.last_name, job_title:o.job_title, hourly_rate:o.hourly_rate, salary:o.salary, hours:o.hours, start_date:o.start_date, term:o.term, term_end_date:o.term_end_date });
   openModal(`<h3>Contract preview</h3><p class="muted small" style="margin:0 0 10px">This is what ${esc(o.first_name)} will read and sign. Scroll to read it all.</p><div class="contract" tabindex="0">${contractHtml(r.blocks || [], r.signatory)}</div><div class="formbtns"><button class="btn" data-act="closemodal">Close</button></div>`);
 }
 function contractHtml(blocks, sig){
@@ -1526,6 +1528,7 @@ document.addEventListener("change", async e => {
   if (t.id.startsWith("chk_expiry_")) { const k = t.id.split("_")[2]; S.ui.chk = S.ui.chk || {}; (S.ui.chk[k] = S.ui.chk[k] || {}).expiry = t.value; }
   if (t.name === "ct" || t.name === "employment_type" || t.name === "term") {
     $$(`input[name="${t.name}"]`).forEach(r => r.closest("label").classList.toggle("on", r.checked));
+    if (t.name === "term") $("#w_termend").classList.toggle("off", t.value !== "temporary");
     if (t.name === "ct") { $("#w_rate").classList.toggle("off", t.value !== "hourly"); $("#w_sal").classList.toggle("off", t.value !== "salaried"); $("#w_hours").classList.toggle("off", t.value !== "salaried"); }
   }
 });
