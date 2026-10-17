@@ -184,6 +184,7 @@ body.widepage{--maxw:1800px} body.widepage #kiosk{max-width:var(--maxw)}
 table.grid.cuh{font-size:13px} table.grid.cuh th{white-space:normal; line-height:1.25; padding:9px 7px; font-size:9.5px; letter-spacing:.1em; vertical-align:bottom} table.grid.cuh td{padding:9px 7px}
 table.grid.cuh th:first-child, table.grid.cuh td:first-child{padding-left:12px} table.grid.cuh th:last-child, table.grid.cuh td:last-child{padding-right:12px}
 @media (max-width:1100px){ table.grid.cuh{font-size:12px} table.grid.cuh td, table.grid.cuh th{padding-left:5px; padding-right:5px} }
+table.grid tr.dayrow td{background:var(--sage-10); border-top:2px solid var(--celadon); font-weight:600}
 table.grid tr.grp{cursor:pointer} table.grid tr.grp:hover td{background:var(--sage-10)}
 table.grid tr.grpsub td{background:var(--bone); font-size:13px; color:var(--sage-dark)} table.grid tr.grpsub td:first-child{padding-left:28px}
 .chev{display:inline-block; width:14px; color:var(--sage-70)} .part{display:inline-block; font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; background:var(--attention-bg); color:#6d5320; border-radius:999px; padding:2px 8px; margin-left:6px}
@@ -834,7 +835,7 @@ function viewCashUpEntry(){
       <button class="on">Add a count</button>
       <button onclick="goView('cashup-history')">History</button>
     </div>`}
-    <div class="pagehead"><h2>Cash Up</h2><div class="hint">Count the till and the card machine, then check them against what the till expects.</div></div>
+    <div class="pagehead"><h2>Cash Up</h2><div class="hint">Count the till's cash and enter what the till expects. The day's cards are checked once, after the last till.</div></div>
     <div id="cuForm">
     <div class="card">
       <div class="row">
@@ -850,13 +851,8 @@ function viewCashUpEntry(){
       <div class="cuLines"><div><span>Notes and coins</span><b id="cu_l_notes">£0.00</b></div><div><span>Petty cash receipts</span><b id="cu_l_petty">£0.00</b></div><div class="tot"><span>Total cash</span><b id="cu_l_cash">£0.00</b></div></div>
     </div>
     <div class="card">
-      <h3 style="margin-bottom:10px;font-size:18px">2. Cards from the PDQ</h3>
-      <div class="row">${fld("cu_visa", "Visa")}${fld("cu_mc", "Mastercard")}${fld("cu_amex", "Amex")}</div>
-      <div class="cuLines"><div class="tot"><span>Total cards (PDQ)</span><b id="cu_l_pdq">£0.00</b></div></div>
-    </div>
-    <div class="card">
-      <h3 style="margin-bottom:4px;font-size:18px">3. Expected from the till</h3>
-      <div class="hint" style="margin-bottom:10px">From the till's own end of day report.</div>
+      <h3 style="margin-bottom:4px;font-size:18px">2. Expected from the till</h3>
+      <div class="hint" style="margin-bottom:10px">From the till's own end of day report. The card machines only give one total for every till, so the cards are counted once for the whole day, when the last till is cashed up.</div>
       <div class="row">${fld("cu_exp_cash", "Cash")}${fld("cu_exp_card", "Cards")}${fld("cu_vouchers", "Vouchers")}${fld("cu_room", "Room charge")}</div>
       <div class="cuLines"><div class="tot"><span>Total expected from the till</span><b id="cu_l_exp">£0.00</b></div></div>
     </div>
@@ -875,20 +871,20 @@ function cuRecalc(){
   if (!$("#cuForm")) return;
   updateDenomTotal("cu");
   const { total: notes } = readDenoms("cu"), petty = r2(numv("cu_petty")), cash = r2(notes + petty);
-  const pdq = r2(numv("cu_visa") + numv("cu_mc") + numv("cu_amex"));
+  const pdq = 0;   // cards are counted once for the whole day, not per till
   const expCash = r2(numv("cu_exp_cash")), expCard = r2(numv("cu_exp_card")), vouch = r2(numv("cu_vouchers")), room = r2(numv("cu_room")), expTotal = r2(expCash + expCard + vouch + room);
   $("#cu_l_notes").textContent = money(notes); $("#cu_l_petty").textContent = money(petty); $("#cu_l_cash").textContent = money(cash);
-  $("#cu_l_pdq").textContent = money(pdq); $("#cu_l_exp").textContent = money(expTotal);
+  $("#cu_l_exp").textContent = money(expTotal);
   const opening = CU.opening !== null ? CU.opening : CU.standard, std = CU.standard;
-  const takings = r2(cash - opening), cashDiff = r2(takings - expCash), cardDiff = r2(pdq - expCard), totalDiff = r2(takings + pdq + vouch + room - expTotal);
+  const takings = r2(cash - opening), cashDiff = r2(takings - expCash), cardDiff = 0, totalDiff = cashDiff;
   const cls = d => Math.abs(d) < 0.005 ? "ok" : "bad";
   const row = (label, got, want, d) => `<tr><td>${label}</td><td class="n">${money(got)}</td><td class="n">${money(want)}</td><td class="n ${cls(d)}">${Math.abs(d) < 0.005 ? "Level" : signed(d)}</td></tr>`;
   $("#cu_check").innerHTML = `<h3 style="margin-bottom:10px;font-size:18px">Check against the till</h3>
     <table class="cuTable"><thead><tr><th></th><th class="n">Counted</th><th class="n">Till expects</th><th class="n">Difference</th></tr></thead><tbody>
       ${row("Cash taken today <span class='muted'>(total cash less this morning's float)</span>", takings, expCash, cashDiff)}
-      ${row("Cards", pdq, expCard, cardDiff)}
+      <tr><td>Cards <span class='muted'>(checked once for the whole day, against Worldpay)</span></td><td class="n"></td><td class="n">${money(expCard)}</td><td class="n"></td></tr>
       <tr><td>Vouchers and room charge</td><td class="n" colspan="2">${money(vouch + room)}</td><td class="n"></td></tr>
-      <tr class="tot"><td>Total</td><td class="n">${money(takings + pdq + vouch + room)}</td><td class="n">${money(expTotal)}</td><td class="n ${cls(totalDiff)}">${Math.abs(totalDiff) < 0.005 ? "Level" : signed(totalDiff)}</td></tr></tbody></table>
+</tbody></table>
     ${expTotal === 0 && cash === 0 ? `<p class="hint" style="margin:8px 0 0">Fill in the cash and the till's figures above and this shows whether they agree.</p>` : ""}`;
   { const L = CU.linked, me = S.tills.find(t => t.key === $("#cu_till").value);
     if (L) {
@@ -985,9 +981,7 @@ async function saveCashUp(){
     petty_cash_receipts: $("#cu_petty").value,
     opening_float: CU.opening !== null ? CU.opening : CU.standard,
     float_retained_for_tomorrow: CU.standard,
-    visa_total: $("#cu_visa").value,
-    mastercard_total: $("#cu_mc").value,
-    amex_total: $("#cu_amex").value,
+    day_cards: true,   // cards are counted once for the day, when the last till is in
     vouchers_total: vouch,
     room_charge_total: room,
     expected_cash: expCash,
@@ -1010,23 +1004,67 @@ async function saveCashUp(){
   finally { btn.disabled = false; btn.textContent = "Save & archive"; cuRecalc(); }
 }
 
+/* The day's cards: one total from Worldpay for every till together, compared with what the tills said they took in cards. Asked for when the last till with a float is cashed up. */
+function dayResultHtml(d){
+  const cls = x => Math.abs(x) < 0.005 ? "ok" : "bad", vt = x => Math.abs(x) < 0.005 ? "Level" : signed(x);
+  const row = (a, b, c) => `<tr><td style="padding:3px 18px 3px 0; text-align:left">${a}</td><td style="text-align:right; font-variant-numeric:tabular-nums" ${c ? `class="${c}"` : ""}>${b}</td></tr>`;
+  return `<table style="margin:0 auto; border-collapse:collapse">
+    ${row("Cash variance, all tills", vt(d.cash_variance), cls(d.cash_variance))}
+    ${row("Cards the tills expected", money(d.expected_card))}
+    ${row("Cards from Worldpay", money(d.cards.total))}
+    ${row("Cards variance", vt(d.card_variance), cls(d.card_variance))}
+    <tr style="border-top:1px solid var(--celadon); font-weight:700"><td style="padding:8px 18px 0 0; text-align:left">Full day variance</td><td class="${cls(d.total_variance)}" style="text-align:right; padding-top:8px">${vt(d.total_variance)}</td></tr></table>`;
+}
+function cardsStep(box, date, day, finish){
+  const el = document.createElement("div"); el.className = "card"; el.id = "dcCard"; box.appendChild(el);
+  const was = (day && day.cards) || {};
+  const exp = day ? day.expected_card : 0;
+  const fld = (id, label, v) => `<div class="field"><label>${label}</label><input type="number" step="0.01" min="0" inputmode="decimal" autocomplete="off" id="${id}" value="${v || 0}" onfocus="this.select()"></div>`;
+  el.innerHTML = `<h3 style="margin:0 0 4px;font-size:18px">Cards from Worldpay</h3>
+    <div class="hint" style="margin-bottom:10px">${day && day.pending && day.pending.length ? `Still to cash up: ${esc(day.pending.join(", "))}. ` : "Every till with a float is cashed up. "}The card machines give one total for all of them. Enter the day's total from the Worldpay report.</div>
+    <div class="row">${fld("dc_visa", "Visa", was.visa)}${fld("dc_mc", "Mastercard", was.mastercard)}${fld("dc_amex", "Amex", was.amex)}</div>
+    <div class="cuLines"><div><span>Cards the tills expected</span><b>${money(exp)}</b></div><div><span>Cards from Worldpay</span><b id="dc_tot">£0.00</b></div><div class="tot"><span>Difference</span><b id="dc_diff">£0.00</b></div></div>
+    <div class="opts2" style="display:flex; gap:10px; flex-wrap:wrap; margin-top:14px"><button class="btn" id="dc_save">Save the day's cards</button><button class="btn ghost" id="dc_skip">Skip for now</button></div>`;
+  const calc = () => { const t = r2(numv("dc_visa") + numv("dc_mc") + numv("dc_amex")), d = r2(t - exp); $("#dc_tot").textContent = money(t); const b = $("#dc_diff"); b.textContent = Math.abs(d) < 0.005 ? "Level" : signed(d); b.className = Math.abs(d) < 0.005 ? "ok" : "bad"; };
+  el.addEventListener("input", calc); calc();
+  $("#dc_skip").addEventListener("click", finish);
+  $("#dc_save").addEventListener("click", async () => {
+    const b = $("#dc_save"); b.disabled = true; b.textContent = "Saving…";
+    try {
+      const out = await call("daycards.save", { business_date:date, visa:$("#dc_visa").value, mastercard:$("#dc_mc").value, amex:$("#dc_amex").value });
+      toast("Day's cards saved.");
+      el.className = "card donecard"; el.innerHTML = `<h3 style="margin:0 0 10px">The full day</h3>${dayResultHtml(out.day)}<div class="opts2" style="display:flex; justify-content:center; margin-top:14px"><button class="btn" id="dc_done">Done</button></div>`;
+      $("#dc_done").addEventListener("click", finish);
+      const thr = Number(out.note_threshold) || 20; if (Math.abs(out.day.total_variance) > thr) largeVariancePrompt(date, "day", "Full day", out.day.total_variance, true);
+    } catch(e) { toast(e.message, true); b.disabled = false; b.textContent = "Save the day's cards"; }
+  });
+}
+
 /* Linked tills (Bar + Restaurant, Marquee 1 + 2): after a save, ask about the other till, and once both are in show the difference across the pair. */
 function cuAfterSave(out){
   const finish = () => { if (VIEW === "floatstills") ftBack(); else afterSave("cashup", "cashup-history"); };
   const L = out.linked, box = $("#ft") || $("#kioskForm"), thr = Number(out.note_threshold) || 20;
   const askNotes = (v, key, label, isGroup) => { if (Math.abs(v) > thr) largeVariancePrompt(out.cashup.business_date, key, label, v, isGroup); };
-  if (!L) { const lbl = tillLabel(out.cashup.till_key); finish(); askNotes(Number(out.cashup.variance) || 0, out.cashup.till_key, lbl, false); return; }
+  const needCards = !!(out.day && out.day.needs_cards) && !!box;
+  if (!L && !needCards) { const lbl = tillLabel(out.cashup.till_key); finish(); askNotes(Number(out.cashup.variance) || 0, out.cashup.till_key, lbl, false); return; }
+  if (!L) {
+    const v = Number(out.cashup.variance) || 0;
+    box.innerHTML = `<div class="card donecard"><h3 style="margin:0 0 6px">Saved</h3><div>${esc(tillLabel(out.cashup.till_key))}: cash ${Math.abs(v) < 0.005 ? "level" : esc(signed(v))}</div></div>`;
+    askNotes(v, out.cashup.till_key, tillLabel(out.cashup.till_key), false);
+    cardsStep(box, out.cashup.business_date, out.day, finish); return;
+  }
   if (!box) { finish(); if (L.complete) askNotes(L.total_variance, L.link_key, L.label, true); return; }
   const cls = d => Math.abs(d) < 0.005 ? "ok" : "bad", vtxt = d => Math.abs(d) < 0.005 ? "Level" : signed(d);
   const thisKey = out.cashup.till_key, waiting = L.parts.filter(p => !p.done && p.till_key !== thisKey);
   const split = `<table style="margin:0 auto; border-collapse:collapse">${L.parts.filter(p => p.done).map(p => `<tr><td style="padding:3px 18px 3px 0; text-align:left">${esc(p.label)}</td><td class="${cls(p.variance)}" style="text-align:right; font-variant-numeric:tabular-nums">${vtxt(p.variance)}</td></tr>`).join("")}
     ${L.complete ? `<tr style="border-top:1px solid var(--celadon); font-weight:700"><td style="padding:8px 18px 0 0; text-align:left">${esc(L.label)} together</td><td class="${cls(L.total_variance)}" style="text-align:right; padding-top:8px">${vtxt(L.total_variance)}</td></tr>` : ""}</table>`;
   box.innerHTML = `<div class="card donecard"><h3 style="margin:0 0 10px">Saved</h3>${split}
-    ${L.complete ? `<p class="hint" style="margin:12px 0 0">The difference that counts is the ${esc(L.label)} total above. Cash ${vtxt(L.cash_variance)}, cards ${vtxt(L.card_variance)}.</p>` : ""}
+    ${L.complete ? `<p class="hint" style="margin:12px 0 0">The difference that counts is the ${esc(L.label)} total above. Cash ${vtxt(L.cash_variance)}${out.day && out.day.all_day_cards ? "" : `, cards ${vtxt(L.card_variance)}`}.</p>` : ""}
     ${waiting.length ? `<p style="margin:16px 0 0; font-size:17px"><b>Are you now cashing up ${waiting.map(p => esc(p.label)).join(" and ")}?</b></p><div class="opts2"><button class="btn" id="cuNextYes">Yes, cash up ${esc(waiting[0].label)}</button><button class="btn ghost" id="cuNextNo">No, not now</button></div>`
       : `<div class="opts2"><button class="btn" id="cuNextNo">Done</button></div>`}</div>`;
   window.scrollTo(0, 0);
   if (L.complete) askNotes(L.total_variance, L.link_key, L.label, true);
+  if (needCards) { const nb = $("#cuNextNo"); if (nb && !$("#cuNextYes")) nb.closest(".opts2").remove(); cardsStep(box, out.cashup.business_date, out.day, finish); return; }
   $("#cuNextNo").addEventListener("click", finish);
   const yes = $("#cuNextYes");
   if (yes) yes.addEventListener("click", () => {
@@ -1042,6 +1080,9 @@ const CASHUP_COLS = [
   { label:"Till", value:r=>tillLabel(r.till_key) },
   { label:"Linked group", value:r=>tillGroup(r.till_key).label || "" },
   { label:"Group total variance", value:r=>r._groupVar === undefined ? "" : r._groupVar },
+  { label:"Day cards (Worldpay)", value:r=>{ const dc = (S.dayCards || {})[r.business_date]; return dc ? dc.total : ""; } },
+  { label:"Day cards variance", value:r=>{ const f = dayFig(r.business_date); return f.cardVar === null ? "" : f.cardVar; } },
+  { label:"Full day variance", value:r=>{ const f = dayFig(r.business_date); return f.v === null ? "" : f.v; } },
   { label:"Completed By", value:"staff_name" },
   { label:"Total Cash Counted (incl. petty cash receipts)", value:"total_cash_counted" },
   { label:"Petty Cash Receipts", value:"petty_cash_receipts" },
@@ -1065,11 +1106,24 @@ function tillGroup(key){ const t = S.tills.find(x => x.key === key); return t &&
 const r2c = n => Math.round((Number(n) || 0) * 100) / 100;
 // The figures a row of the report shows. Cards and other = card machine plus vouchers and room charge, which the till also expects, so its difference is the card difference.
 function cuhFig(r){
-  return { cashExp:Number(r.expected_cash) || 0, cashBank:Number(r.cash_banking) || 0, cashVar:Number(r.cash_variance) || 0,
-    cardExp:(Number(r.expected_card) || 0) + (Number(r.vouchers_total) || 0) + (Number(r.room_charge_total) || 0), cardBank:Number(r.total_card_and_other) || 0, cardVar:Number(r.card_variance) || 0,
-    totExp:Number(r.zread_reported_total) || 0, totBank:(Number(r.cash_banking) || 0) + (Number(r.total_card_and_other) || 0), v:Number(r.variance) || 0 };
+  const nw = !!r.cards_at_day, n = x => Number(x) || 0, cashVar = n(r.cash_variance);
+  // a till cashed up the new way has no card count of its own: its cards are counted once, on the full-day line
+  return { cashExp:n(r.expected_cash), cashBank:n(r.cash_banking), cashVar,
+    cardExp:n(r.expected_card) + n(r.vouchers_total) + n(r.room_charge_total), cardBank:nw ? null : n(r.total_card_and_other), cardVar:nw ? null : n(r.card_variance),
+    totExp:n(r.zread_reported_total), totBank:nw ? null : n(r.cash_banking) + n(r.total_card_and_other), v:nw ? null : n(r.variance), nv:nw ? cashVar : n(r.variance) };
 }
-function cuhSum(rows){ const o = {}; rows.forEach(r => { const f = cuhFig(r); for (const k in f) o[k] = r2c((o[k] || 0) + f[k]); }); return o; }
+function cuhSum(rows){ const o = {}; rows.forEach(r => { const f = cuhFig(r); for (const k in f) o[k] = (o[k] === null || f[k] === null) ? null : r2c((o[k] || 0) + f[k]); }); return o; }
+/* The whole day across every till: cash from the tills, cards from Worldpay (or, on older days, from the tills' own card counts). */
+function dayFig(date){
+  const rows = (S.lastCashUp || []).filter(r => r.business_date === date), dc = (S.dayCards || {})[date];
+  const sum = k => r2c(rows.reduce((a, r) => a + (Number(r[k]) || 0), 0));
+  const legacy = rows.some(r => !r.cards_at_day), expCardOnly = sum("expected_card"), other = r2c(sum("vouchers_total") + sum("room_charge_total"));
+  const f = { rows, legacy, hasCards:legacy || !!dc, cashExp:sum("expected_cash"), cashBank:sum("cash_banking"), cashVar:sum("cash_variance"), cardExp:r2c(expCardOnly + other), totExp:sum("zread_reported_total"), cardBank:null, cardVar:null, totBank:null, v:null, by:dc ? dc.entered_by_name : "" };
+  if (legacy) { f.cardBank = sum("total_card_and_other"); f.cardVar = sum("card_variance"); f.v = sum("variance"); }
+  else if (dc) { f.cardBank = r2c(Number(dc.total) + other); f.cardVar = r2c(Number(dc.total) - expCardOnly); f.v = r2c(f.cashVar + f.cardVar); }
+  if (f.cardBank !== null) f.totBank = r2c(f.cashBank + f.cardBank);
+  return f;
+}
 function cuhGroups(){
   const out = [], seen = {};
   for (const r of S.lastCashUp) {
@@ -1079,7 +1133,7 @@ function cuhGroups(){
     if (!seen[k]) { seen[k] = { rows:[], date:r.business_date, label:g.label, key:g.key }; out.push(seen[k]); }
     seen[k].rows.push(r);
   }
-  out.forEach(g => { if (!g.single) { g.need = S.tills.filter(t => t.link_key === g.key && t.active !== false).length; g.partial = g.rows.length < g.need; const v = cuhSum(g.rows).v; g.rows.forEach(r => { r._groupVar = v; }); } });
+  out.forEach(g => { if (!g.single) { g.need = S.tills.filter(t => t.link_key === g.key && t.active !== false).length; g.partial = g.rows.length < g.need; const v = cuhSum(g.rows).nv; g.rows.forEach(r => { r._groupVar = v; }); } });
   return out;
 }
 const CUH = { open:{} };
@@ -1088,7 +1142,7 @@ const notesOf = (date, key, kind) => (S.notes || []).filter(n => n.business_date
 const fmtNoteTime = iso => { try { return new Date(iso).toLocaleString("en-GB", { timeZone:"Europe/London", day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" }).replace(",", ""); } catch(e) { return ""; } };
 const NOTE_ICON = `<svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M3 4.5A1.5 1.5 0 0 1 4.5 3h11A1.5 1.5 0 0 1 17 4.5v7a1.5 1.5 0 0 1-1.5 1.5H9l-3.5 3v-3h-1A1.5 1.5 0 0 1 3 11.5z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>`;
 function noteBtn(date, key, label, variance, expected){
-  const n = notesOf(date, key).length, need = expected > 0 && Math.abs(variance) > (S.noteCfg.threshold || 20) && !notesOf(date, key, "cashup").length;
+  const n = notesOf(date, key).length, need = expected > 0 && variance !== null && Math.abs(variance) > (S.noteCfg.threshold || 20) && !notesOf(date, key, "cashup").length;
   const tip = need ? "A large variance with no notes yet" : n ? n + " note" + (n === 1 ? "" : "s") : "Notes";
   return `<button type="button" class="noteBtn${need ? " need" : n ? " has" : ""}" data-notes="${esc(date + "|" + key + "|" + label)}" title="${esc(tip)}" aria-label="${esc(tip)}">${NOTE_ICON}${n ? `<b>${n}</b>` : need ? `<b>!</b>` : ""}</button>`;
 }
@@ -1099,8 +1153,8 @@ function openNotes(date, key, label){
   closeModal();
   const m = document.createElement("div"); m.id = "noteModal"; m.className = "modalbg";
   const draw = () => {
-    const cfg = S.noteCfg, rows = (S.lastCashUp || []).filter(r => r.business_date === date && (r.till_key === key || tillGroup(r.till_key).key === key)), v = cuhSum(rows).v;
-    m.innerHTML = `<div class="modal" role="dialog" aria-modal="true"><h2>${esc(label)}</h2><div class="sub">${esc(ukDate(date))} · variance ${money(v)}</div>
+    const cfg = S.noteCfg, rows = (S.lastCashUp || []).filter(r => r.business_date === date && (r.till_key === key || tillGroup(r.till_key).key === key)), v = key === "day" ? dayFig(date).v : cuhSum(rows).nv;
+    m.innerHTML = `<div class="modal" role="dialog" aria-modal="true"><h2>${esc(label)}</h2><div class="sub">${esc(ukDate(date))} · ${v === null ? "cards not entered yet" : (key === "day" ? "full day variance " : "variance ") + money(v)}</div>
       <h3>Cash-up notes</h3>${noteThread(notesOf(date, key, "cashup"))}
       ${cfg.can_note ? `<textarea id="nt_cashup" maxlength="2000" placeholder="What was looked into, and what was done about it"></textarea><div class="acts"><button class="btn small" data-addnote="cashup">Add note</button></div>` : ""}
       <h3>F&amp;B manager notes</h3>${noteThread(notesOf(date, key, "manager"))}
@@ -1144,17 +1198,26 @@ function cuhRender(){
   const names = rows => [...new Set(rows.map(r => r.staff_name).filter(Boolean))].join(", ");
   const vc = v => Math.abs(v) > 1 ? "down" : "up";
   const money = n => { n = Number(n) || 0; return (n < 0 ? "-" : "") + "£" + Math.abs(n).toLocaleString("en-GB", { minimumFractionDigits:2, maximumFractionDigits:2 }); };
+  const m = n => n === null ? `<span class="muted">&ndash;</span>` : money(n), mv = n => n === null ? `<span class="muted">&ndash;</span>` : money(n);
   const cells = f => `<td class="num">${money(f.cashExp)}</td><td class="num">${money(f.cashBank)}</td><td class="num ${vc(f.cashVar)}">${money(f.cashVar)}</td>
-        <td class="num">${money(f.cardExp)}</td><td class="num">${money(f.cardBank)}</td><td class="num ${vc(f.cardVar)}">${money(f.cardVar)}</td>
-        <td class="num">${money(f.totExp)}</td><td class="num strong">${money(f.totBank)}</td><td class="num strong ${vc(f.v)}">${money(f.v)}</td>`;
+        <td class="num">${money(f.cardExp)}</td><td class="num">${m(f.cardBank)}</td><td class="num ${f.cardVar === null ? "" : vc(f.cardVar)}">${mv(f.cardVar)}</td>
+        <td class="num">${money(f.totExp)}</td><td class="num strong">${m(f.totBank)}</td><td class="num strong ${f.v === null ? "" : vc(f.v)}">${mv(f.v)}</td>`;
+  const dayLine = date => {
+    const f = dayFig(date), pend = !f.hasCards;
+    return `<tr class="dayrow"><td class="strong">${ukDate(date)}</td><td><b>Full day, all tills</b>${pend ? `<span class="part" title="The day's cards from Worldpay have not been entered yet">cards awaited</span>` : ""}</td><td>${esc(f.by)}</td>${cells(f)}<td>${noteBtn(date, "day", "Full day", f.v, f.totExp)}</td></tr>`;
+  };
   let html = `<thead><tr><th>Date</th><th>Till</th><th>Completed By</th><th class="num">Cash expected</th><th class="num">Cash banked</th><th class="num">Cash variance</th>
     <th class="num">Cards &amp; other expected</th><th class="num">Cards &amp; other banked</th><th class="num">Cards &amp; other variance</th><th class="num">Total expected</th><th class="num">Total banked</th><th class="num">Total variance</th><th>Notes</th></tr></thead><tbody>`;
-  for (const g of groups) {
-    if (g.single) { const r = g.rows[0]; html += `<tr><td class="strong">${ukDate(r.business_date)}</td><td>${esc(g.label)}</td><td>${esc(r.staff_name)}</td>${cells(cuhFig(r))}<td>${noteBtn(r.business_date, r.till_key, g.label, cuhFig(r).v, cuhFig(r).totExp)}</td></tr>`; continue; }
-    const id = g.date + "|" + g.key, open = !!CUH.open[id];
-    html += `<tr class="grp" data-grp="${esc(id)}"><td class="strong">${ukDate(g.date)}</td><td><span class="chev">${open ? "&#9662;" : "&#9656;"}</span><b>${esc(g.label)}</b>${g.partial ? `<span class="part" title="Only ${g.rows.length} of ${g.need} tills in this group have been cashed up">${g.rows.length} of ${g.need}</span>` : ""}</td><td>${esc(names(g.rows))}</td>${cells(cuhSum(g.rows))}<td>${noteBtn(g.date, g.key, g.label, cuhSum(g.rows).v, cuhSum(g.rows).totExp)}</td></tr>`;
-    if (open) for (const r of g.rows) html += `<tr class="grpsub"><td></td><td>${esc(tillLabel(r.till_key))}</td><td>${esc(r.staff_name)}</td>${cells(cuhFig(r))}<td></td></tr>`;
-  }
+  groups.forEach((g, gi) => {
+    if (g.single) { const r = g.rows[0], f = cuhFig(r); html += `<tr><td class="strong">${ukDate(r.business_date)}</td><td>${esc(g.label)}</td><td>${esc(r.staff_name)}</td>${cells(f)}<td>${noteBtn(r.business_date, r.till_key, g.label, f.nv, f.totExp)}</td></tr>`; }
+    else {
+      const id = g.date + "|" + g.key, open = !!CUH.open[id], f = cuhSum(g.rows);
+      html += `<tr class="grp" data-grp="${esc(id)}"><td class="strong">${ukDate(g.date)}</td><td><span class="chev">${open ? "&#9662;" : "&#9656;"}</span><b>${esc(g.label)}</b>${g.partial ? `<span class="part" title="Only ${g.rows.length} of ${g.need} tills in this group have been cashed up">${g.rows.length} of ${g.need}</span>` : ""}</td><td>${esc(names(g.rows))}</td>${cells(f)}<td>${noteBtn(g.date, g.key, g.label, f.nv, f.totExp)}</td></tr>`;
+      if (open) for (const r of g.rows) html += `<tr class="grpsub"><td></td><td>${esc(tillLabel(r.till_key))}</td><td>${esc(r.staff_name)}</td>${cells(cuhFig(r))}<td></td></tr>`;
+    }
+    const next = groups[gi + 1];
+    if (!next || next.date !== g.date) html += dayLine(g.date);
+  });
   $("#cuh_table").innerHTML = html + "</tbody>";
   $("#cuh_table").querySelectorAll("[data-notes]").forEach(b => b.addEventListener("click", e => { e.stopPropagation(); const [d, k, l] = b.dataset.notes.split("|"); openNotes(d, k, l); }));
   $("#cuh_table").querySelectorAll("[data-grp]").forEach(tr => tr.addEventListener("click", () => { CUH.open[tr.dataset.grp] = !CUH.open[tr.dataset.grp]; cuhRender(); }));
@@ -1184,7 +1247,7 @@ async function loadCashUpHistory(){
   $("#cuh_table").innerHTML = `<tr><td class="loading">Loading…</td></tr>`;
   try {
     const d = await call("cashup.list", { start: $("#cuh_start").value, end: $("#cuh_end").value });
-    S.lastCashUp = d.days || []; S.notes = d.notes || []; S.noteCfg = { threshold:Number(d.note_threshold) || 20, can_note:!!d.can_note, can_manager:!!d.can_manager_note };
+    S.lastCashUp = d.days || []; S.dayCards = Object.fromEntries((d.day_cards || []).map(x => [x.business_date, x])); S.notes = d.notes || []; S.noteCfg = { threshold:Number(d.note_threshold) || 20, can_note:!!d.can_note, can_manager:!!d.can_manager_note };
     if (!S.lastCashUp.length){ $("#cuh_table").innerHTML = `<tr><td class="empty">No cash-ups in this range.</td></tr>`; return; }
     cuhRender();
   } catch(e) { $("#cuh_table").innerHTML = `<tr><td class="empty">${esc(e.message)}</td></tr>`; }
@@ -2018,7 +2081,7 @@ async function loadFloatsTills(){
     const [w, fl, cu] = await Promise.all([
       call("floats.window", { business_date:t }), call("float.today_status", { business_date:t }), call("cashup.today_status", { business_date:t }),
     ]);
-    FT.status = { w, floats: fl.done || [], cashups: cu.done || [] };
+    FT.status = { w, floats: fl.done || [], cashups: cu.done || [], day: cu.day || null };
     renderFloatsTills();
   } catch(e){ box.innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
 }
@@ -2036,6 +2099,10 @@ function renderFloatsTills(){
     box.innerHTML = `<p><button class="btn ghost" style="min-height:38px" onclick="ftBack()">&larr; Back to today's list</button></p>` + viewCashUpEntry() + sigPadHtml("cu");
     ftPrepForm("cu", FT.till); wireCashUpEntry(); wireSigPad("cu", w.me.name); return;
   }
+  if (FT.tab === "cards") {
+    box.innerHTML = `<p><button class="btn ghost" style="min-height:38px" onclick="ftBack()">&larr; Back to today's list</button></p><div id="cardsHost"></div>`;
+    cardsStep($("#cardsHost"), todayIso(), st.day, ftBack); return;
+  }
   const when = w.unlocked && w.unlock ? new Date(w.unlock.unlocked_at).toLocaleTimeString("en-GB", { timeZone:"Europe/London", hour:"2-digit", minute:"2-digit" }) : "";
   const lock = w.open
     ? `<div class="ftlock open">Floats are open${w.in_window ? ` until ${esc(w.end)}` : ""}${w.unlocked && w.unlock ? ` - unlocked by ${esc(w.unlock.unlocked_by_name)} at ${when}` : ""}.${isAdmin && w.unlocked ? ` <button class="btn ghost small" onclick="ftUnlock(true)">Lock again</button>` : ""}</div>`
@@ -2050,6 +2117,8 @@ function renderFloatsTills(){
       <div class="ftcol"><h3>1. Morning floats</h3>${S.tills.map(t => tillBtn(t, "float")).join("")}</div>
       <div class="ftcol"><h3>2. Cash up</h3>${S.tills.map(t => tillBtn(t, "cashup")).join("")}</div>
     </div>
+    ${(() => { const d = st.day; if (!d || !d.all_day_cards) return ""; const ready = d.complete || isAdmin; return `<div class="ftstrip" style="margin-top:14px"><div class="ftcol"><h3>3. Cards from Worldpay</h3>
+      <button class="fttill${d.cards ? " done" : ""}${!ready && !d.cards ? " locked" : ""}" ${!ready && !d.cards ? "disabled" : ""} onclick="ftOpen('cards','day')"><span>The day's cards</span><span class="st">${d.cards ? "Entered ✓ " + money(d.cards.total) : (ready ? "Enter cards" : "After every till")}</span></button></div></div>`; })()}
     <p class="muted" style="font-size:12px">Every count is recorded with your name (${esc(w.me.name)}) and your signature. Count again to correct one - the latest count is the one that stands.</p>`;
 }
 function ftPrepForm(prefix, tillKey){
