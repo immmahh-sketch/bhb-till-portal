@@ -122,6 +122,14 @@ textarea{min-height:84px; resize:vertical}
 .actopen .opts{margin-bottom:4px}
 .actopen .field{margin-bottom:10px}
 .toggledone{margin-top:12px}
+.attach{margin:0 0 14px} .attach .drop{border:2px dashed var(--celadon); border-radius:var(--radius); padding:12px 14px; background:var(--white); display:flex; gap:10px 14px; align-items:center; flex-wrap:wrap}
+.attach .drop.over{border-color:var(--sage); background:var(--sage-10)} .attach .hint{font-size:12px; color:var(--sage-70)}
+.files{display:flex; flex-wrap:wrap; gap:10px; margin-top:10px}
+.fchip{display:flex; gap:10px; align-items:center; background:var(--white); border:1px solid var(--mist); border-radius:8px; padding:6px 8px; max-width:100%; min-width:0}
+.fchip .th{width:56px; height:56px; border-radius:6px; background:var(--sage-10); flex:0 0 auto; object-fit:cover; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; letter-spacing:.06em; color:var(--sage); cursor:pointer; overflow:hidden}
+.fchip .nm{font-size:13px; line-height:1.3; min-width:0; overflow-wrap:anywhere} .fchip .nm small{display:block; color:var(--sage-70); font-size:11px}
+.fchip .x{border:0; background:transparent; color:var(--alert); cursor:pointer; font-size:20px; line-height:1; padding:6px; min-width:36px; min-height:36px}
+.fchip .nm a{color:var(--sage); font-weight:600; cursor:pointer; text-decoration:underline}
 .person{display:flex; gap:14px 24px; flex-wrap:wrap; align-items:center}
 .person .pn{flex:1 1 220px; min-width:0} .person .pn b{font-family:var(--display); font-size:21px; color:var(--sage); font-weight:600}
 .person .pn div{font-size:12px; color:var(--sage-70); overflow-wrap:anywhere}
@@ -162,7 +170,7 @@ const CFG = { SUPABASE_URL:"https://safcrtrfdzsnftghibot.supabase.co", SUPABASE_
 const STATUSES = [["outstanding","Outstanding"],["in_progress","In progress"],["completed","Completed"],["parked","Parked"]];
 const SL = Object.fromEntries(STATUSES);
 // S.me: { email, name, isAdmin, included, canAdd }. Everything else is view state.
-const S = { me:null, people:[], view:"actions", hods:[], notIncluded:false, collapsed:{}, showDone:{}, addOpen:{}, openIds:{}, editing:null, rmSure:null, drafts:{}, hist:{}, busy:false };
+const S = { me:null, people:[], view:"actions", hods:[], notIncluded:false, collapsed:{}, showDone:{}, addOpen:{}, openIds:{}, editing:null, rmSure:null, drafts:{}, hist:{}, files:{}, furl:{}, pending:{}, fSure:null, busy:false };
 const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
 const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 const fmtDT = iso => { if(!iso) return ""; try { return new Date(iso).toLocaleString("en-GB",{ timeZone:"Europe/London", day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" }).replace(",",""); } catch(e){ return String(iso).slice(0,16); } };
@@ -209,10 +217,11 @@ async function refresh(){
 /* ------------------------------------------------------------- actions view */
 function addForm(h, isAdminPanel){
   const k = "add:" + h.email + ":";
-  return `<div class="addbox" data-addbox="${esc(h.email)}">
+  return `<div class="addbox" data-addbox="${esc(h.email)}" data-attachscope="add:${esc(h.email)}">
     <div class="field"><label>${isAdminPanel ? "Action for " + esc(first(h.name)) : "New action"}</label><input data-draft="${esc(k)}title" data-enter="${esc(h.email)}" maxlength="200" placeholder="What needs doing?" value="${esc(dv(k+"title"))}" autocomplete="off"></div>
     <div class="field"><label>Due date (optional)</label><input type="date" data-draft="${esc(k)}due" value="${esc(dv(k+"due"))}"></div>
     <div class="field"><label>Details (optional)</label><textarea data-draft="${esc(k)}details" maxlength="4000" placeholder="Anything that helps — what done looks like, who to speak to…">${esc(dv(k+"details"))}</textarea></div>
+    ${attachArea("add:" + h.email)}
     <div class="opts" style="margin-bottom:14px"><button class="btn" data-add="${esc(h.email)}">Add action</button>${isAdminPanel ? `<button class="btn ghost" data-addclose="${esc(h.email)}">Cancel</button>` : ""}</div>
   </div>`;
 }
@@ -226,7 +235,7 @@ function actionRow(a, h){
         <div class="t">${esc(a.title)}</div>
         <div class="m">${dueTxt} · ${esc(setBy(a, h))}</div>
         ${a.latest_update ? `<div class="lu">${esc(a.latest_update)}<small>${esc(a.latest_update_by_name || "")} · ${esc(fmtDT(a.latest_update_at))}</small></div>` : ""}
-        <div class="tags"><span class="tag ${esc(a.status)}">${esc(SL[a.status])}</span>${late ? `<span class="tag late">Overdue</span>` : ""}</div>
+        <div class="tags"><span class="tag ${esc(a.status)}">${esc(SL[a.status])}</span>${late ? `<span class="tag late">Overdue</span>` : ""}${a.file_count ? `<span class="tag">${a.file_count} file${a.file_count === 1 ? "" : "s"}</span>` : ""}</div>
       </div>
     </div>
     ${open ? actionOpen(a, h) : ""}
@@ -236,7 +245,7 @@ function actionOpen(a, h){
   const late = isLate(a), id = a.id;
   const editing = S.editing === id;
   const ek = "edit:" + id + ":";
-  return `<div class="actopen">
+  return `<div class="actopen" data-attachscope="act:${esc(id)}">
     ${a.details ? `<p class="desc">${esc(a.details)}</p>` : `<p class="desc muted">No further details.</p>`}
     <div class="facts">
       ${S.me.isAdmin ? `<div><div class="k">For</div><div class="v">${esc(h.name)}</div></div>` : ""}
@@ -244,6 +253,7 @@ function actionOpen(a, h){
       <div><div class="k">Added</div><div class="v">${esc(setBy(a, h))} · ${esc(fmtDT(a.created_at))}</div></div>
       ${a.closed_at ? `<div><div class="k">Completed</div><div class="v">${esc(fmtDT(a.closed_at))}</div></div>` : ""}
     </div>
+    <div class="sub"><label>Files and photos</label><div id="files_${esc(id)}"><div class="muted" style="padding:6px 0">Loading…</div></div>${a.can_respond ? attachArea("act:" + id) : ""}</div>
     ${a.can_respond ? `
     <div class="sub"><label>Status</label><div class="opts">${STATUSES.map(([v,l]) => `<button class="opt s-${v}" type="button" data-st="${esc(id)}" data-v="${v}" aria-pressed="${v === a.status}">${l}</button>`).join("")}</div></div>
     <div class="sub"><div class="field"><label>Write an update</label><textarea data-draft="upd:${esc(id)}" maxlength="3000" placeholder="Progress, what's holding it up, anything the GM should know…">${esc(dv("upd:" + id))}</textarea></div>
@@ -265,16 +275,96 @@ function evHtml(e){
   if (e.kind === "status") what = ` set it to ${esc(SL[e.to_status] || e.to_status)}`;
   else if (e.kind === "update") what = " wrote an update";
   else if (e.kind === "created") what = " added it";
+  else if (e.kind === "file") what = /^Removed /.test(e.body || "") ? " removed a file" : " attached a file";
   return `<div class="ev${sys ? " sys" : ""}"><div class="h"><b>${esc(e.by_name)}</b>${what} · ${esc(fmtDT(e.at))}</div>${e.body ? `<div class="b">${esc(e.body)}</div>` : ""}</div>`;
 }
 async function fillHistory(id){
   const el = () => document.getElementById("hist_" + id);
-  if (!S.hist[id]) {
-    try { S.hist[id] = (await call("action.get", { id })).events || []; }
+  if (!S.hist[id] || !S.files[id]) {
+    try { const d = await call("action.get", { id }); S.hist[id] = d.events || []; S.files[id] = d.files || []; }
     catch(e){ if (el()) el().innerHTML = `<div class="err" style="padding:10px 0">${esc(e.message)}</div>`; return; }
   }
   if (el()) el().innerHTML = S.hist[id].map(evHtml).join("") || `<div class="muted" style="padding:10px 0">Nothing yet.</div>`;
+  paintFiles(id);
 }
+
+/* ------------------------------------------------------------- files: choose, drop or paste a photo, screenshot or document */
+const MAX_BYTES = 7.5 * 1024 * 1024, MAX_EDGE = 2000;
+const fmtSize = n => n < 1024 * 1024 ? Math.max(1, Math.round(n / 1024)) + " KB" : (n / 1048576).toFixed(1) + " MB";
+const isImg = m => /^image\//.test(m || "");
+function attachArea(scope){
+  const pend = S.pending[scope] || [];
+  return `<div class="attach" data-attach="${esc(scope)}"><div class="drop">
+    <button type="button" class="btn ghost small" data-pick="${esc(scope)}">Add photo or file</button>
+    <span class="hint">or drop files here, or paste a screenshot (Ctrl+V / Cmd+V)</span>
+    <input type="file" multiple hidden data-fileinput="${esc(scope)}" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv"></div>
+    ${pend.length ? `<div class="files">${pend.map((f, i) => `<div class="fchip">${isImg(f.mime) ? `<img class="th" src="${f.data}" alt="">` : `<div class="th">${esc((f.name.split(".").pop() || "file").slice(0, 4).toUpperCase())}</div>`}<div class="nm">${esc(f.name)}<small>${fmtSize(f.size)}</small></div><button type="button" class="x" data-unpend="${esc(scope)}|${i}" aria-label="Remove ${esc(f.name)}">&times;</button></div>`).join("")}</div>` : ""}</div>`;
+}
+const readAsDataUrl = f => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => rej(new Error("Could not read that file.")); r.readAsDataURL(f); });
+/* Photos are shrunk on the phone first (long edge 2000px), so a 12 MB camera picture goes up as a few hundred KB. Screenshots stay PNG when small. */
+async function prepFile(file){
+  let name = file.name || "", mime = file.type || "";
+  if (!name || /^image\.(png|jpe?g)$/i.test(name)) name = "Screenshot " + new Date().toLocaleString("en-GB", { timeZone:"Europe/London", day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" }).replace(/[,:]/g, "") + (/jpe?g/.test(mime) ? ".jpg" : ".png");
+  if (isImg(mime) && mime !== "image/gif") {
+    try {
+      const bmp = await createImageBitmap(file), k = Math.min(1, MAX_EDGE / Math.max(bmp.width, bmp.height));
+      if (k < 1 || file.size > 1.5 * 1024 * 1024 || mime === "image/heic" || mime === "image/heif") {
+        const c = document.createElement("canvas"); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+        c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
+        const blob = await new Promise(r => c.toBlob(r, "image/jpeg", 0.86));
+        if (blob) { mime = "image/jpeg"; name = name.replace(/\.[^.]+$/, "") + ".jpg"; file = blob; }
+      }
+    } catch(e) { /* not decodable here: send it as it is and let the server judge */ }
+  }
+  if (file.size > MAX_BYTES) throw new Error(`${name} is too big (${fmtSize(file.size)}). 7 MB at most.`);
+  return { name, mime: file.type || mime, size: file.size, data: await readAsDataUrl(file) };
+}
+async function takeFiles(scope, fileList){
+  const files = Array.from(fileList || []).filter(f => f && f.size >= 0);
+  if (!files.length) return;
+  if (scope.startsWith("add:")) {
+    for (const f of files) {
+      try { const p = await prepFile(f); (S.pending[scope] = S.pending[scope] || []).push(p); }
+      catch(e){ toast(e.message, true); }
+    }
+    if ((S.pending[scope] || []).length > 12) { S.pending[scope].length = 12; toast("Twelve files at most on one action.", true); }
+    return renderActions();
+  }
+  const id = scope.slice(4); let ok = 0;
+  for (const f of files) {
+    try { const p = await prepFile(f); await call("file.add", { id, name: p.name, data: p.data }); ok++; }
+    catch(e){ toast(e.message, true); }
+  }
+  if (ok) { toast(ok === 1 ? "File attached." : ok + " files attached."); delete S.hist[id]; delete S.files[id]; const a = findAction(id); if (a) a.file_count = (a.file_count || 0) + ok; await fillHistory(id); renderActions(); }
+}
+function paintFiles(id){
+  const el = document.getElementById("files_" + id); if (!el) return;
+  const list = S.files[id] || [];
+  if (!list.length) { el.innerHTML = `<div class="muted" style="padding:6px 0">Nothing attached yet.</div>`; return; }
+  el.innerHTML = `<div class="files">${list.map(f => `<div class="fchip">${isImg(f.mime) ? `<img class="th" data-fthumb="${esc(f.id)}" data-fopen="${esc(f.id)}" alt="${esc(f.name)}" ${S.furl[f.id] ? `src="${esc(S.furl[f.id])}"` : ""}>` : `<div class="th" data-fopen="${esc(f.id)}">${esc((f.name.split(".").pop() || "file").slice(0, 4).toUpperCase())}</div>`}
+    <div class="nm"><a data-fopen="${esc(f.id)}">${esc(f.name)}</a><small>${fmtSize(f.size)} · ${esc(f.by)} · ${esc(fmtDT(f.at))}</small></div>
+    ${f.can_remove ? `<button type="button" class="x" data-fremove="${esc(f.id)}|${esc(id)}" aria-label="Remove ${esc(f.name)}">${S.fSure === f.id ? "Sure?" : "&times;"}</button>` : ""}</div>`).join("")}</div>`;
+  list.filter(f => isImg(f.mime) && !S.furl[f.id]).forEach(async f => {
+    try { const d = await call("file.url", { file_id: f.id }); S.furl[f.id] = d.url; const im = el.querySelector(`[data-fthumb="${CSS.escape(f.id)}"]`); if (im) im.src = d.url; } catch(e){}
+  });
+}
+async function openFile(fid){
+  const w = window.open("", "_blank");
+  try { const d = await call("file.url", { file_id: fid }); S.furl[fid] = d.url; if (w) w.location = d.url; else location.href = d.url; }
+  catch(e){ if (w) w.close(); toast(e.message, true); }
+}
+document.addEventListener("paste", e => {
+  const files = Array.from((e.clipboardData && e.clipboardData.files) || []).filter(f => /^image\//.test(f.type) || f.type === "application/pdf");
+  if (!files.length) return;
+  let scope = e.target.closest && e.target.closest("[data-attachscope]");
+  scope = scope ? scope.dataset.attachscope : (document.querySelector(".addbox[data-attachscope]") || {dataset:{}}).dataset.attachscope;
+  if (!scope) return;
+  e.preventDefault(); takeFiles(scope, files);
+});
+document.addEventListener("dragover", e => { const d = e.target.closest && e.target.closest("[data-attach] .drop"); if (d) { e.preventDefault(); d.classList.add("over"); } });
+document.addEventListener("dragleave", e => { const d = e.target.closest && e.target.closest("[data-attach] .drop"); if (d) d.classList.remove("over"); });
+document.addEventListener("drop", e => { const d = e.target.closest && e.target.closest("[data-attach] .drop"); if (!d) return; e.preventDefault(); d.classList.remove("over"); takeFiles(d.parentElement.dataset.attach, e.dataTransfer.files); });
+document.addEventListener("change", e => { const i = e.target; if (i.dataset && i.dataset.fileinput) { const f = i.files; takeFiles(i.dataset.fileinput, f).then(() => { i.value = ""; }); } });
 function listBody(h){
   const open = sortOpen(h.actions), done = sortDone(h.actions);
   const shownDone = !!S.showDone[h.email];
@@ -328,10 +418,14 @@ async function doAdd(email, btn){
   if (!title) return toast("Write the action first.", true);
   btn.disabled = true;
   try {
-    await call("action.add", { hod_email: email, title, due_date: S.drafts[k+"due"] || null, details: S.drafts[k+"details"] || "" });
+    const made = await call("action.add", { hod_email: email, title, due_date: S.drafts[k+"due"] || null, details: S.drafts[k+"details"] || "" });
     ["title","due","details"].forEach(f => delete S.drafts[k+f]);
     if (S.me.isAdmin) S.addOpen[email] = false;
-    toast("Action added."); await refresh();
+    const queued = S.pending["add:" + email] || []; let failed = [];
+    for (const f of queued) { try { await call("file.add", { id: made.action.id, name: f.name, data: f.data }); } catch(e){ failed.push(f.name + ": " + e.message); } }
+    delete S.pending["add:" + email];
+    if (failed.length) toast("Action added, but " + failed.length + " file" + (failed.length === 1 ? "" : "s") + " didn't attach. " + failed[0], true); else toast(queued.length ? "Action added with " + queued.length + " file" + (queued.length === 1 ? "" : "s") + "." : "Action added.");
+    await refresh();
   } catch(e){ toast(e.message, true); btn.disabled = false; }
 }
 async function doEditSave(id, btn){
@@ -355,12 +449,23 @@ document.addEventListener("keydown", e => {
   else if ((e.key === "Enter" || e.key === " ") && e.target.dataset && e.target.dataset.row) { e.preventDefault(); e.target.click(); }
 });
 document.addEventListener("click", async e => {
-  const t = e.target.closest("[data-toggle],[data-addopen],[data-addclose],[data-add],[data-showdone],[data-check],[data-row],[data-st],[data-upd],[data-edit],[data-editsave],[data-editcancel],[data-rm]");
+  const t = e.target.closest("[data-toggle],[data-addopen],[data-addclose],[data-add],[data-showdone],[data-check],[data-row],[data-st],[data-upd],[data-edit],[data-editsave],[data-editcancel],[data-rm],[data-pick],[data-unpend],[data-fopen],[data-fremove]");
   if (!t || !views().contains(t)) return;
   const d = t.dataset;
   if (d.toggle) { S.collapsed[d.toggle] = !S.collapsed[d.toggle]; return renderActions(); }
   if (d.addopen) { S.addOpen[d.addopen] = true; renderActions(); const i = document.querySelector(`[data-addbox="${CSS.escape(d.addopen)}"] input`); if (i) i.focus(); return; }
-  if (d.addclose) { S.addOpen[d.addclose] = false; return renderActions(); }
+  if (d.addclose) { S.addOpen[d.addclose] = false; delete S.pending["add:" + d.addclose]; return renderActions(); }
+  if (d.pick) { const i = document.querySelector(`[data-fileinput="${CSS.escape(d.pick)}"]`); if (i) i.click(); return; }
+  if (d.unpend) { const [sc, ix] = d.unpend.split("|"); (S.pending[sc] || []).splice(Number(ix), 1); return renderActions(); }
+  if (d.fopen) return openFile(d.fopen);
+  if (d.fremove) {
+    const [fid, aid] = d.fremove.split("|");
+    if (S.fSure !== fid) { S.fSure = fid; paintFiles(aid); clearTimeout(S._ft); S._ft = setTimeout(() => { if (S.fSure === fid) { S.fSure = null; paintFiles(aid); } }, 4000); return; }
+    S.fSure = null;
+    try { await call("file.remove", { file_id: fid }); toast("File removed."); delete S.hist[aid]; delete S.files[aid]; const a = findAction(aid); if (a) a.file_count = Math.max(0, (a.file_count || 1) - 1); await fillHistory(aid); renderActions(); }
+    catch(err){ toast(err.message, true); paintFiles(aid); }
+    return;
+  }
   if (d.add) return doAdd(d.add, t);
   if (d.showdone) { S.showDone[d.showdone] = !S.showDone[d.showdone]; return renderActions(); }
   if (d.check) { const a = findAction(d.check); if (!a) return; return doRespond(a.id, { status: a.status === "completed" ? "outstanding" : "completed" }, a.status === "completed" ? "Back on the list." : "Done."); }
