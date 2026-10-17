@@ -378,7 +378,7 @@ function invHtml(){
   const opts = sel => `<option value="">Not matched</option>` + prods.map(p => `<option value="${p.id}"${p.id === sel ? " selected" : ""}>${esc(p.name)}</option>`).join("");
   return `<p class="small muted">Upload each invoice. The first time for a supplier, say which column is which; after that it is remembered, and so is which product each of their lines means.</p>
     ${M ? mapperHtml(M) : `<div class="row-actions" style="margin:0 0 12px">${Object.entries(S.boot.suppliers).map(([k, l]) => `<button class="btn" data-act="pick" data-kind="invoice" data-supplier="${k}">${esc(l)} invoice</button>`).join("")}</div>`}
-    ${S.invs.map(i => `<div class="card" style="box-shadow:none;border:1px solid var(--mist);padding:10px 14px"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><b>${esc(i.supplier_name)}</b> <span>${esc(i.invoice_no || "no number")}</span> <span class="muted small">${esc(ukDay(i.invoice_date))}</span><span class="muted small">${i.lines.filter(l => !l.product_id).length ? `<b style="color:var(--red)">${i.lines.filter(l => !l.product_id).length} line(s) not matched</b>` : "all matched"}</span><span style="flex:1"></span><button class="btn small ghost" data-act="inv_toggle" data-id="${i.id}">${S.invOpen === i.id ? "Hide lines" : "Show lines"}</button>${i.period_id === (S.period && S.period.id) ? `<button class="btn small danger" data-act="inv_del" data-id="${i.id}">Remove</button>` : ""}</div>
+    ${S.invs.map(i => `<div class="card" style="box-shadow:none;border:1px solid var(--mist);padding:10px 14px"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><b>${esc(i.supplier_name)}</b> <span>${esc(i.invoice_no || "no number")}</span> <span class="muted small">${esc(ukDay(i.invoice_date))}</span>${i.prices_only ? `<span class="tag" title="Used for costs only: not counted as stock delivered">prices only</span>` : ""}<span class="muted small">${i.lines.filter(l => !l.product_id).length ? `<b style="color:var(--red)">${i.lines.filter(l => !l.product_id).length} line(s) not matched</b>` : "all matched"}</span><span style="flex:1"></span><button class="btn small ghost" data-act="inv_toggle" data-id="${i.id}">${S.invOpen === i.id ? "Hide lines" : "Show lines"}</button>${i.period_id === (S.period && S.period.id) ? `<button class="btn small danger" data-act="inv_del" data-id="${i.id}">Remove</button>` : ""}</div>
       ${S.invOpen === i.id ? `<div class="tw" style="margin-top:8px;max-height:none"><table class="t"><thead><tr><th>Code</th><th>Description</th><th class="n">Qty</th><th class="n">Cost</th><th style="min-width:220px">Product</th><th>Cases</th><th class="n">Units in</th></tr></thead><tbody>${i.lines.map(l => `<tr data-line="${l.id}"><td>${esc(l.code || "")}</td><td>${esc(l.description)}</td><td class="n">${fnum(l.qty)}</td><td class="n">${l.unit_cost === null ? "" : gbp(l.unit_cost)}</td><td><select data-lf="product_id">${opts(l.product_id)}</select></td><td style="text-align:center"><input type="checkbox" data-lf="in_cases"${l.in_cases ? " checked" : ""}></td><td class="n">${fnum(l.units)}</td></tr>`).join("")}</tbody></table></div>` : ""}</div>`).join("") || `<p class="muted small">No invoices uploaded yet.</p>`}`;
 }
 
@@ -410,7 +410,7 @@ const INV_FIELDS = [["code", "Supplier product code (optional)", false], ["descr
 const norm = s => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
 function startMapper(kind, rows, file, supplier, saved, meta){
   let hi = 0, best = -1; rows.slice(0, 25).forEach((r, i) => { const sc = r.filter(c => c && isNaN(Number(String(c).replace(/[£,]/g, "")))).length; if (sc > best + 0.5 && r.filter(Boolean).length >= 3) { best = sc; hi = i; } });
-  const M = { kind, rows, file, supplier, hi, map:{}, groups:null, from:"", to:"", inv:{ no:(meta && meta.no) || "", date:(meta && meta.date) || "" }, saved };
+  const M = { kind, rows, file, supplier, hi, map:{}, groups:null, from:"", to:"", inv:{ no:(meta && meta.no) || "", date:(meta && meta.date) || "", prices_only:!!(meta && meta.date && S.period && S.period.start_date && meta.date < String(S.period.start_date).slice(0, 10)) }, saved };
   if (saved && saved.header) { const idx = rows.findIndex(r => r.map(norm).join("|") === saved.header.map(norm).join("|")); if (idx >= 0) M.hi = idx; }
   autoMap(M); if (kind === "plu") { M.from = S.period ? S.period.start_date : ""; M.to = new Date().toLocaleDateString("en-CA", { timeZone:"Europe/London" }); }
   S.M = M; S.openSec = openState(); S.openSec[kind === "plu" ? "plu" : "inv"] = true; renderAdmin();
@@ -436,6 +436,7 @@ function mapperHtml(M){
     ${fields.map(f => `<div class="field"><label>${f[1]}</label><select class="in" data-mp="col" data-f="${f[0]}">${colOpts(f)}</select></div>`).join("")}
     ${M.kind === "plu" ? `<div class="field"><label>Report covers from</label><input class="in" type="date" data-mp="from" value="${esc(M.from)}"></div><div class="field"><label>to</label><input class="in" type="date" data-mp="to" value="${esc(M.to)}"></div>` : `<div class="field"><label>Supplier</label><input class="in" value="${esc(S.boot.suppliers[M.supplier])}" disabled></div><div class="field"><label>Invoice number</label><input class="in" data-mp="invno" value="${esc(M.inv.no)}"></div><div class="field"><label>Invoice date</label><input class="in" type="date" data-mp="invdate" value="${esc(M.inv.date)}"></div>`}</div>
     ${groups.length ? `<div class="field"><label>Include these groups (untick food and anything that is not a drink)</label><div style="display:flex;gap:8px 16px;flex-wrap:wrap">${groups.map(g => `<label class="chk"><input type="checkbox" data-mp="grp" value="${esc(g)}"${M.groups.has(g) ? " checked" : ""}> ${esc(g)}</label>`).join("")}</div></div>` : ""}
+    ${M.kind !== "plu" ? `<label class="chk" style="margin:6px 0"><input type="checkbox" data-mp="pricesonly"${M.inv.prices_only ? " checked" : ""}> Prices only: this delivery came before the current stock period, so use it for costs but do not count it as stock delivered</label>` : ""}
     <div class="tw" style="max-height:none;margin-top:6px"><table class="t"><thead><tr>${hdr.map(h => `<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${pv.map(r => `<tr>${hdr.map((_, i) => `<td>${esc(r[i] || "")}</td>`).join("")}</tr>`).join("")}</tbody></table></div>
     <div class="row-actions"><button class="btn" data-act="m_import">${M.kind === "plu" ? "Import this PLU report" : "Import this invoice"}</button><button class="btn ghost" data-act="m_cancel">Cancel</button></div></div>`;
 }
@@ -461,7 +462,7 @@ async function runImport(btn){
       if (r._status === 409 && r.overlap) { if (!confirm(`This overlaps ${r.overlap.length} report${r.overlap.length === 1 ? "" : "s"} already uploaded (${r.overlap.map(o => ukDay(o.date_from) + " to " + ukDay(o.date_to)).join(", ")}). Replace ${r.overlap.length === 1 ? "it" : "them"}?`)) { btn.disabled = false; return; } r = await call("plu.import", { ...base, replace:true }); }
       toast(`${r.lines} lines imported${r.new_plus ? `, ${r.new_plus} new till buttons to match` : ""}.`);
     } else {
-      const base = { supplier:M.supplier, invoice_no:M.inv.no, invoice_date:M.inv.date, lines, filename:M.file.name, profile, file:await fileB64(M.file) };
+      const base = { supplier:M.supplier, invoice_no:M.inv.no, invoice_date:M.inv.date, prices_only:!!M.inv.prices_only, lines, filename:M.file.name, profile, file:await fileB64(M.file) };
       r = await call("invoice.import", base);
       if (r._status === 409 && r.duplicate) { if (!confirm(r.error + " Upload it again anyway?")) { btn.disabled = false; return; } r = await call("invoice.import", { ...base, force:true }); }
       toast(`${r.lines} lines imported, ${r.matched} matched to products.`);
@@ -763,7 +764,7 @@ document.addEventListener("change", async e => {
     const mp = t.dataset.mp, M = S.M;
     if (M && mp) {
       if (mp === "hi") { M.hi = Number(t.value); M.groups = null; autoMap(M); } else if (mp === "col") { if (t.value === "") delete M.map[t.dataset.f]; else M.map[t.dataset.f] = Number(t.value); if (t.dataset.f === "grp") M.groups = null; }
-      else if (mp === "from") M.from = t.value; else if (mp === "to") M.to = t.value; else if (mp === "invno") M.inv.no = t.value; else if (mp === "invdate") M.inv.date = t.value;
+      else if (mp === "from") M.from = t.value; else if (mp === "to") M.to = t.value; else if (mp === "invno") M.inv.no = t.value; else if (mp === "invdate") M.inv.date = t.value; else if (mp === "pricesonly") M.inv.prices_only = t.checked;
       else if (mp === "grp") { if (t.checked) M.groups.add(t.value); else M.groups.delete(t.value); }
       if (["hi", "col"].includes(mp)) { S.openSec = openState(); renderAdmin(); }
     }
