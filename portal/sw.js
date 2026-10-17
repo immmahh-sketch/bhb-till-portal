@@ -6,9 +6,10 @@ self.addEventListener("activate", e => e.waitUntil(self.clients.claim()));
 self.addEventListener("push", e => {
   let d = {};
   try { d = e.data ? e.data.json() : {}; } catch (_) { d = { body: e.data ? e.data.text() : "" }; }
+  const hasTotal = d.total !== undefined && d.total !== null;      // a one-off prompt (no total) must not touch the number on the icon
   const total = Number(d.total || 0);
   e.waitUntil((async () => {
-    try { if (self.navigator && navigator.setAppBadge) { if (total > 0) await navigator.setAppBadge(total); else await navigator.clearAppBadge(); } } catch (_) { /* not every device can badge an icon */ }
+    try { if (hasTotal && self.navigator && navigator.setAppBadge) { if (total > 0) await navigator.setAppBadge(total); else await navigator.clearAppBadge(); } } catch (_) { /* not every device can badge an icon */ }
     await self.registration.showNotification(d.title || "Staff Portal", {
       body: d.body || "", icon: "icons/icon-192.png", badge: "icons/icon-192.png",
       tag: "bhb-portal", renotify: true, data: { url: d.url || "/portal/app.html" },
