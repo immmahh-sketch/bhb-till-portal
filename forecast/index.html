@@ -74,6 +74,9 @@ nav.tabs{background:var(--sage-dark)}
 .tbar label{display:flex; gap:6px; align-items:center; cursor:pointer}
 .tbar input[type=checkbox]{width:18px; height:18px; accent-color:var(--sage)}
 .legend{display:flex; gap:14px; flex-wrap:wrap; font-size:12px; color:var(--sage-70); margin:6px 0 10px}
+.pos{color:#3d6b3d} .flag{background:#f6e8e5; font-weight:700; color:#8c3f33}
+.upd{background:var(--card,#fff); border:1px solid var(--celadon,#C1C8B4); border-radius:10px; padding:12px 16px; margin:0 0 12px}
+.upd h3{font-size:19px; margin:0 0 4px} .upd ul{margin:6px 0 0; padding-left:18px} .upd li{margin:3px 0}
 .legend i{display:inline-block; width:12px; height:12px; border-radius:3px; vertical-align:-2px; margin-right:4px}
 
 /* ---- the grid ---- */
@@ -165,6 +168,7 @@ table.xg td.hit{background:#fff0a8 !important} table.xg td.hitcur{background:#ff
     <button class="tabbtn" data-view="periods">Dates</button>
     <button class="tabbtn" data-view="imports">Imports</button>
     <button class="tabbtn" data-view="setup">Month set up</button>
+    <button class="tabbtn" data-view="history">History</button>
     <button class="tabbtn" data-view="workbook">Workbook</button>
     <button class="tabbtn" data-view="parallel">Parallel run</button>
   </div></nav>
@@ -210,11 +214,11 @@ async function loadRange(ym){
   const d = await call("load", { from: from + "-01", to: to + "-01" });
   S.data = d; S.range = { from, to }; S.calcCache = {};
 }
-function inputFor(ym){
-  const d = S.data, m = d.months.find(x => x.month.slice(0, 7) === ym); if (!m) return null;
+function inputFor(ym, data = S.data, usePending = true){
+  const d = data, m = d.months.find(x => x.month.slice(0, 7) === ym); if (!m) return null;
   const ov = {}, actual = {};
   for (const x of d.days) if (x.day.slice(0, 7) === ym) { ov[x.day] = { ...x.ov }; actual[x.day] = !!x.actual; }
-  for (const [k, v] of S.pending) { const [day, key] = k.split("|"); if (day.slice(0, 7) !== ym) continue; (ov[day] ||= {}); if (v === null) delete ov[day][key]; else ov[day][key] = v; }
+  for (const [k, v] of (usePending ? S.pending : [])) { const [day, key] = k.split("|"); if (day.slice(0, 7) !== ym) continue; (ov[day] ||= {}); if (v === null) delete ov[day][key]; else ov[day][key] = v; }
   return { year:+ym.slice(0, 4), month:+ym.slice(5), setup:{ rooms:m.rooms, wd:m.setup }, feed:{ ...d.feed, events:d.events }, ov, actual, labour:d.labour };
 }
 function calc(ym, withPending = true){
@@ -256,6 +260,8 @@ function viewMonth(){
     return;
   }
   const res = calc(ym), t = res.total, today = todayYmd();
+  const upd = S.updSnap && S.updSnap.month.slice(0, 7) === ym ? S.updSnap : null;
+  if (upd) for (const d of res.days) { const sd = upd.data?.days?.[d.date]; d.bob_since_save = sd ? d.rooms_bob_in - (sd.rooms_bob || 0) : 0; }   // the sheet's 'BOB pick up since last save'
   const lockTotal = S.lockSnap && S.lockSnap.month.slice(0, 7) === ym ? S.lockSnap.data : null;
   const lockSum = lockTotal ? Object.values(lockTotal.days || {}).reduce((a, d) => a + (d.rev_total || 0), 0) : null;
   const fin = res.days.filter(d => dayRow(d.date)?.actual).length, meta = S.data.feedMeta || {};
@@ -270,6 +276,7 @@ function viewMonth(){
   const lockSub = lockSum ? (() => { const d = t.rev_total - lockSum; return `Locked ${FMTS.gbp(lockSum)} · ${d >= 0 ? "+" : ""}${FMTS.gbp(d)}`; })() : "";
   const kp = `<div class="kpis">
     ${kpi("Total revenue", FMTS.gbp(t.rev_total), lockSub, lockSum ? (t.rev_total >= lockSum ? "good" : "bad") : "")}
+    ${upd ? kpi("Since last update", updTotalText(res, upd), `Rooms on the books ${updBobText(res, upd)} · ${esc(fmtDT(upd.taken_at))}`, updDiffs(res, upd).reduce((a, x) => a + x.dRev, 0) < -0.5 ? "bad" : "good") : ""}
     ${kpi("Rooms revenue", FMTS.gbp(t.rev_rooms), `${FMTS.n0(t.rooms_fc)} rooms · ARR ${FMTS.gbp2(t.arr_total)}`)}
     ${kpi("Occupancy", FMTS.pct(t.occ), `${FMTS.n0(t.rooms_avail)} room nights`)}
     ${kpi("Food", FMTS.gbp(t.rev_food), `Beverage ${FMTS.gbp(t.rev_bev)}`)}
@@ -302,13 +309,15 @@ function viewMonth(){
     }
   }
   const lockRows = lockTotal ? lockBlock(res, lockTotal, weekKeys) : "";
+  const updRows = upd ? updBlock(res, upd, weekKeys) : "";
   box.innerHTML = monthBar() + `<div class="chips">${chips.join("")}</div>${kp}
+    ${upd ? updSummary(res, upd) : (S.me.admin ? `<p class="muted" style="margin:0 0 10px; font-size:13px">No update has been locked for this month yet. After you have loaded the latest reports, press <b>Lock today's update</b>; next time you will see what changed since.</p>` : "")}
     <div class="savebar" id="savebar" ${S.pending.size ? "" : "hidden"}><b id="pcount">${S.pending.size} change${S.pending.size === 1 ? "" : "s"} not saved</b><span class="spacer"></span><button class="btn small" id="svBtn">Save changes</button><button class="btn small ghost" id="dcBtn">Discard</button></div>
     <div class="tbar"><label><input type="checkbox" id="keyonly" ${keyOnly ? "checked" : ""}> Key lines only</label><label><input type="checkbox" id="showwd" ${S.showWeekdays ? "checked" : ""}> Weekday totals</label>
       <button class="linkbtn" id="expAll">Open all sections</button><button class="linkbtn" id="colAll">Close all</button><span class="spacer"></span>
-      ${S.me.admin ? `<button class="btn small ghost" id="lockBtn">Lock this forecast</button>` : ""}</div>
+      ${S.me.admin ? `<button class="btn small ghost" id="updBtn">Lock today's update</button> <button class="btn small ghost" id="lockBtn">Lock this forecast</button>` : ""}</div>
     <div class="legend"><span><i style="background:#fff3c4"></i>Not saved yet</span><span><i style="background:var(--blue)"></i>Typed by hand</span><span><i style="background:var(--celadon)"></i>From the old workbook / End of Day</span><span><i style="background:var(--attention-bg)"></i>Finished day</span>${S.me.admin ? `<span class="muted">Click any figure to type over it; empty it to go back to the calculated figure.</span>` : ""}</div>
-    <div class="gridwrap" id="gridwrap"><table class="fg" style="width:${(window.innerWidth < 700 ? 150 : 230) + res.days.length * 68 + weekKeys.length * 84 + (S.showWeekdays ? 7 * 84 : 0) + 96}px"><colgroup><col style="width:${window.innerWidth < 700 ? 150 : 230}px">${res.days.map(() => `<col style="width:68px">`).join("")}${weekKeys.map(() => `<col style="width:84px">`).join("")}${S.showWeekdays ? "<col style='width:84px'>".repeat(7) : ""}<col style="width:96px"></colgroup>${head}<tbody>${body}${lockRows}</tbody></table></div>`;
+    <div class="gridwrap" id="gridwrap"><table class="fg" style="width:${(window.innerWidth < 700 ? 150 : 230) + res.days.length * 68 + weekKeys.length * 84 + (S.showWeekdays ? 7 * 84 : 0) + 96}px"><colgroup><col style="width:${window.innerWidth < 700 ? 150 : 230}px">${res.days.map(() => `<col style="width:68px">`).join("")}${weekKeys.map(() => `<col style="width:84px">`).join("")}${S.showWeekdays ? "<col style='width:84px'>".repeat(7) : ""}<col style="width:96px"></colgroup>${head}<tbody>${body}${updRows}${lockRows}</tbody></table></div>`;
   bindMonth();
 }
 function lockBlock(res, snap, weekKeys){
@@ -340,6 +349,7 @@ function bindMonth(){
   $("#colAll").onclick = () => { for (const g of groupsOf()) S.collapsed[g.name] = true; lsSet("fc_collapsed", S.collapsed); keepScroll(); viewMonth(); };
   const sv = $("#svBtn"); if (sv) sv.onclick = savePending; const dc = $("#dcBtn"); if (dc) dc.onclick = () => { S.pending.clear(); keepScroll(); viewMonth(); };
   const lk = $("#lockBtn"); if (lk) lk.onclick = lockForecast;
+  const ub = $("#updBtn"); if (ub) ub.onclick = lockUpdate;
   $$("#views [data-mv]").forEach(b => b.onclick = () => goMonth(b.dataset.mv === "today" ? todayYmd().slice(0, 7) : addMonths(S.ym, +b.dataset.mv)));
   const mp = $("#mpick"); if (mp) mp.onchange = () => goMonth(mp.value);
 }
@@ -417,7 +427,58 @@ async function lockForecast(){
   if (!b.dataset.sure) { b.dataset.sure = "1"; b.textContent = "Tap again to lock"; b.className = "btn small gold"; setTimeout(() => { if (b.isConnected) { delete b.dataset.sure; b.textContent = "Lock this forecast"; b.className = "btn small ghost"; } }, 4000); return; }
   try { await call("snapshot.save", { month:S.ym + "-01", label:"Locked " + new Date().toLocaleDateString("en-GB", { day:"numeric", month:"short", year:"numeric" }), kind:"lock", data:{ days } }); await loadLock(); toast("Forecast locked. Later changes are compared with it."); viewMonth(); } catch (e) { toast(e.message, true); }
 }
+/* ---- "Lock today's update": a dated copy of every day's rooms and revenue, so the next visit shows what changed. Revenue that fell, or a day that finished
+   below what was expected, is revenue we were counting on that has not been posted. ---- */
+async function lockUpdate(){
+  const res = calc(S.ym, true), days = {};
+  res.days.forEach(d => { days[d.date] = { rooms_bob:d.rooms_bob_in, rooms:d.rooms_fc, rev_rooms:d.rev_rooms, rev_food:d.rev_food, rev_bev:d.rev_bev, rev_total:d.rev_total, actual:!!dayRow(d.date)?.actual }; });
+  const b = $("#updBtn");
+  if (!b.dataset.sure) { b.dataset.sure = "1"; b.textContent = "Tap again to lock the day"; b.className = "btn small gold"; setTimeout(() => { if (b.isConnected) { delete b.dataset.sure; b.textContent = "Lock today's update"; b.className = "btn small ghost"; } }, 4000); return; }
+  try {
+    await call("snapshot.save", { month:S.ym + "-01", label:"Update " + new Date().toLocaleString("en-GB", { timeZone:"Europe/London", day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" }), kind:"update", data:{ days } });
+    keepHistory(finishedRows(res, S.data));
+    await loadRange(S.ym); await loadLock(); toast("Update locked. Next time you will see what changed since now."); viewMonth();
+  } catch (e) { toast(e.message, true); b.dataset.sure = ""; }
+}
+const sgn = (v, f) => !v || Math.abs(v) < 0.5 && f !== "n1" ? "" : (v > 0 ? "+" : "") + FMTS[f](v);
+function updDiffs(res, snap){
+  const out = [];
+  for (const d of res.days) {
+    const s0 = snap.data?.days?.[d.date]; if (!s0) continue;
+    out.push({ date:d.date, dow:d.dow, now:d.rev_total, was:s0.rev_total || 0, dRev:d.rev_total - (s0.rev_total || 0), dBob:d.rooms_bob_in - (s0.rooms_bob || 0), dRooms:d.rooms_fc - (s0.rooms || 0),
+      dRoomsRev:d.rev_rooms - (s0.rev_rooms || 0), dFood:d.rev_food - (s0.rev_food || 0), dBev:d.rev_bev - (s0.rev_bev || 0), finished:!!dayRow(d.date)?.actual && !s0.actual });
+  }
+  return out;
+}
+const updTotalText = (res, snap) => { const v = updDiffs(res, snap).reduce((a, x) => a + x.dRev, 0); return (v >= 0 ? "+" : "-") + FMTS.gbp(Math.abs(v)).replace("-", ""); };
+const updBobText = (res, snap) => { const v = updDiffs(res, snap).reduce((a, x) => a + x.dBob, 0); return (v > 0 ? "+" : "") + Math.round(v); };
+function updSummary(res, snap){
+  const diffs = updDiffs(res, snap), when = esc(fmtDT(snap.taken_at)), by = snap.taken_by ? " by " + esc(snap.taken_by.split("@")[0]) : "";
+  const drops = diffs.filter(x => x.dRev <= -1).sort((a, b) => a.dRev - b.dRev), rises = diffs.filter(x => x.dRev >= 1).sort((a, b) => b.dRev - a.dRev).slice(0, 3);
+  const short = drops.filter(x => x.finished), other = drops.filter(x => !x.finished).slice(0, 6);
+  const line = x => `<li><b>${esc(x.dow)} ${+x.date.slice(8)}</b>: ${FMTS.gbp(x.was)} expected, now ${FMTS.gbp(x.now)} <span class="${x.dRev < 0 ? "neg" : "pos"}">(${x.dRev < 0 ? "-" : "+"}${FMTS.gbp(Math.abs(x.dRev)).replace("-", "")})</span>${x.dBob ? `, rooms on the books ${x.dBob > 0 ? "+" : ""}${Math.round(x.dBob)}` : ""}</li>`;
+  return `<div class="upd"><h3>Since the last update</h3><div class="muted" style="font-size:13px">Locked ${when}${by}. Revenue that dropped is revenue we were expecting that has not been posted, or business that has gone.</div>
+    ${short.length ? `<div style="margin-top:8px"><b>Finished since, and came in below what was expected</b><ul>${short.map(line).join("")}</ul></div>` : ""}
+    ${other.length ? `<div style="margin-top:8px"><b>Forecast revenue down</b><ul>${other.map(line).join("")}</ul></div>` : ""}
+    ${rises.length ? `<div style="margin-top:8px"><b>Biggest rises</b><ul>${rises.map(line).join("")}</ul></div>` : ""}
+    ${!short.length && !other.length && !rises.length ? `<div style="margin-top:8px">Nothing has changed since then.</div>` : ""}</div>`;
+}
+function updBlock(res, snap, weekKeys){
+  const diffs = Object.fromEntries(updDiffs(res, snap).map(x => [x.date, x]));
+  const pad = "<td class='agg'></td>".repeat(weekKeys.length + (S.showWeekdays ? 7 : 0));
+  let html = `<tr class="sec"><td class="ln">Since last update</td><td class="fill" colspan="${res.days.length + weekKeys.length + 1}">${esc(snap.label || fmtDT(snap.taken_at))}</td></tr>`;
+  const rows = [["Change - Rooms on the books", "dBob", "n0"], ["Change - Rooms forecast", "dRooms", "n0"], ["Change - Rooms revenue", "dRoomsRev", "gbp"], ["Change - Food revenue", "dFood", "gbp"], ["Change - Beverage revenue", "dBev", "gbp"], ["Change - Total revenue", "dRev", "gbp"]];
+  for (const [label, k, f] of rows) {
+    let tot = 0;
+    const cells = res.days.map(d => { const x = diffs[d.date]; if (!x) return "<td></td>"; const v = x[k]; tot += v; const cls = v < -0.5 ? (k === "dRev" && v <= -100 ? "neg flag" : "neg") : v > 0.5 ? "pos" : ""; return `<td class="${cls}">${sgn(v, f)}</td>`; }).join("");
+    html += `<tr class="line${k === "dRev" ? " bold" : ""}"><td class="ln">${label}</td>${cells}${pad}<td class="agg sep ${tot < -0.5 ? "neg" : tot > 0.5 ? "pos" : ""}">${sgn(tot, f)}</td></tr>`;
+  }
+  return html;
+}
 async function loadLock(){
+  { const un = (S.data.snapshots || []).filter(x => x.month.slice(0, 7) === S.ym && x.kind === "update").sort((a, b) => b.taken_at.localeCompare(a.taken_at))[0];
+    S.updSnap = null;
+    if (un) { try { const d = await call("snapshot.get", { id:un.id }); S.updSnap = { ...d.snapshot, data:d.snapshot.data }; } catch (e) {} } }
   S.lockSnap = null; const sn = (S.data.snapshots || []).filter(s => s.month.slice(0, 7) === S.ym && s.kind === "lock")[0];
   if (!sn) { try { const d = await call("load", { from:S.ym + "-01", to:S.ym + "-01" }); sn && 0; S.data.snapshots = [...(S.data.snapshots || []).filter(x => x.month.slice(0, 7) !== S.ym), ...d.snapshots]; } catch (e) {} }
   const s2 = (S.data.snapshots || []).filter(s => s.month.slice(0, 7) === S.ym && s.kind === "lock").sort((a, b) => b.taken_at.localeCompare(a.taken_at))[0];
@@ -481,10 +542,10 @@ function viewSetup(){
       <div class="field" style="max-width:150px; margin:0"><label>Number of rooms</label><input id="suRooms" value="${esc(draft.rooms)}" inputmode="numeric" ${S.me.admin ? "" : "disabled"}></div>
       <div class="field" style="flex:1; min-width:220px; margin:0"><label>Note</label><input id="suNote" value="${esc(draft.note || "")}" ${S.me.admin ? "" : "disabled"}></div>
       ${S.me.admin ? `<button class="btn" id="suSave">Save set up</button>` : ""}</div></div>
-    ${realityCheck(ym)}
+    <div id="rcHost"></div>
     ${S.me.admin && m && later.length ? `<div class="card"><h3>Copy this set up forward</h3><p class="muted" style="margin:0 0 8px">Replaces the set up of the months you tick with this one.</p>
       <div class="tbar" id="cpList">${later.map(x => `<label><input type="checkbox" value="${x}"> ${esc(monthName(x).slice(0, 3) + " " + x.slice(2, 4))}</label>`).join("")}</div><button class="btn small ghost" id="cpGo">Copy</button></div>` : ""}`;
-  bindMonthBar();
+  bindMonthBar(); fillReality(ym);
   const so = $("#suOld"); if (so) so.onclick = () => { lsSet("fc_setup_old", !showOld); viewSetup(); };
   $$("table.su input").forEach(i => i.oninput = () => { const w = i.dataset.w, c = i.dataset.c; (draft.wd[w] ||= {}); if (i.value.trim() === "") delete draft.wd[w][c]; else draft.wd[w][c] = Number(i.value); });
   const sv = $("#suSave"); if (sv) sv.onclick = async () => {
@@ -495,34 +556,114 @@ function viewSetup(){
     try { await call("setup.copy", { from:ym + "-01", to }); await loadRange(ym); toast(`Copied to ${to.length} month${to.length === 1 ? "" : "s"}.`); } catch (e) { toast(e.message, true); }
   };
 }
-// How the set-up compares with what really happened: the finished days of this month and the two before, by weekday.
-function realityCheck(ym){
-  const WDS = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"], acc = Object.fromEntries(WDS.map(w => [w, { n:0, rooms:0, guests:0, bfast:0, lc:0, dc:0, food:0, bev:0, bfrev:0, rrev:0, fnb:0, fng:0 }]));
-  const m0 = S.data.months.find(x => x.month.slice(0, 7) === ym); if (!m0) return "";
-  let days = 0;
-  for (const mm of [addMonths(ym, -2), addMonths(ym, -1), ym]) {
-    const res = calc(mm, false); if (!res) continue;
+/* ---- Does the set up match what happened? The last 30 days (up to yesterday), by weekday, and a recommendation that can be applied ---- */
+const ROLL_DAYS = 30, WDS7 = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+function histRowFrom(c, feed){
+  return { day:c.date, dow:c.dow, rooms:c.rooms_bob_in, rooms_avail:c.rooms_avail, guests:feed.bob?.[c.date]?.guests || 0, bfast:c.bfast_covers, lunch:c.lunch_covers, dinner:c.dinner_covers,
+    food:c.lunch_food + c.dinner_food, bev:c.lunch_bev + c.dinner_bev, bf_rev:c.bfast_rev, rooms_rev:Math.max(0, c.rev_rooms), rev_total:c.rev_total };
+}
+const finishedRows = (res, data) => res.days.filter(c => data.days.find(x => x.day === c.date)?.actual && (c.rooms_bob_in || c.lunch_covers)).map(c => histRowFrom(c, data.feed));
+function keepHistory(rows){ if (S.me && S.me.admin && rows.length) call("stats.save", { rows:rows.slice(0, 500) }).catch(() => {}); }   // quietly, so the History tab fills itself
+async function recentStats(){
+  const today = todayYmd(), startDay = addDays(today, -ROLL_DAYS), endDay = addDays(today, -1);
+  const d = await call("load", { from:startDay.slice(0, 7) + "-01", to:today.slice(0, 7) + "-01" });
+  const acc = Object.fromEntries(WDS7.map(w => [w, { n:0, rooms:0, guests:0, bfast:0, lc:0, dc:0, food:0, bev:0, bfrev:0, rrev:0 }]));
+  let days = 0; const keep = [];
+  for (let mm = startDay.slice(0, 7); mm <= today.slice(0, 7); mm = addMonths(mm, 1)) {
+    const inp = inputFor(mm, d, false); if (!inp) continue;
+    const res = computeMonth(inp);
     for (const c of res.days) {
-      if (!dayRow(c.date)?.actual || !c.rooms_bob_in && !c.lunch_covers) continue;
-      const a = acc[c.dow]; a.n++; days++; a.rooms += c.rooms_bob_in; a.guests += S.data.feed.bob?.[c.date]?.guests || 0; a.bfast += c.bfast_covers; a.lc += c.lunch_covers; a.dc += c.dinner_covers;
-      a.food += c.lunch_food + c.dinner_food; a.bev += c.lunch_bev + c.dinner_bev; a.bfrev += c.bfast_rev; a.rrev += Math.max(0, c.rev_rooms); a.fnb += c.fn_bar; a.fng += c.fn_guests;
+      if (c.date < startDay || c.date > endDay) continue;
+      if (!d.days.find(x => x.day === c.date)?.actual || (!c.rooms_bob_in && !c.lunch_covers)) continue;
+      const a = acc[c.dow]; if (!a) continue;
+      keep.push(histRowFrom(c, d.feed));
+      a.n++; days++; a.rooms += c.rooms_bob_in; a.guests += d.feed.bob?.[c.date]?.guests || 0; a.bfast += c.bfast_covers; a.lc += c.lunch_covers; a.dc += c.dinner_covers;
+      a.food += c.lunch_food + c.dinner_food; a.bev += c.lunch_bev + c.dinner_bev; a.bfrev += c.bfast_rev; a.rrev += Math.max(0, c.rev_rooms);
     }
   }
-  if (!days) return "";
-  const g = (v, d = 1) => (Math.round(v * 10 ** d) / 10 ** d).toLocaleString("en-GB", { minimumFractionDigits:d, maximumFractionDigits:d });
-  const money = v => "£" + g(v, 2).replace(/\.00$/, "");
-  const cell = (set, act, fmt) => { const off = set && act && Math.abs(act - set) / set > 0.2; return `<td title="Set up ${esc(fmt(set))}, actual ${esc(fmt(act))}" style="${off ? "background:var(--attention-bg); font-weight:700" : ""}">${fmt(set)}<br><span class="muted">${fmt(act)}</span></td>`; };
-  const rows = WDS.map(w => {
-    const a = acc[w], s = m0.setup[w] || {}; if (!a.n) return "";
-    const lc = a.lc / a.n, dc = a.dc / a.n, cov = a.lc + a.dc;
-    const setBlendFood = (s[4] * s[6] + s[5] * s[7]) / Math.max(1, s[4] + s[5]), setBlendBev = (s[4] * s[10] + s[5] * s[11]) / Math.max(1, s[4] + s[5]);
-    return `<tr><td>${w}<br><span class="muted">${a.n} days</span></td>
-      ${cell(s[12], a.rooms / a.n, v => g(v, 1))}${cell(s[2], a.guests / Math.max(1, a.rooms), v => g(v, 2))}${cell(s[3], a.bfast / Math.max(1, a.guests), v => g(v, 2))}
-      ${cell(s[4], lc, v => g(v, 0))}${cell(s[5], dc, v => g(v, 0))}${cell(setBlendFood, a.food / Math.max(1, cov), money)}${cell(setBlendBev, a.bev / Math.max(1, cov), money)}${cell(s[14], a.bfrev / Math.max(1, a.bfast), money)}${cell(s[15], a.rrev / Math.max(1, a.rooms), money)}</tr>`;
-  }).join("");
-  return `<div class="card"><h3>Does the set up match what happened?</h3>
-    <p class="muted" style="margin:0 0 10px; font-size:13px">Each weekday, the set-up figure above the figure from the ${days} finished days in this month and the two before. Shaded where they are more than a fifth apart. Food and drinks are per cover, lunch and dinner together, because the End of Day report puts all restaurant food and drink against dinner so they cannot be split. Drinks per cover includes bar-only trade, which has no covers.</p>
-    <div class="scrollx"><table class="su"><thead><tr><th></th><th>Rooms sold</th><th>Guests per room</th><th>Breakfasts per guest</th><th>Lunch covers</th><th>Dinner covers</th><th>Food per cover</th><th>Drinks per cover</th><th>Breakfast spend</th><th>Rate per room sold</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+  keepHistory(keep);
+  return { acc, days, startDay, endDay };
+}
+// What the set up says and what really happened, per weekday and figure. `cols` are the set-up columns that figure is worked from.
+function rollingMetrics(a, s){
+  const cov = a.lc + a.dc, lc = a.lc / a.n, dc = a.dc / a.n, mx = v => Math.max(1, v);
+  const setFood = (s[4] * s[6] + s[5] * s[7]) / mx(s[4] + s[5]), setBev = (s[4] * s[10] + s[5] * s[11]) / mx(s[4] + s[5]);
+  const r0 = v => Math.round(v), r2 = v => Math.round(v * 100) / 100;
+  return [
+    { id:"rooms", label:"Rooms sold", cols:[12], set:s[12], act:a.rooms / a.n, rnd:r0, dp:1 },
+    { id:"gpr", label:"Guests per room", cols:[2], set:s[2], act:a.guests / mx(a.rooms), rnd:r2, dp:2 },
+    { id:"bpg", label:"Breakfasts per guest", cols:[3], set:s[3], act:a.bfast / mx(a.guests), rnd:r2, dp:2 },
+    { id:"lunch", label:"Lunch covers", cols:[4], set:s[4], act:lc, rnd:r0, dp:0 },
+    { id:"dinner", label:"Dinner covers", cols:[5], set:s[5], act:dc, rnd:r0, dp:0 },
+    { id:"food", label:"Food per cover", cols:[6, 7], set:setFood, act:a.food / mx(cov), rnd:r2, dp:2, money:true, scale:true },
+    { id:"bev", label:"Drinks per cover", cols:[10, 11], set:setBev, act:a.bev / mx(cov), rnd:r2, dp:2, money:true, scale:true },
+    { id:"bf", label:"Breakfast spend", cols:[14], set:s[14], act:a.bfrev / mx(a.bfast), rnd:r2, dp:2, money:true },
+    { id:"rate", label:"Rate per room sold", cols:[15], set:s[15], act:a.rrev / mx(a.rooms), rnd:r2, dp:2, money:true },
+  ];
+}
+const gnum = (v, d = 1) => (Math.round(v * 10 ** d) / 10 ** d).toLocaleString("en-GB", { minimumFractionDigits:d, maximumFractionDigits:d });
+const showMetric = (m, v) => m.money ? "£" + gnum(v, 2).replace(/\.00$/, "") : gnum(v, m.dp);
+// The changes the last 30 days suggest for this month's set up. Needs at least 2 finished days of that weekday; a figure is only suggested when it is 5% or more out,
+// and is ticked by default when it is more than a fifth out (the same line as the shading).
+function recommendations(stats, setup){
+  const out = [];
+  for (const w of WDS7) {
+    const a = stats.acc[w]; if (a.n < 2) continue;
+    const s = setup[w] || {};
+    for (const m of rollingMetrics(a, s)) {
+      if (!isFinite(m.act)) continue;
+      const diff = m.set ? (m.act - m.set) / m.set : (m.act ? 1 : 0);
+      if (Math.abs(diff) < 0.05) continue;
+      const changes = [];
+      if (m.scale && m.set > 0) { const f = m.act / m.set; for (const c of m.cols) changes.push({ w, col:c, value:Math.round((s[c] || 0) * f * 100) / 100 }); }
+      else if (m.scale) { for (const c of m.cols) changes.push({ w, col:c, value:m.rnd(m.act) }); }
+      else changes.push({ w, col:m.cols[0], value:m.rnd(m.act) });
+      out.push({ key:w + "|" + m.id, w, label:m.label, setText:showMetric(m, m.set || 0), recText:showMetric(m, changes[0].value === undefined ? m.act : (m.scale ? m.act : changes[0].value)), diff, tick:Math.abs(diff) > 0.2, changes, days:a.n });
+    }
+  }
+  return out;
+}
+async function fillReality(ym){
+  const host = $("#rcHost"); if (!host) return;
+  host.innerHTML = `<div class="card"><h3>Does the set up match what happened?</h3><p class="muted">Looking at the last 30 days…</p></div>`;
+  let stats; try { stats = await recentStats(); } catch (e) { host.innerHTML = `<div class="card"><h3>Does the set up match what happened?</h3><p class="muted">${esc(e.message)}</p></div>`; return; }
+  if (S.ym !== ym || !$("#rcHost")) return;                      // moved to another month while it loaded
+  const m0 = S.data.months.find(x => x.month.slice(0, 7) === ym); if (!m0) { host.innerHTML = ""; return; }
+  if (!stats.days) { host.innerHTML = `<div class="card"><h3>Does the set up match what happened?</h3><p class="muted">No finished days in the last 30 days yet.</p></div>`; return; }
+  const cell = (m) => { const off = m.set && m.act && Math.abs(m.act - m.set) / m.set > 0.2; return `<td title="Set up ${esc(showMetric(m, m.set || 0))}, last 30 days ${esc(showMetric(m, m.act))}" style="${off ? "background:var(--attention-bg); font-weight:700" : ""}">${showMetric(m, m.set || 0)}<br><span class="muted">${showMetric(m, m.act)}</span></td>`; };
+  const rows = WDS7.map(w => { const a = stats.acc[w]; if (!a.n) return ""; return `<tr><td>${w}<br><span class="muted">${a.n} day${a.n === 1 ? "" : "s"}</span></td>${rollingMetrics(a, m0.setup[w] || {}).map(cell).join("")}</tr>`; }).join("");
+  const heads = ["Rooms sold","Guests per room","Breakfasts per guest","Lunch covers","Dinner covers","Food per cover","Drinks per cover","Breakfast spend","Rate per room sold"];
+  host.innerHTML = `<div class="card"><h3>Does the set up match what happened?</h3>
+    <p class="muted" style="margin:0 0 10px; font-size:13px">Each weekday, the set-up figure above the figure from the ${stats.days} finished days in the last 30 days (${esc(fmtD(stats.startDay))} to ${esc(fmtD(stats.endDay))}). Shaded where they are more than a fifth apart. Food and drinks are per cover, lunch and dinner together, because the End of Day report puts all restaurant food and drink against dinner so they cannot be split. Drinks per cover includes bar-only trade, which has no covers.</p>
+    <div class="scrollx"><table class="su"><thead><tr><th></th>${heads.map(h => `<th>${h}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table></div>
+    <div style="margin-top:12px"><button class="btn" id="rcBtn">Recommend changes to the set up</button></div><div id="rcPanel"></div></div>`;
+  $("#rcBtn").onclick = () => showRecommendation(ym, stats);
+}
+function showRecommendation(ym, stats){
+  const m0 = S.data.months.find(x => x.month.slice(0, 7) === ym), recs = recommendations(stats, m0.setup), panel = $("#rcPanel");
+  const later = S.data.months.map(x => x.month.slice(0, 7)).filter(x => x > ym);
+  if (!recs.length) { panel.innerHTML = `<p class="notice" style="margin-top:12px">The set up already matches the last 30 days, to within 5%. Nothing to change.</p>`; return; }
+  const sign = d => (d > 0 ? "+" : "") + Math.round(d * 100) + "%";
+  panel.innerHTML = `<div style="margin-top:14px"><h3 style="font-size:20px;margin:0 0 4px">Recommended changes</h3>
+    <p class="muted" style="margin:0 0 8px; font-size:13px">Worked from the ${stats.days} finished days in the last 30 days, ${esc(monthName(ym))}'s set up. Each weekday needs at least 2 finished days. Figures more than a fifth out are ticked; untick any you want to keep. Food and drinks per cover change both the lunch and dinner figures together.</p>
+    <div class="scrollx"><table class="dt"><thead><tr><th></th><th>Day</th><th>Figure</th><th>Set up</th><th>Last 30 days</th><th>Out by</th></tr></thead><tbody>${recs.map((r, i) => `<tr><td><input type="checkbox" data-rc="${i}"${r.tick ? " checked" : ""}${S.me.admin ? "" : " disabled"}></td><td>${esc(r.w)}</td><td>${esc(r.label)}</td><td>${esc(r.setText)}</td><td>${esc(r.recText)}</td><td>${esc(sign(r.diff))}</td></tr>`).join("")}</tbody></table></div>
+    ${S.me.admin ? `<div class="tbar" style="margin-top:10px">${later.length ? `<label><input type="checkbox" id="rcLater"> Also apply these to the ${later.length} later month${later.length === 1 ? "" : "s"}</label>` : ""}</div>
+    <div class="row-actions" style="margin-top:10px"><button class="btn gold" id="rcApply">Apply the ticked changes</button></div>
+    <p class="muted" style="margin:8px 0 0; font-size:13px">Applying saves the set up and recalculates the month. Anything you have typed over on the forecast stays as you typed it; everything else follows the new set up.</p>` : `<p class="muted" style="font-size:13px">(You can look but not change.)</p>`}</div>`;
+  const ap = $("#rcApply"); if (!ap) return;
+  ap.onclick = async () => {
+    const chosen = $$("#rcPanel input[data-rc]:checked").map(i => recs[+i.dataset.rc]); if (!chosen.length) return toast("Tick at least one change.", true);
+    const alsoLater = !!($("#rcLater") && $("#rcLater").checked);
+    ap.disabled = true;
+    try {
+      const stamp = "Set up updated from the last 30 days on " + new Date().toLocaleDateString("en-GB", { day:"numeric", month:"short", year:"numeric", timeZone:"Europe/London" });
+      const apply = (setup) => { const out = JSON.parse(JSON.stringify(setup || {})); for (const r of chosen) for (const ch of r.changes) { (out[ch.w] ||= {}); out[ch.w][ch.col] = ch.value; } return out; };
+      await call("setup.save", { month:ym + "-01", rooms:m0.rooms, setup:apply(m0.setup), note:((m0.setup_note || "") + (m0.setup_note ? " | " : "") + stamp).slice(0, 500) });
+      if (alsoLater) for (const lm of later) { const mm = S.data.months.find(x => x.month.slice(0, 7) === lm); if (mm) await call("setup.save", { month:lm + "-01", rooms:mm.rooms, setup:apply(mm.setup), note:((mm.setup_note || "") + (mm.setup_note ? " | " : "") + stamp).slice(0, 500) }); }
+      await loadRange(ym); S.setupDraft = null;
+      toast(`Set up updated (${chosen.length} change${chosen.length === 1 ? "" : "s"}${alsoLater ? ", and the later months" : ""}). The forecast has been recalculated.`); viewSetup();
+    } catch (e) { ap.disabled = false; toast(e.message, true); }
+  };
 }
 
 function bindMonthBar(){
@@ -802,10 +943,83 @@ async function viewParallel(){
   $("#prCmp").onclick = async () => { PR.busy = true; $("#prCmp").disabled = true; $("#prCmp").textContent = "Comparing…"; try { const r = await call("shadow.run"); toast(`${r.within} of ${r.compared} agree, ${r.waiting} waiting.`); } catch (e) { toast(e.message, true); } PR.busy = false; viewParallel(); };
 }
 
+/* ---- History: how each finished day really went, kept day by day, to look back by day, month and any 30 days. Totals are kept, so any run of days adds up correctly. ---- */
+S.hv = { mode:"months", ym:null, end:null, ly:true };
+function histAgg(rows){
+  const t = { n:0, rev:0, rooms:0, avail:0, dn:0, dRooms:0, dGuests:0, dBfast:0, dLunch:0, dDinner:0, dFood:0, dBev:0, dBfRev:0, rr:0, rrRooms:0 }, v = x => Number(x) || 0;
+  for (const r of rows) {
+    t.n++; t.rev += v(r.rev_total); t.rooms += v(r.rooms); t.avail += v(r.rooms_avail);
+    if (r.rooms_rev != null && v(r.rooms)) { t.rr += v(r.rooms_rev); t.rrRooms += v(r.rooms); }
+    if (r.lunch != null || r.dinner != null) { t.dn++; t.dRooms += v(r.rooms); t.dGuests += v(r.guests); t.dBfast += v(r.bfast); t.dLunch += v(r.lunch); t.dDinner += v(r.dinner); t.dFood += v(r.food); t.dBev += v(r.bev); t.dBfRev += v(r.bf_rev); }
+  }
+  const dv = (a, b) => b > 0 ? a / b : null, cov = t.dLunch + t.dDinner;
+  return { n:t.n, rooms_day:dv(t.rooms, t.n), occ:dv(t.rooms, t.avail), gpr:dv(t.dGuests, t.dRooms), bpg:dv(t.dBfast, t.dGuests), lunch:dv(t.dLunch, t.dn), dinner:dv(t.dDinner, t.dn),
+    food:dv(t.dFood, cov), bev:dv(t.dBev, cov), bf:dv(t.dBfRev, t.dBfast), rate:dv(t.rr, t.rrRooms), rev_day:dv(t.rev, t.n), revenue:t.n ? t.rev : null };
+}
+const HCOLS = [["n","Days",v => String(v)],["rooms_day","Rooms sold a day",v => gnum(v, 1)],["occ","Occupancy",v => gnum(v * 100, 0) + "%"],["gpr","Guests per room",v => gnum(v, 2)],["bpg","Breakfasts per guest",v => gnum(v, 2)],
+  ["lunch","Lunch covers a day",v => gnum(v, 0)],["dinner","Dinner covers a day",v => gnum(v, 0)],["food","Food per cover",v => "£" + gnum(v, 2)],["bev","Drinks per cover",v => "£" + gnum(v, 2)],
+  ["bf","Breakfast spend",v => "£" + gnum(v, 2)],["rate","Rate per room sold",v => "£" + gnum(v, 2)],["rev_day","Revenue a day",v => "£" + gnum(v, 0)],["revenue","Total revenue",v => "£" + gnum(v, 0)]];
+function histTable(items, firstHead, cmpLabel){
+  S.histExport = [[firstHead].concat(HCOLS.map(c => c[1]))];
+  const body = items.map(it => {
+    S.histExport.push([it.label].concat(HCOLS.map(c => it.agg[c[0]] == null ? "" : String(Math.round(it.agg[c[0]] * 1000) / 1000))));
+    if (it.cmp) S.histExport.push([it.label + " (" + cmpLabel + ")"].concat(HCOLS.map(c => it.cmp[c[0]] == null ? "" : String(Math.round(it.cmp[c[0]] * 1000) / 1000))));
+    return `<tr${it.go ? ` data-go="${esc(it.go)}" style="cursor:pointer"` : ""}><td>${esc(it.label)}${it.sub ? `<br><span class="muted">${esc(it.sub)}</span>` : ""}</td>${HCOLS.map(c => { const v = it.agg[c[0]], w = it.cmp ? it.cmp[c[0]] : null; return `<td>${v == null ? "" : c[2](v)}${it.cmp && w != null ? `<br><span class="muted" title="${esc(cmpLabel)}">${c[2](w)}</span>` : ""}</td>`; }).join("")}</tr>`;
+  }).join("");
+  return `<div class="scrollx"><table class="su"><thead><tr><th>${esc(firstHead)}</th>${HCOLS.map(c => `<th>${esc(c[1])}</th>`).join("")}</tr></thead><tbody>${body}</tbody></table></div>`;
+}
+async function buildHistory(){
+  const todayYm = todayYmd().slice(0, 7), d = await call("load", { from:"2026-01-01", to:todayYm + "-01" }), rows = [];
+  for (const m of d.months.map(x => x.month.slice(0, 7)).sort()) { if (m > todayYm) continue; const inp = inputFor(m, d, false); if (!inp) continue; rows.push(...finishedRows(computeMonth(inp), d)); }
+  for (let i = 0; i < rows.length; i += 400) await call("stats.save", { rows:rows.slice(i, i + 400) });
+  const old = await call("stats.backfill_old", {});
+  return { tile:rows.length, old:old.offered };
+}
+async function viewHistory(){
+  const today = todayYmd(), hv = S.hv; if (!hv.end) hv.end = today;
+  $("#views").innerHTML = `<div class="loading">Loading the history…</div>`;
+  let days; try { days = (await call("stats.load", { from:addMonths(today.slice(0, 7), -48) + "-01", to:today })).days; } catch (e) { $("#views").innerHTML = `<div class="card empty">${esc(e.message)}</div>`; return; }
+  const byMonth = {}; for (const r of days) (byMonth[r.day.slice(0, 7)] ||= []).push(r);
+  const admin = S.me.admin;
+  const bar = `<div class="tbar" style="margin-bottom:10px"><button class="btn small ${hv.mode === "window" ? "ghost" : ""}" id="hvMonths">By month</button> <button class="btn small ${hv.mode === "window" ? "" : "ghost"}" id="hvWindow">Any 30 days</button>
+    <span class="spacer"></span><button class="btn small ghost" id="hvCsv">Download as a spreadsheet (CSV)</button>${admin ? ` <button class="btn small ghost" id="hvBuild">Save history from the finished days</button>` : ""}</div>`;
+  let html = "";
+  if (!days.length) {
+    html = `<div class="card"><h3>History</h3><p class="muted">Nothing has been saved yet. ${admin ? "Press <b>Save history from the finished days</b> to build it from every finished day in the tile, plus the old workbook history for earlier months. After that it keeps itself up to date each time you look at the set up or lock an update." : "An administrator needs to build it."}</p></div>`;
+  } else if (hv.mode === "window") {
+    const end = hv.end, start = addDays(end, -29), rows = days.filter(r => r.day >= start && r.day <= end), lyEnd = addDays(end, -364), lyStart = addDays(lyEnd, -29), lyRows = days.filter(r => r.day >= lyStart && r.day <= lyEnd);
+    const items = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(w => ({ label:w, agg:histAgg(rows.filter(r => r.dow === w)), cmp:hv.ly && lyRows.length ? histAgg(lyRows.filter(r => r.dow === w)) : null })).filter(x => x.agg.n);
+    items.push({ label:"All days", agg:histAgg(rows), cmp:hv.ly && lyRows.length ? histAgg(lyRows) : null });
+    html = `<div class="card"><h3>The 30 days ending ${esc(fmtD(end))}</h3><div class="tbar"><label>Ending on <input type="date" id="hvEnd" value="${esc(end)}" max="${esc(today)}"></label><label><input type="checkbox" id="hvLy"${hv.ly ? " checked" : ""}> Show the same 30 days a year earlier (small grey figures)</label></div>
+      <p class="muted" style="font-size:13px; margin:4px 0 8px">${rows.length} saved days between ${esc(fmtD(start))} and ${esc(fmtD(end))}. The same table as the set-up check, for any date you choose.</p>${items.length ? histTable(items, "Weekday", "a year earlier") : `<p class="muted">No saved days in that window.</p>`}</div>`;
+  } else if (hv.ym) {
+    const ym = hv.ym, rows = byMonth[ym] || [], lyRows = byMonth[addMonths(ym, -12)] || [];
+    const items = rows.map(r => ({ label:new Date(r.day + "T00:00:00Z").toLocaleDateString("en-GB", { weekday:"short", day:"numeric", month:"short", timeZone:"UTC" }), agg:histAgg([r]) }));
+    const wd = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(w => ({ label:w + " average", agg:histAgg(rows.filter(r => r.dow === w)), cmp:hv.ly && lyRows.length ? histAgg(lyRows.filter(r => r.dow === w)) : null })).filter(x => x.agg.n);
+    wd.push({ label:"Whole month", agg:histAgg(rows), cmp:hv.ly && lyRows.length ? histAgg(lyRows) : null });
+    html = `<div class="card"><button class="linkbtn" id="hvBack">&larr; All months</button><h3 style="margin-top:6px">${esc(monthName(ym))}</h3><div class="tbar"><label><input type="checkbox" id="hvLy"${hv.ly ? " checked" : ""}> Show ${esc(monthName(addMonths(ym, -12)))} (small grey figures)</label></div>
+      <h3 style="font-size:18px">By weekday</h3>${histTable(wd, "Weekday", monthName(addMonths(ym, -12)))}<h3 style="font-size:18px; margin-top:16px">Day by day</h3>${histTable(items, "Day", "")}</div>`;
+  } else {
+    const list = Object.keys(byMonth).sort().reverse().map(m => ({ label:monthName(m), sub:byMonth[m][0].source === "workbook" ? "old workbook" : "", go:m, agg:histAgg(byMonth[m]), cmp:hv.ly && byMonth[addMonths(m, -12)] ? histAgg(byMonth[addMonths(m, -12)]) : null }));
+    html = `<div class="card"><h3>By month</h3><div class="tbar"><label><input type="checkbox" id="hvLy"${hv.ly ? " checked" : ""}> Show the same month a year earlier (small grey figures)</label></div>
+      <p class="muted" style="font-size:13px; margin:4px 0 8px">Click a month for its days and weekdays. Earlier months only have rooms and revenue (from the old workbook); covers, guests and spend start when the tile took over. Meals per cover and room rates use only days that have them.</p>${histTable(list, "Month", "a year earlier")}</div>`;
+  }
+  $("#views").innerHTML = bar + html;
+  const again = () => viewHistory();
+  $("#hvMonths").onclick = () => { hv.mode = "months"; hv.ym = null; again(); };
+  $("#hvWindow").onclick = () => { hv.mode = "window"; again(); };
+  $("#hvCsv").onclick = () => { const c = v => /[",\r\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; const blob = new Blob(["\ufeff" + (S.histExport || []).map(r => r.map(c).join(",")).join("\r\n")], { type:"text/csv" }), a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "forecast-history.csv"; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 30000); };
+  const ly = $("#hvLy"); if (ly) ly.onchange = () => { hv.ly = ly.checked; again(); };
+  const he = $("#hvEnd"); if (he) he.onchange = () => { if (he.value) { hv.end = he.value; again(); } };
+  const bk = $("#hvBack"); if (bk) bk.onclick = () => { hv.ym = null; again(); };
+  $$("#views tr[data-go]").forEach(r => r.onclick = () => { hv.ym = r.dataset.go; hv.mode = "months"; again(); });
+  const bb = $("#hvBuild"); if (bb) bb.onclick = async () => { bb.disabled = true; bb.textContent = "Saving, this takes a minute…"; try { const r = await buildHistory(); toast(`History saved: ${r.tile} finished days from the tile, and the old workbook months.`); again(); } catch (e) { toast(e.message, true); bb.disabled = false; } };
+}
+
 /* ------------------------------------------------------------------ shell */
 async function goMonth(ym){
   if (S.pending.size && !confirm("You have changes that are not saved. Leave them behind?")) return;
-  S.pending.clear(); S.ym = ym; S.setupDraft = null; S.lockSnap = null;
+  S.pending.clear(); S.ym = ym; S.setupDraft = null; S.lockSnap = null; S.updSnap = null;
   try { if (ym < S.range.from || ym > S.range.to) { $("#views").innerHTML = `<div class="loading">Loading…</div>`; await loadRange(ym); } } catch (e) { toast(e.message, true); }
   go(S.view);
 }
@@ -817,6 +1031,7 @@ async function go(v){
   else if (v === "periods") viewPeriods();
   else if (v === "imports") viewImports();
   else if (v === "setup") viewSetup();
+  else if (v === "history") viewHistory();
   else if (v === "workbook") viewWorkbook();
   else if (v === "parallel") viewParallel();
 }
