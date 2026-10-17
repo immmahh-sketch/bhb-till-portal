@@ -1045,6 +1045,43 @@ function goTab(tab) {
   screen = tab; render();
   if (tab === "saved") Store.refreshSaved().then(function () { if (screen === "saved") render(); }).catch(function () {});
 }
+/* ---- Import couple's details from a Calendly booking: pick a day (today to start with), choose one of that day's bookings, and the names, email and number come across. */
+var CAL = { open: false, date: "", loading: false, list: null, err: "" };
+function todayYmd() { return new Date().toLocaleDateString("en-CA", { timeZone: "Europe/London" }); }
+function calendlyHtml() {
+  if (!config().hasCoupleFields) return "";
+  if (!CAL.open) return '<div style="margin-bottom:10px"><button class="bhb-btn-text" onclick="BHB_UI.calOpen()">Import couple\u2019s details from Calendly booking</button></div>';
+  var opts = (CAL.list || []).map(function (b) {
+    return '<option value="' + esc(b.id) + '">' + esc(b.time + "  " + (b.name || "Unnamed") + (b.partner ? " & " + b.partner : "") + (b.event ? "  (" + b.event + ")" : "")) + "</option>";
+  }).join("");
+  return '<div class="bhb-card" style="border-left:4px solid var(--gold);margin:0 0 12px"><div class="bhb-row" style="margin-bottom:8px"><b>Calendly bookings</b><button class="bhb-btn-text" onclick="BHB_UI.calClose()">Close</button></div>' +
+    '<div class="bhb-field"><label>Day</label><input type="date" value="' + esc(CAL.date) + '" onchange="BHB_UI.calDay(this.value)"></div>' +
+    (CAL.loading ? '<div class="bhb-ovnote" style="text-align:left">Loading bookings\u2026</div>'
+      : CAL.err ? '<div class="bhb-ovnote" style="text-align:left;color:#b3261e">' + esc(CAL.err) + "</div>"
+      : (CAL.list && CAL.list.length) ? '<div class="bhb-field"><label>Choose a booking</label><select onchange="BHB_UI.calPick(this.value)"><option value="">Select a booking\u2026</option>' + opts + "</select></div>"
+      : '<div class="bhb-ovnote" style="text-align:left">No Calendly bookings on that day.</div>') +
+    "</div>";
+}
+function calLoad() {
+  CAL.loading = true; CAL.err = ""; render();
+  window.BHB_API("calendly.list", { date: CAL.date }).then(function (r) { CAL.list = r.bookings || []; CAL.loading = false; render(); })
+    .catch(function (e) { CAL.loading = false; CAL.err = "Could not load the bookings (" + (e && e.message ? e.message : "no connection") + ")."; render(); });
+}
+function calOpen() { CAL.open = true; CAL.date = CAL.date || todayYmd(); calLoad(); }
+function calClose() { CAL.open = false; render(); }
+function calDay(v) { if (!v) return; CAL.date = v; calLoad(); }
+function calPick(id) {
+  var b = (CAL.list || []).filter(function (x) { return x.id === id; })[0]; if (!b) return;
+  Store.updateDetails(function (d) {
+    if (b.name) d.partner1Name = b.name;
+    if (b.partner) d.partner2Name = b.partner;
+    if (b.email) d.emailAddress = b.email;
+    if (b.phone) d.contactNumber = b.phone;
+    return d;
+  });
+  CAL.open = false; render();
+  showToast("Added from the Calendly booking: " + [b.name, b.partner].filter(Boolean).join(" & ") + ".");
+}
 function dismissLegacy() { try { sessionStorage.setItem("bhb_legacy_dismissed", "1"); } catch (e) {} render(); }
 function importLegacy() {
   var n = Store.legacyCount();
@@ -1200,6 +1237,7 @@ function renderDetails() {
       '<div class="bhb-field"><label>Coordinator name</label><input type="text" value="' + esc(d.coordinatorName) + '" oninput="BHB_UI.setDetailSilent(\'coordinatorName\', this.value)"></div>' +
     "</div>" +
     '<div class="bhb-card"><h3>' + (cfg.hasCoupleFields ? "Couple details" : "Contact details") + "</h3>" +
+      calendlyHtml() +
       coupleFieldsHtml +
       '<div class="bhb-field"><label>Contact number</label><input type="tel" value="' + esc(d.contactNumber) + '" oninput="BHB_UI.setDetailSilent(\'contactNumber\', this.value)"></div>' +
       '<div class="bhb-field"><label>Email address</label><input type="email" value="' + esc(d.emailAddress) + '" oninput="BHB_UI.setDetailSilent(\'emailAddress\', this.value)"></div>' +
@@ -1496,6 +1534,7 @@ window.BHB_UI = {
   toggleExactDate: toggleExactDate, setExactDate: setExactDate, clearQuote: clearQuote,
   overrideValue: overrideValue, resetOverride: resetOverride, setOverrideSilent: setOverrideSilent,
   importLegacy: importLegacy, dismissLegacy: dismissLegacy,
+  calOpen: calOpen, calClose: calClose, calDay: calDay, calPick: calPick,
   addLineItem: addLineItem, removeLineItem: removeLineItem, setLineItem: setLineItem,
   setLineItemNumberSilent: setLineItemNumberSilent, changeCategory: changeCategory, changeItemName: changeItemName,
   generatePdf: function () { window.BHB_PDF.generateAndDownload(Store.details, Store.lineItems); },
