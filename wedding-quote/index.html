@@ -81,6 +81,11 @@
     background: #fff; color: var(--charcoal);
   }
   .bhb-field input:focus, .bhb-field select:focus { outline: 2px solid var(--gold-light); outline-offset: -1px; }
+  .bhb-ovctl { display: inline-flex; align-items: center; gap: 10px; }
+  .bhb-ovctl input { width: 120px; padding: 6px 8px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; text-align: right; }
+  .bhb-ovctl input:focus { outline: 2px solid var(--gold-light); outline-offset: -1px; }
+  .bhb-manual { font-style: normal; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--gold); margin-left: 4px; }
+  .bhb-ovnote { font-size: 12px; color: var(--muted); text-align: right; margin-top: 2px; }
   .bhb-switch-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; }
   .bhb-switch { position: relative; display: inline-block; width: 42px; height: 24px; flex-shrink: 0; }
   .bhb-switch input { opacity: 0; width: 0; height: 0; }
@@ -650,6 +655,8 @@ function newDetails(overrides) {
     partner2Name: "", partner2Role: "GROOM",
     contactName: "", contactNumber: "", emailAddress: "",
     exactDate: null, // "YYYY-MM-DD" or null
+    useExactDate: false, // the "I know the exact date" switch, on before a date has been picked
+    minimumSpendOverride: null, venueHireOverride: null, // typed over the rate card, as in the Windows app
     dayOfWeek: "Saturday", month: "Oct", year: 2026,
     venue: "MARQUEE",
     daytimeGuests: 0, eveningGuests: 0,
@@ -744,6 +751,9 @@ function lineTotal(item) {
 function totals(details, lineItems) {
   var minSpend = minimumSpend(details);
   var venueHireResult = venueHire(details);
+  minSpend.autoAmount = minSpend.amount; venueHireResult.autoAmount = venueHireResult.amount;
+  if (details.minimumSpendOverride != null) minSpend = { amount: details.minimumSpendOverride, unavailableReason: null, overridden: true, autoAmount: minSpend.autoAmount };
+  if (details.venueHireOverride != null) venueHireResult = { amount: details.venueHireOverride, unavailableReason: null, overridden: true, autoAmount: venueHireResult.autoAmount };
   var lineItemsTotal = 0;
   lineItems.forEach(function (it) { if (it.includedInQuote) lineItemsTotal += lineTotal(it); });
   var autoVenueHire = venueHireResult.amount || 0;
@@ -1048,12 +1058,25 @@ function renderHome() {
 }
 
 /* ---------------- DETAILS ---------------- */
+var OV_KEY = { MinimumSpend: "minimumSpendOverride", VenueHire: "venueHireOverride" };
+function calcRowHtml(label, which, r, spanId) {
+  var key = OV_KEY[which], over = Store.details[key] != null;
+  var shown = r.amount !== null ? gbp(r.amount) : (r.unavailableReason || "-");
+  if (over) {
+    return '<div class="bhb-row bhb-ovrow"><span>' + label + ' <em class="bhb-manual">manual</em></span>' +
+      '<span class="bhb-ovctl"><input type="text" inputmode="decimal" id="' + spanId + '" value="' + esc(fmtNum(Store.details[key])) + '" oninput="BHB_UI.setOverrideSilent(\'' + which + '\', this.value)">' +
+      '<button class="bhb-btn-text" onclick="BHB_UI.resetOverride(\'' + which + '\')">Reset</button></span></div>' +
+      (r.autoAmount != null ? '<div class="bhb-ovnote">Rate card: ' + esc(gbp(r.autoAmount)) + "</div>" : "");
+  }
+  return '<div class="bhb-row"><span>' + label + '</span><span class="bhb-ovctl"><span id="' + spanId + '">' + esc(shown) + '</span>' +
+    '<button class="bhb-btn-text" onclick="BHB_UI.overrideValue(\'' + which + '\')">Override</button></span></div>';
+}
 function detailsCalculatedHtml() {
   var t = C.totals(Store.details, Store.lineItems);
   return (
     '<div class="bhb-card"><h3>Calculated</h3>' +
-      '<div class="bhb-row"><span>Minimum Spend</span><span id="bhb-calc-minspend">' + esc(t.minimumSpend.amount !== null ? gbp(t.minimumSpend.amount) : (t.minimumSpend.unavailableReason || "-")) + "</span></div>" +
-      '<div class="bhb-row"><span>Venue Hire</span><span id="bhb-calc-venuehire">' + esc(t.venueHire.amount !== null ? gbp(t.venueHire.amount) : (t.venueHire.unavailableReason || "-")) + "</span></div>" +
+      calcRowHtml("Minimum Spend", "MinimumSpend", t.minimumSpend, "bhb-calc-minspend") +
+      calcRowHtml("Venue Hire", "VenueHire", t.venueHire, "bhb-calc-venuehire") +
     "</div>"
   );
 }
@@ -1062,14 +1085,29 @@ function patchDetailsComputed() {
   var t = C.totals(Store.details, Store.lineItems);
   var msEl = document.getElementById("bhb-calc-minspend");
   var vhEl = document.getElementById("bhb-calc-venuehire");
-  if (msEl) msEl.textContent = t.minimumSpend.amount !== null ? gbp(t.minimumSpend.amount) : (t.minimumSpend.unavailableReason || "-");
-  if (vhEl) vhEl.textContent = t.venueHire.amount !== null ? gbp(t.venueHire.amount) : (t.venueHire.unavailableReason || "-");
+  if (msEl && msEl.tagName !== "INPUT") msEl.textContent = t.minimumSpend.amount !== null ? gbp(t.minimumSpend.amount) : (t.minimumSpend.unavailableReason || "-");
+  if (vhEl && vhEl.tagName !== "INPUT") vhEl.textContent = t.venueHire.amount !== null ? gbp(t.venueHire.amount) : (t.venueHire.unavailableReason || "-");
+}
+// Override: start from the rate card figure (or nothing) and type over it; Reset goes back to the rate card.
+function overrideValue(which) {
+  var t = C.totals(Store.details, Store.lineItems), r = which === "MinimumSpend" ? t.minimumSpend : t.venueHire;
+  Store.updateDetails(function (d) { d[OV_KEY[which]] = r.autoAmount != null ? r.autoAmount : (r.amount != null ? r.amount : 0); return d; });
+  render();
+}
+function resetOverride(which) {
+  Store.updateDetails(function (d) { d[OV_KEY[which]] = null; return d; });
+  render();
+}
+function setOverrideSilent(which, raw) {
+  var n = parseFloat(String(raw).replace(/[£,\s]/g, ""));
+  Store.details[OV_KEY[which]] = isNaN(n) ? 0 : n;
+  Store.scheduleAutosave();
 }
 
 function renderDetails() {
   var d = Store.details;
   var cfg = config();
-  var useExactDate = !!d.exactDate;
+  var useExactDate = !!d.useExactDate || !!d.exactDate;
 
   var coupleFieldsHtml;
   if (cfg.hasCoupleFields) {
@@ -1155,7 +1193,7 @@ function packageTotalsHtml() {
     : (t.minimumSpend.unavailableReason || "");
   return (
     '<div class="bhb-totals-block" id="bhb-totals-block">' +
-      (cfg.rateTables ? '<div class="bhb-row"><span>Venue Hire</span><span id="bhb-tot-venuehire">' + esc(t.venueHire.amount !== null ? gbp(t.venueHire.amount) : (t.venueHire.unavailableReason || "-")) + "</span></div>" : "") +
+      (cfg.rateTables ? '<div class="bhb-row"><span>Venue Hire' + (t.venueHire.overridden ? ' <em class="bhb-manual">manual</em>' : "") + '</span><span id="bhb-tot-venuehire">' + esc(t.venueHire.amount !== null ? gbp(t.venueHire.amount) : (t.venueHire.unavailableReason || "-")) + "</span></div>" : "") +
       '<div class="bhb-row"><span>Package items</span><span id="bhb-tot-package">' + esc(gbp(t.lineItemsTotal)) + "</span></div>" +
       '<div class="bhb-row emphasize"><span>Total Cost (inc. Venue Hire)</span><span id="bhb-tot-total">' + esc(gbp(t.totalCostIncVenueHire)) + "</span></div>" +
       (cfg.rateTables ? '<div class="bhb-min-spend-msg ' + msgClass + '" id="bhb-tot-msg">' + esc(msgText) + "</div>" : "") +
@@ -1278,8 +1316,8 @@ function renderSummary() {
     "</div>" +
     (cfg.rateTables ?
       '<div class="bhb-card">' +
-        summaryRow("Minimum Spend", t.minimumSpend.amount !== null ? gbp(t.minimumSpend.amount) : (t.minimumSpend.unavailableReason || "-")) +
-        summaryRow("Venue Hire", t.venueHire.amount !== null ? gbp(t.venueHire.amount) : (t.venueHire.unavailableReason || "-")) +
+        summaryRow("Minimum Spend" + (t.minimumSpend.overridden ? " (manual)" : ""), t.minimumSpend.amount !== null ? gbp(t.minimumSpend.amount) : (t.minimumSpend.unavailableReason || "-")) +
+        summaryRow("Venue Hire" + (t.venueHire.overridden ? " (manual)" : ""), t.venueHire.amount !== null ? gbp(t.venueHire.amount) : (t.venueHire.unavailableReason || "-")) +
       "</div>" : "") +
     '<div class="bhb-headline" style="font-size:16px;margin:14px 0 8px">Package</div>' +
     '<div class="bhb-card" style="padding:4px 16px">' + itemsHtml + "</div>" +
@@ -1358,15 +1396,11 @@ function setGuestCountSilent(key, rawValue) {
   patchDetailsComputed();
 }
 function toggleExactDate(checked) {
-  if (!checked) {
-    Store.updateDetails(function (d) { d.exactDate = null; return d; });
-  } else {
-    Store.updateDetails(function (d) { return d; });
-  }
+  Store.updateDetails(function (d) { d.useExactDate = !!checked; if (!checked) d.exactDate = null; return d; });
   render();
 }
 function setExactDate(value) {
-  Store.updateDetails(function (d) { d.exactDate = value || null; return d; });
+  Store.updateDetails(function (d) { d.exactDate = value || null; d.useExactDate = true; return d; });
   render();
 }
 function clearQuote() { Store.newQuote(); render(); }
@@ -1412,6 +1446,7 @@ window.BHB_UI = {
   openSavedQuote: openSavedQuote, deleteQuote: deleteQuote,
   setDetail: setDetail, setDetailSilent: setDetailSilent, setGuestCountSilent: setGuestCountSilent,
   toggleExactDate: toggleExactDate, setExactDate: setExactDate, clearQuote: clearQuote,
+  overrideValue: overrideValue, resetOverride: resetOverride, setOverrideSilent: setOverrideSilent,
   addLineItem: addLineItem, removeLineItem: removeLineItem, setLineItem: setLineItem,
   setLineItemNumberSilent: setLineItemNumberSilent, changeCategory: changeCategory, changeItemName: changeItemName,
   generatePdf: function () { window.BHB_PDF.generateAndDownload(Store.details, Store.lineItems); },
