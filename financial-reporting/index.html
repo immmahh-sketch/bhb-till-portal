@@ -166,6 +166,11 @@ table.grid th{
 table.grid th.num{text-align:right}
 table.grid td{padding:10px 12px; border-top:1px solid var(--mist); vertical-align:top; white-space:nowrap}
 table.grid td.num{text-align:right; font-variant-numeric:tabular-nums}
+/* the Cash Up history has twelve columns: a wider frame on a big screen, tighter cells and two-line headings so the whole row is in view */
+body.widepage{--maxw:1800px}
+table.grid.cuh{font-size:13px} table.grid.cuh th{white-space:normal; line-height:1.25; padding:9px 7px; font-size:9.5px; letter-spacing:.1em; vertical-align:bottom} table.grid.cuh td{padding:9px 7px}
+table.grid.cuh th:first-child, table.grid.cuh td:first-child{padding-left:12px} table.grid.cuh th:last-child, table.grid.cuh td:last-child{padding-right:12px}
+@media (max-width:1100px){ table.grid.cuh{font-size:12px} table.grid.cuh td, table.grid.cuh th{padding-left:5px; padding-right:5px} }
 table.grid tr.grp{cursor:pointer} table.grid tr.grp:hover td{background:var(--sage-10)}
 table.grid tr.grpsub td{background:var(--bone); font-size:13px; color:var(--sage-dark)} table.grid tr.grpsub td:first-child{padding-left:28px}
 .chev{display:inline-block; width:14px; color:var(--sage-70)} .part{display:inline-block; font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; background:var(--attention-bg); color:#6d5320; border-radius:999px; padding:2px 8px; margin-left:6px}
@@ -537,6 +542,7 @@ function tillOptions(current){
 
 /* ======================================================= render router */
 function render(){
+  document.body.classList.toggle("widepage", S.view === "cashup-history");
   const v = $("#views");
   switch (S.view) {
     case "dashboard":     v.innerHTML = viewDashboard(); loadDashboard(); break;
@@ -1060,18 +1066,20 @@ function cuhGroups(){
 }
 const CUH = { open:{} };
 function cuhRender(){
+  $("#cuh_table").classList.add("cuh");
   const groups = cuhGroups();
   const names = rows => [...new Set(rows.map(r => r.staff_name).filter(Boolean))].join(", ");
   const vc = v => Math.abs(v) > 1 ? "down" : "up";
+  const money = n => { n = Number(n) || 0; return (n < 0 ? "-" : "") + "£" + Math.abs(n).toLocaleString("en-GB", { minimumFractionDigits:2, maximumFractionDigits:2 }); };
   const cells = f => `<td class="num">${money(f.cashExp)}</td><td class="num">${money(f.cashBank)}</td><td class="num ${vc(f.cashVar)}">${money(f.cashVar)}</td>
         <td class="num">${money(f.cardExp)}</td><td class="num">${money(f.cardBank)}</td><td class="num ${vc(f.cardVar)}">${money(f.cardVar)}</td>
         <td class="num">${money(f.totExp)}</td><td class="num strong">${money(f.totBank)}</td><td class="num strong ${vc(f.v)}">${money(f.v)}</td>`;
   let html = `<thead><tr><th>Date</th><th>Till</th><th>Completed By</th><th class="num">Cash expected</th><th class="num">Cash banked</th><th class="num">Cash variance</th>
-    <th class="num">Cards &amp; other expected</th><th class="num">Cards &amp; other banked</th><th class="num">Cards &amp; other variance</th><th class="num">Total expected</th><th class="num">Total banked</th><th class="num">Variance</th></tr></thead><tbody>`;
+    <th class="num">Cards &amp; other expected</th><th class="num">Cards &amp; other banked</th><th class="num">Cards &amp; other variance</th><th class="num">Total expected</th><th class="num">Total banked</th><th class="num">Total variance</th></tr></thead><tbody>`;
   for (const g of groups) {
     if (g.single) { const r = g.rows[0]; html += `<tr><td class="strong">${ukDate(r.business_date)}</td><td>${esc(g.label)}</td><td>${esc(r.staff_name)}</td>${cells(cuhFig(r))}</tr>`; continue; }
     const id = g.date + "|" + g.key, open = !!CUH.open[id];
-    html += `<tr class="grp" data-grp="${esc(id)}"><td class="strong">${ukDate(g.date)}</td><td><span class="chev">${open ? "&#9662;" : "&#9656;"}</span><b>${esc(g.label)}</b>${g.partial ? `<span class="part">${g.rows.length} of ${g.need} cashed up</span>` : ""}</td><td>${esc(names(g.rows))}</td>${cells(cuhSum(g.rows))}</tr>`;
+    html += `<tr class="grp" data-grp="${esc(id)}"><td class="strong">${ukDate(g.date)}</td><td><span class="chev">${open ? "&#9662;" : "&#9656;"}</span><b>${esc(g.label)}</b>${g.partial ? `<span class="part" title="Only ${g.rows.length} of ${g.need} tills in this group have been cashed up">${g.rows.length} of ${g.need}</span>` : ""}</td><td>${esc(names(g.rows))}</td>${cells(cuhSum(g.rows))}</tr>`;
     if (open) for (const r of g.rows) html += `<tr class="grpsub"><td></td><td>${esc(tillLabel(r.till_key))}</td><td>${esc(r.staff_name)}</td>${cells(cuhFig(r))}</tr>`;
   }
   $("#cuh_table").innerHTML = html + "</tbody>";
