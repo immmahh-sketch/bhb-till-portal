@@ -539,7 +539,7 @@ function gpRowHtml(r){
   return `<tr data-plu="${esc(r.plu)}"><td><b>${esc(r.name)}</b><div class="tiny muted">${esc(r.plu)}${r.kind === "recipe" ? " · recipe" : r.portion_size !== 1 ? " · " + r.portion_size + " of a measure" : ""}</div></td>
     <td>${esc(r.product)}<div class="tiny muted">${esc(r.category)}</div></td>
     <td class="n">${r.price === null ? (S.me.edit ? `<input data-gpcur="${esc(r.plu)}" inputmode="decimal" placeholder="£" style="max-width:80px" aria-label="Till price for ${esc(r.name)}">` : "") : money(r.price) + " " + src}</td>
-    <td class="n">${r.cost === null ? `<span class="tag">No cost</span>` : money4(r.cost)}</td>
+    <td class="n">${r.cost === null ? `<span class="tag">No cost</span>` : money4(r.cost) + (r.cost_source ? ` <span class="tag" title="${esc(r.cost_source)}. Replaced automatically when an invoice with this product is uploaded.">tracker</span>` : "")}</td>
     <td class="n">${r.price !== null && r.cost !== null ? money(gpNet(r.price) - r.cost) : ""}</td>
     <td class="n ${cls}" data-c="gp">${pct(r.gp)}</td><td class="n muted">${Math.round(t * 100)}%</td>
     <td class="n"><input data-gpnew="${esc(r.plu)}" inputmode="decimal" value="${nw !== null ? nw.toFixed(2) : ""}" placeholder="${r.suggest !== null ? r.suggest.toFixed(2) : "new £"}" style="max-width:84px"${S.me.edit ? "" : " disabled"} aria-label="New price for ${esc(r.name)}"></td>
