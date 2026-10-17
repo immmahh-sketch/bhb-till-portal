@@ -166,6 +166,11 @@ table.grid th{
 table.grid th.num{text-align:right}
 table.grid td{padding:10px 12px; border-top:1px solid var(--mist); vertical-align:top; white-space:nowrap}
 table.grid td.num{text-align:right; font-variant-numeric:tabular-nums}
+table.grid tr.grp{cursor:pointer} table.grid tr.grp:hover td{background:var(--sage-10)}
+table.grid tr.grpsub td{background:var(--bone); font-size:13px; color:var(--sage-dark)} table.grid tr.grpsub td:first-child{padding-left:28px}
+.chev{display:inline-block; width:14px; color:var(--sage-70)} .part{display:inline-block; font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; background:var(--attention-bg); color:#6d5320; border-radius:999px; padding:2px 8px; margin-left:6px}
+.linkbox{border-left:4px solid var(--gold); background:var(--attention-bg)} .linkbox h3{margin:0 0 6px; font-size:18px} .linkbox table{width:100%; border-collapse:collapse} .linkbox td{padding:4px 0} .linkbox td.n{text-align:right; font-variant-numeric:tabular-nums} .linkbox tr.tot td{border-top:1px solid var(--celadon); font-weight:700; padding-top:8px}
+.donecard{text-align:center} .donecard .opts2{display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:14px}
 .muted{color:var(--sage-70)}
 .strong{font-weight:600}
 .up{color:var(--good)} .down{color:var(--alert)}
@@ -866,6 +871,17 @@ function cuRecalc(){
       <tr><td>Vouchers and room charge</td><td class="n" colspan="2">${money(vouch + room)}</td><td class="n"></td></tr>
       <tr class="tot"><td>Total</td><td class="n">${money(takings + pdq + vouch + room)}</td><td class="n">${money(expTotal)}</td><td class="n ${cls(totalDiff)}">${Math.abs(totalDiff) < 0.005 ? "Level" : signed(totalDiff)}</td></tr></tbody></table>
     ${expTotal === 0 && cash === 0 ? `<p class="hint" style="margin:8px 0 0">Fill in the cash and the till's figures above and this shows whether they agree.</p>` : ""}`;
+  { const L = CU.linked, me = S.tills.find(t => t.key === $("#cu_till").value);
+    if (L) {
+      const others = L.parts.filter(p => p.till_key !== $("#cu_till").value);
+      const done = others.filter(p => p.done), waiting = others.filter(p => !p.done);
+      const comb = r2(totalDiff + done.reduce((a, p) => a + p.variance, 0));
+      $("#cu_check").innerHTML += `<div class="linkbox card" style="margin:14px 0 0"><h3>${esc(L.label)} are checked together</h3>
+        <table><tbody>${done.map(p => `<tr><td>${esc(p.label)} (already cashed up)</td><td class="n ${cls(p.variance)}">${signed(p.variance)}</td></tr>`).join("")}
+        <tr><td>${esc(me ? me.label : "This till")} (this count)</td><td class="n ${cls(totalDiff)}">${signed(totalDiff)}</td></tr>
+        ${waiting.length ? "" : `<tr class="tot"><td>Combined difference</td><td class="n ${cls(comb)}">${Math.abs(comb) < 0.005 ? "Level" : signed(comb)}</td></tr>`}</tbody></table>
+        ${waiting.length ? `<p class="hint" style="margin:8px 0 0">${waiting.map(p => esc(p.label)).join(" and ")} still to be cashed up. The combined difference shows once both are done.</p>` : ""}</div>`;
+    } }
   const toBank = r2(cash - std), diff = r2(opening - std);
   let why = "";
   if (!CU.counted) why = `No float count was recorded for this till this morning, so its standard float of ${money(std)} is assumed.`;
@@ -887,9 +903,9 @@ async function cuLoadContext(){
   const date = $("#cu_date") && $("#cu_date").value, till = $("#cu_till") && $("#cu_till").value; if (!date || !till) return;
   try {
     const c = await call("cashup.context", { business_date:date, till_key:till });
-    CU.standard = Number(c.standard_float) || 0; CU.counted = !!c.float_counted; CU.opening = c.opening_float === null ? null : Number(c.opening_float);
+    CU.standard = Number(c.standard_float) || 0; CU.counted = !!c.float_counted; CU.opening = c.opening_float === null ? null : Number(c.opening_float); CU.linked = c.linked || null;
   } catch(e) {
-    const t = S.tills.find(x => x.key === till); CU.standard = t ? Number(t.float_amount) || 0 : 0; CU.counted = false; CU.opening = null;
+    const t = S.tills.find(x => x.key === till); CU.standard = t ? Number(t.float_amount) || 0 : 0; CU.counted = false; CU.opening = null; CU.linked = null;
   }
   cuRecalc();
 }
@@ -916,7 +932,7 @@ async function cuLoadStock(){
   cuRecalc();
 }
 function wireCashUpEntry(){
-  CU.opening = null; CU.counted = false; CU.pending = 0;
+  CU.opening = null; CU.counted = false; CU.pending = 0; CU.linked = null;
   const t = S.tills.find(x => x.key === $("#cu_till").value); CU.standard = t ? Number(t.float_amount) || 0 : 0;
   $("#cuForm").addEventListener("input", cuRecalc);
   const reload = () => { cuLoadContext(); cuLoadStock(); };
@@ -970,14 +986,40 @@ async function saveCashUp(){
   try {
     const out = await call("cashup.save", payload);
     toast(`Saved. Difference ${money(out.cashup.variance)}. Cash to bank ${money(out.cashup.cash_banking)}.`);
-    if (VIEW === "floatstills") ftBack(); else afterSave("cashup", "cashup-history");
+    cuAfterSave(out);
   } catch(e) { toast(e.message, true); if (e.message && /stock/i.test(e.message)) cuLoadStock(); }
   finally { btn.disabled = false; btn.textContent = "Save & archive"; cuRecalc(); }
+}
+
+/* Linked tills (Bar + Restaurant, Marquee 1 + 2): after a save, ask about the other till, and once both are in show the difference across the pair. */
+function cuAfterSave(out){
+  const finish = () => { if (VIEW === "floatstills") ftBack(); else afterSave("cashup", "cashup-history"); };
+  const L = out.linked, box = $("#ft") || $("#kioskForm");
+  if (!L || !box) return finish();
+  const cls = d => Math.abs(d) < 0.005 ? "ok" : "bad", vtxt = d => Math.abs(d) < 0.005 ? "Level" : signed(d);
+  const thisKey = out.cashup.till_key, waiting = L.parts.filter(p => !p.done && p.till_key !== thisKey);
+  const split = `<table style="margin:0 auto; border-collapse:collapse">${L.parts.filter(p => p.done).map(p => `<tr><td style="padding:3px 18px 3px 0; text-align:left">${esc(p.label)}</td><td class="${cls(p.variance)}" style="text-align:right; font-variant-numeric:tabular-nums">${vtxt(p.variance)}</td></tr>`).join("")}
+    ${L.complete ? `<tr style="border-top:1px solid var(--celadon); font-weight:700"><td style="padding:8px 18px 0 0; text-align:left">${esc(L.label)} together</td><td class="${cls(L.total_variance)}" style="text-align:right; padding-top:8px">${vtxt(L.total_variance)}</td></tr>` : ""}</table>`;
+  box.innerHTML = `<div class="card donecard"><h3 style="margin:0 0 10px">Saved</h3>${split}
+    ${L.complete ? `<p class="hint" style="margin:12px 0 0">The difference that counts is the ${esc(L.label)} total above. Cash ${vtxt(L.cash_variance)}, cards ${vtxt(L.card_variance)}.</p>` : ""}
+    ${waiting.length ? `<p style="margin:16px 0 0; font-size:17px"><b>Are you now cashing up ${waiting.map(p => esc(p.label)).join(" and ")}?</b></p><div class="opts2"><button class="btn" id="cuNextYes">Yes, cash up ${esc(waiting[0].label)}</button><button class="btn ghost" id="cuNextNo">No, not now</button></div>`
+      : `<div class="opts2"><button class="btn" id="cuNextNo">Done</button></div>`}</div>`;
+  window.scrollTo(0, 0);
+  $("#cuNextNo").addEventListener("click", finish);
+  const yes = $("#cuNextYes");
+  if (yes) yes.addEventListener("click", () => {
+    const next = waiting[0].till_key;
+    if (VIEW === "floatstills") { ftOpen("cashup", next); return; }
+    afterSave("cashup", "cashup-history");
+    const sel = $("#cu_till"); if (sel) { sel.value = next; sel.dispatchEvent(new Event("change")); }
+  });
 }
 
 const CASHUP_COLS = [
   { label:"Date", value:r=>ukDate(r.business_date) },
   { label:"Till", value:r=>tillLabel(r.till_key) },
+  { label:"Linked group", value:r=>tillGroup(r.till_key).label || "" },
+  { label:"Group total variance", value:r=>r._groupVar === undefined ? "" : r._groupVar },
   { label:"Completed By", value:"staff_name" },
   { label:"Total Cash Counted (incl. petty cash receipts)", value:"total_cash_counted" },
   { label:"Petty Cash Receipts", value:"petty_cash_receipts" },
@@ -995,6 +1037,46 @@ const CASHUP_COLS = [
   { label:"Variance", value:"variance" },
   { label:"Notes", value:r=>r.notes||"" },
 ];
+function tillGroup(key){ const t = S.tills.find(x => x.key === key); return t && t.link_key ? { key:t.link_key, label:t.link_label || t.link_key } : { key:null, label:"" }; }
+const r2c = n => Math.round((Number(n) || 0) * 100) / 100;
+// The figures a row of the report shows. Cards and other = card machine plus vouchers and room charge, which the till also expects, so its difference is the card difference.
+function cuhFig(r){
+  return { cashExp:Number(r.expected_cash) || 0, cashBank:Number(r.cash_banking) || 0, cashVar:Number(r.cash_variance) || 0,
+    cardExp:(Number(r.expected_card) || 0) + (Number(r.vouchers_total) || 0) + (Number(r.room_charge_total) || 0), cardBank:Number(r.total_card_and_other) || 0, cardVar:Number(r.card_variance) || 0,
+    totExp:Number(r.zread_reported_total) || 0, totBank:(Number(r.cash_banking) || 0) + (Number(r.total_card_and_other) || 0), v:Number(r.variance) || 0 };
+}
+function cuhSum(rows){ const o = {}; rows.forEach(r => { const f = cuhFig(r); for (const k in f) o[k] = r2c((o[k] || 0) + f[k]); }); return o; }
+function cuhGroups(){
+  const out = [], seen = {};
+  for (const r of S.lastCashUp) {
+    const g = tillGroup(r.till_key);
+    if (!g.key) { out.push({ rows:[r], date:r.business_date, label:tillLabel(r.till_key), single:true }); continue; }
+    const k = r.business_date + "|" + g.key;
+    if (!seen[k]) { seen[k] = { rows:[], date:r.business_date, label:g.label, key:g.key }; out.push(seen[k]); }
+    seen[k].rows.push(r);
+  }
+  out.forEach(g => { if (!g.single) { g.need = S.tills.filter(t => t.link_key === g.key && t.active !== false).length; g.partial = g.rows.length < g.need; const v = cuhSum(g.rows).v; g.rows.forEach(r => { r._groupVar = v; }); } });
+  return out;
+}
+const CUH = { open:{} };
+function cuhRender(){
+  const groups = cuhGroups();
+  const names = rows => [...new Set(rows.map(r => r.staff_name).filter(Boolean))].join(", ");
+  const vc = v => Math.abs(v) > 1 ? "down" : "up";
+  const cells = f => `<td class="num">${money(f.cashExp)}</td><td class="num">${money(f.cashBank)}</td><td class="num ${vc(f.cashVar)}">${money(f.cashVar)}</td>
+        <td class="num">${money(f.cardExp)}</td><td class="num">${money(f.cardBank)}</td><td class="num ${vc(f.cardVar)}">${money(f.cardVar)}</td>
+        <td class="num">${money(f.totExp)}</td><td class="num strong">${money(f.totBank)}</td><td class="num strong ${vc(f.v)}">${money(f.v)}</td>`;
+  let html = `<thead><tr><th>Date</th><th>Till</th><th>Completed By</th><th class="num">Cash expected</th><th class="num">Cash banked</th><th class="num">Cash variance</th>
+    <th class="num">Cards &amp; other expected</th><th class="num">Cards &amp; other banked</th><th class="num">Cards &amp; other variance</th><th class="num">Total expected</th><th class="num">Total banked</th><th class="num">Variance</th></tr></thead><tbody>`;
+  for (const g of groups) {
+    if (g.single) { const r = g.rows[0]; html += `<tr><td class="strong">${ukDate(r.business_date)}</td><td>${esc(g.label)}</td><td>${esc(r.staff_name)}</td>${cells(cuhFig(r))}</tr>`; continue; }
+    const id = g.date + "|" + g.key, open = !!CUH.open[id];
+    html += `<tr class="grp" data-grp="${esc(id)}"><td class="strong">${ukDate(g.date)}</td><td><span class="chev">${open ? "&#9662;" : "&#9656;"}</span><b>${esc(g.label)}</b>${g.partial ? `<span class="part">${g.rows.length} of ${g.need} cashed up</span>` : ""}</td><td>${esc(names(g.rows))}</td>${cells(cuhSum(g.rows))}</tr>`;
+    if (open) for (const r of g.rows) html += `<tr class="grpsub"><td></td><td>${esc(tillLabel(r.till_key))}</td><td>${esc(r.staff_name)}</td>${cells(cuhFig(r))}</tr>`;
+  }
+  $("#cuh_table").innerHTML = html + "</tbody>";
+  $("#cuh_table").querySelectorAll("[data-grp]").forEach(tr => tr.addEventListener("click", () => { CUH.open[tr.dataset.grp] = !CUH.open[tr.dataset.grp]; cuhRender(); }));
+}
 function tillLabel(key){ const t = S.tills.find(x=>x.key===key); return t ? t.label : key; }
 function viewCashUpHistory(){
   return `
@@ -1022,15 +1104,7 @@ async function loadCashUpHistory(){
     const d = await call("cashup.list", { start: $("#cuh_start").value, end: $("#cuh_end").value });
     S.lastCashUp = d.days || [];
     if (!S.lastCashUp.length){ $("#cuh_table").innerHTML = `<tr><td class="empty">No cash-ups in this range.</td></tr>`; return; }
-    $("#cuh_table").innerHTML = `
-      <thead><tr><th>Date</th><th>Till</th><th>Completed By</th><th class="num">Cash Banked</th>
-        <th class="num">Card &amp; Other</th><th class="num">Grand Total</th><th class="num">Variance</th></tr></thead>
-      <tbody>${S.lastCashUp.map(r => `<tr>
-        <td class="strong">${ukDate(r.business_date)}</td><td>${esc(tillLabel(r.till_key))}</td><td>${esc(r.staff_name)}</td>
-        <td class="num">${money(r.cash_banking)}</td><td class="num">${money(r.total_card_and_other)}</td>
-        <td class="num strong">${money(r.grand_total_takings)}</td>
-        <td class="num ${Math.abs(r.variance)>1?'down':'up'}">${money(r.variance)}</td>
-      </tr>`).join("")}</tbody>`;
+    cuhRender();
   } catch(e) { $("#cuh_table").innerHTML = `<tr><td class="empty">${esc(e.message)}</td></tr>`; }
 }
 
