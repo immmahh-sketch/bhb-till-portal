@@ -836,7 +836,7 @@ var Store = {
     if (this.saving) { this.pendingSave = true; return; }
     var self = this;
     var lines = this.lineItems.map(function (it) {
-      return { itemName: it.itemName, priceEach: it.priceEach, quantity: it.quantity, includedInQuote: it.includedInQuote };
+      return { itemName: it.itemName, priceEach: it.priceEach, quantity: it.quantity, includedInQuote: it.includedInQuote, overtype: !!it.overtype, text: it.text || "" };
     });
     var details = this.details;
     this.saving = true;
@@ -918,7 +918,9 @@ var Store = {
         itemName: catalogItemName,
         priceEach: D.priceForYear(catalogItem, C.effectiveYear(details)),
         quantity: C.defaultQuantityFor(catalogItem, details),
-        includedInQuote: true
+        includedInQuote: true,
+        overtype: false,
+        text: ""
       };
     });
   },
@@ -1017,6 +1019,8 @@ var gbp = C.gbpFormat.format.bind(C.gbpFormat);
 var screen = "home"; // 'home' | 'details' | 'package' | 'summary' | 'saved'
 var toastTimer = null;
 
+function lineName(it) { return it && it.overtype && String(it.text || "").trim() ? String(it.text).trim() : (it ? it.itemName : ""); }
+function lineHtml(it) { return esc(lineName(it)).replace(/\n/g, "<br>"); }
 function esc(s) {
   return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
@@ -1309,6 +1313,8 @@ function lineItemCardHtml(uiItem, catalogByCategory, categories) {
         (!uiItem.itemName ? '<option value="" selected disabled>Choose an item</option>' : "") +
         itemsInCategory.map(function (c) { return '<option value="' + esc(c.name) + '"' + (c.name === uiItem.itemName ? " selected" : "") + ">" + esc(c.name) + "</option>"; }).join("") +
       "</select></div>" +
+      (uiItem.itemName ? '<div class="bhb-switch-row" style="padding:0 0 6px"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px"><input type="checkbox" ' + (uiItem.overtype ? "checked" : "") + ' onchange="BHB_UI.overtypeLine(' + uiItem.localId + ', this.checked)"><span>Over-type</span></label></div>' : "") +
+      (uiItem.overtype ? '<div class="bhb-field"><label>Wording on the quote</label><textarea rows="3" style="width:100%;padding:8px 10px;border:1px solid #ccc;border-radius:6px;font:inherit" oninput="BHB_UI.setLineText(' + uiItem.localId + ', this.value)">' + esc(uiItem.text || "") + "</textarea></div>" : "") +
       '<div class="bhb-field-row">' +
         '<div class="bhb-field"><label>Price each (&pound;)</label><input type="text" inputmode="decimal" value="' + (uiItem.priceEach === null || uiItem.priceEach === undefined ? "" : fmtNum(uiItem.priceEach)) + '" oninput="BHB_UI.setLineItemNumberSilent(' + uiItem.localId + ', \'priceEach\', this.value)"></div>' +
         '<div class="bhb-field"><label>Quantity</label><input type="text" inputmode="decimal" value="' + fmtNum(uiItem.quantity) + '" oninput="BHB_UI.setLineItemNumberSilent(' + uiItem.localId + ', \'quantity\', this.value)"></div>' +
@@ -1363,7 +1369,7 @@ function renderSummary() {
   var itemsHtml = includedItems.length === 0
     ? '<div class="bhb-empty-state">No items added yet.</div>'
     : includedItems.map(function (it) {
-        return '<div class="bhb-summary-item-row"><span>' + esc(it.itemName) + "</span><span>" + esc(gbp(C.lineTotal(it))) + "</span></div>";
+        return '<div class="bhb-summary-item-row"><span>' + lineHtml(it) + "</span><span>" + esc(gbp(C.lineTotal(it))) + "</span></div>";
       }).join("");
 
   // Priced but excluded items get their own section at the end, still showing what they'd cost,
@@ -1372,7 +1378,7 @@ function renderSummary() {
     '<div class="bhb-headline" style="font-size:16px;margin:14px 0 8px">Not included in your current quote</div>' +
     '<div class="bhb-card" style="padding:4px 16px">' +
       excludedItems.map(function (it) {
-        return '<div class="bhb-summary-item-row"><span class="bhb-excluded-name">' + esc(it.itemName) + '</span><span class="bhb-excluded">' + esc(gbp(C.lineTotal(it))) + "</span></div>";
+        return '<div class="bhb-summary-item-row"><span class="bhb-excluded-name">' + lineHtml(it) + '</span><span class="bhb-excluded">' + esc(gbp(C.lineTotal(it))) + "</span></div>";
       }).join("") +
     "</div>";
 
@@ -1515,6 +1521,14 @@ function changeCategory(localId, category) {
   if (firstInCategory) { Store.applyDefaultsForItem(localId, firstInCategory.name); }
   render();
 }
+function overtypeLine(localId, on) {
+  Store.updateLineItem(localId, function (it) { return { overtype: !!on, text: on && !String(it.text || "").trim() ? it.itemName : (it.text || "") }; });
+  render();
+}
+function setLineText(localId, value) {
+  Store.lineItems = Store.lineItems.map(function (it) { return it.localId === localId ? Object.assign({}, it, { text: value }) : it; });
+  Store.scheduleAutosave();
+}
 function changeItemName(localId, name) {
   Store.applyDefaultsForItem(localId, name);
   render();
@@ -1533,7 +1547,7 @@ window.BHB_UI = {
   setDetail: setDetail, setDetailSilent: setDetailSilent, setGuestCountSilent: setGuestCountSilent,
   toggleExactDate: toggleExactDate, setExactDate: setExactDate, clearQuote: clearQuote,
   overrideValue: overrideValue, resetOverride: resetOverride, setOverrideSilent: setOverrideSilent,
-  importLegacy: importLegacy, dismissLegacy: dismissLegacy,
+  importLegacy: importLegacy, dismissLegacy: dismissLegacy, overtypeLine: overtypeLine, setLineText: setLineText,
   calOpen: calOpen, calClose: calClose, calDay: calDay, calPick: calPick,
   addLineItem: addLineItem, removeLineItem: removeLineItem, setLineItem: setLineItem,
   setLineItemNumberSilent: setLineItemNumberSilent, changeCategory: changeCategory, changeItemName: changeItemName,
@@ -1714,7 +1728,7 @@ function generate(details, lineItems, totals) {
   }
 
   function tableRow(item, muted) {
-    var nameLines = doc.splitTextToSize(item.itemName, colPrice - colItem - 6);
+    var nameLines = doc.splitTextToSize(item.overtype && String(item.text || "").trim() ? String(item.text).trim() : item.itemName, colPrice - colItem - 6);
     var rowHeight = Math.max(nameLines.length * 12 + 6, 15);
     ensureSpace(rowHeight);
     setPaint(muted ? "excludedRow" : "body");
