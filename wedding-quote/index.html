@@ -879,6 +879,17 @@ var Store = {
         return uiItem;
       });
     }
+    var oldYear = C.effectiveYear(oldDetails), newYear = C.effectiveYear(newDetails);
+    if (oldYear !== newYear) {
+      var catalogY = catalogFor(newDetails.quoteType);
+      this.lineItems = this.lineItems.map(function (uiItem) {
+        var ci = catalogY.filter(function (c) { return c.name === uiItem.itemName; })[0];
+        if (ci && uiItem.priceEach !== null && Math.abs(uiItem.priceEach - D.priceForYear(ci, oldYear)) < 0.005) {
+          return Object.assign({}, uiItem, { priceEach: D.priceForYear(ci, newYear) });
+        }
+        return uiItem;
+      });
+    }
     this.details = newDetails;
     this.notify();
   },
