@@ -2657,10 +2657,19 @@ function viewGuests(){
         '<span style="font-size:.9375rem;line-height:1.5"><strong>I have already sent invitations</strong><br><span class="muted">This email only asks them to reply, with meal choices and dietary requirements.</span></span></label>' +
       '</div>';
 
+    /* The time each group is told to arrive. Saves as soon as it is changed; blank means the time in the booking. */
+    if (!isRsvp) {
+      h += '<div class="field" style="margin:0 0 14px"><span class="label">When guests are invited to arrive</span><div class="row">' +
+        '<div class="field"><span class="label" style="font-size:.75rem">Daytime guests</span>' +
+          '<input type="time" id="ivc_day" value="' + esc(ws.invite_day_time || "") + '" onchange="setInviteTime(\'invite_day_time\', this.value)">' +
+          '<span class="muted" id="ivc_dayh" style="display:block;font-size:.8125rem;margin-top:4px">Blank uses the time in your booking.</span></div>' +
+        '<div class="field"><span class="label" style="font-size:.75rem">Evening guests</span>' +
+          '<input type="time" id="ivc_eve" value="' + esc(ws.invite_evening_time || "") + '" onchange="setInviteTime(\'invite_evening_time\', this.value)">' +
+          '<span class="muted" id="ivc_eveh" style="display:block;font-size:.8125rem;margin-top:4px">Blank uses the time in your booking.</span></div>' +
+        '</div></div>';
+      setTimeout(fillBookedTimes, 0);
+    }
     h += '<p class="muted" style="font-size:.8125rem;margin:0 0 10px;line-height:1.6">' +
-      (isRsvp ? '' :
-        'Day guests arrive at <strong>' + esc(ws.invite_day_time || 'the time in your booking') + '</strong>' +
-        ' &middot; Evening guests arrive at <strong>' + esc(ws.invite_evening_time || 'the time in your booking') + '</strong><br>') +
       'Wedding website: <strong>' + (ws.invite_website ? esc(ws.invite_website) : 'not added yet') + '</strong></p>';
 
     h += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">' +
@@ -3075,6 +3084,27 @@ async function previewInvite(guestId){
     var f = $("previewFrame");
     f.srcdoc = res.html;
   } catch (e) { closeModal(); showError(e.message); }
+}
+
+/* The arrival times on the Invitations card save as soon as they are changed. */
+async function setInviteTime(field, value){
+  try {
+    var p = {}; p[field] = value || "";
+    await api("invite.settings", p);
+    S.data.wedding[field] = value || null;
+    clearError();
+  } catch (e) { showError(e.message); render(); }
+}
+/* Under each box, what the booking itself says (fetched once). */
+function fillBookedTimes(){
+  var put = function(b){
+    if (!b) return;
+    if (b.day && $("ivc_dayh")) $("ivc_dayh").textContent = "Your booking says " + b.day + ". Blank uses that.";
+    if (b.evening && $("ivc_eveh")) $("ivc_eveh").textContent = "Your booking says " + b.evening + ". Blank uses that.";
+  };
+  if (S.booked) { put(S.booked); return; }
+  callFn("send-guest-invite", { token:S.token, action:"preview", guest_id:null })
+    .then(function(res){ if (res && res.booked) { S.booked = res.booked; put(S.booked); } }).catch(function(){});
 }
 
 /* The choice on the Invitations card saves as soon as it is made. */
