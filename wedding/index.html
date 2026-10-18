@@ -2646,9 +2646,26 @@ function viewGuests(){
         : 'We\'ll email each guest their own invitation with a link to reply. ' +
           'Their answer lands straight back here.') + '</p>';
 
+    /* The two ways to use this page, where they can be seen: the same setting that sits in the wording pop-up. */
+    var ws = S.data.wedding, isRsvp = ws.invite_style === "rsvp";
+    h += '<div class="field" style="margin:0 0 14px"><span class="label">What is this email for?</span>' +
+      '<label class="check" style="display:flex;gap:10px;align-items:flex-start;cursor:pointer;margin:6px 0 0">' +
+        '<input type="radio" name="ivcard" value="invitation" onchange="setInviteStyle(this.value)" style="width:18px;height:18px;flex:0 0 auto;margin-top:2px"' + (isRsvp ? '' : ' checked') + '>' +
+        '<span style="font-size:.9375rem;line-height:1.5"><strong>Send the invitations from here</strong><br><span class="muted">We email each guest their invitation, and they reply here.</span></span></label>' +
+      '<label class="check" style="display:flex;gap:10px;align-items:flex-start;cursor:pointer;margin:10px 0 0">' +
+        '<input type="radio" name="ivcard" value="rsvp" onchange="setInviteStyle(this.value)" style="width:18px;height:18px;flex:0 0 auto;margin-top:2px"' + (isRsvp ? ' checked' : '') + '>' +
+        '<span style="font-size:.9375rem;line-height:1.5"><strong>I have already sent invitations</strong><br><span class="muted">This email only asks them to reply, with meal choices and dietary requirements.</span></span></label>' +
+      '</div>';
+
+    h += '<p class="muted" style="font-size:.8125rem;margin:0 0 10px;line-height:1.6">' +
+      (isRsvp ? '' :
+        'Day guests arrive at <strong>' + esc(ws.invite_day_time || 'the time in your booking') + '</strong>' +
+        ' &middot; Evening guests arrive at <strong>' + esc(ws.invite_evening_time || 'the time in your booking') + '</strong><br>') +
+      'Wedding website: <strong>' + (ws.invite_website ? esc(ws.invite_website) : 'not added yet') + '</strong></p>';
+
     h += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">' +
       '<button class="btn btn--sm" onclick="previewInvite()">Preview the invitation</button>' +
-      '<button class="btn btn--sm" onclick="editInviteWording()">Edit the wording</button>' +
+      '<button class="btn btn--sm" onclick="editInviteWording()">Times, website &amp; wording</button>' +
       (withEmail.length > invited.length
         ? '<button class="btn btn--sm btn--primary" onclick="sendInvites()">Send to the ' +
           withEmail.filter(function(x){ return !x.invite_sent_at; }).length +
@@ -3060,6 +3077,15 @@ async function previewInvite(guestId){
   } catch (e) { closeModal(); showError(e.message); }
 }
 
+/* The choice on the Invitations card saves as soon as it is made. */
+async function setInviteStyle(v){
+  try {
+    await api("invite.settings", { invite_style: v });
+    S.data.wedding.invite_style = v;
+    clearError(); render();
+  } catch (e) { showError(e.message); render(); }
+}
+
 function editInviteWording(){
   var w = S.data.wedding;
   var style = w.invite_style === "rsvp" ? "rsvp" : "invitation";
@@ -3084,8 +3110,17 @@ function editInviteWording(){
         'dietary requirements.</span></span></label>' +
     '</div>' +
 
+    '<div class="field"><span class="label">When guests are invited to arrive</span>' +
+      '<div class="row"><div class="field"><span class="label" style="font-size:.75rem">Day guests</span>' +
+        '<input id="iv_dayt" type="time" value="' + esc(w.invite_day_time||"") + '">' +
+        '<span class="muted" id="iv_dayh" style="display:block;font-size:.8125rem;margin-top:4px">Blank uses the time in your booking.</span></div>' +
+      '<div class="field"><span class="label" style="font-size:.75rem">Evening guests</span>' +
+        '<input id="iv_evet" type="time" value="' + esc(w.invite_evening_time||"") + '">' +
+        '<span class="muted" id="iv_eveh" style="display:block;font-size:.8125rem;margin-top:4px">Blank uses the time in your booking.</span></div></div>' +
+      '<span class="muted" style="display:block;font-size:.8125rem">This is the time the invitation tells each guest to arrive. Check it against your booking and tell us if the day itself changes.</span></div>' +
+
     '<p class="muted" style="margin:0 0 16px;font-size:.875rem">' +
-    'Your names, the date and your timings come from your booking. These bits are yours to write.</p>' +
+    'Your names and the date come from your booking. These bits are yours to write.</p>' +
     '<div class="field"><span class="label">A note to your guests</span>' +
       '<textarea id="iv_msg" placeholder="We can\'t wait to celebrate with you…">' + esc(w.invite_message||"") + '</textarea></div>' +
     '<div class="row"><div class="field"><span class="label">Dress code</span>' +
@@ -3098,13 +3133,22 @@ function editInviteWording(){
       '<input id="iv_web" type="text" inputmode="url" autocomplete="url" placeholder="www.ourwedding.co.uk" value="' + esc(w.invite_website||"") + '">' +
       '<span class="muted" style="display:block;font-size:.8125rem;margin-top:4px">If you have one, the email to your guests gives it as a button: “View ' + esc(w.partner1_name) + ' &amp; ' + esc(w.partner2_name) + '’s wedding website”.</span></div>' +
     '<div style="display:flex;gap:8px"><button class="btn btn--primary" onclick="saveInviteWording()">Save</button>' +
-    '<button class="btn" onclick="closeModal();previewInvite()">Save &amp; preview</button></div>');
+    '<button class="btn" onclick="saveInviteWording(true)">Save &amp; preview</button></div>');
+
+  /* What the booking itself says, shown under each time as the starting point. */
+  callFn("send-guest-invite", { token:S.token, action:"preview", guest_id:null }).then(function(res){
+    var b = res && res.booked; if (!b) return;
+    if (b.day && $("iv_dayh")) $("iv_dayh").textContent = "Your booking says " + b.day + ". Blank uses that.";
+    if (b.evening && $("iv_eveh")) $("iv_eveh").textContent = "Your booking says " + b.evening + ". Blank uses that.";
+  }).catch(function(){});
 }
 
-async function saveInviteWording(){
+async function saveInviteWording(thenPreview){
   try {
     var chosen = document.querySelector('input[name="ivstyle"]:checked');
     var payload = {
+      invite_day_time: $("iv_dayt").value || "",
+      invite_evening_time: $("iv_evet").value || "",
       invite_message: $("iv_msg").value.trim(),
       invite_dress_code: $("iv_dress").value.trim(),
       invite_rsvp_by: $("iv_by").value || null,
@@ -3114,8 +3158,9 @@ async function saveInviteWording(){
     };
     await api("invite.settings", payload);
     if (payload.invite_website && !/^[a-z][a-z0-9+.-]*:/i.test(payload.invite_website)) payload.invite_website = "https://" + payload.invite_website;
-    Object.keys(payload).forEach(function(k){ S.data.wedding[k] = payload[k]; });
-    closeModal(); clearError();
+    Object.keys(payload).forEach(function(k){ S.data.wedding[k] = payload[k] === "" ? null : payload[k]; });
+    closeModal(); clearError(); render();
+    if (thenPreview === true) previewInvite();
   } catch (e) { showError(e.message); }
 }
 
@@ -6669,7 +6714,7 @@ async function sbxApi(action, p){
       if ("invite_style" in p && ["invitation","rsvp"].indexOf(String(p.invite_style)) < 0) {
         throw sbxErr("unknown invitation style", 400);
       }
-      var fields = ["invite_message","invite_dress_code","invite_rsvp_by","invite_extra_info","invite_website","invite_style"];
+      var fields = ["invite_message","invite_dress_code","invite_rsvp_by","invite_extra_info","invite_website","invite_day_time","invite_evening_time","invite_style"];
       var any = false;
       fields.forEach(function(f){ if (f in p) { D3.over[f] = p[f] === "" ? null : p[f]; any = true; } });
       if (!any) throw sbxErr("nothing to save", 400);
@@ -6921,7 +6966,7 @@ function sbxPatchPreview(res){
   var D = SBX.d.dashboard;
   if (!D || !res || typeof res.html !== "string") return res;
   var o = D.over, base = D.base.wedding || {}, missed = false;
-  ["invite_message","invite_dress_code","invite_rsvp_by","invite_extra_info","invite_style"].forEach(function(f){
+  ["invite_message","invite_dress_code","invite_rsvp_by","invite_extra_info","invite_website","invite_day_time","invite_evening_time","invite_style"].forEach(function(f){
     if (!(f in o) || String(o[f] == null ? "" : o[f]) === String(base[f] == null ? "" : base[f])) return;
     var was = base[f], now = o[f];
     if (f === "invite_message" || f === "invite_dress_code" || f === "invite_extra_info") {
