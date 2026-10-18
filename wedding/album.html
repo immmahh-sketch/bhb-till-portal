@@ -325,6 +325,8 @@ function render(){
     '</div>';
   }
 
+  h += guestBookCard();
+
   if (d.wedding.wall) {
     h += '<div class="card">' +
       '<h2 style="margin-bottom:4px">Everyone\'s photographs</h2>' +
@@ -351,6 +353,8 @@ function render(){
     add.addEventListener("click", function(){ pick.click(); });
     pick.addEventListener("change", function(){ upload(pick.files); });
   }
+  wireGuestBook();
+  if (location.hash === "#guestbook" && $("guestbook")) $("guestbook").scrollIntoView();
 }
 
 function countLine(n){
@@ -533,6 +537,202 @@ async function put(url, blob){
       if (attempt) throw e;
     }
   }
+}
+
+/* ---------- the virtual guest book ----------
+   A message for the couple, with a short video if the guest likes. Private to the couple: nobody else sees it, not even on the wall. The video can be recorded
+   right here (kept small: 720p, about 2 Mbps, so thirty seconds is under 10 MB and goes up on marquee 4G) or chosen from the phone (48 MB at most). */
+var GB = { rec:null, stream:null, chunks:[], blob:null, type:"", seconds:0, poster:null, timer:null, tick:null, url:null, busy:false };
+var GB_MAX_SECONDS = 30, GB_FILE_MAX_SECONDS = 60, GB_MAX_BYTES = 48 * 1024 * 1024;
+
+function canRecord(){ return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder); }
+function recMime(){
+  var c = ["video/mp4;codecs=avc1.42E01E,mp4a.40.2", "video/mp4", "video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm"];
+  for (var i = 0; i < c.length; i++) { try { if (MediaRecorder.isTypeSupported(c[i])) return c[i]; } catch (e) {} }
+  return "";
+}
+
+function guestBookCard(){
+  var w = S.data.wedding, mine = S.data.guestbook ? S.data.guestbook.mine : 0;
+  return '<div class="card" id="guestbook">' +
+    '<h2 style="margin-bottom:6px">Virtual guest book</h2>' +
+    '<p class="muted" style="margin:0 0 16px;font-size:.9375rem">Leave ' + esc(w.partner1_name) + ' and ' + esc(w.partner2_name) +
+      ' a message to keep &mdash; and, if you like, a short video. Only they will ever see it.</p>' +
+    (mine ? '<div class="notice notice--ok" style="margin-bottom:14px">Thank you &mdash; you have left ' + mine + (mine === 1 ? ' message' : ' messages') + ' so far. You are welcome to add another.</div>' : '') +
+    '<div id="gbmsg"></div>' +
+    '<div class="field"><label class="label" for="gb_name">Your name <span style="text-transform:none;letter-spacing:0">(so they know who it is from)</span></label>' +
+      '<input id="gb_name" type="text" autocomplete="name" maxlength="80" value="' + esc(savedName()) + '"></div>' +
+    '<div class="field"><label class="label" for="gb_text">Your message</label>' +
+      '<textarea id="gb_text" rows="4" maxlength="1000" placeholder="Congratulations&hellip;" style="width:100%"></textarea></div>' +
+    '<div id="gb_videobox">' + videoBoxHtml() + '</div>' +
+    '<div id="gb_prog" class="hide"><div class="bar"><span id="gb_barIn" style="width:30%"></span></div><p class="muted center" id="gb_progText" style="margin:0;font-size:.875rem"></p></div>' +
+    '<button class="btn btn--primary btn--block" id="gb_send" style="margin-top:6px">Send to ' + esc(w.partner1_name) + ' &amp; ' + esc(w.partner2_name) + '</button>' +
+    '</div>';
+}
+function videoBoxHtml(){
+  if (GB.blob) {
+    return '<div style="margin:2px 0 14px"><video id="gb_preview" src="' + esc(GB.url) + '" controls playsinline preload="metadata" style="width:100%;max-height:340px;background:#000"></video>' +
+      '<div style="display:flex;gap:10px;align-items:center;margin-top:6px"><span class="muted" style="font-size:.8125rem;flex:1">' + Math.round(GB.seconds) + ' seconds &middot; ' + (GB.blob.size / 1048576).toFixed(1) + ' MB</span>' +
+      '<button class="btn btn--sm" type="button" id="gb_remove">Remove video</button></div></div>';
+  }
+  if (GB.stream) {
+    return '<div style="margin:2px 0 14px"><video id="gb_live" muted playsinline autoplay style="width:100%;max-height:340px;background:#000;transform:scaleX(-1)"></video>' +
+      '<div style="display:flex;gap:10px;align-items:center;margin-top:8px"><span class="muted" id="gb_clock" style="flex:1;font-size:.9375rem">Recording&hellip; 0:00 of 0:30</span>' +
+      '<button class="btn btn--primary" type="button" id="gb_stop">Stop</button></div></div>';
+  }
+  return '<div style="margin:2px 0 14px"><div class="label" style="margin-bottom:6px">A short video <span style="text-transform:none;letter-spacing:0">(optional, up to 30 seconds)</span></div>' +
+    '<div style="display:flex;gap:10px;flex-wrap:wrap">' +
+    (canRecord() ? '<button class="btn" type="button" id="gb_record">Record a video</button>' : '') +
+    '<button class="btn" type="button" id="gb_choose">Choose a video from your phone</button></div>' +
+    '<input id="gb_file" type="file" accept="video/*" class="hide"></div>';
+}
+function gbSay(html, cls){ var m = $("gbmsg"); if (m) m.innerHTML = html ? '<div class="' + (cls || "notice notice--ok") + '" style="margin-bottom:14px">' + html + '</div>' : ""; }
+function gbRefreshBox(){ var b = $("gb_videobox"); if (b) { b.innerHTML = videoBoxHtml(); wireVideoBox(); } }
+function gbClear(){
+  if (GB.url) { try { URL.revokeObjectURL(GB.url); } catch (e) {} }
+  GB.blob = null; GB.url = null; GB.type = ""; GB.seconds = 0; GB.poster = null;
+}
+function wireGuestBook(){
+  var send = $("gb_send"); if (!send) return;
+  send.addEventListener("click", sendGuestBook);
+  wireVideoBox();
+}
+function wireVideoBox(){
+  var rec = $("gb_record"), choose = $("gb_choose"), file = $("gb_file"), stop = $("gb_stop"), rm = $("gb_remove"), live = $("gb_live");
+  if (rec) rec.addEventListener("click", startRecording);
+  if (choose && file) { choose.addEventListener("click", function(){ file.click(); }); file.addEventListener("change", function(){ if (file.files && file.files[0]) takeVideoFile(file.files[0]); }); }
+  if (stop) stop.addEventListener("click", stopRecording);
+  if (rm) rm.addEventListener("click", function(){ gbClear(); gbRefreshBox(); });
+  if (live && GB.stream) { live.srcObject = GB.stream; var pr = live.play(); if (pr && pr.catch) pr.catch(function(){}); }
+}
+
+async function startRecording(){
+  gbSay("");
+  try {
+    GB.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } }, audio: true });
+  } catch (e) {
+    GB.stream = null;
+    gbSay("We couldn&rsquo;t reach your camera. You can allow it in your browser, or choose a video from your phone instead.", "notice notice--due");
+    return;
+  }
+  var mime = recMime(), opts = { videoBitsPerSecond: 2000000, audioBitsPerSecond: 96000 };
+  if (mime) opts.mimeType = mime;
+  try { GB.rec = new MediaRecorder(GB.stream, opts); }
+  catch (e) { try { GB.rec = new MediaRecorder(GB.stream); } catch (e2) { stopStream(); gbSay("This phone can&rsquo;t record in the page. Please choose a video instead.", "notice notice--due"); return; } }
+  GB.chunks = []; GB.recStarted = Date.now();
+  GB.rec.ondataavailable = function(ev){ if (ev.data && ev.data.size) GB.chunks.push(ev.data); };
+  GB.rec.onstop = finishRecording;
+  GB.rec.start(1000);
+  gbRefreshBox();
+  GB.tick = setInterval(function(){
+    var el = (Date.now() - GB.recStarted) / 1000, c = $("gb_clock");
+    if (c) c.innerHTML = "Recording&hellip; " + Math.floor(el / 60) + ":" + ("0" + Math.floor(el % 60)).slice(-2) + " of 0:30";
+  }, 250);
+  GB.timer = setTimeout(stopRecording, GB_MAX_SECONDS * 1000);
+}
+function stopStream(){
+  if (GB.stream) { GB.stream.getTracks().forEach(function(t){ try { t.stop(); } catch (e) {} }); GB.stream = null; }
+  clearTimeout(GB.timer); clearInterval(GB.tick);
+}
+function stopRecording(){ clearTimeout(GB.timer); if (GB.rec && GB.rec.state !== "inactive") { try { GB.rec.stop(); } catch (e) {} } }
+async function finishRecording(){
+  var seconds = Math.min(GB_MAX_SECONDS, (Date.now() - GB.recStarted) / 1000);
+  var type = (GB.rec && GB.rec.mimeType ? GB.rec.mimeType : (GB.chunks[0] && GB.chunks[0].type) || "video/webm").split(";")[0];
+  stopStream();
+  var blob = new Blob(GB.chunks, { type: type });
+  GB.chunks = [];
+  if (!blob.size) { gbRefreshBox(); gbSay("Nothing was recorded. Please try again.", "notice notice--due"); return; }
+  await acceptVideo(blob, type, seconds);
+}
+async function takeVideoFile(file){
+  gbSay("");
+  if (file.size > GB_MAX_BYTES) { gbSay("That video is " + (file.size / 1048576).toFixed(0) + " MB, which is too big to send (48 MB at most). Choose a shorter one, or record it here in the page, which keeps it small.", "notice notice--due"); return; }
+  var type = (file.type || "").toLowerCase().split(";")[0];
+  if (!/^video\/(mp4|webm|quicktime)$/.test(type)) {
+    var ext = (file.name.split(".").pop() || "").toLowerCase();
+    type = ext === "mov" ? "video/quicktime" : ext === "webm" ? "video/webm" : ext === "mp4" || ext === "m4v" ? "video/mp4" : "";
+  }
+  if (!type) { gbSay("That kind of video can&rsquo;t be sent. Try an MP4 or MOV, or record one here in the page.", "notice notice--due"); return; }
+  var seconds = await videoSeconds(file);
+  if (seconds && seconds > GB_FILE_MAX_SECONDS) { gbSay("That video is over a minute long. Please choose a shorter one (up to a minute).", "notice notice--due"); return; }
+  await acceptVideo(file, type, seconds || 0);
+}
+function videoSeconds(blob){
+  return new Promise(function(res){
+    var v = document.createElement("video"), u = URL.createObjectURL(blob), done = false;
+    function end(x){ if (done) return; done = true; try { URL.revokeObjectURL(u); } catch (e) {} res(x); }
+    v.preload = "metadata"; v.muted = true; v.playsInline = true;
+    v.onloadedmetadata = function(){ end(isFinite(v.duration) ? v.duration : 0); };
+    v.onerror = function(){ end(0); };
+    setTimeout(function(){ end(0); }, 6000);
+    v.src = u;
+  });
+}
+/* A still frame, for the couple's list. Optional: a video without one still sends. */
+function posterFrom(blob){
+  return new Promise(function(res){
+    var v = document.createElement("video"), u = URL.createObjectURL(blob), done = false;
+    function end(b){ if (done) return; done = true; try { URL.revokeObjectURL(u); } catch (e) {} res(b); }
+    v.muted = true; v.playsInline = true; v.preload = "auto";
+    v.onloadeddata = function(){ try { v.currentTime = Math.min(0.4, (v.duration || 1) / 2); } catch (e) { end(null); } };
+    v.onseeked = function(){
+      try {
+        var w = v.videoWidth || 480, h = v.videoHeight || 270, k = Math.min(1, 480 / Math.max(w, h)), c = document.createElement("canvas");
+        c.width = Math.round(w * k); c.height = Math.round(h * k);
+        c.getContext("2d").drawImage(v, 0, 0, c.width, c.height);
+        c.toBlob(function(b){ end(b); }, "image/jpeg", 0.7);
+      } catch (e) { end(null); }
+    };
+    v.onerror = function(){ end(null); };
+    setTimeout(function(){ end(null); }, 8000);
+    v.src = u;
+  });
+}
+async function acceptVideo(blob, type, seconds){
+  gbClear();
+  GB.blob = blob; GB.type = type; GB.seconds = seconds || 0; GB.url = URL.createObjectURL(blob);
+  GB.poster = await posterFrom(blob);
+  gbRefreshBox();
+}
+
+async function gbPut(url, blob, type){
+  for (var attempt = 0; attempt < 2; attempt++) {
+    try {
+      var r = await fetch(url, { method: "PUT", headers: { "Content-Type": type, "x-upsert": "true" }, body: blob });
+      if (r.ok) return;
+      if (attempt) throw new Error("upload " + r.status);
+    } catch (e) { if (attempt) throw e; }
+  }
+}
+async function sendGuestBook(){
+  if (GB.busy) return;
+  var name = ($("gb_name").value || "").trim().slice(0, 80), text = ($("gb_text").value || "").trim();
+  if (!name) { gbSay("Please tell " + esc(S.data.wedding.partner1_name) + " and " + esc(S.data.wedding.partner2_name) + " who this is from.", "notice notice--due"); $("gb_name").focus(); return; }
+  if (!text && !GB.blob) { gbSay("Write a message, or add a short video.", "notice notice--due"); return; }
+  gbSay("");
+  rememberName(name);
+  GB.busy = true; var btn = $("gb_send"); btn.disabled = true;
+  var prog = $("gb_prog"), pt = $("gb_progText");
+  try {
+    var video = null;
+    if (GB.blob) {
+      prog.classList.remove("hide"); pt.textContent = "Sending your video… this can take a minute on a slow signal.";
+      var slot = await call("gb.sign", { video: { type: GB.type, bytes: GB.blob.size }, poster: !!GB.poster });
+      await gbPut(slot.url, GB.blob, slot.content_type);
+      var poster = null;
+      if (GB.poster && slot.poster_url) { try { await gbPut(slot.poster_url, GB.poster, "image/jpeg"); poster = slot.poster_path; } catch (e) {} }
+      video = { path: slot.path, poster_path: poster, content_type: slot.content_type, bytes: GB.blob.size, seconds: GB.seconds };
+    }
+    var out = await call("gb.add", { name: name, message: text, uploader_key: uploaderKey(), video: video });
+    S.data.guestbook = { open: true, mine: out.mine };
+    $("gb_text").value = ""; gbClear(); stopStream();
+    prog.classList.add("hide");
+    gbRefreshBox();
+    gbSay("<strong>Thank you.</strong> Your " + (video ? "message and video are" : "message is") + " with " + esc(S.data.wedding.partner1_name) + " and " + esc(S.data.wedding.partner2_name) + ". Only they will see " + (video ? "them" : "it") + ".");
+  } catch (e) {
+    prog.classList.add("hide");
+    gbSay(esc(e.message || "That didn’t send. Please try again."), "err");
+  } finally { GB.busy = false; btn.disabled = false; }
 }
 
 /* ---------- start ---------- */

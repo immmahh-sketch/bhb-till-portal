@@ -1312,6 +1312,7 @@ var VIEWS = [
   ["meals", "Meals & allergies"],
   ["tables", "Table plan"],
   ["album", "Photo album"],
+  ["guestbook", "Guest book"],
   ["chat", "Message the team"],
   ["teamphotos", "Photos for the team"],
   ["scan", "Scan your journal"],
@@ -1480,6 +1481,7 @@ function render(){
     case "meals":     v.innerHTML = '<div class="empty"><span class="spin"></span></div>'; loadMeals(); break;
     case "tables":    v.innerHTML = '<div class="empty"><span class="spin"></span></div>'; loadTables(); break;
     case "album":     v.innerHTML = '<div class="empty"><span class="spin"></span></div>'; loadAlbum(); break;
+    case "guestbook": v.innerHTML = '<div class="empty"><span class="spin"></span></div>'; loadGuestBook(); break;
     case "chat":      v.innerHTML = '<div class="empty"><span class="spin"></span></div>'; loadChat(); break;
     case "teamphotos": v.innerHTML = '<div class="empty"><span class="spin"></span></div>'; loadTeamPhotos(); break;
     case "scan":      v.innerHTML = viewScan(); bindScan(); break;
@@ -3086,6 +3088,9 @@ function editInviteWording(){
       '<input id="iv_by" type="date" value="' + esc(w.invite_rsvp_by||"") + '"></div></div>' +
     '<div class="field"><span class="label">Anything else</span>' +
       '<textarea id="iv_extra" placeholder="Parking, taxis, gifts…">' + esc(w.invite_extra_info||"") + '</textarea></div>' +
+    '<div class="field"><span class="label">Your wedding website <span style="text-transform:none;letter-spacing:0">(optional)</span></span>' +
+      '<input id="iv_web" type="text" inputmode="url" autocomplete="url" placeholder="www.ourwedding.co.uk" value="' + esc(w.invite_website||"") + '">' +
+      '<span class="muted" style="display:block;font-size:.8125rem;margin-top:4px">If you have one, the email to your guests gives it as a button: “View ' + esc(w.partner1_name) + ' &amp; ' + esc(w.partner2_name) + '’s wedding website”.</span></div>' +
     '<div style="display:flex;gap:8px"><button class="btn btn--primary" onclick="saveInviteWording()">Save</button>' +
     '<button class="btn" onclick="closeModal();previewInvite()">Save &amp; preview</button></div>');
 }
@@ -3098,9 +3103,11 @@ async function saveInviteWording(){
       invite_dress_code: $("iv_dress").value.trim(),
       invite_rsvp_by: $("iv_by").value || null,
       invite_extra_info: $("iv_extra").value.trim(),
+      invite_website: $("iv_web").value.trim(),
       invite_style: chosen ? chosen.value : "invitation"
     };
     await api("invite.settings", payload);
+    if (payload.invite_website && !/^[a-z][a-z0-9+.-]*:/i.test(payload.invite_website)) payload.invite_website = "https://" + payload.invite_website;
     Object.keys(payload).forEach(function(k){ S.data.wedding[k] = payload[k]; });
     closeModal(); clearError();
   } catch (e) { showError(e.message); }
@@ -4494,6 +4501,66 @@ async function loadAlbum(){
 }
 
 function albumLink(){ return ALBUM_URL + "?a=" + A.token; }
+
+/* ====================================================================
+   VIRTUAL GUEST BOOK — what guests left for the couple: messages, and short videos.
+   Private to the couple. Guests leave them from the same link as the photo album.
+   ==================================================================== */
+var GBK = { entries:[], token:null, enabled:true };
+
+async function loadGuestBook(){
+  try {
+    var d = await api("guestbook.list");
+    GBK.entries = d.entries || []; GBK.enabled = d.album_enabled !== false;
+    // the album link is what guests use for the guest book too
+    if (!A.token) { try { var a0 = await api("photos.list"); A.token = a0.album_token; } catch (e) {} }
+    $("views").innerHTML = viewGuestBook();
+  } catch (e) { showError(e.message); $("views").innerHTML = ""; }
+}
+function gbDate(iso){
+  try { return new Intl.DateTimeFormat("en-GB", { day:"numeric", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit", timeZone:"Europe/London" }).format(new Date(iso)); } catch (e) { return ""; }
+}
+function viewGuestBook(){
+  var w = S.data.wedding, list = GBK.entries, vids = list.filter(function(e){ return e.video; }).length;
+  var h = '<h1 style="margin-bottom:8px">Guest book</h1>' +
+    '<p class="muted" style="margin:0 0 20px">Messages, and short videos, your guests have left for you. Only you can see them.</p>';
+  if (!GBK.enabled) h += '<div class="notice notice--due"><strong>The album has closed.</strong> Messages and videos are taken down with it. If you still need something, ring us on 01207 232 569 or WhatsApp 07455 850424.</div>';
+  else h += '<div class="notice notice--ok">Guests leave their messages from the same link as the photo album (<strong>Photo album</strong> has your link and QR code). ' +
+    'The email to your guests mentions the guest book. Everything stays for <strong>' + KEEP_DAYS + ' days</strong> after the wedding, so save what you want to keep before then.</div>';
+  if (!list.length) return h + '<div class="card center"><p class="muted" style="margin:0">Nothing here yet. Messages will appear as your guests leave them.</p></div>';
+  h += '<div class="card" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span style="flex:1"><strong>' + list.length + '</strong> ' + (list.length === 1 ? 'message' : 'messages') +
+    (vids ? ' &middot; <strong>' + vids + '</strong> ' + (vids === 1 ? 'video' : 'videos') : '') + '</span>' +
+    '<button class="btn btn--sm" onclick="downloadGuestBookText()">Download all the messages</button></div>';
+  h += list.map(function(e){
+    return '<div class="card" id="gb_' + esc(e.id) + '">' +
+      '<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap"><strong style="font-size:1.0625rem">' + esc(e.name) + '</strong>' +
+        '<span class="muted" style="font-size:.8125rem">' + esc(gbDate(e.created_at)) + '</span></div>' +
+      (e.message ? '<p style="margin:10px 0 0;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6">' + esc(e.message) + '</p>' : '') +
+      (e.video ? '<div style="margin-top:12px"><video controls playsinline preload="none"' + (e.video.poster ? ' poster="' + esc(e.video.poster) + '"' : '') +
+        ' style="width:100%;max-height:420px;background:#000" src="' + esc(e.video.url) + '"></video>' +
+        '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:6px"><span class="muted" style="font-size:.8125rem;flex:1">' +
+          (e.video.seconds ? Math.round(e.video.seconds) + ' seconds' : 'Video') + (e.video.bytes ? ' &middot; ' + (e.video.bytes / 1048576).toFixed(1) + ' MB' : '') + '</span>' +
+        '<a class="btn btn--sm" href="' + esc(e.video.download) + '">Download the video</a></div></div>' : '') +
+      '<div style="margin-top:12px"><button class="btn btn--sm" onclick="removeGuestBookEntry(\'' + esc(e.id) + '\')">Remove</button></div></div>';
+  }).join('');
+  return h;
+}
+function downloadGuestBookText(){
+  var w = S.data.wedding, out = [w.salutation + " - guest book", ""];
+  GBK.entries.slice().reverse().forEach(function(e){
+    out.push(e.name + "  (" + gbDate(e.created_at) + ")"); if (e.message) out.push(e.message); if (e.video) out.push("[ a video was left too ]"); out.push("");
+  });
+  var a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([out.join("\r\n")], { type:"text/plain;charset=utf-8" }));
+  a.download = "Guest book - " + w.salutation.replace(/[^\w &-]/g, "") + ".txt";
+  document.body.appendChild(a); a.click(); a.remove();
+}
+function removeGuestBookEntry(id){
+  askConfirm("Remove this message?", "It is removed for good, with its video if there is one. Download the video first if you want to keep it.", "Remove", async function(){
+    try { await api("guestbook.delete", { id:id }); GBK.entries = GBK.entries.filter(function(e){ return e.id !== id; }); $("views").innerHTML = viewGuestBook(); }
+    catch (e) { showError(e.message); }
+  });
+}
 function selectedIds(){ return A.photos.filter(function(p){ return A.sel[p.id]; }).map(function(p){ return p.id; }); }
 
 /* ---------- who took what ----------
@@ -6299,7 +6366,7 @@ var SBX = { gen:0, seq:0, d:{}, pending:{}, at:{}, urls:[], blobs:{}, noteTimer:
 /* What the server will answer for a test session. Must match wedding-api. */
 var SBX_READS = { "dashboard":1, "guests.list":1, "tables.list":1, "menu.list":1, "suppliers.list":1,
   "budget.list":1, "photos.list":1, "photos.download":1, "foodsheet":1, "chat.list":1,
-  "chat.unread":1, "teamphotos.list":1 };
+  "chat.unread":1, "teamphotos.list":1, "guestbook.list":1 };
 
 /* The read that seeds each cached list. */
 var SBX_SEED = { dashboard:"dashboard", guests:"guests.list", tables:"tables.list", menu:"menu.list",
@@ -6596,7 +6663,7 @@ async function sbxApi(action, p){
       if ("invite_style" in p && ["invitation","rsvp"].indexOf(String(p.invite_style)) < 0) {
         throw sbxErr("unknown invitation style", 400);
       }
-      var fields = ["invite_message","invite_dress_code","invite_rsvp_by","invite_extra_info","invite_style"];
+      var fields = ["invite_message","invite_dress_code","invite_rsvp_by","invite_extra_info","invite_website","invite_style"];
       var any = false;
       fields.forEach(function(f){ if (f in p) { D3.over[f] = p[f] === "" ? null : p[f]; any = true; } });
       if (!any) throw sbxErr("nothing to save", 400);
@@ -6680,6 +6747,10 @@ async function sbxApi(action, p){
       D7.progress = D7.progress.filter(function(x){ return x.item_key !== String(p.item_key); });
       return { ok:true };
     }
+
+    /* ---- the guest book: the test view never shows a real couple's guests' messages ---- */
+    case "guestbook.list": return { album_enabled: true, entries: [], sandbox: true };
+    case "guestbook.update": case "guestbook.delete": return { ok: true };
 
     /* ---- the photo album ---- */
     case "photos.list": {
