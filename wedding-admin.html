@@ -514,6 +514,10 @@ details summary::-webkit-details-marker{color:var(--sage-70)}
 
 /* unread badges in the lists */
 .unb-wrap{margin-top:3px}
+.inbox-card{border-left:4px solid var(--mist)} .inbox-unread{border-left-color:var(--alert)}
+.inbox-quote{margin-top:12px;padding:10px 12px;background:var(--bone);border-left:3px solid var(--celadon)} .inbox-team{background:#f1f4ef;border-left-color:var(--sage);margin-top:8px}
+.inbox-who{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--sage)} .inbox-text{white-space:pre-wrap;overflow-wrap:anywhere;margin-top:3px}
+.pill--ok{background:#edf2ed;color:#2f5b31}
 .unb-wrap:empty{display:none}
 .unb{border:0;cursor:pointer;font-family:inherit;max-width:100%}
 .unprev{display:block;margin-top:2px;font-size:.8125rem;color:var(--alert);font-style:italic;
@@ -850,6 +854,7 @@ body.va-lock{overflow:hidden}
       <nav id="nav">
         <button data-view="overview" aria-current="page" data-group="overview,cal,tot">Overview</button>
         <button data-view="weddings" data-group="weddings,usage,add,bulk">Wedding App</button>
+        <button data-view="messages" data-group="messages">Messages <span id="msgNavBadge"></span></button>
         <button data-view="outstanding" data-group="outstanding,reconcile">Payments <span id="recBadge"></span></button>
         <button data-view="todo" data-group="todo,enq,bonus,showrounds">Trackers</button>
         <button data-view="tickets" data-group="tickets">Ticket sales</button>
@@ -1235,6 +1240,7 @@ async function boot(){
   var who = "Staff";
   try { who = localStorage.getItem("bhb_tracker_who") || who; } catch(e){}
   TrackerApp.init(S.pw, who).catch(function(){});
+  loadUnread();
 }
 
 // "View in Tracker" (from a wedding's own detail page) - an in-page tab
@@ -1425,6 +1431,7 @@ function render(){
                           '<p style="margin-top:14px">Reading the forward book from Guestline…</p></div>';
                         loadForecast(); break;
     case "weddings":    v.innerHTML = '<div class="empty"><span class="spin"></span></div>'; loadList(); break;
+    case "messages":    v.innerHTML = '<div class="empty"><span class="spin"></span></div>'; loadInbox(); break;
     case "usage":       v.innerHTML = '<div class="empty"><span class="spin"></span></div>'; loadUsage(); break;
     case "outstanding": v.innerHTML = '<div class="empty"><span class="spin"></span>' +
                           '<p style="margin-top:14px">Checking every couple\'s balance…</p></div>';
@@ -3950,6 +3957,8 @@ function paintUnread(){
   [].forEach.call(document.querySelectorAll(".unb-wrap[data-wid]"), function(el){
     el.innerHTML = unBadgeHtml(el.getAttribute("data-wid"));
   });
+  var nb = $("msgNavBadge");
+  if (nb) { nb.className = UN.total > 0 ? "pill pill--late" : ""; nb.textContent = UN.total > 0 ? String(UN.total) : ""; }
   var t = $("unTotal");
   if (t) {
     t.classList.toggle("hide", !(UN.total > 0));
@@ -4885,6 +4894,56 @@ async function deleteWedding(){
    ================================================================== */
 
 var U = { rows: [], filter: "all", query: "" };
+
+/* ---------- Messages tab: every conversation with a couple, with a link to answer ---------- */
+var INBOX = { list:[], filter:"all", loaded:false, at:0 };
+async function loadInbox(){
+  var want = S.view;
+  try {
+    var r = await call("chat.inbox", {});
+    if (S.view !== want || S.current) return;
+    INBOX.list = r.conversations || []; INBOX.loaded = true; INBOX.at = Date.now();
+    $("views").innerHTML = viewInbox();
+    loadUnread();
+  } catch (e) { if (S.view !== want) return; showErr(e.message); $("views").innerHTML = ""; }
+}
+function inboxSetFilter(f){ INBOX.filter = f; $("views").innerHTML = viewInbox(); }
+function viewInbox(){
+  var all = INBOX.list, waiting = all.filter(function(c){ return c.awaiting; }), unread = all.filter(function(c){ return c.unread > 0; });
+  var rows = INBOX.filter === "waiting" ? waiting : INBOX.filter === "unread" ? unread : all;
+  var chip = function(k, label, n){ return '<button class="btn btn--sm' + (INBOX.filter === k ? ' on' : '') + '" onclick="inboxSetFilter(\'' + k + '\')">' + esc(label) + ' (' + n + ')</button>'; };
+  var h = '<div class="pagehead" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:6px"><h2 style="margin:0;flex:1">Messages</h2>' +
+    '<button class="btn btn--sm" onclick="loadInbox()">Refresh</button></div>' +
+    '<p class="muted" style="margin:0 0 12px">Messages from couples in the Wedding App, newest conversation first. Open one to read it all and reply: your answer goes to the couple in their app (and by email if they have been away).</p>' +
+    '<div class="subnav" style="margin:8px 0 16px">' + chip("all", "All conversations", all.length) + chip("waiting", "Waiting for a reply", waiting.length) + chip("unread", "Unread", unread.length) + '</div>';
+  if (!rows.length) return h + '<div class="empty">' + (INBOX.loaded ? (all.length ? 'Nothing in this list.' : 'No messages yet. When a couple writes to the team in their app it appears here.') : '') + '</div>';
+  return h + rows.map(function(c){
+    var msgs = c.recent || [], lastCouple = msgs.filter(function(m){ return m.side === "couple"; }).slice(-1)[0], lastTeam = msgs.filter(function(m){ return m.side === "team"; }).slice(-1)[0];
+    var when = c.last_at ? dayLabel(c.last_at) + ' ' + clockTime(c.last_at) : '';
+    var date = c.wedding_date ? new Date(String(c.wedding_date).slice(0, 10) + 'T12:00:00Z').toLocaleDateString("en-GB", { day:"numeric", month:"short", year:"numeric", timeZone:"UTC" }) : '';
+    return '<div class="card inbox-card' + (c.unread > 0 ? ' inbox-unread' : '') + '">' +
+      '<div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap"><div style="flex:1;min-width:220px"><strong style="font-size:17px">' + esc(c.couple) + '</strong>' +
+        '<div class="muted" style="font-size:12px">' + esc(c.event_id) + (date ? ' · wedding ' + esc(date) : '') + ' · ' + esc(when) + '</div></div>' +
+        (c.unread > 0 ? '<span class="pill pill--late">' + esc(plural(c.unread, "new message", "new messages")) + '</span>' : '') +
+        (c.awaiting ? '<span class="pill">Waiting for a reply</span>' : '<span class="pill pill--ok">Answered</span>') + '</div>' +
+      (lastCouple ? '<div class="inbox-quote"><div class="inbox-who">' + (lastCouple.by ? esc(firstName(lastCouple.by)) : 'The couple') + ' · ' + esc(dayLabel(lastCouple.at) + ' ' + clockTime(lastCouple.at)) + (lastCouple.source === "whatsapp" ? ' · via WhatsApp' : '') + '</div>' +
+        '<div class="inbox-text">' + esc(lastCouple.body) + '</div></div>' : '') +
+      (lastTeam && lastCouple && lastTeam.at > lastCouple.at ? '<div class="inbox-quote inbox-team"><div class="inbox-who">' + esc(firstName(lastTeam.by)) + ' replied · ' + esc(dayLabel(lastTeam.at) + ' ' + clockTime(lastTeam.at)) + '</div><div class="inbox-text">' + esc(lastTeam.body) + '</div></div>' : '') +
+      '<div style="margin-top:12px"><button class="btn" onclick="openToReply(\'' + esc(c.wedding_id) + '\')">' + (c.awaiting ? 'Open and reply' : 'Open conversation') + '</button></div></div>';
+  }).join('');
+}
+// opens the wedding with its Messages card open and the reply box ready
+function openToReply(id){
+  open_(id);
+  var tries = 0, t = setInterval(function(){
+    tries++;
+    if (MSG.id === id && $("msgCard") && $("msgText")) {
+      clearInterval(t); MSG.open = true; msgApplyOpen();
+      try { $("msgCard").scrollIntoView({ behavior:"smooth", block:"start" }); $("msgText").focus({ preventScroll:true }); } catch (e) {}
+    } else if (tries > 40) clearInterval(t);
+  }, 250);
+}
+setInterval(function(){ if (S.pw && !document.hidden) { loadUnread(); if (S.view === "messages" && !S.current && Date.now() - INBOX.at > 45000) loadInbox(); } }, 60000);
 
 async function loadUsage(){
   var want = S.view, cur = S.current;
