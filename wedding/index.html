@@ -2669,8 +2669,9 @@ function viewGuests(){
         '</div></div>';
       setTimeout(fillBookedTimes, 0);
     }
-    h += '<p class="muted" style="font-size:.8125rem;margin:0 0 10px;line-height:1.6">' +
-      'Wedding website: <strong>' + (ws.invite_website ? esc(ws.invite_website) : 'not added yet') + '</strong></p>';
+    h += '<div class="field" style="margin:0 0 14px"><span class="label">Your wedding website <span style="text-transform:none;letter-spacing:0">(optional)</span></span>' +
+      '<input type="text" id="ivc_web" inputmode="url" autocomplete="url" placeholder="www.ourwedding.co.uk" value="' + esc(ws.invite_website || "") + '" onchange="setInviteWebsite(this.value)">' +
+      '<span class="muted" style="display:block;font-size:.8125rem;margin-top:4px">If you add one, the email to your guests gives it as a button: &ldquo;View ' + esc(ws.partner1_name) + ' &amp; ' + esc(ws.partner2_name) + '&rsquo;s wedding website&rdquo;.</span></div>';
 
     h += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">' +
       '<button class="btn btn--sm" onclick="previewInvite()">Preview the invitation</button>' +
@@ -3094,6 +3095,17 @@ async function setInviteTime(field, value){
     S.data.wedding[field] = value || null;
     clearError();
   } catch (e) { showError(e.message); render(); }
+}
+/* The wedding website box on the card saves as soon as it is changed. The server checks it is a real web address. */
+async function setInviteWebsite(value){
+  try {
+    var v = String(value || "").trim();
+    await api("invite.settings", { invite_website: v });
+    if (v && !/^[a-z][a-z0-9+.-]*:/i.test(v)) v = "https://" + v;
+    S.data.wedding.invite_website = v || null;
+    var el = $("ivc_web"); if (el) el.value = v;
+    clearError();
+  } catch (e) { showError(e.message); }
 }
 /* Under each box, what the booking itself says (fetched once). */
 function fillBookedTimes(){
