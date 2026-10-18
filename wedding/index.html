@@ -1320,6 +1320,11 @@ var VIEWS = [
   ["budget", "Budget"]
 ];
 
+/* The journals have not launched yet, so "Scan your journal" is hidden from the menu and cannot be opened.
+   Set this to true on launch day and the page comes back as it was. */
+var JOURNAL_LIVE = false;
+if (!JOURNAL_LIVE) VIEWS = VIEWS.filter(function(v){ return v[0] !== "scan"; });
+
 function buildMenu(){
   var m = $("menu");
   if (!m) return;
@@ -1896,6 +1901,7 @@ function dismissHint(){
 }
 
 function go(v){
+  if (v === "scan" && !JOURNAL_LIVE) v = "home";
   S.view = v;
   closeMenu();
   buildMenu();
