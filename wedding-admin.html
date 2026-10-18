@@ -4907,6 +4907,17 @@ async function loadInbox(){
     loadUnread();
   } catch (e) { if (S.view !== want) return; showErr(e.message); $("views").innerHTML = ""; }
 }
+async function inboxHandled(id, undo){
+  try {
+    await call("chat.handled", { id:id, undo:!!undo });
+    var c = INBOX.list.filter(function(x){ return x.wedding_id === id; })[0];
+    if (c) {
+      if (undo) { c.awaiting = true; c.dealt = null; }
+      else { c.awaiting = false; c.unread = 0; c.dealt = { by:"you", at:new Date().toISOString() }; }
+    }
+    $("views").innerHTML = viewInbox(); loadUnread();
+  } catch (e) { showErr(e.message); }
+}
 function inboxSetFilter(f){ INBOX.filter = f; $("views").innerHTML = viewInbox(); }
 function viewInbox(){
   var all = INBOX.list, waiting = all.filter(function(c){ return c.awaiting; }), unread = all.filter(function(c){ return c.unread > 0; });
@@ -4925,11 +4936,14 @@ function viewInbox(){
       '<div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap"><div style="flex:1;min-width:220px"><strong style="font-size:17px">' + esc(c.couple) + '</strong>' +
         '<div class="muted" style="font-size:12px">' + esc(c.event_id) + (date ? ' · wedding ' + esc(date) : '') + ' · ' + esc(when) + '</div></div>' +
         (c.unread > 0 ? '<span class="pill pill--late">' + esc(plural(c.unread, "new message", "new messages")) + '</span>' : '') +
-        (c.awaiting ? '<span class="pill">Waiting for a reply</span>' : '<span class="pill pill--ok">Answered</span>') + '</div>' +
+        (c.awaiting ? '<span class="pill">Waiting for a reply</span>' : c.dealt ? '<span class="pill pill--ok" title="' + esc('Marked by ' + (c.dealt.by || 'someone')) + '">Dealt with another way</span>' : '<span class="pill pill--ok">Answered</span>') + '</div>' +
       (lastCouple ? '<div class="inbox-quote"><div class="inbox-who">' + (lastCouple.by ? esc(firstName(lastCouple.by)) : 'The couple') + ' · ' + esc(dayLabel(lastCouple.at) + ' ' + clockTime(lastCouple.at)) + (lastCouple.source === "whatsapp" ? ' · via WhatsApp' : '') + '</div>' +
         '<div class="inbox-text">' + esc(lastCouple.body) + '</div></div>' : '') +
       (lastTeam && lastCouple && lastTeam.at > lastCouple.at ? '<div class="inbox-quote inbox-team"><div class="inbox-who">' + esc(firstName(lastTeam.by)) + ' replied · ' + esc(dayLabel(lastTeam.at) + ' ' + clockTime(lastTeam.at)) + '</div><div class="inbox-text">' + esc(lastTeam.body) + '</div></div>' : '') +
-      '<div style="margin-top:12px"><button class="btn" onclick="openToReply(\'' + esc(c.wedding_id) + '\')">' + (c.awaiting ? 'Open and reply' : 'Open conversation') + '</button></div></div>';
+      '<div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center"><button class="btn" onclick="openToReply(\'' + esc(c.wedding_id) + '\')">' + (c.awaiting ? 'Open and reply' : 'Open conversation') + '</button>' +
+        '<button class="btn btn--sm" onclick="open_(\'' + esc(c.wedding_id) + '\')">View wedding</button>' +
+        (c.awaiting ? '<button class="btn btn--sm" onclick="inboxHandled(\'' + esc(c.wedding_id) + '\')">Replied another way / no reply needed</button>'
+          : c.dealt ? '<button class="btn btn--sm" onclick="inboxHandled(\'' + esc(c.wedding_id) + '\', true)">Undo</button>' : '') + '</div></div>';
   }).join('');
 }
 // opens the wedding with its Messages card open and the reply box ready
