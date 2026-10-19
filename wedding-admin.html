@@ -4431,7 +4431,8 @@ function viewWedding(){
   var h = '<button class="btn btn--sm" onclick="S.current=null;render()">&larr; All weddings</button>' +
     ' <button class="btn btn--sm" onclick="openInTracker(\'' + esc(w.event_id) + '\')">View in Tracker</button>' +
     ' <button type="button" class="btn btn--sm" id="vaBtn" data-va-id="' + esc(w.id) + '" ' +
-      'onclick="viewAs(\'' + esc(w.id) + '\', this)">View as the couple</button>';
+      'onclick="viewAs(\'' + esc(w.id) + '\', this)">View as the couple</button>' +
+    ' <button type="button" class="btn btn--sm" id="lblBtn" onclick="printProseccoLabel()">Print prosecco label</button>';
 
   h += '<div class="split" style="margin:16px 0 4px"><h1>' + esc(w.salutation) + '</h1>' +
     '<span class="label">' + esc(ukDate(w.wedding_date)) + '</span></div>';
@@ -5883,6 +5884,22 @@ async function bonusSecuredFlow(r){
       .then(function(g){ if (g && g.venue) return dlg.ready.then(function(c){ if (c) c.setVenue(g.venue); }); })
       .catch(function(){});
   } catch (e) { showErr(e.message); }
+}
+
+/* The bottle label from a wedding's own overview: names and date from the wedding, the venue from its Guestline booking. */
+async function printProseccoLabel(){
+  var d = S.detail; if (!d || !d.wedding) return;
+  var w = d.wedding, btn = $("lblBtn");
+  if (btn) btn.disabled = true;
+  try {
+    await bonusLabelCore();
+    var names = w.salutation || [w.partner1_name, w.partner2_name].filter(Boolean).join(" & ");
+    var dlg = BHBLabel.openDialog({ names: names, date: String(w.wedding_date || "").slice(0, 10) });
+    BHBLabel.api("venue.guess", { event_ref: w.event_id || "" })
+      .then(function(g){ if (g && g.venue) return dlg.ready.then(function(c){ if (c) c.setVenue(g.venue); }); })
+      .catch(function(){});
+  } catch (e) { showErr(e.message); }
+  if (btn) btn.disabled = false;
 }
 
 /* ---------- what the tracker adds up to ---------- */
