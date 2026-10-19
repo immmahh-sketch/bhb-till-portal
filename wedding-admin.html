@@ -5878,7 +5878,10 @@ async function bonusSecuredFlow(r){
     if (!label) return;
     await bonusLabelCore();
     var haveNames = (r.partner1_name || "").trim() || (r.partner2_name || "").trim();
-    BHBLabel.openDialog({ partner1: r.partner1_name || "", partner2: r.partner2_name || "", names: haveNames ? "" : who, date: r.event_date || "" });
+    var dlg = BHBLabel.openDialog({ partner1: r.partner1_name || "", partner2: r.partner2_name || "", names: haveNames ? "" : who, date: r.event_date || "" });
+    BHBLabel.api("venue.guess", { event_ref: r.event_ref || "", link: r.guestline_link || "" })
+      .then(function(g){ if (g && g.venue) return dlg.ready.then(function(c){ if (c) c.setVenue(g.venue); }); })
+      .catch(function(){});
   } catch (e) { showErr(e.message); }
 }
 

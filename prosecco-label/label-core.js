@@ -158,8 +158,8 @@
   function pickerHtml(settings, used, selected) {
     var sh = settings.sheet, n = sh.cols * sh.rows, h = '<div class="lblsheet" role="group" aria-label="Label sheet, tap the position to print on">';
     for (var p = 1; p <= n; p++) {
-      var o = cellOrigin(sh, p), isUsed = used.indexOf(p) > -1, sel = p === selected;
-      h += '<button type="button" class="lblcell' + (isUsed ? " used" : "") + (sel ? " sel" : "") + '" data-pos="' + p + '" aria-pressed="' + sel + '" aria-label="Position ' + p + (isUsed ? ", already used" : "") + '" style="left:' + (o.x / A4W * 100) + '%;top:' + (o.y / A4H * 100) + '%;width:' + (sh.labelW / A4W * 100) + '%;height:' + (sh.labelH / A4H * 100) + '%"><b>' + p + '</b>' + (isUsed ? '<i>used</i>' : '') + '</button>';
+      var o = cellOrigin(sh, p), sel = p === selected;      // every position looks the same and can be picked: nothing is greyed out
+      h += '<button type="button" class="lblcell' + (sel ? " sel" : "") + '" data-pos="' + p + '" aria-pressed="' + sel + '" aria-label="Position ' + p + '" style="left:' + (o.x / A4W * 100) + '%;top:' + (o.y / A4H * 100) + '%;width:' + (sh.labelW / A4W * 100) + '%;height:' + (sh.labelH / A4H * 100) + '%"><b>' + p + '</b></button>';
     }
     return h + '</div>';
   }
@@ -196,7 +196,7 @@
       '<div class="lblbtns"><button type="button" class="lblbtn" id="lbl_print">Print label</button><button type="button" class="lblbtn ghost" id="lbl_pdf">Open as PDF</button>' + (opts.onCancel ? '<button type="button" class="lblbtn ghost" id="lbl_cancel">' + esc(opts.cancelText || "Close") + '</button>' : '') + '</div>' +
       '<div id="lbl_msg"></div></div>' +
       '<div><div style="font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#7B887C;margin:0 0 8px">Which label on the sheet?</div><div id="lbl_pick"></div>' +
-      '<p class="lblhint" style="text-align:center">Tap the space on the label paper that is still free. Greyed ones have been printed on already. <button type="button" class="lbllink" id="lbl_fresh">I have put in a fresh sheet</button></p></div></div>';
+      '<p class="lblhint" style="text-align:center">Tap the label you want to print on. After each print it moves on to the next one. <button type="button" class="lbllink" id="lbl_fresh">Start again at 1</button></p></div></div>';
     var $ = function (id) { return el.querySelector("#" + id); };
     function data() { return { names: joinNames($("lbl_p1").value, $("lbl_p2").value), dateIso: $("lbl_date").value, venue: st.venue }; }
     function venueBtns() { $("lbl_venue").innerHTML = (cfg.design.venues || []).map(function (v) { return '<button type="button" class="lblvbtn' + (v === st.venue ? " on" : "") + '" data-venue="' + esc(v) + '" aria-pressed="' + (v === st.venue) + '">' + esc(v) + '</button>'; }).join(""); }
@@ -209,7 +209,7 @@
     function msg(kind, text) { $("lbl_msg").innerHTML = text ? '<div class="lblmsg ' + kind + '" role="status">' + text + '</div>' : ""; }
     el.addEventListener("input", paint); paint();
     el.addEventListener("click", function (e) { var c = e.target.closest(".lblcell"); if (c) { st.pos = +c.getAttribute("data-pos"); paint(); } var vb = e.target.closest(".lblvbtn"); if (vb) { st.venue = vb.getAttribute("data-venue"); paint(); } });
-    $("lbl_fresh").addEventListener("click", async function () { try { await api("used.save", { used: [] }); cfg.used = []; st.pos = 1; paint(); msg("ok", "Fresh sheet: all six positions are free again."); } catch (e) { msg("bad", esc(e.message)); } });
+    $("lbl_fresh").addEventListener("click", async function () { try { await api("used.save", { used: [] }); cfg.used = []; st.pos = 1; paint(); msg("ok", "Back to position 1."); } catch (e) { msg("bad", esc(e.message)); } });
     if ($("lbl_cancel")) $("lbl_cancel").addEventListener("click", function () { opts.onCancel(); });
     $("lbl_pdf").addEventListener("click", function () {
       var d = data(); if (!d.names || !d.dateIso) return;
@@ -218,7 +218,6 @@
     });
     $("lbl_print").addEventListener("click", async function () {
       var d = data(); if (!d.names || !d.dateIso || st.busy) return;
-      if (cfg.used.indexOf(st.pos) > -1 && !confirm("Position " + st.pos + " has already been printed on. Print on it anyway?")) return;
       st.busy = true; paint(); msg("", "Sending to the printer…");
       try {
         var page = renderSheet(cfg, S.bg, d, st.pos, "label", 300);
@@ -242,7 +241,12 @@
       }
       msg("warn", "Still waiting. It stays in the queue and will print when the office PC picks it up (see Sent to print).");
     }
-    return { state: st, repaint: paint };
+    function setVenue(name) {
+      var vs2 = cfg.design.venues || [], key = String(name || "").toLowerCase().replace(/[^a-z]/g, "");
+      var hit = vs2.filter(function (v) { return key && key.indexOf(v.toLowerCase().replace(/[^a-z]/g, "").slice(0, 6)) > -1; })[0];
+      if (hit) { st.venue = hit; paint(); }
+    }
+    return { state: st, repaint: paint, setVenue: setVenue };
   }
 
   /* The dialog Weddings and events opens after a booking is secured: confirm the names and date, choose the position, print. */
@@ -252,8 +256,8 @@
     bg.innerHTML = '<div style="background:#fff;border-radius:12px;max-width:900px;width:100%;padding:22px 22px 26px;box-shadow:0 20px 60px rgba(0,0,0,.35)"><h2 style="margin:0 0 4px;font-size:24px">Print the bottle label</h2><p style="margin:0 0 16px;color:#7B887C;font-size:14px">Check the names and the date, then choose which label on the sheet to print on.</p><div id="lbldlgbody"></div></div>';
     document.body.appendChild(bg);
     function close() { if (bg.parentNode) bg.parentNode.removeChild(bg); if (opts.onClose) opts.onClose(); }
-    mount(bg.querySelector("#lbldlgbody"), { names: opts.names, partner1: opts.partner1, partner2: opts.partner2, date: opts.date, venue: opts.venue, source: "wedding-admin", enquiryId: opts.enquiryId, onCancel: close, cancelText: "Close" });
-    return { close: close };
+    var ready = mount(bg.querySelector("#lbldlgbody"), { names: opts.names, partner1: opts.partner1, partner2: opts.partner2, date: opts.date, venue: opts.venue, source: "wedding-admin", enquiryId: opts.enquiryId, onCancel: close, cancelText: "Close" });
+    return { close: close, ready: ready };
   }
 
   async function testPrint(position) {
