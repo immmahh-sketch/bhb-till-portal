@@ -6858,6 +6858,8 @@ function exportSuppliers(){
 var TrackerApp = (function(){
   const CLOSED = ["lost","no response","past event"];
   const BOOKED = "booked (deposit paid and contract signed)";
+  /* A confirmed booking with nothing left to do until the day: counts as booked everywhere, never on the To Do list (the server decides that). */
+  const WAITING = "waiting for the event, no further action";
   const ACTION_6MONTH = "book in 6 month meeting";
   const MAX_MONTHS_AHEAD = 3;
 
@@ -6874,7 +6876,7 @@ var TrackerApp = (function(){
     ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 
   const isClosed = r => CLOSED.includes(norm(r.status));
-  const isBooked = r => norm(r.status) === BOOKED;
+  const isBooked = r => { const s = norm(r.status); return s === BOOKED || s === WAITING; };
   const isWedding = t => norm(t).includes("wedding");
   function venueBucket(v){
     const s = norm(v);
@@ -6994,7 +6996,7 @@ var TrackerApp = (function(){
   function statusPill(r){
     let c = "";
     const s = norm(r.status);
-    if(s === BOOKED) c = "booked";
+    if(s === BOOKED || s === WAITING) c = "booked";
     else if(s === "lost" || s === "no response") c = "lost";
     else if(s === "past event") c = "past";
     else if(s === "on hold") c = "hold";
