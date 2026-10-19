@@ -2197,7 +2197,7 @@ async function loadForecast(fresh){
       BT.rows.length ? Promise.resolve(null) : call("bonus.list", {}).catch(function(){ return null; }),
     ]);
     S.forecast = pair[0];
-    if (pair[1]) { BT.level = pair[1].level; BT.rows = pair[1].rows || []; BT.inApp = pair[1].inApp || {}; }
+    if (pair[1]) { BT.level = pair[1].level; BT.rows = pair[1].rows || []; BT.inApp = pair[1].inApp || {}; bonusRemember(); }
     if (!stillWanted(want, cur)) return;
     $("views").innerHTML = viewOverview(); showAlbumBeat();
   } catch (e) { if (!stillWanted(want, cur)) return; showErr(e.message); $("views").innerHTML = ""; }
@@ -5571,7 +5571,7 @@ async function loadBonus(){
     var out = await call("bonus.list", {});
     if (!stillWanted(want, cur)) return;
     BT.loading = false;
-    BT.level = out.level; BT.rows = out.rows || []; BT.inApp = out.inApp || {};
+    BT.level = out.level; BT.rows = out.rows || []; BT.inApp = out.inApp || {}; bonusRemember();
     BT.person = null; // a popup left open last visit has no business reappearing
 
     /* Open on this month. It is the one being asked about nine times in ten
@@ -5719,6 +5719,9 @@ async function bonusSave(id){
         if (btn.isConnected) { btn.textContent = "Save"; btn.disabled = false; }
       }, 1400);
     }
+    /* A wedding that has just become secured (contract and deposit both in): offer the wedding app, then the bottle label. */
+    var nowSecured = bonusSecured(r), wasSecured = r._wasSecured === true; r._wasSecured = nowSecured;
+    if (nowSecured && !wasSecured && /wedding/i.test(r.event_type || "") && BT.level === "edit") bonusSecuredFlow(r);
   } catch (e) {
     showErr(e.message);
     if (btn) { btn.disabled = false; btn.textContent = "Save"; }
@@ -5835,6 +5838,48 @@ async function bonusToApp(id){
     }
     if (btn) { btn.disabled = false; btn.textContent = label; }
   }
+}
+
+/* ---------- a booking has just been secured: the wedding app, then the bottle label ---------- */
+function bonusRemember(){ (BT.rows || []).forEach(function(r){ r._wasSecured = bonusSecured(r); }); }
+
+function bonusAsk(title, text, yes, no){
+  return new Promise(function(resolve){
+    var bg = document.createElement("div");
+    bg.style.cssText = "position:fixed;inset:0;background:rgba(38,38,38,.55);z-index:9998;display:flex;align-items:center;justify-content:center;padding:16px";
+    bg.innerHTML = '<div role="dialog" aria-modal="true" style="background:#fff;border-radius:12px;max-width:460px;width:100%;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,.35)">' +
+      '<h2 style="margin:0 0 8px;font-size:24px">' + esc(title) + '</h2><p style="margin:0 0 18px;line-height:1.5">' + text + '</p>' +
+      '<div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn btn--primary" id="baYes">' + esc(yes) + '</button><button class="btn" id="baNo">' + esc(no) + '</button></div></div>';
+    document.body.appendChild(bg);
+    function done(v){ if (bg.parentNode) bg.parentNode.removeChild(bg); resolve(v); }
+    bg.querySelector("#baYes").onclick = function(){ done(true); };
+    bg.querySelector("#baNo").onclick = function(){ done(false); };
+    bg.querySelector("#baYes").focus();
+  });
+}
+
+function bonusLabelCore(){
+  if (window.BHBLabel) return Promise.resolve();
+  return new Promise(function(res, rej){
+    var sc = document.createElement("script"); sc.src = "/prosecco-label/label-core.js?v=20261019";
+    sc.onload = res; sc.onerror = function(){ rej(new Error("The label printer could not be loaded just now.")); };
+    document.head.appendChild(sc);
+  });
+}
+
+async function bonusSecuredFlow(r){
+  var who = r.booking_name || [r.partner1_name, r.partner2_name].filter(Boolean).join(" & ") || "This wedding";
+  try {
+    if (!bonusApp(r)) {
+      var addApp = await bonusAsk("Booking secured", "<strong>" + esc(who) + "</strong> is now secured. Add them to the wedding app?", "Yes, add to the wedding app", "Not now");
+      if (addApp) await bonusToApp(r.id);
+    }
+    var label = await bonusAsk("Bottle label", "Print the congratulations label for their bottle of prosecco?", "Yes, print the label", "No thanks");
+    if (!label) return;
+    await bonusLabelCore();
+    var haveNames = (r.partner1_name || "").trim() || (r.partner2_name || "").trim();
+    BHBLabel.openDialog({ partner1: r.partner1_name || "", partner2: r.partner2_name || "", names: haveNames ? "" : who, date: r.event_date || "" });
+  } catch (e) { showErr(e.message); }
 }
 
 /* ---------- what the tracker adds up to ---------- */
@@ -7402,7 +7447,7 @@ var TrackerApp = (function(){
     try{
       if(BT.level === null){
         const out = await call("bonus.list", {});
-        BT.level = out.level; BT.rows = out.rows || []; BT.inApp = out.inApp || {};
+        BT.level = out.level; BT.rows = out.rows || []; BT.inApp = out.inApp || {}; bonusRemember();
       }
     }catch(e){ return; }                              // no access to the bonus tracker: no button
     if(S.editing !== r) return;                      // the drawer moved on while we asked
@@ -7420,7 +7465,7 @@ var TrackerApp = (function(){
     b.disabled = true; b.textContent = "Adding…";
     try{
       const fresh = await call("bonus.list", {});                     // in case it was added from somewhere else a moment ago
-      BT.level = fresh.level; BT.rows = fresh.rows || []; BT.inApp = fresh.inApp || {};
+      BT.level = fresh.level; BT.rows = fresh.rows || []; BT.inApp = fresh.inApp || {}; bonusRemember();
       const m = bonusMatch({ ...r, name, event_date: v("event_date"), guestline_event_id: v("guestline_event_id") });
       if(m){ toast("Already on the bonus tracker."); bonusButton(r); return; }
       const parts = name.split(/\s+(?:&|and|\+)\s+/i);
