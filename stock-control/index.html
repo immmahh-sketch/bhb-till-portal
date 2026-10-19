@@ -60,6 +60,11 @@ table.t tr.cat td{background:var(--sage-10); font-family:var(--display); font-si
 .count{display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px 14px; padding:12px 14px; border-bottom:1px solid var(--mist); align-items:center}
 .count .nm{font-weight:600} .count .sub{font-size:12px; color:var(--sage-70)} .count .ins{display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-end}
 .count input{width:92px; min-height:46px; font-size:18px; text-align:center; border:1px solid var(--celadon); border-radius:8px} .count .ok{color:var(--good); font-size:12px; font-weight:700; min-width:60px; text-align:right}
+.count .plus{min-width:46px; min-height:46px; padding:0; font-size:24px; font-weight:700; line-height:1; color:var(--sage)}
+.count .addbox{grid-column:1 / -1; display:flex; gap:8px; align-items:center; flex-wrap:wrap; background:var(--sage-10); border-radius:10px; padding:10px 12px}
+.count .addbox .prev{font-size:14px; font-weight:700; color:var(--sage); min-width:90px}
+.count .delp{background:none; border:0; padding:0; margin:4px 0 0; color:var(--sage-70); font-size:12px; text-decoration:underline; text-underline-offset:3px; cursor:pointer; min-height:28px}
+.count .delp:hover{color:var(--red)}
 @media(max-width:700px){ .count{grid-template-columns:1fr} .count .ins{justify-content:flex-start} }
 details.sec{background:#fff; border-radius:var(--radius); box-shadow:var(--shadow); margin-bottom:14px} details.sec>summary{padding:14px 18px; cursor:pointer; font-family:var(--display); font-size:24px; color:var(--sage); list-style:none} details.sec>summary::-webkit-details-marker{display:none} details.sec>summary::before{content:"+ "; color:var(--gold)} details.sec[open]>summary::before{content:"- "} details.sec>.in{padding:0 18px 16px}
 .chk{display:flex; gap:8px; align-items:center; font-size:14px; cursor:pointer}
@@ -199,13 +204,14 @@ function renderCount(keepFocus){
   for (const p of shown) {
     if ((p.category || "Other") !== cat) { cat = p.category || "Other"; rows += `<div class="count" style="background:var(--sage-10)"><b style="font-family:var(--display);font-size:18px;color:var(--sage)">${esc(cat)}</b><span></span></div>`; }
     const key = S.area + "|" + p.id, c = S.counts.get(key), cm = S.casesMode.has(key) && p.case_size;
-    rows += `<div class="count" data-key="${key}"><div><div class="nm">${esc(p.name)}</div><div class="sub">${esc(UOM[p.uom])}${p.case_size ? ` · case of ${p.case_size}` : ""}${!p.areas.includes(S.area) ? " · not normally kept here" : ""}${c ? ` · counted ${fnum(c.units)} by ${esc(c.counted_by || "?")}` : ""}</div></div>
+    rows += `<div class="count" data-key="${key}"><div><div class="nm">${esc(p.name)}</div><div class="sub">${esc(UOM[p.uom])}${p.case_size ? ` · case of ${p.case_size}` : ""}${!p.areas.includes(S.area) ? " · not normally kept here" : ""}${c ? ` · counted ${fnum(c.units)}${c.trail ? ` (${esc(c.trail)})` : ""} by ${esc(c.counted_by || "?")}` : ""}</div>${S.me && S.me.edit ? `<button class="delp" data-act="retire" data-id="${p.id}" aria-label="Delete ${esc(p.name)} from the count sheet">Delete product</button>` : ""}</div>
       <div class="ins">${p.case_size ? `<button class="chip" data-act="cases" data-key="${key}" aria-pressed="${!!cm}" style="min-height:40px">${cm ? "Counting in cases" : "Count in cases"}</button>` : ""}
       ${cm ? `<input data-f="cases" inputmode="decimal" placeholder="cases" value="${c && c.cases !== null ? fnum(c.cases) : ""}" aria-label="Cases of ${esc(p.name)}"><span class="sub">cases +</span><input data-f="loose" inputmode="decimal" placeholder="loose" value="${c && c.loose !== null ? fnum(c.loose) : ""}" aria-label="Loose units of ${esc(p.name)}">`
-        : `<input data-f="loose" inputmode="decimal" placeholder="${esc(UOM[p.uom].toLowerCase())}" value="${c ? fnum(c.units) : ""}" aria-label="Count of ${esc(p.name)}">`}<span class="ok" data-ok></span></div></div>`;
+        : `<input data-f="loose" inputmode="decimal" placeholder="${esc(UOM[p.uom].toLowerCase())}" value="${c ? fnum(c.units) : ""}" aria-label="Count of ${esc(p.name)}">`}<button class="chip plus" data-act="plus" data-key="${key}" aria-label="Add to the count of ${esc(p.name)}" title="Found more somewhere else? Add it to this count">+</button><span class="ok" data-ok></span></div>
+      ${S.plusKey === key ? `<div class="addbox" data-addkey="${key}"><span class="sub">Counted so far <b>${fnum(c ? c.units : 0)}</b>. Add:</span>${cm ? `<input data-add="cases" inputmode="decimal" placeholder="cases" aria-label="Cases to add"><span class="sub">cases +</span><input data-add="loose" inputmode="decimal" placeholder="loose" aria-label="Loose units to add">` : `<input data-add="loose" inputmode="decimal" placeholder="${esc(UOM[p.uom].toLowerCase())}" aria-label="Amount to add">`}<span class="prev" data-prev></span><button class="btn small" data-act="plusgo" data-key="${key}">Add to count</button><button class="btn small ghost" data-act="pluscancel">Cancel</button></div>` : ""}</div>`;
   }
   $("#views").innerHTML = `<div class="pagehead"><h2>Stocktake</h2><span class="small muted">${esc(S.period ? S.period.name : "")}</span></div>
-    <p class="lead">Pick an area, find a product and enter what is there. A count saves as soon as you leave the box. Counting the same product again replaces the earlier count for that area.</p>
+    <p class="lead">Pick an area, find a product and enter what is there. A count saves as soon as you leave the box. Typing in the box replaces the count for that area. Found more of it on another shelf? Press <b>+</b> and add it to what is already counted.</p>
     <div class="card"><div class="row-actions" style="margin:0 0 12px">${S.areas.map(x => `<button class="chip" data-act="area" data-id="${x.id}" aria-pressed="${x.id === S.area}">${esc(x.name)}</button>`).join("")}</div>
       <div class="field" style="margin:0"><input class="in" id="c_q" type="search" placeholder="Start typing a product to find it…" value="${esc(S.q)}" aria-label="Find a product"></div>
       <label class="chk" style="margin-top:10px"><input type="checkbox" id="c_all"${S.all ? " checked" : ""}> Also show products that are not set up for ${esc(a ? a.name : "this area")}</label>
@@ -661,6 +667,28 @@ document.addEventListener("click", async e => {
     if (a === "del") { await call("usage.delete", { id:b.dataset.id }); S.daily.rows = S.daily.rows.filter(r => r.id !== b.dataset.id); toast("Removed."); return renderDaily(); }
     if (a === "area") { S.area = b.dataset.id; return renderCount(); }
     if (a === "cases") { const k = b.dataset.key; if (S.casesMode.has(k)) S.casesMode.delete(k); else S.casesMode.add(k); return renderCount(); }
+    if (a === "plus") { S.plusKey = S.plusKey === b.dataset.key ? null : b.dataset.key; renderCount(); const first = document.querySelector(`.addbox [data-add]`); if (first) first.focus(); return; }
+    if (a === "pluscancel") { S.plusKey = null; return renderCount(); }
+    if (a === "plusgo") {
+      const key = b.dataset.key, [area, product] = key.split("|"), box = b.closest(".addbox");
+      const val = f => { const el = box.querySelector(`[data-add="${f}"]`); if (!el || el.value.trim() === "") return null; const n = Number(el.value.replace(/,/g, "")); return isFinite(n) ? n : NaN; };
+      const cases = val("cases"), loose = val("loose");
+      if (Number.isNaN(cases) || Number.isNaN(loose) || (cases !== null && cases < 0) || (loose !== null && loose < 0)) return toast("That is not a number.", true);
+      if (cases === null && loose === null) return toast("Enter how many to add.", true);
+      b.disabled = true; const r = await call("count.add", { area_id:area, product_id:product, cases, loose });
+      S.counts.set(key, { area_id:area, product_id:product, cases:r.cases, loose:r.loose, units:r.units, trail:r.trail, counted_by:S.me.name });
+      if (r.cases !== null && r.cases !== undefined) S.casesMode.add(key);
+      S.plusKey = null; toast(`${fnum(r.before)} + ${fnum(r.added)} = ${fnum(r.units)}`); return renderCount();
+    }
+    if (a === "retire") {
+      const p = productById(b.dataset.id); if (!p) return;
+      return openModal(`<h2>Delete ${esc(p.name)}?</h2><p>It comes off the count sheet and the stock report, and any count of it in this stock period is cleared.</p><p class="small muted">It comes back by itself when an invoice dated after today lists it. If you need it sooner, tick Active on it in Stocktake - Admin.</p><div class="row-actions"><button class="btn danger" data-act="retireyes" data-id="${p.id}">Yes, delete it</button><button class="btn ghost" data-act="close">Keep it</button></div>`);
+    }
+    if (a === "retireyes") {
+      b.disabled = true; const p = productById(b.dataset.id); await call("product.retire", { product_id:b.dataset.id });
+      if (p) { p.active = false; p.retired_by = S.me.name; } for (const k of [...S.counts.keys()]) if (k.split("|")[1] === b.dataset.id) S.counts.delete(k);
+      closeModal(); toast(`${p ? p.name : "Product"} deleted from the count sheet.`); return renderCount();
+    }
     if (a === "csv") return reportCsv();
     if (a === "pdf") return reportPdf(b);
     if (a === "lock") return lockStock(b);
@@ -714,6 +742,9 @@ $("#filepick").addEventListener("change", async e => {
     startMapper(S.pickKind, rows, f, S.pickSupplier, saved, meta);
   } catch(err){ toast("Could not read that file: " + (err.message || err), true); }
 });
+document.addEventListener("keydown", e => {
+  if (e.key === "Enter" && e.target.dataset && e.target.dataset.add !== undefined) { e.preventDefault(); const go = e.target.closest(".addbox").querySelector('[data-act="plusgo"]'); if (go) go.click(); }
+});
 document.addEventListener("input", e => {
   const t = e.target;
   if (S.tab && DAILY[S.tab] && S.daily) {
@@ -723,6 +754,12 @@ document.addEventListener("input", e => {
   }
   if (t.id === "rc_q") { S.rc.q = t.value; S.openSec = openState(); S.openSec.recipes = true; renderAdmin(); const n = $("#rc_q"); if (n) { n.focus(); n.setSelectionRange(n.value.length, n.value.length); } return; }
   if (t.id === "c_q") { S.q = t.value; renderCount(true); }
+  if (t.dataset && t.dataset.add !== undefined) {
+    const box = t.closest(".addbox"), key = box.dataset.addkey, [, product] = key.split("|"), p = productById(product), c = S.counts.get(key);
+    const n = f => { const el = box.querySelector(`[data-add="${f}"]`); const v = el && el.value.trim() !== "" ? Number(el.value.replace(/,/g, "")) : 0; return isFinite(v) ? v : 0; };
+    const add = n("cases") * (p && p.case_size ? p.case_size : 0) + n("loose"), prev = box.querySelector("[data-prev]");
+    if (prev) prev.textContent = add ? `= ${fnum((c ? c.units : 0) + add)}` : "";
+  }
   if (t.id === "p_q") { S.adm.q = t.value; const wrap = t.closest(".in"); S.openSec = openState(); renderAdmin(); const n = $("#p_q"); if (n) { n.focus(); n.setSelectionRange(n.value.length, n.value.length); } }
 });
 document.addEventListener("change", async e => {
@@ -735,7 +772,7 @@ document.addEventListener("change", async e => {
   try {
     if (S.tab && DAILY[S.tab] && S.daily) { if (t.id === "d_product") { S.daily.product = t.value; S.daily.unit = unitsFor(productById(t.value))[0]; const u = $("#d_unit"); if (u) u.innerHTML = unitOptions(productById(t.value), S.daily.unit); } if (t.id === "d_unit") S.daily.unit = t.value; if (t.id === "d_reason") S.daily.reason = t.value; }
     if (t.id === "c_all") { S.all = t.checked; return renderCount(); }
-    const crow = t.closest(".count[data-key]"); if (crow && t.matches("input")) return saveCount(crow);
+    const crow = t.closest(".count[data-key]"); if (crow && t.matches("input:not([data-add])")) return saveCount(crow);
     if (t.id === "r_period") { S.repPeriod = t.value; return loadReport(); }
     if (t.id === "r_sort") { S.repSort = t.value; return renderReport(); }
     if (t.id === "r_only") { S.repOnly = t.checked; return renderReport(); }
