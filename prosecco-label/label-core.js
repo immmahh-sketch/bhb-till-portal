@@ -17,9 +17,9 @@
       dateFormat: "long", maxTextW: 92,
       venues: ["Orchard Marquee", "George Ridley Suite"],
       lines: [
-        { text: "{names}", font: "Raleway", size: 17, weight: 400, color: "#FFFFFF", y: 38.0 },
-        { text: "You’ve booked your wedding!", font: "Raleway", size: 11, weight: 400, color: "#FFFFFF", y: 43.8 },
-        { text: "We can’t wait to help you celebrate on {date}", font: "Raleway", size: 9.5, weight: 400, color: "#FFFFFF", y: 49.4 },
+        { text: "{names}", font: "Raleway", size: 19, weight: 400, color: "#FFFFFF", y: 39.2 },
+        { text: "You’ve booked your wedding!", font: "Raleway", size: 11, weight: 400, color: "#FFFFFF", y: 44.5 },
+        { text: "{date}", font: "Raleway", size: 10.5, weight: 600, color: "#FFFFFF", y: 49.3 },
         { text: "{venue}", font: "Raleway", size: 10, weight: 400, color: "#C4C7AF", y: 58.4 },
         { text: "Red Row Estate, Beamish", font: "Raleway", size: 10, weight: 400, color: "#C4C7AF", y: 62.8 }
       ]
