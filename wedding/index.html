@@ -5865,7 +5865,7 @@ function viewChat(){
         '<textarea id="chatIn" rows="1" maxlength="2000" placeholder="Write a message"></textarea>' +
         '<button type="submit" class="btn btn--primary cbtn" id="chatSend" disabled>Send</button>' +
       '</form>' +
-      (finePointer() ? '<p class="chint muted">Enter sends. Shift and Enter starts a new line.</p>' : '');
+      (finePointer() ? '<p class="chint muted">Enter starts a new line. Your message only goes when you press Send.</p>' : '');
   }
   h += '</div></div>';
   return h;
@@ -5902,11 +5902,7 @@ function bindChat(){
   var ta = $("chatIn"), form = $("chatForm");
   if (!ta || !form) return;
   ta.addEventListener("input", function(){ chatSyncSend(); chatGrow(); });
-  ta.addEventListener("keydown", function(ev){
-    if (ev.key !== "Enter" || ev.isComposing || ev.shiftKey) return;
-    // A phone's Enter is a new line; a keyboard's Enter sends.
-    if (finePointer() || ev.ctrlKey || ev.metaKey) { ev.preventDefault(); chatSend(); }
-  });
+  // Enter always starts a new line, on a phone and on a keyboard: the message only goes when Send is pressed.
   form.addEventListener("submit", function(ev){ ev.preventDefault(); chatSend(); });
 }
 
