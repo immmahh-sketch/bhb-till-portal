@@ -556,6 +556,9 @@ const hkKind = r => {
 };
 const kindLabel = k => k === "stayover" ? "Stay over" : k === "setup" ? "Set up" : k === "departure" ? "Departure" : "Needs nothing";
 const peopleOf = t => Array.isArray(t.cleaners) ? t.cleaners : (t.cleaner ? [t.cleaner] : []);
+/* A room's time is shared between the people cleaning it: 40 minutes with two people is 20 minutes each, with three about 13. */
+const shareOf = t => (S.day && S.day.share_minutes === false) ? 1 : Math.max(1, peopleOf(t).length);
+const eachMins = t => (+t.minutes || 0) / shareOf(t);
 const pkey = p => p.planday_id ? "p" + p.planday_id : p.email ? "e" + String(p.email).toLowerCase() : "n" + String(p.name).toLowerCase();
 const teamByName = n => S.teams.find(x => x.name === n);
 const sameSet = (a, b) => a.length === b.length && a.every(p => b.some(q => sameP(p, q)));
@@ -618,12 +621,12 @@ function cardHtml(t){
   const id = esc(t.id), cleaned = !!t.cleaned_at, checked = !!t.checked_at, gone = !!t.gone, conf = S.ui.confirm[t.id];
   const cls = ["rm", t.kind, cleaned ? "cl" : "", checked ? "ck" : "", gone ? "gone" : ""].filter(Boolean).join(" ");
   const badges = (gone ? `<span class="badge gone">No longer on the report</span>` : "") + (t.manual ? `<span class="badge manual">Added by hand</span>` : "") + (t.issues > 0 ? `<button type="button" class="badge issue" data-act="issues" data-id="${esc(t.id)}" title="See what was logged">${plural(t.issues, "maintenance issue")}</button>` : "");
-  const took = t.took_minutes != null ? ` Took ${fmtMins(t.took_minutes)}${t.minutes ? " (allowed " + fmtMins(t.minutes) + ")" : ""}.` : "";
+  const took = t.took_minutes != null ? ` Took ${fmtMins(t.took_minutes)}${t.minutes ? " (allowed " + fmtMins(eachMins(t)) + (shareOf(t) > 1 ? " with " + shareOf(t) + " people" : "") + ")" : ""}.` : "";
   const startedTxt = t.started_at ? `Started at ${esc(fmtTime(t.started_at))}${t.started_by ? " by " + esc(t.started_by) : ""}.` : "";
   let status;
   if (checked) status = `<div class="stline done">${t.feedback === "ok" ? "Thumbs up from" : "Checked by"} ${esc(t.checked_by || "the head housekeeper")} at ${esc(fmtTime(t.checked_at))}</div><div class="stsub">${startedTxt} Cleaned at ${esc(fmtTime(t.cleaned_at))} by ${esc(t.cleaned_by || "a cleaner")}.${took}${t.check_note ? " Note: " + esc(t.check_note) : ""}</div>`;
   else if (cleaned) status = `<div class="stline ok">Cleaned at ${esc(fmtTime(t.cleaned_at))} by ${esc(t.cleaned_by || "a cleaner")}</div><div class="stsub">${startedTxt}${took} ${t.feedback === "fix" ? "" : "Waiting to be checked"}</div>`;
-  else if (t.started_at) status = `<div class="stline ok">Started at ${esc(fmtTime(t.started_at))} <span class="elapsed" data-since="${esc(t.started_at)}">${esc(elapsedTxt(t.started_at))}</span></div><div class="stsub">${t.started_by ? "Started by " + esc(t.started_by) + ". " : ""}Timer running${t.minutes ? ", allowed " + esc(fmtMins(t.minutes)) : ""}</div>`;
+  else if (t.started_at) status = `<div class="stline ok">Started at ${esc(fmtTime(t.started_at))} <span class="elapsed" data-since="${esc(t.started_at)}">${esc(elapsedTxt(t.started_at))}</span></div><div class="stsub">${t.started_by ? "Started by " + esc(t.started_by) + ". " : ""}Timer running${t.minutes ? ", allowed " + esc(fmtMins(eachMins(t))) + (shareOf(t) > 1 ? " (" + shareOf(t) + " people)" : "") : ""}</div>`;
   else status = `<div class="stline todo">Not started</div>`;
   if (cleaned && t.feedback === "fix") status += `<div class="fbline fix"><b>Needs correcting:</b> ${esc(t.feedback_note || "")}</div>` + (t.fixed_at ? `<div class="fbline fixed">${esc(t.fixed_by || "The cleaner")} says it is fixed (${esc(fmtTime(t.fixed_at))}). Please look again.</div>` : `<div class="stsub">Waiting for the cleaner to fix it</div>`);
   let acts = "";
@@ -652,7 +655,7 @@ function cardHtml(t){
       <textarea class="hknote" id="n_${id}" data-fk="n:${id}" data-note="${id}" maxlength="600" placeholder="Add a note for the cleaner"${gone ? " disabled" : ""}>${esc(S.ui.noteDirty[t.id] ? S.ui.noteDraft[t.id] : (t.note || ""))}</textarea>`;
   return `<article class="${cls}" data-id="${id}" data-sig="${sigOf(t)}" aria-label="Room ${esc(t.room)}">
     <div class="c-room"><div class="roomtop"><span class="rno">${esc(t.room)}</span><span class="rname">${esc(t.name || "")}</span></div>
-      <div class="roommeta"><span class="pill ${esc(t.kind)}">${esc(kindLabel(t.kind))}</span><span class="mins">${esc(fmtMins(t.minutes))}</span></div>
+      <div class="roommeta"><span class="pill ${esc(t.kind)}">${esc(kindLabel(t.kind))}</span><span class="mins">${esc(fmtMins(eachMins(t)))}${shareOf(t) > 1 ? " each" : ""}</span>${shareOf(t) > 1 ? `<span class="teamlbl" style="margin:0 0 0 4px">${esc(fmtMins(t.minutes))} room, shared by ${shareOf(t)}</span>` : ""}</div>
       ${badges ? `<div class="roommeta">${badges}</div>` : ""}</div>
     <div class="c-guest"><span class="ml">Guests</span>${guestHtml(t)}</div>
     <div class="c-notes">${noteCell}</div>
