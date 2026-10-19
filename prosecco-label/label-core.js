@@ -186,8 +186,7 @@
     var cfg = S.settings, n = cfg.sheet.cols * cfg.sheet.rows;
     var st = { p1: nm[0], p2: nm[1], date: opts.date || "", pos: 0, busy: false }, vs = cfg.design.venues || [];
     st.venue = vs.filter(function (v) { return opts.venue && String(opts.venue).toLowerCase().replace(/[^a-z]/g, "").indexOf(v.toLowerCase().replace(/[^a-z]/g, "").slice(0, 6)) > -1; })[0] || vs[0] || "";
-    function firstFree() { for (var p = 1; p <= n; p++) if (cfg.used.indexOf(p) < 0) return p; return 1; }
-    st.pos = firstFree();
+    st.pos = 1;
     el.innerHTML = '<div class="lbl"><div>' +
       '<div class="two"><div class="f"><label for="lbl_p1">Partner 1</label><input id="lbl_p1" autocomplete="off" value="' + esc(st.p1) + '"></div><div class="f"><label for="lbl_p2">Partner 2</label><input id="lbl_p2" autocomplete="off" value="' + esc(st.p2) + '"></div></div>' +
       '<div class="f"><label for="lbl_date">Wedding date</label><input id="lbl_date" type="date" value="' + esc(st.date) + '"></div>' +
@@ -196,7 +195,7 @@
       '<div class="lblbtns"><button type="button" class="lblbtn" id="lbl_print">Print label</button><button type="button" class="lblbtn ghost" id="lbl_pdf">Open as PDF</button>' + (opts.onCancel ? '<button type="button" class="lblbtn ghost" id="lbl_cancel">' + esc(opts.cancelText || "Close") + '</button>' : '') + '</div>' +
       '<div id="lbl_msg"></div></div>' +
       '<div><div style="font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#7B887C;margin:0 0 8px">Which label on the sheet?</div><div id="lbl_pick"></div>' +
-      '<p class="lblhint" style="text-align:center">Tap the label you want to print on. After each print it moves on to the next one. <button type="button" class="lbllink" id="lbl_fresh">Start again at 1</button></p></div></div>';
+      '<p class="lblhint" style="text-align:center">Tap the label on the sheet you want to print on.</p></div></div>';
     var $ = function (id) { return el.querySelector("#" + id); };
     function data() { return { names: joinNames($("lbl_p1").value, $("lbl_p2").value), dateIso: $("lbl_date").value, venue: st.venue }; }
     function venueBtns() { $("lbl_venue").innerHTML = (cfg.design.venues || []).map(function (v) { return '<button type="button" class="lblvbtn' + (v === st.venue ? " on" : "") + '" data-venue="' + esc(v) + '" aria-pressed="' + (v === st.venue) + '">' + esc(v) + '</button>'; }).join(""); }
@@ -209,7 +208,6 @@
     function msg(kind, text) { $("lbl_msg").innerHTML = text ? '<div class="lblmsg ' + kind + '" role="status">' + text + '</div>' : ""; }
     el.addEventListener("input", paint); paint();
     el.addEventListener("click", function (e) { var c = e.target.closest(".lblcell"); if (c) { st.pos = +c.getAttribute("data-pos"); paint(); } var vb = e.target.closest(".lblvbtn"); if (vb) { st.venue = vb.getAttribute("data-venue"); paint(); } });
-    $("lbl_fresh").addEventListener("click", async function () { try { await api("used.save", { used: [] }); cfg.used = []; st.pos = 1; paint(); msg("ok", "Back to position 1."); } catch (e) { msg("bad", esc(e.message)); } });
     if ($("lbl_cancel")) $("lbl_cancel").addEventListener("click", function () { opts.onCancel(); });
     $("lbl_pdf").addEventListener("click", function () {
       var d = data(); if (!d.names || !d.dateIso) return;
@@ -223,7 +221,7 @@
         var page = renderSheet(cfg, S.bg, d, st.pos, "label", 300);
         var r = await api("job.create", { names: d.names, date: d.dateIso, position: st.pos, page_png: pngBase64(page), kind: "label", source: opts.source || "app", enquiry_id: opts.enquiryId || null, copies: cfg.printer.copies || 1 });
         if (cfg.used.indexOf(st.pos) < 0) cfg.used.push(st.pos);
-        var printedPos = st.pos; st.pos = firstFree(); paint();
+        var printedPos = st.pos; paint();      // the selection stays where it is
         if (!r.agent_online) msg("warn", "In the queue, but the office print agent has not been seen for a while, so it may not print until the office PC is on. You can also use <b>Open as PDF</b>.");
         await watch(r.id, printedPos);
       } catch (e) { msg("bad", esc(e.message)); }
