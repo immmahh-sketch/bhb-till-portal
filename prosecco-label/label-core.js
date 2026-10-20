@@ -10,7 +10,7 @@
 
   var NAME_FONTS = ["Raleway", "Cormorant Garamond", "Georgia", "Arial"];
   var DEFAULTS = {
-    sheet: { cols: 2, rows: 4, labelW: 99.1, labelH: 67.7, firstX: 4.65, firstY: 13.1, pitchX: 101.6, pitchY: 67.7 },   // 8 per A4 page, measured from a photo of the blank sheet (die-cut lines)
+    sheet: { cols: 2, rows: 4, labelW: 100.6, labelH: 67.7, firstX: 3.9, firstY: 13.1, pitchX: 101.6, pitchY: 67.7 },   // 8 per A4 page, measured from a photo of the blank sheet (die-cut lines)
     adjust: { offsetX: 0, offsetY: 0, scale: 100 },
     printer: { name: "Office Printer", copies: 1 },
     design: {
@@ -150,7 +150,7 @@
     if (ST.loaded && !force) return ST.loaded;
     ST.loaded = api("boot").then(async function (d) {
       ST.me = d.me; ST.settings = merge(DEFAULTS, d.settings); ST.agent = d.agent || ST.agent; ST.design = d.design || null;
-      ST.bg = await loadImage(d.design ? "data:image/png;base64," + d.design.png : BASE + "label-bg.png?v=20261020c");
+      ST.bg = await loadImage(d.design ? "data:image/png;base64," + d.design.png : BASE + "label-bg.png?v=20261021");
       await loadFonts(ST.settings); return ST;
     }).catch(function (e) { ST.loaded = null; throw e; });
     return ST.loaded;
