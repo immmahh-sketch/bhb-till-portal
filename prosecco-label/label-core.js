@@ -174,11 +174,19 @@
     ".lblseg{display:flex;gap:8px;flex-wrap:wrap}.lblvbtn{flex:1 1 140px;min-height:46px;border:2px solid #C1C8B4;background:#fff;color:#4E5F4F;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;padding:0 12px}.lblvbtn.on{background:#4E5F4F;border-color:#4E5F4F;color:#fff}" +
     ".lblprev{display:block;width:100%;max-width:520px;height:auto;border-radius:3px;box-shadow:0 1px 2px rgba(38,38,38,.1),0 6px 18px rgba(38,38,38,.12);margin:0 0 10px}" +
     ".lblbtns{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0 0}.lblbtn{border:2px solid #4E5F4F;background:#4E5F4F;color:#fff;border-radius:10px;min-height:52px;padding:0 22px;font-size:14px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer}.lblbtn.ghost{background:#fff;color:#4E5F4F}.lblbtn:disabled{opacity:.55;cursor:default}" +
-    ".lblmsg{margin:12px 0 0;padding:10px 12px;border-radius:8px;font-size:14px;background:#EDEFED}.lblmsg.ok{background:#EDF2ED;color:#2F5B31}.lblmsg.bad{background:#F6EAE8;color:#8C4A3F}.lblmsg.warn{background:#F7F0E4;color:#7a5f36}.lblhint{font-size:12px;color:#7B887C;margin:6px 0 0}.lbllink{background:none;border:0;padding:0;color:#4E5F4F;text-decoration:underline;cursor:pointer;font-size:13px}";
+    ".lblmsg{margin:12px 0 0;padding:10px 12px;border-radius:8px;font-size:14px;background:#EDEFED}.lblmsg.ok{background:#EDF2ED;color:#2F5B31}.lblmsg.bad{background:#F6EAE8;color:#8C4A3F}.lblmsg.warn{background:#F7F0E4;color:#7a5f36}.lblhint{font-size:12px;color:#7B887C;margin:6px 0 0}.lblload{display:flex;gap:14px;align-items:center;margin-top:14px;padding:12px 14px;border-radius:10px;background:#F7F0E4;color:#5c4a28;font-size:13.5px;line-height:1.45}.lblload svg{flex:0 0 auto}.lblload ol{margin:4px 0 0;padding-left:18px}.lblload li{margin:2px 0}.lbllink{background:none;border:0;padding:0;color:#4E5F4F;text-decoration:underline;cursor:pointer;font-size:13px}";
   function injectCss() { if (document.getElementById("lblcss")) return; var s = document.createElement("style"); s.id = "lblcss"; s.textContent = CSS; document.head.appendChild(s); }
 
   // ------------------------------------------------------------------ the printing component (used inline in the tile, and in a dialog from Weddings and events)
   function esc(v) { return String(v == null ? "" : v).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+  /* How the sheet goes into the printer, shown wherever someone is about to print. */
+  function loadingHelpHtml() {
+    var cells = ""; for (var i = 0; i < 8; i++) { var c = i % 2, r = Math.floor(i / 2); cells += '<rect x="' + (13 + c * 24) + '" y="' + (15 + r * 17) + '" width="23" height="16" rx="2" fill="#E3E8E1" stroke="#7B887C" stroke-width=".8"/><text x="' + (24.5 + c * 24) + '" y="' + (26 + r * 17) + '" font-size="8" text-anchor="middle" fill="#3B483C" font-weight="700">' + (i + 1) + '</text>'; }
+    return '<div class="lblload"><svg viewBox="0 0 64 100" width="64" height="100" role="img" aria-label="The sheet, label side up, labels 1 and 2 at the end that goes into the printer first"><rect x="9" y="11" width="50" height="86" fill="#fff" stroke="#3B483C" stroke-width="1.2"/>' + cells +
+      '<path d="M34 9 L34 1 M30.5 4.5 L34 1 L37.5 4.5" stroke="#B3402F" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+      '<div><b>Loading the sheet</b><ol><li>Open <b>Tray 1</b>.</li><li>Labels <b>facing up</b>, the same way up as you read it on screen.</li><li><b>Labels 1 and 2</b> (the top edge) go in the printer <b>first</b>.</li></ol></div></div>';
+  }
+
   async function mount(el, opts) {
     opts = opts || {}; injectCss();
     el.innerHTML = '<p class="lblhint">Loading…</p>';
@@ -197,7 +205,7 @@
       '<div class="lblbtns"><button type="button" class="lblbtn" id="lbl_print">Print label</button><button type="button" class="lblbtn ghost" id="lbl_pdf">Open as PDF</button>' + (opts.onCancel ? '<button type="button" class="lblbtn ghost" id="lbl_cancel">' + esc(opts.cancelText || "Close") + '</button>' : '') + '</div>' +
       '<div id="lbl_msg"></div></div>' +
       '<div><div style="font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#7B887C;margin:0 0 8px">Which label on the sheet?</div><div id="lbl_pick"></div>' +
-      '<p class="lblhint" style="text-align:center">Tap the label on the sheet you want to print on.</p></div></div>';
+      '<p class="lblhint" style="text-align:center">Tap the label on the sheet you want to print on.</p>' + loadingHelpHtml() + '</div></div>';
     var $ = function (id) { return el.querySelector("#" + id); };
     function data() { return { names: joinNames($("lbl_p1").value, $("lbl_p2").value), dateIso: $("lbl_date").value, venue: st.venue }; }
     function venueBtns() { $("lbl_venue").innerHTML = (cfg.design.venues || []).map(function (v) { return '<button type="button" class="lblvbtn' + (v === st.venue ? " on" : "") + '" data-venue="' + esc(v) + '" aria-pressed="' + (v === st.venue) + '">' + esc(v) + '</button>'; }).join(""); }
@@ -270,6 +278,7 @@
       bg.style.cssText = "position:fixed;inset:0;background:rgba(38,38,38,.6);z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px";
       var lines = (o.lines || []).map(function (l) { return '<div style="padding:7px 0;border-top:1px solid #E7E7E7;font-size:15px"><span style="display:inline-block;min-width:96px;color:#7B887C;font-size:12px;letter-spacing:.08em;text-transform:uppercase">' + esc(l[0]) + '</span>' + esc(l[1]) + '</div>'; }).join("");
       bg.innerHTML = '<div style="background:#fff;border-radius:12px;max-width:440px;width:100%;padding:22px 22px 20px;box-shadow:0 20px 60px rgba(0,0,0,.4)"><h2 style="margin:0 0 6px;font-size:24px">' + esc(o.title || "Send to the printer?") + '</h2><p style="margin:0 0 12px;color:#4a4a4a;font-size:14px">' + esc(o.text || "") + '</p>' + lines +
+        '<div class="lblmsg warn" style="margin-top:14px;font-size:13px"><b>Check the paper:</b> Tray 1, labels facing up, labels 1 and 2 (top edge) in first.</div>' +
         '<div style="display:flex;gap:10px;margin-top:18px;flex-wrap:wrap"><button type="button" id="cp_go" class="btn" style="flex:1 1 160px">' + esc(o.button || "Send to printer") + '</button><button type="button" id="cp_no" class="btn ghost" style="flex:1 1 120px">Cancel</button></div></div>';
       document.body.appendChild(bg);
       function done(v) { document.removeEventListener("keydown", onKey, true); if (bg.parentNode) bg.parentNode.removeChild(bg); resolve(v); }
@@ -286,5 +295,5 @@
     var S = await load(); var page = renderSheet(S.settings, S.bg, {}, 1, "test", 300);
     return api("job.create", { names: "Alignment test", position: position || 1, page_png: pngBase64(page), kind: "test", source: "app" });
   }
-  window.BHBLabel = { api: api, load: load, state: ST, DEFAULTS: DEFAULTS, merge: merge, clone: clone, formatDate: formatDate, joinNames: joinNames, splitNames: splitNames, cellOrigin: cellOrigin, renderSheet: renderSheet, renderLabelOnly: renderLabelOnly, pngBase64: pngBase64, pdfBlob: pdfBlob, pickerHtml: pickerHtml, mount: mount, openDialog: openDialog, testPrint: testPrint, confirmPrint: confirmPrint, setDesignImage: setDesignImage, loadFonts: loadFonts, NAME_FONTS: NAME_FONTS, esc: esc, injectCss: injectCss };
+  window.BHBLabel = { api: api, load: load, state: ST, DEFAULTS: DEFAULTS, merge: merge, clone: clone, formatDate: formatDate, joinNames: joinNames, splitNames: splitNames, cellOrigin: cellOrigin, renderSheet: renderSheet, renderLabelOnly: renderLabelOnly, pngBase64: pngBase64, pdfBlob: pdfBlob, pickerHtml: pickerHtml, mount: mount, openDialog: openDialog, testPrint: testPrint, confirmPrint: confirmPrint, loadingHelpHtml: loadingHelpHtml, setDesignImage: setDesignImage, loadFonts: loadFonts, NAME_FONTS: NAME_FONTS, esc: esc, injectCss: injectCss };
 })();
