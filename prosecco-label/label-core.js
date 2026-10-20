@@ -114,7 +114,9 @@
     var c = document.createElement("canvas"); c.width = Math.round(A4W * pxPerMm); c.height = Math.round(A4H * pxPerMm);
     var ctx = c.getContext("2d"); ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height);
     var adj = settings.adjust; ctx.save(); ctx.translate(Number(adj.offsetX || 0) * pxPerMm, Number(adj.offsetY || 0) * pxPerMm); var sc = Number(adj.scale || 100) / 100; ctx.scale(sc, sc);
-    if (mode === "test") drawTest(ctx, settings, pxPerMm); else { var o = cellOrigin(settings.sheet, position); drawLabel(ctx, settings, bg, data, o.x, o.y, pxPerMm); }
+    if (mode === "test") drawTest(ctx, settings, pxPerMm);
+    else if (position === "all") { var n = Number(settings.sheet.cols) * Number(settings.sheet.rows); for (var p = 1; p <= n; p++) { var oc = cellOrigin(settings.sheet, p); drawLabel(ctx, settings, bg, data, oc.x, oc.y, pxPerMm); } }   // a sample in every position, to see whether anything bleeds into the next label
+    else { var o = cellOrigin(settings.sheet, position); drawLabel(ctx, settings, bg, data, o.x, o.y, pxPerMm); }
     ctx.restore(); return c;
   }
   function renderLabelOnly(canvas, settings, bg, data, widthPx) {
@@ -216,6 +218,8 @@
     });
     $("lbl_print").addEventListener("click", async function () {
       var d = data(); if (!d.names || !d.dateIso || st.busy) return;
+      var go = await confirmPrint({ title: "Send this label to the printer?", text: "Check these are right: it will print straight away.", lines: [["Couple", d.names], ["Date", formatDate(d.dateIso, "long")], ["Venue", st.venue || ""], ["Position", "Label " + st.pos + " on the sheet"], ["Printer", (cfg.printer && cfg.printer.name) || "Office Printer"]].filter(function (l) { return l[1]; }) });
+      if (!go) return;
       st.busy = true; paint(); msg("", "Sending to the printer…");
       try {
         var page = renderSheet(cfg, S.bg, d, st.pos, "label", 300);
@@ -258,9 +262,29 @@
     return { close: close, ready: ready };
   }
 
+  /* "Send to the printer?" - every route to the printer goes through this, so nothing prints by accident. Resolves true only on the Send button. */
+  function confirmPrint(o) {
+    injectCss(); o = o || {};
+    return new Promise(function (resolve) {
+      var bg = document.createElement("div"); bg.setAttribute("role", "dialog"); bg.setAttribute("aria-modal", "true");
+      bg.style.cssText = "position:fixed;inset:0;background:rgba(38,38,38,.6);z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px";
+      var lines = (o.lines || []).map(function (l) { return '<div style="padding:7px 0;border-top:1px solid #E7E7E7;font-size:15px"><span style="display:inline-block;min-width:96px;color:#7B887C;font-size:12px;letter-spacing:.08em;text-transform:uppercase">' + esc(l[0]) + '</span>' + esc(l[1]) + '</div>'; }).join("");
+      bg.innerHTML = '<div style="background:#fff;border-radius:12px;max-width:440px;width:100%;padding:22px 22px 20px;box-shadow:0 20px 60px rgba(0,0,0,.4)"><h2 style="margin:0 0 6px;font-size:24px">' + esc(o.title || "Send to the printer?") + '</h2><p style="margin:0 0 12px;color:#4a4a4a;font-size:14px">' + esc(o.text || "") + '</p>' + lines +
+        '<div style="display:flex;gap:10px;margin-top:18px;flex-wrap:wrap"><button type="button" id="cp_go" class="btn" style="flex:1 1 160px">' + esc(o.button || "Send to printer") + '</button><button type="button" id="cp_no" class="btn ghost" style="flex:1 1 120px">Cancel</button></div></div>';
+      document.body.appendChild(bg);
+      function done(v) { document.removeEventListener("keydown", onKey, true); if (bg.parentNode) bg.parentNode.removeChild(bg); resolve(v); }
+      function onKey(e) { if (e.key === "Escape") { e.stopPropagation(); done(false); } }
+      document.addEventListener("keydown", onKey, true);
+      bg.querySelector("#cp_go").addEventListener("click", function () { done(true); });
+      bg.querySelector("#cp_no").addEventListener("click", function () { done(false); });
+      bg.addEventListener("mousedown", function (e) { if (e.target === bg) done(false); });
+      setTimeout(function () { var n = bg.querySelector("#cp_no"); if (n) n.focus(); }, 30);      // Enter cancels by default: sending takes a deliberate press
+    });
+  }
+
   async function testPrint(position) {
     var S = await load(); var page = renderSheet(S.settings, S.bg, {}, 1, "test", 300);
     return api("job.create", { names: "Alignment test", position: position || 1, page_png: pngBase64(page), kind: "test", source: "app" });
   }
-  window.BHBLabel = { api: api, load: load, state: ST, DEFAULTS: DEFAULTS, merge: merge, clone: clone, formatDate: formatDate, joinNames: joinNames, splitNames: splitNames, cellOrigin: cellOrigin, renderSheet: renderSheet, renderLabelOnly: renderLabelOnly, pngBase64: pngBase64, pdfBlob: pdfBlob, pickerHtml: pickerHtml, mount: mount, openDialog: openDialog, testPrint: testPrint, setDesignImage: setDesignImage, loadFonts: loadFonts, NAME_FONTS: NAME_FONTS, esc: esc, injectCss: injectCss };
+  window.BHBLabel = { api: api, load: load, state: ST, DEFAULTS: DEFAULTS, merge: merge, clone: clone, formatDate: formatDate, joinNames: joinNames, splitNames: splitNames, cellOrigin: cellOrigin, renderSheet: renderSheet, renderLabelOnly: renderLabelOnly, pngBase64: pngBase64, pdfBlob: pdfBlob, pickerHtml: pickerHtml, mount: mount, openDialog: openDialog, testPrint: testPrint, confirmPrint: confirmPrint, setDesignImage: setDesignImage, loadFonts: loadFonts, NAME_FONTS: NAME_FONTS, esc: esc, injectCss: injectCss };
 })();

@@ -61,7 +61,7 @@ table.lines input,table.lines select{min-height:38px; width:100%; min-width:62px
   <main class="shell" id="views"></main>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
-<script src="label-core.js?v=20261019"></script>
+<script src="label-core.js?v=20261020"></script>
 <script>
 (function () {
 "use strict";
@@ -103,7 +103,7 @@ function showPrint(v) {
 
 /* ------------------------------------------------------------- sent to print */
 async function showHistory(v) {
-  v.innerHTML = '<div class="pagehead"><h2>Sent to print</h2></div><p class="muted">Loading…</p>';
+  v.innerHTML = '<div class="pagehead"><h2>Sent to print</h2></div><p class="muted">Loadingâ€¦</p>';
   try {
     var d = await L.api("job.list"); S.hist = d.jobs; L.state.agent = d.agent;
     var pill = { queued: ["warn", "Waiting"], printing: ["warn", "Printing"], printed: ["ok", "Printed"], failed: ["bad", "Failed"], cancelled: ["", "Cancelled"] };
@@ -118,11 +118,19 @@ async function showHistory(v) {
       '<div class="card"><div class="tw"><table class="t"><thead><tr><th>When</th><th>Couple</th><th>Wedding</th><th>Position</th><th>Status</th><th>By</th><th></th></tr></thead><tbody>' + (rows || '<tr><td colspan="7" class="muted">Nothing has been sent to print yet.</td></tr>') + '</tbody></table></div></div>';
   } catch (e) { v.innerHTML = '<div class="card"><b>' + esc(e.message) + '</b></div>'; }
 }
+function samplePosOptions() {
+  var n = Number(S.cfg && S.cfg.sheet ? S.cfg.sheet.cols * S.cfg.sheet.rows : 6) || 6, h = "";
+  for (var i = 1; i <= n; i++) h += '<option value="' + i + '">Position ' + i + '</option>';
+  return h + '<option value="all">All positions</option>';
+}
 document.addEventListener("click", async function (e) {
   var b = e.target.closest("[data-act]"); if (!b || b.disabled) return; var a = b.dataset.act;
   try {
     if (a === "cancel") { await L.api("job.cancel", { id: b.dataset.id }); toast("Cancelled."); return showHistory($("#views")); }
-    if (a === "reprint") { b.disabled = true; await L.api("job.reprint", { id: b.dataset.id }); toast("Sent to print again."); return showHistory($("#views")); }
+    if (a === "reprint") {
+      var j = (S.hist || []).filter(function (x) { return x.id === b.dataset.id; })[0] || {};
+      if (!await L.confirmPrint({ title: "Print this again?", text: "It will go to the printer straight away.", lines: [["Couple", j.names || ""], ["Position", j.position ? "Label " + j.position + " on the sheet" : ""]].filter(function (l) { return l[1]; }), button: "Print again" })) return;
+      b.disabled = true; await L.api("job.reprint", { id: b.dataset.id }); toast("Sent to print again."); return showHistory($("#views")); }
   } catch (err) { toast(err.message, true); b.disabled = false; }
 });
 
@@ -149,16 +157,16 @@ function showSettings(v) {
   var dfm = [["long", "13th October 2026"], ["weekday", "Tuesday 13th October 2026"], ["short", "13 Oct 2026"], ["dots", "13.10.2026"]];
   v.innerHTML = '<div class="pagehead"><h2>Settings</h2></div>' +
     '<p class="lead">Everything that decides where the label lands on the sheet, and what it looks like. Print the alignment test on plain paper first, then change the numbers until it matches the label paper.</p>' +
-    '<div class="card"><h3>Label sheet</h3><p class="muted small" style="margin:0 0 10px">Measured from the top-left corner of the A4 sheet, in millimetres. Labels are numbered across, then down (1 top left, 2 top right, 3 next row left…).</p>' +
+    '<div class="card"><h3>Label sheet</h3><p class="muted small" style="margin:0 0 10px">Measured from the top-left corner of the A4 sheet, in millimetres. Labels are numbered across, then down (1 top left, 2 top right, 3 next row leftâ€¦).</p>' +
     '<div class="two-col"><div><div class="grid g4">' + numField("Labels across", "sheet.cols", "1") + numField("Labels down", "sheet.rows", "1") + numField("Label width", "sheet.labelW") + numField("Label height", "sheet.labelH") + numField("First label, from left", "sheet.firstX") + numField("First label, from top", "sheet.firstY") + numField("Across: start to next", "sheet.pitchX", "0.01", "Left edge to the next label's left edge") + numField("Down: start to next", "sheet.pitchY", "0.01", "Top edge to the next row's top edge") + '</div></div><div><div class="sheetprev"><div id="sp_sheet"></div></div></div></div></div>' +
     '<div class="card"><h3>Print adjustment</h3><p class="muted small" style="margin:0 0 10px">If everything prints a little off, correct it here instead of changing the sheet. Positive moves the print right and down.</p><div class="grid g4">' + numField("Move right (mm)", "adjust.offsetX") + numField("Move down (mm)", "adjust.offsetY") + numField("Size (%)", "adjust.scale", "0.1", "100 = exactly as designed") + '</div>' +
-    '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px"><button class="btn ghost" data-sact="testsheet">Print alignment test</button><button class="btn ghost" data-sact="testlabel">Print a sample label in position 1</button></div><div id="testmsg" style="margin-top:10px"></div></div>' +
+    '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px"><button class="btn ghost" data-sact="testsheet">Print alignment test</button><span style="display:inline-flex;gap:8px;align-items:center;flex-wrap:wrap"><select id="testpos" aria-label="Where to print the sample label" style="min-height:42px;padding:0 10px;border:1px solid var(--mist);border-radius:8px;background:#fff">' + samplePosOptions() + '</select><button class="btn ghost" data-sact="testlabel">Print a sample label</button></span></div><p class="small muted" style="margin:8px 0 0">Choose <b>all positions</b> to print the sample in every spot on the sheet, then check none of it runs over into the next label.</p><div id="testmsg" style="margin-top:10px"></div></div>' +
     '<div class="card"><h3>Printer</h3><div class="grid g4">' + '<div class="f"><label for="s_printer_name">Printer name</label><input id="s_printer_name" data-path="printer.name" value="' + esc(S.cfg.printer.name) + '"><div class="small muted">As it is named on the office PC that does the printing</div></div>' + numField("Copies of each label", "printer.copies", "1") + '</div>' +
     '<p class="small muted" style="margin:12px 0 0">Printing is done by a small program on an office PC that is always on and can see the printer. Phones and tablets send the label to it over the internet, so no laptop needs to be on the network. <span id="agentnow">' + agentNote(L.state.agent) + '</span></p></div>' +
     '<div class="card"><h3>Design</h3><div class="two-col"><div><canvas id="sp_label" style="width:100%;height:auto;border-radius:3px;box-shadow:var(--shadow)"></canvas><p class="small muted">A sample (Jody &amp; Dan).</p></div><div>' +
     '<p style="margin:0 0 8px"><b>Background:</b> ' + (L.state.design ? esc(L.state.design.name) : 'the built-in Black Horse design') + '</p>' +
     '<div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn ghost" data-sact="upload">Upload a new background</button>' + (L.state.design ? '<button class="btn danger" data-sact="resetbg">Go back to the built-in design</button>' : '') + '</div><input type="file" id="bgpick" accept="image/png,image/jpeg" hidden>' +
-    '<p class="small muted" style="margin:10px 0 0">Upload a PNG or JPEG of the label artwork without the changing text, at least 1200 pixels wide, in the same shape as the label (' + esc(S.cfg.sheet.labelW) + ' × ' + esc(S.cfg.sheet.labelH) + ' mm). It is stretched to the label size.</p>' +
+    '<p class="small muted" style="margin:10px 0 0">Upload a PNG or JPEG of the label artwork without the changing text, at least 1200 pixels wide, in the same shape as the label (' + esc(S.cfg.sheet.labelW) + ' Ã— ' + esc(S.cfg.sheet.labelH) + ' mm). It is stretched to the label size.</p>' +
     '<div class="f" style="margin-top:12px"><label for="s_df">Date style</label><select id="s_df" data-path="design.dateFormat">' + dfm.map(function (d) { return '<option value="' + d[0] + '"' + (S.cfg.design.dateFormat === d[0] ? " selected" : "") + '>' + d[1] + '</option>'; }).join("") + '</select></div>' + numField("Longest a line may be (mm)", "design.maxTextW", "1", "Longer names shrink to fit") + '</div></div>' +
     '<div class="f" style="margin-top:14px"><label for="s_venues">Venue names offered when printing (one per line)</label><textarea id="s_venues" rows="3" style="width:100%;border:1px solid var(--celadon);border-radius:8px;padding:8px 10px;font-size:15px">' + esc((S.cfg.design.venues || []).join("\n")) + '</textarea><div class="small muted">Use {venue} in a line below to print the one chosen.</div></div>' +
     '<h4 style="margin:18px 0 6px;font-size:19px;color:var(--sage)">Text on the label</h4><div id="lines">' + linesTable() + '</div><div style="margin-top:10px"><button class="btn ghost" data-sact="addline">Add a line</button></div></div>' +
@@ -191,17 +199,19 @@ document.addEventListener("click", async function (e) {
     if (a === "delline") { S.cfg.design.lines.splice(+b.dataset.i, 1); $("#lines").innerHTML = linesTable(); return settingsPreview(); }
     if (a === "save") { b.disabled = true; await L.api("settings.save", { settings: S.cfg }); L.state.settings = L.merge(L.DEFAULTS, Object.assign({}, S.cfg, { used: L.state.settings.used })); L.state.loaded = null; await L.load(true); toast("Settings saved."); b.disabled = false; return; }
     if (a === "testsheet" || a === "testlabel") {
-      b.disabled = true; var msg = $("#testmsg"); msg.innerHTML = '<div class="notice">Sending… (this uses the settings as they are saved, so save first if you have changed them)</div>';
+      var tp = $("#testpos") ? $("#testpos").value : "1";
+      if (!await L.confirmPrint({ title: a === "testsheet" ? "Print the alignment test?" : "Print a sample label?", text: a === "testsheet" ? "It will print a full test sheet on the office printer straight away. Put plain paper in first." : (tp === "all" ? "It will print the sample label (Jody & Dan) in every position on the sheet, on the office printer straight away. Put the label sheet in first." : "It will print a sample label (Jody & Dan) in position " + tp + " on the office printer straight away. Put the label sheet in first."), lines: [["Printer", (S.cfg && S.cfg.printer && S.cfg.printer.name) || "Office Printer"]] })) return;
+      b.disabled = true; var msg = $("#testmsg"); msg.innerHTML = '<div class="notice">Sendingâ€¦ (this uses the settings as they are saved, so save first if you have changed them)</div>';
       var r;
       if (a === "testsheet") r = await L.testPrint(1);
-      else { var page = L.renderSheet(S.cfg, L.state.bg, SAMPLE, 1, "label", 300); r = await L.api("job.create", { names: SAMPLE.names, date: SAMPLE.dateIso, position: 1, page_png: L.pngBase64(page), kind: "test", source: "app" }); }
+      else { var sel = $("#testpos") ? $("#testpos").value : "1", all = sel === "all", pos = all ? 1 : (+sel || 1); var page = L.renderSheet(S.cfg, L.state.bg, SAMPLE, all ? "all" : pos, "label", 300); r = await L.api("job.create", { names: all ? "Sample label: all positions" : SAMPLE.names, date: SAMPLE.dateIso, position: pos, page_png: L.pngBase64(page), kind: "test", source: "app" }); }
       msg.innerHTML = '<div class="notice ok">Sent to the office printer' + (r.agent_online ? '' : ', but the print agent has not been seen for a while') + '. Check Sent to print for its progress.</div>'; b.disabled = false; return;
     }
   } catch (err) { toast(err.message, true); b.disabled = false; }
 });
 
 async function boot() {
-  $("#app").hidden = false; $("#views").innerHTML = '<p class="muted" style="margin-top:24px">Loading…</p>';
+  $("#app").hidden = false; $("#views").innerHTML = '<p class="muted" style="margin-top:24px">Loadingâ€¦</p>';
   try { await L.load(true); } catch (e) { $("#views").innerHTML = '<div class="card"><b>' + esc(e.message) + '</b><p class="muted">Open this from the Staff Portal so it knows who you are.</p></div>'; return; }
   S.me = L.state.me; $("#whoname").textContent = S.me.name;
   await show((TABS.find(function (t) { return S.me.tabs.indexOf(t[0]) > -1; }) || [])[0] || null);
