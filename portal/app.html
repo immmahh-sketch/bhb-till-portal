@@ -185,6 +185,7 @@ header.top{background:var(--sage); color:var(--white)}
 .pushbox button.go{background:var(--sage); color:#fff}
 .pushbox button.quiet{border-color:transparent; color:var(--sage-70); font-weight:600}
 .pushbox .pmsg{font-size:13.5px; color:var(--alert,#8C4A3F); min-height:18px}
+.newtag{display:inline-block; margin-top:8px; padding:2px 9px; border-radius:99px; background:var(--gold,#C9A56B); color:#fff; font-size:10.5px; font-weight:700; letter-spacing:.1em; text-transform:uppercase}
 .tile .lockNote{font-size:11px; font-weight:600; color:var(--attention); margin-top:8px; letter-spacing:.02em}
 .empty{padding:60px 20px; text-align:center; color:var(--sage-70)}
 
@@ -758,6 +759,29 @@ const NP = { list: [], i: 0 };
 async function loadNoticePopups(){
   if (!S.token || !$("#welcome").hidden) return;
   try { const d = await api("notice_popups"); NP.list = d.notices || []; NP.i = 0; if (NP.list.length) showNoticePopup(); } catch(e){}
+  if (!NP.list.length) loadNewAccess();
+}
+/* ---- "you now have access to ...": tiles granted since this person was last told. Shown after the welcome and any notices. ---- */
+const NA = { list: [] };
+S.newKeys = new Set();
+async function loadNewAccess(){
+  if (!S.token || !$("#welcome").hidden || !$("#noticePop").hidden) return;
+  try { const d = await api("new_access"); NA.list = d.apps || []; S.newKeys = new Set(NA.list.map(a => a.key)); if (NA.list.length) { renderTiles(); showNewAccess(); } } catch(e){}
+}
+function showNewAccess(){
+  const L = NA.list, one = L.length === 1;
+  $("#noticePopCard").innerHTML = `<div class="welcome-top"><div class="eyebrow">New on your portal</div><h2 id="npTitle">${one ? "You now have access to " + esc(L[0].label) : "You now have access to " + L.length + " new apps"}</h2></div>
+    <div class="welcome-body">${L.map(a => `<p><b>${esc(a.label)}</b>${a.description ? "<br>" + esc(a.description) : ""}</p>`).join("")}<p class="np-meta">${L.length > 1 ? "They are marked New on your home screen." : "It is marked New on your home screen."}</p></div>
+    <div class="welcome-foot"><button type="button" id="naGo">Got it</button>${one ? `<a class="np-link" href="#" id="naOpen">Open ${esc(L[0].label)}</a>` : ""}</div>`;
+  $("#noticePop").hidden = false;
+  const done = async (open) => {
+    $("#noticePop").hidden = true;
+    try { await api("new_access_done", { keys: L.map(a => a.key) }); } catch(e){}
+    if (open) openPortal(L[0].key);
+  };
+  $("#naGo").onclick = () => done(false);
+  if ($("#naOpen")) $("#naOpen").onclick = e => { e.preventDefault(); done(true); };
+  setTimeout(() => $("#naGo").focus(), 50);
 }
 function showNoticePopup(){
   const n = NP.list[NP.i]; if (!n) { $("#noticePop").hidden = true; return; }
@@ -771,7 +795,7 @@ function showNoticePopup(){
   const done = async (doAck, open) => {
     try { await api("notice_popup_done", { id: n.id, ack: doAck }); } catch(e){}
     NP.i++; if (open) { $("#noticePop").hidden = true; openPortal("notices"); return; }
-    NP.i < NP.list.length ? showNoticePopup() : ($("#noticePop").hidden = true);
+    if (NP.i < NP.list.length) showNoticePopup(); else { $("#noticePop").hidden = true; loadNewAccess(); }
   };
   $("#npGo").onclick = () => done(ack, false);
   if ($("#npLater")) $("#npLater").onclick = () => done(false, false);
@@ -1031,6 +1055,7 @@ function renderTiles(){
       <div class="ic" style="color:${esc(p.color||'#4E5F4F')}">${iconFor(p.icon)}</div>
       <h3>${esc(p.label)}</h3>
       <p>${esc(p.description||'')}</p>
+      ${S.newKeys && S.newKeys.has(p.key) ? `<span class="newtag">New for you</span>` : ""}
       ${locked ? `<div class="lockNote">&#128274; Contact your administrator for access</div>` : ""}
     </button>`;
   };
@@ -1356,6 +1381,7 @@ const AUTOLOGIN = {
 async function openPortal(key, ref){
   const p = S.portals.find(x => x.key === key);
   if(!p) return;
+  if (S.newKeys && S.newKeys.has(key)) { S.newKeys.delete(key); NA.list = NA.list.filter(a => a.key !== key); api("new_access_done", { keys: [key] }).catch(()=>{}); try{ renderTiles(); }catch(e){} }
 
   if (p.granted === false) {
     toast(`You don't have access to ${p.label} — contact your administrator to request it.`, true);

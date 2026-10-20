@@ -37,6 +37,7 @@ header.top{background:var(--sage); color:var(--white)}
 nav.tabs{background:var(--sage-dark)}
 .tabsin{max-width:var(--maxw); margin:0 auto; padding:0 20px; display:flex; gap:2px; overflow-x:auto}
 .tabbtn{background:transparent; border:0; cursor:pointer; color:rgba(255,255,255,.72); padding:12px 16px; font-size:12px; font-weight:600; white-space:nowrap; letter-spacing:var(--track-label); text-transform:uppercase; border-bottom:3px solid transparent}
+.tabbtn[hidden]{display:none}
 .tabbtn[aria-current="page"]{color:var(--white); border-bottom-color:var(--gold)}
 .pagehead{display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; margin:24px 0 16px}
 .pagehead h2{font-size:26px; color:var(--sage)}
@@ -86,6 +87,12 @@ textarea{min-height:84px; resize:vertical}
 .filters{display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; margin-bottom:14px}
 .filters .field{margin:0}
 .filters .field.check{display:flex; align-items:center; gap:8px; padding-bottom:10px} .filters .field.check input{width:20px; height:20px; margin:0} .filters .field.check label{margin:0; text-transform:none; letter-spacing:0; font-size:14px; color:var(--ink)}
+.digest{background:var(--sage-10); border-radius:8px; padding:10px 14px; margin-bottom:14px; font-size:13px; color:var(--sage-dark)}
+.digest.off{background:var(--attention-bg); color:#6d5320}
+.rcpt{display:flex; align-items:center; gap:10px; padding:10px 0; border-top:1px solid var(--mist)} .rcpt:first-of-type{border-top:0}
+.rcpt .rn{flex:1; min-width:0; overflow-wrap:anywhere} .rcpt .rn b{display:block} .rcpt .rn span{font-size:13px; color:var(--sage-70)}
+.addrow{display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end} .addrow .field{margin:0; flex:1 1 200px} .addrow .field input{max-width:none}
+.sw{display:flex; align-items:center; gap:10px; margin-bottom:16px} .sw input{width:22px; height:22px; margin:0} .sw label{font-size:15px; font-weight:600}
 .missing{background:var(--attention-bg); color:#6d5320; border-radius:8px; padding:10px 14px; margin-bottom:14px; font-size:13px}
 .muted{color:var(--sage-70)} .empty{padding:40px 20px; text-align:center; color:var(--sage-70)} .loading{padding:60px; text-align:center; color:var(--sage-70)}
 .toast{position:fixed; left:50%; bottom:26px; transform:translate(-50%,20px); background:var(--ink); color:var(--white); padding:12px 20px; border-radius:8px; z-index:200; opacity:0; transition:.2s; pointer-events:none; font-size:14px; max-width:90vw}
@@ -105,6 +112,7 @@ textarea{min-height:84px; resize:vertical}
     <button class="tabbtn" data-view="new">Write a hand over</button>
     <button class="tabbtn" data-view="read">Hand overs</button>
     <button class="tabbtn" data-view="export">Export CSV</button>
+    <button class="tabbtn" data-view="settings" id="tabSettings" hidden>Settings</button>
   </div></nav>
   <div class="shell"><div id="views"></div></div>
 </div>
@@ -126,8 +134,8 @@ function defaultDate(){
 }
 function toast(msg, bad){ const t=$("#toast"); t.textContent=msg; t.className="toast on"+(bad?" bad":""); clearTimeout(toast._t); toast._t=setTimeout(()=>{t.className="toast";}, bad?5200:2600); }
 function staffEmail(){ try { return sessionStorage.getItem("bhb_staff_email") || ""; } catch(e){ return ""; } }
-async function call(action, payload){
-  const r = await fetch(CFG.SUPABASE_URL + "/functions/v1/handover-api", { method:"POST", headers:{ "Content-Type":"application/json", Authorization:"Bearer "+CFG.SUPABASE_KEY, apikey:CFG.SUPABASE_KEY }, body: JSON.stringify({ action, staff_email: staffEmail(), ...(payload||{}) }) });
+async function call(action, payload, fn){
+  const r = await fetch(CFG.SUPABASE_URL + "/functions/v1/" + (fn || "handover-api"), { method:"POST", headers:{ "Content-Type":"application/json", Authorization:"Bearer "+CFG.SUPABASE_KEY, apikey:CFG.SUPABASE_KEY }, body: JSON.stringify({ action, staff_email: staffEmail(), ...(payload||{}) }) });
   let d = {}; try { d = await r.json(); } catch(e){}
   if (!r.ok || d.error) throw new Error(d.error || `Request failed (${r.status})`);
   return d;
@@ -177,11 +185,21 @@ function labelFor(q, v){
   return String(v);
 }
 
+/* ------------------------------------------------------------- who it is emailed to */
+function digestHtml(){
+  const d = S.digest; if (!d) return "";
+  const hour = d.hour === 0 ? "midnight" : d.hour < 12 ? d.hour + "am" : d.hour === 12 ? "midday" : (d.hour - 12) + "pm";
+  if (!d.enabled) return `<div class="digest off">The daily email of the hand over is switched off, so nobody is being emailed.</div>`;
+  if (!d.recipients.length) return `<div class="digest off">The daily email is on, but nobody is on the list yet${S.me && S.me.canSettings ? ": add people in Settings" : ""}.</div>`;
+  return `<div class="digest">&#9993; Every morning at <b>${esc(hour)}</b> the previous day's hand over is emailed to: ${d.recipients.map(r => `<b>${esc(r.name)}</b> (${esc(r.email)})`).join(", ")}. Write yours before then so it is included.</div>`;
+}
+
 /* ------------------------------------------------------------- form */
 function blankForm(){ return { id:null, business_date:defaultDate(), had_wedding:null, restaurant_open:true, answers:{} }; }
 function formHtml(){
   const f = S.f;
   let h = `<div class="pagehead"><h2>${f.id ? "Edit hand over" : "Write a hand over"}</h2><div class="hint">Tap an answer. Anything that went wrong gets a note so the next team can pick it up.</div></div>
+  ${digestHtml()}
   <div class="card"><div class="field"><label for="f_date">Which day is this for?</label><input id="f_date" type="date" value="${esc(f.business_date)}"></div>
     <div id="ctxline"></div>
     <div class="q"><div class="ql">Was there a wedding?</div><div class="opts">
@@ -298,7 +316,7 @@ function missingDays(list){
 }
 function listHtml(){
   const L = S.list, flaggedOnly = $("#flt_flag") ? $("#flt_flag").checked : false;
-  let h = "";
+  let h = digestHtml();
   if (!S.filtered) { const m = missingDays(L); if (m.length) h += `<div class="missing"><b>No hand over for:</b> ${m.slice(0,7).map(fmtDay).join(" · ")}${m.length > 7 ? ` · and ${m.length-7} more` : ""}</div>`; }
   if (!L.length) return h + `<div class="empty">No hand overs found.</div>`;
   return h + L.map(x => {
@@ -369,12 +387,56 @@ function viewExport(){
   };
 }
 
+/* ------------------------------------------------------------- settings: who the 5am email goes to */
+async function viewSettings(){
+  $("#views").innerHTML = `<div class="loading">Loading…</div>`;
+  let d; try { d = (await call("settings.get")).settings; } catch(e){ $("#views").innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+  S.set = { enabled:d.enabled, recipients:d.recipients.map(r => ({ ...r })), hour:d.hour };
+  const last = d.last_run_date ? `The last email went out on ${fmtDay(d.last_run_date)}.` : "No email has gone out yet.";
+  $("#views").innerHTML = `<div class="pagehead"><h2>Settings</h2><div class="hint">Who is emailed the hand over each morning.</div></div>
+    <div class="card"><h3>Daily email</h3>
+      <p class="muted" style="margin-top:0">At <b>5am every morning</b> the hand over written for the <b>previous day</b> is emailed to everyone below: who wrote it, anything flagged, every answer and note. If nobody wrote one, the email says so.</p>
+      <div class="sw"><input type="checkbox" id="s_on"${d.enabled ? " checked" : ""}><label for="s_on">Send the daily email</label></div>
+      <div id="s_list"></div>
+      <div class="addrow" style="margin-top:14px"><div class="field"><label for="s_name">Name (optional)</label><input id="s_name" type="text" placeholder="e.g. Paul Riley" autocomplete="off"></div>
+        <div class="field"><label for="s_email">Email address</label><input id="s_email" type="email" inputmode="email" placeholder="name@blackhorsebeamish.co.uk" autocomplete="off"></div>
+        <button class="btn ghost" id="s_add">Add</button></div>
+      <p class="muted" style="font-size:13px;margin-bottom:0">${esc(last)} Changes are not live until you press Save, and take effect from the next 5am.</p>
+    </div>
+    <button class="btn" id="s_save">Save</button> <button class="btn ghost" id="s_test">Email me a test now</button>
+    <p class="muted" style="font-size:13px">The test goes to you only, using the latest hand over on record.${d.updated_by ? ` Last changed by ${esc(d.updated_by)}.` : ""}</p>`;
+  const paint = () => {
+    $("#s_list").innerHTML = S.set.recipients.length ? S.set.recipients.map((r, i) => `<div class="rcpt"><div class="rn"><b>${esc(r.name)}</b><span>${esc(r.email)}</span></div><button class="btn ghost small" data-rm="${i}">Remove</button></div>`).join("") : `<div class="muted" style="padding:6px 0">Nobody is on the list, so nothing will be sent.</div>`;
+    $$("[data-rm]").forEach(b => b.onclick = () => { S.set.recipients.splice(+b.dataset.rm, 1); paint(); });
+  };
+  paint();
+  const add = () => {
+    const email = $("#s_email").value.trim().toLowerCase(), name = $("#s_name").value.trim();
+    if (!/^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+$/.test(email)) return toast("That is not an email address.", true);
+    if (S.set.recipients.some(r => r.email === email)) return toast("They are already on the list.", true);
+    S.set.recipients.push({ email, name: name || email.split("@")[0] }); $("#s_email").value = ""; $("#s_name").value = ""; paint();
+  };
+  $("#s_add").onclick = add; $("#s_email").onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); add(); } };
+  $("#s_save").onclick = async () => {
+    const b = $("#s_save"); b.disabled = true;
+    try {
+      const r = await call("settings.save", { enabled: $("#s_on").checked, recipients: S.set.recipients });
+      S.digest = { enabled: r.enabled, hour: S.set.hour, recipients: r.recipients }; toast("Saved. The next email goes out at 5am.");
+    } catch(e){ toast(e.message, true); } finally { b.disabled = false; }
+  };
+  $("#s_test").onclick = async () => {
+    const b = $("#s_test"); b.disabled = true;
+    try { const r = await call("test", {}, "handover-digest"); toast("Test sent to " + r.sent_to + "."); } catch(e){ toast(e.message, true); } finally { b.disabled = false; }
+  };
+}
+
 /* ------------------------------------------------------------- shell */
 function goView(v, keepForm){
   S.view = v;
   $$(".tabbtn").forEach(b => b.setAttribute("aria-current", b.dataset.view === v ? "page" : "false"));
   if (v === "new") { if (!(keepForm && S.f)) S.f = blankForm(); renderForm(); loadCtx(); }
   else if (v === "read") viewList();
+  else if (v === "settings") viewSettings();
   else viewExport();
   window.scrollTo(0, 0);
 }
@@ -384,7 +446,8 @@ async function boot(){
   $("#app").hidden = false; $("#views").innerHTML = `<div class="loading">Loading…</div>`;
   let d;
   try { d = await call("bootstrap"); } catch(e){ $("#views").innerHTML = `<div class="empty">${esc(e.message)}<br><br><span class="muted">Open this from the Staff Portal so it knows who you are.</span></div>`; return; }
-  S.me = d.me; $("#whoname").textContent = S.me.name;
+  S.me = d.me; S.digest = d.digest; $("#whoname").textContent = S.me.name;
+  if (S.me.canSettings) $("#tabSettings").hidden = false;
   $$(".tabbtn").forEach(b => b.addEventListener("click", ()=> goView(b.dataset.view, b.dataset.view === "new" && !!S.f)));
   S.f = blankForm(); goView("new", true);
 }
