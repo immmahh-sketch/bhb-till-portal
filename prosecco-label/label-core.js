@@ -10,18 +10,18 @@
 
   var NAME_FONTS = ["Raleway", "Cormorant Garamond", "Georgia", "Arial"];
   var DEFAULTS = {
-    sheet: { cols: 2, rows: 3, labelW: 104.25, labelH: 68.4, firstX: 0.75, firstY: 12.3, pitchX: 105, pitchY: 99 },
+    sheet: { cols: 2, rows: 4, labelW: 99.1, labelH: 67.7, firstX: 4.65, firstY: 13.1, pitchX: 101.6, pitchY: 67.7 },   // 8 per A4 page, measured from a photo of the blank sheet (die-cut lines)
     adjust: { offsetX: 0, offsetY: 0, scale: 100 },
     printer: { name: "Office Printer", copies: 1 },
     design: {
       dateFormat: "long", maxTextW: 92,
       venues: ["Orchard Marquee", "George Ridley Suite"],
       lines: [
-        { text: "{names}", font: "Raleway", size: 19, weight: 400, color: "#FFFFFF", y: 37.5 },
-        { text: "You’ve booked your wedding!", font: "Raleway", size: 11, weight: 400, color: "#FFFFFF", y: 43.6 },
-        { text: "{date}", font: "Raleway", size: 10.5, weight: 600, color: "#FFFFFF", y: 49.3 },
-        { text: "{venue}", font: "Raleway", size: 10, weight: 400, color: "#C4C7AF", y: 58.4 },
-        { text: "Red Row Estate, Beamish", font: "Raleway", size: 10, weight: 400, color: "#C4C7AF", y: 62.8 }
+        { text: "{names}", font: "Raleway", size: 19, weight: 400, color: "#FFFFFF", y: 37.15 },
+        { text: "You’ve booked your wedding!", font: "Raleway", size: 11, weight: 400, color: "#FFFFFF", y: 43.25 },
+        { text: "{date}", font: "Raleway", size: 10.5, weight: 600, color: "#FFFFFF", y: 48.95 },
+        { text: "{venue}", font: "Raleway", size: 10, weight: 400, color: "#C4C7AF", y: 58.05 },
+        { text: "Red Row Estate, Beamish", font: "Raleway", size: 10, weight: 400, color: "#C4C7AF", y: 62.45 }
       ]
     },
     used: []
@@ -149,7 +149,7 @@
     if (ST.loaded && !force) return ST.loaded;
     ST.loaded = api("boot").then(async function (d) {
       ST.me = d.me; ST.settings = merge(DEFAULTS, d.settings); ST.agent = d.agent || ST.agent; ST.design = d.design || null;
-      ST.bg = await loadImage(d.design ? "data:image/png;base64," + d.design.png : BASE + "label-bg.png?v=20261020b");
+      ST.bg = await loadImage(d.design ? "data:image/png;base64," + d.design.png : BASE + "label-bg.png?v=20261020c");
       await loadFonts(ST.settings); return ST;
     }).catch(function (e) { ST.loaded = null; throw e; });
     return ST.loaded;
