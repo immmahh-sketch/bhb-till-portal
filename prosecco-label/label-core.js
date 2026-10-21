@@ -223,11 +223,11 @@
     try { S = await load(); } catch (e) { el.innerHTML = '<div class="lblmsg bad">' + esc(e.message) + '</div>'; return null; }
     var nm = opts.names ? splitNames(opts.names) : [opts.partner1 || "", opts.partner2 || ""];
     var cfg = S.settings, n = cfg.sheet.cols * cfg.sheet.rows;
-    var st = { p1: nm[0], p2: nm[1], date: opts.date || "", pos: 0, busy: false, mode: opts.noOccasions ? "wedding" : null, occ: "", wn: "mrmrs" }, vs = cfg.design.venues || [], OC = cfg.design.occasions || {}, OCKEYS = ["birthday", "anniversary", "engagement", "weddingnight", "other"];
+    var st = { p1: nm[0], p2: nm[1], date: opts.date || "", pos: 0, busy: false, mode: opts.noOccasions ? "wedding" : null, occ: "", wn: opts.nightOnly ? "names" : "mrmrs" }, vs = cfg.design.venues || [], OC = cfg.design.occasions || {}, OCKEYS = ["birthday", "anniversary", "engagement", "weddingnight", "other"];
     st.venue = vs.filter(function (v) { return opts.venue && String(opts.venue).toLowerCase().replace(/[^a-z]/g, "").indexOf(v.toLowerCase().replace(/[^a-z]/g, "").slice(0, 6)) > -1; })[0] || vs[0] || "";
     st.pos = 1;
     el.innerHTML = '<div class="lbl" id="lbl_root"><div>' +
-      (opts.noOccasions ? '' : '<div class="lblask" id="lbl_ask1">Who is this label for?</div><div class="lblmode" role="group" aria-label="Who is the label for"><button type="button" class="lblmbtn on" data-mode="wedding" aria-pressed="true">New Wedding Bookings</button><button type="button" class="lblmbtn" data-mode="other" aria-pressed="false">Other</button></div>' +
+      (opts.noOccasions ? '' : '<div class="lblask" id="lbl_ask1">' + (opts.nightOnly ? 'Which label do you want to print?' : 'Who is this label for?') + '</div><div class="lblmode" role="group" aria-label="Which label"><button type="button" class="lblmbtn on" data-mode="wedding" aria-pressed="true">New Wedding Bookings</button><button type="button" class="lblmbtn" data-mode="other" aria-pressed="false">' + (opts.nightOnly ? 'Wedding night' : 'Other') + '</button></div>' +
         '<div class="lblask" id="lbl_ask2" hidden>What is the occasion?</div><div id="lbl_occ" class="lblseg" role="group" aria-label="Occasion" style="margin:0 0 14px" hidden></div>') +
       '<div class="two"><div class="f"><label for="lbl_p1" id="lbl_l1">Partner 1</label><input id="lbl_p1" autocomplete="off" value="' + esc(st.p1) + '"></div><div class="f" id="lbl_f2"><label for="lbl_p2" id="lbl_l2">Partner 2</label><input id="lbl_p2" autocomplete="off" value="' + esc(st.p2) + '"></div></div>' +
       '<div class="f"><label for="lbl_date" id="lbl_ld">Wedding date</label><input id="lbl_date" type="date" value="' + esc(st.date) + '"></div>' +
@@ -260,7 +260,7 @@
       /* nothing but the question is shown until it has been answered, so the wrong kind of label cannot be printed by accident */
       var gated = !opts.noOccasions && (!st.mode || (o && !st.occ)); $("lbl_root").classList.toggle("gate", gated);
       if ($("lbl_ask2")) $("lbl_ask2").hidden = !o;
-      if ($("lbl_occ")) { $("lbl_occ").hidden = !o; $("lbl_occ").innerHTML = OCKEYS.map(function (k) { return '<button type="button" class="lblvbtn' + (k === st.occ ? " on" : "") + '" data-occ="' + k + '" aria-pressed="' + (k === st.occ) + '">' + esc(occLabel(k)) + '</button>'; }).join(""); }
+      if ($("lbl_occ")) { $("lbl_occ").hidden = !o || !!opts.nightOnly; $("lbl_occ").innerHTML = OCKEYS.map(function (k) { return '<button type="button" class="lblvbtn' + (k === st.occ ? " on" : "") + '" data-occ="' + k + '" aria-pressed="' + (k === st.occ) + '">' + esc(occLabel(k)) + '</button>'; }).join(""); }
       var wn = o && st.occ === "weddingnight", mm = wn && st.wn !== "names";
       $("lbl_wnf").hidden = !wn; $("lbl_f2").hidden = mm;
       if (wn) $("lbl_wn").innerHTML = [["mrmrs", "Mr & Mrs Smith"], ["mrmr", "Mr & Mr Smith"], ["mrsmrs", "Mrs & Mrs Smith"], ["names", "Both their names"]].map(function (x) { return '<button type="button" class="lblvbtn' + (x[0] === st.wn ? " on" : "") + '" data-wn="' + x[0] + '" aria-pressed="' + (x[0] === st.wn) + '">' + x[1] + '</button>'; }).join("");
@@ -295,7 +295,7 @@
     function msg(kind, text) { $("lbl_msg").innerHTML = text ? '<div class="lblmsg ' + kind + '" role="status">' + text + '</div>' : ""; }
     el.addEventListener("input", paint); paint();
     el.addEventListener("click", function (e) {
-      var mb = e.target.closest("[data-mode]"); if (mb) { st.mode = mb.getAttribute("data-mode"); if (other() && !$("lbl_head").value && !$("lbl_msg2").value) { $("lbl_head").value = (OC.other || {}).heading || ""; $("lbl_msg2").value = (OC.other || {}).message || ""; } paint(); return; }
+      var mb = e.target.closest("[data-mode]"); if (mb) { st.mode = mb.getAttribute("data-mode"); if (opts.nightOnly) st.occ = st.mode === "other" ? "weddingnight" : ""; if (other() && !$("lbl_head").value && !$("lbl_msg2").value) { $("lbl_head").value = (OC.other || {}).heading || ""; $("lbl_msg2").value = (OC.other || {}).message || ""; } paint(); return; }
       var wb = e.target.closest("[data-wn]"); if (wb) { st.wn = wb.getAttribute("data-wn"); paint(); return; }
       var ob = e.target.closest("[data-occ]"); if (ob) { st.occ = ob.getAttribute("data-occ"); if (st.occ === "other" && !$("lbl_head").value && !$("lbl_msg2").value) { $("lbl_head").value = (OC.other || {}).heading || ""; $("lbl_msg2").value = (OC.other || {}).message || ""; } paint(); return; }
       var ua = e.target.closest("[data-unqueue]"); if (ua) { var up = +ua.getAttribute("data-unqueue"); st.queue = st.queue.filter(function (q) { return q.pos !== up; }); if (!st.pos || isTaken(st.pos)) st.pos = up; paint(); return; }
@@ -358,7 +358,7 @@
     bg.innerHTML = '<div style="background:#fff;border-radius:12px;max-width:900px;width:100%;padding:22px 22px 26px;box-shadow:0 20px 60px rgba(0,0,0,.35)"><h2 style="margin:0 0 4px;font-size:24px">Print the bottle label</h2><p style="margin:0 0 16px;color:#7B887C;font-size:14px">Check the names and the date, then choose which label on the sheet to print on.</p><div id="lbldlgbody"></div></div>';
     document.body.appendChild(bg);
     function close() { if (bg.parentNode) bg.parentNode.removeChild(bg); if (opts.onClose) opts.onClose(); }
-    var ready = mount(bg.querySelector("#lbldlgbody"), { noOccasions: true, names: opts.names, partner1: opts.partner1, partner2: opts.partner2, date: opts.date, venue: opts.venue, source: "wedding-admin", enquiryId: opts.enquiryId, onCancel: close, cancelText: "Close" });
+    var ready = mount(bg.querySelector("#lbldlgbody"), { nightOnly: true, names: opts.names, partner1: opts.partner1, partner2: opts.partner2, date: opts.date, venue: opts.venue, source: "wedding-admin", enquiryId: opts.enquiryId, onCancel: close, cancelText: "Close" });
     return { close: close, ready: ready };
   }
 
