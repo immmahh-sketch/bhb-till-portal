@@ -260,19 +260,26 @@ function buildTicket(job, opts = {}) {
 
 function printToDevice(buffer, ip, port) {
   return new Promise((resolve, reject) => {
+    let settled = false;
+    const finish = (err) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(hard);
+      if (err) { try { socket.destroy(); } catch (e) {} reject(err); } else resolve();
+    };
     const socket = net.createConnection(port, ip, () => {
       socket.write(buffer, () => {
         setTimeout(() => {
           socket.end();
-          resolve();
+          finish();
         }, 300);
       });
     });
-    socket.setTimeout(5000, () => {
-      socket.destroy();
-      reject(new Error("printer connection timed out"));
-    });
-    socket.on("error", reject);
+    socket.setTimeout(5000, () => finish(new Error("printer connection timed out")));
+    socket.on("error", finish);
+    // Whatever the socket does (an unreachable printer can sit in SYN retries far longer than the idle timeout), give up after 10 seconds
+    // so the caller can put the job back to pending instead of waiting forever.
+    const hard = setTimeout(() => finish(new Error(`no answer from printer ${ip} in 10 seconds`)), 10000);
   });
 }
 

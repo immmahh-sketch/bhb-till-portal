@@ -41,6 +41,7 @@ const SAFETY_MS = 60000;  // a safety check once a minute even when they are (se
 
 async function rest(path, init = {}) {
   const r = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    signal: AbortSignal.timeout(15000), // a dropped connection must not leave a job half-done and the bridge waiting for ever
     ...init,
     headers: {
       apikey: SUPABASE_KEY,
@@ -101,6 +102,11 @@ async function pollOnce() {
 console.log(`Bar printer bridge running — woken by live updates (checking every ${SAFETY_MS / 1000}s anyway, every ${POLL_MS / 1000}s without them), printing to ${PRINTER_IP}:${PRINTER_PORT}`);
 // Checks when Supabase says something changed (wake.js), plus a safety check every minute; every 4 seconds
 // whenever live updates aren't working (old Node, network blip), as it always used to.
+// A job left "printing" can only mean this program stopped mid-print (it is the only thing that prints "bar" jobs), so on
+// start-up put them back to pending and they print again, rather than sitting there for ever with nothing to retry them.
+rest("print_jobs?destination=eq.bar&status=eq.printing", { method: "PATCH", body: JSON.stringify({ status: "pending" }) })
+  .then(() => console.log("start-up: released any jobs left half-printed"))
+  .catch((e) => console.error("start-up release failed:", e.message));
 let live = false, timer = null;
 function schedule() { clearTimeout(timer); timer = setTimeout(tick, live ? SAFETY_MS : POLL_MS); }
 function tick() { pollOnce().catch((e) => console.error("poll error:", e.message)).finally(schedule); }
