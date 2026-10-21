@@ -1526,6 +1526,63 @@ async function savePettyCash(){
   finally { btn.disabled = false; btn.textContent = "Save entry"; }
 }
 
+/* ---- change a petty cash entry afterwards: edit (the date too), delete, add a receipt. Every change is recorded; nothing is lost. ---- */
+function pcModal(html){
+  const old = $("#pcModal"); if (old) old.remove();
+  const m = document.createElement("div"); m.id = "pcModal"; m.className = "modalbg"; m.innerHTML = `<div class="modal">${html}</div>`;
+  m.addEventListener("mousedown", e => { if (e.target === m) m.remove(); }); document.body.appendChild(m); return m;
+}
+const pcClose = () => { const m = $("#pcModal"); if (m) m.remove(); };
+async function pettyEditForm(r){
+  if (!r) return;
+  await ensurePettyCategories();
+  const m = pcModal(`<h2>Edit petty cash entry</h2><p class="sub">Changes are recorded with who made them. The balance and the safe's expected total follow.</p>
+    <div class="row"><div class="field"><label>Date</label><input type="date" id="pe_date" value="${esc(String(r.business_date).slice(0,10))}"></div>
+      <div class="field"><label>Category</label><select id="pe_cat">${categoryOptions(r.category_key)}</select></div>
+      <div class="field"><label>Amount</label><input type="number" step="0.01" min="0" id="pe_amount" value="${esc(r.amount)}"></div></div>
+    <div class="field"><label>Description</label><input type="text" id="pe_desc" value="${esc(r.description||"")}"></div>
+    <div class="field"><label>Spent by</label><input type="text" id="pe_staff" maxlength="60" value="${esc(r.staff_name||"")}"></div>
+    ${r.receipt_path ? `<p class="muted" style="font-size:13px">A scanned receipt is attached.</p>` : `<label style="display:flex;gap:8px;align-items:center;margin:0 0 10px"><input type="checkbox" id="pe_paper"${r.has_receipt ? " checked" : ""}> The paper receipt is kept (no scan)</label>`}
+    <div class="acts"><button class="btn" id="pe_save">Save changes</button><button class="btn ghost" id="pe_cancel">Cancel</button><button class="btn ghost" id="pe_del" style="margin-left:auto;color:var(--alert,#8C4A3F);border-color:var(--alert,#8C4A3F)">Delete this entry</button></div>
+    <div id="pe_msg" style="margin-top:8px;font-size:14px;color:var(--alert,#8C4A3F)"></div>
+    <h3>History of this entry</h3><div id="pe_hist" class="muted" style="font-size:13px">Loading…</div>`);
+  $("#pe_cancel").onclick = pcClose;
+  $("#pe_save").onclick = async () => {
+    try {
+      const res = await call("pettycash.update", { id: r.id, business_date: $("#pe_date").value, category_key: $("#pe_cat").value, amount: $("#pe_amount").value, description: $("#pe_desc").value, staff_name: $("#pe_staff").value, has_receipt: $("#pe_paper") ? $("#pe_paper").checked : undefined });
+      pcClose(); toast(res.unchanged ? "Nothing changed." : "Saved."); loadPettyCashHistory();
+    } catch(e){ $("#pe_msg").textContent = e.message; }
+  };
+  $("#pe_del").onclick = () => {
+    const reason = prompt("Delete this entry? It drops out of the balance and the safe's expected total, and stays on record (Show deleted).\n\nWhy is it being deleted? (optional)");
+    if (reason === null) return;
+    call("pettycash.delete", { id: r.id, reason }).then(() => { pcClose(); toast("Deleted."); loadPettyCashHistory(); }).catch(e => { $("#pe_msg").textContent = e.message; });
+  };
+  try {
+    const a = await call("pettycash.audit", { id: r.id }), lab = { business_date: "Date", category_key: "Category", amount: "Amount", description: "Description", staff_name: "Spent by", has_receipt: "Paper receipt kept", receipt: "Receipt" };
+    const val = (k, v) => v == null || v === "" ? "blank" : k === "business_date" ? ukDate(v) : k === "category_key" ? categoryLabel(v) : k === "amount" ? money(v) : String(v);
+    $("#pe_hist").innerHTML = a.events.length ? a.events.map(e => `<div style="padding:4px 0;border-top:1px solid var(--mist,#eee)"><b>${esc(e.by_name||"")}</b> ${esc(new Date(e.at).toLocaleString("en-GB",{timeZone:"Europe/London",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}))}: ${e.action === "edit" ? Object.entries(e.changes||{}).map(([k, v]) => `${esc(lab[k]||k)} ${esc(val(k, v[0]))} → ${esc(val(k, v[1]))}`).join("; ") : e.action === "receipt" ? "receipt added" : e.action === "delete" ? "deleted" + (e.changes && e.changes.reason ? " (" + esc(e.changes.reason) + ")" : "") : "restored"}</div>`).join("") : "Never changed since it was entered.";
+  } catch(e){ $("#pe_hist").textContent = e.message; }
+}
+async function pettyAddReceipt(id){
+  const inp = document.createElement("input"); inp.type = "file"; inp.accept = "image/*"; inp.setAttribute("capture", "environment"); inp.setAttribute("data-scan", "receipt"); inp.hidden = true; document.body.appendChild(inp);
+  const done = () => setTimeout(() => inp.remove(), 500);
+  inp.addEventListener("ds-cancel", done);
+  inp.addEventListener("change", async () => {
+    const file = inp.files[0]; if (!file) return done();
+    try {
+      const saved = await call("pettycash.receipt_add", { id, receipt_ext: /jpe?g/i.test(file.type) ? "jpg" : "png" });
+      let url = saved.receipt_upload_url, ok = false;
+      for (let i = 0; i < 3 && !ok; i++){
+        try { if (!url) url = (await call("pettycash.receipt_sign", { id })).receipt_upload_url; await putReceipt(url, file); ok = true; } catch(e) { url = null; }
+      }
+      toast(ok ? "Receipt added." : "The receipt did not upload. Try Add receipt again, and keep the paper one.", !ok);
+    } catch(e){ toast(e.message, true); }
+    done(); loadPettyCashHistory();
+  });
+  inp.click();
+}
+
 const PETTYCASH_COLS = [
   { label:"Date", value:r=>ukDate(r.business_date) },
   { label:"Category", value:r=>categoryLabel(r.category_key) },
@@ -1547,6 +1604,7 @@ function viewPettyCashHistory(){
       <div class="spacer"></div>
       <div class="field" style="margin:0 8px"><input type="date" id="pch_start" value="${addDaysIso(todayIso(),-29)}"></div>
       <div class="field" style="margin:0 8px"><input type="date" id="pch_end" value="${todayIso()}"></div>
+      <label class="muted" style="font-size:13px;display:flex;align-items:center;gap:6px;margin:0 8px"><input type="checkbox" id="pch_deleted"> Show deleted</label>
       <button class="btn ghost" id="pch_go">Show</button>
       <button class="btn ghost" id="pch_csv">Export CSV</button>
     </div>
@@ -1555,20 +1613,26 @@ function viewPettyCashHistory(){
 async function loadPettyCashHistory(){
   await ensurePettyCategories();
   $("#pch_go").addEventListener("click", loadPettyCashHistory);
+  $("#pch_deleted").addEventListener("change", loadPettyCashHistory);
   $("#pch_csv").addEventListener("click", ()=> downloadCsv(`petty-cash-${$("#pch_start").value}-to-${$("#pch_end").value}.csv`, PETTYCASH_COLS, S.lastPettyCash||[]));
   $("#pch_table").innerHTML = `<tr><td class="loading">Loading…</td></tr>`;
   try {
-    const d = await call("pettycash.list", { start: $("#pch_start").value, end: $("#pch_end").value });
-    S.lastPettyCash = d.entries || [];
+    const d = await call("pettycash.list", { start: $("#pch_start").value, end: $("#pch_end").value, include_deleted: $("#pch_deleted").checked });
+    S.lastPettyCash = (d.entries || []).filter(r => !r.deleted_at);
+    S.pettyShown = d.entries || []; S.pettyCanEdit = !!d.can_edit;
     $("#pch_balance").textContent = `Current balance: ${money(d.current_balance)} (target ${money(d.target_float)})`;
-    if (!S.lastPettyCash.length){ $("#pch_table").innerHTML = `<tr><td class="empty">No petty cash entries in this range.</td></tr>`; return; }
+    if (!S.pettyShown.length){ $("#pch_table").innerHTML = `<tr><td class="empty">No petty cash entries in this range.</td></tr>`; return; }
     $("#pch_table").innerHTML = `
-      <thead><tr><th>Date</th><th>Category</th><th>Description</th><th class="num">Amount</th><th>Receipt</th><th>Spent by</th><th class="num">Balance</th></tr></thead>
-      <tbody>${S.lastPettyCash.map(r => `<tr>
-        <td class="strong">${ukDate(r.business_date)}</td><td>${esc(categoryLabel(r.category_key))}</td><td>${esc(r.description||"")}</td>
+      <thead><tr><th>Date</th><th>Category</th><th>Description</th><th class="num">Amount</th><th>Receipt</th><th>Spent by</th><th class="num">Balance</th>${S.pettyCanEdit ? "<th></th>" : ""}</tr></thead>
+      <tbody>${S.pettyShown.map(r => { const gone = !!r.deleted_at; return `<tr${gone ? ' style="opacity:.55;text-decoration:line-through"' : ""}>
+        <td class="strong">${ukDate(r.business_date)}</td><td>${esc(categoryLabel(r.category_key))}</td><td>${esc(r.description||"")}${r.updated_at && !gone ? ` <span class="muted" style="font-size:11px;text-decoration:none" title="Edited by ${esc(r.updated_by||"")} on ${esc(new Date(r.updated_at).toLocaleString("en-GB",{timeZone:"Europe/London"}))}">(edited)</span>` : ""}${gone ? ` <span style="font-size:11px;text-decoration:none;display:inline-block">(deleted by ${esc(r.deleted_by||"")}${r.delete_reason ? ": " + esc(r.delete_reason) : ""})</span>` : ""}</td>
         <td class="num">${money(r.amount)}</td><td>${r.receipt_url?`<a href="${esc(r.receipt_url)}" target="_blank" rel="noopener">View receipt</a>`:(r.has_receipt?"Yes (paper)":"No")}</td><td>${esc(r.staff_name||"")}</td>
-        <td class="num">${money(r.balance_after)}</td>
-      </tr>`).join("")}</tbody>`;
+        <td class="num">${gone ? "" : money(r.balance_after)}</td>
+        ${S.pettyCanEdit ? `<td style="white-space:nowrap;text-decoration:none">${gone ? `<button class="btn small ghost" data-pc-restore="${r.id}">Restore</button>` : `${r.receipt_path ? "" : `<button class="btn small ghost" data-pc-receipt="${r.id}">Add receipt</button> `}<button class="btn small ghost" data-pc-edit="${r.id}">Edit</button>`}</td>` : ""}
+      </tr>`; }).join("")}</tbody>`;
+    $$("[data-pc-edit]").forEach(b => b.onclick = () => pettyEditForm(S.pettyShown.find(x => x.id === b.dataset.pcEdit)));
+    $$("[data-pc-receipt]").forEach(b => b.onclick = () => pettyAddReceipt(b.dataset.pcReceipt));
+    $$("[data-pc-restore]").forEach(b => b.onclick = async () => { try { await call("pettycash.restore", { id: b.dataset.pcRestore }); toast("Restored."); loadPettyCashHistory(); } catch(e){ toast(e.message, true); } });
   } catch(e) { $("#pch_table").innerHTML = `<tr><td class="empty">${esc(e.message)}</td></tr>`; }
 }
 
