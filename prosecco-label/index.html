@@ -61,7 +61,7 @@ table.lines input,table.lines select{min-height:38px; width:100%; min-width:62px
   <main class="shell" id="views"></main>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
-<script src="label-core.js?v=20261027"></script>
+<script src="label-core.js?v=20261029"></script>
 <script>
 (function () {
 "use strict";
@@ -96,7 +96,7 @@ function agentNote(a) {
 }
 function showPrint(v) {
   v.innerHTML = '<div class="pagehead"><h2>Print a label</h2><span id="agent">' + agentNote(L.state.agent) + '</span></div>' +
-    '<p class="lead">The personalised label for a bottle of prosecco. Choose <b>Wedding couple</b> for the label given when a couple book, or <b>Other</b> for a birthday, anniversary, engagement or something else, to go in a bedroom. Add the names, tap the space on the label paper that is free, and print.</p>' +
+    '<p class="lead">The personalised label for a bottle of prosecco. Choose <b>New Wedding Bookings</b> for the label given when a couple book, or <b>Other</b> for a birthday, anniversary, engagement or something else, to go in a bedroom. Add the names, tap the space on the label paper that is free, and print.</p>' +
     '<div class="card"><div id="mount"></div></div>';
   L.mount($("#mount"), { source: "app" });
 }
@@ -147,7 +147,7 @@ function occData(k) {
   return { names: "Jody & Dan", dateIso: "", occasion: k, heading: oc.heading || "", message: oc.message || "", venue: S.cfg.design.bottomName || "Black Horse Beamish" };
 }
 function occWordsHtml() {
-  var oc = S.cfg.design.occasions || {}, rows = ["wedding", "birthday", "anniversary", "engagement", "other"].map(function (k) {
+  var oc = S.cfg.design.occasions || {}, rows = ["wedding", "birthday", "anniversary", "engagement", "weddingnight", "other"].map(function (k) {
     var o = oc[k] || {};
     return '<tr><td><b>' + esc(o.label || k) + '</b></td><td>' + (k === "wedding" ? '<span class="muted small">on the artwork</span>' : '<input data-occ="' + k + '" data-of="heading" value="' + esc(o.heading || "") + '" maxlength="30">') + '</td><td><input data-occ="' + k + '" data-of="message" value="' + esc(o.message || "") + '" maxlength="60"></td></tr>';
   }).join("");
@@ -175,7 +175,7 @@ function showSettings(v) {
     '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px"><button class="btn ghost" data-sact="testsheet">Print alignment test</button><span style="display:inline-flex;gap:8px;align-items:center;flex-wrap:wrap"><select id="testpos" aria-label="Where to print the sample label" style="min-height:42px;padding:0 10px;border:1px solid var(--mist);border-radius:8px;background:#fff">' + samplePosOptions() + '</select><button class="btn ghost" data-sact="testlabel">Print a sample label</button></span></div><p class="small muted" style="margin:8px 0 0">Choose <b>all positions</b> to print the sample in every spot on the sheet, then check none of it runs over into the next label.</p>' + L.loadingHelpHtml() + '<div id="testmsg" style="margin-top:10px"></div></div>' +
     '<div class="card"><h3>Printer</h3><div class="grid g4">' + '<div class="f"><label for="s_printer_name">Printer name</label><input id="s_printer_name" data-path="printer.name" value="' + esc(S.cfg.printer.name) + '"><div class="small muted">As it is named on the office PC that does the printing</div></div>' + numField("Copies of each label", "printer.copies", "1") + '</div>' +
     '<p class="small muted" style="margin:12px 0 0">Printing is done by a small program on an office PC that is always on and can see the printer. Phones and tablets send the label to it over the internet, so no laptop needs to be on the network. <span id="agentnow">' + agentNote(L.state.agent) + '</span></p></div>' +
-    '<div class="card"><h3>Design</h3><div class="two-col"><div><canvas id="sp_label" style="width:100%;height:auto;border-radius:3px;box-shadow:var(--shadow)"></canvas><p class="small muted">A sample (Jody &amp; Dan). Show it as: <select id="sp_occ" aria-label="Show the sample as" style="padding:4px 8px;border:1px solid var(--celadon);border-radius:6px"><option value="wedding">Wedding couple</option><option value="birthday">Birthday</option><option value="anniversary">Anniversary</option><option value="engagement">Engagement</option><option value="other">Other</option></select></p></div><div>' +
+    '<div class="card"><h3>Design</h3><div class="two-col"><div><canvas id="sp_label" style="width:100%;height:auto;border-radius:3px;box-shadow:var(--shadow)"></canvas><p class="small muted">A sample (Jody &amp; Dan). Show it as: <select id="sp_occ" aria-label="Show the sample as" style="padding:4px 8px;border:1px solid var(--celadon);border-radius:6px"><option value="wedding">New Wedding Bookings</option><option value="birthday">Birthday</option><option value="anniversary">Anniversary</option><option value="engagement">Engagement</option><option value="weddingnight">Wedding night</option><option value="other">Other</option></select></p></div><div>' +
     '<p style="margin:0 0 8px"><b>Background:</b> ' + (L.state.design ? esc(L.state.design.name) : 'the built-in Black Horse design') + '</p>' +
     '<div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn ghost" data-sact="upload">Upload a new background</button>' + (L.state.design ? '<button class="btn danger" data-sact="resetbg">Go back to the built-in design</button>' : '') + '</div><input type="file" id="bgpick" accept="image/png,image/jpeg" hidden>' +
     '<p class="small muted" style="margin:10px 0 0">Upload a PNG or JPEG of the label artwork without the changing text, at least 1200 pixels wide, in the same shape as the label (' + esc(S.cfg.sheet.labelW) + ' × ' + esc(S.cfg.sheet.labelH) + ' mm). It is stretched to the label size.</p>' +

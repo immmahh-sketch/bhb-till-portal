@@ -18,10 +18,11 @@
       // The wedding label's heading (CONGRATULATIONS) is part of the artwork. Every other occasion uses the artwork without it and draws its own heading in this style.
       heading: { font: "Cormorant Garamond", size: 24, weight: 600, color: "#FFFFFF", y: 27.9, spacing: 0.04 },
       occasions: {
-        wedding: { label: "Wedding couple", message: "You’ve booked your wedding!" },
+        wedding: { label: "New Wedding Bookings", message: "You’ve booked your wedding!" },
         birthday: { label: "Birthday", heading: "HAPPY BIRTHDAY", message: "Wishing you a wonderful birthday!" },
         anniversary: { label: "Anniversary", heading: "HAPPY ANNIVERSARY", message: "Wishing you a very happy anniversary!" },
         engagement: { label: "Engagement", heading: "CONGRATULATIONS", message: "On your engagement!" },
+        weddingnight: { label: "Wedding night", heading: "Congratulations on your Wedding Day", caps: false, message: "We wish you a long and happy Married life together" },
         other: { label: "Other", heading: "BEST WISHES", message: "We hope you enjoy your stay" }
       },
       bottomName: "Black Horse Beamish",
@@ -94,7 +95,7 @@
     var img = useAlt ? ST.bgPlain : bg;
     if (img) ctx.drawImage(img, 0, 0, w, h); else { ctx.fillStyle = "#455C4E"; ctx.fillRect(0, 0, w, h); }
     if (useAlt && data.heading) {
-      var hd = settings.design.heading || {}, htext = String(data.heading).toUpperCase(), hk = 1, hmax = Number(settings.design.maxTextW || 90) * pxPerMm;
+      var hd = settings.design.heading || {}, htext = data.caps === false ? String(data.heading) : String(data.heading).toUpperCase(), hk = 1, hmax = Number(settings.design.maxTextW || 90) * pxPerMm;
       ctx.textAlign = "center"; ctx.textBaseline = "alphabetic"; ctx.fillStyle = hd.color || "#FFFFFF";
       ctx.font = fontCss(hd, pxPerMm, hk); try { ctx.letterSpacing = (Number(hd.spacing || 0) * Number(hd.size || 24) * PT * pxPerMm * hk) + "px"; } catch (e) {}
       for (var hi = 0; hi < 40 && ctx.measureText(htext).width > hmax && hk > 0.4; hi++) { hk -= 0.03; ctx.font = fontCss(hd, pxPerMm, hk); try { ctx.letterSpacing = (Number(hd.spacing || 0) * Number(hd.size || 24) * PT * pxPerMm * hk) + "px"; } catch (e) {} }
@@ -198,7 +199,7 @@
     ".lbl .f{margin:0 0 12px}.lbl .f label{display:block;font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#7B887C;margin:0 0 4px}.lbl .f input{width:100%;min-height:46px;font-size:17px;padding:8px 12px;border:1px solid #C1C8B4;border-radius:8px;background:#fff}.lbl .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}" +
     ".lblsheet{position:relative;width:100%;max-width:300px;aspect-ratio:210/297;background:#fff;border:1px solid #C1C8B4;border-radius:4px;box-shadow:0 1px 2px rgba(38,38,38,.06),0 8px 24px rgba(38,38,38,.07);margin:0 auto}" +
     ".lblcell{position:absolute;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border:2px solid #4E5F4F;background:#455C4E;color:#fff;border-radius:3px;cursor:pointer;padding:0;font-family:inherit}.lblcell b{font-size:clamp(18px,5vw,30px);line-height:1}.lblcell i{font-size:10px;font-style:normal;letter-spacing:.12em;text-transform:uppercase}" +
-    ".lblcell.used{background:repeating-linear-gradient(45deg,#E7E7E7,#E7E7E7 6px,#F4F4F4 6px,#F4F4F4 12px);color:#8a8a8a;border-color:#C9C9C9}.lblcell.sel{outline:4px solid #C9A56B;outline-offset:1px;border-color:#C9A56B}.lbl #lbl_occ .lblvbtn{flex:1 1 0;min-width:0;padding:0 6px;font-size:14px}.lblask{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#7B887C;margin:0 0 8px}.lbl.gate>div:last-child{display:none}.lbl.gate>div:first-child>*:not(.lblmode):not(.lblask):not(#lbl_occ){display:none}.lbl.gate .lblmbtn{min-height:76px;font-size:16px}.lbl.gate #lbl_occ .lblvbtn{min-height:62px;font-size:16px}.lblmode{display:flex;gap:0;margin:0 0 14px;border:2px solid #4E5F4F;border-radius:10px;overflow:hidden}.lblmbtn{flex:1 1 50%;min-height:50px;border:0;background:#fff;color:#4E5F4F;font-size:14px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer}.lblmbtn.on{background:#4E5F4F;color:#fff}.lblmbtn+.lblmbtn{border-left:2px solid #4E5F4F}.lblcell.taken{background:#E8DDC6;color:#5c4a28;border-color:#C9A56B;cursor:not-allowed}.lblq{margin:14px 0 0;padding:0;list-style:none}.lblq li{display:flex;gap:10px;align-items:center;padding:9px 0;border-top:1px solid #E7E7E7;font-size:14px}.lblq li:first-child{border-top:0}.lblq .qn{flex:0 0 auto;min-width:64px;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#7B887C}.lblq .qt{flex:1 1 auto;min-width:0;overflow-wrap:anywhere}" +
+    ".lblcell.used{background:repeating-linear-gradient(45deg,#E7E7E7,#E7E7E7 6px,#F4F4F4 6px,#F4F4F4 12px);color:#8a8a8a;border-color:#C9C9C9}.lblcell.sel{outline:4px solid #C9A56B;outline-offset:1px;border-color:#C9A56B}.lbl #lbl_occ{flex-wrap:wrap}.lbl #lbl_occ .lblvbtn{flex:1 1 30%;min-width:0;padding:0 6px;font-size:14px}.lblask{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#7B887C;margin:0 0 8px}.lbl.gate>div:last-child{display:none}.lbl.gate>div:first-child>*:not(.lblmode):not(.lblask):not(#lbl_occ){display:none}.lbl.gate .lblmbtn{min-height:76px;font-size:16px}.lbl.gate #lbl_occ .lblvbtn{min-height:62px;font-size:16px}.lblmode{display:flex;gap:0;margin:0 0 14px;border:2px solid #4E5F4F;border-radius:10px;overflow:hidden}.lblmbtn{flex:1 1 50%;min-height:50px;border:0;background:#fff;color:#4E5F4F;font-size:14px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer}.lblmbtn.on{background:#4E5F4F;color:#fff}.lblmbtn+.lblmbtn{border-left:2px solid #4E5F4F}.lblcell.taken{background:#E8DDC6;color:#5c4a28;border-color:#C9A56B;cursor:not-allowed}.lblq{margin:14px 0 0;padding:0;list-style:none}.lblq li{display:flex;gap:10px;align-items:center;padding:9px 0;border-top:1px solid #E7E7E7;font-size:14px}.lblq li:first-child{border-top:0}.lblq .qn{flex:0 0 auto;min-width:64px;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#7B887C}.lblq .qt{flex:1 1 auto;min-width:0;overflow-wrap:anywhere}" +
     ".lblseg{display:flex;gap:8px;flex-wrap:wrap}.lblvbtn{flex:1 1 140px;min-height:46px;border:2px solid #C1C8B4;background:#fff;color:#4E5F4F;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;padding:0 12px}.lblvbtn.on{background:#4E5F4F;border-color:#4E5F4F;color:#fff}" +
     ".lblprev{display:block;width:100%;max-width:520px;height:auto;border-radius:3px;box-shadow:0 1px 2px rgba(38,38,38,.1),0 6px 18px rgba(38,38,38,.12);margin:0 0 10px}" +
     ".lblbtns{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0 0}.lblbtn{border:2px solid #4E5F4F;background:#4E5F4F;color:#fff;border-radius:10px;min-height:52px;padding:0 22px;font-size:14px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer}.lblbtn.ghost{background:#fff;color:#4E5F4F}.lblbtn:disabled{opacity:.55;cursor:default}" +
@@ -222,14 +223,15 @@
     try { S = await load(); } catch (e) { el.innerHTML = '<div class="lblmsg bad">' + esc(e.message) + '</div>'; return null; }
     var nm = opts.names ? splitNames(opts.names) : [opts.partner1 || "", opts.partner2 || ""];
     var cfg = S.settings, n = cfg.sheet.cols * cfg.sheet.rows;
-    var st = { p1: nm[0], p2: nm[1], date: opts.date || "", pos: 0, busy: false, mode: opts.noOccasions ? "wedding" : null, occ: "" }, vs = cfg.design.venues || [], OC = cfg.design.occasions || {}, OCKEYS = ["birthday", "anniversary", "engagement", "other"];
+    var st = { p1: nm[0], p2: nm[1], date: opts.date || "", pos: 0, busy: false, mode: opts.noOccasions ? "wedding" : null, occ: "", wn: "mrmrs" }, vs = cfg.design.venues || [], OC = cfg.design.occasions || {}, OCKEYS = ["birthday", "anniversary", "engagement", "weddingnight", "other"];
     st.venue = vs.filter(function (v) { return opts.venue && String(opts.venue).toLowerCase().replace(/[^a-z]/g, "").indexOf(v.toLowerCase().replace(/[^a-z]/g, "").slice(0, 6)) > -1; })[0] || vs[0] || "";
     st.pos = 1;
     el.innerHTML = '<div class="lbl" id="lbl_root"><div>' +
-      (opts.noOccasions ? '' : '<div class="lblask" id="lbl_ask1">Who is this label for?</div><div class="lblmode" role="group" aria-label="Who is the label for"><button type="button" class="lblmbtn on" data-mode="wedding" aria-pressed="true">Wedding couple</button><button type="button" class="lblmbtn" data-mode="other" aria-pressed="false">Other</button></div>' +
+      (opts.noOccasions ? '' : '<div class="lblask" id="lbl_ask1">Who is this label for?</div><div class="lblmode" role="group" aria-label="Who is the label for"><button type="button" class="lblmbtn on" data-mode="wedding" aria-pressed="true">New Wedding Bookings</button><button type="button" class="lblmbtn" data-mode="other" aria-pressed="false">Other</button></div>' +
         '<div class="lblask" id="lbl_ask2" hidden>What is the occasion?</div><div id="lbl_occ" class="lblseg" role="group" aria-label="Occasion" style="margin:0 0 14px" hidden></div>') +
-      '<div class="two"><div class="f"><label for="lbl_p1" id="lbl_l1">Partner 1</label><input id="lbl_p1" autocomplete="off" value="' + esc(st.p1) + '"></div><div class="f"><label for="lbl_p2" id="lbl_l2">Partner 2</label><input id="lbl_p2" autocomplete="off" value="' + esc(st.p2) + '"></div></div>' +
+      '<div class="two"><div class="f"><label for="lbl_p1" id="lbl_l1">Partner 1</label><input id="lbl_p1" autocomplete="off" value="' + esc(st.p1) + '"></div><div class="f" id="lbl_f2"><label for="lbl_p2" id="lbl_l2">Partner 2</label><input id="lbl_p2" autocomplete="off" value="' + esc(st.p2) + '"></div></div>' +
       '<div class="f"><label for="lbl_date" id="lbl_ld">Wedding date</label><input id="lbl_date" type="date" value="' + esc(st.date) + '"></div>' +
+      '<div class="f" id="lbl_wnf" hidden><label>Names on the label</label><div id="lbl_wn" class="lblseg" role="group" aria-label="How the names are written"></div></div>' +
       '<div class="two" id="lbl_otherf" hidden><div class="f"><label for="lbl_head">Heading</label><input id="lbl_head" autocomplete="off" maxlength="30"></div><div class="f"><label for="lbl_msg2">Message</label><input id="lbl_msg2" autocomplete="off" maxlength="60"></div></div>' +
       '<div class="f" id="lbl_venuef"><label>Venue</label><div id="lbl_venue" class="lblseg" role="group" aria-label="Venue"></div></div>' +
       '<canvas id="lbl_prev" class="lblprev" aria-label="Preview of the label"></canvas>' +
@@ -241,11 +243,12 @@
     var $ = function (id) { return el.querySelector("#" + id); };
     var other = function () { return st.mode === "other"; };
     function data() {
-      var d = { names: joinNames($("lbl_p1").value, $("lbl_p2").value), dateIso: $("lbl_date").value, occasion: other() ? st.occ : "wedding" };
+      var wn = other() && st.occ === "weddingnight" && st.wn === "mrmrs", sur = $("lbl_p1").value.trim();
+      var d = { names: wn ? (sur ? "Mr & Mrs " + sur : "") : joinNames($("lbl_p1").value, $("lbl_p2").value), dateIso: $("lbl_date").value, occasion: other() ? st.occ : "wedding" };
       if (!other()) { d.venue = st.venue; return d; }
       var oc = OC[st.occ] || {};
       d.venue = cfg.design.bottomName || "Black Horse Beamish";             // the bottom of an occasion label names the house, not a room
-      d.heading = st.occ === "other" ? $("lbl_head").value : (oc.heading || ""); d.message = st.occ === "other" ? $("lbl_msg2").value : (oc.message || "");
+      d.heading = st.occ === "other" ? $("lbl_head").value : (oc.heading || ""); d.message = st.occ === "other" ? $("lbl_msg2").value : (oc.message || ""); d.caps = oc.caps !== false;
       return d;
     }
     function copyOf(d, pos) { var o = { pos: pos }; for (var k in d) if (Object.prototype.hasOwnProperty.call(d, k)) o[k] = d[k]; return o; }
@@ -258,7 +261,10 @@
       var gated = !opts.noOccasions && (!st.mode || (o && !st.occ)); $("lbl_root").classList.toggle("gate", gated);
       if ($("lbl_ask2")) $("lbl_ask2").hidden = !o;
       if ($("lbl_occ")) { $("lbl_occ").hidden = !o; $("lbl_occ").innerHTML = OCKEYS.map(function (k) { return '<button type="button" class="lblvbtn' + (k === st.occ ? " on" : "") + '" data-occ="' + k + '" aria-pressed="' + (k === st.occ) + '">' + esc(occLabel(k)) + '</button>'; }).join(""); }
-      $("lbl_l1").textContent = o ? "Name" : "Partner 1"; $("lbl_l2").textContent = o ? "Second name (optional)" : "Partner 2";
+      var wn = o && st.occ === "weddingnight", mm = wn && st.wn === "mrmrs";
+      $("lbl_wnf").hidden = !wn; $("lbl_f2").hidden = mm;
+      if (wn) $("lbl_wn").innerHTML = [["mrmrs", "Mr & Mrs Smith"], ["names", "Both their names"]].map(function (x) { return '<button type="button" class="lblvbtn' + (x[0] === st.wn ? " on" : "") + '" data-wn="' + x[0] + '" aria-pressed="' + (x[0] === st.wn) + '">' + x[1] + '</button>'; }).join("");
+      $("lbl_l1").textContent = mm ? "Surname (for example Smith, or J Smith)" : (o ? "Name" : "Partner 1"); $("lbl_l2").textContent = o ? (wn ? "Second name" : "Second name (optional)") : "Partner 2";
       $("lbl_ld").textContent = o ? "Date (optional)" : "Wedding date";
       $("lbl_otherf").hidden = !(o && st.occ === "other"); $("lbl_venuef").hidden = o;
     }
@@ -290,6 +296,7 @@
     el.addEventListener("input", paint); paint();
     el.addEventListener("click", function (e) {
       var mb = e.target.closest("[data-mode]"); if (mb) { st.mode = mb.getAttribute("data-mode"); if (other() && !$("lbl_head").value && !$("lbl_msg2").value) { $("lbl_head").value = (OC.other || {}).heading || ""; $("lbl_msg2").value = (OC.other || {}).message || ""; } paint(); return; }
+      var wb = e.target.closest("[data-wn]"); if (wb) { st.wn = wb.getAttribute("data-wn"); paint(); return; }
       var ob = e.target.closest("[data-occ]"); if (ob) { st.occ = ob.getAttribute("data-occ"); if (st.occ === "other" && !$("lbl_head").value && !$("lbl_msg2").value) { $("lbl_head").value = (OC.other || {}).heading || ""; $("lbl_msg2").value = (OC.other || {}).message || ""; } paint(); return; }
       var ua = e.target.closest("[data-unqueue]"); if (ua) { var up = +ua.getAttribute("data-unqueue"); st.queue = st.queue.filter(function (q) { return q.pos !== up; }); if (!st.pos || isTaken(st.pos)) st.pos = up; paint(); return; }
       var c = e.target.closest(".lblcell"); if (c && !c.disabled && !isTaken(+c.getAttribute("data-pos"))) { st.pos = +c.getAttribute("data-pos"); paint(); } var vb = e.target.closest(".lblvbtn"); if (vb) { st.venue = vb.getAttribute("data-venue"); paint(); } });
