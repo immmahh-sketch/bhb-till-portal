@@ -61,7 +61,7 @@ table.lines input,table.lines select{min-height:38px; width:100%; min-width:62px
   <main class="shell" id="views"></main>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
-<script src="label-core.js?v=20261024"></script>
+<script src="label-core.js?v=20261026"></script>
 <script>
 (function () {
 "use strict";
@@ -96,14 +96,14 @@ function agentNote(a) {
 }
 function showPrint(v) {
   v.innerHTML = '<div class="pagehead"><h2>Print a label</h2><span id="agent">' + agentNote(L.state.agent) + '</span></div>' +
-    '<p class="lead">The personalised congratulations label for the bottle of prosecco a couple is given when they book. Add their names and the wedding date, tap the space on the label paper that is free, and print.</p>' +
+    '<p class="lead">The personalised label for a bottle of prosecco. Choose <b>Wedding couple</b> for the label given when a couple book, or <b>Other</b> for a birthday, anniversary, engagement or something else, to go in a bedroom. Add the names, tap the space on the label paper that is free, and print.</p>' +
     '<div class="card"><div id="mount"></div></div>';
   L.mount($("#mount"), { source: "app" });
 }
 
 /* ------------------------------------------------------------- sent to print */
 async function showHistory(v) {
-  v.innerHTML = '<div class="pagehead"><h2>Sent to print</h2></div><p class="muted">Loadingâ€¦</p>';
+  v.innerHTML = '<div class="pagehead"><h2>Sent to print</h2></div><p class="muted">Loading…</p>';
   try {
     var d = await L.api("job.list"); S.hist = d.jobs; L.state.agent = d.agent;
     var pill = { queued: ["warn", "Waiting"], printing: ["warn", "Printing"], printed: ["ok", "Printed"], failed: ["bad", "Failed"], cancelled: ["", "Cancelled"] };
@@ -141,13 +141,25 @@ function numField(label, path, step, hint) {
   return '<div class="f"><label for="s_' + path.replace(/\./g, "_") + '">' + label + '</label><input id="s_' + path.replace(/\./g, "_") + '" type="number" step="' + (step || "0.01") + '" data-path="' + path + '" value="' + esc(getPath(S.cfg, path)) + '">' + (hint ? '<div class="small muted">' + hint + '</div>' : '') + '</div>';
 }
 var SAMPLE = { names: "Jody & Dan", dateIso: "2026-10-13", venue: "Orchard Marquee" };
+function occData(k) {
+  if (!k || k === "wedding") return SAMPLE;
+  var oc = (S.cfg.design.occasions || {})[k] || {};
+  return { names: "Jody & Dan", dateIso: "", occasion: k, heading: oc.heading || "", message: oc.message || "", venue: S.cfg.design.bottomName || "Black Horse Beamish" };
+}
+function occWordsHtml() {
+  var oc = S.cfg.design.occasions || {}, rows = ["wedding", "birthday", "anniversary", "engagement", "other"].map(function (k) {
+    var o = oc[k] || {};
+    return '<tr><td><b>' + esc(o.label || k) + '</b></td><td>' + (k === "wedding" ? '<span class="muted small">on the artwork</span>' : '<input data-occ="' + k + '" data-of="heading" value="' + esc(o.heading || "") + '" maxlength="30">') + '</td><td><input data-occ="' + k + '" data-of="message" value="' + esc(o.message || "") + '" maxlength="60"></td></tr>';
+  }).join("");
+  return '<div class="tw"><table class="t"><thead><tr><th>Occasion</th><th>Heading</th><th>Message under the names</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+}
 function settingsPreview() {
-  var c = $("#sp_label"); if (c) L.renderLabelOnly(c, S.cfg, L.state.bg, SAMPLE, 760);
+  var c = $("#sp_label"); if (c) L.renderLabelOnly(c, S.cfg, L.state.bg, occData($("#sp_occ") ? $("#sp_occ").value : "wedding"), 760);
   var sh = $("#sp_sheet"); if (sh) sh.innerHTML = L.pickerHtml(S.cfg, [], 0);
 }
 function linesTable() {
   var fonts = L.NAME_FONTS, wts = [400, 500, 600, 700];
-  return '<div class="tw"><table class="t lines"><thead><tr><th style="min-width:200px">Text ({names} and {date} fill in)</th><th>Font</th><th>Size pt</th><th>Weight</th><th>Colour</th><th>Baseline mm</th><th>CAPS</th><th></th></tr></thead><tbody>' +
+  return '<div class="tw"><table class="t lines"><thead><tr><th style="min-width:200px">Text ({names}, {date}, {venue} and {message} fill in)</th><th>Font</th><th>Size pt</th><th>Weight</th><th>Colour</th><th>Baseline mm</th><th>CAPS</th><th></th></tr></thead><tbody>' +
     S.cfg.design.lines.map(function (l, i) {
       return '<tr data-line="' + i + '"><td><input data-lf="text" value="' + esc(l.text) + '"></td><td><select data-lf="font">' + fonts.map(function (f) { return '<option' + (f === l.font ? " selected" : "") + '>' + f + '</option>'; }).join("") + '</select></td><td><input data-lf="size" type="number" step="0.5" value="' + esc(l.size) + '" style="width:74px"></td><td><select data-lf="weight">' + wts.map(function (w) { return '<option' + (+w === +l.weight ? " selected" : "") + '>' + w + '</option>'; }).join("") + '</select></td><td><input data-lf="color" type="color" value="' + esc(l.color || "#FFFFFF") + '" style="width:54px;padding:2px"></td><td><input data-lf="y" type="number" step="0.1" value="' + esc(l.y) + '" style="width:84px"></td><td><input data-lf="caps" type="checkbox"' + (l.caps ? " checked" : "") + ' style="min-width:0;width:20px;min-height:20px"></td><td><button class="btn small danger" data-sact="delline" data-i="' + i + '">Remove</button></td></tr>';
     }).join("") + '</tbody></table></div>';
@@ -157,18 +169,19 @@ function showSettings(v) {
   var dfm = [["long", "13th October 2026"], ["weekday", "Tuesday 13th October 2026"], ["short", "13 Oct 2026"], ["dots", "13.10.2026"]];
   v.innerHTML = '<div class="pagehead"><h2>Settings</h2></div>' +
     '<p class="lead">Everything that decides where the label lands on the sheet, and what it looks like. Print the alignment test on plain paper first, then change the numbers until it matches the label paper.</p>' +
-    '<div class="card"><h3>Label sheet</h3><p class="muted small" style="margin:0 0 10px">Measured from the top-left corner of the A4 sheet, in millimetres. Labels are numbered across, then down (1 top left, 2 top right, 3 next row leftâ€¦).</p>' +
+    '<div class="card"><h3>Label sheet</h3><p class="muted small" style="margin:0 0 10px">Measured from the top-left corner of the A4 sheet, in millimetres. Labels are numbered across, then down (1 top left, 2 top right, 3 next row left…).</p>' +
     '<div class="two-col"><div><div class="grid g4">' + numField("Labels across", "sheet.cols", "1") + numField("Labels down", "sheet.rows", "1") + numField("Label width", "sheet.labelW") + numField("Label height", "sheet.labelH") + numField("First label, from left", "sheet.firstX") + numField("First label, from top", "sheet.firstY") + numField("Across: start to next", "sheet.pitchX", "0.01", "Left edge to the next label's left edge") + numField("Down: start to next", "sheet.pitchY", "0.01", "Top edge to the next row's top edge") + '</div></div><div><div class="sheetprev"><div id="sp_sheet"></div></div></div></div></div>' +
     '<div class="card"><h3>Print adjustment</h3><p class="muted small" style="margin:0 0 10px">If everything prints a little off, correct it here instead of changing the sheet. Positive moves the print right and down.</p><div class="grid g4">' + numField("Move right (mm)", "adjust.offsetX") + numField("Move down (mm)", "adjust.offsetY") + numField("Size (%)", "adjust.scale", "0.1", "100 = exactly as designed") + '</div>' +
     '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px"><button class="btn ghost" data-sact="testsheet">Print alignment test</button><span style="display:inline-flex;gap:8px;align-items:center;flex-wrap:wrap"><select id="testpos" aria-label="Where to print the sample label" style="min-height:42px;padding:0 10px;border:1px solid var(--mist);border-radius:8px;background:#fff">' + samplePosOptions() + '</select><button class="btn ghost" data-sact="testlabel">Print a sample label</button></span></div><p class="small muted" style="margin:8px 0 0">Choose <b>all positions</b> to print the sample in every spot on the sheet, then check none of it runs over into the next label.</p>' + L.loadingHelpHtml() + '<div id="testmsg" style="margin-top:10px"></div></div>' +
     '<div class="card"><h3>Printer</h3><div class="grid g4">' + '<div class="f"><label for="s_printer_name">Printer name</label><input id="s_printer_name" data-path="printer.name" value="' + esc(S.cfg.printer.name) + '"><div class="small muted">As it is named on the office PC that does the printing</div></div>' + numField("Copies of each label", "printer.copies", "1") + '</div>' +
     '<p class="small muted" style="margin:12px 0 0">Printing is done by a small program on an office PC that is always on and can see the printer. Phones and tablets send the label to it over the internet, so no laptop needs to be on the network. <span id="agentnow">' + agentNote(L.state.agent) + '</span></p></div>' +
-    '<div class="card"><h3>Design</h3><div class="two-col"><div><canvas id="sp_label" style="width:100%;height:auto;border-radius:3px;box-shadow:var(--shadow)"></canvas><p class="small muted">A sample (Jody &amp; Dan).</p></div><div>' +
+    '<div class="card"><h3>Design</h3><div class="two-col"><div><canvas id="sp_label" style="width:100%;height:auto;border-radius:3px;box-shadow:var(--shadow)"></canvas><p class="small muted">A sample (Jody &amp; Dan). Show it as: <select id="sp_occ" aria-label="Show the sample as" style="padding:4px 8px;border:1px solid var(--celadon);border-radius:6px"><option value="wedding">Wedding couple</option><option value="birthday">Birthday</option><option value="anniversary">Anniversary</option><option value="engagement">Engagement</option><option value="other">Other</option></select></p></div><div>' +
     '<p style="margin:0 0 8px"><b>Background:</b> ' + (L.state.design ? esc(L.state.design.name) : 'the built-in Black Horse design') + '</p>' +
     '<div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn ghost" data-sact="upload">Upload a new background</button>' + (L.state.design ? '<button class="btn danger" data-sact="resetbg">Go back to the built-in design</button>' : '') + '</div><input type="file" id="bgpick" accept="image/png,image/jpeg" hidden>' +
-    '<p class="small muted" style="margin:10px 0 0">Upload a PNG or JPEG of the label artwork without the changing text, at least 1200 pixels wide, in the same shape as the label (' + esc(S.cfg.sheet.labelW) + ' Ã— ' + esc(S.cfg.sheet.labelH) + ' mm). It is stretched to the label size.</p>' +
+    '<p class="small muted" style="margin:10px 0 0">Upload a PNG or JPEG of the label artwork without the changing text, at least 1200 pixels wide, in the same shape as the label (' + esc(S.cfg.sheet.labelW) + ' × ' + esc(S.cfg.sheet.labelH) + ' mm). It is stretched to the label size.</p>' +
     '<div class="f" style="margin-top:12px"><label for="s_df">Date style</label><select id="s_df" data-path="design.dateFormat">' + dfm.map(function (d) { return '<option value="' + d[0] + '"' + (S.cfg.design.dateFormat === d[0] ? " selected" : "") + '>' + d[1] + '</option>'; }).join("") + '</select></div>' + numField("Longest a line may be (mm)", "design.maxTextW", "1", "Longer names shrink to fit") + '</div></div>' +
     '<div class="f" style="margin-top:14px"><label for="s_venues">Venue names offered when printing (one per line)</label><textarea id="s_venues" rows="3" style="width:100%;border:1px solid var(--celadon);border-radius:8px;padding:8px 10px;font-size:15px">' + esc((S.cfg.design.venues || []).join("\n")) + '</textarea><div class="small muted">Use {venue} in a line below to print the one chosen.</div></div>' +
+    '<h4 style="margin:18px 0 6px;font-size:19px;color:var(--sage)">Wording for each occasion</h4><p class="small muted" style="margin:0 0 8px">The Other button on the Print a label screen offers these. The heading is drawn above the names; the message goes under them. On an occasion label the bottom line shows the house name instead of the venue.</p><div id="occwords">' + occWordsHtml() + '</div><div class="f" style="margin-top:10px;max-width:320px"><label for="s_bottom">Bottom line on occasion labels</label><input id="s_bottom" data-path="design.bottomName" value="' + esc(S.cfg.design.bottomName || "Black Horse Beamish") + '"></div>' +
     '<h4 style="margin:18px 0 6px;font-size:19px;color:var(--sage)">Text on the label</h4><div id="lines">' + linesTable() + '</div><div style="margin-top:10px"><button class="btn ghost" data-sact="addline">Add a line</button></div></div>' +
     '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><button class="btn" data-sact="save">Save settings</button><span class="muted small">Saved settings apply to every label from now on.</span></div>';
   settingsPreview();
@@ -176,10 +189,11 @@ function showSettings(v) {
 document.addEventListener("input", function (e) {
   var t = e.target; if (S.tab !== "settings" || !S.cfg) return;
   if (t.id === "s_venues") { S.cfg.design.venues = t.value.split(/\r?\n/).map(function (x) { return x.trim(); }).filter(Boolean); return; }
+  if (t.dataset && t.dataset.occ) { var oc2 = S.cfg.design.occasions[t.dataset.occ]; if (oc2) oc2[t.dataset.of] = t.value; settingsPreview(); return; }
   if (t.dataset && t.dataset.path) { var val = t.type === "number" ? Number(t.value) : t.value; if (t.type === "number" && t.value === "") return; setPath(S.cfg, t.dataset.path, val); settingsPreview(); return; }
   var tr = t.closest("tr[data-line]"); if (tr && t.dataset.lf) { var line = S.cfg.design.lines[+tr.dataset.line], k = t.dataset.lf; line[k] = t.type === "checkbox" ? t.checked : (t.type === "number" ? Number(t.value) : t.value); settingsPreview(); }
 });
-document.addEventListener("change", function (e) { var t = e.target; if (t.id === "bgpick" && t.files && t.files[0]) uploadBg(t.files[0]); var tr = t.closest && t.closest("tr[data-line]"); if (tr && t.dataset.lf && (t.tagName === "SELECT" || t.type === "checkbox")) { var line = S.cfg.design.lines[+tr.dataset.line]; line[t.dataset.lf] = t.type === "checkbox" ? t.checked : (t.dataset.lf === "weight" ? Number(t.value) : t.value); L.loadFonts(S.cfg).then(settingsPreview); } if (t.dataset && t.dataset.path === "design.dateFormat") settingsPreview(); });
+document.addEventListener("change", function (e) { var t = e.target; if (t.id === "sp_occ") { settingsPreview(); return; } if (t.id === "bgpick" && t.files && t.files[0]) uploadBg(t.files[0]); var tr = t.closest && t.closest("tr[data-line]"); if (tr && t.dataset.lf && (t.tagName === "SELECT" || t.type === "checkbox")) { var line = S.cfg.design.lines[+tr.dataset.line]; line[t.dataset.lf] = t.type === "checkbox" ? t.checked : (t.dataset.lf === "weight" ? Number(t.value) : t.value); L.loadFonts(S.cfg).then(settingsPreview); } if (t.dataset && t.dataset.path === "design.dateFormat") settingsPreview(); });
 async function uploadBg(file) {
   try {
     var url = await new Promise(function (res, rej) { var r = new FileReader(); r.onload = function () { res(r.result); }; r.onerror = rej; r.readAsDataURL(file); });
@@ -201,7 +215,7 @@ document.addEventListener("click", async function (e) {
     if (a === "testsheet" || a === "testlabel") {
       var tp = $("#testpos") ? $("#testpos").value : "1";
       if (!await L.confirmPrint({ title: a === "testsheet" ? "Print the alignment test?" : "Print a sample label?", text: a === "testsheet" ? "It will print a full test sheet on the office printer straight away. Put plain paper in first." : (tp === "all" ? "It will print the sample label (Jody & Dan) in every position on the sheet, on the office printer straight away. Put the label sheet in first." : "It will print a sample label (Jody & Dan) in position " + tp + " on the office printer straight away. Put the label sheet in first."), lines: [["Printer", (S.cfg && S.cfg.printer && S.cfg.printer.name) || "Office Printer"]] })) return;
-      b.disabled = true; var msg = $("#testmsg"); msg.innerHTML = '<div class="notice">Sendingâ€¦ (this uses the settings as they are saved, so save first if you have changed them)</div>';
+      b.disabled = true; var msg = $("#testmsg"); msg.innerHTML = '<div class="notice">Sending… (this uses the settings as they are saved, so save first if you have changed them)</div>';
       var r;
       if (a === "testsheet") r = await L.testPrint(1);
       else { var sel = $("#testpos") ? $("#testpos").value : "1", all = sel === "all", pos = all ? 1 : (+sel || 1); var page = L.renderSheet(S.cfg, L.state.bg, SAMPLE, all ? "all" : pos, "label", 300); r = await L.api("job.create", { names: all ? "Sample label: all positions" : SAMPLE.names, date: SAMPLE.dateIso, position: pos, page_png: L.pngBase64(page), kind: "test", source: "app" }); }
@@ -211,7 +225,7 @@ document.addEventListener("click", async function (e) {
 });
 
 async function boot() {
-  $("#app").hidden = false; $("#views").innerHTML = '<p class="muted" style="margin-top:24px">Loadingâ€¦</p>';
+  $("#app").hidden = false; $("#views").innerHTML = '<p class="muted" style="margin-top:24px">Loading…</p>';
   try { await L.load(true); } catch (e) { $("#views").innerHTML = '<div class="card"><b>' + esc(e.message) + '</b><p class="muted">Open this from the Staff Portal so it knows who you are.</p></div>'; return; }
   S.me = L.state.me; $("#whoname").textContent = S.me.name;
   await show((TABS.find(function (t) { return S.me.tabs.indexOf(t[0]) > -1; }) || [])[0] || null);
