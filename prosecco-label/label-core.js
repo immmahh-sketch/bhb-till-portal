@@ -243,8 +243,8 @@
     var $ = function (id) { return el.querySelector("#" + id); };
     var other = function () { return st.mode === "other"; };
     function data() {
-      var wn = other() && st.occ === "weddingnight" && st.wn === "mrmrs", sur = $("lbl_p1").value.trim();
-      var d = { names: wn ? (sur ? "Mr & Mrs " + sur : "") : joinNames($("lbl_p1").value, $("lbl_p2").value), dateIso: $("lbl_date").value, occasion: other() ? st.occ : "wedding" };
+      var wn = other() && st.occ === "weddingnight" && st.wn !== "names", sur = $("lbl_p1").value.trim(), TITLES = { mrmrs: "Mr & Mrs ", mrmr: "Mr & Mr ", mrsmrs: "Mrs & Mrs " };
+      var d = { names: wn ? (sur ? (TITLES[st.wn] || "Mr & Mrs ") + sur : "") : joinNames($("lbl_p1").value, $("lbl_p2").value), dateIso: $("lbl_date").value, occasion: other() ? st.occ : "wedding" };
       if (!other()) { d.venue = st.venue; return d; }
       var oc = OC[st.occ] || {};
       d.venue = cfg.design.bottomName || "Black Horse Beamish";             // the bottom of an occasion label names the house, not a room
@@ -261,9 +261,9 @@
       var gated = !opts.noOccasions && (!st.mode || (o && !st.occ)); $("lbl_root").classList.toggle("gate", gated);
       if ($("lbl_ask2")) $("lbl_ask2").hidden = !o;
       if ($("lbl_occ")) { $("lbl_occ").hidden = !o; $("lbl_occ").innerHTML = OCKEYS.map(function (k) { return '<button type="button" class="lblvbtn' + (k === st.occ ? " on" : "") + '" data-occ="' + k + '" aria-pressed="' + (k === st.occ) + '">' + esc(occLabel(k)) + '</button>'; }).join(""); }
-      var wn = o && st.occ === "weddingnight", mm = wn && st.wn === "mrmrs";
+      var wn = o && st.occ === "weddingnight", mm = wn && st.wn !== "names";
       $("lbl_wnf").hidden = !wn; $("lbl_f2").hidden = mm;
-      if (wn) $("lbl_wn").innerHTML = [["mrmrs", "Mr & Mrs Smith"], ["names", "Both their names"]].map(function (x) { return '<button type="button" class="lblvbtn' + (x[0] === st.wn ? " on" : "") + '" data-wn="' + x[0] + '" aria-pressed="' + (x[0] === st.wn) + '">' + x[1] + '</button>'; }).join("");
+      if (wn) $("lbl_wn").innerHTML = [["mrmrs", "Mr & Mrs Smith"], ["mrmr", "Mr & Mr Smith"], ["mrsmrs", "Mrs & Mrs Smith"], ["names", "Both their names"]].map(function (x) { return '<button type="button" class="lblvbtn' + (x[0] === st.wn ? " on" : "") + '" data-wn="' + x[0] + '" aria-pressed="' + (x[0] === st.wn) + '">' + x[1] + '</button>'; }).join("");
       $("lbl_l1").textContent = mm ? "Surname (for example Smith, or J Smith)" : (o ? "Name" : "Partner 1"); $("lbl_l2").textContent = o ? (wn ? "Second name" : "Second name (optional)") : "Partner 2";
       $("lbl_ld").textContent = o ? "Date (optional)" : "Wedding date";
       $("lbl_otherf").hidden = !(o && st.occ === "other"); $("lbl_venuef").hidden = o;
