@@ -284,9 +284,11 @@ async function viewActions(){
   try { S.plan = await api("plan.list"); } catch(e){ $("#views").innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
   renderActions();
 }
+/* people on this action who work in the Marketing plan, when the action is not there and nobody has said no */
+const mkAsk = a => (a.linked && (a.linked.marketing || a.linked.declined)) ? [] : (a.assignees || []).filter(e => e !== S.me.email && (S.people.find(p => p.email === e) || {}).marketing);
 function actionHtml(a){
   const due = a.due_date ? (isOpen(a) && daysTo(a.due_date) < 0 ? `<span class="due over">Overdue: was due ${esc(fmtDay(a.due_date))}</span>` : isOpen(a) && daysTo(a.due_date) <= 7 ? `<span class="due soon">Due ${esc(fmtDay(a.due_date))}</span>` : `<span class="due">Due ${esc(fmtDay(a.due_date))}</span>`) : "";
-  return `<div class="act${a.status === "completed" ? " done" : ""}"><div><div class="tt">${esc(a.title)}</div><div class="meta"><span class="pill ${ST[a.status][1]}">${ST[a.status][0]}</span>${due}<span>${(a.assignees || []).length ? "With " + esc(a.assignees.map(pname).join(", ")) : "Nobody yet"}</span>${a.linked && a.linked.marketing ? `<span class="pill ok" title="Updates made here or in the Marketing plan show in both">Also in the Marketing plan</span>` : ""}${a.linked && a.linked.hod && a.linked.hod.length ? `<span class="pill ok" title="Updates made here or in HOD Actions show in both">Also on ${esc(a.linked.hod.map(pname).join(", "))}'s HOD list</span>` : ""}</div></div>
+  return `<div class="act${a.status === "completed" ? " done" : ""}"><div><div class="tt">${esc(a.title)}</div><div class="meta"><span class="pill ${ST[a.status][1]}">${ST[a.status][0]}</span>${due}<span>${(a.assignees || []).length ? "With " + esc(a.assignees.map(pname).join(", ")) : "Nobody yet"}</span>${a.linked && a.linked.marketing ? `<span class="pill ok" title="Updates made here or in the Marketing plan show in both">Also in the Marketing plan</span>` : ""}${a.linked && a.linked.hod && a.linked.hod.length ? `<span class="pill ok" title="Updates made here or in HOD Actions show in both">Also on ${esc(a.linked.hod.map(pname).join(", "))}'s HOD list</span>` : ""}${mkAsk(a).length && canEdit() ? `<button class="chip" data-mkask="${a.id}" title="${esc(mkAsk(a).map(pname).join(", "))} is on the Marketing plan">Add to the Marketing plan?</button>` : ""}</div></div>
     <div class="btns">${canEdit() ? `<button class="btn small" data-respond="${a.id}">Update</button><button class="btn ghost small" data-edit="${a.id}">Edit</button>` : ""}<button class="btn ghost small" data-hist="${a.id}">History</button></div>
     ${a.latest_update ? `<div class="upd">${esc(a.latest_update)}<div class="tiny muted">${esc(a.latest_update_by || "")}${a.latest_update_at ? " · " + esc(fmtDT(a.latest_update_at)) : ""}</div></div>` : ""}</div>`;
 }
@@ -300,15 +302,17 @@ function renderActions(){
     const done = list.filter(a => a.status === "completed").length;
     return `<div class="card obj"><div class="oh"><h3>${esc(o.title)}</h3><span class="tiny muted">${done} of ${list.length} done</span>${canEdit() ? `<button class="btn small" data-newact="${o.id}">Add action</button><button class="btn ghost small" data-editobj="${o.id}">Edit</button>` : ""}</div>${o.description ? `<p class="small muted" style="margin:2px 0 6px">${esc(o.description)}</p>` : ""}<div class="bar"><i style="width:${list.length ? Math.round(done / list.length * 100) : 0}%"></i></div>${shown.map(actionHtml).join("") || `<p class="small muted" style="margin:10px 0 0">Nothing here for this view.</p>`}</div>`;
   }).join("");
-  $("#views").innerHTML = `<div class="pagehead"><h2>Action plan</h2><span class="hint">Everything that has to happen for Christmas, who has it and when. Every update is kept.</span><span class="spacer"></span>${canEdit() ? `<button class="btn" id="newObj">New objective</button>` : ""}</div>
+  $("#views").innerHTML = `<div class="pagehead"><h2>Action plan</h2><span class="hint">Everything that has to happen for Christmas, who has it and when. Every update is kept.</span><span class="spacer"></span><button class="btn ghost" id="digestBtn">Daily email</button>${canEdit() ? `<button class="btn" id="newObj">New objective</button>` : ""}</div>
     <div class="tiles"><div class="tile"><div class="v">${open.length}</div><div class="l">open actions</div><div class="s">${actions.filter(a => a.status === "completed").length} completed</div></div><div class="tile"><div class="v" style="${overdue.length ? "color:var(--red)" : ""}">${overdue.length}</div><div class="l">overdue</div></div><div class="tile"><div class="v">${week.length}</div><div class="l">due in 7 days</div></div><div class="tile"><div class="v">${mine.length}</div><div class="l">with me</div></div></div>
     <div class="chips">${[["open","Open"],["mine","Mine"],["overdue","Overdue"],["week","Due this week"],["done","Completed"],["all","Everything"]].map(([k, l]) => `<button class="chip" data-filter="${k}" aria-pressed="${f === k}">${l}</button>`).join("")}</div>
     ${cards || `<div class="empty">No objectives yet.</div>`}`;
   $$("[data-filter]").forEach(b => b.onclick = () => { S.planFilter = b.dataset.filter; renderActions(); });
   if ($("#newObj")) $("#newObj").onclick = () => objForm(null);
+  $("#digestBtn").onclick = digestForm;
   $$("[data-editobj]").forEach(b => b.onclick = () => objForm(objectives.find(o => o.id === b.dataset.editobj)));
   $$("[data-newact]").forEach(b => b.onclick = () => actForm(null, b.dataset.newact));
   $$("[data-edit]").forEach(b => b.onclick = () => actForm(actions.find(a => a.id === b.dataset.edit)));
+  $$("[data-mkask]").forEach(b => b.onclick = () => { const a = actions.find(x => x.id === b.dataset.mkask); askMarketing(a.id, mkAsk(a).map(pname)); });
   $$("[data-respond]").forEach(b => b.onclick = () => respondForm(actions.find(a => a.id === b.dataset.respond)));
   $$("[data-hist]").forEach(b => b.onclick = () => histForm(actions.find(a => a.id === b.dataset.hist)));
 }
@@ -338,6 +342,19 @@ function actForm(a, objectiveId){
     } catch(e){ $("#a_msg").textContent = e.message; }
   };
   if ($("#a_del")) $("#a_del").onclick = async () => { if (!confirm("Remove this action from the plan? (Parking it keeps it visible.)")) return; try { await api("action.remove", { id: a.id }); closeModal(); toast("Removed."); viewActions(); } catch(e){ $("#a_msg").textContent = e.message; } };
+}
+/* The daily Christmas actions email: who gets it at 9am, on or off, and a test to yourself. */
+async function digestForm(){
+  openModal(`<h3>Daily email</h3><div id="dg_body" class="muted">Loading…</div>`);
+  let d; try { d = await api("digest.get"); } catch(e){ $("#dg_body").textContent = e.message; return; }
+  const on = new Set(d.settings.recipients.map(r => r.email));
+  $("#dg_body").innerHTML = `<p class="small" style="margin-top:0">Every morning at <b>9am</b> this emails what is overdue, what is due this week and every update since the last email, with the days to Christmas Day. Updates to an action that is also on the Marketing plan or a HOD list show here too. ${d.settings.last_run_date ? "The last one went out on " + esc(fmtDayY(d.settings.last_run_date)) + "." : "None has gone out yet."}</p>
+    <label class="checks" style="margin:0 0 10px"><input type="checkbox" id="dg_on"${d.settings.enabled ? " checked" : ""}> Send the daily email</label>
+    <div class="field"><label>Who gets it</label><div class="checks" id="dg_who">${d.people.map(p => `<label><input type="checkbox" value="${esc(p.email)}"${on.has(p.email) ? " checked" : ""}> ${esc(p.name)}</label>`).join("")}</div></div>
+    <p class="tiny muted">Someone on both plans who is ticked gets this email and the Marketing one, so the same action can appear in both.${d.settings.updated_by ? " Last changed by " + esc(d.settings.updated_by) + "." : ""}</p>
+    <div class="row">${canEdit() ? `<button class="btn" id="dg_save">Save</button>` : ""}<button class="btn ghost" id="dg_test">Email me a test now</button><button class="btn ghost" data-close>Close</button></div><div id="dg_msg" class="small" style="margin-top:8px"></div>`;
+  if ($("#dg_save")) $("#dg_save").onclick = async () => { try { await api("digest.save", { enabled: $("#dg_on").checked, emails: $$("#dg_who input:checked").map(i => i.value) }); $("#dg_msg").style.color = "var(--good)"; $("#dg_msg").textContent = "Saved. The next email goes out at 9am."; } catch(e){ $("#dg_msg").style.color = "var(--alert)"; $("#dg_msg").textContent = e.message; } };
+  $("#dg_test").onclick = async () => { $("#dg_test").disabled = true; try { const r = await post("christmas-digest", { action:"test", staff_email: staffEmail() }); $("#dg_msg").style.color = "var(--good)"; $("#dg_msg").textContent = "Test sent to " + r.sent_to + "."; } catch(e){ $("#dg_msg").style.color = "var(--alert)"; $("#dg_msg").textContent = e.message; } $("#dg_test").disabled = false; };
 }
 /* Someone on the Marketing plan has been given a Christmas action: ask whether it should also go on that plan. */
 function askMarketing(id, names){
