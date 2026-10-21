@@ -55,6 +55,15 @@ async function rest(path, init = {}) {
   return t ? JSON.parse(t) : null;
 }
 
+// The payload on a print job doesn't say whether the order was a test (Test purchase password), but the order does.
+async function withTestFlag(job) {
+  if (job.order_id && !(job.payload && job.payload.is_test)) {
+    const o = await rest(`roomservice_orders?id=eq.${job.order_id}&select=is_test`);
+    if (Array.isArray(o) && o[0] && o[0].is_test) job.payload = { ...(job.payload || {}), is_test: true };
+  }
+  return job;
+}
+
 function hasDrinks(payload) {
   return (payload.lines || []).some((l) => l.category !== "food");
 }
@@ -77,6 +86,7 @@ async function pollOnce() {
         });
         if (!Array.isArray(claimed) || claimed.length === 0) continue; // another poller already got it
 
+        await withTestFlag(job);
         if (hasDrinks(job.payload || {})) {
           await printToDevice(buildTicket(job, { kind: "bar-check" }), PRINTER_IP, PRINTER_PORT);
         }

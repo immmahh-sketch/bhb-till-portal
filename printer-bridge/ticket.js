@@ -129,6 +129,19 @@ function buildTicket(job, opts = {}) {
   chunks.push(escBytes([0x1b, 0x52, 0x03])); // international char set: UK ('#' prints as £)
   chunks.push(escBytes([0x1b, 0x61, 0x01])); // center
 
+  // Test orders (the Test purchase password in order/index.html) say so loudly at the top and bottom of every ticket,
+  // so nobody makes the food or drinks.
+  const isTest = !!(p.is_test || job.is_test);
+  const testBanner = () => {
+    chunks.push(escBytes([0x1b, 0x45, 0x01, 0x1d, 0x21, 0x11]));
+    push("*** TEST ***\n");
+    chunks.push(escBytes([0x1d, 0x21, 0x00]));
+    push("DO NOT MAKE - TEST ORDER\n");
+    chunks.push(escBytes([0x1b, 0x45, 0x00]));
+    push(rule());
+  };
+  if (isTest) testBanner();
+
   if (cfg.logo && LOGO) {
     chunks.push(LOGO);
     chunks.push(escBytes([0x0a]));
@@ -250,6 +263,12 @@ function buildTicket(job, opts = {}) {
     push("CAMPER VAN - TAKEAWAY\n");
     push(`REG: ${camperReg}\n`);
     chunks.push(escBytes([0x1b, 0x45, 0x00, 0x1b, 0x61, 0x00]));
+  }
+
+  if (isTest) {
+    chunks.push(escBytes([0x1b, 0x61, 0x01]));
+    push(rule());
+    testBanner();
   }
 
   chunks.push(escBytes([0x0a, 0x0a, 0x0a, 0x0a])); // feed
