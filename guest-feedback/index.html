@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script src="/shared/auth.js"></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Guest Feedback — Black Horse Beamish</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --sage:#4E5F4F; --sage-70:#7B887C; --sage-10:#EDEFED; --sage-dark:#3B483C;
+  --bone:#F7F7F7; --celadon:#C1C8B4; --mist:#E7E7E7; --white:#fff; --ink:#262626; --gold:#C9A56B;
+  --attention:#B08D57; --attention-bg:#F7F0E4; --alert:#8C4A3F; --alert-bg:#F6EAE8; --good:#4F6B4F; --good-bg:#EDF2ED;
+  --display:"Cormorant Garamond",Georgia,serif; --body:Raleway,"Helvetica Neue",Arial,sans-serif;
+  --track-label:.18em; --radius:10px; --shadow:0 1px 2px rgba(38,38,38,.06),0 8px 24px rgba(38,38,38,.07); --maxw:1040px;
+}
+*{box-sizing:border-box} html,body{margin:0;padding:0}
+[hidden]{display:none !important}
+body{font-family:var(--body); color:var(--ink); background:var(--bone); font-size:15px; line-height:1.5; -webkit-text-size-adjust:100%}
+h1,h2,h3{font-family:var(--display); font-weight:600; margin:0; letter-spacing:.01em}
+button,input,textarea,select{font:inherit; color:inherit}
+.shell{max-width:var(--maxw); margin:0 auto; padding:0 20px 64px}
+#gate{position:fixed; inset:0; background:var(--sage); z-index:100; display:flex; align-items:center; justify-content:center; padding:24px}
+.gatecard{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); width:100%; max-width:380px; padding:32px 28px; text-align:center}
+.gatecard h1{font-size:26px; color:var(--sage); line-height:1.15}
+.gatecard .sub{font-size:11px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); margin:6px 0 22px}
+header.top{background:var(--sage); color:var(--white)}
+.topin{max-width:var(--maxw); margin:0 auto; padding:14px 20px; display:flex; align-items:center; gap:18px; flex-wrap:wrap}
+.brand{font-family:var(--display); font-size:21px; line-height:1.1}
+.brand small{display:block; font-family:var(--body); font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; opacity:.75}
+.who{margin-left:auto; font-size:12px; opacity:.9}
+nav.tabs{background:var(--sage-dark)}
+.tabsin{max-width:var(--maxw); margin:0 auto; padding:0 20px; display:flex; gap:2px; overflow-x:auto}
+.tabbtn{background:transparent; border:0; cursor:pointer; color:rgba(255,255,255,.72); padding:12px 16px; font-size:12px; font-weight:600; white-space:nowrap; letter-spacing:var(--track-label); text-transform:uppercase; border-bottom:3px solid transparent}
+.tabbtn[aria-current="page"]{color:var(--white); border-bottom-color:var(--gold)}
+.pagehead{display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; margin:24px 0 14px}
+.pagehead h2{font-size:26px; color:var(--sage)} .pagehead .hint{font-size:13px; color:var(--sage-70)} .spacer{margin-left:auto}
+.btn{border:1px solid var(--sage); background:var(--sage); color:var(--white); border-radius:8px; padding:10px 18px; cursor:pointer; font-size:12px; font-weight:600; letter-spacing:var(--track-label); text-transform:uppercase; min-height:44px}
+.btn.ghost{background:var(--white); color:var(--sage)} .btn.ghost:hover{background:var(--sage-10)}
+.btn.danger{background:var(--white); color:var(--alert); border-color:var(--alert)}
+.btn.small{min-height:36px; padding:6px 12px; font-size:11px} .btn:disabled{opacity:.5; cursor:default}
+.card{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); padding:18px 20px; margin-bottom:14px}
+.card h3{font-size:22px; color:var(--sage); margin-bottom:10px}
+.card h4{font-size:11px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); margin:16px 0 8px; font-family:var(--body)}
+.card p{margin:0 0 10px}
+.sechead{font-family:var(--display); font-size:28px; color:var(--sage); margin:26px 0 10px; display:flex; align-items:baseline; gap:12px; flex-wrap:wrap} .sechead small{font-family:var(--body); font-size:13px; color:var(--sage-70)}
+.chips{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px}
+.chip{border:1px solid var(--mist); background:var(--white); border-radius:999px; padding:8px 16px; cursor:pointer; font-size:13px; min-height:40px}
+.chip:hover{background:var(--sage-10)} .chip[aria-pressed="true"]{background:var(--sage); border-color:var(--sage); color:var(--white); font-weight:600}
+.filters{display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom:12px}
+.filters select{padding:9px 12px; border:1px solid var(--mist); border-radius:8px; background:var(--white)}
+.kpis{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-bottom:14px}
+.kpi{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); padding:14px 16px}
+.kpi .l{font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70)}
+.kpi .v{font-family:var(--display); font-size:36px; color:var(--sage); line-height:1.1} .kpi .s{font-size:12px; color:var(--sage-70)}
+.grid2{display:grid; grid-template-columns:1fr 1fr; gap:14px} .grid2 > .card{margin-bottom:0}
+.field{margin-bottom:14px} .field label{display:block; font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); margin-bottom:4px}
+.field input,.field textarea,.field select{width:100%; padding:11px 12px; border:1px solid var(--mist); border-radius:8px; font-size:16px; background:var(--white)}
+textarea{min-height:90px; resize:vertical} .field input[type=number]{max-width:140px}
+.row2{display:grid; grid-template-columns:1fr 1fr; gap:14px}
+.sw{display:flex; align-items:center; gap:10px; margin-bottom:14px} .sw input{width:22px; height:22px; margin:0} .sw label{font-weight:600}
+.note{background:var(--attention-bg); color:#6d5320; border-radius:8px; padding:10px 14px; font-size:13px; margin-bottom:12px}
+.muted{color:var(--sage-70)} .empty{padding:36px 20px; text-align:center; color:var(--sage-70)} .loading{padding:60px; text-align:center; color:var(--sage-70)}
+.tag{display:inline-block; border-radius:999px; padding:3px 10px; font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; background:var(--sage-10); color:var(--sage); white-space:nowrap}
+.tag.good{background:var(--good-bg); color:var(--good)} .tag.bad{background:var(--alert-bg); color:var(--alert)} .tag.gold{background:var(--attention-bg); color:#6d5320}
+.resp{border-left:4px solid var(--celadon)} .resp.low{border-left-color:var(--alert)} .resp.high{border-left-color:var(--good)}
+.resp .top{display:flex; gap:8px; align-items:center; flex-wrap:wrap} .resp .when{font-size:12px; color:var(--sage-70)}
+.resp .qa{padding:7px 0; border-top:1px solid var(--mist); white-space:pre-wrap} .resp .qa b{display:block; font-size:12.5px; color:var(--sage-70); font-weight:600}
+details{margin-top:8px} summary{cursor:pointer; font-weight:600; color:var(--sage)}
+.quote{padding:10px 0; border-top:1px solid var(--mist); white-space:pre-wrap} .quote:first-child{border-top:0} .quote small{display:block; color:var(--sage-70); font-size:11.5px}
+table.t{width:100%; border-collapse:collapse; font-size:13.5px} .t th,.t td{padding:8px; text-align:left; border-bottom:1px solid var(--mist); vertical-align:top}
+.t th{font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); font-weight:600} .tw{overflow-x:auto}
+.linkbox{display:flex; gap:8px; flex-wrap:wrap; align-items:center; background:var(--sage-10); border-radius:8px; padding:10px 12px; margin:10px 0; word-break:break-all; font-size:14px}
+.qe{border:1px solid var(--mist); border-radius:8px; padding:12px; margin-bottom:10px; background:var(--bone)}
+.qe .head{display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:8px}
+.toast{position:fixed; left:50%; bottom:26px; transform:translate(-50%,20px); background:var(--ink); color:var(--white); padding:12px 20px; border-radius:8px; z-index:200; opacity:0; transition:.2s; pointer-events:none; font-size:14px; max-width:90vw}
+.toast.on{opacity:1; transform:translate(-50%,0)} .toast.bad{background:var(--alert)}
+@media (max-width:720px){ .grid2,.row2{grid-template-columns:1fr} }
+@media (max-width:640px){ .shell{padding:0 12px 48px} .topin,.tabsin{padding-left:12px;padding-right:12px} .btn{width:100%} .btn.small{width:auto} .pagehead h2{font-size:22px} }
+</style>
+</head>
+<body>
+<div id="gate"><div class="gatecard"><h1>Guest Feedback</h1><div class="sub">Black Horse Beamish</div>
+  <p style="margin:0 0 16px;font-size:14px;color:var(--sage-70)">This opens from the Staff Portal, which knows who you are and what you can see.</p>
+  <a href="https://app.blackhorsebeamish.co.uk/portal/app.html" style="display:block;padding:12px;border-radius:8px;background:var(--sage);color:#fff;text-decoration:none;font-weight:600;letter-spacing:var(--track-label);text-transform:uppercase;font-size:12px">Open the Staff Portal</a></div></div>
+<div id="app" hidden>
+  <header class="top"><div class="topin"><div class="brand">Guest Feedback<small>Black Horse Beamish</small></div><div class="who" id="whoname"></div></div></header>
+  <nav class="tabs"><div class="tabsin" role="tablist">
+    <button class="tabbtn" data-view="dashboard" hidden>Dashboard</button>
+    <button class="tabbtn" data-view="responses" hidden>Responses</button>
+    <button class="tabbtn" data-view="send" hidden>Send a form</button>
+    <button class="tabbtn" data-view="reviews" hidden>Reviews</button>
+    <button class="tabbtn" data-view="settings" hidden>Settings</button>
+  </div></nav>
+  <div class="shell"><div id="views"></div></div>
+</div>
+<div class="toast" id="toast"></div>
+<script src="/shared/insights.js"></script>
+<script>
+const CFG = { SUPABASE_URL:"https://safcrtrfdzsnftghibot.supabase.co", SUPABASE_KEY:"sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU" };
+const S = { me:null, view:"dashboard", data:null, formUrl:"", src:"all", range:"90", respKind:"all", respFlag:"all", forms:null, fk:"mystery", settings:null, qs:null, reqs:null };
+const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
+const esc = Viz.esc;
+const KIND_NAME = { mystery:"Mystery guest", showround:"Wedding showround", guest:"Guest feedback" };
+const SRC = [["all","Everything"],["mystery","Mystery guests"],["showround","Wedding showrounds"],["guest","Guest feedback"],["reviews","All reviews"],["tripadvisor","TripAdvisor"],["google","Google"]];
+const fmtDT = iso => { try { return new Date(iso).toLocaleString("en-GB",{ timeZone:"Europe/London", day:"numeric", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit" }).replace(",",""); } catch(e){ return String(iso||"").slice(0,16); } };
+const fmtD = d => { if(!d) return "Undated"; try { return new Date(String(d).slice(0,10)+"T12:00:00Z").toLocaleDateString("en-GB",{ timeZone:"UTC", day:"numeric", month:"short", year:"numeric" }); } catch(e){ return d; } };
+const monthKey = iso => String(iso).slice(0,7);
+const monthLab = k => { const [y,m] = k.split("-"); return ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][+m-1] + " " + y.slice(2); };
+function toast(msg, bad){ const t=$("#toast"); t.textContent=msg; t.className="toast on"+(bad?" bad":""); clearTimeout(toast._t); toast._t=setTimeout(()=>{t.className="toast";}, bad?5200:2600); }
+function staffEmail(){ try { return sessionStorage.getItem("bhb_staff_email") || ""; } catch(e){ return ""; } }
+async function call(action, payload){
+  const r = await fetch(CFG.SUPABASE_URL + "/functions/v1/feedback-api", { method:"POST", headers:{ "Content-Type":"application/json", Authorization:"Bearer "+CFG.SUPABASE_KEY, apikey:CFG.SUPABASE_KEY }, body: JSON.stringify({ action, staff_email: staffEmail(), ...(payload||{}) }) });
+  let d = {}; try { d = await r.json(); } catch(e){}
+  if (!r.ok || d.error) throw new Error(d.error || `Request failed (${r.status})`);
+  return d;
+}
+function copy(text, ok){ (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject()).then(() => toast(ok || "Copied."), () => { const t = document.createElement("textarea"); t.value = text; document.body.appendChild(t); t.select(); try { document.execCommand("copy"); toast(ok || "Copied."); } catch(e){ toast("Could not copy. Select the text and copy it.", true); } t.remove(); }); }
+const can = tab => S.me && (S.me.isAdmin || S.me.tabs.includes(tab));
+
+/* =========================================================== dashboard */
+const isFormSrc = s => ["mystery","showround","guest"].includes(s);
+function rangeFrom(){ if (S.range === "all") return ""; const d = new Date(); d.setDate(d.getDate() - +S.range); return d.toISOString().slice(0,10); }
+async function viewDashboard(){
+  const v = $("#views"); v.innerHTML = `<div class="loading">Loading…</div>`;
+  try { S.data = await call("data.load", {}); } catch(e){ v.innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+  paintDashboard();
+}
+function paintDashboard(){
+  const d = S.data, from = rangeFrom(), v = $("#views");
+  const resp = d.responses.filter(r => (S.src === "all" || r.kind === S.src) && (!from || String(r.submitted_at).slice(0,10) >= from));
+  const revs = d.reviews.filter(r => (S.src === "all" || S.src === "reviews" || r.platform === S.src) && (!from || (r.reviewed_on && r.reviewed_on >= from) || (!r.reviewed_on && S.range === "all")));
+  const showForms = S.src === "all" || isFormSrc(S.src), showRevs = S.src === "all" || S.src === "reviews" || S.src === "tripadvisor" || S.src === "google";
+  let h = `<div class="pagehead"><h2>Dashboard</h2><span class="hint">What guests tell us, and what they say about us online.</span></div>
+  <div class="chips">${SRC.map(([k,l]) => `<button class="chip" data-src="${k}" aria-pressed="${S.src===k}">${l}</button>`).join("")}</div>
+  <div class="filters"><label class="muted" for="rng">Period</label><select id="rng">${[["30","Last 30 days"],["90","Last 90 days"],["365","Last 12 months"],["all","All time"]].map(([k,l]) => `<option value="${k}" ${S.range===k?"selected":""}>${l}</option>`).join("")}</select></div>`;
+  if (showForms) h += formsBlock(resp, d);
+  if (showRevs) h += reviewsBlock(revs);
+  v.innerHTML = h;
+  $$(".chip[data-src]").forEach(b => b.onclick = () => { S.src = b.dataset.src; paintDashboard(); });
+  $("#rng").onchange = e => { S.range = e.target.value; paintDashboard(); };
+}
+function ratingValues(r){ return (r.questions || []).filter(q => q.type === "rating").map(q => ({ q, v:Number(r.answers[q.id]) })).filter(x => x.v >= 1 && x.v <= 5); }
+function textAnswers(r){ return (r.questions || []).filter(q => q.type === "text").map(q => ({ q, t:String(r.answers[q.id] || "").trim() })).filter(x => x.t); }
+function formsBlock(resp, d){
+  let h = `<div class="sechead">${S.src === "all" ? "Feedback forms" : esc(KIND_NAME[S.src])} <small>${resp.length} response${resp.length===1?"":"s"}</small></div>`;
+  if (!resp.length) return h + `<div class="card"><div class="empty">No responses in this period yet.${can("send") ? " Use “Send a form” to give someone a link." : ""}</div></div>`;
+  const npsVals = resp.map(r => r.nps).filter(n => n != null), pro = npsVals.filter(n => n >= 9).length, det = npsVals.filter(n => n <= 6).length, pas = npsVals.length - pro - det;
+  const avgs = resp.map(r => r.avg).filter(a => a != null), highN = resp.filter(r => r.high).length;
+  const kinds = S.src === "all" ? ["mystery","showround"] : (S.src === "guest" ? [] : [S.src]);
+  const sent = kinds.reduce((t,k) => t + ((d.requests[k]||{}).sent||0), 0), done = kinds.reduce((t,k) => t + ((d.requests[k]||{}).done||0), 0);
+  h += `<div class="kpis">
+    <div class="kpi"><div class="l">Responses</div><div class="v">${resp.length}</div><div class="s">${sent ? `${done} of ${sent} links sent were used (${Math.round(done/sent*100)}%)` : "in this period"}</div></div>
+    <div class="kpi"><div class="l">Net Promoter Score</div><div class="v">${npsVals.length ? ((pro-det)/npsVals.length*100 > 0 ? "+" : "") + Math.round((pro-det)/npsVals.length*100) : "–"}</div><div class="s">${npsVals.length ? `${npsVals.length} recommend scores` : "no recommend scores"}</div></div>
+    <div class="kpi"><div class="l">Average rating</div><div class="v">${Viz.f1(Viz.avg(avgs))}<span style="font-size:16px"> / 5</span></div><div class="s">across all rating questions</div></div>
+    <div class="kpi"><div class="l">Scored us highly</div><div class="v">${Math.round(highN/resp.length*100)}%</div><div class="s">${highN} sent on to TripAdvisor</div></div></div>`;
+  h += `<div class="grid2"><div class="card"><h3>Would they recommend us?</h3><p class="muted">0 to 10. Promoters score 9 or 10, detractors 6 or less.</p>${Viz.npsBar(pro, pas, det)}</div>`;
+  const dist = [1,2,3,4,5].map(n => resp.reduce((t,r) => t + ratingValues(r).filter(x => x.v === n).length, 0));
+  h += `<div class="card"><h3>Every rating given</h3><p class="muted">How many times each score from 1 to 5 was chosen.</p>${Viz.hist(dist)}</div></div>`;
+  // by area
+  const cat = {}; resp.forEach(r => ratingValues(r).forEach(x => { const k = x.q.category || "General"; (cat[k] ||= []).push(x.v); }));
+  const areas = Object.keys(cat).map(k => ({ label:k, value:Viz.avg(cat[k]), note:cat[k].length + " ratings" })).sort((a,b) => a.value - b.value);
+  if (areas.length) {
+    h += `<div class="card" style="margin-top:14px"><h3>How each area scored</h3><p class="muted">Average out of 5, lowest first.</p>${Viz.bars(areas, { max:5, lo:3.5, hi:4.3 })}`;
+    if (areas.length > 1) h += `<p style="margin-top:12px"><b>Strongest:</b> ${esc(areas[areas.length-1].label)} (${Viz.f1(areas[areas.length-1].value)}). <b>Needs most attention:</b> ${esc(areas[0].label)} (${Viz.f1(areas[0].value)}).</p>`;
+    h += `</div>`;
+  }
+  // trend
+  const byM = {}; resp.forEach(r => { (byM[monthKey(r.submitted_at)] ||= []).push(r); });
+  const months = Object.keys(byM).sort();
+  if (months.length > 1) {
+    h += `<div class="card"><h3>Over time</h3><p class="muted">By month.</p>${Viz.line([{ name:"Average rating", color:"#4E5F4F", values:months.map(m => Viz.avg(byM[m].map(r => r.avg).filter(a => a != null))) }], months.map(monthLab), { min:1, max:5, ticks:4, label:"Average rating by month" })}
+      ${npsVals.length ? `<h4>Net Promoter Score by month</h4>${Viz.line([{ name:"NPS", color:"#C9A56B", values:months.map(m => { const n = byM[m].map(r => r.nps).filter(x => x != null); return n.length ? (n.filter(x => x>=9).length - n.filter(x => x<=6).length)/n.length*100 : null; }) }], months.map(monthLab), { min:-100, max:100, ticks:4, fmt:x => (x>0?"+":"")+Math.round(x), label:"NPS by month" })}` : ""}</div>`;
+  }
+  // words
+  const texts = resp.flatMap(r => textAnswers(r).map(x => x.t));
+  if (texts.length) {
+    const m = Viz.mood(texts), tw = Viz.topWords(texts, 12);
+    h += `<div class="card"><h3>What guests wrote</h3><p class="muted">${texts.length} comments. Clearly positive words: ${m.pos}. Clearly negative words: ${m.neg}.</p>${Viz.cloud(texts, { max:60 })}
+      ${tw.length ? `<h4>Most mentioned</h4><div class="chips">${tw.map(x => `<span class="tag">${esc(x.w)} · ${x.n}</span>`).join("")}</div>` : ""}</div>`;
+    const recent = resp.flatMap(r => textAnswers(r).map(x => ({ r, x }))).slice(0, 8);
+    h += `<div class="card"><h3>Latest comments</h3>${recent.map(({r,x}) => `<div class="quote">${esc(x.t)}<small>${esc(x.q.label)} · ${esc(KIND_NAME[r.kind])}${r.guest_name ? " · " + esc(r.guest_name) : ""} · ${fmtD(r.submitted_at)}</small></div>`).join("")}</div>`;
+  }
+  return h;
+}
+function reviewsBlock(revs){
+  const name = S.src === "tripadvisor" ? "TripAdvisor reviews" : S.src === "google" ? "Google reviews" : "TripAdvisor and Google reviews";
+  let h = `<div class="sechead">${name} <small>${revs.length} review${revs.length===1?"":"s"}</small></div>`;
+  if (!revs.length) return h + `<div class="card"><div class="empty">No reviews in this period.${can("reviews") ? " Add some in the Reviews tab and they are analysed here." : ""}</div></div>`;
+  const stars = revs.map(r => r.rating), dist = [1,2,3,4,5].map(n => stars.filter(x => x === n).length);
+  h += `<div class="kpis"><div class="kpi"><div class="l">Reviews</div><div class="v">${revs.length}</div></div><div class="kpi"><div class="l">Average rating</div><div class="v">${Viz.f1(Viz.avg(stars))}<span style="font-size:16px"> / 5</span></div></div>
+    <div class="kpi"><div class="l">5 star</div><div class="v">${Math.round(dist[4]/revs.length*100)}%</div></div><div class="kpi"><div class="l">3 star or less</div><div class="v">${Math.round((dist[0]+dist[1]+dist[2])/revs.length*100)}%</div></div></div>`;
+  h += `<div class="grid2"><div class="card"><h3>Stars</h3>${Viz.hist(dist)}</div>`;
+  const plats = ["tripadvisor","google"].map(p => ({ label:p === "google" ? "Google" : "TripAdvisor", rows:revs.filter(r => r.platform === p) })).filter(x => x.rows.length);
+  h += `<div class="card"><h3>By site</h3>${Viz.bars(plats.map(p => ({ label:p.label, value:Viz.avg(p.rows.map(r => r.rating)), note:p.rows.length + " reviews" })), { max:5, lo:3.5, hi:4.3 })}</div></div>`;
+  const byM = {}; revs.filter(r => r.reviewed_on).forEach(r => { (byM[monthKey(r.reviewed_on)] ||= []).push(r.rating); });
+  const months = Object.keys(byM).sort();
+  if (months.length > 1) h += `<div class="card" style="margin-top:14px"><h3>Over time</h3><p class="muted">Average stars by month.</p>${Viz.line([{ name:"Average stars", color:"#4E5F4F", values:months.map(m => Viz.avg(byM[m])) }], months.map(monthLab), { min:1, max:5, ticks:4, label:"Average stars by month" })}</div>`;
+  const texts = revs.map(r => (r.title ? r.title + ". " : "") + r.body), good = revs.filter(r => r.rating >= 4).map(r => r.body), bad = revs.filter(r => r.rating <= 3).map(r => r.body);
+  h += `<div class="card" style="margin-top:14px"><h3>What reviewers write about</h3>${Viz.cloud(texts, { max:60 })}</div>`;
+  if (bad.length) { const tw = Viz.topWords(bad, 10); h += `<div class="card"><h3>What the 1 to 3 star reviews mention</h3>${tw.length ? `<div class="chips">${tw.map(x => `<span class="tag bad">${esc(x.w)} · ${x.n}</span>`).join("")}</div>` : `<p class="muted">Too few to pick out themes.</p>`}</div>`; }
+  if (good.length) { const tw = Viz.topWords(good, 10); h += `<div class="card"><h3>What the 4 and 5 star reviews mention</h3>${tw.length ? `<div class="chips">${tw.map(x => `<span class="tag good">${esc(x.w)} · ${x.n}</span>`).join("")}</div>` : `<p class="muted">Too few to pick out themes.</p>`}</div>`; }
+  h += `<div class="card"><h3>Latest reviews</h3>${revs.slice(0, 8).map(r => `<div class="quote"><b>${"★".repeat(r.rating)}${"☆".repeat(5-r.rating)}</b> ${r.title ? `<b>${esc(r.title)}</b>` : ""}<br>${esc(r.body)}<small>${r.platform === "google" ? "Google" : "TripAdvisor"} · ${fmtD(r.reviewed_on)}${r.author ? " · " + esc(r.author) : ""}</small></div>`).join("")}</div>`;
+  return h;
+}
+
+/* =========================================================== responses */
+async function viewResponses(){
+  const v = $("#views"); v.innerHTML = `<div class="loading">Loading…</div>`;
+  if (!S.data) { try { S.data = await call("data.load", {}); } catch(e){ v.innerHTML = `<div class="empty">${esc(e.message)}<br><span class="muted">The Responses tab needs the Dashboard tab as well.</span></div>`; return; } }
+  paintResponses();
+}
+function paintResponses(){
+  const rows = S.data.responses.filter(r => (S.respKind === "all" || r.kind === S.respKind) && (S.respFlag === "all" || (S.respFlag === "low" ? ((r.nps != null && r.nps <= 6) || (r.avg != null && r.avg <= 3)) : r.high)));
+  let h = `<div class="pagehead"><h2>Responses</h2><span class="spacer"></span><button class="btn ghost small" id="csv">Download CSV</button></div>
+  <div class="filters"><select id="fk">${[["all","All forms"],["mystery","Mystery guests"],["showround","Wedding showrounds"],["guest","Guest feedback"]].map(([k,l]) => `<option value="${k}" ${S.respKind===k?"selected":""}>${l}</option>`).join("")}</select>
+    <select id="ff">${[["all","All scores"],["low","Low scores"],["high","High scores"]].map(([k,l]) => `<option value="${k}" ${S.respFlag===k?"selected":""}>${l}</option>`).join("")}</select><span class="muted">${rows.length} shown</span></div>`;
+  if (!rows.length) h += `<div class="card"><div class="empty">Nothing here yet.</div></div>`;
+  rows.slice(0, 200).forEach(r => {
+    const low = (r.nps != null && r.nps <= 6) || (r.avg != null && r.avg <= 3);
+    h += `<div class="card resp ${low ? "low" : r.high ? "high" : ""}"><div class="top"><span class="tag">${esc(KIND_NAME[r.kind])}</span>${r.nps != null ? `<span class="tag ${r.nps >= 9 ? "good" : r.nps <= 6 ? "bad" : "gold"}">Recommend ${r.nps}/10</span>` : ""}${r.avg != null ? `<span class="tag">Average ${Viz.f1(r.avg)}</span>` : ""}<span class="when">${fmtDT(r.submitted_at)}</span></div>
+      <div style="margin-top:6px"><b>${esc(r.guest_name || "No name given")}</b>${r.contact ? ` · ${esc(r.contact)}` : ""}</div>
+      <details><summary>Show the answers</summary>${(r.questions || []).map(q => { const a = r.answers[q.id]; return a == null || a === "" ? "" : `<div class="qa"><b>${esc(q.label)}</b>${q.type === "rating" ? (a === "na" ? "Not applicable" : a + " / 5") : q.type === "nps" ? a + " / 10" : esc(a)}</div>`; }).join("")}</details></div>`;
+  });
+  $("#views").innerHTML = h;
+  $("#fk").onchange = e => { S.respKind = e.target.value; paintResponses(); }; $("#ff").onchange = e => { S.respFlag = e.target.value; paintResponses(); };
+  $("#csv").onclick = () => {
+    const labels = []; S.data.responses.forEach(r => (r.questions || []).forEach(q => { if (!labels.some(l => l.id === q.id)) labels.push({ id:q.id, label:q.label }); }));
+    const out = [["Date","Form","Name","Contact","Recommend (0-10)","Average rating"].concat(labels.map(l => l.label))];
+    rows.forEach(r => out.push([r.submitted_at, KIND_NAME[r.kind], r.guest_name, r.contact, r.nps, r.avg].concat(labels.map(l => r.answers[l.id] == null ? "" : r.answers[l.id]))));
+    Viz.csv(out, "guest-feedback-responses.csv");
+  };
+}
+
+/* =========================================================== send a form */
+async function viewSend(){
+  const v = $("#views"); v.innerHTML = `<div class="loading">Loading…</div>`;
+  try { S.reqs = await call("request.list"); S.formUrl = S.reqs.form_url; } catch(e){ v.innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+  paintSend();
+}
+function mailText(name, url, kind){
+  const first = (name || "").split(" ")[0] || "there";
+  return kind === "showround" ? `Dear ${first},\n\nThank you for visiting us at the Black Horse Beamish. I would be very grateful if you could take a few minutes to tell us how your showround went:\n${url}\n\nPaul Riley, General Manager`
+    : `Dear ${first},\n\nThank you for staying with us. I would be very grateful if you could take a few minutes to tell us about your visit:\n${url}\n\nPaul Riley, General Manager`;
+}
+function paintSend(){
+  const reqs = S.reqs.requests, base = S.formUrl;
+  let h = `<div class="pagehead"><h2>Send a form</h2><span class="hint">A personal link for one person. Each link works once.</span></div>
+  <div class="card"><h3>Create a link</h3><div class="row2"><div class="field"><label>Who is it for?</label><select id="s_kind"><option value="mystery">Mystery guest (a visit, stay or meal)</option><option value="showround">Wedding showround</option></select></div>
+    <div class="field"><label>Their name (optional)</label><input id="s_name" maxlength="100"></div></div>
+    <div class="field"><label>A note for yourself (optional, they never see it)</label><input id="s_note" maxlength="300" placeholder="e.g. Dinner on Saturday, table 12"></div>
+    <button class="btn" id="s_go">Create the link</button><div id="s_out"></div></div>
+  <div class="card"><h3>One link for anyone</h3><p class="muted">For a card on a table, a receipt or a social post. It can be used by many people, and the answers appear as “Guest feedback”.</p>
+    <div class="linkbox"><span>${esc(base)}?kind=guest</span><button class="btn ghost small" id="s_gen">Copy</button></div></div>
+  <div class="card"><h3>Links you have made</h3>${reqs.length ? `<div class="tw"><table class="t"><tr><th>Made</th><th>For</th><th>Type</th><th>Note</th><th>Status</th><th></th></tr>${reqs.map(r => `<tr><td>${fmtD(r.created_at)}</td><td>${esc(r.guest_name || "")}</td><td>${esc(KIND_NAME[r.kind])}</td><td>${esc(r.note || "")}</td><td>${r.completed_at ? '<span class="tag good">Completed</span>' : r.opened_at ? '<span class="tag gold">Opened</span>' : '<span class="tag">Not opened</span>'}${r.created_by === "Automatic showround email" ? ' <span class="tag">Automatic email</span>' : ""}</td><td>${r.completed_at ? "" : `<button class="btn ghost small" data-copy="${r.token}">Copy link</button>`}</td></tr>`).join("")}</table></div>` : `<p class="muted">None yet.</p>`}</div>`;
+  $("#views").innerHTML = h;
+  $("#s_gen").onclick = () => copy(base + "?kind=guest", "Link copied.");
+  $$("[data-copy]").forEach(b => b.onclick = () => copy(base + "?t=" + b.dataset.copy, "Link copied."));
+  $("#s_go").onclick = async () => {
+    const b = $("#s_go"); b.disabled = true;
+    try {
+      const kind = $("#s_kind").value, name = $("#s_name").value, r = await call("request.create", { kind, guest_name:name, note:$("#s_note").value });
+      $("#s_out").innerHTML = `<div class="linkbox"><span>${esc(r.url)}</span><button class="btn small" id="c1">Copy link</button><button class="btn ghost small" id="c2">Copy as a message</button></div><p class="muted">Send it by email or message. You can see here when it has been opened and completed.</p>`;
+      $("#c1").onclick = () => copy(r.url, "Link copied."); $("#c2").onclick = () => copy(mailText(name, r.url, kind), "Message copied.");
+      S.reqs = await call("request.list");
+    } catch(e){ toast(e.message, true); } finally { b.disabled = false; }
+  };
+}
+
+/* =========================================================== reviews */
+function parseCsv(text){
+  const rows = []; let row = [], cell = "", q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) { if (c === '"') { if (text[i+1] === '"') { cell += '"'; i++; } else q = false; } else cell += c; }
+    else if (c === '"') q = true;
+    else if (c === "," || c === "\t") { row.push(cell); cell = ""; }
+    else if (c === "\n" || c === "\r") { if (c === "\r" && text[i+1] === "\n") i++; row.push(cell); rows.push(row); row = []; cell = ""; }
+    else cell += c;
+  }
+  if (cell !== "" || row.length) { row.push(cell); rows.push(row); }
+  return rows.filter(r => r.some(x => String(x).trim()));
+}
+function parseDate(s){
+  s = String(s || "").trim(); if (!s) return "";
+  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/); if (m) return m[0];
+  m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/); if (m) return `${m[3].length === 2 ? "20" + m[3] : m[3]}-${m[2].padStart(2,"0")}-${m[1].padStart(2,"0")}`;
+  const t = Date.parse(s + " 12:00 UTC"); return isNaN(t) ? "" : new Date(t).toISOString().slice(0,10);
+}
+function readReviews(text, platform){
+  const rows = parseCsv(text); if (!rows.length) return [];
+  const head = rows[0].map(x => String(x).trim().toLowerCase()), hasHead = head.some(x => /^(rating|stars?|score|text|review|body|date|title)$/.test(x));
+  const col = (...names) => head.findIndex(x => names.includes(x));
+  const iR = hasHead ? col("rating","stars","star","score") : 0, iT = hasHead ? col("title","headline") : -1, iB = hasHead ? col("text","review","body","comment","content") : -1, iD = hasHead ? col("date","reviewed_on","reviewed","published") : -1, iA = hasHead ? col("author","name","reviewer") : -1, iP = hasHead ? col("platform","site","source") : -1;
+  return (hasHead ? rows.slice(1) : rows).map(r => {
+    // without a header the order is: rating, date, title, text
+    const get = (i, fallback) => String((hasHead ? (i >= 0 ? r[i] : "") : r[fallback]) ?? "").trim();
+    const rating = parseInt(String(get(iR, 0)).replace(/[^0-9.]/g, ""), 10);
+    const body = hasHead ? get(iB, 3) : (r.slice(3).join(", ").trim());
+    const p = hasHead && iP >= 0 ? (/google/i.test(r[iP]) ? "google" : /trip/i.test(r[iP]) ? "tripadvisor" : platform) : platform;
+    return { platform:p, rating, title:get(iT, 2), body, reviewed_on:parseDate(get(iD, 1)), author:get(iA, -1) };
+  }).filter(x => x.rating >= 1 && x.rating <= 5 && x.body);
+}
+async function viewReviews(){
+  const v = $("#views"); v.innerHTML = `<div class="loading">Loading…</div>`;
+  try { S.data = await call("data.load", {}); } catch(e){ v.innerHTML = `<div class="empty">${esc(e.message)}<br><span class="muted">The Reviews tab needs the Dashboard tab as well.</span></div>`; return; }
+  paintReviews();
+}
+function paintReviews(){
+  const revs = S.data.reviews;
+  let h = `<div class="pagehead"><h2>Reviews</h2><span class="hint">TripAdvisor and Google reviews, analysed on the Dashboard the same way as the forms.</span></div>
+  <div class="note">TripAdvisor and Google do not let us pull your reviews in automatically (both need a paid or approved partner connection). Copy them in here instead. It takes a minute, and the same review is never added twice.</div>
+  <div class="card"><h3>Add reviews</h3>
+    <div class="row2"><div class="field"><label>Where are they from?</label><select id="r_plat"><option value="tripadvisor">TripAdvisor</option><option value="google">Google</option></select></div>
+    <div class="field"><label>Or upload a CSV file</label><input type="file" id="r_file" accept=".csv,.txt"></div></div>
+    <div class="field"><label>Paste reviews, one per line</label><textarea id="r_text" rows="7" placeholder="5, 2026-09-12, Lovely Sunday lunch, The staff were brilliant and the food was delicious&#10;4, 2026-08-30, Great wedding venue, Beautiful setting but the car park was full"></textarea></div>
+    <p class="muted" style="font-size:13px">Each line: <b>rating (1-5), date, title, review text</b>. A CSV from a spreadsheet with a header row such as <i>rating, date, title, text, author</i> works too. Dates can be 2026-09-12 or 12/09/2026.</p>
+    <button class="btn" id="r_go">Read and add</button><div id="r_out" class="muted" style="margin-top:10px"></div></div>
+  <div class="card"><h3>Reviews you have added (${revs.length})</h3>${revs.length ? `<div class="tw"><table class="t"><tr><th>Date</th><th>Site</th><th>Stars</th><th>Review</th><th></th></tr>${revs.slice(0, 150).map(r => `<tr><td>${fmtD(r.reviewed_on)}</td><td>${r.platform === "google" ? "Google" : "TripAdvisor"}</td><td>${r.rating}</td><td>${r.title ? `<b>${esc(r.title)}</b><br>` : ""}${esc(r.body.length > 220 ? r.body.slice(0, 220) + "…" : r.body)}</td><td><button class="btn danger small" data-del="${r.id}">Delete</button></td></tr>`).join("")}</table></div>` : `<p class="muted">None yet.</p>`}</div>`;
+  $("#views").innerHTML = h;
+  $("#r_file").onchange = async e => { const f = e.target.files[0]; if (f) $("#r_text").value = await f.text(); };
+  $("#r_go").onclick = async () => {
+    const items = readReviews($("#r_text").value, $("#r_plat").value);
+    if (!items.length) { $("#r_out").textContent = "No reviews could be read. Each needs a rating from 1 to 5 and some text."; return; }
+    const b = $("#r_go"); b.disabled = true;
+    try { const r = await call("reviews.add", { items }); toast(`${r.added} added${r.skipped ? `, ${r.skipped} already there` : ""}.`); viewReviews(); } catch(e){ $("#r_out").textContent = e.message; } finally { b.disabled = false; }
+  };
+  $$("[data-del]").forEach(b => b.onclick = async () => { b.disabled = true; try { await call("reviews.delete", { id:b.dataset.del }); toast("Deleted."); viewReviews(); } catch(e){ toast(e.message, true); b.disabled = false; } });
+}
+
+/* =========================================================== settings */
+async function viewSettings(){
+  const v = $("#views"); v.innerHTML = `<div class="loading">Loading…</div>`;
+  try { const d = await call("forms.get"); S.forms = d.forms; S.settings = d.settings; S.formUrl = d.form_url; S.emailOk = d.email_configured; } catch(e){ v.innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+  S.qs = JSON.parse(JSON.stringify((S.forms.find(f => f.kind === S.fk) || {}).questions || []));
+  paintSettings();
+}
+function qEditor(){
+  return S.qs.map((q, i) => `<div class="qe" data-i="${i}"><div class="head"><select data-f="type"><option value="rating" ${q.type==="rating"?"selected":""}>Rating 1-5</option><option value="nps" ${q.type==="nps"?"selected":""}>Recommend 0-10</option><option value="choice" ${q.type==="choice"?"selected":""}>Choose one</option><option value="text" ${q.type==="text"?"selected":""}>Written answer</option></select>
+    <span class="spacer"></span><button class="btn ghost small" data-act="up" ${i===0?"disabled":""}>↑</button><button class="btn ghost small" data-act="down" ${i===S.qs.length-1?"disabled":""}>↓</button><button class="btn danger small" data-act="del">Remove</button></div>
+    <div class="field"><label>Question</label><input data-f="label" value="${esc(q.label)}"></div>
+    <div class="row2"><div class="field"><label>Group heading (used for “how each area scored”)</label><input data-f="category" value="${esc(q.category || "")}"></div><div class="field"><label>Hint (optional)</label><input data-f="hint" value="${esc(q.hint || "")}"></div></div>
+    ${q.type === "choice" ? `<div class="field"><label>The choices, one per line</label><textarea data-f="options" rows="4">${esc((q.options || []).join("\n"))}</textarea></div>` : ""}
+    <div style="display:flex;gap:20px;flex-wrap:wrap">${q.type !== "text" ? `<label><input type="checkbox" data-f="required" ${q.required !== false ? "checked" : ""}> Must be answered</label>` : ""}${q.type === "rating" ? `<label><input type="checkbox" data-f="na" ${q.na ? "checked" : ""}> Offer “not applicable”</label>` : ""}</div></div>`).join("");
+}
+function readQs(){
+  $$("#qlist .qe").forEach(el => { const q = S.qs[+el.dataset.i]; el.querySelectorAll("[data-f]").forEach(f => { const k = f.dataset.f; q[k] = f.type === "checkbox" ? f.checked : k === "options" ? f.value.split("\n").map(x => x.trim()).filter(Boolean) : f.value; }); });
+}
+function paintSettings(){
+  const f = S.forms.find(x => x.kind === S.fk), s = S.settings;
+  let h = `<div class="pagehead"><h2>Settings</h2><span class="hint">The words guests read and the questions they are asked.</span></div>
+  <div class="chips">${Object.keys(KIND_NAME).map(k => `<button class="chip" data-fk="${k}" aria-pressed="${S.fk===k}">${KIND_NAME[k]} form</button>`).join("")}</div>
+  <div class="card"><h3>${esc(KIND_NAME[S.fk])} form</h3>
+    <div class="field"><label>Title</label><input id="f_title" value="${esc(f.title)}"></div>
+    <div class="field"><label>Opening message (your thank-you at the top of the form)</label><textarea id="f_open" rows="6">${esc(f.opening)}</textarea></div>
+    <div class="field"><label>Thank-you shown after sending (a middling score)</label><textarea id="f_thanks" rows="3">${esc(f.thanks)}</textarea></div>
+    <div class="field"><label>Message for someone who scored us highly (this is where the TripAdvisor button appears)</label><textarea id="f_high" rows="3">${esc(f.high_message)}</textarea></div>
+    <div class="field"><label>Message for someone who scored us low</label><textarea id="f_low" rows="3">${esc(f.low_message)}</textarea></div>
+    <div class="row2"><div class="field"><label>TripAdvisor review link</label><input id="f_ta" value="${esc(f.tripadvisor_url || "")}" placeholder="https://"></div><div class="field"><label>Google review link (optional)</label><input id="f_g" value="${esc(f.google_url || "")}" placeholder="https://"></div></div>
+    <div class="row2"><div class="field"><label>“Scored highly” means a recommend score of at least</label><input type="number" id="f_hn" min="5" max="10" value="${f.high_nps}"></div><div class="field"><label>…or, with no recommend question, an average rating of at least</label><input type="number" id="f_ha" min="2" max="5" step="0.1" value="${f.high_avg}"></div></div>
+    <h4>Questions</h4><div id="qlist">${qEditor()}</div>
+    <button class="btn ghost small" id="addq">Add a question</button>
+    <p class="muted" style="font-size:13px;margin-top:10px">Changing a question here does not alter answers already received. They keep the wording they were given.</p>
+    <p><button class="btn" id="saveform">Save this form</button></p></div>`;
+  if (S.fk === "showround") h += `<div class="card"><h3>Automatic email after a wedding showround</h3>
+    <div class="note">${s.auto_showround ? "This is ON. " : "This is OFF. "}When it is on, anyone who had a wedding showround booked through Calendly is emailed the feedback form once, about ${s.delay_hours} hours afterwards. It only covers showrounds after the moment you switch it on, so nobody from the past is emailed.${S.emailOk ? "" : " Email is not set up on the server yet (Brevo key missing)."}</div>
+    <div class="sw"><input type="checkbox" id="e_on" ${s.auto_showround ? "checked" : ""}><label for="e_on">Send the email automatically</label></div>
+    <div class="field"><label>Send it this many hours after the showround</label><input type="number" id="e_h" min="2" max="96" value="${s.delay_hours}"></div>
+    <div class="field"><label>Subject</label><input id="e_sub" value="${esc(s.email_subject)}"></div>
+    <div class="field"><label>Message (use {first_name} for their first name; the button with their personal link is added underneath)</label><textarea id="e_body" rows="9">${esc(s.email_body)}</textarea></div>
+    <button class="btn" id="e_save">Save</button> <button class="btn ghost" id="e_test">Email me a test</button>
+    <p class="muted" style="font-size:13px;margin-top:8px">The test goes only to you, with a link that shows the form but saves nothing.</p></div>`;
+  h += `<div class="card"><h3>Alert for a low score</h3><div class="sw"><input type="checkbox" id="a_on" ${s.alert_on ? "checked" : ""}><label for="a_on">Email me when someone scores us low</label></div>
+    <div class="field"><label>Send it to</label><input id="a_to" value="${esc(s.alert_email || "")}" placeholder="name@blackhorsebeamish.co.uk"></div><button class="btn" id="a_save">Save</button></div>`;
+  $("#views").innerHTML = h;
+  $$("[data-fk]").forEach(b => b.onclick = () => { S.fk = b.dataset.fk; S.qs = JSON.parse(JSON.stringify(S.forms.find(x => x.kind === S.fk).questions || [])); paintSettings(); });
+  $("#qlist").addEventListener("click", e => { const b = e.target.closest("[data-act]"); if (!b) return; readQs(); const i = +b.closest(".qe").dataset.i, a = b.dataset.act; if (a === "del") S.qs.splice(i, 1); else if (a === "up" && i > 0) [S.qs[i-1], S.qs[i]] = [S.qs[i], S.qs[i-1]]; else if (a === "down" && i < S.qs.length - 1) [S.qs[i+1], S.qs[i]] = [S.qs[i], S.qs[i+1]]; $("#qlist").innerHTML = qEditor(); });
+  $("#qlist").addEventListener("change", e => { if (e.target.dataset.f === "type") { readQs(); const q = S.qs[+e.target.closest(".qe").dataset.i]; if (q.type === "choice" && !(q.options || []).length) q.options = ["Yes", "No"]; $("#qlist").innerHTML = qEditor(); } });
+  $("#addq").onclick = () => { readQs(); S.qs.push({ type:"rating", label:"", category:"General", required:true }); $("#qlist").innerHTML = qEditor(); };
+  $("#saveform").onclick = async () => {
+    readQs(); const b = $("#saveform"); b.disabled = true;
+    try { const r = await call("forms.save", { kind:S.fk, title:$("#f_title").value, opening:$("#f_open").value, thanks:$("#f_thanks").value, high_message:$("#f_high").value, low_message:$("#f_low").value, tripadvisor_url:$("#f_ta").value, google_url:$("#f_g").value, high_nps:+$("#f_hn").value, high_avg:+$("#f_ha").value, questions:S.qs.filter(q => String(q.label || "").trim()) }); const i = S.forms.findIndex(x => x.kind === S.fk); S.forms[i] = r.form; S.qs = JSON.parse(JSON.stringify(r.form.questions)); toast("Saved."); paintSettings(); } catch(e){ toast(e.message, true); } finally { b.disabled = false; }
+  };
+  const saveS = async (patch, msg) => { try { const r = await call("settings.save", patch); S.settings = r.settings; toast(msg || "Saved."); paintSettings(); } catch(e){ toast(e.message, true); } };
+  if ($("#e_save")) {
+    $("#e_save").onclick = () => saveS({ auto_showround:$("#e_on").checked, delay_hours:+$("#e_h").value, email_subject:$("#e_sub").value, email_body:$("#e_body").value }, $("#e_on").checked ? "Saved. The automatic email is ON." : "Saved. The automatic email is OFF.");
+    $("#e_test").onclick = async () => { const b = $("#e_test"); b.disabled = true; try { const r = await call("showround.test"); toast("Test sent to " + r.sent_to + "."); } catch(e){ toast(e.message, true); } finally { b.disabled = false; } };
+  }
+  $("#a_save").onclick = () => saveS({ alert_on:$("#a_on").checked, alert_email:$("#a_to").value });
+}
+
+/* =========================================================== shell */
+function goView(v){
+  S.view = v; $$(".tabbtn").forEach(b => b.setAttribute("aria-current", b.dataset.view === v ? "page" : "false"));
+  ({ dashboard:viewDashboard, responses:viewResponses, send:viewSend, reviews:viewReviews, settings:viewSettings }[v] || viewDashboard)();
+  window.scrollTo(0, 0);
+}
+async function boot(){
+  $("#app").hidden = false; $("#views").innerHTML = `<div class="loading">Loading…</div>`;
+  let d;
+  try { d = await call("bootstrap"); } catch(e){ $("#views").innerHTML = `<div class="empty">${esc(e.message)}<br><br><span class="muted">Open this from the Staff Portal so it knows who you are.</span></div>`; return; }
+  S.me = d.me; S.formUrl = d.form_url; $("#whoname").textContent = S.me.name;
+  const tabs = $$(".tabbtn").filter(b => can(b.dataset.view)); $$(".tabbtn").forEach(b => { b.hidden = !tabs.includes(b); b.addEventListener("click", () => goView(b.dataset.view)); });
+  if (!tabs.length) { $("#views").innerHTML = `<div class="empty">You do not have any tabs in Guest Feedback yet.</div>`; return; }
+  goView(tabs[0].dataset.view);
+}
+(function(){ if (staffEmail()) { $("#gate").hidden = true; boot(); } else { $("#gate").hidden = false; } })();
+</script>
+</body>
+</html>

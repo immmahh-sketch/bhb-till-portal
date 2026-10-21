@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script src="/shared/auth.js"></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Team Survey — Black Horse Beamish</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --sage:#4E5F4F; --sage-70:#7B887C; --sage-10:#EDEFED; --sage-dark:#3B483C;
+  --bone:#F7F7F7; --celadon:#C1C8B4; --mist:#E7E7E7; --white:#fff; --ink:#262626; --gold:#C9A56B;
+  --attention:#B08D57; --attention-bg:#F7F0E4; --alert:#8C4A3F; --alert-bg:#F6EAE8; --good:#4F6B4F; --good-bg:#EDF2ED; --plum:#6B5B8C;
+  --display:"Cormorant Garamond",Georgia,serif; --body:Raleway,"Helvetica Neue",Arial,sans-serif;
+  --track-label:.18em; --radius:10px; --shadow:0 1px 2px rgba(38,38,38,.06),0 8px 24px rgba(38,38,38,.07); --maxw:960px;
+}
+*{box-sizing:border-box} html,body{margin:0;padding:0}
+[hidden]{display:none !important}
+body{font-family:var(--body); color:var(--ink); background:var(--bone); font-size:15px; line-height:1.5; -webkit-text-size-adjust:100%}
+h1,h2,h3{font-family:var(--display); font-weight:600; margin:0; letter-spacing:.01em}
+button,input,textarea,select{font:inherit; color:inherit}
+.shell{max-width:var(--maxw); margin:0 auto; padding:0 20px 64px}
+#gate{position:fixed; inset:0; background:var(--sage); z-index:100; display:flex; align-items:center; justify-content:center; padding:24px}
+.gatecard{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); width:100%; max-width:380px; padding:32px 28px; text-align:center}
+.gatecard h1{font-size:26px; color:var(--sage); line-height:1.15}
+.gatecard .sub{font-size:11px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); margin:6px 0 22px}
+header.top{background:var(--sage); color:var(--white)}
+.topin{max-width:var(--maxw); margin:0 auto; padding:14px 20px; display:flex; align-items:center; gap:18px; flex-wrap:wrap}
+.brand{font-family:var(--display); font-size:21px; line-height:1.1}
+.brand small{display:block; font-family:var(--body); font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; opacity:.75}
+.who{margin-left:auto; display:flex; align-items:center; gap:10px; font-size:12px; opacity:.9}
+nav.tabs{background:var(--sage-dark)}
+.tabsin{max-width:var(--maxw); margin:0 auto; padding:0 20px; display:flex; gap:2px; overflow-x:auto}
+.tabbtn{background:transparent; border:0; cursor:pointer; color:rgba(255,255,255,.72); padding:12px 16px; font-size:12px; font-weight:600; white-space:nowrap; letter-spacing:var(--track-label); text-transform:uppercase; border-bottom:3px solid transparent}
+.tabbtn[aria-current="page"]{color:var(--white); border-bottom-color:var(--gold)}
+.pagehead{display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; margin:24px 0 16px}
+.pagehead h2{font-size:26px; color:var(--sage)}
+.pagehead .hint{font-size:13px; color:var(--sage-70)}
+.spacer{margin-left:auto}
+.btn{border:1px solid var(--sage); background:var(--sage); color:var(--white); border-radius:8px; padding:10px 18px; cursor:pointer; font-size:12px; font-weight:600; letter-spacing:var(--track-label); text-transform:uppercase; min-height:44px}
+.btn.ghost{background:var(--white); color:var(--sage)} .btn.ghost:hover{background:var(--sage-10)}
+.btn.danger{background:var(--white); color:var(--alert); border-color:var(--alert)}
+.btn.small{min-height:36px; padding:6px 12px; font-size:11px}
+.btn:disabled{opacity:.5; cursor:default}
+.card{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); padding:18px 20px; margin-bottom:14px}
+.card h3{font-size:22px; color:var(--sage); margin-bottom:10px}
+.card h4{font-size:11px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); margin:16px 0 8px; font-family:var(--body)}
+.card p{margin:0 0 10px}
+.privacy{border:2px solid var(--sage); background:var(--good-bg)}
+.privacy h3{display:flex; align-items:center; gap:10px; font-size:26px}
+.privacy ul{margin:8px 0 0; padding-left:0; list-style:none}
+.privacy li{padding:7px 0 7px 30px; position:relative; border-top:1px solid rgba(78,95,79,.18)}
+.privacy li:first-child{border-top:0}
+.privacy li::before{content:"✓"; position:absolute; left:4px; top:7px; color:var(--good); font-weight:700}
+.note{background:var(--attention-bg); color:#6d5320; border-radius:8px; padding:10px 14px; font-size:13px; margin-bottom:12px}
+.muted{color:var(--sage-70)} .empty{padding:36px 20px; text-align:center; color:var(--sage-70)} .loading{padding:60px; text-align:center; color:var(--sage-70)}
+.intro{white-space:pre-wrap}
+.sec{font-family:var(--display); font-size:24px; color:var(--sage); margin:26px 0 10px}
+.q{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); padding:16px 18px; margin-bottom:12px}
+.q .ql{font-weight:600; margin-bottom:2px} .q .qh{font-size:12.5px; color:var(--sage-70); margin-bottom:8px}
+.scale{display:grid; grid-template-columns:repeat(5,1fr); gap:6px; margin-top:8px}
+.scale button,.enps button{border:1px solid var(--mist); background:var(--bone); border-radius:8px; padding:8px 4px; cursor:pointer; min-height:48px; font-size:12px; line-height:1.2}
+.scale button b{display:block; font-size:16px}
+.scale button:hover,.enps button:hover{background:var(--sage-10)}
+.scale button[aria-pressed="true"],.enps button[aria-pressed="true"]{background:var(--sage); border-color:var(--sage); color:var(--white); font-weight:600}
+.enps{display:grid; grid-template-columns:repeat(11,1fr); gap:4px; margin-top:8px} .enps button{padding:8px 0; font-size:15px}
+.enpslab{display:flex; justify-content:space-between; font-size:11px; color:var(--sage-70); margin-top:4px}
+.field{margin-bottom:14px} .field label{display:block; font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); margin-bottom:4px}
+.field input,.field textarea,.field select,.q textarea{width:100%; padding:11px 12px; border:1px solid var(--mist); border-radius:8px; font-size:16px; background:var(--white)}
+textarea{min-height:90px; resize:vertical}
+.field input[type=number]{max-width:120px} .field input[type=date]{max-width:210px}
+.row2{display:grid; grid-template-columns:1fr 1fr; gap:14px}
+.progress{position:sticky; top:0; z-index:5; background:var(--bone); padding:8px 0; font-size:12px; color:var(--sage-70)}
+.progress .bar{height:6px; background:var(--mist); border-radius:99px; overflow:hidden; margin-top:4px} .progress .bar span{display:block; height:100%; background:var(--sage)}
+.kpis{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-bottom:14px}
+.kpi{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); padding:14px 16px}
+.kpi .l{font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70)}
+.kpi .v{font-family:var(--display); font-size:36px; color:var(--sage); line-height:1.1} .kpi .s{font-size:12px; color:var(--sage-70)}
+.delta{font-size:12px; font-weight:700; margin-left:6px} .delta.up{color:var(--good)} .delta.down{color:var(--alert)}
+table.t{width:100%; border-collapse:collapse; font-size:13.5px} .t th,.t td{padding:8px 8px; text-align:left; border-bottom:1px solid var(--mist); vertical-align:top}
+.t th{font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); font-weight:600}
+.t td.n,.t th.n{text-align:right; font-variant-numeric:tabular-nums}
+.tw{overflow-x:auto}
+.heat{display:inline-block; min-width:44px; text-align:center; padding:3px 6px; border-radius:6px; font-weight:600}
+.h5{background:#cfe3cf} .h4{background:#e3eed7} .h3{background:#f4ecc9} .h2{background:#f2d9c4} .h1{background:#ecc3bb}
+.sug{border-left:4px solid var(--gold); padding:6px 0 6px 14px; margin-bottom:12px} .sug b{display:block}
+.sug.good{border-left-color:var(--good)} .sug.bad{border-left-color:var(--alert)}
+.verb{padding:10px 0; border-top:1px solid var(--mist); white-space:pre-wrap} .verb:first-child{border-top:0}
+.verb small{display:block; color:var(--sage-70); font-size:11px; margin-top:2px}
+details{margin-bottom:8px} summary{cursor:pointer; font-weight:600; padding:6px 0}
+.list{list-style:none; margin:0; padding:0} .list li{padding:7px 0; border-top:1px solid var(--mist); display:flex; gap:10px; align-items:center; flex-wrap:wrap} .list li:first-child{border-top:0}
+.tag{display:inline-block; border-radius:999px; padding:3px 10px; font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; background:var(--sage-10); color:var(--sage); white-space:nowrap}
+.tag.open{background:var(--good-bg); color:var(--good)} .tag.sched{background:var(--attention-bg); color:#6d5320}
+.qrow{display:flex; gap:8px; align-items:flex-start; padding:9px 0; border-top:1px solid var(--mist)} .qrow:first-of-type{border-top:0}
+.qrow .qt{flex:1; min-width:0; overflow-wrap:anywhere} .qrow.off .qt{opacity:.5; text-decoration:line-through}
+.qrow .acts{display:flex; gap:6px; flex-wrap:wrap}
+.toast{position:fixed; left:50%; bottom:26px; transform:translate(-50%,20px); background:var(--ink); color:var(--white); padding:12px 20px; border-radius:8px; z-index:200; opacity:0; transition:.2s; pointer-events:none; font-size:14px; max-width:90vw}
+.toast.on{opacity:1; transform:translate(-50%,0)} .toast.bad{background:var(--alert)}
+.sw{display:flex; align-items:center; gap:10px; margin-bottom:14px} .sw input{width:22px; height:22px; margin:0}
+@media (max-width:640px){ .shell{padding:0 12px 48px} .topin,.tabsin{padding-left:12px;padding-right:12px} .row2{grid-template-columns:1fr} .btn{width:100%} .btn.small{width:auto} .scale button{font-size:11px;padding:6px 2px} .enps{grid-template-columns:repeat(6,1fr)} .pagehead h2{font-size:22px} }
+</style>
+</head>
+<body>
+<div id="gate"><div class="gatecard"><h1>Team Survey</h1><div class="sub">Black Horse Beamish</div>
+  <p style="margin:0 0 16px;font-size:14px;color:var(--sage-70)">This opens from the Staff Portal, which knows who you are.</p>
+  <a href="https://app.blackhorsebeamish.co.uk/portal/app.html" style="display:block;padding:12px;border-radius:8px;background:var(--sage);color:#fff;text-decoration:none;font-weight:600;letter-spacing:var(--track-label);text-transform:uppercase;font-size:12px">Open the Staff Portal</a></div></div>
+<div id="app" hidden>
+  <header class="top"><div class="topin"><div class="brand">Team Survey<small>Black Horse Beamish</small></div><div class="who"><span id="whoname"></span></div></div></header>
+  <nav class="tabs"><div class="tabsin" role="tablist">
+    <button class="tabbtn" data-view="survey">Take the survey</button>
+    <button class="tabbtn" data-view="results" id="tabResults" hidden>Results</button>
+    <button class="tabbtn" data-view="settings" id="tabSettings" hidden>Settings</button>
+  </div></nav>
+  <div class="shell"><div id="views"></div></div>
+</div>
+<div class="toast" id="toast"></div>
+<script src="/shared/insights.js"></script>
+<script>
+const CFG = { SUPABASE_URL:"https://safcrtrfdzsnftghibot.supabase.co", SUPABASE_KEY:"sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU" };
+const S = { me:null, view:"survey", st:null, ans:{}, dept:"", tenure:"", started:false, done:null, res:null, resRound:null, set:null, editQ:null };
+const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
+const esc = Viz.esc;
+const fmtDay = d => { try { return new Date(d+"T12:00:00Z").toLocaleDateString("en-GB",{ timeZone:"UTC", weekday:"short", day:"numeric", month:"long", year:"numeric" }); } catch(e){ return d; } };
+const fmtShort = d => { try { return new Date(d+"T12:00:00Z").toLocaleDateString("en-GB",{ timeZone:"UTC", day:"numeric", month:"short", year:"numeric" }); } catch(e){ return d; } };
+function toast(msg, bad){ const t=$("#toast"); t.textContent=msg; t.className="toast on"+(bad?" bad":""); clearTimeout(toast._t); toast._t=setTimeout(()=>{t.className="toast";}, bad?5200:2600); }
+function staffEmail(){ try { return sessionStorage.getItem("bhb_staff_email") || ""; } catch(e){ return ""; } }
+async function call(action, payload){
+  const r = await fetch(CFG.SUPABASE_URL + "/functions/v1/survey-api", { method:"POST", headers:{ "Content-Type":"application/json", Authorization:"Bearer "+CFG.SUPABASE_KEY, apikey:CFG.SUPABASE_KEY }, body: JSON.stringify({ action, staff_email: staffEmail(), ...(payload||{}) }) });
+  let d = {}; try { d = await r.json(); } catch(e){}
+  if (!r.ok || d.error) throw new Error(d.error || `Request failed (${r.status})`);
+  return d;
+}
+const SCALE_LABELS = ["Strongly disagree","Disagree","Neither","Agree","Strongly agree"];
+const heatClass = v => v == null ? "" : v >= 4.2 ? "h5" : v >= 3.7 ? "h4" : v >= 3.2 ? "h3" : v >= 2.7 ? "h2" : "h1";
+const heat = v => v == null ? '<span class="muted">–</span>' : `<span class="heat ${heatClass(v)}">${Viz.f1(v)}</span>`;
+const deltaHtml = (d, unit) => d == null || Math.abs(d) < 0.05 ? "" : `<span class="delta ${d > 0 ? "up" : "down"}">${d > 0 ? "▲" : "▼"} ${Math.abs(Math.round(d*10)/10)}${unit||""}</span>`;
+const lock = '<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>';
+
+/* =========================================================== take the survey */
+function privacyPanel(rules){
+  const ra = rules?.reveal_after || 10, mg = rules?.min_group || 5;
+  return `<div class="card privacy"><h3>${lock} This survey is completely anonymous</h3>
+  <ul>
+    <li><b>Your name is never saved with your answers.</b> Not your name, your email, or the time you answered. There is nothing that links an answer to you, so nobody, including the General Manager and the people who built this, can find out who said what.</li>
+    <li><b>Nobody sees any answers while the survey is open.</b> They are only shown after it closes, so no one can work out who answered by watching them arrive.</li>
+    <li><b>The General Manager only sees how many people have completed it.</b> Only once <b>${ra} people</b> have finished is a list of who has <i>not</i> yet completed it shown, so those people can be reminded. That list says nothing about anyone's answers, and with ${ra} or more completed it cannot point to any one person.</li>
+    <li><b>Small groups are never reported on their own.</b> If fewer than ${mg} people in a department answered, that department is not shown separately.</li>
+    <li><b>Written comments are shown without names, in a mixed-up order.</b> Please do not put your own name in a comment, and avoid details that only you would know.</li>
+  </ul></div>`;
+}
+async function viewSurvey(){
+  const v = $("#views"); v.innerHTML = `<div class="loading">Loading…</div>`;
+  try { S.st = await call("status"); } catch(e){ v.innerHTML = `<div class="empty">${esc(e.message)}<br><br><span class="muted">Open this from the Staff Portal so it knows who you are.</span></div>`; return; }
+  const st = S.st;
+  if (S.done) { v.innerHTML = `<div class="card privacy"><h3>${lock} Thank you</h3><p class="intro">${esc(S.done)}</p></div>`; return; }
+  if (st.state === "completed") { v.innerHTML = `<div class="pagehead"><h2>${esc(st.title)}</h2></div><div class="card privacy"><h3>${lock} Already completed</h3><p>${esc(st.completed_text)}</p><p class="muted">The survey closes on ${fmtDay(st.closes_on)}.</p></div>`; return; }
+  if (st.state === "none") { v.innerHTML = `<div class="pagehead"><h2>${esc(st.title)}</h2></div><div class="card"><h3>There is no survey open at the moment</h3><p>${st.next_opens_on ? `The next one opens on <b>${fmtDay(st.next_opens_on)}</b>. You will see a reminder in the Staff Portal when it does.` : "Please look out for the next round of surveys."}</p><p class="muted">${esc(st.completed_text)}</p></div>`; return; }
+  if (!S.started) {
+    v.innerHTML = `<div class="pagehead"><h2>${esc(st.title)}</h2><span class="hint">Open until ${fmtDay(st.round.closes_on)}</span></div>
+      ${privacyPanel(st.rules)}
+      <div class="card"><h3>Why we are asking</h3><p class="intro">${esc(st.intro)}</p></div>
+      <button class="btn" id="start">Start the survey</button>`;
+    $("#start").onclick = () => { S.started = true; renderForm(); window.scrollTo(0,0); };
+    return;
+  }
+  renderForm();
+}
+function questionsBySection(snap){
+  const secs = []; (snap.questions || []).forEach(q => { let s = secs.find(x => x.name === q.section); if (!s) secs.push(s = { name:q.section, order:q.section_order, qs:[] }); s.qs.push(q); });
+  return secs.sort((a,b) => a.order - b.order);
+}
+function renderForm(){
+  const st = S.st, snap = st.snapshot || {}, qs = snap.questions || [];
+  const need = qs.filter(q => q.required).length;
+  let html = `<div class="pagehead"><h2>${esc(st.title)}</h2></div>
+  <div class="progress"><span id="pg">0 of ${need} required questions answered</span><div class="bar"><span id="pgbar" style="width:0%"></span></div></div>
+  <div class="note">${lock.replace('width="30" height="30"','width="14" height="14"')} Anonymous: your answers are saved with no name, email or time.</div>
+  <div class="q"><div class="ql">Which department do you work in?</div><div class="qh">Used only to see how each area is doing. A department with fewer than ${st.rules?.min_group || 5} responses is never shown on its own.</div>
+    <select id="dept"><option value="">Choose…</option>${(snap.departments||[]).map(d => `<option ${S.dept===d?"selected":""}>${esc(d)}</option>`).join("")}</select></div>
+  <div class="q"><div class="ql">How long have you worked here? <span class="muted">(optional)</span></div><div class="qh">Skip this if you think it could point to you.</div>
+    <select id="tenure"><option value="">Prefer not to say</option>${(snap.tenure||[]).map(d => `<option ${S.tenure===d?"selected":""}>${esc(d)}</option>`).join("")}</select></div>`;
+  questionsBySection(snap).forEach(sec => {
+    html += `<div class="sec">${esc(sec.name)}</div>`;
+    sec.qs.forEach(q => {
+      html += `<div class="q" data-q="${esc(q.id)}"><div class="ql">${esc(q.text)}${q.required ? "" : ' <span class="muted">(optional)</span>'}</div>${q.hint ? `<div class="qh">${esc(q.hint)}</div>` : ""}`;
+      if (q.kind === "scale") html += `<div class="scale">${[1,2,3,4,5].map(n => `<button type="button" data-v="${n}" aria-pressed="${S.ans[q.id]===n}"><b>${n}</b>${SCALE_LABELS[n-1]}</button>`).join("")}</div>`;
+      else if (q.kind === "enps") html += `<div class="enps">${[0,1,2,3,4,5,6,7,8,9,10].map(n => `<button type="button" data-v="${n}" aria-pressed="${S.ans[q.id]===n}">${n}</button>`).join("")}</div><div class="enpslab"><span>Not at all likely</span><span>Extremely likely</span></div>`;
+      else html += `<textarea data-t="${esc(q.id)}" maxlength="2000" placeholder="Your answer (anonymous)">${esc(S.ans[q.id] || "")}</textarea>`;
+      html += `</div>`;
+    });
+  });
+  html += `<div id="ferr" class="note" hidden></div><button class="btn" id="send">Submit my anonymous answers</button><p class="muted" style="margin-top:10px;font-size:13px">Once you submit, your answers cannot be seen again or changed, by you or anyone else.</p>`;
+  $("#views").innerHTML = html;
+  const upd = () => {
+    const done = qs.filter(q => q.required && (q.kind === "text" ? String(S.ans[q.id]||"").trim() : S.ans[q.id] != null) ).length + (S.dept ? 0 : 0);
+    $("#pg").textContent = `${done} of ${need} required questions answered`; $("#pgbar").style.width = (need ? Math.round(done / need * 100) : 100) + "%";
+  };
+  $$("#views .q[data-q] .scale button, #views .q[data-q] .enps button").forEach(b => b.onclick = () => {
+    const id = b.closest(".q").dataset.q, n = +b.dataset.v;
+    S.ans[id] = S.ans[id] === n ? undefined : n;
+    b.parentElement.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", String(S.ans[id] === +x.dataset.v))); upd();
+  });
+  $$("#views textarea[data-t]").forEach(t => t.oninput = () => { S.ans[t.dataset.t] = t.value; upd(); });
+  $("#dept").onchange = e => S.dept = e.target.value; $("#tenure").onchange = e => S.tenure = e.target.value;
+  upd();
+  $("#send").onclick = async () => {
+    const err = $("#ferr"); err.hidden = true;
+    if (!S.dept) { err.textContent = "Please choose your department."; err.hidden = false; $("#dept").scrollIntoView({ block:"center" }); return; }
+    const miss = qs.find(q => q.required && (q.kind === "text" ? !String(S.ans[q.id]||"").trim() : S.ans[q.id] == null));
+    if (miss) { err.textContent = "Please answer every question that is not marked optional."; err.hidden = false; document.querySelector(`[data-q="${miss.id}"]`).scrollIntoView({ block:"center" }); return; }
+    const b = $("#send"); b.disabled = true; b.textContent = "Saving…";
+    try {
+      const r = await call("submit", { round_id: st.round.id, department: S.dept, tenure: S.tenure, answers: S.ans });
+      S.done = r.closing_text; S.ans = {}; S.dept = ""; S.tenure = ""; S.started = false; viewSurvey(); window.scrollTo(0,0);
+    } catch(e){ err.textContent = e.message; err.hidden = false; b.disabled = false; b.textContent = "Submit my anonymous answers"; }
+  };
+}
+
+/* =========================================================== results */
+const SUGGEST = [
+  [/line manager|manager/i, "Share the lowest-scoring manager questions with the managers, privately and constructively. Agree one habit each to start (a short weekly catch-up with each person, a genuine thank-you every shift) and offer coaching on giving feedback and recognition."],
+  [/support|team/i, "Name a first point of contact in every department so everyone knows exactly where to go for help. Hold a two-minute huddle before busy shifts, and tell the team what has been done about their suggestions."],
+  [/stress|wellbeing/i, "Compare staffing with the busiest periods and protect breaks. Look at the written answers about what causes stress and pick the top one or two to fix first. Remind everyone what support is available, and make it normal to say when you are struggling."],
+  [/tools|equipment|training/i, "Fix the top three equipment gaps people named in their comments, and book refresher training where the training score is low. Check that briefings, handovers and rotas are reaching everyone in good time."],
+  [/environment/i, "Walk the staff areas with a team member and fix the quick wins. Look at how far ahead rotas are published, and explain clearly how pay and rewards are decided."],
+  [/development|recognition/i, "Book a short development chat with each person. Offer one stretch opportunity per department, and make thanking people publicly a habit."],
+  [/overall/i, "Share the headline results openly with the whole team and say what you are going to do about them."],
+];
+const suggestionFor = name => (SUGGEST.find(([re]) => re.test(name)) || [null, "Look at the lowest-scoring questions in this area, read the written comments, and agree two or three actions with the team."])[1];
+
+async function viewResults(roundId){
+  const v = $("#views"); v.innerHTML = `<div class="loading">Loading…</div>`;
+  try { S.res = await call("results.load", roundId ? { round_id: roundId } : {}); } catch(e){ v.innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+  const r = S.res, sel = r.selected;
+  if (!sel) { v.innerHTML = `<div class="empty">No survey has been run yet.</div>`; return; }
+  const pct = r.eligible ? Math.round(sel.completions / r.eligible * 100) : 0;
+  let html = `<div class="pagehead"><h2>Results</h2><span class="hint">Everything here is anonymous.</span><span class="spacer"></span>
+    <select id="rsel" aria-label="Survey round">${r.rounds.map(x => `<option value="${x.id}" ${x.id===sel.id?"selected":""}>Round ${x.number}: ${fmtShort(x.opens_on)} to ${fmtShort(x.closes_on)} (${x.status})</option>`).join("")}</select></div>
+    <div class="card"><h3>Round ${sel.number} <span class="tag ${sel.status==="open"?"open":sel.status==="scheduled"?"sched":""}">${sel.status}</span></h3>
+      <p>${fmtDay(sel.opens_on)} to ${fmtDay(sel.closes_on)}</p>
+      ${sel.status !== "scheduled" ? `${Viz.bars([{ label:`${sel.completions} of ${r.eligible} people have completed it`, value:pct, note:pct+"%" }], { max:100, lo:50, hi:75, fmt:()=>"" })}` : ""}</div>`;
+  if (sel.status !== "scheduled") {
+    if (r.not_completed) html += `<div class="card"><h3>Not yet completed (${r.not_completed.length})</h3><p class="muted">Shown because ${r.settings.reveal_after} or more people have completed it. This only tells you who to remind. It cannot tell you anything about anyone's answers.</p>${r.not_completed.length ? `<ul class="list">${r.not_completed.map(u => `<li>${esc(u.name)}</li>`).join("")}</ul><p style="margin-top:10px"><button class="btn ghost small" id="cpNames">Copy the names</button></p>` : `<p>Everyone has completed it.</p>`}</div>`;
+    else html += `<div class="card"><p class="muted" style="margin:0">The list of who has not completed the survey is shown once ${r.settings.reveal_after} people have completed it (${sel.completions} so far), so that it can never point to any one person's answers.</p></div>`;
+  }
+  if (r.answers_hidden) html += `<div class="card"><h3>Answers are hidden for now</h3><p>${esc(r.answers_hidden)}</p></div>`;
+  else if (r.too_few) html += `<div class="card"><p>${esc(r.too_few)}</p></div>`;
+  else if (r.stats) html += resultsBody(r);
+  v.innerHTML = html;
+  $("#rsel").onchange = e => viewResults(e.target.value);
+  if ($("#cpNames")) $("#cpNames").onclick = () => { const t = r.not_completed.map(u => u.name).join("\n"); (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => toast("Names copied."), () => toast("Could not copy.", true)); };
+  if (r.stats) bindResults(r);
+}
+function resultsBody(r){
+  const st = r.stats, qs = r.questions || [], scaleQs = qs.filter(q => q.kind === "scale");
+  const hist = r.history || [], idx = hist.findIndex(h => h.id === r.selected.id), prev = idx > 0 ? hist[idx - 1] : null;
+  const secNames = [...new Set(scaleQs.map(q => q.section))];
+  const dSec = n => prev && prev.sections[n] && prev.sections[n].avg != null && st.sections[n].avg != null ? st.sections[n].avg - prev.sections[n].avg : null;
+  let h = `<div class="kpis">
+    <div class="kpi"><div class="l">Responses</div><div class="v">${st.n}</div><div class="s">completed surveys</div></div>
+    <div class="kpi"><div class="l">Overall score</div><div class="v">${Viz.f1(st.overall)}<span style="font-size:16px"> / 5</span>${prev ? deltaHtml(st.overall - prev.overall) : ""}</div><div class="s">average of every rating</div></div>
+    ${st.enps ? `<div class="kpi"><div class="l">Employee NPS</div><div class="v">${st.enps.score > 0 ? "+" : ""}${st.enps.score}${prev && prev.enps ? deltaHtml(st.enps.score - prev.enps.score) : ""}</div><div class="s">would recommend us as a place to work</div></div>` : ""}
+  </div>`;
+  if (st.enps) h += `<div class="card"><h3>Would they recommend working here?</h3>${Viz.npsBar(st.enps.promoters, st.enps.passives, st.enps.detractors)}</div>`;
+  h += `<div class="card"><h3>How each area scored</h3><p class="muted">Average out of 5. ${prev ? "The arrow shows the change since the previous survey." : ""}</p>${Viz.bars(secNames.map(n => ({ label:n, value:st.sections[n].avg })), { max:5, lo:3.2, hi:3.9 })}
+    ${prev ? `<div class="key" style="margin-top:8px;font-size:12px">${secNames.map(n => dSec(n) == null ? "" : `<span style="margin-right:14px">${esc(n)} ${deltaHtml(dSec(n))}</span>`).join("")}</div>` : ""}</div>`;
+  // questions by section
+  h += `<div class="card"><h3>Every rating question</h3>`;
+  secNames.forEach(n => {
+    h += `<details ${secNames.length <= 2 ? "open" : ""}><summary>${esc(n)} ${heat(st.sections[n].avg)}</summary><div class="tw"><table class="t"><tr><th>Question</th><th class="n">Average</th><th class="n">1</th><th class="n">2</th><th class="n">3</th><th class="n">4</th><th class="n">5</th></tr>`;
+    scaleQs.filter(q => q.section === n).forEach(q => { const p = st.per[q.id] || { avg:null, dist:[0,0,0,0,0] }; h += `<tr><td>${esc(q.text)}</td><td class="n">${heat(p.avg)}</td>${p.dist.map(c => `<td class="n">${c}</td>`).join("")}</tr>`; });
+    h += `</table></div></details>`;
+  });
+  h += `</div>`;
+  // departments
+  if (r.departments && r.departments.length) {
+    h += `<div class="card"><h3>By department</h3><p class="muted">Only departments with at least ${r.settings.min_group} responses are shown${r.hidden_groups ? `. ${r.hidden_groups} smaller group${r.hidden_groups===1?" is":"s are"} left out so no one can be identified.` : "."}</p><div class="tw"><table class="t"><tr><th>Department</th><th class="n">Responses</th><th class="n">Overall</th>${secNames.map(n => `<th class="n">${esc(n)}</th>`).join("")}${st.enps ? '<th class="n">eNPS</th>' : ""}</tr>
+      ${r.departments.map(d => `<tr><td>${esc(d.department)}</td><td class="n">${d.n}</td><td class="n">${heat(d.overall)}</td>${secNames.map(n => `<td class="n">${heat(d.sections[n] ? d.sections[n].avg : null)}</td>`).join("")}${st.enps ? `<td class="n">${d.enps ? (d.enps.score>0?"+":"")+d.enps.score : "–"}</td>` : ""}</tr>`).join("")}</table></div></div>`;
+  }
+  if (r.tenure && r.tenure.length > 1) h += `<div class="card"><h3>By length of service</h3><div class="tw"><table class="t"><tr><th>Length of service</th><th class="n">Responses</th><th class="n">Overall</th></tr>${r.tenure.map(d => `<tr><td>${esc(d.tenure)}</td><td class="n">${d.n}</td><td class="n">${heat(d.overall)}</td></tr>`).join("")}</table></div></div>`;
+  // progress over time
+  if (hist.length > 1) {
+    const labels = hist.map(x => "Round " + x.number), colours = ["#4E5F4F","#C9A56B","#6B5B8C","#8C4A3F","#3F6B7A","#7B887C","#B08D57"];
+    h += `<div class="card"><h3>Progress over time</h3><p class="muted">Average score by area, survey by survey.</p>${Viz.line([{ name:"Overall", color:"#262626", values:hist.map(x => x.overall) }].concat(secNames.map((n,i) => ({ name:n, color:colours[i % colours.length], values:hist.map(x => x.sections[n] ? x.sections[n].avg : null) }))), labels, { min:1, max:5, ticks:4, label:"Scores by survey" })}
+      ${hist.some(x => x.enps) ? `<h4>Employee NPS</h4>${Viz.line([{ name:"eNPS", color:"#4E5F4F", values:hist.map(x => x.enps ? x.enps.score : null) }], labels, { min:-100, max:100, ticks:4, fmt:v => (v>0?"+":"")+Math.round(v) })}` : ""}</div>`;
+  }
+  // suggestions
+  h += suggestionsHtml(r, secNames, prev, scaleQs);
+  // verbatims
+  const verb = r.verbatims || [], allText = verb.flatMap(x => x.answers.map(a => a.a));
+  if (allText.length) {
+    const m = Viz.mood(allText);
+    h += `<div class="card"><h3>What people wrote</h3><p class="muted">${allText.length} written comments, in a mixed-up order and without names. Clearly positive words: ${m.pos}. Clearly negative words: ${m.neg}.</p>${Viz.cloud(allText, { max:70 })}</div>`;
+    verb.filter(x => x.answers.length).forEach(x => {
+      h += `<div class="card"><h3 style="font-size:19px">${esc(x.text)}</h3><p class="muted" style="font-size:12px">${esc(x.section)}, ${x.answers.length} answer${x.answers.length===1?"":"s"}</p>${x.answers.map(a => `<div class="verb">${esc(a.a)}${a.dept ? `<small>${esc(a.dept)}</small>` : ""}</div>`).join("")}</div>`;
+    });
+  }
+  // full surveys
+  const sv = r.surveys || [];
+  if (sv.length) {
+    h += `<div class="card"><h3>Completed surveys</h3><p class="muted">Each survey exactly as it was answered, with no names. The numbers are in a random order and do not show who answered first.</p><p><button class="btn ghost small" id="csvAll">Download all answers as CSV</button></p>`;
+    sv.forEach(s => { h += `<details><summary>Survey ${s.n}${s.dept ? ` · ${esc(s.dept)}` : ""}</summary>${qs.map(q => s.answers[q.id] == null || s.answers[q.id] === "" ? "" : `<div class="verb"><b>${esc(q.text)}</b><br>${q.kind === "scale" ? `${s.answers[q.id]} / 5 (${SCALE_LABELS[s.answers[q.id]-1]})` : q.kind === "enps" ? `${s.answers[q.id]} / 10` : esc(s.answers[q.id])}</div>`).join("")}</details>`; });
+    h += `</div>`;
+  }
+  return h;
+}
+function suggestionsHtml(r, secNames, prev, scaleQs){
+  const st = r.stats, out = [];
+  const secs = secNames.map(n => ({ n, a:st.sections[n].avg })).filter(x => x.a != null).sort((a,b) => a.a - b.a);
+  secs.filter(x => x.a < 4).slice(0, 3).forEach(x => out.push({ tone:x.a < 3.3 ? "bad" : "", t:`${x.n} (${Viz.f1(x.a)} out of 5)`, d:suggestionFor(x.n) }));
+  const lowQs = scaleQs.map(q => ({ q, a:(st.per[q.id]||{}).avg })).filter(x => x.a != null).sort((a,b) => a.a - b.a).slice(0, 3);
+  if (lowQs.length) out.push({ tone:"", t:"The three lowest-scoring questions", d:lowQs.map(x => `“${x.q.text}” (${Viz.f1(x.a)})`).join("; ") + ". Start your action plan here." });
+  const depts = (r.departments || []).filter(d => d.overall != null && st.overall != null && st.overall - d.overall >= 0.3);
+  if (depts.length) out.push({ tone:"bad", t:"Departments scoring noticeably lower", d:depts.map(d => `${d.department} (${Viz.f1(d.overall)} against ${Viz.f1(st.overall)} overall)`).join(", ") + ". Hold a short, open conversation with each of these teams about what would help." });
+  if (prev) {
+    const falls = secNames.filter(n => prev.sections[n] && prev.sections[n].avg != null && st.sections[n].avg != null && st.sections[n].avg - prev.sections[n].avg <= -0.2);
+    const rises = secNames.filter(n => prev.sections[n] && prev.sections[n].avg != null && st.sections[n].avg != null && st.sections[n].avg - prev.sections[n].avg >= 0.2);
+    if (falls.length) out.push({ tone:"bad", t:"Scores that have fallen since the last survey", d:falls.join(", ") + ". Find out what changed." });
+    if (rises.length) out.push({ tone:"good", t:"Scores that have improved", d:rises.join(", ") + ". Say thank you to the people behind it and tell the team." });
+  }
+  if (st.enps && st.enps.detractors / st.enps.n >= 0.25) out.push({ tone:"bad", t:"A quarter or more would not recommend working here", d:"Read the answers to “what is the one thing that would most improve working here?” and choose the most common request to fix first." });
+  out.push({ tone:"good", t:"Always", d:"Tell the whole team what the results said and what you are going to do about it within a month (“you said, we did”). People answer honestly next time when they have seen the last results lead to something." });
+  return `<div class="card"><h3>Suggested next steps</h3><p class="muted">Worked out from this round's scores. They are prompts for a conversation, not instructions.</p>${out.map(x => `<div class="sug ${x.tone}"><b>${esc(x.t)}</b>${esc(x.d)}</div>`).join("")}</div>`;
+}
+function bindResults(r){
+  const b = $("#csvAll"); if (!b) return;
+  b.onclick = () => {
+    const qs = r.questions || [], rows = [["Survey no.","Department"].concat(qs.map(q => q.text))];
+    (r.surveys || []).forEach(s => rows.push([s.n, s.dept].concat(qs.map(q => s.answers[q.id] == null ? "" : s.answers[q.id]))));
+    Viz.csv(rows, `team-survey-round-${r.selected.number}-anonymous.csv`);
+  };
+}
+
+/* =========================================================== settings */
+const lines = a => (a || []).join("\n");
+async function viewSettings(){
+  const v = $("#views"); v.innerHTML = `<div class="loading">Loading…</div>`;
+  try { S.set = await call("settings.get"); } catch(e){ v.innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+  const s = S.set.settings, rounds = S.set.rounds, qs = S.set.questions;
+  const open = rounds.find(r => r.status === "open");
+  let h = `<div class="pagehead"><h2>Settings</h2><span class="hint">Changes to questions apply from the next survey. A survey that is already open keeps the questions it opened with.</span></div>
+  <div class="card"><h3>When the survey runs</h3>
+    <ul class="list">${rounds.slice().reverse().map(r => `<li><b>Round ${r.number}</b> <span class="tag ${r.status==="open"?"open":r.status==="scheduled"?"sched":""}">${r.status}</span> ${fmtShort(r.opens_on)} to ${fmtShort(r.closes_on)}
+      ${r.status !== "closed" ? `<span class="spacer"></span><input type="date" data-o="${r.id}" value="${r.opens_on}" ${r.status==="open"?"disabled":""} aria-label="Opens"><input type="date" data-c="${r.id}" value="${r.closes_on}" aria-label="Closes"><button class="btn small" data-saveround="${r.id}">Save dates</button>` : ""}</li>`).join("")}</ul>
+    <h4>Add a survey round</h4><div class="row2"><div class="field"><label>Opens on</label><input type="date" id="nr_o"></div><div class="field"><label>Closes on</label><input type="date" id="nr_c"></div></div>
+    <button class="btn ghost small" id="addRound">Add round</button>
+    <h4>Repeat automatically</h4>
+    <div class="sw"><input type="checkbox" id="s_auto" ${s.auto_repeat?"checked":""}><label for="s_auto">Open the next survey automatically</label></div>
+    <div class="row2"><div class="field"><label>Repeat every (months)</label><input type="number" id="s_rep" min="1" max="36" value="${s.repeat_months}"></div><div class="field"><label>Keep it open for (days)</label><input type="number" id="s_len" min="1" max="90" value="${s.length_days}"></div></div>
+    <button class="btn" id="saveSched">Save schedule</button></div>
+  <div class="card"><h3>What people read</h3>
+    <div class="field"><label>Title</label><input id="m_title" value="${esc(s.title)}"></div>
+    <div class="field"><label>Why we are asking (shown on the start screen, under the anonymity panel)</label><textarea id="m_intro" rows="6">${esc(s.intro)}</textarea></div>
+    <div class="field"><label>Thank-you after submitting</label><textarea id="m_close" rows="3">${esc(s.closing_text)}</textarea></div>
+    <div class="field"><label>Shown to anyone who has already completed it</label><textarea id="m_done" rows="3">${esc(s.completed_text)}</textarea></div>
+    <div class="field"><label>Departments (one per line)</label><textarea id="m_dept" rows="8">${esc(lines(s.departments))}</textarea></div>
+    <div class="field"><label>Length of service options (one per line)</label><textarea id="m_ten" rows="5">${esc(lines(s.tenure_options))}</textarea></div>
+    <button class="btn" id="saveMsgs">Save</button>
+    <p class="muted" style="margin-top:12px;font-size:13px">Fixed for everyone's protection: the list of who has not completed is only shown once ${s.reveal_after} people have, and a group smaller than ${s.min_group} is never reported on its own.</p></div>`;
+  h += `<div class="card"><h3>Questions</h3><p class="muted">Rating questions are answered from 1 (strongly disagree) to 5 (strongly agree). A question that has been used is switched off rather than deleted, so earlier results keep their wording.</p>`;
+  const secs = []; qs.forEach(q => { let x = secs.find(y => y.name === q.section); if (!x) secs.push(x = { name:q.section, qs:[] }); x.qs.push(q); });
+  secs.forEach(sec => {
+    h += `<h4>${esc(sec.name)}</h4>`;
+    sec.qs.forEach((q, i) => {
+      h += `<div class="qrow ${q.active?"":"off"}"><div class="qt">${esc(q.text)}<br><small class="muted">${q.kind === "scale" ? "Rating 1-5" : q.kind === "enps" ? "Recommend 0-10" : "Written answer"}${q.required ? "" : ", optional"}${q.active ? "" : ", switched off"}</small></div>
+        <div class="acts"><button class="btn ghost small" data-mv="up" data-id="${q.id}" ${i===0?"disabled":""} aria-label="Move up">↑</button><button class="btn ghost small" data-mv="down" data-id="${q.id}" ${i===sec.qs.length-1?"disabled":""} aria-label="Move down">↓</button><button class="btn ghost small" data-edit="${q.id}">Edit</button><button class="btn ghost small" data-toggle="${q.id}">${q.active ? "Switch off" : "Switch on"}</button></div></div>`;
+      if (S.editQ === q.id) h += qForm(q, secs);
+    });
+  });
+  h += `<h4>Add a question</h4>${S.editQ === "new" ? qForm({ id:"", text:"", kind:"scale", section:secs[0]?.name || "", required:true, hint:"" }, secs) : `<button class="btn ghost small" id="newQ">Add a question</button>`}</div>`;
+  v.innerHTML = h;
+  const saveSet = async (patch, msg) => { try { await call("settings.save", patch); toast(msg || "Saved."); viewSettings(); } catch(e){ toast(e.message, true); } };
+  $("#saveSched").onclick = () => saveSet({ auto_repeat:$("#s_auto").checked, repeat_months:+$("#s_rep").value, length_days:+$("#s_len").value }, "Schedule saved.");
+  $("#saveMsgs").onclick = () => saveSet({ title:$("#m_title").value, intro:$("#m_intro").value, closing_text:$("#m_close").value, completed_text:$("#m_done").value, departments:$("#m_dept").value.split("\n"), tenure_options:$("#m_ten").value.split("\n") });
+  $("#addRound").onclick = async () => { try { await call("round.save", { opens_on:$("#nr_o").value, closes_on:$("#nr_c").value }); toast("Round added."); viewSettings(); } catch(e){ toast(e.message, true); } };
+  $$("[data-saveround]").forEach(b => b.onclick = async () => { const id = b.dataset.saveround; try { await call("round.save", { id, opens_on:$(`[data-o="${id}"]`).value, closes_on:$(`[data-c="${id}"]`).value }); toast("Dates saved."); viewSettings(); } catch(e){ toast(e.message, true); } });
+  $$("[data-mv]").forEach(b => b.onclick = async () => { try { await call("question.move", { id:b.dataset.id, dir:b.dataset.mv }); viewSettings(); } catch(e){ toast(e.message, true); } });
+  $$("[data-toggle]").forEach(b => b.onclick = async () => { const q = qs.find(x => x.id === b.dataset.toggle); try { await call("question.remove", { id:q.id, active:!q.active }); viewSettings(); } catch(e){ toast(e.message, true); } });
+  $$("[data-edit]").forEach(b => b.onclick = () => { S.editQ = b.dataset.edit; viewSettings(); });
+  if ($("#newQ")) $("#newQ").onclick = () => { S.editQ = "new"; viewSettings(); };
+  if ($("#qcancel")) $("#qcancel").onclick = () => { S.editQ = null; viewSettings(); };
+  if ($("#qsave")) $("#qsave").onclick = async () => {
+    const section = $("#qf_newsec").value.trim() || $("#qf_sec").value;
+    try { await call("question.save", { id:$("#qf_id").value || undefined, text:$("#qf_text").value, kind:$("#qf_kind").value, section, hint:$("#qf_hint").value, required:$("#qf_req").checked, active:true }); S.editQ = null; toast("Question saved."); viewSettings(); } catch(e){ toast(e.message, true); }
+  };
+}
+function qForm(q, secs){
+  return `<div class="card" style="background:var(--sage-10);box-shadow:none;margin:8px 0"><input type="hidden" id="qf_id" value="${esc(q.id)}">
+    <div class="field"><label>Question</label><textarea id="qf_text" rows="2">${esc(q.text)}</textarea></div>
+    <div class="row2"><div class="field"><label>Type</label><select id="qf_kind"><option value="scale" ${q.kind==="scale"?"selected":""}>Rating 1 to 5</option><option value="text" ${q.kind==="text"?"selected":""}>Written answer</option><option value="enps" ${q.kind==="enps"?"selected":""}>Recommend 0 to 10</option></select></div>
+      <div class="field"><label>Section</label><select id="qf_sec">${secs.map(s => `<option ${s.name===q.section?"selected":""}>${esc(s.name)}</option>`).join("")}</select></div></div>
+    <div class="field"><label>Or start a new section</label><input id="qf_newsec" placeholder="Leave empty to use the section above"></div>
+    <div class="field"><label>Hint under the question (optional)</label><input id="qf_hint" value="${esc(q.hint || "")}"></div>
+    <div class="sw"><input type="checkbox" id="qf_req" ${q.required?"checked":""}><label for="qf_req">Must be answered (rating questions)</label></div>
+    <button class="btn" id="qsave">Save question</button> <button class="btn ghost" id="qcancel">Cancel</button></div>`;
+}
+
+/* =========================================================== shell */
+function goView(v){
+  S.view = v; $$(".tabbtn").forEach(b => b.setAttribute("aria-current", b.dataset.view === v ? "page" : "false"));
+  if (v === "results") viewResults(); else if (v === "settings") viewSettings(); else viewSurvey();
+  window.scrollTo(0, 0);
+}
+async function boot(){
+  $("#app").hidden = false; $("#views").innerHTML = `<div class="loading">Loading…</div>`;
+  let d;
+  try { d = await call("status"); } catch(e){ $("#views").innerHTML = `<div class="empty">${esc(e.message)}<br><br><span class="muted">Open this from the Staff Portal so it knows who you are.</span></div>`; return; }
+  S.me = d.me; $("#whoname").textContent = S.me.name;
+  if (S.me.results) $("#tabResults").hidden = false; if (S.me.settings) $("#tabSettings").hidden = false;
+  $$(".tabbtn").forEach(b => b.addEventListener("click", () => goView(b.dataset.view)));
+  goView("survey");
+}
+(function(){ if (staffEmail()) { $("#gate").hidden = true; boot(); } else { $("#gate").hidden = false; } })();
+</script>
+</body>
+</html>

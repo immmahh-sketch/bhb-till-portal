@@ -766,7 +766,24 @@ const NA = { list: [] };
 S.newKeys = new Set();
 async function loadNewAccess(){
   if (!S.token || !$("#welcome").hidden || !$("#noticePop").hidden) return;
-  try { const d = await api("new_access"); NA.list = d.apps || []; S.newKeys = new Set(NA.list.map(a => a.key)); if (NA.list.length) { renderTiles(); showNewAccess(); } } catch(e){}
+  try { const d = await api("new_access"); NA.list = d.apps || []; S.newKeys = new Set(NA.list.map(a => a.key)); if (NA.list.length) { renderTiles(); showNewAccess(); return; } } catch(e){}
+  loadSurveyPrompt();
+}
+/* ---- an open Team Survey this person has not done: asked once each time the portal is opened (the tile also carries a red 1 until it is done) ---- */
+async function loadSurveyPrompt(){
+  if (!S.token || !$("#welcome").hidden || !$("#noticePop").hidden) return;
+  try { if (sessionStorage.getItem("bhb_survey_prompted")) return; } catch(e){}
+  let d; try { d = await api("survey_prompt"); } catch(e){ return; }
+  if (!d || !d.open) return;
+  try { sessionStorage.setItem("bhb_survey_prompted", "1"); } catch(e){}
+  const by = d.closes_on ? new Date(d.closes_on + "T12:00:00Z").toLocaleDateString("en-GB", { day: "numeric", month: "long", timeZone: "UTC" }) : "";
+  $("#noticePopCard").innerHTML = `<div class="welcome-top"><div class="eyebrow">Team Survey</div><h2 id="npTitle">Please take the team survey</h2></div>
+    <div class="welcome-body"><p>It is completely anonymous: your answers are saved without your name, and nobody can see who said what. It takes about ten minutes and helps us keep making this a place where everyone feels supported and enjoys working.</p>${by ? `<p class="np-meta">Open until ${esc(by)}.</p>` : ""}</div>
+    <div class="welcome-foot"><button type="button" id="svGo">Take the survey now</button><button type="button" class="np-sec" id="svLater">Remind me later</button></div>`;
+  $("#noticePop").hidden = false;
+  $("#svGo").onclick = () => { $("#noticePop").hidden = true; openPortal("team-survey"); };
+  $("#svLater").onclick = () => { $("#noticePop").hidden = true; };
+  setTimeout(() => $("#svGo").focus(), 50);
 }
 function showNewAccess(){
   const L = NA.list, one = L.length === 1;
@@ -777,7 +794,7 @@ function showNewAccess(){
   const done = async (open) => {
     $("#noticePop").hidden = true;
     try { await api("new_access_done", { keys: L.map(a => a.key) }); } catch(e){}
-    if (open) openPortal(L[0].key);
+    if (open) openPortal(L[0].key); else loadSurveyPrompt();
   };
   $("#naGo").onclick = () => done(false);
   if ($("#naOpen")) $("#naOpen").onclick = e => { e.preventDefault(); done(true); };
@@ -965,7 +982,7 @@ window.addEventListener("message", async ev => {
 
 function iconFor(k){
   const m = { heart:"&#10084;", chart:"&#128200;", calendar:"&#128197;", receipt:"&#128179;", till:"&#128176;",
-              ledger:"&#128209;", safe:"&#128274;", checks:"&#9989;", wrench:"&#128295;", pound:"&#128202;", notice:"&#128227;", clipboard:"&#128203;", tasks:"&#128221;", cart:"&#128722;", megaphone:"&#128226;", transfer:"&#128228;", calendar:"&#128197;", alert:"&#128680;", faq:"&#10067;", training:"&#127891;", onboarding:"&#129309;", bed:"&#128719;", trophy:"&#127942;", prosecco:"&#127870;", tree:"&#127876;" };
+              ledger:"&#128209;", safe:"&#128274;", checks:"&#9989;", wrench:"&#128295;", pound:"&#128202;", notice:"&#128227;", clipboard:"&#128203;", tasks:"&#128221;", cart:"&#128722;", megaphone:"&#128226;", transfer:"&#128228;", calendar:"&#128197;", alert:"&#128680;", faq:"&#10067;", training:"&#127891;", onboarding:"&#129309;", bed:"&#128719;", trophy:"&#127942;", prosecco:"&#127870;", tree:"&#127876;", feedback:"&#128172;", survey:"&#128499;" };
   return m[k] || "&#9679;";
 }
 
@@ -994,6 +1011,8 @@ const TILE_GROUP_FOR = {
   "wedding-quote-config": "Weddings and events",
   "prosecco-label":      "Weddings and events",
   "christmas":           "Weddings and events",
+  "guest-feedback":      "Weddings and events",
+  "team-survey":         "Team",
   "team-training":       "Team",
   "onboarding":          "Office",
   "hk-board":            "Team",
@@ -1461,6 +1480,8 @@ const TAB_SELECTORS = {
   "hod-dashboard":      k => `button[data-view="${k}"]`,
   "notices":            k => `button[data-view="${k}"]`,
   "handover":           k => `button[data-view="${k}"]`,
+  "guest-feedback":     k => `button[data-view="${k}"]`,
+  "team-survey":        k => `button[data-view="${k}"]`,
   "fb-todo":            k => `button[data-view="${k}"]`,
   "shift-plan-create":  k => `button[data-view="${k}"]`,
   "to-order":           k => `button[data-view="${k}"]`,
