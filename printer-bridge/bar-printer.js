@@ -14,11 +14,8 @@
 // order (see hasFood there). The job is still marked "printed" either way
 // so it doesn't sit pending and trip the watchdog.
 //
-// The bar printer is currently wired straight into the till, not the
-// network - this bridge targets the Bixolon (192.168.100.134) as a stand-in
-// until a network port is found behind the bar for it. Until then, jobs will
-// sit "pending" and the check-print-jobs watchdog will alert if they go
-// stale for too long.
+// The bar printer is on the network (see PRINTER_IP below). If it is ever off or unreachable, jobs sit "pending"
+// and the check-print-jobs watchdog alerts if they go stale for too long.
 //
 // Each job is atomically claimed (pending -> printing) before it's actually
 // printed, and a poll never overlaps a still-running one — printing several
