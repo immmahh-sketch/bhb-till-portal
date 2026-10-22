@@ -277,6 +277,64 @@ function buildTicket(job, opts = {}) {
   return Buffer.concat(chunks);
 }
 
+// Black Horse Botanicals receipt (a separate business that sells in the pub: its own name, no VAT details, nothing about the pub's tills).
+// The payload is the receipt JSON the Botanicals tablet sends: { business_name, address_lines[], footer, ts, receipt_no, team_member, is_refund, test, lines:[{name,qty,unit_price,line_total}], total }.
+function plain(t, max) {
+  return String(t == null ? "" : t).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/#/g, "").replace(/[^\x20-\x7e]/g, "?").trim().slice(0, max || 200);
+}
+function buildBotanicalsReceipt(job) {
+  const p = job.payload || {};
+  const refund = !!p.is_refund, sign = refund ? -1 : 1;
+  const when = p.ts ? new Date(p.ts) : (job.created_at ? new Date(job.created_at) : new Date());
+  const date = when.toLocaleDateString("en-GB", { timeZone: "Europe/London" });
+  const time = when.toLocaleTimeString("en-GB", { timeZone: "Europe/London", hour: "2-digit", minute: "2-digit" });
+  const chunks = [];
+  const push = (t) => chunks.push(Buffer.from(t, "ascii"));
+  chunks.push(escBytes([0x1b, 0x40])); // initialize
+  chunks.push(escBytes([0x1b, 0x52, 0x03])); // UK character set ('#' prints as the pound sign)
+  chunks.push(escBytes([0x1b, 0x61, 0x01])); // centre
+  if (p.test) {
+    chunks.push(escBytes([0x1b, 0x45, 0x01]));
+    push("*** TEST RECEIPT ***\n");
+    chunks.push(escBytes([0x1b, 0x45, 0x00]));
+    push(rule());
+  }
+  chunks.push(escBytes([0x1b, 0x45, 0x01, 0x1d, 0x21, 0x01])); // bold, double height
+  wrapText(plain(p.business_name || "Black Horse Botanicals", 80).toUpperCase(), LINE_WIDTH).forEach((l) => push(l + "\n"));
+  chunks.push(escBytes([0x1d, 0x21, 0x00, 0x1b, 0x45, 0x00]));
+  (Array.isArray(p.address_lines) ? p.address_lines : []).slice(0, 6).forEach((l) => wrapText(plain(l, 120), LINE_WIDTH).forEach((x) => push(x + "\n")));
+  push(rule());
+  chunks.push(escBytes([0x1b, 0x61, 0x00])); // left
+  push(`Receipt No. ${plain(p.receipt_no, 12) || "-"}   ${date} ${time}\n`);
+  if (p.team_member) push(`Served by ${plain(p.team_member, 24)}\n`);
+  if (refund) {
+    chunks.push(escBytes([0x1b, 0x45, 0x01]));
+    push("REFUND\n");
+    chunks.push(escBytes([0x1b, 0x45, 0x00]));
+  }
+  push(rule());
+  const lines = Array.isArray(p.lines) ? p.lines : [];
+  lines.forEach((l) => {
+    const qty = Math.abs(Number(l.qty) || 0), each = Number(l.unit_price) || 0;
+    const value = sign * Math.abs(l.line_total != null ? Number(l.line_total) || 0 : qty * each);
+    wrapText(`${qty} x ${plain(l.name, 60)}`, LINE_WIDTH - 9).forEach((x, i, all) => push(i === all.length - 1 ? priceRow(x, value) : x + "\n"));
+  });
+  if (!lines.length) push("(no items)\n");
+  push(rule());
+  chunks.push(escBytes([0x1b, 0x45, 0x01]));
+  push(priceRow(refund ? "Total refunded" : "Total", sign * Math.abs(Number(p.total) || 0)));
+  chunks.push(escBytes([0x1b, 0x45, 0x00]));
+  push(refund ? "Refunded to card\n" : "Paid by card\n");
+  if (p.footer) {
+    push(rule());
+    chunks.push(escBytes([0x1b, 0x61, 0x01]));
+    wrapText(plain(p.footer, 200), LINE_WIDTH).forEach((x) => push(x + "\n"));
+  }
+  chunks.push(escBytes([0x0a, 0x0a, 0x0a, 0x0a])); // feed
+  chunks.push(escBytes([0x1d, 0x56, 0x42, 0x00])); // feed + partial cut
+  return Buffer.concat(chunks);
+}
+
 function printToDevice(buffer, ip, port) {
   return new Promise((resolve, reject) => {
     let settled = false;
@@ -302,4 +360,4 @@ function printToDevice(buffer, ip, port) {
   });
 }
 
-module.exports = { buildTicket, printToDevice, LINE_WIDTH };
+module.exports = { buildTicket, buildBotanicalsReceipt, printToDevice, LINE_WIDTH };

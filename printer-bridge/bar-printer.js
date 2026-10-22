@@ -28,7 +28,7 @@
 //
 // Run with: node bar-printer.js   (needs Node 18+ for built-in fetch)
 
-const { buildTicket, printToDevice } = require("./ticket.js");
+const { buildTicket, buildBotanicalsReceipt, printToDevice } = require("./ticket.js");
 const wake = require("./wake.js");
 
 const SUPABASE_URL = "https://safcrtrfdzsnftghibot.supabase.co";
@@ -74,10 +74,11 @@ async function pollOnce() {
   busy = true;
   try {
     const jobs = await rest(
-      "print_jobs?destination=eq.bar&status=eq.pending&order=created_at.asc&select=*"
+      "print_jobs?destination=in.(bar,botanicals)&status=eq.pending&order=created_at.asc&select=*"
     );
     for (const job of jobs) {
-      const label = `order #${job.payload?.order_no ?? "?"}`;
+      const isBot = job.destination === "botanicals";
+      const label = isBot ? `Botanicals receipt ${job.payload?.receipt_no ?? "?"}` : `order #${job.payload?.order_no ?? "?"}`;
       try {
         const claimed = await rest(`print_jobs?id=eq.${job.id}&status=eq.pending`, {
           method: "PATCH",
@@ -86,9 +87,13 @@ async function pollOnce() {
         });
         if (!Array.isArray(claimed) || claimed.length === 0) continue; // another poller already got it
 
-        await withTestFlag(job);
-        if (hasDrinks(job.payload || {})) {
-          await printToDevice(buildTicket(job, { kind: "bar-check" }), PRINTER_IP, PRINTER_PORT);
+        if (isBot) {
+          await printToDevice(buildBotanicalsReceipt(job), PRINTER_IP, PRINTER_PORT);
+        } else {
+          await withTestFlag(job);
+          if (hasDrinks(job.payload || {})) {
+            await printToDevice(buildTicket(job, { kind: "bar-check" }), PRINTER_IP, PRINTER_PORT);
+          }
         }
         await rest(`print_jobs?id=eq.${job.id}`, {
           method: "PATCH",
@@ -114,11 +119,11 @@ console.log(`Bar printer bridge running — woken by live updates (checking ever
 // whenever live updates aren't working (old Node, network blip), as it always used to.
 // A job left "printing" can only mean this program stopped mid-print (it is the only thing that prints "bar" jobs), so on
 // start-up put them back to pending and they print again, rather than sitting there for ever with nothing to retry them.
-rest("print_jobs?destination=eq.bar&status=eq.printing", { method: "PATCH", body: JSON.stringify({ status: "pending" }) })
+rest("print_jobs?destination=in.(bar,botanicals)&status=eq.printing", { method: "PATCH", body: JSON.stringify({ status: "pending" }) })
   .then(() => console.log("start-up: released any jobs left half-printed"))
   .catch((e) => console.error("start-up release failed:", e.message));
 let live = false, timer = null;
 function schedule() { clearTimeout(timer); timer = setTimeout(tick, live ? SAFETY_MS : POLL_MS); }
 function tick() { pollOnce().catch((e) => console.error("poll error:", e.message)).finally(schedule); }
-wake.watch({ name: "bar", changes: [{ table: "print_jobs", filter: "destination=eq.bar" }], onChange: () => pollOnce().catch((e) => console.error("poll error:", e.message)), onStatus: (v) => { live = v; schedule(); } });
+wake.watch({ name: "bar", changes: [{ table: "print_jobs", filter: "destination=eq.bar" }, { table: "print_jobs", filter: "destination=eq.botanicals" }], onChange: () => pollOnce().catch((e) => console.error("poll error:", e.message)), onStatus: (v) => { live = v; schedule(); } });
 tick();
