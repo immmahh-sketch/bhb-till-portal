@@ -113,6 +113,7 @@ table.log td{padding:8px; border-bottom:1px solid var(--mist); vertical-align:to
 const CFG = { SUPABASE_URL:"https://safcrtrfdzsnftghibot.supabase.co", SUPABASE_KEY:"sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU" };
 const TABS = [["prices", "Prices"], ["items", "Package items"], ["venue", "Venue rates"], ["texts", "Wording"], ["history", "History"]];
 const QT = { WEDDING:"Wedding", DRY_HIRE:"Dry hire", PRIVATE_EVENT:"Private event" }, QT_SHORT = { WEDDING:"W", DRY_HIRE:"DH", PRIVATE_EVENT:"PE" };
+const WEBSTEP = { receptionDrinks:"Reception drinks", canapes:"Canapes", weddingBreakfast:"Wedding breakfast", toastDrink:"Toast drink", eveningBuffet:"Evening buffet" };
 const QTY = { FIXED_1:"One, or a set number (starts at 1)", FIXED_0:"A number you type in (starts at 0)", DAYTIME_GUESTS:"Per daytime guest", EVENING_GUESTS:"Per evening guest", DISCOUNT_POUNDS:"A discount in pounds (typed as the quantity)" };
 const TEXT_KEYS = [["includedInVenueHire", "What is included in the venue hire"], ["nextSteps", "Next steps (once they are happy with the quote)"], ["closing", "Closing paragraph"]];
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -204,7 +205,7 @@ function itemsHtml(){
   return `<div class="pagehead"><h2>Package items</h2>${canEdit() ? `<button class="btn" data-act="newitem">Add an item</button>` : ""}</div>
     <p class="lead">Everything that can go in a quote. Choose which quote types offer each item, how it is counted, and which ones start ticked on every new wedding quote. Hiding an item takes it out of the quote tool but keeps its prices. Prices are set in the Prices tab.</p>
     ${groups.map((g, n) => `<div class="catlabel">${esc(cats[n])}</div><div class="card" style="padding:4px 14px">${g.map(i => `<div class="itemrow"><div class="nm"><b>${esc(i.name)}</b><div class="meta">${esc(QTY[i.qty] || i.qty)}</div></div>
-      <div>${i.types.map(t => `<span class="tag">${esc(QT[t])}</span>`).join(" ")}${i.default_on ? ` <span class="tag" style="background:var(--good-bg);color:var(--good)">Starts ticked</span>` : ""}${i.active ? "" : ` <span class="tag" style="background:var(--alert-bg);color:var(--alert)">Hidden</span>`}</div>
+      <div>${i.types.map(t => `<span class="tag">${esc(QT[t])}</span>`).join(" ")}${i.default_on ? ` <span class="tag" style="background:var(--good-bg);color:var(--good)">Starts ticked</span>` : ""}${(i.web_steps || []).map(w => ` <span class="tag">${esc(WEBSTEP[w] || w)}</span>`).join("")}${i.active ? "" : ` <span class="tag" style="background:var(--alert-bg);color:var(--alert)">Hidden</span>`}</div>
       ${canEdit() ? `<button class="btn small ghost" data-act="edititem" data-n="${esc(i.name)}">Change</button>` : ""}</div>`).join("")}</div>`).join("")}`;
 }
 function itemModal(name){
@@ -216,6 +217,7 @@ function itemModal(name){
     <div class="grid2"><div class="field"><label for="it_cat">Category</label><input id="it_cat" list="catlist" value="${esc(f.category)}" maxlength="60"><datalist id="catlist">${categories().map(c => `<option value="${esc(c)}">`).join("")}</datalist><div class="hint">Pick one, or type a new category.</div></div>
     <div class="field"><label for="it_qty">How it is counted</label><select id="it_qty">${Object.entries(QTY).map(([k, l]) => `<option value="${k}"${f.qty === k ? " selected" : ""}>${esc(l)}</option>`).join("")}</select></div></div>
     <div class="field"><label>Offered in</label><div class="opts">${Object.entries(QT).map(([k, l]) => `<label class="opt"><input type="checkbox" data-qt="${k}"${f.types.includes(k) ? " checked" : ""}><span>${esc(l)} quotes</span></label>`).join("")}</div></div>
+    <div class="field"><label>Offered as a choice in the website and desktop quote</label><div class="opts">${Object.entries(WEBSTEP).map(([k, l]) => `<label class="opt"><input type="checkbox" data-ws="${k}"${(f.web_steps || []).includes(k) ? " checked" : ""}><span>${esc(l)}</span></label>`).join("")}</div><div class="hint">The website and desktop quotes ask the couple a few questions in turn. Tick where this item is one of the choices. Leave all unticked for an item that is only added from the full list.</div></div>
     <label class="opt" style="margin-bottom:8px"><input type="checkbox" id="it_def"${f.default_on ? " checked" : ""}><span>Starts ticked on every new wedding quote</span></label>
     <label class="opt" style="margin-bottom:12px"><input type="checkbox" id="it_act"${f.active ? " checked" : ""}><span>Show it in the quote tool (untick to hide it without losing its prices)</span></label>
     ${it ? "" : `<div class="field"><label>Price for each year</label><div class="yrgrid">${ys.map(y => `<input data-yp="${y}" inputmode="decimal" placeholder="${y}" aria-label="Price for ${y}" style="border:1px solid var(--celadon);border-radius:8px;padding:9px 10px">`).join("")}</div><div class="hint">Leave empty for "price on request". A year with no price uses the nearest earlier year's price.</div></div>`}
@@ -225,7 +227,7 @@ function itemModal(name){
 async function saveItem(btn){
   const types = $$("[data-qt]").filter(c => c.checked).map(c => c.dataset.qt), prices = {};
   $$("[data-yp]").forEach(i => { const v = i.value.trim().replace(/[£,\s]/g, ""); if (v !== "") prices[i.dataset.yp] = v; });
-  const body = { original_name:S.edit.orig, item_name:$("#it_name").value.trim(), category:$("#it_cat").value.trim(), qty_type:$("#it_qty").value, quote_types:types, default_on:$("#it_def").checked, active:$("#it_act").checked, prices };
+  const body = { original_name:S.edit.orig, item_name:$("#it_name").value.trim(), category:$("#it_cat").value.trim(), qty_type:$("#it_qty").value, quote_types:types, web_steps:$$("[data-ws]").filter(c => c.checked).map(c => c.dataset.ws), default_on:$("#it_def").checked, active:$("#it_act").checked, prices };
   btn.disabled = true;
   try { await call("item.save", body); closeModal(); await reload(); render(); toast(S.edit.orig ? "Item saved." : "Item added."); }
   catch(e){ $("#it_err").textContent = e.message; btn.disabled = false; }
