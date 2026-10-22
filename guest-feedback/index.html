@@ -104,8 +104,8 @@ const CFG = { SUPABASE_URL:"https://safcrtrfdzsnftghibot.supabase.co", SUPABASE_
 const S = { me:null, view:"dashboard", data:null, formUrl:"", src:"all", range:"90", respKind:"all", respFlag:"all", forms:null, fk:"mystery", settings:null, qs:null, reqs:null };
 const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
 const esc = Viz.esc;
-const KIND_NAME = { mystery:"Mystery guest", showround:"Wedding showround", guest:"Guest feedback" };
-const SRC = [["all","Everything"],["mystery","Mystery guests"],["showround","Wedding showrounds"],["guest","Guest feedback"],["reviews","All reviews"],["tripadvisor","TripAdvisor"],["google","Google"]];
+const KIND_NAME = { mystery:"Mystery guest", showround:"Wedding showround", guest:"Guest feedback", noshow:"Showround no-show" };
+const SRC = [["all","Everything"],["mystery","Mystery guests"],["showround","Wedding showrounds"],["guest","Guest feedback"],["noshow","No-shows"],["reviews","All reviews"],["tripadvisor","TripAdvisor"],["google","Google"]];
 const fmtDT = iso => { try { return new Date(iso).toLocaleString("en-GB",{ timeZone:"Europe/London", day:"numeric", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit" }).replace(",",""); } catch(e){ return String(iso||"").slice(0,16); } };
 const fmtD = d => { if(!d) return "Undated"; try { return new Date(String(d).slice(0,10)+"T12:00:00Z").toLocaleDateString("en-GB",{ timeZone:"UTC", day:"numeric", month:"short", year:"numeric" }); } catch(e){ return d; } };
 const monthKey = iso => String(iso).slice(0,7);
@@ -122,7 +122,7 @@ function copy(text, ok){ (navigator.clipboard ? navigator.clipboard.writeText(te
 const can = tab => S.me && (S.me.isAdmin || S.me.tabs.includes(tab));
 
 /* =========================================================== dashboard */
-const isFormSrc = s => ["mystery","showround","guest"].includes(s);
+const isFormSrc = s => ["mystery","showround","guest","noshow"].includes(s);
 function rangeFrom(){ if (S.range === "all") return ""; const d = new Date(); d.setDate(d.getDate() - +S.range); return d.toISOString().slice(0,10); }
 async function viewDashboard(){
   const v = $("#views"); v.innerHTML = `<div class="loading">Loading…</div>`;
@@ -131,7 +131,7 @@ async function viewDashboard(){
 }
 function paintDashboard(){
   const d = S.data, from = rangeFrom(), v = $("#views");
-  const resp = d.responses.filter(r => (S.src === "all" || r.kind === S.src) && (!from || String(r.submitted_at).slice(0,10) >= from));
+  const resp = d.responses.filter(r => (S.src === "all" ? r.kind !== "noshow" : r.kind === S.src) && (!from || String(r.submitted_at).slice(0,10) >= from));
   const revs = d.reviews.filter(r => (S.src === "all" || S.src === "reviews" || r.platform === S.src) && (!from || (r.reviewed_on && r.reviewed_on >= from) || (!r.reviewed_on && S.range === "all")));
   const showForms = S.src === "all" || isFormSrc(S.src), showRevs = S.src === "all" || S.src === "reviews" || S.src === "tripadvisor" || S.src === "google";
   let h = `<div class="pagehead"><h2>Dashboard</h2><span class="hint">What guests tell us, and what they say about us online.</span></div>
@@ -147,7 +147,8 @@ function ratingValues(r){ return (r.questions || []).filter(q => q.type === "rat
 function textAnswers(r){ return (r.questions || []).filter(q => q.type === "text").map(q => ({ q, t:String(r.answers[q.id] || "").trim() })).filter(x => x.t); }
 function formsBlock(resp, d){
   let h = `<div class="sechead">${S.src === "all" ? "Feedback forms" : esc(KIND_NAME[S.src])} <small>${resp.length} response${resp.length===1?"":"s"}</small></div>`;
-  if (!resp.length) return h + `<div class="card"><div class="empty">No responses in this period yet.${can("send") ? " Use “Send a form” to give someone a link." : ""}</div></div>`;
+  if (!resp.length) return h + `<div class="card"><div class="empty">${S.src === "noshow" ? "No one has answered the no-show email yet." : "No responses in this period yet." + (can("send") ? " Use “Send a form” to give someone a link." : "")}</div></div>`;
+  if (S.src === "noshow") return h + noshowBlock(resp, d);
   const npsVals = resp.map(r => r.nps).filter(n => n != null), pro = npsVals.filter(n => n >= 9).length, det = npsVals.filter(n => n <= 6).length, pas = npsVals.length - pro - det;
   const avgs = resp.map(r => r.avg).filter(a => a != null), highN = resp.filter(r => r.high).length;
   const kinds = S.src === "all" ? ["mystery","showround"] : (S.src === "guest" ? [] : [S.src]);
@@ -160,6 +161,9 @@ function formsBlock(resp, d){
   h += `<div class="grid2"><div class="card"><h3>Would they recommend us?</h3><p class="muted">0 to 10. Promoters score 9 or 10, detractors 6 or less.</p>${Viz.npsBar(pro, pas, det)}</div>`;
   const dist = [1,2,3,4,5].map(n => resp.reduce((t,r) => t + ratingValues(r).filter(x => x.v === n).length, 0));
   h += `<div class="card"><h3>Every rating given</h3><p class="muted">How many times each score from 1 to 5 was chosen.</p>${Viz.hist(dist)}</div></div>`;
+  // multiple-choice questions (for example "was this a stay, a meal or a drink?")
+  const choiceIds = []; resp.forEach(r => (r.questions || []).forEach(x => { if (x.type === "choice" && !choiceIds.some(c => c.id === x.id)) choiceIds.push({ id:x.id, label:x.label }); }));
+  h += choiceIds.slice(0, 3).map(c => choiceCard(resp, c.id, c.label)).join("");
   // by area
   const cat = {}; resp.forEach(r => ratingValues(r).forEach(x => { const k = x.q.category || "General"; (cat[k] ||= []).push(x.v); }));
   const areas = Object.keys(cat).map(k => ({ label:k, value:Viz.avg(cat[k]), note:cat[k].length + " ratings" })).sort((a,b) => a.value - b.value);
@@ -184,6 +188,27 @@ function formsBlock(resp, d){
     const recent = resp.flatMap(r => textAnswers(r).map(x => ({ r, x }))).slice(0, 8);
     h += `<div class="card"><h3>Latest comments</h3>${recent.map(({r,x}) => `<div class="quote">${esc(x.t)}<small>${esc(x.q.label)} · ${esc(KIND_NAME[r.kind])}${r.guest_name ? " · " + esc(r.guest_name) : ""} · ${fmtD(r.submitted_at)}</small></div>`).join("")}</div>`;
   }
+  return h;
+}
+/** Counts of each answer to a multiple-choice question, as bars. */
+function choiceCard(resp, qid, title, help){
+  const counts = {}; let n = 0;
+  resp.forEach(r => { const a = r.answers && r.answers[qid]; if (a) { counts[a] = (counts[a] || 0) + 1; n++; } });
+  const rows = Object.keys(counts).map(k => ({ label:k, value:counts[k], note:Math.round(counts[k] / n * 100) + "%", tone:"n" })).sort((a, b) => b.value - a.value);
+  if (!rows.length) return "";
+  return `<div class="card"><h3>${esc(title)}</h3>${help ? `<p class="muted">${esc(help)}</p>` : ""}${Viz.bars(rows, { max:rows[0].value, fmt:v => String(v) })}</div>`;
+}
+function noshowBlock(resp, d){
+  const q = (d.requests && d.requests.noshow) || { sent:0, done:0 };
+  const again = resp.filter(r => /^yes/i.test(String((r.answers || {}).rebook || ""))).length;
+  const others = resp.map(r => ({ r, t:String((r.answers || {}).other_venue || "").trim() })).filter(x => x.t);
+  const diff = resp.map(r => ({ r, t:String((r.answers || {}).different || "").trim() })).filter(x => x.t);
+  let h = `<div class="kpis"><div class="kpi"><div class="l">Answers</div><div class="v">${resp.length}</div><div class="s">${q.sent ? `${q.done} of ${q.sent} emails answered (${Math.round(q.done / q.sent * 100)}%)` : "in this period"}</div></div>
+    <div class="kpi"><div class="l">Want another visit</div><div class="v">${again}</div><div class="s">${resp.length ? Math.round(again / resp.length * 100) : 0}% of those who answered</div></div></div>`;
+  h += choiceCard(resp, "reason", "Why they did not come", "What each person said was closest to what happened.");
+  h += choiceCard(resp, "rebook", "Would they like another visit?");
+  if (others.length) h += `<div class="card"><h3>Venues they chose, and why</h3>${others.map(x => `<div class="quote">${esc(x.t)}<small>${esc(x.r.guest_name || "No name")} · ${fmtD(x.r.submitted_at)}</small></div>`).join("")}</div>`;
+  if (diff.length) h += `<div class="card"><h3>What we could have done differently</h3>${diff.map(x => `<div class="quote">${esc(x.t)}<small>${esc(x.r.guest_name || "No name")} · ${fmtD(x.r.submitted_at)}</small></div>`).join("")}</div>`;
   return h;
 }
 function reviewsBlock(revs){
@@ -216,7 +241,7 @@ async function viewResponses(){
 function paintResponses(){
   const rows = S.data.responses.filter(r => (S.respKind === "all" || r.kind === S.respKind) && (S.respFlag === "all" || (S.respFlag === "low" ? ((r.nps != null && r.nps <= 6) || (r.avg != null && r.avg <= 3)) : r.high)));
   let h = `<div class="pagehead"><h2>Responses</h2><span class="spacer"></span><button class="btn ghost small" id="csv">Download CSV</button></div>
-  <div class="filters"><select id="fk">${[["all","All forms"],["mystery","Mystery guests"],["showround","Wedding showrounds"],["guest","Guest feedback"]].map(([k,l]) => `<option value="${k}" ${S.respKind===k?"selected":""}>${l}</option>`).join("")}</select>
+  <div class="filters"><select id="fk">${[["all","All forms"],["mystery","Mystery guests"],["showround","Wedding showrounds"],["guest","Guest feedback"],["noshow","No-shows"]].map(([k,l]) => `<option value="${k}" ${S.respKind===k?"selected":""}>${l}</option>`).join("")}</select>
     <select id="ff">${[["all","All scores"],["low","Low scores"],["high","High scores"]].map(([k,l]) => `<option value="${k}" ${S.respFlag===k?"selected":""}>${l}</option>`).join("")}</select><span class="muted">${rows.length} shown</span></div>`;
   if (!rows.length) h += `<div class="card"><div class="empty">Nothing here yet.</div></div>`;
   rows.slice(0, 200).forEach(r => {
@@ -351,16 +376,17 @@ function readQs(){
 }
 function paintSettings(){
   const f = S.forms.find(x => x.kind === S.fk), s = S.settings;
+  const isNo = S.fk === "noshow";
   let h = `<div class="pagehead"><h2>Settings</h2><span class="hint">The words guests read and the questions they are asked.</span></div>
   <div class="chips">${Object.keys(KIND_NAME).map(k => `<button class="chip" data-fk="${k}" aria-pressed="${S.fk===k}">${KIND_NAME[k]} form</button>`).join("")}</div>
   <div class="card"><h3>${esc(KIND_NAME[S.fk])} form</h3>
     <div class="field"><label>Title</label><input id="f_title" value="${esc(f.title)}"></div>
     <div class="field"><label>Opening message (your thank-you at the top of the form)</label><textarea id="f_open" rows="6">${esc(f.opening)}</textarea></div>
-    <div class="field"><label>Thank-you shown after sending (a middling score)</label><textarea id="f_thanks" rows="3">${esc(f.thanks)}</textarea></div>
-    <div class="field"><label>Message for someone who scored us highly (this is where the TripAdvisor button appears)</label><textarea id="f_high" rows="3">${esc(f.high_message)}</textarea></div>
-    <div class="field"><label>Message for someone who scored us low</label><textarea id="f_low" rows="3">${esc(f.low_message)}</textarea></div>
-    <div class="row2"><div class="field"><label>TripAdvisor review link</label><input id="f_ta" value="${esc(f.tripadvisor_url || "")}" placeholder="https://"></div><div class="field"><label>Google review link (optional)</label><input id="f_g" value="${esc(f.google_url || "")}" placeholder="https://"></div></div>
-    <div class="row2"><div class="field"><label>“Scored highly” means a recommend score of at least</label><input type="number" id="f_hn" min="5" max="10" value="${f.high_nps}"></div><div class="field"><label>…or, with no recommend question, an average rating of at least</label><input type="number" id="f_ha" min="2" max="5" step="0.1" value="${f.high_avg}"></div></div>
+    <div class="field"><label>${isNo ? "Thank-you shown after sending" : "Thank-you shown after sending (a middling score)"}</label><textarea id="f_thanks" rows="3">${esc(f.thanks)}</textarea></div>
+    ${isNo ? "" : `<div class="field"><label>Message for someone who scored us highly (this is where the TripAdvisor button appears)</label><textarea id="f_high" rows="3">${esc(f.high_message)}</textarea></div>`}
+    ${isNo ? "" : `<div class="field"><label>Message for someone who scored us low</label><textarea id="f_low" rows="3">${esc(f.low_message)}</textarea></div>`}
+    ${isNo ? "" : `<div class="row2"><div class="field"><label>TripAdvisor review link</label><input id="f_ta" value="${esc(f.tripadvisor_url || "")}" placeholder="https://"></div><div class="field"><label>Google review link (optional)</label><input id="f_g" value="${esc(f.google_url || "")}" placeholder="https://"></div></div>`}
+    ${isNo ? "" : `<div class="row2"><div class="field"><label>“Scored highly” means a recommend score of at least</label><input type="number" id="f_hn" min="5" max="10" value="${f.high_nps}"></div><div class="field"><label>…or, with no recommend question, an average rating of at least</label><input type="number" id="f_ha" min="2" max="5" step="0.1" value="${f.high_avg}"></div></div>`}
     <h4>Questions</h4><div id="qlist">${qEditor()}</div>
     <button class="btn ghost small" id="addq">Add a question</button>
     <p class="muted" style="font-size:13px;margin-top:10px">Changing a question here does not alter answers already received. They keep the wording they were given.</p>
@@ -373,6 +399,15 @@ function paintSettings(){
     <div class="field"><label>Message (use {first_name} for their first name; the button with their personal link is added underneath)</label><textarea id="e_body" rows="9">${esc(s.email_body)}</textarea></div>
     <button class="btn" id="e_save">Save</button> <button class="btn ghost" id="e_test">Email me a test</button>
     <p class="muted" style="font-size:13px;margin-top:8px">The test goes only to you, with a link that shows the form but saves nothing.</p></div>`;
+  if (S.fk === "noshow") h += `<div class="card"><h3>Automatic email to a no-show</h3>
+    <div class="note">${s.auto_noshow ? "This is ON. " : "This is OFF. "}When it is on, anyone you mark as a no-show in Calendly on a Wedding Tour or Event Show around is emailed once, between 9am and 8pm. It only covers no-shows marked after the moment you switch it on. Nobody is emailed who has already booked another visit, and meetings with couples who are already booked never get it.${S.emailOk ? "" : " Email is not set up on the server yet (Brevo key missing)."}</div>
+    <p class="muted" style="font-size:13px">Mark no-shows in Calendly the same evening, or before 10am the next day. The showround feedback email goes out about ${s.delay_hours} hours after a visit and is not sent to anyone marked as a no-show first.</p>
+    <div class="sw"><input type="checkbox" id="n_on" ${s.auto_noshow ? "checked" : ""}><label for="n_on">Send the email automatically</label></div>
+    <div class="field"><label>Subject</label><input id="n_sub" value="${esc(s.noshow_subject)}"></div>
+    <div class="field"><label>Message (use {first_name} for their first name; the two buttons are added underneath, above your sign-off)</label><textarea id="n_body" rows="11">${esc(s.noshow_body)}</textarea></div>
+    <div class="row2"><div class="field"><label>Booking page for a Wedding Tour</label><input id="n_wed" value="${esc(s.noshow_wedding_url)}"></div><div class="field"><label>Booking page for an Event Show around</label><input id="n_evt" value="${esc(s.noshow_event_url)}"></div></div>
+    <button class="btn" id="n_save">Save</button> <button class="btn ghost" id="n_test">Email me a test</button>
+    <p class="muted" style="font-size:13px;margin-top:8px">The test goes only to you. The booking button opens the real booking page, and the form button shows the form but saves nothing.</p></div>`;
   h += `<div class="card"><h3>Alert for a low score</h3><div class="sw"><input type="checkbox" id="a_on" ${s.alert_on ? "checked" : ""}><label for="a_on">Email me when someone scores us low</label></div>
     <div class="field"><label>Send it to</label><input id="a_to" value="${esc(s.alert_email || "")}" placeholder="name@blackhorsebeamish.co.uk"></div><button class="btn" id="a_save">Save</button></div>`;
   $("#views").innerHTML = h;
@@ -382,12 +417,16 @@ function paintSettings(){
   $("#addq").onclick = () => { readQs(); S.qs.push({ type:"rating", label:"", category:"General", required:true }); $("#qlist").innerHTML = qEditor(); };
   $("#saveform").onclick = async () => {
     readQs(); const b = $("#saveform"); b.disabled = true;
-    try { const r = await call("forms.save", { kind:S.fk, title:$("#f_title").value, opening:$("#f_open").value, thanks:$("#f_thanks").value, high_message:$("#f_high").value, low_message:$("#f_low").value, tripadvisor_url:$("#f_ta").value, google_url:$("#f_g").value, high_nps:+$("#f_hn").value, high_avg:+$("#f_ha").value, questions:S.qs.filter(q => String(q.label || "").trim()) }); const i = S.forms.findIndex(x => x.kind === S.fk); S.forms[i] = r.form; S.qs = JSON.parse(JSON.stringify(r.form.questions)); toast("Saved."); paintSettings(); } catch(e){ toast(e.message, true); } finally { b.disabled = false; }
+    try { const r = await call("forms.save", ((o) => { if (isNo) { delete o.high_message; delete o.low_message; delete o.tripadvisor_url; delete o.google_url; delete o.high_nps; delete o.high_avg; } return o; })({ kind:S.fk, title:$("#f_title").value, opening:$("#f_open").value, thanks:$("#f_thanks").value, high_message:(($("#f_high")||{}).value), low_message:(($("#f_low")||{}).value), tripadvisor_url:(($("#f_ta")||{}).value), google_url:(($("#f_g")||{}).value), high_nps:+(($("#f_hn")||{}).value), high_avg:+(($("#f_ha")||{}).value), questions:S.qs.filter(q => String(q.label || "").trim()) })); const i = S.forms.findIndex(x => x.kind === S.fk); S.forms[i] = r.form; S.qs = JSON.parse(JSON.stringify(r.form.questions)); toast("Saved."); paintSettings(); } catch(e){ toast(e.message, true); } finally { b.disabled = false; }
   };
   const saveS = async (patch, msg) => { try { const r = await call("settings.save", patch); S.settings = r.settings; toast(msg || "Saved."); paintSettings(); } catch(e){ toast(e.message, true); } };
   if ($("#e_save")) {
     $("#e_save").onclick = () => saveS({ auto_showround:$("#e_on").checked, delay_hours:+$("#e_h").value, email_subject:$("#e_sub").value, email_body:$("#e_body").value }, $("#e_on").checked ? "Saved. The automatic email is ON." : "Saved. The automatic email is OFF.");
     $("#e_test").onclick = async () => { const b = $("#e_test"); b.disabled = true; try { const r = await call("showround.test"); toast("Test sent to " + r.sent_to + "."); } catch(e){ toast(e.message, true); } finally { b.disabled = false; } };
+  }
+  if ($("#n_save")) {
+    $("#n_save").onclick = () => saveS({ auto_noshow:$("#n_on").checked, noshow_subject:$("#n_sub").value, noshow_body:$("#n_body").value, noshow_wedding_url:$("#n_wed").value, noshow_event_url:$("#n_evt").value }, $("#n_on").checked ? "Saved. The no-show email is ON." : "Saved. The no-show email is OFF.");
+    $("#n_test").onclick = async () => { const b = $("#n_test"); b.disabled = true; try { const r = await call("noshow.test"); toast("Test sent to " + r.sent_to + "."); } catch(e){ toast(e.message, true); } finally { b.disabled = false; } };
   }
   $("#a_save").onclick = () => saveS({ alert_on:$("#a_on").checked, alert_email:$("#a_to").value });
 }
