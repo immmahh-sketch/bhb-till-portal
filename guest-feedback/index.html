@@ -457,6 +457,7 @@ function paintSettings(){
     <div class="sw"><input type="checkbox" id="e_on" ${s.auto_showround ? "checked" : ""}><label for="e_on">Send the email automatically</label></div>
     <div class="field"><label>Send it this many hours after the showround</label><input type="number" id="e_h" min="2" max="96" value="${s.delay_hours}"></div>
     <div class="field"><label>Subject</label><input id="e_sub" value="${esc(s.email_subject)}"></div>
+    <div class="field"><label>Heading at the top of the email</label><input id="e_head" value="${esc(s.email_heading || "How was your showround?")}"></div>
     <div class="field"><label>Message (use {first_name} for their first name; the button with their personal link is added underneath)</label><textarea id="e_body" rows="9">${esc(s.email_body)}</textarea></div>
     <button class="btn" id="e_save">Save</button> <button class="btn ghost" id="e_test">Email me a test</button>
     <p class="muted" style="font-size:13px;margin-top:8px">The test goes only to you, with a link that shows the form but saves nothing.</p></div>`;
@@ -465,6 +466,7 @@ function paintSettings(){
     <p class="muted" style="font-size:13px">Mark no-shows in Calendly the same evening, or before 10am the next day. The showround feedback email goes out about ${s.delay_hours} hours after a visit and is not sent to anyone marked as a no-show first.</p>
     <div class="sw"><input type="checkbox" id="n_on" ${s.auto_noshow ? "checked" : ""}><label for="n_on">Send the email automatically</label></div>
     <div class="field"><label>Subject</label><input id="n_sub" value="${esc(s.noshow_subject)}"></div>
+    <div class="field"><label>Heading at the top of the email</label><input id="n_head" value="${esc(s.noshow_heading || "We missed you")}"></div>
     <div class="field"><label>Message (use {first_name} for their first name; the two buttons are added underneath, above your sign-off)</label><textarea id="n_body" rows="11">${esc(s.noshow_body)}</textarea></div>
     <div class="row2"><div class="field"><label>Booking page for a Wedding Tour</label><input id="n_wed" value="${esc(s.noshow_wedding_url)}"></div><div class="field"><label>Booking page for an Event Show around</label><input id="n_evt" value="${esc(s.noshow_event_url)}"></div></div>
     <button class="btn" id="n_save">Save</button> <button class="btn ghost" id="n_test">Email me a test</button>
@@ -482,11 +484,11 @@ function paintSettings(){
   };
   const saveS = async (patch, msg) => { try { const r = await call("settings.save", patch); S.settings = r.settings; toast(msg || "Saved."); paintSettings(); } catch(e){ toast(e.message, true); } };
   if ($("#e_save")) {
-    $("#e_save").onclick = () => saveS({ auto_showround:$("#e_on").checked, delay_hours:+$("#e_h").value, email_subject:$("#e_sub").value, email_body:$("#e_body").value }, $("#e_on").checked ? "Saved. The automatic email is ON." : "Saved. The automatic email is OFF.");
+    $("#e_save").onclick = () => saveS({ auto_showround:$("#e_on").checked, delay_hours:+$("#e_h").value, email_subject:$("#e_sub").value, email_heading:$("#e_head").value, email_body:$("#e_body").value }, $("#e_on").checked ? "Saved. The automatic email is ON." : "Saved. The automatic email is OFF.");
     $("#e_test").onclick = async () => { const b = $("#e_test"); b.disabled = true; try { const r = await call("showround.test"); toast("Test sent to " + r.sent_to + "."); } catch(e){ toast(e.message, true); } finally { b.disabled = false; } };
   }
   if ($("#n_save")) {
-    $("#n_save").onclick = () => saveS({ auto_noshow:$("#n_on").checked, noshow_subject:$("#n_sub").value, noshow_body:$("#n_body").value, noshow_wedding_url:$("#n_wed").value, noshow_event_url:$("#n_evt").value }, $("#n_on").checked ? "Saved. The no-show email is ON." : "Saved. The no-show email is OFF.");
+    $("#n_save").onclick = () => saveS({ auto_noshow:$("#n_on").checked, noshow_subject:$("#n_sub").value, noshow_heading:$("#n_head").value, noshow_body:$("#n_body").value, noshow_wedding_url:$("#n_wed").value, noshow_event_url:$("#n_evt").value }, $("#n_on").checked ? "Saved. The no-show email is ON." : "Saved. The no-show email is OFF.");
     $("#n_test").onclick = async () => { const b = $("#n_test"); b.disabled = true; try { const r = await call("noshow.test"); toast("Test sent to " + r.sent_to + "."); } catch(e){ toast(e.message, true); } finally { b.disabled = false; } };
   }
   $("#a_save").onclick = () => saveS({ alert_on:$("#a_on").checked, alert_email:$("#a_to").value });
