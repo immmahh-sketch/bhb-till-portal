@@ -92,6 +92,7 @@ table.t{width:100%; border-collapse:collapse; font-size:13.5px} .t th,.t td{padd
     <button class="tabbtn" data-view="dashboard" hidden>Dashboard</button>
     <button class="tabbtn" data-view="responses" hidden>Responses</button>
     <button class="tabbtn" data-view="send" hidden>Send a form</button>
+    <button class="tabbtn" data-view="stays" hidden>Stays</button>
     <button class="tabbtn" data-view="reviews" hidden>Reviews</button>
     <button class="tabbtn" data-view="settings" hidden>Settings</button>
   </div></nav>
@@ -104,8 +105,8 @@ const CFG = { SUPABASE_URL:"https://safcrtrfdzsnftghibot.supabase.co", SUPABASE_
 const S = { editBase:null, scores:null, me:null, view:"dashboard", data:null, formUrl:"", src:"all", range:"90", respKind:"all", respFlag:"all", forms:null, fk:"mystery", settings:null, qs:null, reqs:null };
 const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
 const esc = Viz.esc;
-const KIND_NAME = { mystery:"Mystery guest", showround:"Wedding showround", guest:"Guest feedback", noshow:"Showround no-show" };
-const SRC = [["all","Everything"],["mystery","Mystery guests"],["showround","Wedding showrounds"],["guest","Guest feedback"],["noshow","No-shows"],["reviews","All reviews"],["tripadvisor","TripAdvisor"],["google","Google"]];
+const KIND_NAME = { mystery:"Mystery guest", showround:"Wedding showround", guest:"Guest feedback", noshow:"Showround no-show", stay:"Hotel stay" };
+const SRC = [["all","Everything"],["mystery","Mystery guests"],["showround","Wedding showrounds"],["guest","Guest feedback"],["stay","Hotel stays"],["noshow","No-shows"],["reviews","All reviews"],["tripadvisor","TripAdvisor"],["google","Google"]];
 const fmtDT = iso => { try { return new Date(iso).toLocaleString("en-GB",{ timeZone:"Europe/London", day:"numeric", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit" }).replace(",",""); } catch(e){ return String(iso||"").slice(0,16); } };
 const fmtD = d => { if(!d) return "Undated"; try { return new Date(String(d).slice(0,10)+"T12:00:00Z").toLocaleDateString("en-GB",{ timeZone:"UTC", day:"numeric", month:"short", year:"numeric" }); } catch(e){ return d; } };
 const monthKey = iso => String(iso).slice(0,7);
@@ -122,7 +123,7 @@ function copy(text, ok){ (navigator.clipboard ? navigator.clipboard.writeText(te
 const can = tab => S.me && (S.me.isAdmin || S.me.tabs.includes(tab));
 
 /* =========================================================== dashboard */
-const isFormSrc = s => ["mystery","showround","guest","noshow"].includes(s);
+const isFormSrc = s => ["mystery","showround","guest","noshow","stay"].includes(s);
 function rangeFrom(){ if (S.range === "all") return ""; const d = new Date(); d.setDate(d.getDate() - +S.range); return d.toISOString().slice(0,10); }
 async function viewDashboard(){
   const v = $("#views"); v.innerHTML = `<div class="loading">Loading…</div>`;
@@ -241,7 +242,7 @@ async function viewResponses(){
 function paintResponses(){
   const rows = S.data.responses.filter(r => (S.respKind === "all" || r.kind === S.respKind) && (S.respFlag === "all" || (S.respFlag === "low" ? ((r.nps != null && r.nps <= 6) || (r.avg != null && r.avg <= 3)) : r.high)));
   let h = `<div class="pagehead"><h2>Responses</h2><span class="spacer"></span><button class="btn ghost small" id="csv">Download CSV</button></div>
-  <div class="filters"><select id="fk">${[["all","All forms"],["mystery","Mystery guests"],["showround","Wedding showrounds"],["guest","Guest feedback"],["noshow","No-shows"]].map(([k,l]) => `<option value="${k}" ${S.respKind===k?"selected":""}>${l}</option>`).join("")}</select>
+  <div class="filters"><select id="fk">${[["all","All forms"],["mystery","Mystery guests"],["showround","Wedding showrounds"],["guest","Guest feedback"],["stay","Hotel stays"],["noshow","No-shows"]].map(([k,l]) => `<option value="${k}" ${S.respKind===k?"selected":""}>${l}</option>`).join("")}</select>
     <select id="ff">${[["all","All scores"],["low","Low scores"],["high","High scores"]].map(([k,l]) => `<option value="${k}" ${S.respFlag===k?"selected":""}>${l}</option>`).join("")}</select><span class="muted">${rows.length} shown</span></div>`;
   if (!rows.length) h += `<div class="card"><div class="empty">Nothing here yet.</div></div>`;
   rows.slice(0, 200).forEach(r => {
@@ -471,6 +472,19 @@ function paintSettings(){
     <div class="row2"><div class="field"><label>Booking page for a Wedding Tour</label><input id="n_wed" value="${esc(s.noshow_wedding_url)}"></div><div class="field"><label>Booking page for an Event Show around</label><input id="n_evt" value="${esc(s.noshow_event_url)}"></div></div>
     <button class="btn" id="n_save">Save</button> <button class="btn ghost" id="n_test">Email me a test</button>
     <p class="muted" style="font-size:13px;margin-top:8px">The test goes only to you. The booking button opens the real booking page, and the form button shows the form but saves nothing.</p></div>`;
+  if (S.fk === "stay") h += `<div class="card"><h3>Automatic email after a hotel stay</h3>
+    <div class="note">${s.auto_stay ? "This is ON. " : "This is OFF. "}When it is on, each guest who has checked out is emailed once at ${s.send_hour}am the next morning, using the two Rezlynx reports you upload in the Stays tab. It only covers stays that end after the moment you switch it on, so nobody from before is emailed.</div>
+    <div class="sw"><input type="checkbox" id="y_on" ${s.auto_stay ? "checked" : ""}><label for="y_on">Send the email automatically</label></div>
+    <div class="field"><label>Subject</label><input id="y_sub" value="${esc(s.stay_subject)}"></div>
+    <div class="field"><label>Heading at the top of the email</label><input id="y_head" value="${esc(s.stay_heading || "How was your stay?")}"></div>
+    <div class="field"><label>Message (use {first_name} for their first name; the button with their personal link is added underneath, above your sign-off)</label><textarea id="y_body" rows="10">${esc(s.stay_body)}</textarea></div>
+    <h4>Who is left out</h4>
+    <div class="sw"><input type="checkbox" id="y_relay" ${s.stay_skip_relay ? "checked" : ""}><label for="y_relay">Booking.com and Expedia guests (their address is a relay that rarely reaches the guest)</label></div>
+    <div class="sw"><input type="checkbox" id="y_wed" ${s.stay_skip_wedding ? "checked" : ""}><label for="y_wed">Wedding stays</label></div>
+    <div class="field"><label>Do not email the same address again within this many days</label><input type="number" id="y_rep" min="1" max="730" value="${s.stay_repeat_days}"></div>
+    <p class="muted" style="font-size:13px">Always left out: function rooms, a second room for the same guest on the same day, and anyone with no email address.</p>
+    <button class="btn" id="y_save">Save</button> <button class="btn ghost" id="y_test">Email me a test</button>
+    <p class="muted" style="font-size:13px;margin-top:8px">The test goes only to you, with a link that shows the form but saves nothing.</p></div>`;
   h += `<div class="card"><h3>Alert for a low score</h3><div class="sw"><input type="checkbox" id="a_on" ${s.alert_on ? "checked" : ""}><label for="a_on">Email me when someone scores us low</label></div>
     <div class="field"><label>Send it to</label><input id="a_to" value="${esc(s.alert_email || "")}" placeholder="name@blackhorsebeamish.co.uk"></div><button class="btn" id="a_save">Save</button></div>`;
   $("#views").innerHTML = h;
@@ -491,13 +505,94 @@ function paintSettings(){
     $("#n_save").onclick = () => saveS({ auto_noshow:$("#n_on").checked, noshow_subject:$("#n_sub").value, noshow_heading:$("#n_head").value, noshow_body:$("#n_body").value, noshow_wedding_url:$("#n_wed").value, noshow_event_url:$("#n_evt").value }, $("#n_on").checked ? "Saved. The no-show email is ON." : "Saved. The no-show email is OFF.");
     $("#n_test").onclick = async () => { const b = $("#n_test"); b.disabled = true; try { const r = await call("noshow.test"); toast("Test sent to " + r.sent_to + "."); } catch(e){ toast(e.message, true); } finally { b.disabled = false; } };
   }
+  if ($("#y_save")) {
+    $("#y_save").onclick = () => saveS({ auto_stay:$("#y_on").checked, stay_subject:$("#y_sub").value, stay_heading:$("#y_head").value, stay_body:$("#y_body").value, stay_skip_relay:$("#y_relay").checked, stay_skip_wedding:$("#y_wed").checked, stay_repeat_days:+$("#y_rep").value }, $("#y_on").checked ? "Saved. The stay email is ON." : "Saved. The stay email is OFF.");
+    $("#y_test").onclick = async () => { const b = $("#y_test"); b.disabled = true; try { const r = await call("stay.test"); toast("Test sent to " + r.sent_to + "."); } catch(e){ toast(e.message, true); } finally { b.disabled = false; } };
+  }
   $("#a_save").onclick = () => saveS({ alert_on:$("#a_on").checked, alert_email:$("#a_to").value });
+}
+
+/* =========================================================== stays */
+/* Two Rezlynx reports, read here in the browser (nothing is uploaded as a file): the Reservations report (.xls) and the Sales and Marketing query (.csv). */
+function loadScript(src){ return new Promise((ok, bad) => { if (window.XLSX) return ok(); const s = document.createElement("script"); s.src = src; s.onload = ok; s.onerror = () => bad(new Error("Could not load the spreadsheet reader. Check your connection and try again.")); document.head.appendChild(s); }); }
+function parseCsv(text){
+  const rows = []; let row = [], cur = "", q = false;
+  text = String(text).replace(/^﻿/, "");
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) { if (c === '"') { if (text[i+1] === '"') { cur += '"'; i++; } else q = false; } else cur += c; }
+    else if (c === '"') q = true; else if (c === ",") { row.push(cur); cur = ""; }
+    else if (c === "\n" || c === "\r") { if (c === "\r" && text[i+1] === "\n") i++; row.push(cur); cur = ""; if (row.some(x => x !== "")) rows.push(row); row = []; }
+    else cur += c;
+  }
+  if (cur !== "" || row.length) { row.push(cur); if (row.some(x => x !== "")) rows.push(row); }
+  return rows;
+}
+const MON = { jan:1, feb:2, mar:3, apr:4, may:5, jun:6, jul:7, aug:8, sep:9, oct:10, nov:11, dec:12 };
+function isoDay(t){ const m = /^(\d{1,2})\/([A-Za-z]{3})[a-z]*\/(\d{4})/.exec(String(t || "").trim()); if (!m || !MON[m[2].toLowerCase()]) return ""; return m[3] + "-" + String(MON[m[2].toLowerCase()]).padStart(2,"0") + "-" + m[1].padStart(2,"0"); }
+/* The reservations report is one block per booking: "BookRef: | BK027380/1 | Ref:", then rows of "Label: | value" pairs. */
+function parseReservations(rows){
+  const out = []; let cur = null; const keys = { "Guest:":"guest", "Room Type:":"room_type", "Arrival:":"arrival", "Departure:":"departure", "Package:":"package", "Status:":"status" };
+  rows.forEach(r => {
+    const f = r.map(c => c == null ? "" : String(c).trim()).filter(Boolean); if (!f.length) return;
+    if (f[0] === "BookRef:") { cur = { ref: (f[1] || "").split("/")[0] }; out.push(cur); return; }
+    if (!cur) return;
+    f.forEach((x, i) => { const k = keys[x]; if (k && !(k in cur) && f[i+1] != null && !/:$/.test(f[i+1])) cur[k] = f[i+1]; });
+  });
+  return out.map(b => ({ ref:b.ref, guest:b.guest || "", room_type:b.room_type || "", package:b.package || "", arrival:isoDay(b.arrival), departure:isoDay(b.departure), status:b.status || "" })).filter(b => b.ref);
+}
+function parseEmails(text){
+  const rows = parseCsv(text); if (rows.length < 2) return [];
+  const h = rows[0].map(x => x.trim().toLowerCase()), ix = n => h.indexOf(n), iRef = ix("bookref"), iE = ix("email"), iF = ix("forename"), iS = ix("surname"), iN = h.findIndex(x => /stays/.test(x));
+  if (iRef < 0 || iE < 0) throw new Error("That does not look like the email list. It needs the columns BookRef and Email.");
+  return rows.slice(1).map(r => ({ ref:(r[iRef] || "").trim(), email:(r[iE] || "").trim(), forename:iF >= 0 ? (r[iF] || "").trim() : "", surname:iS >= 0 ? (r[iS] || "").trim() : "", stays:iN >= 0 ? (r[iN] || "").trim() : "" })).filter(x => x.ref);
+}
+const STAY_STATE = { queued:["Waiting to send", "gold"], sent:["Emailed", "good"], skipped:["Not emailed", ""] };
+async function viewStays(){
+  const v = $("#views"); v.innerHTML = `<div class="loading">Loading…</div>`;
+  let d; try { d = await call("stays.list"); } catch(e){ v.innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+  S.stays = d; paintStays();
+}
+function paintStays(msg){
+  const d = S.stays, s = d.settings || {}, rows = d.stays || [];
+  const next = dep => fmtD(new Date(new Date(dep + "T12:00:00Z").getTime() + 864e5).toISOString().slice(0,10));
+  const nQ = rows.filter(r => r.status === "queued").length, nS = rows.filter(r => r.status === "sent").length, nA = rows.filter(r => r.answered).length;
+  let h = `<div class="pagehead"><h2>Hotel stays</h2><span class="hint">Who checked out, and who is emailed to ask how it went.</span></div>
+  <div class="note">${s.auto_stay ? "The automatic email is ON. Each guest below marked “Waiting to send” is emailed at " + (s.send_hour || 10) + "am the morning after they check out." : "The automatic email is OFF, so nothing below is sent. Switch it on in Settings, under Hotel stay form, once you have sent yourself a test."}</div>
+  <div class="card"><h3>Add today's reports</h3>
+    <p class="muted" style="font-size:13.5px;margin-top:0">From Rezlynx, once a day: the <b>Reservations report</b> (the departures report, with Checked Out in the statuses, saved as .xls) and the <b>Sales and Marketing query</b> (the .csv with BookRef, Forename, Surname, Email). The two are matched on the booking reference. Adding the same reports twice does no harm.</p>
+    <div class="row2"><div class="field"><label>Reservations report (.xls)</label><input type="file" id="st_xls" accept=".xls,.xlsx"></div><div class="field"><label>Sales and Marketing query (.csv)</label><input type="file" id="st_csv" accept=".csv,text/csv"></div></div>
+    <button class="btn" id="st_go">Add to the list</button>
+    ${msg ? `<div class="note" style="margin-top:12px">${msg}</div>` : ""}</div>
+  <div class="card"><h3>The last 45 days</h3>
+    <p class="muted" style="margin-top:0">${rows.length} stays · ${nQ} waiting · ${nS} emailed · ${nA} answered</p>
+    ${rows.length ? `<div class="tw"><table class="t"><thead><tr><th>Left</th><th>Guest</th><th>Email</th><th>Rate</th><th>Stays</th><th>What happens</th><th></th></tr></thead><tbody>${rows.map(r => { const st = STAY_STATE[r.status] || [r.status, ""];
+      return `<tr><td>${fmtD(r.departure)}</td><td>${esc(r.guest_name || "")}</td><td>${esc(r.email || "")}</td><td>${esc(r.package || "")}</td><td>${r.stays_count == null ? "" : r.stays_count}</td>
+      <td><span class="tag ${st[1]}">${st[0]}</span> ${r.status === "queued" ? `<span class="muted">${s.auto_stay ? "on " + next(r.departure) : "(automatic email is off)"}</span>` : r.status === "sent" ? `<span class="muted">${fmtDT(r.sent_at)}</span>${r.answered ? ` <span class="tag good">Answered</span>` : ""}` : `<span class="muted">${esc(r.skip_reason || "")}</span>`}</td>
+      <td>${r.status === "queued" ? `<button class="btn ghost small" data-skip="${esc(r.book_ref)}">Do not send</button>` : ""}</td></tr>`; }).join("")}</tbody></table></div>` : `<div class="empty">No stays yet. Add the two reports above.</div>`}</div>`;
+  $("#views").innerHTML = h;
+  $$("[data-skip]").forEach(b => b.onclick = async () => { b.disabled = true; try { await call("stays.skip", { book_ref:b.dataset.skip }); toast("Taken off the list."); viewStays(); } catch(e){ toast(e.message, true); b.disabled = false; } });
+  $("#st_go").onclick = async () => {
+    const x = $("#st_xls").files[0], c = $("#st_csv").files[0]; if (!x || !c) { toast("Choose both files first.", true); return; }
+    const b = $("#st_go"); b.disabled = true; b.textContent = "Reading…";
+    try {
+      await loadScript("https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js");
+      const wb = XLSX.read(await x.arrayBuffer(), { type:"array" }), sheet = wb.Sheets[wb.SheetNames[0]];
+      const departures = parseReservations(XLSX.utils.sheet_to_json(sheet, { header:1, raw:false, defval:"" }));
+      if (!departures.length) throw new Error("No bookings were found in the reservations report. Is it the right file?");
+      const emails = parseEmails(await c.text());
+      const r = await call("stays.import", { departures, emails });
+      const sk = Object.entries(r.skipped || {}).map(([k, n]) => `${n} ${esc(k)}`).join(", ");
+      const m = `Read ${departures.length} bookings, ${r.checked_out} checked out. <b>${r.queued}</b> added to the list to be emailed${sk ? "; not emailed: " + sk : ""}${r.already_known ? "; " + r.already_known + " already on the list" : ""}.`;
+      S.stays = await call("stays.list"); paintStays(m);
+    } catch(e){ toast(e.message, true); b.disabled = false; b.textContent = "Add to the list"; }
+  };
 }
 
 /* =========================================================== shell */
 function goView(v){
   S.view = v; $$(".tabbtn").forEach(b => b.setAttribute("aria-current", b.dataset.view === v ? "page" : "false"));
-  ({ dashboard:viewDashboard, responses:viewResponses, send:viewSend, reviews:viewReviews, settings:viewSettings }[v] || viewDashboard)();
+  ({ dashboard:viewDashboard, responses:viewResponses, send:viewSend, stays:viewStays, reviews:viewReviews, settings:viewSettings }[v] || viewDashboard)();
   window.scrollTo(0, 0);
 }
 async function boot(){
