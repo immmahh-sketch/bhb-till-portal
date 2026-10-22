@@ -71,6 +71,7 @@ button.row:hover .t{text-decoration:underline}
 .dl .al{font-size:12px; color:var(--sage-70)}
 .dl .av{font-size:15px; white-space:pre-wrap; overflow-wrap:anywhere}
 .dl a{color:var(--sage)}
+.atwarn{background:#F7F0E4; color:#6d5320; border-radius:8px; padding:10px 14px; font-size:13.5px; line-height:1.45; margin:0 0 12px}
 .muted{color:var(--sage-70)} .empty{padding:14px 0; color:var(--sage-70)} .loading{padding:60px; text-align:center; color:var(--sage-70)}
 @media (max-width:640px){ .shell{padding:0 12px 48px} .topin,.daysin{padding-left:12px;padding-right:12px} .pagehead h2{font-size:25px} .pagehead .date{font-size:21px} .stat .v{font-size:32px} }
 </style>
@@ -137,6 +138,22 @@ function srRows(d, g){
   ).join("") : `<div class="empty">${SRG[g].none}</div>`;
 }
 
+/* Afternoon teas booked: from the ResDiary Booking Summary, which is a snapshot. The time it was taken is always shown, with a reminder to check ResDiary for changes since. */
+function atCard(d){
+  const r = S.data.afternoon_tea_report, at = d.afternoon_tea;
+  const fmt = iso => new Date(iso).toLocaleString("en-GB", { timeZone:"Europe/London", weekday:"short", day:"numeric", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit" });
+  if (!r) return `<div class="card"><h3>Afternoon teas</h3><div class="empty">No ResDiary report has been loaded yet.</div></div>`;
+  const warn = `<div class="atwarn"><b>As at ${esc(fmt(r.report_taken_at))}.</b> This is how ResDiary stood when the report was run (loaded into the portal ${esc(fmt(r.uploaded_at))}). Bookings change, so <b>check ResDiary for anything booked, moved or cancelled since.</b></div>`;
+  let body;
+  if (!at) body = `<div class="empty">This day is after the last date in the report, so there is no figure.</div>`;
+  else {
+    const times = Object.entries(at.by_time || {}).sort();
+    body = `<div class="stat" style="margin-bottom:10px"><div class="l">Afternoon teas booked</div><div class="v${at.covers ? "" : " none"}">${at.covers}</div></div>` +
+      (times.length ? `<div class="m">${times.map(([t, n]) => esc(t) + ": " + n).join(" · ")}</div>` : (at.covers ? "" : `<div class="empty">None booked as at the time above.</div>`));
+  }
+  return `<div class="card"><h3>Afternoon teas</h3>${warn}${body}</div>`;
+}
+
 function day(){
   S.sr = null;
   const d = S.data.days[S.idx];
@@ -157,6 +174,7 @@ function day(){
       ${stat("Lunch covers booked", d.lunch)}
       ${stat("Dinner covers booked", d.dinner)}
     </div>
+    ${atCard(d)}
     <div class="card"><h3>Events ${when}</h3>${ev}</div>
     <div class="card"><h3>Wedding show-rounds ${when}</h3>${sr}</div>
     <div class="card"><h3>Event show-rounds ${when}</h3>${esr}</div>
