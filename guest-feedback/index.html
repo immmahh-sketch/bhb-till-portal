@@ -101,7 +101,7 @@ table.t{width:100%; border-collapse:collapse; font-size:13.5px} .t th,.t td{padd
 <script src="/shared/insights.js"></script>
 <script>
 const CFG = { SUPABASE_URL:"https://safcrtrfdzsnftghibot.supabase.co", SUPABASE_KEY:"sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU" };
-const S = { me:null, view:"dashboard", data:null, formUrl:"", src:"all", range:"90", respKind:"all", respFlag:"all", forms:null, fk:"mystery", settings:null, qs:null, reqs:null };
+const S = { editBase:null, scores:null, me:null, view:"dashboard", data:null, formUrl:"", src:"all", range:"90", respKind:"all", respFlag:"all", forms:null, fk:"mystery", settings:null, qs:null, reqs:null };
 const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
 const esc = Viz.esc;
 const KIND_NAME = { mystery:"Mystery guest", showround:"Wedding showround", guest:"Guest feedback", noshow:"Showround no-show" };
@@ -329,23 +329,84 @@ function readReviews(text, platform){
     return { platform:p, rating, title:get(iT, 2), body, reviewed_on:parseDate(get(iD, 1)), author:get(iA, -1) };
   }).filter(x => x.rating >= 1 && x.rating <= 5 && x.body);
 }
+/* ---------- score tracker: the site's numbers typed in once, then each emailed review is added, so we can say how many 5 star reviews move the score ---------- */
+const roundTo = (x, step) => Math.round(x / step + 1e-9) * step;
+function trackerCalc(platform, base, emailed){
+  const added = emailed.filter(r => r.platform === platform && new Date(r.created_at) >= new Date(base.as_of));
+  let N = base.total, sum = base.star_counts ? [1,2,3,4,5].reduce((t, k) => t + k * (base.star_counts[k] || 0), 0) : base.avg * base.total;
+  added.forEach(r => { N++; sum += r.rating; });
+  const avg = sum / N, step = platform === "google" ? 0.1 : 0.5;
+  const shown = roundTo(avg, step), next = shown + step, thr = next - step / 2, lowThr = shown - step / 2;
+  const need5 = shown >= 5 ? null : (avg >= thr ? 0 : Math.ceil((thr * N - sum) / (5 - thr) - 1e-9));
+  const lose = shown <= 1 ? null : Math.floor((sum - lowThr * N) / (lowThr - 1)) + 1;
+  return { N, sum, avg, step, shown, next, need5, lose, added };
+}
+const shownFmt = (x, step) => step >= 0.5 ? x.toFixed(1) : x.toFixed(1);
+function trackerForm(platform, base){
+  const num = (id, label, v) => `<div class="field"><label>${label}</label><input type="number" min="0" id="${id}" value="${v ?? ""}"></div>`;
+  const c = (base && base.star_counts) || {};
+  return platform === "tripadvisor"
+    ? `<p class="muted" style="font-size:13px">From your TripAdvisor page: the number of reviews at each level.</p><div class="row2">${num("t_c5", "Excellent (5)", c[5])}${num("t_c4", "Very good (4)", c[4])}${num("t_c3", "Average (3)", c[3])}${num("t_c2", "Poor (2)", c[2])}${num("t_c1", "Terrible (1)", c[1])}
+        <div class="field"><label>Score TripAdvisor shows (bubbles, for example 4.5)</label><input type="number" step="0.5" min="1" max="5" id="t_shown" value="${base && base.shown_score != null ? base.shown_score : ""}"></div></div>`
+    : `<p class="muted" style="font-size:13px">From your Google listing: the total number of reviews and the score it shows.</p><div class="row2">${num("g_total", "Number of Google reviews", base && base.total)}<div class="field"><label>Score Google shows (for example 4.6)</label><input type="number" step="0.1" min="1" max="5" id="g_avg" value="${base ? base.avg : ""}"></div></div>`;
+}
+function trackerCard(platform){
+  const sc = S.scores, base = sc && sc.baselines.find(b => b.platform === platform), name = platform === "google" ? "Google" : "TripAdvisor";
+  let h = `<div class="card"><h3>${name} score</h3>`;
+  if (!base || S.editBase === platform) {
+    h += `${base ? "" : `<p>Enter ${name}'s numbers as they are today. From then on, every review that arrives by email is added, and this page works out how many 5 star reviews it takes to lift the score.</p>`}${trackerForm(platform, base)}<button class="btn" data-savebase="${platform}">Save as today's numbers</button>${base ? ` <button class="btn ghost" data-cancelbase="1">Cancel</button>` : ""}</div>`;
+    return h;
+  }
+  const c = trackerCalc(platform, base, sc.emailed), days = Math.max(1, (Date.now() - new Date(base.as_of).getTime()) / 864e5);
+  const scen = [5, 10, 20, 40].map(k => { const a = (c.sum + 5 * k) / (c.N + k); return `<tr><td>${k} more 5 star reviews</td><td class="n">${a.toFixed(2)}</td><td class="n">${shownFmt(roundTo(a, c.step), c.step)}</td></tr>`; }).join("");
+  const mismatch = base.shown_score != null && Math.abs(roundTo(base.avg, c.step) - base.shown_score) > 1e-9;
+  const pace = c.added.length >= 3 && days >= 14 ? c.added.length / days * 30 : null;
+  h += `<div class="kpis"><div class="kpi"><div class="l">Reviews</div><div class="v">${c.N}</div><div class="s">${base.total} at the start${c.added.length ? `, ${c.added.length} emailed since` : ""}</div></div>
+    <div class="kpi"><div class="l">Average</div><div class="v">${c.avg.toFixed(2)}</div><div class="s">shows as ${shownFmt(c.shown, c.step)}</div></div>
+    <div class="kpi"><div class="l">To reach ${c.need5 === null ? "more" : shownFmt(c.next, c.step)}</div><div class="v">${c.need5 === null ? "–" : c.need5 === 0 ? "now" : c.need5}</div><div class="s">${c.need5 === null ? "already at the top" : c.need5 === 0 ? "the average is already there" : "more 5 star reviews"}</div></div>
+    <div class="kpi"><div class="l">Risk</div><div class="v">${c.lose === null ? "–" : c.lose}</div><div class="s">${c.lose === null ? "" : `1 star reviews would drop it to ${shownFmt(c.shown - c.step, c.step)}`}</div></div></div>`;
+  if (mismatch) h += `<div class="note">Your numbers give ${base.avg.toFixed(2)}, which would show as ${shownFmt(roundTo(base.avg, c.step), c.step)}, but ${name} shows ${base.shown_score}. ${name} may weight recent reviews or round differently, so treat the predictions as a guide and check them against what ${name} shows.</div>`;
+  h += `<table class="t"><tr><th>If the next reviews are all 5 star</th><th class="n">Average</th><th class="n">Shows as</th></tr>${scen}</table>`;
+  if (pace) h += `<p class="muted" style="margin-top:10px;font-size:13px">About ${pace.toFixed(1)} reviews a month have arrived by email since ${fmtD(base.as_of)}.${c.need5 ? ` At that pace, ${c.need5} 5 star reviews is about ${Math.ceil(c.need5 / pace)} month${Math.ceil(c.need5 / pace) === 1 ? "" : "s"} if every one were 5 star.` : ""}</p>`;
+  h += `<p class="muted" style="margin-top:10px;font-size:13px">Starting point set ${fmtD(base.as_of)} by ${esc(base.updated_by || "someone")}. Reviews that are removed, or that the email did not mention, are not known here, so re-enter the numbers now and then.</p><button class="btn ghost small" data-editbase="${platform}">Update the numbers</button></div>`;
+  return h;
+}
+function inboxCard(){
+  const sc = S.scores; if (!sc) return "";
+  const rows = sc.inbox || [];
+  return `<div class="card"><h3>Review emails</h3>${rows.length ? `<div class="tw"><table class="t"><tr><th>Received</th><th>From</th><th>Site</th><th>Result</th></tr>${rows.map(r => `<tr><td>${fmtDT(r.received_at)}</td><td>${esc(r.from_addr || "")}</td><td>${esc(r.platform || "")}</td><td>${r.status === "ok" ? `${r.added} added` + (r.parsed !== r.added ? ` (${r.parsed - r.added} already known)` : "") : `<span class="tag ${r.status === "ignored" ? "" : "bad"}">${esc(r.status)}</span> ${esc(r.detail || "")}`}</td></tr>`).join("")}</table></div>`
+    : `<p class="muted">No review emails have arrived yet. Once TripAdvisor's alert emails are forwarded to the review inbox, they appear here, and each review is added to the TripAdvisor score above.</p>`}</div>`;
+}
+function bindTracker(){
+  $$("[data-savebase]").forEach(b => b.onclick = async () => {
+    const pl = b.dataset.savebase, n = id => $(id) ? $(id).value : "";
+    const payload = pl === "tripadvisor" ? { platform:pl, counts:{ 1:n("#t_c1"), 2:n("#t_c2"), 3:n("#t_c3"), 4:n("#t_c4"), 5:n("#t_c5") }, shown_score:n("#t_shown") } : { platform:pl, total:n("#g_total"), avg:n("#g_avg"), shown_score:n("#g_avg") };
+    b.disabled = true;
+    try { await call("scores.save", payload); S.editBase = null; toast("Saved."); viewReviews(); } catch(e){ toast(e.message, true); b.disabled = false; }
+  });
+  $$("[data-editbase]").forEach(b => b.onclick = () => { S.editBase = b.dataset.editbase; paintReviews(); });
+  $$("[data-cancelbase]").forEach(b => b.onclick = () => { S.editBase = null; paintReviews(); });
+}
 async function viewReviews(){
   const v = $("#views"); v.innerHTML = `<div class="loading">Loading…</div>`;
   try { S.data = await call("data.load", {}); } catch(e){ v.innerHTML = `<div class="empty">${esc(e.message)}<br><span class="muted">The Reviews tab needs the Dashboard tab as well.</span></div>`; return; }
+  try { S.scores = await call("scores.get"); } catch(e){ S.scores = null; }
   paintReviews();
 }
 function paintReviews(){
   const revs = S.data.reviews;
   let h = `<div class="pagehead"><h2>Reviews</h2><span class="hint">TripAdvisor and Google reviews, analysed on the Dashboard the same way as the forms.</span></div>
-  <div class="note">TripAdvisor and Google do not let us pull your reviews in automatically (both need a paid or approved partner connection). Copy them in here instead. It takes a minute, and the same review is never added twice.</div>
+  ${trackerCard("tripadvisor")}${trackerCard("google")}${inboxCard()}
+  <div class="note">TripAdvisor and Google do not let us pull your reviews in automatically (both need a paid or approved partner connection). Reviews reach us two ways: TripAdvisor's alert emails, forwarded to the review inbox (stars and title only, no text), and reviews you copy in below, with their full text. The same review is never added twice.</div>
   <div class="card"><h3>Add reviews</h3>
     <div class="row2"><div class="field"><label>Where are they from?</label><select id="r_plat"><option value="tripadvisor">TripAdvisor</option><option value="google">Google</option></select></div>
     <div class="field"><label>Or upload a CSV file</label><input type="file" id="r_file" accept=".csv,.txt"></div></div>
     <div class="field"><label>Paste reviews, one per line</label><textarea id="r_text" rows="7" placeholder="5, 2026-09-12, Lovely Sunday lunch, The staff were brilliant and the food was delicious&#10;4, 2026-08-30, Great wedding venue, Beautiful setting but the car park was full"></textarea></div>
     <p class="muted" style="font-size:13px">Each line: <b>rating (1-5), date, title, review text</b>. A CSV from a spreadsheet with a header row such as <i>rating, date, title, text, author</i> works too. Dates can be 2026-09-12 or 12/09/2026.</p>
     <button class="btn" id="r_go">Read and add</button><div id="r_out" class="muted" style="margin-top:10px"></div></div>
-  <div class="card"><h3>Reviews you have added (${revs.length})</h3>${revs.length ? `<div class="tw"><table class="t"><tr><th>Date</th><th>Site</th><th>Stars</th><th>Review</th><th></th></tr>${revs.slice(0, 150).map(r => `<tr><td>${fmtD(r.reviewed_on)}</td><td>${r.platform === "google" ? "Google" : "TripAdvisor"}</td><td>${r.rating}</td><td>${r.title ? `<b>${esc(r.title)}</b><br>` : ""}${esc(r.body.length > 220 ? r.body.slice(0, 220) + "…" : r.body)}</td><td><button class="btn danger small" data-del="${r.id}">Delete</button></td></tr>`).join("")}</table></div>` : `<p class="muted">None yet.</p>`}</div>`;
+  <div class="card"><h3>Reviews you have added (${revs.length})</h3>${revs.length ? `<div class="tw"><table class="t"><tr><th>Date</th><th>Site</th><th>Stars</th><th>Review</th><th></th></tr>${revs.slice(0, 150).map(r => `<tr><td>${fmtD(r.reviewed_on)}</td><td>${r.platform === "google" ? "Google" : "TripAdvisor"}</td><td>${r.rating}</td><td>${r.title ? `<b>${esc(r.title)}</b><br>` : ""}${r.source === "email" ? `<span class="tag">From an email alert</span>` : esc(r.body.length > 220 ? r.body.slice(0, 220) + "…" : r.body)}</td><td><button class="btn danger small" data-del="${r.id}">Delete</button></td></tr>`).join("")}</table></div>` : `<p class="muted">None yet.</p>`}</div>`;
   $("#views").innerHTML = h;
+  bindTracker();
   $("#r_file").onchange = async e => { const f = e.target.files[0]; if (f) $("#r_text").value = await f.text(); };
   $("#r_go").onclick = async () => {
     const items = readReviews($("#r_text").value, $("#r_plat").value);
