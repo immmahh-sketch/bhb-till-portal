@@ -110,10 +110,10 @@
   var css = ".vz-empty{color:var(--sage-70);font-size:14px;padding:12px 0}" +
     ".vz-bars{display:flex;flex-direction:column;gap:9px}.vz-row{display:grid;grid-template-columns:minmax(110px,38%) 1fr 64px;gap:10px;align-items:center;font-size:13.5px}" +
     ".vz-lab{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.vz-track{background:var(--mist);border-radius:99px;height:12px;overflow:hidden}.vz-fill{height:100%;border-radius:99px;background:var(--sage-70)}" +
-    ".vz-fill.good{background:var(--good)}.vz-fill.warn{background:var(--gold)}.vz-fill.bad{background:var(--alert)}.vz-val{text-align:right;font-weight:600;font-variant-numeric:tabular-nums}.vz-val small{display:block;font-weight:400;color:var(--sage-70);font-size:11px}" +
+    ".vz-fill.good{background:var(--good)}.vz-fill.warn{background:var(--olive)}.vz-fill.bad{background:var(--alert)}.vz-val{text-align:right;font-weight:600;font-variant-numeric:tabular-nums}.vz-val small{display:block;font-weight:400;color:var(--sage-70);font-size:11px}" +
     ".vz-hist{display:flex;gap:10px;align-items:flex-end}.vz-hcol{flex:1;text-align:center;font-size:12px}.vz-hbar{height:70px;display:flex;align-items:flex-end;background:var(--sage-10);border-radius:6px;overflow:hidden}.vz-hbar span{display:block;width:100%;background:var(--sage-70)}.vz-hn{font-weight:600;margin-top:3px}.vz-hl{color:var(--sage-70)}" +
     ".vz-nps{display:flex;height:30px;border-radius:8px;overflow:hidden;font-size:12px;font-weight:700;color:#fff}.vz-nps span{display:flex;align-items:center;justify-content:center;min-width:0}" +
-    ".vz-nps .det,.vz-key i.det{background:var(--alert)}.vz-nps .pas,.vz-key i.pas{background:var(--gold)}.vz-nps .pro,.vz-key i.pro{background:var(--good)}" +
+    ".vz-nps .det,.vz-key i.det{background:var(--alert)}.vz-nps .pas,.vz-key i.pas{background:var(--olive)}.vz-nps .pro,.vz-key i.pro{background:var(--good)}" +
     ".vz-key{display:flex;gap:6px 16px;flex-wrap:wrap;margin-top:8px;font-size:12px;color:var(--sage-70)}.vz-key span{display:inline-flex;align-items:center;gap:6px}.vz-key i{width:11px;height:11px;border-radius:3px;display:inline-block}" +
     ".vz-line{width:100%;height:auto;display:block}" +
     ".vz-cloud{line-height:1.25;padding:6px 0;text-align:center}.vz-w{display:inline-block;margin:3px 7px;color:var(--sage-dark,var(--ink));font-weight:600}.vz-w.pos{color:var(--good)}.vz-w.neg{color:var(--alert)}" +

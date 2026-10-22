@@ -11,10 +11,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
 <style>
 :root{
-  --sage:#4E5F4F; --sage-70:#7B887C; --sage-10:#EDEFED; --sage-dark:#3B483C;
-  --bone:#F7F7F7; --celadon:#C1C8B4; --mist:#E7E7E7; --white:#fff; --ink:#262626; --gold:#C9A56B;
-  --attention:#B08D57; --attention-bg:#F7F0E4; --alert:#8C4A3F; --alert-bg:#F6EAE8; --good:#4F6B4F; --good-bg:#EDF2ED; --plum:#6B5B8C;
-  --display:"Cormorant Garamond",Georgia,serif; --body:Raleway,"Helvetica Neue",Arial,sans-serif;
+  --sage:#4D604F; --sage-70:#7B887C; --sage-10:#EDEFED; --sage-dark:#3F2F28;
+  --bone:#F8F8F8; --celadon:#CCCDB4; --mist:#E7E7E7; --white:#fff; --ink:#262626; --olive:#CCCDB4; --brown:#3F2F28;
+  --attention:#B08D57; --attention-bg:#F7F0E4; --alert:#8C4A3F; --alert-bg:#F6EAE8; --good:#4F6B4F; --good-bg:#EDF2ED;
+  --display:"Orpheus Pro","Cormorant Garamond",Georgia,serif; --body:Raleway,"Helvetica Neue",Arial,sans-serif;
   --track-label:.18em; --radius:10px; --shadow:0 1px 2px rgba(38,38,38,.06),0 8px 24px rgba(38,38,38,.07); --maxw:960px;
 }
 *{box-sizing:border-box} html,body{margin:0;padding:0}
@@ -35,7 +35,7 @@ header.top{background:var(--sage); color:var(--white)}
 nav.tabs{background:var(--sage-dark)}
 .tabsin{max-width:var(--maxw); margin:0 auto; padding:0 20px; display:flex; gap:2px; overflow-x:auto}
 .tabbtn{background:transparent; border:0; cursor:pointer; color:rgba(255,255,255,.72); padding:12px 16px; font-size:12px; font-weight:600; white-space:nowrap; letter-spacing:var(--track-label); text-transform:uppercase; border-bottom:3px solid transparent}
-.tabbtn[aria-current="page"]{color:var(--white); border-bottom-color:var(--gold)}
+.tabbtn[aria-current="page"]{color:var(--white); border-bottom-color:var(--olive)}
 .pagehead{display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; margin:24px 0 16px}
 .pagehead h2{font-size:26px; color:var(--sage)}
 .pagehead .hint{font-size:13px; color:var(--sage-70)}
@@ -86,7 +86,7 @@ table.t{width:100%; border-collapse:collapse; font-size:13.5px} .t th,.t td{padd
 .tw{overflow-x:auto}
 .heat{display:inline-block; min-width:44px; text-align:center; padding:3px 6px; border-radius:6px; font-weight:600}
 .h5{background:#cfe3cf} .h4{background:#e3eed7} .h3{background:#f4ecc9} .h2{background:#f2d9c4} .h1{background:#ecc3bb}
-.sug{border-left:4px solid var(--gold); padding:6px 0 6px 14px; margin-bottom:12px} .sug b{display:block}
+.sug{border-left:4px solid var(--olive); padding:6px 0 6px 14px; margin-bottom:12px} .sug b{display:block}
 .sug.good{border-left-color:var(--good)} .sug.bad{border-left-color:var(--alert)}
 .verb{padding:10px 0; border-top:1px solid var(--mist); white-space:pre-wrap} .verb:first-child{border-top:0}
 .verb small{display:block; color:var(--sage-70); font-size:11px; margin-top:2px}
@@ -283,9 +283,9 @@ function resultsBody(r){
   if (r.tenure && r.tenure.length > 1) h += `<div class="card"><h3>By length of service</h3><div class="tw"><table class="t"><tr><th>Length of service</th><th class="n">Responses</th><th class="n">Overall</th></tr>${r.tenure.map(d => `<tr><td>${esc(d.tenure)}</td><td class="n">${d.n}</td><td class="n">${heat(d.overall)}</td></tr>`).join("")}</table></div></div>`;
   // progress over time
   if (hist.length > 1) {
-    const labels = hist.map(x => "Round " + x.number), colours = ["#4E5F4F","#C9A56B","#6B5B8C","#8C4A3F","#3F6B7A","#7B887C","#B08D57"];
+    const labels = hist.map(x => "Round " + x.number), colours = ["#4D604F","#3F2F28","#6B5B8C","#8C4A3F","#3F6B7A","#7B887C","#B08D57"];
     h += `<div class="card"><h3>Progress over time</h3><p class="muted">Average score by area, survey by survey.</p>${Viz.line([{ name:"Overall", color:"#262626", values:hist.map(x => x.overall) }].concat(secNames.map((n,i) => ({ name:n, color:colours[i % colours.length], values:hist.map(x => x.sections[n] ? x.sections[n].avg : null) }))), labels, { min:1, max:5, ticks:4, label:"Scores by survey" })}
-      ${hist.some(x => x.enps) ? `<h4>Employee NPS</h4>${Viz.line([{ name:"eNPS", color:"#4E5F4F", values:hist.map(x => x.enps ? x.enps.score : null) }], labels, { min:-100, max:100, ticks:4, fmt:v => (v>0?"+":"")+Math.round(v) })}` : ""}</div>`;
+      ${hist.some(x => x.enps) ? `<h4>Employee NPS</h4>${Viz.line([{ name:"eNPS", color:"#4D604F", values:hist.map(x => x.enps ? x.enps.score : null) }], labels, { min:-100, max:100, ticks:4, fmt:v => (v>0?"+":"")+Math.round(v) })}` : ""}</div>`;
   }
   // suggestions
   h += suggestionsHtml(r, secNames, prev, scaleQs);

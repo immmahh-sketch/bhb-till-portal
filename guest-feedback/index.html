@@ -11,10 +11,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
 <style>
 :root{
-  --sage:#4E5F4F; --sage-70:#7B887C; --sage-10:#EDEFED; --sage-dark:#3B483C;
-  --bone:#F7F7F7; --celadon:#C1C8B4; --mist:#E7E7E7; --white:#fff; --ink:#262626; --gold:#C9A56B;
+  --sage:#4D604F; --sage-70:#7B887C; --sage-10:#EDEFED; --sage-dark:#3F2F28;
+  --bone:#F8F8F8; --celadon:#CCCDB4; --mist:#E7E7E7; --white:#fff; --ink:#262626; --olive:#CCCDB4; --brown:#3F2F28;
   --attention:#B08D57; --attention-bg:#F7F0E4; --alert:#8C4A3F; --alert-bg:#F6EAE8; --good:#4F6B4F; --good-bg:#EDF2ED;
-  --display:"Cormorant Garamond",Georgia,serif; --body:Raleway,"Helvetica Neue",Arial,sans-serif;
+  --display:"Orpheus Pro","Cormorant Garamond",Georgia,serif; --body:Raleway,"Helvetica Neue",Arial,sans-serif;
   --track-label:.18em; --radius:10px; --shadow:0 1px 2px rgba(38,38,38,.06),0 8px 24px rgba(38,38,38,.07); --maxw:1040px;
 }
 *{box-sizing:border-box} html,body{margin:0;padding:0}
@@ -35,7 +35,7 @@ header.top{background:var(--sage); color:var(--white)}
 nav.tabs{background:var(--sage-dark)}
 .tabsin{max-width:var(--maxw); margin:0 auto; padding:0 20px; display:flex; gap:2px; overflow-x:auto}
 .tabbtn{background:transparent; border:0; cursor:pointer; color:rgba(255,255,255,.72); padding:12px 16px; font-size:12px; font-weight:600; white-space:nowrap; letter-spacing:var(--track-label); text-transform:uppercase; border-bottom:3px solid transparent}
-.tabbtn[aria-current="page"]{color:var(--white); border-bottom-color:var(--gold)}
+.tabbtn[aria-current="page"]{color:var(--white); border-bottom-color:var(--olive)}
 .pagehead{display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; margin:24px 0 14px}
 .pagehead h2{font-size:26px; color:var(--sage)} .pagehead .hint{font-size:13px; color:var(--sage-70)} .spacer{margin-left:auto}
 .btn{border:1px solid var(--sage); background:var(--sage); color:var(--white); border-radius:8px; padding:10px 18px; cursor:pointer; font-size:12px; font-weight:600; letter-spacing:var(--track-label); text-transform:uppercase; min-height:44px}
@@ -176,8 +176,8 @@ function formsBlock(resp, d){
   const byM = {}; resp.forEach(r => { (byM[monthKey(r.submitted_at)] ||= []).push(r); });
   const months = Object.keys(byM).sort();
   if (months.length > 1) {
-    h += `<div class="card"><h3>Over time</h3><p class="muted">By month.</p>${Viz.line([{ name:"Average rating", color:"#4E5F4F", values:months.map(m => Viz.avg(byM[m].map(r => r.avg).filter(a => a != null))) }], months.map(monthLab), { min:1, max:5, ticks:4, label:"Average rating by month" })}
-      ${npsVals.length ? `<h4>Net Promoter Score by month</h4>${Viz.line([{ name:"NPS", color:"#C9A56B", values:months.map(m => { const n = byM[m].map(r => r.nps).filter(x => x != null); return n.length ? (n.filter(x => x>=9).length - n.filter(x => x<=6).length)/n.length*100 : null; }) }], months.map(monthLab), { min:-100, max:100, ticks:4, fmt:x => (x>0?"+":"")+Math.round(x), label:"NPS by month" })}` : ""}</div>`;
+    h += `<div class="card"><h3>Over time</h3><p class="muted">By month.</p>${Viz.line([{ name:"Average rating", color:"#4D604F", values:months.map(m => Viz.avg(byM[m].map(r => r.avg).filter(a => a != null))) }], months.map(monthLab), { min:1, max:5, ticks:4, label:"Average rating by month" })}
+      ${npsVals.length ? `<h4>Net Promoter Score by month</h4>${Viz.line([{ name:"NPS", color:"#3F2F28", values:months.map(m => { const n = byM[m].map(r => r.nps).filter(x => x != null); return n.length ? (n.filter(x => x>=9).length - n.filter(x => x<=6).length)/n.length*100 : null; }) }], months.map(monthLab), { min:-100, max:100, ticks:4, fmt:x => (x>0?"+":"")+Math.round(x), label:"NPS by month" })}` : ""}</div>`;
   }
   // words
   const texts = resp.flatMap(r => textAnswers(r).map(x => x.t));
@@ -223,7 +223,7 @@ function reviewsBlock(revs){
   h += `<div class="card"><h3>By site</h3>${Viz.bars(plats.map(p => ({ label:p.label, value:Viz.avg(p.rows.map(r => r.rating)), note:p.rows.length + " reviews" })), { max:5, lo:3.5, hi:4.3 })}</div></div>`;
   const byM = {}; revs.filter(r => r.reviewed_on).forEach(r => { (byM[monthKey(r.reviewed_on)] ||= []).push(r.rating); });
   const months = Object.keys(byM).sort();
-  if (months.length > 1) h += `<div class="card" style="margin-top:14px"><h3>Over time</h3><p class="muted">Average stars by month.</p>${Viz.line([{ name:"Average stars", color:"#4E5F4F", values:months.map(m => Viz.avg(byM[m])) }], months.map(monthLab), { min:1, max:5, ticks:4, label:"Average stars by month" })}</div>`;
+  if (months.length > 1) h += `<div class="card" style="margin-top:14px"><h3>Over time</h3><p class="muted">Average stars by month.</p>${Viz.line([{ name:"Average stars", color:"#4D604F", values:months.map(m => Viz.avg(byM[m])) }], months.map(monthLab), { min:1, max:5, ticks:4, label:"Average stars by month" })}</div>`;
   const texts = revs.map(r => (r.title ? r.title + ". " : "") + r.body), good = revs.filter(r => r.rating >= 4).map(r => r.body), bad = revs.filter(r => r.rating <= 3).map(r => r.body);
   h += `<div class="card" style="margin-top:14px"><h3>What reviewers write about</h3>${Viz.cloud(texts, { max:60 })}</div>`;
   if (bad.length) { const tw = Viz.topWords(bad, 10); h += `<div class="card"><h3>What the 1 to 3 star reviews mention</h3>${tw.length ? `<div class="chips">${tw.map(x => `<span class="tag bad">${esc(x.w)} · ${x.n}</span>`).join("")}</div>` : `<p class="muted">Too few to pick out themes.</p>`}</div>`; }

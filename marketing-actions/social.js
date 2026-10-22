@@ -16,7 +16,7 @@
 .sp .scope label.mine{display:inline-flex; gap:6px; align-items:center; font-size:14px; margin-left:6px; cursor:pointer}
 .sp .item{display:flex; gap:16px; cursor:pointer; align-items:flex-start}
 .sp .item:hover{box-shadow:0 2px 6px rgba(38,38,38,.1), 0 10px 28px rgba(38,38,38,.1)}
-.sp .when{flex:none; width:62px; text-align:center; border-radius:10px; background:var(--sage-10,#EDEFED); padding:8px 4px; color:var(--sage,#4E5F4F)}
+.sp .when{flex:none; width:62px; text-align:center; border-radius:10px; background:var(--sage-10,#EDEFED); padding:8px 4px; color:var(--sage,#4D604F)}
 .sp .when b{display:block; font-family:var(--display,Georgia,serif); font-size:28px; line-height:1}
 .sp .when span{font-size:11px; letter-spacing:.14em; text-transform:uppercase}
 .sp .when small{display:block; font-size:10px; opacity:.75; margin-top:2px}
@@ -25,9 +25,9 @@
 .sp .txt{white-space:pre-wrap; overflow:hidden; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; word-break:break-word}
 .sp .thumbs{display:flex; gap:6px; flex-wrap:wrap; margin-top:10px}
 .sp .thumbs .th{width:64px; height:64px; border-radius:8px; object-fit:cover; background:var(--mist,#e7e7e7); display:block}
-.sp .thumbs .more{width:64px; height:64px; border-radius:8px; background:var(--sage-10,#EDEFED); color:var(--sage,#4E5F4F); display:flex; align-items:center; justify-content:center; font-weight:700}
+.sp .thumbs .more{width:64px; height:64px; border-radius:8px; background:var(--sage-10,#EDEFED); color:var(--sage,#4D604F); display:flex; align-items:center; justify-content:center; font-weight:700}
 .sp .meta{display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-top:10px; font-size:12px; color:var(--sage-70,#7B887C)}
-.sp .chip{display:inline-block; background:var(--sage-10,#EDEFED); color:var(--sage,#4E5F4F); border-radius:999px; padding:2px 10px; font-size:12px; font-weight:600}
+.sp .chip{display:inline-block; background:var(--sage-10,#EDEFED); color:var(--sage,#4D604F); border-radius:999px; padding:2px 10px; font-size:12px; font-weight:600}
 .sp .chip.note{background:var(--attention-bg,#F7F0E4); color:#6d5320}
 .sp .res{margin-top:8px; font-size:13px; color:var(--ink,#262626)}
 .sp .res b{font-weight:700}
@@ -37,10 +37,10 @@
 .spm .mediabox .m button{position:absolute; top:4px; right:4px; border:0; border-radius:50%; width:24px; height:24px; background:rgba(38,38,38,.75); color:#fff; cursor:pointer; line-height:1}
 .spm .mediabox .m .nm{font-size:11px; color:var(--sage-70,#7B887C); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:3px}
 .spm .mediabox .m.pending img,.spm .mediabox .m.pending video{opacity:.55}
-.spm .drop{border:2px dashed var(--celadon,#C1C8B4); border-radius:10px; padding:16px; text-align:center; cursor:pointer; background:var(--bone,#f7f7f7); color:var(--sage-70,#7B887C); font-size:14px}
-.spm .drop:hover,.spm .drop.over{background:var(--sage-10,#EDEFED); border-color:var(--sage,#4E5F4F)}
+.spm .drop{border:2px dashed var(--celadon,#CCCDB4); border-radius:10px; padding:16px; text-align:center; cursor:pointer; background:var(--bone,#F8F8F8); color:var(--sage-70,#7B887C); font-size:14px}
+.spm .drop:hover,.spm .drop.over{background:var(--sage-10,#EDEFED); border-color:var(--sage,#4D604F)}
 .spm .prog{height:8px; background:var(--mist,#e7e7e7); border-radius:99px; overflow:hidden; margin:8px 0 4px}
-.spm .prog i{display:block; height:100%; width:0; background:var(--gold,#C9A56B); transition:width .2s}
+.spm .prog i{display:block; height:100%; width:0; background:var(--olive,#CCCDB4); transition:width .2s}
 .spm .row2{display:grid; grid-template-columns:1fr 1fr; gap:12px}
 .spm .notes{border-top:1px solid var(--mist,#e7e7e7); margin-top:6px}
 .spm .note{padding:10px 0; border-bottom:1px solid var(--mist,#e7e7e7)}
@@ -50,18 +50,18 @@
 .spm .resgrid{display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:10px}
 .spm .resgrid .field{margin:0}
 .spm .err{background:var(--alert-bg,#F6EAE8); color:var(--alert,#8C4A3F); border-radius:8px; padding:10px 12px; margin-bottom:12px; font-size:14px}
-.spm h4{font-family:var(--display,Georgia,serif); font-size:20px; color:var(--sage,#4E5F4F); margin:20px 0 8px; font-weight:600}
+.spm h4{font-family:var(--display,Georgia,serif); font-size:20px; color:var(--sage,#4D604F); margin:20px 0 8px; font-weight:600}
 .sp .strip{display:flex; gap:12px; flex-wrap:wrap; align-items:center; background:var(--white,#fff); border-radius:10px; box-shadow:var(--shadow); padding:12px 16px; margin-bottom:14px; font-size:14px}
 .sp .strip .dotc{display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:6px; background:var(--sage-70,#7B887C)}
 .sp .strip .dotc.on{background:var(--good,#4F6B4F)} .sp .strip .dotc.bad{background:var(--alert,#8C4A3F)}
 .sp .chip.auto{background:var(--good-bg,#EDF2ED); color:var(--good,#4F6B4F)}
 .sp .failline{margin-top:8px; font-size:13px; color:var(--alert,#8C4A3F)}
-.spm .autobox{border:1px solid var(--mist,#e7e7e7); border-radius:10px; padding:14px; background:var(--bone,#f7f7f7)}
+.spm .autobox{border:1px solid var(--mist,#e7e7e7); border-radius:10px; padding:14px; background:var(--bone,#F8F8F8)}
 .spm .autobox.ok{border-color:var(--good,#4F6B4F); background:var(--good-bg,#EDF2ED)}
 .spm .autobox.bad{border-color:var(--alert,#8C4A3F); background:var(--alert-bg,#F6EAE8)}
 .spm .nohide{display:none!important}
-.spm .btn.gold{background:var(--gold,#C9A56B); border-color:var(--gold,#C9A56B); color:#2b2415}
-.spm .askbox{background:var(--white,#fff); border:2px solid var(--gold,#C9A56B); border-radius:10px; padding:16px; margin:0 0 14px; box-shadow:0 6px 24px rgba(0,0,0,.12)}
+.spm .btn.gold{background:var(--olive,#CCCDB4); border-color:var(--olive,#CCCDB4); color:#2b2415}
+.spm .askbox{background:var(--white,#fff); border:2px solid var(--olive,#CCCDB4); border-radius:10px; padding:16px; margin:0 0 14px; box-shadow:0 6px 24px rgba(0,0,0,.12)}
 .spm .askbox b{display:block; font-size:16px; margin-bottom:4px}
 .spm .warn{background:var(--attention-bg,#F7F0E4); border-radius:8px; padding:9px 12px; margin:8px 0; font-size:13px}
 @media (max-width:760px){ .sp .item{gap:12px} .sp .when{width:52px} .spm .row2{grid-template-columns:1fr} }

@@ -12,22 +12,22 @@
   'use strict';
 
   const CSS = `
-.fs .drop{border:2px dashed var(--celadon,#C1C8B4); border-radius:12px; padding:26px 16px; text-align:center; cursor:pointer; background:var(--bone,#f7f7f7); color:var(--sage-70,#7B887C)}
-.fs .drop:hover,.fs .drop.over{background:var(--sage-10,#EDEFED); border-color:var(--sage,#4E5F4F)}
-.fs .drop b{color:var(--sage,#4E5F4F); font-size:16px; display:block; margin-bottom:2px}
+.fs .drop{border:2px dashed var(--celadon,#CCCDB4); border-radius:12px; padding:26px 16px; text-align:center; cursor:pointer; background:var(--bone,#F8F8F8); color:var(--sage-70,#7B887C)}
+.fs .drop:hover,.fs .drop.over{background:var(--sage-10,#EDEFED); border-color:var(--sage,#4D604F)}
+.fs .drop b{color:var(--sage,#4D604F); font-size:16px; display:block; margin-bottom:2px}
 .fs .picked{margin:12px 0 0}
 .fs .picked div{display:flex; gap:10px; align-items:center; padding:7px 0; border-bottom:1px solid var(--mist,#e7e7e7); font-size:14px}
 .fs .picked div:last-child{border-bottom:0}
 .fs .picked .nm{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 .fs .picked button{background:none; border:0; color:var(--alert,#8C4A3F); cursor:pointer; font-size:13px}
 .fs .who{display:flex; gap:6px; flex-wrap:wrap; margin-top:2px}
-.fs .who label{display:inline-flex; align-items:center; gap:6px; border:1px solid var(--mist,#e7e7e7); background:var(--bone,#f7f7f7); border-radius:999px; padding:7px 12px; cursor:pointer; font-size:14px; letter-spacing:0; text-transform:none; color:var(--ink,#262626); margin:0}
-.fs .who label:has(input:checked){background:var(--sage,#4E5F4F); color:#fff; border-color:var(--sage,#4E5F4F)}
+.fs .who label{display:inline-flex; align-items:center; gap:6px; border:1px solid var(--mist,#e7e7e7); background:var(--bone,#F8F8F8); border-radius:999px; padding:7px 12px; cursor:pointer; font-size:14px; letter-spacing:0; text-transform:none; color:var(--ink,#262626); margin:0}
+.fs .who label:has(input:checked){background:var(--sage,#4D604F); color:#fff; border-color:var(--sage,#4D604F)}
 .fs .who input{width:auto; margin:0}
 .fs .quick{font-size:12px; margin-top:8px; color:var(--sage-70,#7B887C)}
-.fs .quick a{color:var(--sage,#4E5F4F); cursor:pointer; text-decoration:underline; margin-right:12px}
+.fs .quick a{color:var(--sage,#4D604F); cursor:pointer; text-decoration:underline; margin-right:12px}
 .fs .prog{height:8px; background:var(--mist,#e7e7e7); border-radius:99px; overflow:hidden; margin:10px 0 4px}
-.fs .prog i{display:block; height:100%; width:0; background:var(--gold,#C9A56B); transition:width .2s}
+.fs .prog i{display:block; height:100%; width:0; background:var(--olive,#CCCDB4); transition:width .2s}
 .fs .file{display:flex; gap:14px; align-items:center; padding:14px 0; border-top:1px solid var(--mist,#e7e7e7); flex-wrap:wrap}
 .fs .file:first-child{border-top:0}
 .fs .file .info{flex:1; min-width:200px}
@@ -37,9 +37,9 @@
 .fs .file .acts{display:flex; gap:8px; align-items:center}
 .fs a.btn{text-decoration:none; display:inline-flex; align-items:center; justify-content:center}
 .fs .chips{display:flex; gap:5px; flex-wrap:wrap; margin-top:5px}
-.fs .chip{display:inline-block; background:var(--sage-10,#EDEFED); color:var(--sage,#4E5F4F); border-radius:999px; padding:2px 10px; font-size:12px; font-weight:600}
+.fs .chip{display:inline-block; background:var(--sage-10,#EDEFED); color:var(--sage,#4D604F); border-radius:999px; padding:2px 10px; font-size:12px; font-weight:600}
 .fs .chip.got{background:var(--good-bg,#EDF2ED); color:var(--good,#4F6B4F)}
-.fs .new{background:var(--gold,#C9A56B); color:var(--ink,#262626); border-radius:999px; padding:2px 8px; font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; margin-left:8px; vertical-align:middle}
+.fs .new{background:var(--olive,#CCCDB4); color:var(--ink,#262626); border-radius:999px; padding:2px 8px; font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; margin-left:8px; vertical-align:middle}
 .fs h3{margin-bottom:10px}
 @media (max-width:760px){ .fs .file .acts{width:100%} .fs .file .acts .btn{flex:1} }
 `;

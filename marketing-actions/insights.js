@@ -24,12 +24,12 @@
 .ins .phead h3{margin:0; display:inline-block; border-radius:999px; padding:2px 16px 3px; background:var(--pc-bg); color:var(--pc-ink)}
 .ins .phead .sub{font-size:12px; color:var(--sage-70,#7B887C)}
 .ins .strip{display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px; margin-bottom:16px}
-.ins .strip div{background:var(--bone,#f7f7f7); border-radius:8px; padding:10px 14px; min-width:0}
-.ins .strip b{display:block; font-family:var(--display,Georgia,serif); font-size:28px; line-height:1.05; color:var(--sage,#4E5F4F); font-weight:600; font-variant-numeric:tabular-nums}
+.ins .strip div{background:var(--bone,#F8F8F8); border-radius:8px; padding:10px 14px; min-width:0}
+.ins .strip b{display:block; font-family:var(--display,Georgia,serif); font-size:28px; line-height:1.05; color:var(--sage,#4D604F); font-weight:600; font-variant-numeric:tabular-nums}
 .ins .strip span{font-size:10px; letter-spacing:var(--track-label,.18em); text-transform:uppercase; color:var(--sage-70,#7B887C)}
 .ins .strip small{display:block; font-size:11px; color:var(--sage-70,#7B887C); margin-top:2px}
 .ins .up{color:var(--good,#3F7A4F)} .ins .down{color:var(--alert,#8C4A3F)}
-.ins h4{font-family:var(--display,Georgia,serif); font-size:20px; color:var(--sage,#4E5F4F); margin:18px 0 8px; font-weight:600}
+.ins h4{font-family:var(--display,Georgia,serif); font-size:20px; color:var(--sage,#4D604F); margin:18px 0 8px; font-weight:600}
 .ins h4 small{font-family:var(--body,Raleway,sans-serif); font-size:12px; color:var(--sage-70,#7B887C); font-weight:400; margin-left:6px}
 .ins .notice{background:var(--attention-bg,#F7F0E4); border-radius:8px; padding:10px 14px; margin:0 0 12px; font-size:14px}
 .ins .notice.bad{background:var(--alert-bg,#F6EAE8); color:var(--alert,#8C4A3F)}
@@ -40,8 +40,8 @@
 .ins .na{color:var(--sage-70,#7B887C)}
 .ins .foot{font-size:12px; color:var(--sage-70,#7B887C); margin:4px 2px 0; max-width:760px; line-height:1.45}
 .ins .picks{display:flex; gap:8px; flex-wrap:wrap; margin:0 0 10px}
-.ins .pick{border:1px solid var(--mist,#e7e7e7); background:var(--white,#fff); color:var(--sage,#4E5F4F); border-radius:999px; padding:6px 14px; min-height:36px; font-size:13px; cursor:pointer}
-.ins .pick[aria-pressed="true"]{background:var(--pc,var(--sage,#4E5F4F)); border-color:var(--pc,var(--sage,#4E5F4F)); color:#fff}
+.ins .pick{border:1px solid var(--mist,#e7e7e7); background:var(--white,#fff); color:var(--sage,#4D604F); border-radius:999px; padding:6px 14px; min-height:36px; font-size:13px; cursor:pointer}
+.ins .pick[aria-pressed="true"]{background:var(--pc,var(--sage,#4D604F)); border-color:var(--pc,var(--sage,#4D604F)); color:#fff}
 .ins .pick[disabled]{opacity:.5; cursor:default}
 .ins .cw{overflow-x:auto}
 .ins svg.chart{display:block; width:100%; min-width:560px; height:auto; overflow:visible}
@@ -49,9 +49,9 @@
 .ins .scroll{overflow-x:auto; border:1px solid var(--mist,#e7e7e7); border-radius:8px}
 .ins table.t{width:100%; border-collapse:separate; border-spacing:0; font-size:14px; min-width:520px}
 .ins .t th,.ins .t td{padding:9px 10px; border-top:1px solid var(--mist,#e7e7e7); text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; background:var(--white,#fff)}
-.ins .t thead th{font-size:10px; letter-spacing:var(--track-label,.18em); text-transform:uppercase; color:var(--sage-70,#7B887C); font-weight:600; background:var(--bone,#f7f7f7); border-top:0}
+.ins .t thead th{font-size:10px; letter-spacing:var(--track-label,.18em); text-transform:uppercase; color:var(--sage-70,#7B887C); font-weight:600; background:var(--bone,#F8F8F8); border-top:0}
 .ins .t th:first-child,.ins .t td:first-child{text-align:left}
-.ins .t tbody th{font-weight:600; color:var(--sage,#4E5F4F)}
+.ins .t tbody th{font-weight:600; color:var(--sage,#4D604F)}
 .ins .t tbody tr:first-child th,.ins .t tbody tr:first-child td{border-top:0}
 .ins .bars{display:grid; gap:6px; margin:0 0 4px}
 .ins .brow{display:grid; grid-template-columns:minmax(110px,190px) 1fr; gap:6px 12px; align-items:center}
@@ -69,7 +69,7 @@
 .ins .lift{border:1px solid var(--mist,#e7e7e7); border-radius:10px; padding:12px 16px; margin:0 0 10px; background:var(--white,#fff)}
 .ins .lift b{display:block; font-size:15px; margin-bottom:2px}
 .ins .lift p{margin:0; font-size:14px; line-height:1.4}
-.ins .lift.muted{background:var(--bone,#f7f7f7)} .ins .lift.muted p{color:var(--sage-70,#7B887C)}
+.ins .lift.muted{background:var(--bone,#F8F8F8)} .ins .lift.muted p{color:var(--sage-70,#7B887C)}
 .ins .day{border-top:1px solid var(--mist,#e7e7e7); padding:10px 0}
 .ins .day:first-of-type{border-top:0}
 .ins .day .dh{display:flex; gap:8px 14px; align-items:baseline; flex-wrap:wrap}
@@ -137,7 +137,7 @@
       const v = lo + (hi - lo) * k / 4, yy = y(v);
       g += `<line x1="${PL}" x2="${W - PR}" y1="${yy.toFixed(1)}" y2="${yy.toFixed(1)}" stroke="var(--mist,#e7e7e7)" stroke-width="1"/><text x="${PL - 8}" y="${(yy + 4).toFixed(1)}" text-anchor="end">${esc(o.fmt ? o.fmt(v) : num(v))}</text>`;
     }
-    const color = o.color || 'var(--pc,#4E5F4F)';
+    const color = o.color || 'var(--pc,#4D604F)';
     let marks = '';
     if (o.kind === 'line') {
       let d = '', pen = false;
@@ -356,7 +356,7 @@
       const label = OUTCOMES.find(o => o[0] === st.outcome)[1];
       const items = series.map(r => ({ label: dShort(r.date), value: isNum(r[st.outcome]) ? r[st.outcome] : 0, tip: `${dLong(r.date)}: ${num(r[st.outcome]) ?? 0} ${label.toLowerCase()}${r.posts ? `, ${plural(r.posts, 'post')} that day` : ''}` }));
       const cht = chart(items, {
-        kind: 'bar', color: 'var(--sage,#4E5F4F)', aria: `${label} each day, with the days posts went out marked underneath`,
+        kind: 'bar', color: 'var(--sage,#4D604F)', aria: `${label} each day, with the days posts went out marked underneath`,
         extra: g => series.map((r, i) => r.posts > 0 ? `<circle cx="${g.x(i).toFixed(1)}" cy="${g.PT + g.ih + 8}" r="3.2" fill="#B03A6B"><title>${esc(dLong(r.date) + ': ' + plural(r.posts, 'post'))}</title></circle>` : '').join('')
       });
       const chartBox = `<div class="card"><h3>${esc(label)}, day by day</h3>${picks}${cht}<p class="foot"><span style="color:#B03A6B">●</span> marks a day a post went out.</p></div>`;

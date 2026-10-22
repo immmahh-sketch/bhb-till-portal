@@ -36,7 +36,7 @@
       if (!email || tok() || window.parent === window || document.getElementById("bhbAuthWarn")) return;
       var d = document.createElement("div"); d.id = "bhbAuthWarn";
       d.style.cssText = "position:fixed;left:12px;right:12px;top:12px;z-index:2147483647;background:#fff;border:2px solid #B08D57;border-radius:10px;padding:14px 16px;font:15px/1.4 Raleway,Arial,sans-serif;color:#262626;box-shadow:0 8px 30px rgba(0,0,0,.25);text-align:center";
-      d.innerHTML = '<b>Please refresh the Staff Portal</b><div style="margin:6px 0 10px">This page needs the portal to sign you in again. Close the portal and open it again, or tap the button.</div><button style="font:inherit;font-weight:700;padding:10px 18px;border-radius:8px;border:0;background:#4E5F4F;color:#fff">Refresh now</button>';
+      d.innerHTML = '<b>Please refresh the Staff Portal</b><div style="margin:6px 0 10px">This page needs the portal to sign you in again. Close the portal and open it again, or tap the button.</div><button style="font:inherit;font-weight:700;padding:10px 18px;border-radius:8px;border:0;background:#4D604F;color:#fff">Refresh now</button>';
       d.querySelector("button").onclick = function () { try { parent.location.reload(); } catch (e) { location.reload(); } };
       document.body.appendChild(d);
     } catch (e) {}

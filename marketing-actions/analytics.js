@@ -32,15 +32,15 @@
 .an .phead{display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:12px}
 .an .phead h3{margin:0; display:inline-block; border-radius:999px; padding:2px 16px 3px; background:var(--pc-bg); color:var(--pc-ink)}
 .an .strip{display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px; margin-bottom:16px}
-.an .strip div{background:var(--bone,#f7f7f7); border-radius:8px; padding:10px 14px}
-.an .strip b{display:block; font-family:var(--display,Georgia,serif); font-size:28px; line-height:1.05; color:var(--sage,#4E5F4F); font-weight:600}
+.an .strip div{background:var(--bone,#F8F8F8); border-radius:8px; padding:10px 14px}
+.an .strip b{display:block; font-family:var(--display,Georgia,serif); font-size:28px; line-height:1.05; color:var(--sage,#4D604F); font-weight:600}
 .an .strip span{font-size:10px; letter-spacing:var(--track-label,.18em); text-transform:uppercase; color:var(--sage-70,#7B887C)}
 .an .strip small{display:block; font-size:11px; color:var(--sage-70,#7B887C); margin-top:2px}
-.an h4{font-family:var(--display,Georgia,serif); font-size:20px; color:var(--sage,#4E5F4F); margin:18px 0 8px; font-weight:600}
+.an h4{font-family:var(--display,Georgia,serif); font-size:20px; color:var(--sage,#4D604F); margin:18px 0 8px; font-weight:600}
 .an h4 small{font-family:var(--body,Raleway,sans-serif); font-size:12px; color:var(--sage-70,#7B887C); font-weight:400; margin-left:6px}
 .an .wrap{overflow-x:auto; border:1px solid var(--mist,#e7e7e7); border-radius:8px}
 .an table.t{width:100%; min-width:880px; border-collapse:separate; border-spacing:0; font-size:14px}
-.an .t thead th{font-size:10px; letter-spacing:var(--track-label,.18em); text-transform:uppercase; color:var(--sage-70,#7B887C); font-weight:600; text-align:right; padding:8px 10px; background:var(--bone,#f7f7f7); white-space:nowrap; border-bottom:1px solid var(--mist,#e7e7e7)}
+.an .t thead th{font-size:10px; letter-spacing:var(--track-label,.18em); text-transform:uppercase; color:var(--sage-70,#7B887C); font-weight:600; text-align:right; padding:8px 10px; background:var(--bone,#F8F8F8); white-space:nowrap; border-bottom:1px solid var(--mist,#e7e7e7)}
 .an .t thead th.l{text-align:left}
 .an .t td,.an .t tbody th{padding:10px; border-top:1px solid var(--mist,#e7e7e7); vertical-align:top; background:var(--white,#fff)}
 .an .t tbody tr:first-child td,.an .t tbody tr:first-child th{border-top:0}
@@ -312,8 +312,8 @@
   const SUBS = [['posts', 'Top and bottom posts'], ['trends', 'Trends'], ['timing', 'Best times'], ['content', 'Topics and types'], ['impact', 'Posts and results']];
   const NAV_CSS = `
 .ansub{display:flex; gap:8px; flex-wrap:wrap; margin:0 0 14px}
-.ansub button{border:1px solid var(--mist,#e7e7e7); background:var(--white,#fff); color:var(--sage,#4E5F4F); border-radius:999px; padding:8px 16px; min-height:40px; font-size:14px; cursor:pointer}
-.ansub button[aria-pressed="true"]{background:var(--sage,#4E5F4F); border-color:var(--sage,#4E5F4F); color:#fff}
+.ansub button{border:1px solid var(--mist,#e7e7e7); background:var(--white,#fff); color:var(--sage,#4D604F); border-radius:999px; padding:8px 16px; min-height:40px; font-size:14px; cursor:pointer}
+.ansub button[aria-pressed="true"]{background:var(--sage,#4D604F); border-color:var(--sage,#4D604F); color:#fff}
 .ansub button:focus-visible{outline:2px solid var(--blue,#34546F); outline-offset:2px}
 `;
   let lastSub = 'posts';
