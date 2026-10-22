@@ -34,7 +34,17 @@ const wake = require("./wake.js");
 const SUPABASE_URL = "https://safcrtrfdzsnftghibot.supabase.co";
 const SUPABASE_KEY = "sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU";
 
-const PRINTER_IP = "192.168.100.134";
+// The bar printer's address. Until it has its own network connection this is the Bixolon in the kitchen (192.168.100.134), as a stand-in.
+// Once the bar printer is on the network, put its IP address on the first line of a file called bar-printer-ip.txt in this folder
+// (no code to edit), then restart this program. Every ticket for the bar, and the Botanicals receipts, then print there.
+const PRINTER_IP = (() => {
+  try {
+    const t = require("fs").readFileSync(require("path").join(__dirname, "bar-printer-ip.txt"), "utf8").split(/\r?\n/)[0].trim();
+    if (/^\d{1,3}(\.\d{1,3}){3}$/.test(t)) return t;
+    console.error(`bar-printer-ip.txt does not hold an IP address (${JSON.stringify(t)}), using the stand-in`);
+  } catch (e) { /* no file: use the stand-in */ }
+  return "192.168.100.134";
+})();
 const PRINTER_PORT = 9100;
 const POLL_MS = 4000;     // how often to check when live updates aren't working
 const SAFETY_MS = 60000;  // a safety check once a minute even when they are (see wake.js)
