@@ -150,17 +150,17 @@ async function flushPending(){
 }
 async function viewTill(){
   const v = $("#views"); v.innerHTML = `<div class="loading">Loading…</div>`;
-  T.team = lsGet("bot_team", "");
+  try { localStorage.removeItem("bot_team"); } catch(e){}   // an older version remembered the name on the device; it no longer does
   try { const d = await call("till.load"); T.products = d.products; T.printAuto = d.print_receipts; T.business = d.business_name; T.stale = false; lsSet("bot_products_cache", d.products); }
   catch(e){ const c = lsGet("bot_products_cache", null); if (isNet(e) && c) { T.products = c; T.stale = true; } else { v.innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; } }
   flushPending().then(n => { if (n) toast(`${n} saved sale${n === 1 ? "" : "s"} sent.`); });
   if (!T.team) return askTeam();
   paintTill();
 }
-function forgetTeam(){ T.team = ""; lsSet("bot_team", ""); }
+function forgetTeam(){ T.team = ""; }
 function askTeam(){
   ov(`<h3>Who is on the till?</h3><p class="muted">Your name goes on every sale you ring up.</p><div class="field"><input id="tm" value="${esc(T.team)}" placeholder="Your name" maxlength="40" style="text-align:center"></div><button class="btn big" id="tmok">Start</button>`);
-  const go = () => { const n = $("#tm").value.trim(); if (!n) { toast("Enter your name.", true); return; } T.team = n; lsSet("bot_team", n); ovClose(); paintTill(); };
+  const go = () => { const n = $("#tm").value.trim(); if (!n) { toast("Enter your name.", true); return; } T.team = n; ovClose(); paintTill(); };
   $("#tmok").onclick = go; $("#tm").onkeydown = e => { if (e.key === "Enter") go(); }; setTimeout(() => $("#tm") && $("#tm").focus(), 50);
 }
 function addLine(p){
