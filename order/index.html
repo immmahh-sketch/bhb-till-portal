@@ -175,6 +175,13 @@
   <div id="camperWelcomeNote" style="display:none;margin:4px auto 18px;max-width:330px;padding:14px 16px;border:1px solid rgba(255,255,255,.45);border-radius:3px;font-size:14.5px;line-height:1.5;text-align:center">
     <b>We'll bring your order to your camper van</b>, packed in takeaway packaging. Just enter your vehicle registration when you order.
   </div>
+  <div id="idBox" style="display:none;width:100%;max-width:330px;margin:4px auto 10px;text-align:left">
+    <label id="idNameLbl" for="idName" style="display:block;font-size:12px;letter-spacing:1px;text-transform:uppercase;margin:0 0 6px;opacity:.9">Your name</label>
+    <input id="idName" type="text" maxlength="60" autocomplete="name" placeholder="e.g. Sarah Jones" style="width:100%;box-sizing:border-box;padding:13px;border:1px solid #ffffff60;border-radius:2px;background:transparent;color:#fff;font-size:17px;font-family:inherit;margin-bottom:14px">
+    <label id="idRoomLbl" for="idRoom" style="display:block;font-size:12px;letter-spacing:1px;text-transform:uppercase;margin:0 0 6px;opacity:.9">Table number</label>
+    <input id="idRoom" type="text" maxlength="12" autocomplete="off" inputmode="numeric" placeholder="e.g. 12" style="width:100%;box-sizing:border-box;padding:13px;border:1px solid #ffffff60;border-radius:2px;background:transparent;color:#fff;font-size:17px;font-family:inherit;margin-bottom:14px">
+    <div id="idErr" style="color:#ff9a9a;font-size:13px;min-height:20px"></div>
+  </div>
   <button class="back" onclick="startOrder()">Start your order</button>
 </section>
 
@@ -250,8 +257,9 @@
       <div class="subtotrow total"><span>Total</span><span>£<span id="subtotal">0.00</span></span></div>
     </div>
     <div id="camperBasketNote" style="display:none;margin:0 0 16px;padding:12px 14px;background:var(--sage-light);border-radius:3px;font-size:14px;line-height:1.5;color:var(--ink)">
-      <b>Delivered to your camper van.</b> We'll bring your order out to your camper in takeaway packaging. Please enter your vehicle registration below so we can find you.
+      <b>Delivered to your camper van.</b> We'll bring your order out to your camper in takeaway packaging. Please check your vehicle registration below so we can find you.
     </div>
+    <div id="idConfirmNote" style="display:none;margin:0 0 14px;font-size:14px;line-height:1.5;color:var(--ink)"><b>Please check these details are right</b> before you order, so we can bring everything to the right place.</div>
     <div class="fld" id="nameFld"><label id="nameLbl">Name the room is booked under</label><input id="gName" placeholder="e.g. Sarah Jones" autocomplete="name"></div>
     <div class="fld" id="roomFld"><label id="roomLbl">Room number</label><input id="gRoom" placeholder="e.g. 12" inputmode="numeric" autocomplete="off"></div>
     <div class="fld" id="roomLockedFld" style="display:none"><label id="roomLockedLbl">Room</label><div class="lockedval" id="roomLockedVal"></div></div>
@@ -1490,6 +1498,16 @@ async function checkStaffFoodAvailability(){
 
 /* ---------------- welcome ---------------- */
 function startOrder(){
+  // Outside tables and camper vans: who you are and where to bring it come first, before anything can be added to an order. They are copied
+  // to the summary screen, where the guest checks them again before paying.
+  if(!S.isComp && (isOutside() || isCamper())){
+    var idName = $("idName").value.trim(), idRoom = isCamper() ? normaliseReg($("idRoom").value) : $("idRoom").value.trim();
+    var idErr = $("idErr"); idErr.textContent = "";
+    if(!idName){ idErr.textContent = "Please enter your name."; $("idName").focus(); return; }
+    if(isCamper() ? !isPlausibleReg(idRoom) : !idRoom){ idErr.textContent = isCamper() ? "Please enter your camper van's registration so we can find you." : "Please enter your table number."; $("idRoom").focus(); return; }
+    $("gName").value = idName; $("gRoom").value = idRoom;
+    try{ sessionStorage.setItem("rs_name", idName); sessionStorage.setItem(roomStorageKey(), idRoom); }catch(e){}
+  }
   // Bob's link bypasses the open/closed gate entirely - staff placing a
   // comp order shouldn't be blocked by normal service hours. Staff Food has
   // its own password gate already and no email field at all. Neither channel
@@ -1660,7 +1678,10 @@ async function checkBusyNotice(){
   loadPersistedCart();
   renderBasketBar();
   applyChannelCopy();
-  if(lockedRoom && !isStaffLink){
+  var suggestedTable = "";
+  if(lockedRoom && !isStaffLink && S.channel === "outside"){
+    suggestedTable = lockedRoom;   // asked for and confirmed rather than locked
+  } else if(lockedRoom && !isStaffLink){
     S.lockedRoom = lockedRoom;
     $("roomFld").style.display = "none";
     $("roomLockedFld").style.display = "";
@@ -1677,6 +1698,15 @@ async function checkBusyNotice(){
     regInput.style.textTransform = "uppercase";
   }
   restoreSessionFields();
+  if(!S.isComp && !isStaffLink && (S.channel === "outside" || S.channel === "camper")){
+    $("idBox").style.display = ""; $("idConfirmNote").style.display = "";
+    if(S.channel === "camper"){
+      $("idRoomLbl").textContent = "Vehicle registration";
+      var idr = $("idRoom"); idr.placeholder = "e.g. AB12 CDE"; idr.setAttribute("inputmode", "text"); idr.setAttribute("autocapitalize", "characters"); idr.style.textTransform = "uppercase";
+    }
+    $("idName").value = $("gName").value;
+    $("idRoom").value = suggestedTable || $("gRoom").value;
+  }
   if(S.isComp){ $("payVerb").textContent = "Place order"; $("nameFld").style.display = "none"; }
   if(isStaffLink){
     // Collection, not delivery - just a name, no room/table field at all.
