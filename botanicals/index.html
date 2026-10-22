@@ -209,19 +209,49 @@ function otherItem(){
 function payScreen(){
   const total = cartTotal(), ref = T.refund;
   ov(`<h3>${ref ? "Refund amount" : "Amount due"}</h3><div class="amt" style="color:${ref ? "var(--alert)" : "var(--sage)"}">${ref ? "-" : ""}${money(total)}</div>
-    <p>${ref ? "Refund the customer on the SumUp reader, then tap Refund given." : "Take the payment on the SumUp reader, then tap Card payment taken."}</p>
-    <button class="btn big ${ref ? "red" : ""}" id="paid">${ref ? "Refund given" : "Card payment taken"}</button><button class="btn ghost" id="back">Back to order</button>`);
-  $("#back").onclick = ovClose; $("#paid").onclick = () => confirmPaid();
+    <p>${ref ? "How is it being refunded?" : "How is the customer paying?"}</p>
+    <button class="btn big ${ref ? "red" : ""}" id="pcard">${ref ? "Refund to card" : "Card"}</button>
+    <button class="btn big ghost" id="pcash">${ref ? "Refund in cash" : "Cash"}</button><button class="btn ghost" id="back">Back to order</button>`);
+  $("#back").onclick = ovClose; $("#pcard").onclick = cardStep; $("#pcash").onclick = cashStep;
 }
-async function confirmPaid(){
-  const b = $("#paid"); if (b) b.disabled = true;
-  const sale = { id:newId(), lines:T.cart.map(l => ({ product_id:l.product_id, name:l.name, unit_price:l.unit_price, qty:l.qty })), is_refund:T.refund, team_member:T.team, print:T.printAuto };
+function cardStep(){
+  const total = cartTotal(), ref = T.refund;
+  ov(`<h3>${ref ? "Refund to card" : "Card payment"}</h3><div class="amt" style="color:${ref ? "var(--alert)" : "var(--sage)"}">${ref ? "-" : ""}${money(total)}</div>
+    <p>${ref ? "Refund the customer on the SumUp reader, then tap Refund given." : "Take the payment on the SumUp reader, then tap Card payment taken."}</p>
+    <button class="btn big ${ref ? "red" : ""}" id="paid">${ref ? "Refund given" : "Card payment taken"}</button><button class="btn ghost" id="back">Back</button>`);
+  $("#back").onclick = payScreen; $("#paid").onclick = () => confirmPaid("card", null, $("#paid"));
+}
+function cashStep(){
+  const total = cartTotal(), ref = T.refund;
+  if (ref) {
+    ov(`<h3>Refund in cash</h3><div class="amt" style="color:var(--alert)">-${money(total)}</div><p>Hand ${money(total)} back to the customer in cash, then tap Cash refunded.</p>
+      <button class="btn big red" id="paid">Cash refunded</button><button class="btn ghost" id="back">Back</button>`);
+    $("#back").onclick = payScreen; $("#paid").onclick = () => confirmPaid("cash", null, $("#paid"));
+    return;
+  }
+  const steps = [5, 10, 20, 50].filter(n => n >= total);
+  ov(`<h3>Cash</h3><div class="amt">${money(total)}</div>
+    <div class="field" style="text-align:left"><label for="cg">Cash received (£)</label><input id="cg" type="number" step="0.01" min="0" inputmode="decimal" placeholder="${total.toFixed(2)}"></div>
+    <div class="chips" style="justify-content:center"><button class="chip" data-cg="${total.toFixed(2)}">Exact</button>${steps.map(n => `<button class="chip" data-cg="${n}">£${n}</button>`).join("")}</div>
+    <div class="amt" id="chg" style="font-size:44px;margin:6px 0 12px">Change £0.00</div>
+    <button class="btn big" id="paid" disabled>Cash received</button><button class="btn ghost" id="back">Back</button>`);
+  const upd = () => { const g = Math.round((Number($("#cg").value) || 0) * 100) / 100, ok = g + 0.0001 >= total; $("#chg").textContent = ok ? `Change ${money(g - total)}` : "Not enough yet"; $("#chg").style.color = ok ? "var(--sage)" : "var(--alert)"; $("#paid").disabled = !ok; };
+  $("#cg").oninput = upd; $$("[data-cg]").forEach(b => b.onclick = () => { $("#cg").value = b.dataset.cg; upd(); });
+  $("#back").onclick = payScreen; $("#paid").onclick = () => confirmPaid("cash", Math.round(Number($("#cg").value) * 100) / 100, $("#paid"));
+  setTimeout(() => $("#cg") && $("#cg").focus(), 50); upd();
+}
+async function confirmPaid(method, given, btn){
+  if (btn) btn.disabled = true;
+  const sale = { id:newId(), lines:T.cart.map(l => ({ product_id:l.product_id, name:l.name, unit_price:l.unit_price, qty:l.qty })), is_refund:T.refund, team_member:T.team, print:T.printAuto, payment_method:method, cash_given:method === "cash" && !T.refund ? given : null };
   const total = cartTotal(), ref = T.refund; let seq = null, saved = true;
   try { const r = await call("sale.record", sale); seq = r.seq; }
-  catch(e){ if (isNet(e)) { const q = lsGet("bot_pending_sales", []); q.push(sale); lsSet("bot_pending_sales", q); saved = false; } else { toast(e.message, true); if (b) b.disabled = false; return; } }
+  catch(e){ if (isNet(e)) { const q = lsGet("bot_pending_sales", []); q.push(sale); lsSet("bot_pending_sales", q); saved = false; } else { toast(e.message, true); if (btn) btn.disabled = false; return; } }
   T.cart = []; T.refund = false; document.body.classList.remove("refunding");
   forgetTeam();   // after every transaction the till asks who is on it again
+  const change = method === "cash" && !ref ? Math.round((given - total) * 100) / 100 : null;
   ov(`<h3>Thank you</h3><div class="amt">${ref ? "-" : ""}${money(total)}</div>
+    <p style="margin:0 0 6px"><span class="tag">${method === "cash" ? "Cash" : "Card"}</span></p>
+    ${change !== null ? `<div class="amt" style="font-size:48px;margin:4px 0 10px">Change ${money(change)}</div>` : ""}
     <p class="muted">${saved ? (seq != null ? `Receipt ${seq}. ` : "") + (T.printAuto ? "The receipt is printing." : "") : "No connection: this sale is saved on this device and will be sent when it is back."}</p>
     ${saved ? `<button class="btn ghost" id="prn">${T.printAuto ? "Print another receipt" : "Print receipt"}</button>` : ""}<button class="btn big" id="next">New sale</button>`);
   if ($("#prn")) $("#prn").onclick = async () => { const p = $("#prn"); p.disabled = true; try { await call("receipt.print", { sale_id:sale.id }); toast("Sent to the printer."); } catch(e){ toast(e.message, true); } finally { p.disabled = false; } };
@@ -241,6 +271,7 @@ async function showRead(action){
     <div class="kpis"><div class="kpi"><div class="l">Sales</div><div class="v" style="font-size:28px">${money(r.gross)}</div><div class="s">${r.sales_count} sale${r.sales_count === 1 ? "" : "s"}</div></div>
     <div class="kpi"><div class="l">Refunds</div><div class="v" style="font-size:28px">${money(r.refunds)}</div><div class="s">${r.refund_count}</div></div>
     <div class="kpi"><div class="l">Net takings</div><div class="v" style="font-size:28px">${money(r.net)}</div><div class="s">no VAT</div></div></div>
+    ${r.by_method ? `<div class="tw"><table class="t"><tr><th>How it was paid</th><th class="r">Sales</th><th class="r">Refunds</th><th class="r">Net</th></tr><tr><td>Card</td><td class="r">${money(r.by_method.card.sales)}</td><td class="r">${money(r.by_method.card.refunds)}</td><td class="r">${money(r.by_method.card.net)}</td></tr><tr><td>Cash</td><td class="r">${money(r.by_method.cash.sales)}</td><td class="r">${money(r.by_method.cash.refunds)}</td><td class="r">${money(r.by_method.cash.net)}</td></tr></table></div>` : ""}
     <div class="tw">${t(r.by_category, "Category")}${t(r.by_product, "Product")}${r.team.length ? `<table class="t"><tr><th>Team</th><th class="r">Sales</th><th class="r">Takings</th><th class="r">Refunds</th></tr>${r.team.map(x => `<tr><td>${esc(x.name)}</td><td class="r">${x.sales}</td><td class="r">${money(x.takings)}</td><td class="r">${money(x.refunds)}</td></tr>`).join("")}</table>` : ""}</div>
     <p class="muted" style="font-size:13px">${r.voids} item${r.voids === 1 ? "" : "s"} removed before payment (${money(r.voids_value)}).</p>
     <button class="btn" id="rprint">Print this page</button> <button class="btn ghost" id="rdone">Close</button>`, "wide");
@@ -268,6 +299,12 @@ async function viewReports(){
 }
 const lineValue = (s, l) => (s.is_refund ? -1 : 1) * Math.abs(Number(l.qty) || 0) * (Number(l.unitPrice) || 0);
 const lineQty = (s, l) => (s.is_refund ? -1 : 1) * Math.abs(Number(l.qty) || 0);
+function methodCard(sales){
+  const m = { card:{ s:0, r:0 }, cash:{ s:0, r:0 } };
+  sales.forEach(x => { const k = x.payment_method === "cash" ? "cash" : "card", v = Math.abs(Number(x.total)); if (x.is_refund) m[k].r += v; else m[k].s += v; });
+  const row = (n, o) => `<tr><td>${n}</td><td class="r">${money(o.s)}</td><td class="r">${money(o.r)}</td><td class="r">${money(o.s - o.r)}</td></tr>`;
+  return `<div class="card"><h3>How it was paid</h3><div class="tw"><table class="t"><tr><th></th><th class="r">Sales</th><th class="r">Refunds</th><th class="r">Net</th></tr>${row("Card (SumUp)", m.card)}${row("Cash", m.cash)}</table></div></div>`;
+}
 function paintReports(){
   const [from, to] = rangeDates(), d = S.data;
   const sales = d.sales.filter(s => ukDay(s.ts) >= from && ukDay(s.ts) <= to);
@@ -293,6 +330,7 @@ function paintReports(){
     <div class="kpi"><div class="l">Net takings</div><div class="v">${money(gross - refunds)}</div><div class="s">${fmtD(from)}${from === to ? "" : " to " + fmtD(to)}</div></div>
     <div class="kpi"><div class="l">Average sale</div><div class="v">${money(nSales ? gross / nSales : 0)}</div><div class="s">per transaction</div></div></div>`;
   if (!sales.length) return $("#views").innerHTML = h + `<div class="card"><div class="empty">No sales in this period.</div></div>`, bindReports(sales);
+  h += methodCard(sales);
   const maxP = Math.max(...prods.map(p => p.value), 0), maxC = Math.max(...cats.map(p => p.value), 0);
   h += `<div class="grid2"><div class="card"><h3>By product</h3><div class="tw"><table class="t"><tr><th>Product</th><th class="r">Qty</th><th class="r">Takings</th><th></th></tr>${prods.map(p => `<tr><td>${esc(p.k)}</td><td class="r">${p.qty}</td><td class="r">${money(p.value)}</td><td style="width:90px">${bar(p.value, maxP)}</td></tr>`).join("")}</table></div></div>
     <div class="card"><h3>By category</h3><div class="tw"><table class="t"><tr><th>Category</th><th class="r">Qty</th><th class="r">Takings</th><th></th></tr>${cats.map(p => `<tr><td>${esc(p.k)}</td><td class="r">${p.qty}</td><td class="r">${money(p.value)}</td><td style="width:90px">${bar(p.value, maxC)}</td></tr>`).join("")}</table></div></div></div>`;
@@ -301,7 +339,7 @@ function paintReports(){
   if (used.length) h += `<div class="card" style="margin-top:14px"><h3>By hour of the day</h3><div class="tw"><table class="t">${used.map(([i, v]) => `<tr><td style="width:70px">${String(i).padStart(2, "0")}:00</td><td>${bar(v, mh)}</td><td class="r" style="width:100px">${money(v)}</td></tr>`).join("")}</table></div></div>`;
   h += `<div class="card" style="margin-top:14px"><h3>Team</h3><div class="tw"><table class="t"><tr><th>Team member</th><th class="r">Sales</th><th class="r">Takings</th><th class="r">Refunds</th></tr>${[...team.entries()].map(([k, o]) => `<tr><td>${esc(k)}</td><td class="r">${o.n}</td><td class="r">${money(o.sales)}</td><td class="r">${money(o.refunds)}</td></tr>`).join("")}</table></div></div>`;
   if (sessions.length) h += `<div class="card"><h3>Sessions (the till's Z-reads)</h3><div class="tw"><table class="t"><tr><th>Opened</th><th>Closed</th><th>Tablet</th><th class="r">Transactions</th><th class="r">Takings</th></tr>${sessions.map(x => { const o = bySession.get(x.id); return `<tr><td>${fmtDT(x.opened_at)}</td><td>${x.closed ? fmtDT(x.closed_at) : `<span class="tag good">Open</span>`}</td><td>${esc(x.device_label || "")}</td><td class="r">${o.n}</td><td class="r">${money(o.v)}</td></tr>`; }).join("")}</table></div></div>`;
-  h += `<div class="card"><h3>Sales</h3><p class="muted">Latest ${Math.min(sales.length, 150)} of ${sales.length}.</p><div class="tw"><table class="t"><tr><th>Time</th><th>No.</th><th>Team member</th><th class="r">Total</th><th>Items</th></tr>${sales.slice(0, 150).map(s => `<tr><td>${fmtDT(s.ts)}</td><td>${s.seq}</td><td>${esc(s.team_member || "")}</td><td class="r">${s.is_refund ? `<span class="tag bad">Refund</span> ` : ""}${money(s.total)}</td><td>${(s.lines || []).map(l => esc(`${l.qty} × ${l.name}`)).join(", ")}</td></tr>`).join("")}</table></div></div>`;
+  h += `<div class="card"><h3>Sales</h3><p class="muted">Latest ${Math.min(sales.length, 150)} of ${sales.length}.</p><div class="tw"><table class="t"><tr><th>Time</th><th>No.</th><th>Team member</th><th>Paid</th><th class="r">Total</th><th>Items</th></tr>${sales.slice(0, 150).map(s => `<tr><td>${fmtDT(s.ts)}</td><td>${s.seq}</td><td>${esc(s.team_member || "")}</td><td>${s.payment_method === "cash" ? "Cash" : "Card"}</td><td class="r">${s.is_refund ? `<span class="tag bad">Refund</span> ` : ""}${money(s.total)}</td><td>${(s.lines || []).map(l => esc(`${l.qty} × ${l.name}`)).join(", ")}</td></tr>`).join("")}</table></div></div>`;
   if (voids.length) h += `<div class="card"><h3>Items removed before payment</h3><div class="tw"><table class="t"><tr><th>Time</th><th>Team member</th><th>Item</th><th class="r">Qty</th><th class="r">Value</th></tr>${voids.map(x => `<tr><td>${fmtDT(x.ts)}</td><td>${esc(x.team_member || "")}</td><td>${esc(x.item_name)}</td><td class="r">${x.qty}</td><td class="r">${money(x.qty * x.unit_price)}</td></tr>`).join("")}</table></div></div>`;
   $("#views").innerHTML = h; bindReports(sales);
 }
@@ -309,8 +347,8 @@ function bindReports(sales){
   $$("[data-range]").forEach(b => b.onclick = () => { S.range = b.dataset.range; if (S.range === "custom") { const [f, t] = rangeDates(); S.from = f; S.to = t; paintReports(); } else viewReports(); });
   if ($("#rgo")) $("#rgo").onclick = () => { S.from = $("#rf").value; S.to = $("#rt").value; if (!S.from || !S.to || S.from > S.to) { toast("Choose a start date that is not after the end date.", true); return; } viewReports(); };
   if ($("#csv")) $("#csv").onclick = () => {
-    const out = [["Date","Time","Receipt no.","Team member","Refund","Product","Category","Qty","Unit price","Line value"]];
-    sales.forEach(s => (s.lines || []).forEach(l => out.push([ukDay(s.ts), new Date(s.ts).toLocaleTimeString("en-GB", { timeZone:"Europe/London", hour:"2-digit", minute:"2-digit" }), s.seq, s.team_member || "", s.is_refund ? "Yes" : "", l.name, l.category || "", lineQty(s, l), Number(l.unitPrice) || 0, lineValue(s, l).toFixed(2)])));
+    const out = [["Date","Time","Receipt no.","Team member","Paid by","Refund","Product","Category","Qty","Unit price","Line value"]];
+    sales.forEach(s => (s.lines || []).forEach(l => out.push([ukDay(s.ts), new Date(s.ts).toLocaleTimeString("en-GB", { timeZone:"Europe/London", hour:"2-digit", minute:"2-digit" }), s.seq, s.team_member || "", s.payment_method === "cash" ? "Cash" : "Card", s.is_refund ? "Yes" : "", l.name, l.category || "", lineQty(s, l), Number(l.unitPrice) || 0, lineValue(s, l).toFixed(2)])));
     const [f, t] = rangeDates(); Viz.csv(out, `botanicals-sales-${f}-to-${t}.csv`);
   };
 }

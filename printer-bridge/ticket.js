@@ -324,7 +324,12 @@ function buildBotanicalsReceipt(job) {
   chunks.push(escBytes([0x1b, 0x45, 0x01]));
   push(priceRow(refund ? "Total refunded" : "Total", sign * Math.abs(Number(p.total) || 0)));
   chunks.push(escBytes([0x1b, 0x45, 0x00]));
-  push(refund ? "Refunded to card\n" : "Paid by card\n");
+  if (p.payment_method === "cash") {
+    push(refund ? "Refunded in cash\n" : "Paid in cash\n");
+    if (!refund && p.cash_given != null) { push(priceRow("Cash given", Number(p.cash_given) || 0)); push(priceRow("Change", Number(p.change) || 0)); }
+  } else {
+    push(refund ? "Refunded to card\n" : "Paid by card\n");
+  }
   if (p.footer) {
     push(rule());
     chunks.push(escBytes([0x1b, 0x61, 0x01]));
