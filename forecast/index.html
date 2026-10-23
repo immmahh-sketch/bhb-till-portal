@@ -678,7 +678,7 @@ function viewImports(){
   const st = (k, label) => meta[k] ? `<tr><td>${label}</td><td>${esc(fmtDT(meta[k].latest))}</td><td>${esc(meta[k].from)} to ${esc(meta[k].to)}</td><td class="muted">${esc(meta[k].source)}</td></tr>` : `<tr><td>${label}</td><td colspan="3" class="muted">nothing loaded</td></tr>`;
   $("#views").innerHTML = `<div class="mbar"><h2 style="text-align:left">Imports</h2></div>
     ${S.me.admin ? `<div class="card"><h3>Add reports</h3>
-      <p class="muted" style="margin:0 0 10px">Drop in as many as you have, in any order, straight from Rezlynx and ResDiary: Actual &amp; Forecast, Event Revenue Forecast, Booking Summary, Meal Plan, Occupancy Report and the End of Day (PeriodEnd) reports. Nothing needs renaming or tidying. You see what each one holds before anything is saved.</p>
+      <p class="muted" style="margin:0 0 10px">Drop in as many as you have, in any order, straight from Rezlynx and ResDiary: Actual &amp; Forecast, Event Revenue Forecast, Booking Summary, Meal Plan, Occupancy Report and the End of Day (PeriodEnd) reports, plus the Reservations report and Sales and Marketing query that feed the guest feedback emails (add those two together). Nothing needs renaming or tidying. You see what each one holds before anything is saved.</p>
       <div class="drop" id="drop"><p>Drag the files here, or choose them</p><input type="file" id="pick" multiple accept=".csv,.xls,.xlsx"><button class="btn" id="pickBtn">Choose files</button></div>
       <div id="flist" style="margin-top:12px"></div></div>` : ""}
     <div class="cols2"><div class="card"><h3>What is loaded</h3><div class="scrollx"><table class="dt"><thead><tr><th>Report</th><th>Last imported</th><th>Days</th><th>File</th></tr></thead><tbody>
@@ -702,6 +702,7 @@ async function addFiles(list){
   S.imp.result = null; renderFiles();
 }
 function diffInfo(f){
+  if (f.kind === "stay_res" || f.kind === "stay_mail") return f.kind === "stay_res" ? `${f.stay.length} bookings` : `${f.stay.length} email records`;
   if (f.kind === "events") return `${f.days.length} event${f.days.length === 1 ? "" : "s"}`;
   if (f.kind === "eod") return `${f.days.length} day${f.days.length === 1 ? "" : "s"}, ${f.days.reduce((a, d) => a + d.codes.length, 0)} codes`;
   const cur = S.data.feed[f.kind] || {}; let n = 0, ch = 0, same = 0, out = 0;
@@ -718,9 +719,27 @@ function renderFiles(){
   $$("[data-rm]").forEach(b => b.onclick = () => { S.imp.files = S.imp.files.filter(f => f.id !== b.dataset.rm); renderFiles(); });
   const go = $("#doImport"); if (go) go.onclick = runImport; const cl = $("#clrImport"); if (cl) cl.onclick = () => { S.imp.files = []; S.imp.result = null; renderFiles(); };
 }
+async function callFeedback(action, payload){
+  const r = await fetch(CFG.URL.replace("/forecast-api", "/feedback-api"), { method:"POST", headers:{ "Content-Type":"application/json", Authorization:"Bearer " + CFG.KEY, apikey:CFG.KEY }, body: JSON.stringify({ action, staff_email: staffEmail(), ...(payload || {}) }) });
+  let d = {}; try { d = await r.json(); } catch (e) {}
+  if (!r.ok || d.error) throw new Error(d.error || `Request failed (${r.status})`);
+  return d;
+}
+async function importStays(out){
+  const res = S.imp.files.find(f => !f.error && f.kind === "stay_res"), mail = S.imp.files.find(f => !f.error && f.kind === "stay_mail");
+  if (!res && !mail) return false;
+  if (!res || !mail) { out.push(`<span class="err">${esc((res || mail).name)}: the guest feedback emails need both the Reservations report and the Sales and Marketing query. Add the other one as well.</span>`); return true; }
+  try {
+    const r = await callFeedback("stays.import", { departures:res.stay, emails:mail.stay });
+    const sk = Object.entries(r.skipped || {}).map(([k, n]) => `${n} ${esc(k)}`).join(", ");
+    out.push(`${esc(res.name)} and ${esc(mail.name)}: ${r.checked_out} checked out, <b>${r.queued}</b> added to the guest feedback list${sk ? "; not emailed: " + sk : ""}${r.already_known ? "; " + r.already_known + " already on the list" : ""}.`);
+    S.imp.files = S.imp.files.filter(x => x.id !== res.id && x.id !== mail.id); return false;
+  } catch (e) { out.push(`<span class="err">Guest feedback emails: ${esc(e.message)}</span>`); return true; }
+}
 async function runImport(){
   S.imp.busy = true; renderFiles(); const out = []; let bad = false;
-  const files = S.imp.files.filter(f => !f.error).sort((a, b) => KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind));
+  if (await importStays(out)) bad = true;
+  const files = S.imp.files.filter(f => !f.error && f.kind !== "stay_res" && f.kind !== "stay_mail").sort((a, b) => KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind));
   for (const f of files) {
     try {
       if (f.kind === "events") { const r = await call("import.events", { rows:f.days, filename:f.name }); out.push(`${esc(f.name)}: ${r.rows} events saved.`); }
