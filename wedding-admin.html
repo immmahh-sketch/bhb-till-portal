@@ -3157,14 +3157,165 @@ function open_(id){
   clearErr(); render(); window.scrollTo({ top: 0 });
 }
 
+/* ============================ PRIVATE DINING: the Pre-order tab ============================
+   An event (is_event) has two tabs: the usual page, and Pre-order. The pre-order is the customer's page (private-dining/?t=...) where they choose
+   every guest's meals from the menu Rezlynx holds, read the function sheet, see the live balance and pay. Everything below goes through dining-api. */
+var PRE = { data:null, busy:"", preview:null };
+
+function renderDetail(){
+  var d = S.detail, w = d.wedding, ev = !!w.is_event;
+  if (S.detailFor !== w.id) { S.detailFor = w.id; S.detailTab = "event"; PRE.data = null; PRE.preview = null; }
+  if (!ev) S.detailTab = "event";
+  var tabs = ev
+    ? '<div style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 16px">' +
+        '<button class="btn btn--sm' + (S.detailTab === "event" ? " btn--primary" : "") + '" onclick="setDetailTab(\'event\')">Event</button>' +
+        '<button class="btn btn--sm' + (S.detailTab === "pre" ? " btn--primary" : "") + '" onclick="setDetailTab(\'pre\')">Pre-order</button>' +
+      '</div>'
+    : "";
+  if (ev && S.detailTab === "pre") {
+    $("views").innerHTML = '<button class="btn btn--sm" onclick="S.current=null;render()">&larr; All weddings</button>' +
+      '<div class="split" style="margin:16px 0 4px"><h1>' + esc(w.salutation) + '</h1><span class="label">' + esc(ukDate(w.wedding_date)) + '</span></div>' +
+      '<p class="muted" style="margin:0 0 14px">' + (d.event ? esc(d.event.name) : "") + '</p>' + tabs + '<div id="preBox"><p class="muted">Loading&hellip;</p></div>';
+    loadPre();
+    return;
+  }
+  $("views").innerHTML = tabs + viewWedding();
+  if (!ev) { msgInit(w.id); phInit(w.id); }
+}
+function setDetailTab(t){ S.detailTab = t; renderDetail(); window.scrollTo({ top:0 }); }
+
+async function dcall(action, extra){
+  var body = { password:S.pw, action:action };
+  for (var k in (extra || {})) body[k] = extra[k];
+  var r = await fetch(CFG.SUPABASE_URL + "/functions/v1/dining-api", { method:"POST", headers:{ "Content-Type":"application/json", Authorization:"Bearer " + CFG.SUPABASE_KEY, apikey:CFG.SUPABASE_KEY }, body:JSON.stringify(body) });
+  var data = await r.json().catch(function(){ return {}; });
+  if (!r.ok) throw new Error(data.error || ("Request failed (" + r.status + ")"));
+  return data;
+}
+async function loadPre(){
+  try { PRE.data = await dcall("staff.get", { id:S.current }); renderPre(); }
+  catch (e) { var b = $("preBox"); if (b) b.innerHTML = '<div class="notice notice--late">' + esc(e.message) + '</div>'; }
+}
+function preStamp(iso){ return iso ? new Intl.DateTimeFormat("en-GB", { day:"numeric", month:"short", hour:"2-digit", minute:"2-digit", timeZone:"Europe/London" }).format(new Date(iso)) : ""; }
+
+function renderPre(){
+  var p = PRE.data, box = $("preBox"); if (!box || !p) return;
+  var opts = p.options || [], hasMenu = opts.length > 0;
+  var h = "";
+
+  /* ---- where it stands ---- */
+  var step = function(done, label, when){ return '<div style="flex:1 1 150px;padding:10px 12px;border:1px solid var(--mist);border-left:4px solid ' + (done ? "var(--sage)" : "var(--mist)") + '"><span class="label">' + label + '</span><div style="font-size:.9375rem">' + (done ? esc(when) : '<span class="muted">Not yet</span>') + '</div></div>'; };
+  h += '<div class="card"><h2 style="margin-bottom:10px">Pre-order</h2>' +
+    '<p class="muted" style="margin:0 0 12px;font-size:.875rem">The customer chooses every guest&rsquo;s starter, main and dessert from the menu Rezlynx holds for this booking, and sees their function sheet, live balance and can pay. Send them the link below.</p>' +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+      step(hasMenu, "Menu", opts.length + " dishes") +
+      step(!!p.sent_at, "Email sent", preStamp(p.sent_at) + (p.sent_to ? " to " + p.sent_to : "")) +
+      step(!!p.opened_at, "Customer opened it", preStamp(p.opened_at)) +
+      step(!!p.submitted_at, "Pre-order sent back", preStamp(p.submitted_at)) +
+    '</div>' +
+    '<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center"><code style="word-break:break-all;font-size:.8125rem">' + esc(p.link) + '</code>' +
+      '<button class="btn btn--sm" onclick="preCopy()">Copy link</button><a class="btn btn--sm" style="text-decoration:none" href="' + esc(p.link) + '" target="_blank" rel="noopener">Open their page</a></div></div>';
+
+  /* ---- the menu, as Rezlynx holds it ---- */
+  h += '<div class="card"><div class="split" style="margin-bottom:6px"><h2>Menu choices</h2><span class="label num">' + opts.length + ' dishes</span></div>' +
+    '<p class="muted" style="margin:0 0 12px;font-size:.875rem">What the customer picks from. It is picked up from the dishes booked against this event in Rezlynx; tidy it here if a heading came through as a dish, or add anything missing. Children&rsquo;s dishes only show for child guests.</p>' +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"><button class="btn btn--sm btn--primary" onclick="importMenu()">Pick up the menu from Rezlynx</button><button class="btn btn--sm" onclick="addDish()">Add a dish</button></div>';
+  if (!hasMenu) h += '<div class="notice notice--late"><strong>No menu yet.</strong> Press <em>Pick up the menu from Rezlynx</em>. If the menu is not laid out with STARTERS / MAINS / DESSERTS headings in Rezlynx it cannot be read, so add the dishes by hand.</div>';
+  COURSES.forEach(function(c){
+    var list = opts.filter(function(o){ return o.course === c[0]; }); if (!list.length) return;
+    h += '<h3 style="margin:14px 0 6px;font-size:.8125rem;letter-spacing:.14em">' + esc(c[1]) + '</h3><table>';
+    list.forEach(function(o){ h += '<tr><td>' + esc(o.label) + (o.is_child ? ' <span class="pill pill--prov">Children</span>' : '') + '</td><td class="money"><button class="btn btn--sm" onclick="addDish(&quot;' + o.id + '&quot;)">Edit</button> <button class="btn btn--sm" style="border:0" onclick="deleteDish(&quot;' + o.id + '&quot;)">Remove</button></td></tr>'; });
+    h += '</table>';
+  });
+  h += '</div>';
+
+  /* ---- settings and the email ---- */
+  h += '<div class="card"><h2 style="margin-bottom:10px">Email to the customer</h2>' +
+    '<div class="row"><div class="field"><span class="label">Please choose by (deadline)</span><input type="date" id="preDeadline" value="' + esc(p.deadline || "") + '"></div>' +
+    '<div class="field"><span class="label">To</span><div style="padding:9px 0">' + esc([p.wedding.email, p.wedding.secondary_email].filter(Boolean).join(", ") || "no email address on this event") + '</div></div></div>' +
+    '<div class="field"><span class="label">A personal line for the email (optional)</span><textarea id="preMessage" placeholder="e.g. Lovely to speak to you today. Any questions at all, just reply.">' + esc(p.message || "") + '</textarea></div>' +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button class="btn btn--sm" onclick="preSaveSettings()">Save deadline and line</button>' +
+      '<button class="btn btn--sm" onclick="prePreview()">Preview email</button>' +
+      '<button class="btn btn--sm" onclick="preTest()">Send a test to me</button>' +
+      '<button class="btn btn--sm btn--primary" onclick="preSend(false)">Send to the customer</button>' +
+      (p.sent_at ? '<button class="btn btn--sm" onclick="preSend(true)">Send a reminder</button>' : '') + '</div>' +
+    '<p class="muted" style="margin:10px 0 0;font-size:.8125rem">' + (p.sent_at ? 'Last sent ' + esc(preStamp(p.sent_at)) + ' to ' + esc(p.sent_to || "") + '.' : 'Not sent to the customer yet.') + ' A test goes only to the address you give, with the real link.</p>' +
+    '<div id="preMsg"></div><div id="preView"></div></div>';
+
+  /* ---- the answers ---- */
+  h += preAnswersHtml(p);
+  box.innerHTML = h;
+  if (PRE.preview) $("preView").innerHTML = PRE.preview;
+}
+
+function preAnswersHtml(p){
+  var guests = (p.guests || []).filter(function(g){ return g.starter || g.main || g.dessert || g.allergies || g.dietary || (g.name && !/^Guest \d+$/.test(g.name)); });
+  var h = '<div class="card"><div class="split" style="margin-bottom:10px"><h2>Their choices</h2><span class="label">' + guests.length + ' guest' + (guests.length === 1 ? "" : "s") + ' so far</span></div>';
+  if (!guests.length) return h + '<p class="muted" style="margin:0">Nothing chosen yet.</p></div>';
+  h += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"><button class="btn btn--sm" onclick="preCsv()">Download CSV</button><button class="btn btn--sm" onclick="prePrint()">Print kitchen sheet</button></div>';
+  COURSES.forEach(function(c){
+    var t = p.tally[c[0]] || {}, keys = Object.keys(t); if (!keys.length) return;
+    h += '<h3 style="margin:12px 0 6px;font-size:.8125rem;letter-spacing:.14em">' + esc(c[1]) + '</h3><table>';
+    keys.sort().forEach(function(k){ var e = t[k]; h += '<tr><td>' + esc(k) + '</td><td class="money"><strong>' + (e.adult + e.child) + '</strong>' + (e.child ? ' <span class="muted">(' + e.child + ' child)</span>' : '') + '</td></tr>'; });
+    h += '</table>';
+  });
+  var al = guests.filter(function(g){ return g.allergies; });
+  if (al.length) h += '<div class="notice notice--late" style="margin-top:14px"><strong>Allergies (' + al.length + ')</strong><br>' + al.map(function(g){ return esc(g.name) + ': ' + esc(g.allergies); }).join("<br>") + '</div>';
+  h += '<h3 style="margin:16px 0 6px;font-size:.8125rem;letter-spacing:.14em">Guest by guest</h3><div style="overflow-x:auto"><table><thead><tr><th>Guest</th><th>Starter</th><th>Main</th><th>Dessert</th><th>Allergies / dietary</th></tr></thead><tbody>' +
+    guests.map(function(g){ return '<tr><td>' + esc(g.name) + (g.kind === "child" ? ' <span class="pill pill--prov">Child</span>' : '') + '</td><td>' + esc(g.starter) + '</td><td>' + esc(g.main) + '</td><td>' + esc(g.dessert) + '</td><td>' + (g.allergies ? '<strong style="color:var(--alert)">' + esc(g.allergies) + '</strong>' : '') + (g.allergies && g.dietary ? '<br>' : '') + esc(g.dietary) + '</td></tr>'; }).join("") + '</tbody></table></div>';
+  if (p.notes) h += '<div class="notice notice--ok" style="margin-top:14px"><strong>Note to the kitchen</strong><br>' + esc(p.notes).replace(/\n/g, "<br>") + '</div>';
+  return h + '</div>';
+}
+
+function preCopy(){ var l = PRE.data.link; (navigator.clipboard ? navigator.clipboard.writeText(l) : Promise.reject()).then(function(){ preSay("Link copied.", true); }, function(){ window.prompt("Copy this link", l); }); }
+function preSay(m, good){ var b = $("preMsg"); if (b) b.innerHTML = '<div class="notice ' + (good ? "notice--ok" : "notice--late") + '" style="margin-top:12px">' + esc(m) + '</div>'; }
+async function preSaveSettings(){
+  try { await dcall("staff.settings", { id:S.current, deadline:$("preDeadline").value, message:$("preMessage").value }); PRE.data.deadline = $("preDeadline").value; PRE.data.message = $("preMessage").value; preSay("Saved.", true); }
+  catch (e) { preSay(e.message, false); }
+}
+async function prePreview(){
+  try {
+    await dcall("staff.settings", { id:S.current, deadline:$("preDeadline").value, message:$("preMessage").value });
+    var d = await dcall("staff.email", { id:S.current, mode:"preview" });
+    PRE.preview = '<div style="margin-top:14px"><p class="muted" style="margin:0 0 8px;font-size:.8125rem"><strong>To</strong> ' + esc((d.to || []).join(", ") || "nobody, add an email address first") + ' &middot; <strong>From</strong> ' + esc(d.from) + ' &middot; <strong>Replies go to</strong> ' + esc(d.replyTo) + '<br><strong>Subject</strong> ' + esc(d.subject) + '</p>' +
+      '<iframe title="Email preview" style="width:100%;height:640px;border:1px solid var(--mist);background:#fff" srcdoc="' + esc(d.html) + '"></iframe><p style="margin:8px 0 0"><button class="btn btn--sm" onclick="PRE.preview=null;$(\'preView\').innerHTML=\'\'">Close preview</button></p></div>';
+    $("preView").innerHTML = PRE.preview; preSay("", true);
+  } catch (e) { preSay(e.message, false); }
+}
+async function preTest(){
+  var to = window.prompt("Send the test email to which address?", staffEmail() || ""); if (!to) return;
+  try { await dcall("staff.settings", { id:S.current, deadline:$("preDeadline").value, message:$("preMessage").value }); var r = await dcall("staff.email", { id:S.current, mode:"test", test_to:to.trim() }); preSay("Test sent to " + r.sent_to + ". It carries the real link, marked [TEST] in the subject.", true); }
+  catch (e) { preSay(e.message, false); }
+}
+async function preSend(reminder){
+  var p = PRE.data;
+  if (!confirm((reminder ? "Send a reminder to " : "Send the pre-order email to ") + [p.wedding.email, p.wedding.secondary_email].filter(Boolean).join(" and ") + "?")) return;
+  try { await dcall("staff.settings", { id:S.current, deadline:$("preDeadline").value, message:$("preMessage").value }); var r = await dcall("staff.email", { id:S.current, mode:"send", reminder:!!reminder }); await loadPre(); preSay("Sent to " + r.sent_to + ".", true); }
+  catch (e) { preSay(e.message, false); }
+}
+function preCsv(){
+  var p = PRE.data;
+  csvRaw("pre-order-" + p.wedding.event_id, ["Guest", "Adult or child", "Starter", "Main", "Dessert", "Allergies", "Dietary"],
+    (p.guests || []).filter(function(g){ return g.starter || g.main || g.dessert || g.allergies || g.dietary || (g.name && !/^Guest \d+$/.test(g.name)); })
+      .map(function(g){ return [g.name, g.kind, g.starter, g.main, g.dessert, g.allergies, g.dietary]; }));
+}
+function prePrint(){
+  var p = PRE.data, w = window.open("", "_blank"); if (!w) { preSay("Allow pop-ups to print the kitchen sheet.", false); return; }
+  var gs = (p.guests || []).filter(function(g){ return g.starter || g.main || g.dessert || g.allergies || g.dietary || (g.name && !/^Guest \d+$/.test(g.name)); });
+  var tally = COURSES.map(function(c){ var t = p.tally[c[0]] || {}, ks = Object.keys(t).sort(); if (!ks.length) return ""; return '<h3>' + esc(c[1]) + '</h3><table>' + ks.map(function(k){ return '<tr><td>' + esc(k) + '</td><td style="text-align:right"><b>' + (t[k].adult + t[k].child) + '</b></td></tr>'; }).join("") + '</table>'; }).join("");
+  w.document.write('<!doctype html><title>Kitchen sheet ' + esc(p.wedding.event_id) + '</title><style>body{font:14px Helvetica,Arial,sans-serif;margin:24px;color:#222}h1{font-size:20px;margin:0}h2{font-size:15px;margin:18px 0 6px}h3{font-size:13px;letter-spacing:.1em;text-transform:uppercase;margin:14px 0 4px}table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid #ccc;padding:5px 6px;text-align:left;vertical-align:top}.al{color:#b00020;font-weight:700}</style>' +
+    '<h1>Kitchen sheet: ' + esc(p.wedding.salutation) + '</h1><div>' + esc(p.wedding.event_id) + ' &middot; ' + esc(ukDate(p.wedding.date)) + ' &middot; ' + gs.length + ' guests</div>' + tally +
+    '<h2>Guest by guest</h2><table><tr><th>Guest</th><th>Starter</th><th>Main</th><th>Dessert</th><th>Allergies / dietary</th></tr>' + gs.map(function(g){ return '<tr><td>' + esc(g.name) + (g.kind === "child" ? " (child)" : "") + '</td><td>' + esc(g.starter) + '</td><td>' + esc(g.main) + '</td><td>' + esc(g.dessert) + '</td><td>' + (g.allergies ? '<span class="al">' + esc(g.allergies) + '</span> ' : '') + esc(g.dietary) + '</td></tr>'; }).join("") + '</table>' +
+    (p.notes ? '<h2>Note to the kitchen</h2><div>' + esc(p.notes).replace(/\n/g, "<br>") + '</div>' : '') + '<script>setTimeout(function(){window.print()},300)<\/script>');
+  w.document.close();
+}
+
 /* ============================ ONE WEDDING ============================ */
 async function loadWedding(id){
   try {
     S.detail = await call("get", { id:id });
     S.detail.menu = await call("menu.list", { wedding_id:id });
-    $("views").innerHTML = viewWedding();
-    msgInit(S.detail.wedding.id);
-    phInit(S.detail.wedding.id);
+    renderDetail();
   }
   catch (e) { showErr(e.message); S.current = null; $("views").innerHTML = ""; }
 }
@@ -4458,8 +4609,8 @@ function viewWedding(){
   var d = S.detail, w = d.wedding, b = d.balance;
   var h = '<button class="btn btn--sm" onclick="S.current=null;render()">&larr; All weddings</button>' +
     ' <button class="btn btn--sm" onclick="openInTracker(\'' + esc(w.event_id) + '\')">View in Tracker</button>' +
-    ' <button type="button" class="btn btn--sm" id="vaBtn" data-va-id="' + esc(w.id) + '" ' +
-      'onclick="viewAs(\'' + esc(w.id) + '\', this)">View as the couple</button>' +
+    (w.is_event ? '' : ' <button type="button" class="btn btn--sm" id="vaBtn" data-va-id="' + esc(w.id) + '" ' +
+      'onclick="viewAs(\'' + esc(w.id) + '\', this)">View as the couple</button>') +
     ' <button type="button" class="btn btn--sm" id="lblBtn" onclick="printProseccoLabel()">Print prosecco label</button>';
 
   h += '<div class="split" style="margin:16px 0 4px"><h1>' + esc(w.salutation) + '</h1>' +
@@ -4471,8 +4622,9 @@ function viewWedding(){
       ? '<br><strong>' + esc(guestSplitText(d.functions)) + ' guests</strong>' : '') + '</p>';
 
   /* ---- the conversation, and photographs to and from the couple ---- */
-  h += msgCardHtml() + photosCardHtml();
+  if (!w.is_event) h += msgCardHtml() + photosCardHtml();
 
+  if (!w.is_event) {
   /* ---- our own way into their app ----
      Same password as theirs; the BHBADMIN- prefix is what keeps a
      coordinator's visit off the couple's usage. */
@@ -4505,6 +4657,8 @@ function viewWedding(){
     '</p>' +
     '<div id="welcomeBox"></div>' +
   '</div>';
+
+  }
 
   if (b) {
     h += '<div class="stat" style="margin-bottom:16px">' +
