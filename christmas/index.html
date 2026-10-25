@@ -60,6 +60,7 @@ table.t{width:100%; border-collapse:collapse; font-size:14px} .t th{font-size:10
 .ordcell{width:64px;text-align:center}.ordtick{width:20px;height:20px;accent-color:var(--sage);cursor:pointer}.dtxt,.dtxt b,.dtxt .tiny{color:#9a9a96!important;text-decoration:line-through}.dec-done .pill{opacity:.7}
 .dgt.free{cursor:cell}.dgt.free:hover{background-color:#F4F0E4}
 .dgb.rd{background:repeating-linear-gradient(45deg,#2F6DA3,#2F6DA3 8px,#4F8BBF 8px,#4F8BBF 16px);outline:2px dashed #fff;outline-offset:-3px}.dgkey.rd{background:#3B7BB5}.rdrow.done td{color:#9a9a96;text-decoration:line-through}.rdrow.done td.keep{text-decoration:none}
+.dgb{cursor:grab;user-select:none;-webkit-user-select:none}.dgb.dragging{z-index:60;opacity:.88;cursor:grabbing;box-shadow:0 8px 20px rgba(0,0,0,.4)}.dgt.dgdrop{background-color:#E9F1E4}
 .dgw{overflow-x:auto} .dgr{display:flex;border-bottom:1px solid var(--mist);min-height:36px} .dgr.hdr{position:sticky;top:0;background:#fff;z-index:3;min-height:26px;border-bottom:2px solid var(--gold)}
 .dgn{flex:0 0 112px;width:112px;position:sticky;left:0;z-index:2;background:#fff;border-right:1px solid var(--mist);padding:4px 8px;display:flex;flex-direction:column;justify-content:center;line-height:1.15} .dgn b{font-size:13px} .dgn span{font-size:11px;color:var(--sage-70)}
 .dgt{position:relative;height:36px;background-image:linear-gradient(90deg,var(--mist) 1px,transparent 1px);background-size:34px 100%} .dgr.pace .dgt,.dgr.hdr .dgt{display:flex;background-image:none}
@@ -659,7 +660,7 @@ function renderDiary(){
       <div class="dgs">Restaurant</div>${dgRows("restaurant", d)}
       <div class="dgs">Marquee</div>${dgRows("marquee", d)}
     </div></div></div>
-    <p class="tiny muted" style="margin:6px 0 14px"><span class="dgkey ok"></span> pre-order received &nbsp; <span class="dgkey wait"></span> no pre-order yet &nbsp; <span class="dgkey rd"></span> in ResDiary, not on TicketSource &nbsp; &#128274; placed by hand, the diary will not move it. A table holds 3 hours, 4 hours over 8 guests; only a table under 8 that arrives by 1pm is turned round.</p>
+    <p class="tiny muted" style="margin:6px 0 14px"><span class="dgkey ok"></span> pre-order received &nbsp; <span class="dgkey wait"></span> no pre-order yet &nbsp; <span class="dgkey rd"></span> in ResDiary, not on TicketSource &nbsp; <b>Drag a booking</b> to another table or time and you will be asked to confirm. &nbsp; &#128274; placed by hand, the diary will not move it. A table holds 3 hours, 4 hours over 8 guests; only a table under 8 that arrives by 1pm is turned round.</p>
     ${dgManualCard(d)}<div class="card"><h3>Not placed (${wait.length})</h3>${wait.length ? `<table class="t"><thead><tr><th>Booking</th><th class="n">Guests</th><th>Asked for</th><th>Why</th><th></th></tr></thead><tbody>${wait.map(g => `<tr><td>${esc(g.names)}<div class="tiny muted">${esc(g.refs.join(", "))}</div></td><td class="n">${g.size}</td><td class="small">${g.submitted ? esc(g.asked || "any time") + (g.area_pref ? ", " + esc(g.area_pref) : "") : ""}</td><td class="small">${g.submitted ? "No room found: place it by hand" : "Has not sent their pre-order yet"}</td><td><button class="btn small ghost" data-gid="${esc(g.gid)}">Open</button></td></tr>`).join("")}</tbody></table>` : `<p class="small muted" style="margin:0">Everyone is placed.</p>`}</div>`;
   $$("[data-gid]").forEach(b => b.onclick = () => dgOpen(b.dataset.gid));
   $$("[data-dg]").forEach(b => b.onclick = () => dgAct(b.dataset.dg, b));
@@ -677,6 +678,68 @@ function renderDiary(){
     dgFree(el.dataset.side, el.dataset.tbl, Number(el.dataset.seats), minToStr(min));
   });
 }
+
+/* ---- drag a booking to another table or time: you are asked to confirm (moving from ... to ...) before anything changes ---- */
+const dgParts = tb => String(tb || "").split("+").map(x => x.trim()).filter(Boolean);
+function dgPlace(g){ return (g.time || "") + ", " + (g.side === "marquee" ? "Marquee" : "Restaurant") + (g.table ? ", table " + g.table : ""); }
+function dgMoveAsk(g, side, table, time){
+  const d = S.dg, tbl = d.sides[side].tables.find(t => t.name === table), seats = tbl ? tbl.seats : 0;
+  if (g.time === time && g.side === side && dgParts(g.table).join("+") === table) return;
+  const start = dgMin(time), end = start + (g.size > 8 ? 240 : 180), warn = [];
+  if (seats && g.size > seats) warn.push(`${g.size} guests, and table ${table} seats ${seats}`);
+  if (side === "restaurant" && g.size > 6) warn.push("over 6 guests, usually the Marquee");
+  d.placed.filter(o => o.gid !== g.gid && o.side === side && dgParts(o.table).includes(table) && dgMin(o.time) < end && dgMin(o.end) > start).forEach(o => warn.push(`clashes with ${o.lead} (${o.time} to ${o.end})`));
+  const used = d.placed.filter(o => o.gid !== g.gid && o.side === side && o.time === time).reduce((t, o) => t + o.size, 0);
+  if (used + g.size > 15) warn.push(`${used + g.size} would arrive at ${time} on that side (the limit is 15)`);
+  const to = { time, side, table };
+  openModal(`<h3 style="margin:0 0 6px">Move ${esc(g.names)}?</h3>
+    <p style="margin:0 0 4px"><span class="pill">${g.size} guest${g.size === 1 ? "" : "s"}</span>${g.manual ? ` <span class="pill warn">in ResDiary, not on TicketSource</span>` : ""}</p>
+    <table class="t" style="margin:10px 0"><tbody><tr><td class="small muted" style="width:70px">From</td><td><b>${esc(dgPlace(g))}</b></td></tr><tr><td class="small muted">To</td><td><b>${esc(dgPlace({ time, side, table }))}</b></td></tr></tbody></table>
+    ${warn.length ? `<div class="flags" style="margin:0 0 10px"><b>Please note</b>${warn.map(w => `<div>${esc(w)}</div>`).join("")}</div>` : ""}
+    <p class="small muted" style="margin:0 0 12px">${g.manual ? "The ResDiary entry moves, and a note says so." : "It is placed by hand, so the diary will not move it, and a note on the booking says it was moved."}</p>
+    <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap"><button class="btn ghost" data-close>Cancel</button><button class="btn" id="mvGo">Confirm the move</button></div>`);
+  $("#mvGo").onclick = async () => {
+    const b = $("#mvGo"); b.disabled = true;
+    try {
+      if (g.manual) {
+        const stamp = new Intl.DateTimeFormat("en-GB", { timeZone:"Europe/London", day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" }).format(new Date());
+        await px("admin.manual_save", { date_id:S.dgId, id:g.id, name:g.names, covers:g.size, time, side, table, note:(g.note ? g.note + " " : "") + `Moved from ${dgPlace(g)} to ${dgPlace(to)} (${stamp}).` });
+      } else await px("admin.place", { date_id:S.dgId, booking_id:g.booking_ids[0], time, side, table, force:true });
+      await dgReload("Moved " + g.lead + " to " + dgPlace(to) + ".");
+    } catch(e){ toast(e.message, true); b.disabled = false; }
+  };
+}
+(function dgDrag(){
+  let st = null;
+  const laneAt = (x, y, hide) => { if (!document.elementFromPoint) return null; if (hide) hide.style.pointerEvents = "none"; const el = document.elementFromPoint(x, y); if (hide) hide.style.pointerEvents = ""; return el && el.closest ? el.closest(".dgt[data-tbl]") : null; };
+  const stop = () => { if (!st) return; st.el.style.transform = ""; st.el.classList.remove("dragging"); if (st.lane) st.lane.classList.remove("dgdrop"); st = null; };
+  document.addEventListener("pointerdown", e => {
+    if ((e.button || 0) > 0 || e.pointerType === "touch" || S.view !== "diary" || !S.dg || !canEdit()) return;
+    const el = e.target.closest && e.target.closest(".dgb[data-gid]"); if (!el) return;
+    const g = S.dg.placed.find(x => x.gid === el.dataset.gid); if (!g) return;
+    st = { el, g, x0:e.clientX, y0:e.clientY, grab:e.clientX - el.getBoundingClientRect().left, on:false, lane:null };
+  });
+  document.addEventListener("pointermove", e => {
+    if (!st) return;
+    const dx = e.clientX - st.x0, dy = e.clientY - st.y0;
+    if (!st.on) { if (Math.abs(dx) + Math.abs(dy) < 6) return; st.on = true; st.el.classList.add("dragging"); }
+    st.el.style.transform = `translate(${dx}px,${dy}px)`;
+    const lane = laneAt(e.clientX, e.clientY, st.el);
+    if (lane !== st.lane) { if (st.lane) st.lane.classList.remove("dgdrop"); st.lane = lane; if (lane) lane.classList.add("dgdrop"); }
+  });
+  document.addEventListener("pointerup", e => {
+    if (!st) return; const s0 = st, lane = laneAt(e.clientX, e.clientY, s0.el) || s0.lane; stop();
+    if (!s0.on) return;
+    S.dgSuppress = true; setTimeout(() => { S.dgSuppress = false; }, 120);                    // the click that follows a drag must not open the booking
+    if (!lane) { toast("Drop it on a table row to move it.", true); return; }
+    const left = e.clientX - lane.getBoundingClientRect().left - s0.grab;
+    const last = dgMin(S.dg.slots[S.dg.slots.length - 1]);
+    const min = Math.max(DG.START, Math.min(last, DG.START + Math.round(left / DG.COL) * 15));
+    dgMoveAsk(s0.g, lane.dataset.side, lane.dataset.tbl, minToStr(min));
+  });
+  document.addEventListener("keydown", e => { if (e.key === "Escape") stop(); });
+  document.addEventListener("click", e => { if (S.dgSuppress && e.target.closest && e.target.closest(".dgb")) { e.stopPropagation(); e.preventDefault(); S.dgSuppress = false; } }, true);
+})();
 /** A click on empty space on a table: pick any booking to put there at that arrival time (locked, so the diary leaves it). */
 function dgFree(side, table, seats, time){
   const d = S.dg, all = d.waiting.concat(d.placed.filter(g => !g.manual)), sideName = side === "marquee" ? "Marquee" : "Restaurant";
