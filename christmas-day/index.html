@@ -158,7 +158,7 @@ async function load(){
     S.guests = []; let seq = 0;
     for (let i = 0; i < d.booking.adults; i++) { seq++; const g = have[seq] || {}; S.guests.push({ seq, kind:"adult", n:i + 1, name:g.name || "", starter:g.starter || "", main:g.main || "", dessert:g.dessert || "", dietary:g.dietary || "" }); }
     for (let i = 0; i < d.booking.children; i++) { seq++; const g = have[seq] || {}; S.guests.push({ seq, kind:"child", n:i + 1, name:g.name || "", starter:g.starter || "", main:g.main || "", dessert:g.dessert || "", dietary:g.dietary || "" }); }
-    S.time = d.answers.preferred_time || ""; S.pref = S.time === "none" ? "any" : S.time ? "pref" : ""; S.ack = S.time && S.time !== "none" ? S.time : ""; S.areapref = d.answers.area_pref || ""; S.tcomment = d.answers.time_comment || ""; S.dietary = d.answers.dietary || ""; S.notes = d.answers.notes || ""; S.under3 = d.answers.under3 || 0; S.chairs = d.answers.high_chairs || 0;
+    S.time = d.answers.preferred_time || "none"; S.pref = S.time === "none" ? "any" : "pref"; S.ack = S.time && S.time !== "none" ? S.time : ""; S.areapref = d.answers.area_pref || ""; S.tcomment = d.answers.time_comment || ""; S.dietary = d.answers.dietary || ""; S.notes = d.answers.notes || ""; S.under3 = d.answers.under3 || 0; S.chairs = d.answers.high_chairs || 0;
     render();
     const paidId = new URLSearchParams(location.search).get("paid");                                  // back from the card payment page
     if (paidId && d.payment) {
@@ -218,7 +218,7 @@ function render(){
     (d.answers.submitted_at ? '<div class="ok">Your pre-order has been received.' + (d.deadline.closed ? '' : ' You can still change it below.') + '</div>' : "") + '<div id="topMsg"></div></div>' +
 
     payHtml() +
-    (!EV().show_times ? (EV().arrival ? '<div class="card"><h2>On the night</h2><p class="lead" style="margin:0">' + esc(EV().arrival) + '</p></div>' : "") : '<div class="card"><h2>When would you like to sit down?</h2><p class="lead">Please tell us about your table time.</p>' +
+    (!EV().show_times ? (EV().arrival ? '<div class="card"><h2>On the night</h2><p class="lead" style="margin:0">' + esc(EV().arrival) + '</p></div>' : "") : '<div class="card"><h2>When and where would you like to sit?</h2><p class="lead">Please tell us about your table time.</p>' +
     '<label class="opt' + (S.pref === "any" ? " on" : "") + '" for="tpAny"><input type="radio" id="tpAny" name="tpref" value="any"' + (S.pref === "any" ? " checked" : "") + '><span class="n">Any time between 12pm and 4pm is great</span></label>' +
     '<label class="opt' + (S.pref === "pref" ? " on" : "") + '" for="tpPref"><input type="radio" id="tpPref" name="tpref" value="pref"' + (S.pref === "pref" ? " checked" : "") + '><span class="n">I have a preferred time</span></label>' +
     '<div class="timebox' + (S.pref === "pref" ? " on" : "") + '" id="timeBox"><label class="f" for="tm">Preferred table time</label><select id="tm"><option value="">Choose a time</option>' + d.times.map(t => '<option value="' + t + '"' + (S.time === t ? " selected" : "") + '>' + timeLabel(t) + '</option>').join("") + '</select></div>' +
