@@ -442,8 +442,12 @@ $("staffGatePw").addEventListener("keydown", function(e){ if(e.key==="Enter") tr
 function isOutside(){ return S.channel === "outside"; }
 function isStaffFood(){ return S.channel === "staff_food"; }
 function isCamper(){ return S.channel === "camper"; }
+// Drinks pre-order (Christmas Day and the party nights): the link in the pre-order email, ?preorder=<booking token>. Drinks only, with a Drinks Packages group that only this channel shows,
+// no tray or service charge, paid through SumUp as usual, logged against the booking, and never printed for the kitchen or bar.
+function isPreorder(){ return S.channel === "preorder"; }
+var PREORDER_GROUPS = ["Drinks Packages","Soft & Alcohol Free (pre-order)"];
 function extraCharge(itemsTotal){
-  if(!itemsTotal || isStaffFood()) return 0; // staff food: no tray/service charge, collection not delivery
+  if(!itemsTotal || isStaffFood() || isPreorder()) return 0; // staff food: no tray/service charge, collection not delivery
   return (isOutside() || isCamper()) ? Math.round((itemsTotal*SERVICE_CHARGE_PCT + Number.EPSILON)*100)/100 : TRAY_CHARGE;
 }
 // Staff Food only orders 06:00-11:00 (Europe/London), collection 12:30 -
@@ -480,6 +484,17 @@ function applyChannelCopy(){
     $("nameLbl").textContent = "Your name";
     $("roomLbl").textContent = "Camper van registration";
     $("closedHeading").textContent = "Camper van service is currently unavailable";
+  } else if(isPreorder()){
+    document.title = "Drinks pre-order — Black Horse Beamish";
+    $("welcomeTag").textContent = "Drinks Pre-order";
+    $("welcomeMsg").textContent = "Pre-order drinks for your table. Choose a drinks package or anything from our drinks menu, and pay online.";
+    $("catHeading").textContent = "Pre-order Drinks";
+    $("catSub").textContent = "Choose drinks for your table";
+    $("chargeLabel").textContent = "Charge";
+    $("nameLbl").textContent = "Your name";
+    $("roomLbl").textContent = "Booking";
+    $("roomLockedLbl").textContent = "Booking";
+    $("closedHeading").textContent = "Drinks pre-orders are closed";
   } else {
     document.title = "Room Service — Black Horse Beamish";
     $("welcomeTag").textContent = "Room Service";
@@ -539,11 +554,16 @@ async function sb(path, opts){
 async function loadMenu(){
   try{
     var scope = isStaffFood() ? "staff" : "main";
-    var field = (isOutside() || isCamper()) ? "available_outside" : "available";
+    var field = (isOutside() || isCamper() || isPreorder()) ? "available_outside" : "available";
     var rows = await sb("roomservice_menu_items?select=*&menu_scope=eq."+scope+"&"+field+"=eq.true&order=sort_order.asc");
     var sunday = isSundayNow();
-    S.menu = (rows || []).filter(function(m){ return !m.sunday_only || sunday; });
+    S.menu = (rows || []).filter(function(m){
+      if(isPreorder()) return m.menu_section === "Drinks";
+      if(m.preorder_only) return false;
+      return !m.sunday_only || sunday;
+    });
     renderCategories();
+    if(isPreorder() && !S.preOpened && S.menu.length){ S.preOpened = true; openSubGroups("Drinks"); }
   }catch(e){
     $("catList").innerHTML = '<div class="empty">Couldn’t load the menu — check your connection and pull to refresh.</div>';
   }
@@ -604,7 +624,7 @@ function openSubGroups(sec){
 function renderSubGroups(sec){
   var box = $("drinkGroupList"); box.innerHTML = "";
   var isDrinks = sec === "Drinks";
-  var groupList = isDrinks ? DRINK_GROUPS : SUNDAY_GROUPS;
+  var groupList = isDrinks ? (isPreorder() ? PREORDER_GROUPS.concat(DRINK_GROUPS) : DRINK_GROUPS) : SUNDAY_GROUPS;
   var groupField = isDrinks ? "drink_group" : "sunday_group";
   var sectionItems = S.menu.filter(function(m){ return m.menu_section===sec; });
   var any = false;
@@ -1114,7 +1134,7 @@ function renderBasket(){
     $("bundleTotalRow").style.display = "none";
   }
   $("trayCharge").textContent = money(charge);
-  $("chargeRow").style.display = isStaffFood() ? "none" : "flex";
+  $("chargeRow").style.display = (isStaffFood() || isPreorder()) ? "none" : "flex";
   if(S.discount){
     $("discountEntryRow").style.display = "none";
     $("discountAppliedRow").style.display = "flex";
@@ -1123,7 +1143,7 @@ function renderBasket(){
     $("discountTotalLabel").textContent = S.discount.label || "Discount";
     $("discountTotalAmt").textContent = money(discountAmt);
   } else {
-    $("discountEntryRow").style.display = "flex";
+    $("discountEntryRow").style.display = isPreorder() ? "none" : "flex";
     $("discountAppliedRow").style.display = "none";
     $("discountTotalRow").style.display = "none";
   }
@@ -1191,8 +1211,9 @@ $("payBtn").onclick = async function(){
   // the same window server-side, which is the one that actually matters
   // (a tab left open past 11am, or a wrong device clock, must not still pay).
   if(isStaffFood() && !isStaffFoodWindowNow()){ $("basketErr").textContent = "Staff Food ordering is only open 06:00–11:00. Please try again tomorrow."; return; }
-  if(!name){ $("basketErr").textContent = (isStaffFood() || isOutside() || isCamper()) ? "Please enter your name." : "Please enter the name the room is booked under."; return; }
+  if(!name){ $("basketErr").textContent = (isStaffFood() || isOutside() || isCamper() || isPreorder()) ? "Please enter your name." : "Please enter the name the room is booked under."; return; }
   if(isCamper() && !isPlausibleReg(room)){ $("basketErr").textContent = "Please enter your camper van's registration so we can find you."; return; }
+  if(isPreorder() && (!S.preorder || !S.preorder.ctx)){ $("basketErr").textContent = "This drinks pre-order link is not working. Please use the link in your pre-order email."; return; }
   if(!room && !isStaffFood()){ $("basketErr").textContent = isOutside() ? "Please enter your table number." : "Please enter your room number."; return; }
   var btn = $("payBtn"); btn.disabled = true; var oldHtml = btn.innerHTML; btn.textContent = "Please wait…";
   try{
@@ -1239,7 +1260,7 @@ $("payBtn").onclick = async function(){
     var order = await sb("roomservice_orders", {
       method: "POST",
       headers: { Prefer: "return=representation" },
-      body: JSON.stringify([Object.assign({ guest_name:name, room_number:room, lines:lines, subtotal:subtotal, tray_charge:charge, channel:S.channel, notes:notes, allergy_notes:allergyNotes, status:"pending_payment" }, discountFields, bundleFields)])
+      body: JSON.stringify([Object.assign({ guest_name:name, room_number:room, lines:lines, subtotal:subtotal, tray_charge:charge, channel:S.channel, notes:notes, allergy_notes:allergyNotes, status:"pending_payment", preorder_token:(isPreorder() && S.preorder ? S.preorder.token : undefined) }, discountFields, bundleFields)])
     });
     var orderId = order[0].id;
     try{ localStorage.setItem("rs_last_order", orderId); }catch(e){}
@@ -1322,22 +1343,25 @@ function beginReceiptFlow(order, kind){
   // Comp orders (Bob) aren't paid for, so there's no VAT receipt to offer -
   // skip straight to the kitchen instead of asking. Staff Food has no email
   // field at all, so there's nothing to offer a receipt to either.
-  if(kind === "comp" || order.channel === "staff_food"){ finishReceiptChoice("none"); return; }
+  if(kind === "comp" || order.channel === "staff_food" || order.channel === "preorder"){ finishReceiptChoice("none"); return; }
   openReceiptModal();
 }
 function orderLocation(o){
   if(o.channel==="staff_food") return "";
+  if(o.channel==="preorder") return "booking " + o.room_number;
   if(o.channel==="camper") return "camper " + o.room_number;
   return (o.channel==="outside" ? "Table " : "Room ") + o.room_number;
 }
 async function finishReceiptChoice(choice, email){
   closeReceiptModal();
-  try{ await queueDirectPrintJobs(S.lastOrder); }catch(e){ console.error("queue print jobs failed", e); }
+  try{ if(S.lastOrder.channel !== "preorder") await queueDirectPrintJobs(S.lastOrder); }catch(e){ console.error("queue print jobs failed", e); }
   var o = S.lastOrder;
   $("stBig").classList.add("script");
   $("stBig").textContent = "Thank you, " + (o.guest_name||"") + "!";
   var msg;
-  if(o.channel === "staff_food"){
+  if(o.channel === "preorder"){
+    msg = "Your drinks (order #" + o.order_no + ", £" + money(Number(o.subtotal)||0) + ") are pre-ordered and paid for. They are logged against your booking " + o.room_number + ", and we will have them ready for your table. You can order more at any time before the day.";
+  } else if(o.channel === "staff_food"){
     msg = "Order #" + o.order_no + (S.lastOrderKind==="test" ? " (TEST, no payment taken)" : "") + " is being prepared — collect from the Black Horse Beamish at 12:30pm.";
   } else if(S.lastOrderKind === "test"){
     msg = "TEST order #" + o.order_no + " for " + orderLocation(o) + " has been sent to the virtual printers. No payment was taken.";
@@ -1393,7 +1417,7 @@ function restart(){
   // own channel's link rather than a menu/fields that don't match their order.
   var lo = S.lastOrder;
   if(lo && lo.channel && lo.channel !== S.channel){
-    var back = lo.channel === "camper" ? "?camper=1" : lo.channel === "outside" ? "?table=" + encodeURIComponent(lo.room_number) : lo.channel === "staff_food" ? "?staff=1" : "";
+    var back = lo.channel === "preorder" && lo.preorder_token ? "?preorder=" + encodeURIComponent(lo.preorder_token) : lo.channel === "camper" ? "?camper=1" : lo.channel === "outside" ? "?table=" + encodeURIComponent(lo.room_number) : lo.channel === "staff_food" ? "?staff=1" : "";
     if(back){ location.href = location.pathname + back; return; }
   }
   S.cart = {};
@@ -1521,6 +1545,11 @@ function startOrder(){
     });
     return;
   }
+  if(isPreorder()){
+    if(!S.preorder || !S.preorder.ctx){ return; }
+    $("gName").value = $("gName").value || S.preorder.ctx.name || "";
+    show("categories"); loadMenu(); return;
+  }
   if(needsEmailGate()){ openEmailGate(); return; }
   enterOrdering();
 }
@@ -1541,7 +1570,7 @@ function enterOrdering(){
 var EMAIL_CODE_SKIP_AFTER = 2; // failed attempts before "continue without verifying" appears
 var _emailGateAttempts = 0;
 function needsEmailGate(){
-  return !S.isComp && !isStaffFood() && !(S.guestEmail && S.guestEmailVerified);
+  return !S.isComp && !isStaffFood() && !isPreorder() && !(S.guestEmail && S.guestEmailVerified);
 }
 function loadPersistedGuestEmail(){
   try{
@@ -1663,6 +1692,24 @@ async function checkBusyNotice(){
   }catch(e){ /* fail quiet — never block ordering on this */ }
 }
 
+/* ---------------- drinks pre-order: who the link is for ---------------- */
+async function initPreorder(token){
+  S.preorder = { token: token, ctx: null };
+  try{
+    var r = await fetch(CFG.SUPABASE_URL + "/functions/v1/xmas-api", { method:"POST", headers:{ "Content-Type":"application/json", Authorization:"Bearer "+CFG.SUPABASE_KEY, apikey: CFG.SUPABASE_KEY }, body: JSON.stringify({ action:"drinks.context", t: token }) });
+    var d = await r.json().catch(function(){ return {}; });
+    if(!r.ok || d.error) throw new Error(d.error || "This link doesn't look right.");
+    S.preorder.ctx = d;
+    $("roomFld").style.display = "none"; $("roomLockedFld").style.display = ""; $("roomLockedVal").textContent = d.ref;
+    S.lockedRoom = d.ref;
+    $("welcomeMsg").textContent = "Pre-order drinks for your table at " + d.event + " on " + d.when + ". Choose a drinks package or anything from our drinks menu, and pay online. Your order is logged against booking " + d.ref + ".";
+    if(!d.open){ $("closedHeading").textContent = "Drinks pre-orders for " + d.event + " have closed"; show("closed"); }
+  }catch(e){
+    $("closedHeading").textContent = "This drinks pre-order link is not working";
+    show("closed");
+  }
+}
+
 /* ---------------- boot ---------------- */
 (function boot(){
   var params = new URLSearchParams(location.search);
@@ -1671,8 +1718,9 @@ async function checkBusyNotice(){
   if(params.get("camper") === "1") lockedRoom = null; // camper links never lock a room/table - the guest types their registration
   var isStaffLink = params.get("staff") === "1";
   var isCamperLink = params.get("camper") === "1" && !isStaffLink;
+  var preorderTok = !isStaffLink ? (params.get("preorder") || "") : "";
   // A table link with no number after the = (the printed table signs) is still outside ordering: the guest types their table number.
-  S.channel = isStaffLink ? "staff_food" : (isCamperLink ? "camper" : ((lockedTable || params.has("table")) ? "outside" : "room_service"));
+  S.channel = preorderTok ? "preorder" : isStaffLink ? "staff_food" : (isCamperLink ? "camper" : ((lockedTable || params.has("table")) ? "outside" : "room_service"));
   S.isComp = params.get("comp") === "1";
   loadPersistedGuestEmail();
   loadPersistedCart();
@@ -1698,6 +1746,7 @@ async function checkBusyNotice(){
     regInput.style.textTransform = "uppercase";
   }
   restoreSessionFields();
+  if(preorderTok){ initPreorder(preorderTok); }
   if(!S.isComp && !isStaffLink && (S.channel === "outside" || S.channel === "camper")){
     $("idBox").style.display = ""; $("idConfirmNote").style.display = "";
     if(S.channel === "camper"){

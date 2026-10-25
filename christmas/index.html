@@ -431,15 +431,17 @@ function renderPre(loading){
   if (loading || !d) body = S.pre.err ? `<div class="flags"><b>Could not load</b>${esc(S.pre.err)}</div>` : `<div class="empty">Loading ${esc(ev ? ev.name : "")}…</div>`;
   else {
     const t = d.totals, e = d.event;
-    body = `<div class="pagehead" style="margin-top:6px"><h2>${esc(e.title)}</h2><span class="hint">${esc(e.when)}. Choices ${d.deadline.closed ? "closed" : "close"} ${esc(d.deadline.text)}.</span><span class="spacer"></span><button class="btn small ghost" data-act="csv">Export for the kitchen (CSV)</button></div>
+    body = `<div class="pagehead" style="margin-top:6px"><h2>${esc(e.title)}</h2><span class="hint">${esc(e.when)}. Choices ${d.deadline.closed ? "closed" : "close"} ${esc(d.deadline.text)}.</span><span class="spacer"></span><button class="btn small ghost" data-act="drinkspdf">Drinks report (PDF)</button> <button class="btn small ghost" data-act="csv">Export (CSV)</button></div>
       ${S.pre.note ? `<div class="flags" style="background:var(--good-bg);border-color:#cfe0cf;color:var(--good)">${esc(S.pre.note)}</div>` : ""}
-      <div class="tiles"><div class="tile"><div class="v">${t.bookings}</div><div class="l">bookings</div><div class="s">${t.tickets} ticket${t.tickets === 1 ? "" : "s"}</div></div><div class="tile"><div class="v">${t.invited}</div><div class="l">invited</div><div class="s">of ${t.bookings}</div></div><div class="tile"><div class="v">${t.submitted}</div><div class="l">sent back</div><div class="s">${t.started} started · ${t.not_started} not started</div></div>${e.show_under3 ? `<div class="tile"><div class="v">${t.under3}</div><div class="l">under 3s</div><div class="s">${t.high_chairs} high chair${t.high_chairs === 1 ? "" : "s"}</div></div>` : ""}</div>
+      <div class="tiles"><div class="tile"><div class="v">${t.bookings}</div><div class="l">bookings</div><div class="s">${t.tickets} ticket${t.tickets === 1 ? "" : "s"}</div></div><div class="tile"><div class="v">${t.invited}</div><div class="l">invited</div><div class="s">of ${t.bookings}</div></div><div class="tile"><div class="v">${t.submitted}</div><div class="l">sent back</div><div class="s">${t.started} started · ${t.not_started} not started</div></div>${e.show_under3 ? `<div class="tile"><div class="v">${t.under3}</div><div class="l">under 3s</div><div class="s">${t.high_chairs} high chair${t.high_chairs === 1 ? "" : "s"}</div></div>` : ""}<div class="tile"><div class="v">${money(t.drinks_total)}</div><div class="l">drinks pre-ordered</div><div class="s">${t.drinks_orders} paid order${t.drinks_orders === 1 ? "" : "s"}</div></div><div class="tile"><div class="v">${t.tabled}</div><div class="l">given a table</div><div class="s">of ${t.bookings} bookings</div></div></div>
       ${preSendBlock(d)}
-      <div class="card"><h3>Bookings</h3><div style="overflow-x:auto"><table class="t"><thead><tr><th>Ref</th><th>Booked by</th><th>Email</th><th class="n">Guests</th><th>Status</th><th>Invited</th>${e.show_times ? "<th>Table time</th>" : ""}<th></th></tr></thead><tbody>${d.rows.map(r => {
+      <div class="card"><h3>Bookings</h3><div style="overflow-x:auto"><table class="t"><thead><tr><th>Ref</th><th>Booked by</th><th>Email</th><th class="n">Guests</th><th>Status</th><th>Invited</th>${e.show_times ? "<th>Guest's time</th>" : ""}<th>Dining</th><th>Table</th><th class="n">Drinks</th><th></th></tr></thead><tbody>${d.rows.map(r => {
         const st = PRE_STATUS[r.status] || [r.status, ""], g = r.adults + r.children;
         return `<tr><td>${esc(r.ref)}</td><td>${esc(r.name)}${r.linked_with.length ? `<div class="tiny muted">with ${esc(r.linked_with.join(", "))}</div>` : ""}${r.has_dietary ? `<div class="tiny" style="color:var(--attn)">dietary notes</div>` : ""}</td><td class="small">${r.email ? esc(r.email) : `<span class="muted">none</span>`}</td><td class="n">${g}</td>
           <td><span class="pill ${st[1]}">${esc(st[0])}</span>${r.status !== "submitted" ? `<div class="tiny muted">${r.meals_done} of ${g} chosen</div>` : ""}</td><td class="small">${r.invite_sent_at ? esc(fmtDT(r.invite_sent_at)) : `<span class="muted">not yet</span>`}</td>${e.show_times ? `<td class="small">${esc(r.preferred_time === "none" ? "any time" : r.preferred_time || "")}</td>` : ""}
-          <td style="white-space:nowrap"><button class="btn small ghost" data-copy="${esc(r.link)}">Copy link</button>${canEdit() && r.email ? ` <button class="btn small ghost" data-one="${esc(r.booking_id)}" data-rem="${r.invite_sent_at ? 1 : 0}">${r.invite_sent_at ? "Resend" : "Send"}</button>` : ""}</td></tr>`;
+          <td class="small">${r.dining_time ? esc(r.dining_time) : `<span class="muted">-</span>`}</td><td class="small">${r.table_number ? `<b>${esc(r.table_number)}</b>` : `<span class="muted">-</span>`}</td>
+          <td class="n small">${r.drinks_orders ? `<a href="#" data-drinks="${esc(r.booking_id)}">${money(r.drinks_total)}</a>` : `<span class="muted">-</span>`}</td>
+          <td style="white-space:nowrap">${canEdit() ? `<button class="btn small ghost" data-seat="${esc(r.booking_id)}">Time and table</button> ` : ""}<button class="btn small ghost" data-copy="${esc(r.link)}">Copy link</button>${canEdit() && r.email ? ` <button class="btn small ghost" data-one="${esc(r.booking_id)}" data-rem="${r.invite_sent_at ? 1 : 0}">${r.invite_sent_at ? "Resend" : "Send"}</button>` : ""}</td></tr>`;
       }).join("")}</tbody></table></div></div>
       ${preDishes(d)}`;
   }
@@ -448,11 +450,45 @@ function renderPre(loading){
   $$("[data-copy]").forEach(b => b.onclick = () => { const v = b.dataset.copy; (navigator.clipboard ? navigator.clipboard.writeText(v) : Promise.reject()).then(() => toast("Link copied."), () => { window.prompt("Copy this link", v); }); });
   $$("[data-one]").forEach(b => b.onclick = () => preSend([b.dataset.one], b.dataset.rem === "1", b));
   $$("[data-act]").forEach(b => b.onclick = () => preAct(b.dataset.act, b));
+  $$("[data-seat]").forEach(b => b.onclick = () => preSeat(b.dataset.seat));
+  $$("[data-drinks]").forEach(b => b.onclick = ev => { ev.preventDefault(); preDrinks(b.dataset.drinks); });
+}
+/* Dining time and table number, set by the team for each booking, so the table plans can be built from this list. */
+function preSeat(id){
+  const r = S.pre.data.rows.find(x => x.booking_id === id); if (!r) return;
+  const mates = (r.linked_with || []).length ? `<p class="small muted" style="margin:0 0 10px">Linked with booking ${esc(r.linked_with.join(", "))}: they asked to sit together, so they will usually share a table number.</p>` : "";
+  openModal(`<h3 style="margin:0 0 4px">${esc(r.name)}</h3><p class="small muted" style="margin:0 0 10px">Booking ${esc(r.ref)}, ${r.adults + r.children} guest${r.adults + r.children === 1 ? "" : "s"}${r.preferred_time && r.preferred_time !== "none" ? ", asked for " + esc(r.preferred_time) : ""}</p>${mates}
+    <div class="two"><div class="field"><label>Dining time</label><input type="time" id="seatTime" value="${esc(r.dining_time || "")}" step="300"></div><div class="field"><label>Table number</label><input type="text" id="seatTable" maxlength="20" value="${esc(r.table_number || "")}" placeholder="e.g. 14"></div></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn" id="seatSave">Save</button></div>`);
+  $("#seatSave").onclick = async () => {
+    const b = $("#seatSave"); b.disabled = true;
+    try { await px("admin.booking_set", { booking_id:id, dining_time:$("#seatTime").value || "", table_number:$("#seatTable").value.trim() }); closeModal(); toast("Saved."); S.pre.note = ""; await loadPre(); }
+    catch(e){ toast(e.message, true); b.disabled = false; }
+  };
+}
+async function preDrinks(id){
+  try {
+    const d = await px("admin.drinks", { date_id:S.pre.id }), b = d.bookings.find(x => x.booking_id === id); if (!b) { toast("No paid drinks for that booking yet."); return; }
+    openModal(`<h3 style="margin:0 0 4px">Drinks for ${esc(b.name)}</h3><p class="small muted" style="margin:0 0 10px">Booking ${esc(b.ref)}${b.table_number ? ", table " + esc(b.table_number) : ""}${b.dining_time ? ", dining " + esc(b.dining_time) : ""}. Paid ${money(b.total)}.</p>
+      ${b.orders.map(o => `<div class="card" style="margin:0 0 10px;box-shadow:none;border:1px solid var(--mist)"><div class="small muted">Order ${o.order_no}, paid ${esc(fmtDT(o.paid_at))}: ${money(o.total)}</div>${o.lines.map(l => `<div>${l.qty} x ${esc(l.label || l.name)}</div>`).join("")}${o.notes ? `<div class="small" style="margin-top:6px"><b>Note:</b> ${esc(o.notes)}</div>` : ""}</div>`).join("")}
+      <div style="text-align:right"><button class="btn ghost" onclick="closeModal()">Close</button></div>`);
+  } catch(e){ toast(e.message, true); }
+}
+async function preDrinksPdf(btn){
+  btn.disabled = true;
+  try {
+    const r = await px("admin.drinks_pdf", { date_id:S.pre.id });
+    const bin = atob(r.pdf_base64), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+    const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([u], { type:"application/pdf" })); a.download = r.filename || "drinks-preorders.pdf";
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  } catch(e){ toast(e.message, true); }
+  btn.disabled = false;
 }
 async function preAct(act, btn){
   const d = S.pre.data; if (!d) return;
   if (act === "preview") return prePreview(d);
   if (act === "csv") return preCsv(d, btn);
+  if (act === "drinkspdf") return preDrinksPdf(btn);
   if (act === "test") {
     const to = ($("#preTo").value || "").trim(); if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) { toast("Type your own email address first.", true); return; }
     btn.disabled = true;
@@ -492,12 +528,13 @@ async function preCsv(d, btn){
     const cell = v => { v = String(v == null ? "" : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
     const time = t => (t === "none" ? "any time" : t || "");
     const cols = [["Booking ref", r => r.ref], ["Booked by", r => r.booked_by], ["Email", r => r.email], ["Table (linked bookings)", r => r.table], ["Guests at table", r => r.table_guests]]
-      .concat(e.show_times ? [["Preferred time", r => time(r.preferred_time)]] : [])
+      .concat([["Dining time", r => r.dining_time], ["Table number", r => r.table_number]])
+      .concat(e.show_times ? [["Guest's preferred time", r => time(r.preferred_time)]] : [])
       .concat([["Guest", r => r.guest], ["Type", r => r.kind], ["Name", r => r.name]])
       .concat(e.courses.map(c => [c[0].toUpperCase() + c.slice(1), r => r[c]]))
       .concat([["Pre-ordered", r => r.pre_ordered], ["Guest allergies", r => r.guest_dietary], ["Booking dietary", r => r.booking_dietary], ["Notes", r => r.notes]])
       .concat(e.show_under3 ? [["Under 3s", r => r.under3], ["High chairs", r => r.high_chairs]] : [])
-      .concat([["Submitted", r => r.submitted]]);
+      .concat([["Drinks pre-ordered (paid)", r => r.drinks_paid ? Number(r.drinks_paid).toFixed(2) : ""], ["Submitted", r => r.submitted]]);
     const csv = [cols.map(c => c[0])].concat((x.rows || []).map(r => cols.map(c => c[1](r)))).map(r => r.map(cell).join(",")).join("\r\n");
     const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["\ufeff" + csv], { type:"text/csv" })); a.download = e.title.toLowerCase().replace(/[^a-z0-9]+/g, "-") + "-preorders.csv";
     document.body.appendChild(a); a.click(); a.remove();
