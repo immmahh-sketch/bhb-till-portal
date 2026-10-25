@@ -59,6 +59,7 @@ table.t{width:100%; border-collapse:collapse; font-size:14px} .t th{font-size:10
 
 .ordcell{width:64px;text-align:center}.ordtick{width:20px;height:20px;accent-color:var(--sage);cursor:pointer}.dtxt,.dtxt b,.dtxt .tiny{color:#9a9a96!important;text-decoration:line-through}.dec-done .pill{opacity:.7}
 .dgt.free{cursor:cell}.dgt.free:hover{background-color:#F4F0E4}
+.dgb.rd{background:repeating-linear-gradient(45deg,#2F6DA3,#2F6DA3 8px,#4F8BBF 8px,#4F8BBF 16px);outline:2px dashed #fff;outline-offset:-3px}.dgkey.rd{background:#3B7BB5}.rdrow.done td{color:#9a9a96;text-decoration:line-through}.rdrow.done td.keep{text-decoration:none}
 .dgw{overflow-x:auto} .dgr{display:flex;border-bottom:1px solid var(--mist);min-height:36px} .dgr.hdr{position:sticky;top:0;background:#fff;z-index:3;min-height:26px;border-bottom:2px solid var(--gold)}
 .dgn{flex:0 0 112px;width:112px;position:sticky;left:0;z-index:2;background:#fff;border-right:1px solid var(--mist);padding:4px 8px;display:flex;flex-direction:column;justify-content:center;line-height:1.15} .dgn b{font-size:13px} .dgn span{font-size:11px;color:var(--sage-70)}
 .dgt{position:relative;height:36px;background-image:linear-gradient(90deg,var(--mist) 1px,transparent 1px);background-size:34px 100%} .dgr.pace .dgt,.dgr.hdr .dgt{display:flex;background-image:none}
@@ -622,8 +623,8 @@ function dgLanes(groups){   // bookings with no table yet: stack them into as fe
 }
 function dgBlock(g){
   const left = (dgMin(g.time) - DG.START) / 15 * DG.COL, width = (dgMin(g.end) - dgMin(g.time)) / 15 * DG.COL - 2;
-  const cls = g.submitted ? "dgb ok" : "dgb wait";
-  return `<button type="button" class="${cls}${g.locked ? " lock" : ""}" data-gid="${esc(g.gid)}" style="left:${left}px;width:${width}px" title="${esc(g.names)}, ${g.size} guest${g.size === 1 ? "" : "s"}, ${esc(g.time)} to ${esc(g.end)}"><b>${g.size}</b> ${esc(g.lead)}${g.linked ? " +" + (g.booking_ids.length - 1) : ""}${g.locked ? " &#128274;" : ""}</button>`;
+  const cls = g.manual ? "dgb rd" : g.submitted ? "dgb ok" : "dgb wait";
+  return `<button type="button" class="${cls}${g.locked ? " lock" : ""}" data-gid="${esc(g.gid)}" style="left:${left}px;width:${width}px" title="${esc(g.names)}, ${g.size} guest${g.size === 1 ? "" : "s"}, ${esc(g.time)} to ${esc(g.end)}${g.manual ? ". IN RESDIARY, NOT ON TICKETSOURCE. " + esc(g.note) : ""}"><b>${g.size}</b> ${esc(g.lead)}${g.linked ? " +" + (g.booking_ids.length - 1) : ""}${g.manual ? " (ResDiary)" : g.locked ? " &#128274;" : ""}</button>`;
 }
 function dgRows(side, d){
   const tables = d.sides[side].tables, placed = d.placed.filter(g => g.side === side);
@@ -658,10 +659,17 @@ function renderDiary(){
       <div class="dgs">Restaurant</div>${dgRows("restaurant", d)}
       <div class="dgs">Marquee</div>${dgRows("marquee", d)}
     </div></div></div>
-    <p class="tiny muted" style="margin:6px 0 14px"><span class="dgkey ok"></span> pre-order received &nbsp; <span class="dgkey wait"></span> no pre-order yet &nbsp; &#128274; placed by hand, the diary will not move it. A table holds 3 hours, 4 hours over 8 guests; only a table under 8 that arrives by 1pm is turned round.</p>
-    <div class="card"><h3>Not placed (${wait.length})</h3>${wait.length ? `<table class="t"><thead><tr><th>Booking</th><th class="n">Guests</th><th>Asked for</th><th>Why</th><th></th></tr></thead><tbody>${wait.map(g => `<tr><td>${esc(g.names)}<div class="tiny muted">${esc(g.refs.join(", "))}</div></td><td class="n">${g.size}</td><td class="small">${g.submitted ? esc(g.asked || "any time") + (g.area_pref ? ", " + esc(g.area_pref) : "") : ""}</td><td class="small">${g.submitted ? "No room found: place it by hand" : "Has not sent their pre-order yet"}</td><td><button class="btn small ghost" data-gid="${esc(g.gid)}">Open</button></td></tr>`).join("")}</tbody></table>` : `<p class="small muted" style="margin:0">Everyone is placed.</p>`}</div>`;
+    <p class="tiny muted" style="margin:6px 0 14px"><span class="dgkey ok"></span> pre-order received &nbsp; <span class="dgkey wait"></span> no pre-order yet &nbsp; <span class="dgkey rd"></span> in ResDiary, not on TicketSource &nbsp; &#128274; placed by hand, the diary will not move it. A table holds 3 hours, 4 hours over 8 guests; only a table under 8 that arrives by 1pm is turned round.</p>
+    ${dgManualCard(d)}<div class="card"><h3>Not placed (${wait.length})</h3>${wait.length ? `<table class="t"><thead><tr><th>Booking</th><th class="n">Guests</th><th>Asked for</th><th>Why</th><th></th></tr></thead><tbody>${wait.map(g => `<tr><td>${esc(g.names)}<div class="tiny muted">${esc(g.refs.join(", "))}</div></td><td class="n">${g.size}</td><td class="small">${g.submitted ? esc(g.asked || "any time") + (g.area_pref ? ", " + esc(g.area_pref) : "") : ""}</td><td class="small">${g.submitted ? "No room found: place it by hand" : "Has not sent their pre-order yet"}</td><td><button class="btn small ghost" data-gid="${esc(g.gid)}">Open</button></td></tr>`).join("")}</tbody></table>` : `<p class="small muted" style="margin:0">Everyone is placed.</p>`}</div>`;
   $$("[data-gid]").forEach(b => b.onclick = () => dgOpen(b.dataset.gid));
   $$("[data-dg]").forEach(b => b.onclick = () => dgAct(b.dataset.dg, b));
+  $$("[data-madd]").forEach(b => b.onclick = () => dgManualForm(null));
+  $$("[data-medit]").forEach(b => b.onclick = () => dgManualForm(S.dg.placed.find(x => x.id === b.dataset.medit)));
+  $$("[data-mtick]").forEach(b => b.onchange = async () => {
+    if (b.checked) { b.checked = false; return dgManualPick(b.dataset.mtick); }
+    if (!confirm("Put this back as in ResDiary only? It will hold its table and count again.")) { b.checked = true; return; }
+    try { await px("admin.manual_confirm", { date_id:S.dgId, id:b.dataset.mtick, on:false }); await dgReload("Back to in ResDiary only."); } catch(e){ toast(e.message, true); b.checked = true; }
+  });
   if (canEdit()) $$(".dgt[data-tbl]").forEach(el => el.onclick = e => {
     if (e.target.closest(".dgb")) return;
     const slot = Math.floor((e.clientX - el.getBoundingClientRect().left) / DG.COL), min = DG.START + slot * 15;
@@ -671,7 +679,7 @@ function renderDiary(){
 }
 /** A click on empty space on a table: pick any booking to put there at that arrival time (locked, so the diary leaves it). */
 function dgFree(side, table, seats, time){
-  const d = S.dg, all = d.waiting.concat(d.placed), sideName = side === "marquee" ? "Marquee" : "Restaurant";
+  const d = S.dg, all = d.waiting.concat(d.placed.filter(g => !g.manual)), sideName = side === "marquee" ? "Marquee" : "Restaurant";
   const parts = tb => String(tb || "").split("+").map(x => x.trim()).filter(Boolean);
   const durOf = n => n > 8 ? 240 : 180;
   const start = dgMin(time);
@@ -736,7 +744,41 @@ function dgTables(){
     catch(e){ toast(e.message, true); b.disabled = false; }
   };
 }
+
+/* ---- bookings that are in ResDiary but not on TicketSource: held in the diary in blue, ticked off when they reach TicketSource so nothing is booked twice ---- */
+function dgManualCard(d){
+  const all = d.placed.filter(g => g.manual).concat(d.manual_done || []).sort((a, b) => dgMin(a.time) - dgMin(b.time)), open = all.filter(g => !g.in_ticketsource), edit = canEdit();
+  return `<div class="card"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><h3 style="margin:0">In ResDiary, not on TicketSource (${open.length})</h3><span class="spacer" style="flex:1"></span>${edit ? `<button class="btn small" data-madd="1">Add a ResDiary booking</button>` : ""}</div>
+    <p class="small muted" style="margin:6px 0 10px">These are held in the diary in blue so their table and arrival time are not given away, and they count against the arrival limits. <b>Tick the box once the booking has reached TicketSource</b> (choose which booking it is, and it takes the table and time): the blue entry then stops counting, so it is not booked twice.</p>
+    ${all.length ? `<div style="overflow-x:auto"><table class="t"><thead><tr><th class="n" style="width:60px">On TicketSource</th><th>Booking</th><th class="n">Covers</th><th>Arrival and table</th><th>Note</th></tr></thead><tbody>${all.map(m => `<tr class="rdrow${m.in_ticketsource ? " done" : ""}"><td class="n keep"><input type="checkbox" data-mtick="${esc(m.id)}" ${m.in_ticketsource ? "checked" : ""} ${edit ? "" : "disabled"} aria-label="${esc(m.names)} is on TicketSource" style="width:20px;height:20px"></td><td><b>${esc(m.names)}</b></td><td class="n">${m.size}</td><td class="small">${esc(m.time)}, ${m.side === "marquee" ? "Marquee" : "Restaurant"}${m.table ? ", table " + esc(m.table) : ""}</td><td class="small keep">${m.in_ticketsource ? `<span style="text-decoration:none;display:inline-block">Now on TicketSource${m.matched_ref ? " (" + esc(m.matched_ref) + ")" : ""}, ticked by ${esc(m.confirmed_by || "")}</span>` : `${esc(m.note)}${edit ? ` <button class="btn small ghost" data-medit="${esc(m.id)}">Edit</button>` : ""}`}</td></tr>`).join("")}</tbody></table></div>` : `<p class="muted" style="margin:0">None. Press <b>Add a ResDiary booking</b> for anything in ResDiary that is not on TicketSource.</p>`}</div>`;
+}
+async function dgReload(msg){ S.dg = await px("admin.diary", { date_id:S.dgId }); closeModal(); renderDiary(); if (msg) toast(msg); }
+function dgManualForm(m){
+  const d = S.dg, tables = d.sides.restaurant.tables.map(t => t.name).concat(d.sides.marquee.tables.map(t => t.name));
+  m = m || { name:"", size:2, time:d.slots[Math.min(4, d.slots.length - 1)], side:"restaurant", table:"", note:"In ResDiary, not on TicketSource." };
+  openModal(`<h3 style="margin:0 0 4px">${m.id ? "ResDiary booking" : "Add a ResDiary booking"}</h3><p class="small muted" style="margin:0 0 10px">A booking that is in ResDiary but not on TicketSource. It holds its table and counts against the arrival limits until you tick it off.</p>
+    <div class="two"><div class="field"><label>Name</label><input id="rdN" value="${esc(m.names || m.name || "")}" maxlength="80"></div><div class="field"><label>Covers</label><input id="rdC" type="number" min="1" max="60" value="${m.size}"></div></div>
+    <div class="three"><div class="field"><label>Arrival</label><select id="rdT">${d.slots.map(x => `<option value="${x}"${x === m.time ? " selected" : ""}>${x}</option>`).join("")}</select></div><div class="field"><label>Where</label><select id="rdS"><option value="restaurant"${m.side === "restaurant" ? " selected" : ""}>Restaurant</option><option value="marquee"${m.side === "marquee" ? " selected" : ""}>Marquee</option></select></div><div class="field"><label>Table</label><input id="rdB" list="rdTbs" value="${esc(m.table || "")}" maxlength="20"><datalist id="rdTbs">${tables.map(x => `<option value="${esc(x)}">`).join("")}</datalist></div></div>
+    <div class="field"><label>Note</label><textarea id="rdNote" maxlength="500">${esc(m.note || "")}</textarea></div>
+    <div class="row"><button class="btn" id="rdSave">Save</button><button class="btn ghost" data-close>Cancel</button>${m.id ? `<button class="btn danger" id="rdDel" style="margin-left:auto">Delete</button>` : ""}</div><div id="rdMsg" class="small" style="color:var(--alert);margin-top:8px"></div>`);
+  $("#rdSave").onclick = async () => { try { await px("admin.manual_save", { date_id:S.dgId, id:m.id, name:$("#rdN").value, covers:$("#rdC").value, time:$("#rdT").value, side:$("#rdS").value, table:$("#rdB").value, note:$("#rdNote").value }); await dgReload("Saved."); } catch(e){ $("#rdMsg").textContent = e.message; } };
+  if ($("#rdDel")) $("#rdDel").onclick = async () => { if (!confirm("Delete this ResDiary booking from the diary?")) return; try { await px("admin.manual_delete", { date_id:S.dgId, id:m.id }); await dgReload("Deleted."); } catch(e){ $("#rdMsg").textContent = e.message; } };
+}
+/** Ticking: which TicketSource booking is it? (it takes the table and time), or just tick it. */
+function dgManualPick(id){
+  const d = S.dg, m = d.placed.filter(g => g.manual).find(x => x.id === id); if (!m) return;
+  const words = String(m.names).toLowerCase().split(/\s+/).filter(w => w.length > 2 && !/^(mrs|mr|ms|miss)$/.test(w));
+  const all = d.waiting.concat(d.placed.filter(g => !g.manual)).map(g => ({ g, score: words.filter(w => g.names.toLowerCase().includes(w)).length })).sort((a, b) => b.score - a.score || a.g.lead.localeCompare(b.g.lead));
+  const row = ({ g, score }) => `<tr data-q="${esc((g.names + " " + g.refs.join(" ")).toLowerCase())}"><td><b>${esc(g.names)}</b>${score ? ` <span class="pill ok">looks like it</span>` : ""}<div class="tiny muted">${esc(g.refs.join(", "))}</div></td><td class="n">${g.size}${g.size !== m.size ? `<div class="tiny" style="color:var(--attn)">ResDiary has ${m.size}</div>` : ""}</td><td class="small">${g.time ? "now " + esc(g.time) + (g.table ? ", table " + esc(g.table) : "") : "not placed"}</td><td><button class="btn small" data-pick="${esc(g.booking_ids[0])}">This is it</button></td></tr>`;
+  openModal(`<h3 style="margin:0 0 2px">${esc(m.names)} is on TicketSource now?</h3><p class="small muted" style="margin:0 0 8px">Choose the TicketSource booking. It will be placed on ${m.side === "marquee" ? "the Marquee" : "the Restaurant"}${m.table ? " table " + esc(m.table) : ""} at ${esc(m.time)}, and the blue entry stops counting.</p>
+    <input id="rdQ" placeholder="Search by name or booking reference" style="width:100%;margin:0 0 8px"><div style="max-height:46vh;overflow:auto"><table class="t"><tbody id="rdList">${all.map(row).join("")}</tbody></table></div>
+    <div style="display:flex;gap:8px;justify-content:space-between;flex-wrap:wrap;margin-top:10px"><button class="btn ghost" id="rdJust">Just tick it, I will place the booking myself</button><button class="btn ghost" data-close>Cancel</button></div>`);
+  $("#rdQ").oninput = e => { const v = e.target.value.trim().toLowerCase(); $$("#rdList tr[data-q]").forEach(r => { r.style.display = !v || v.split(/\s+/).every(w => r.dataset.q.includes(w)) ? "" : "none"; }); };
+  $$("[data-pick]").forEach(b => b.onclick = async () => { b.disabled = true; try { const r = await px("admin.manual_confirm", { date_id:S.dgId, id, booking_id:b.dataset.pick }); await dgReload("Ticked: " + (r.matched || "booking") + " now holds that table."); } catch(e){ toast(e.message, true); b.disabled = false; } });
+  $("#rdJust").onclick = async () => { try { await px("admin.manual_confirm", { date_id:S.dgId, id }); await dgReload("Ticked. The blue entry no longer counts."); } catch(e){ toast(e.message, true); } };
+}
 async function dgOpen(gid){
+  if (String(gid).indexOf("m:") === 0) return dgManualForm(S.dg.placed.find(x => x.gid === gid));
   const g = S.dg.placed.concat(S.dg.waiting).find(x => x.gid === gid); if (!g) return;
   openModal(`<div class="empty" style="padding:20px">Loading…</div>`);
   let fulls; try { fulls = await Promise.all(g.booking_ids.map(id => px("admin.booking_full", { booking_id:id }))); } catch(e){ closeModal(); toast(e.message, true); return; }
