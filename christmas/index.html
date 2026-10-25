@@ -438,7 +438,7 @@ function renderPre(loading){
       <div class="card"><h3>Bookings</h3><div style="overflow-x:auto"><table class="t"><thead><tr><th>Ref</th><th>Booked by</th><th>Email</th><th class="n">Guests</th><th>Status</th><th>Invited</th>${e.show_times ? "<th>Guest's time</th>" : ""}<th>Dining</th><th>Table</th><th class="n">Drinks</th><th></th></tr></thead><tbody>${d.rows.map(r => {
         const st = PRE_STATUS[r.status] || [r.status, ""], g = r.adults + r.children;
         return `<tr><td>${esc(r.ref)}</td><td>${esc(r.name)}${r.linked_with.length ? `<div class="tiny muted">with ${esc(r.linked_with.join(", "))}</div>` : ""}${r.has_dietary ? `<div class="tiny" style="color:var(--attn)">dietary notes</div>` : ""}</td><td class="small">${r.email ? esc(r.email) : `<span class="muted">none</span>`}</td><td class="n">${g}</td>
-          <td><span class="pill ${st[1]}">${esc(st[0])}</span>${r.status !== "submitted" ? `<div class="tiny muted">${r.meals_done} of ${g} chosen</div>` : ""}</td><td class="small">${r.invite_sent_at ? esc(fmtDT(r.invite_sent_at)) : `<span class="muted">not yet</span>`}</td>${e.show_times ? `<td class="small">${esc(r.preferred_time === "none" ? "any time" : r.preferred_time || "")}</td>` : ""}
+          <td><span class="pill ${st[1]}">${esc(st[0])}</span>${r.status !== "submitted" ? `<div class="tiny muted">${r.meals_done} of ${g} chosen</div>` : ""}</td><td class="small">${r.invite_sent_at ? esc(fmtDT(r.invite_sent_at)) : `<span class="muted">not yet</span>`}</td>${e.show_times ? `<td class="small">${esc(r.preferred_time === "none" ? "any time" : r.preferred_time || "")}${r.time_comment ? `<div class="tiny" style="color:var(--attn)">${esc(r.time_comment)}</div>` : ""}</td>` : ""}
           <td class="small">${r.dining_time ? esc(r.dining_time) : `<span class="muted">-</span>`}</td><td class="small">${r.table_number ? `<b>${esc(r.table_number)}</b>` : `<span class="muted">-</span>`}</td>
           <td class="n small">${r.drinks_orders ? `<a href="#" data-drinks="${esc(r.booking_id)}">${money(r.drinks_total)}</a>` : `<span class="muted">-</span>`}</td>
           <td style="white-space:nowrap">${canEdit() ? `<button class="btn small ghost" data-seat="${esc(r.booking_id)}">Time and table</button> ` : ""}<button class="btn small ghost" data-copy="${esc(r.link)}">Copy link</button>${canEdit() && r.email ? ` <button class="btn small ghost" data-one="${esc(r.booking_id)}" data-rem="${r.invite_sent_at ? 1 : 0}">${r.invite_sent_at ? "Resend" : "Send"}</button>` : ""}</td></tr>`;
@@ -457,7 +457,7 @@ function renderPre(loading){
 function preSeat(id){
   const r = S.pre.data.rows.find(x => x.booking_id === id); if (!r) return;
   const mates = (r.linked_with || []).length ? `<p class="small muted" style="margin:0 0 10px">Linked with booking ${esc(r.linked_with.join(", "))}: they asked to sit together, so they will usually share a table number.</p>` : "";
-  openModal(`<h3 style="margin:0 0 4px">${esc(r.name)}</h3><p class="small muted" style="margin:0 0 10px">Booking ${esc(r.ref)}, ${r.adults + r.children} guest${r.adults + r.children === 1 ? "" : "s"}${r.preferred_time && r.preferred_time !== "none" ? ", asked for " + esc(r.preferred_time) : ""}</p>${mates}
+  openModal(`<h3 style="margin:0 0 4px">${esc(r.name)}</h3><p class="small muted" style="margin:0 0 10px">Booking ${esc(r.ref)}, ${r.adults + r.children} guest${r.adults + r.children === 1 ? "" : "s"}${r.preferred_time && r.preferred_time !== "none" ? ", asked for " + esc(r.preferred_time) : ""}</p>${mates}${r.time_comment ? `<p class="small" style="margin:0 0 10px;background:var(--attn-bg);border-radius:8px;padding:8px 10px"><b>Their note about the time:</b> ${esc(r.time_comment)}</p>` : ""}
     <div class="two"><div class="field"><label>Dining time</label><input type="time" id="seatTime" value="${esc(r.dining_time || "")}" step="300"></div><div class="field"><label>Table number</label><input type="text" id="seatTable" maxlength="20" value="${esc(r.table_number || "")}" placeholder="e.g. 14"></div></div>
     <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn" id="seatSave">Save</button></div>`);
   $("#seatSave").onclick = async () => {
@@ -529,7 +529,7 @@ async function preCsv(d, btn){
     const time = t => (t === "none" ? "any time" : t || "");
     const cols = [["Booking ref", r => r.ref], ["Booked by", r => r.booked_by], ["Email", r => r.email], ["Table (linked bookings)", r => r.table], ["Guests at table", r => r.table_guests]]
       .concat([["Dining time", r => r.dining_time], ["Table number", r => r.table_number]])
-      .concat(e.show_times ? [["Guest's preferred time", r => time(r.preferred_time)]] : [])
+      .concat(e.show_times ? [["Guest's preferred time", r => time(r.preferred_time)], ["Guest's note about the time", r => r.time_comment]] : [])
       .concat([["Guest", r => r.guest], ["Type", r => r.kind], ["Name", r => r.name]])
       .concat(e.courses.map(c => [c[0].toUpperCase() + c.slice(1), r => r[c]]))
       .concat([["Pre-ordered", r => r.pre_ordered], ["Guest allergies", r => r.guest_dietary], ["Booking dietary", r => r.booking_dietary], ["Notes", r => r.notes]])

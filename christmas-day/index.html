@@ -122,7 +122,7 @@ const DAY_EVENT = { key:"day", title:"Christmas Day", when:"", arrival:"", cours
 const EV = () => (S.d && S.d.event) || DAY_EVENT;
 const WORD = { starter:"starter", main:"main", dessert:"dessert" };
 const joinWords = a => a.length < 2 ? a.join("") : a.slice(0, -1).join(", ") + " and " + a[a.length - 1];
-const S = { d:null, guests:[], time:"", dietary:"", notes:"", under3:0, chairs:0, busy:false, msg:null, pref:"", ack:"" };
+const S = { d:null, guests:[], tcomment:"", time:"", dietary:"", notes:"", under3:0, chairs:0, busy:false, msg:null, pref:"", ack:"" };
 
 async function call(action, payload){
   const r = await fetch(API, { method:"POST", headers:{ "Content-Type":"application/json", Authorization:"Bearer " + KEY, apikey:KEY }, body:JSON.stringify(Object.assign({ action, t:T }, payload || {})) });
@@ -142,7 +142,7 @@ async function load(){
     S.guests = []; let seq = 0;
     for (let i = 0; i < d.booking.adults; i++) { seq++; const g = have[seq] || {}; S.guests.push({ seq, kind:"adult", n:i + 1, name:g.name || "", starter:g.starter || "", main:g.main || "", dessert:g.dessert || "", dietary:g.dietary || "" }); }
     for (let i = 0; i < d.booking.children; i++) { seq++; const g = have[seq] || {}; S.guests.push({ seq, kind:"child", n:i + 1, name:g.name || "", starter:g.starter || "", main:g.main || "", dessert:g.dessert || "", dietary:g.dietary || "" }); }
-    S.time = d.answers.preferred_time || ""; S.pref = S.time === "none" ? "any" : S.time ? "pref" : ""; S.ack = S.time && S.time !== "none" ? S.time : ""; S.dietary = d.answers.dietary || ""; S.notes = d.answers.notes || ""; S.under3 = d.answers.under3 || 0; S.chairs = d.answers.high_chairs || 0;
+    S.time = d.answers.preferred_time || ""; S.pref = S.time === "none" ? "any" : S.time ? "pref" : ""; S.ack = S.time && S.time !== "none" ? S.time : ""; S.tcomment = d.answers.time_comment || ""; S.dietary = d.answers.dietary || ""; S.notes = d.answers.notes || ""; S.under3 = d.answers.under3 || 0; S.chairs = d.answers.high_chairs || 0;
     render();
   } catch(e){ fail(e.message); }
 }
@@ -191,6 +191,7 @@ function render(){
     '<label class="opt' + (S.pref === "any" ? " on" : "") + '" for="tpAny"><input type="radio" id="tpAny" name="tpref" value="any"' + (S.pref === "any" ? " checked" : "") + '><span class="n">Any time between 12pm and 4pm is great</span></label>' +
     '<label class="opt' + (S.pref === "pref" ? " on" : "") + '" for="tpPref"><input type="radio" id="tpPref" name="tpref" value="pref"' + (S.pref === "pref" ? " checked" : "") + '><span class="n">I have a preferred time</span></label>' +
     '<div class="timebox' + (S.pref === "pref" ? " on" : "") + '" id="timeBox"><label class="f" for="tm">Preferred table time</label><select id="tm"><option value="">Choose a time</option>' + d.times.map(t => '<option value="' + t + '"' + (S.time === t ? " selected" : "") + '>' + timeLabel(t) + '</option>').join("") + '</select></div>' +
+    '<label class="f" for="tcomment">Anything you would like us to know about your time? (optional)</label><textarea id="tcomment" maxlength="300" style="min-height:64px" placeholder="e.g. as late as possible, as early as possible, as close to 1pm as possible">' + esc(S.tcomment) + '</textarea>' +
     '<div class="note"><b>Table times are confirmed one month before, on 25 November.</b> If you have no preferred time, or there is no space left at the time you choose, we will give you a time that spreads our bookings across the day, so service runs smoothly for everyone.</div></div>') +
 
     '<div class="card"><h2>Choose your meals</h2><p class="lead">' + (EV().key === "day" ? 'One choice for each guest. Festive canapés on arrival, a palate cleanser, and mince pies with tea or filter coffee to finish are included for everyone.' : 'One choice for each guest. Your ticket includes this two-course meal.') + '</p>' +
@@ -230,10 +231,10 @@ document.addEventListener("change", e => {
 document.addEventListener("input", e => {
   const t = e.target;
   if (t.dataset && t.dataset.field && t.dataset.seq) { const g = S.guests.find(x => x.seq === Number(t.dataset.seq)); g[t.dataset.field] = t.value; }
-  if (t.id === "dietary") S.dietary = t.value; if (t.id === "notes") S.notes = t.value; if (t.id === "u3") S.under3 = Number(t.value) || 0; if (t.id === "hc") S.chairs = Number(t.value) || 0;
+  if (t.id === "tcomment") S.tcomment = t.value; if (t.id === "dietary") S.dietary = t.value; if (t.id === "notes") S.notes = t.value; if (t.id === "u3") S.under3 = Number(t.value) || 0; if (t.id === "hc") S.chairs = Number(t.value) || 0;
 });
 const msg = (id, cls, text) => { const el = $(id); if (el) el.innerHTML = text ? '<div class="' + cls + '">' + esc(text) + '</div>' : ""; };
-function payload(final){ return { final, preferred_time:S.time, dietary:S.dietary, notes:S.notes, under3:S.under3, high_chairs:S.chairs, guests:S.guests.map(g => ({ seq:g.seq, name:g.name, starter:g.starter, main:g.main, dessert:g.dessert, dietary:g.dietary })) }; }
+function payload(final){ return { final, preferred_time:S.time, time_comment:S.tcomment, dietary:S.dietary, notes:S.notes, under3:S.under3, high_chairs:S.chairs, guests:S.guests.map(g => ({ seq:g.seq, name:g.name, starter:g.starter, main:g.main, dessert:g.dessert, dietary:g.dietary })) }; }
 function firstIncomplete(){ for (const g of S.guests) if (EV().courses.some(c => !g[c])) return g; return null; }
 async function save(final, btn){
   msg("#saveMsg", "", "");
