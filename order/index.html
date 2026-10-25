@@ -446,6 +446,12 @@ function isCamper(){ return S.channel === "camper"; }
 // no tray or service charge, paid through SumUp as usual, logged against the booking, and never printed for the kitchen or bar.
 function isPreorder(){ return S.channel === "preorder"; }
 var PREORDER_GROUPS = ["Drinks Packages","Soft & Alcohol Free (pre-order)"];
+var PREORDER_DISCOUNT_PCT = 10; // % off the usual drinks menu when pre-ordered (the packages and the pre-order only list keep their own prices); sumup-create-checkout works out the real figure
+function preorderDiscount(lines){
+  if(!isPreorder()) return 0;
+  var eligible = lines.reduce(function(s,l){ return s + (l.preorderOnly ? 0 : l.unitPrice*l.qty); }, 0);
+  return Math.round((eligible*PREORDER_DISCOUNT_PCT/100 + Number.EPSILON)*100)/100;
+}
 function extraCharge(itemsTotal){
   if(!itemsTotal || isStaffFood() || isPreorder()) return 0; // staff food: no tray/service charge, collection not delivery
   return (isOutside() || isCamper()) ? Math.round((itemsTotal*SERVICE_CHARGE_PCT + Number.EPSILON)*100)/100 : TRAY_CHARGE;
@@ -487,9 +493,9 @@ function applyChannelCopy(){
   } else if(isPreorder()){
     document.title = "Drinks pre-order — Black Horse Beamish";
     $("welcomeTag").textContent = "Drinks Pre-order";
-    $("welcomeMsg").textContent = "Pre-order drinks for your table. Choose a drinks package or anything from our drinks menu, and pay online.";
+    $("welcomeMsg").textContent = "Pre-order drinks for your table. Choose a drinks package or anything from our drinks menu, and pay online. Pre-ordering takes 10% off the drinks menu.";
     $("catHeading").textContent = "Pre-order Drinks";
-    $("catSub").textContent = "Choose drinks for your table";
+    $("catSub").textContent = "10% off the drinks menu when you pre-order";
     $("chargeLabel").textContent = "Charge";
     $("nameLbl").textContent = "Your name";
     $("roomLbl").textContent = "Booking";
@@ -1003,7 +1009,8 @@ function addToCart(item, variant){
       unitPrice: variant ? variant.price : item.price,
       qty: 1,
       variant: variant ? variant.label : null,
-      bundleGroup: item.bundle_group || null, bundleQty: item.bundle_qty || null, bundlePrice: item.bundle_price || null
+      bundleGroup: item.bundle_group || null, bundleQty: item.bundle_qty || null, bundlePrice: item.bundle_price || null,
+      preorderOnly: !!item.preorder_only
     };
   }
   renderMenu(); renderBasketBar();
@@ -1124,6 +1131,8 @@ function renderBasket(){
   var itemsTotal = Math.max(0, Math.round((itemsTotalRaw - bundleResult.amount + Number.EPSILON)*100)/100);
   var charge = lines.length ? extraCharge(itemsTotal) : 0;
   var discountAmt = S.discount ? Math.min(S.discount.amount, itemsTotal + charge) : 0;
+  var preDisc = preorderDiscount(lines);
+  if(preDisc > 0) discountAmt = preDisc;
   var grandTotal = Math.max(0, itemsTotal + charge - discountAmt);
   $("itemsSubtotal").textContent = money(itemsTotalRaw);
   if(bundleResult.amount>0){
@@ -1135,7 +1144,13 @@ function renderBasket(){
   }
   $("trayCharge").textContent = money(charge);
   $("chargeRow").style.display = (isStaffFood() || isPreorder()) ? "none" : "flex";
-  if(S.discount){
+  if(preDisc > 0){
+    $("discountEntryRow").style.display = "none";
+    $("discountAppliedRow").style.display = "none";
+    $("discountTotalRow").style.display = "flex";
+    $("discountTotalLabel").textContent = "Pre-order discount (" + PREORDER_DISCOUNT_PCT + "% off the drinks menu)";
+    $("discountTotalAmt").textContent = money(preDisc);
+  } else if(S.discount){
     $("discountEntryRow").style.display = "none";
     $("discountAppliedRow").style.display = "flex";
     $("discountAppliedLabel").textContent = S.discount.label || ("Code " + S.discount.code);
@@ -1225,10 +1240,12 @@ $("payBtn").onclick = async function(){
     var itemsTotal = Math.max(0, Math.round((cartTotal() - bundleResult.amount + Number.EPSILON)*100)/100);
     var charge = extraCharge(itemsTotal);
     var discountAmt = S.discount ? Math.min(S.discount.amount, itemsTotal + charge) : 0;
+    var preDisc = preorderDiscount(cLines);
+    if(preDisc > 0) discountAmt = preDisc;
     var subtotal = Math.max(0, itemsTotal + charge - discountAmt);
     var notes = $("gNotes").value.trim() || null;
     var allergyNotes = $("gAllergy").value.trim() || null;
-    var discountFields = S.discount ? {
+    var discountFields = preDisc > 0 ? { discount_type: "preorder", discount_percent: PREORDER_DISCOUNT_PCT, discount_amount: discountAmt, discount_label: "Pre-order discount (" + PREORDER_DISCOUNT_PCT + "% off the drinks menu)" } : S.discount ? {
       discount_code: S.discount.code, discount_type: S.discount.type, discount_percent: S.discount.percent,
       discount_amount: discountAmt, discount_label: S.discount.label
     } : {};
@@ -1702,7 +1719,7 @@ async function initPreorder(token){
     S.preorder.ctx = d;
     $("roomFld").style.display = "none"; $("roomLockedFld").style.display = ""; $("roomLockedVal").textContent = d.ref;
     S.lockedRoom = d.ref;
-    $("welcomeMsg").textContent = "Pre-order drinks for your table at " + d.event + " on " + d.when + ". Choose a drinks package or anything from our drinks menu, and pay online. Your order is logged against booking " + d.ref + ".";
+    $("welcomeMsg").textContent = "Pre-order drinks for your table at " + d.event + " on " + d.when + ". Choose a drinks package or anything from our drinks menu, and pay online. Pre-ordering takes 10% off the drinks menu (the packages are already priced). Your order is logged against booking " + d.ref + ".";
     if(!d.open){ $("closedHeading").textContent = "Drinks pre-orders for " + d.event + " have closed"; show("closed"); }
   }catch(e){
     $("closedHeading").textContent = "This drinks pre-order link is not working";
