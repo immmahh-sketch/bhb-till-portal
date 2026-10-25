@@ -163,6 +163,25 @@ tr.lastactual td{border-bottom:3px solid var(--ink)}
 .quickbtn[aria-pressed="true"]{background:var(--sage); border-color:var(--sage); color:var(--white)}
 
 .empty{padding:40px 20px; text-align:center; color:var(--sage-70)}
+table.typ{width:100%; border-collapse:collapse; font-size:15px}
+table.typ th{padding:10px; font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--sage); text-align:center; vertical-align:bottom; background:var(--sage-10); line-height:1.3}
+table.typ td{padding:11px 10px; border-top:1px solid var(--mist); text-align:center; font-variant-numeric:tabular-nums}
+table.typ td.wd{text-align:left; font-weight:700; white-space:nowrap}
+table.typ td.wd small{display:block; font-weight:500; color:var(--sage-70)}
+button.fig{background:none; border:0; border-bottom:1px dashed var(--sage-70); padding:2px 3px; font:inherit; color:inherit; cursor:pointer; border-radius:3px}
+button.fig:hover,button.fig:focus-visible{background:var(--sage-10); outline:none; border-bottom-color:var(--sage)}
+.tynote,.modalx .note{margin:14px 16px; padding:12px 14px; background:var(--sage-10); border-left:4px solid var(--olive); border-radius:8px; font-size:13px; color:var(--sage-70); line-height:1.5}
+.modalx{position:fixed; inset:0; background:rgba(38,38,38,.55); display:none; align-items:center; justify-content:center; padding:16px; z-index:60}
+.modalx.on{display:flex}
+.modalx .box{background:var(--white); border-radius:12px; border-top:3px solid var(--olive); width:100%; max-width:620px; max-height:88vh; overflow:auto; padding:20px}
+.modalx .box .note{margin:12px 0 0}
+.modalx .mh{display:flex; justify-content:space-between; gap:12px; align-items:flex-start; margin-bottom:6px}
+.modalx h3{margin:0; color:var(--sage)}
+.muted{color:var(--sage-70)}
+.bar{display:inline-block; height:10px; border-radius:3px; background:var(--sage); vertical-align:middle; min-width:2px}
+.bar.neg{background:#B04A3F}
+tr.outlier td{background:#F6EFDD}
+
 .loading{padding:60px; text-align:center; color:var(--sage-70)}
 
 /* ================================================== drill-down panel */
@@ -243,6 +262,7 @@ tr.lastactual td{border-bottom:3px solid var(--ink)}
       <button class="tabbtn" role="tab" data-page="month" aria-selected="true">Month</button>
       <button class="tabbtn" role="tab" data-page="period" aria-selected="false">Period</button>
       <button class="tabbtn" role="tab" data-page="accuracy" aria-selected="false">Forecast Accuracy</button>
+      <button class="tabbtn" role="tab" data-page="typical" aria-selected="false">Typical days</button>
     </div>
   </nav>
 
@@ -285,6 +305,8 @@ tr.lastactual td{border-bottom:3px solid var(--ink)}
     </section>
 
     <!-- ------------------------------------------------ Accuracy -->
+    <section class="page" id="page-typical"><div id="typicalHost"></div></section>
+
     <section class="page" id="page-accuracy">
       <div class="pagehead">
         <h2>Forecast Accuracy</h2>
@@ -334,6 +356,7 @@ tr.lastactual td{border-bottom:3px solid var(--ink)}
   </div>
 </div>
 
+<div class="modalx" id="figModal" role="dialog" aria-modal="true"><div class="box" id="figBox"></div></div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -499,6 +522,7 @@ $$(".tabbtn").forEach(b=>{
     $$(".page").forEach(p=>p.classList.remove("on"));
     $("#page-"+b.dataset.page).classList.add("on");
     S.view = b.dataset.page;
+    if (S.view === "typical") showTypical();
   });
 });
 
@@ -866,6 +890,57 @@ $("#aGo").addEventListener("click", ()=>{
   if(!s || !e){ toast("Pick both dates.", true); return; }
   loadAccuracy(s, e);
 });
+
+const tyHost = () => $("#typicalHost"), tyLoad = () => api("typical"), tyActive = () => S.view === "typical";
+/* ---------------------------------------------------------- typical days: the last 30 finished days by weekday, and the dates behind every figure
+   (shared by the HOD Dashboard and the Forecast Dashboard: the same code in both pages; each defines tyHost(), tyLoad(), tyActive()) */
+const TY = { data:null };
+const WD7 = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"], WDLONG = { Mon:"Monday", Tue:"Tuesday", Wed:"Wednesday", Thu:"Thursday", Fri:"Friday", Sat:"Saturday", Sun:"Sunday" };
+const tyDate = iso => { if (!iso) return ""; const [y, m, d] = String(iso).slice(0, 10).split("-"); return `${d}/${m}/${y}`; };
+const tyLong = iso => new Date(iso + "T12:00:00Z").toLocaleDateString("en-GB", { weekday:"short", day:"numeric", month:"short", year:"numeric", timeZone:"UTC" });
+const tsum = (rows, k) => rows.reduce((t, r) => t + (Number(r[k]) || 0), 0);
+const tdiv = (a, b) => b ? a / b : 0;
+const tmoney = v => (v < 0 ? "-" : "") + "£" + Math.abs(v).toLocaleString("en-GB", { minimumFractionDigits:2, maximumFractionDigits:2 }).replace(/\.00$/, "");
+const TYM = [
+  { id:"rooms",  label:"Rooms sold",           dp:1, avg:g => tdiv(tsum(g, "rooms"), g.length),                    one:r => r.rooms,                                   note:r => "" },
+  { id:"gpr",    label:"Guests per room",      dp:2, avg:g => tdiv(tsum(g, "guests"), tsum(g, "rooms")),            one:r => tdiv(r.guests, r.rooms),                  note:r => `${r.guests} guests in ${r.rooms} rooms` },
+  { id:"bpg",    label:"Breakfasts per guest", dp:2, avg:g => tdiv(tsum(g, "bfast"), tsum(g, "guests")),            one:r => tdiv(r.bfast, r.guests),                  note:r => `${r.bfast} breakfasts; ${r.guests} guests that night, ${r.guests_prev} the night before` },
+  { id:"lunch",  label:"Lunch covers",         dp:0, avg:g => tdiv(tsum(g, "lunch"), g.length),                     one:r => r.lunch,                                   note:r => "" },
+  { id:"dinner", label:"Dinner covers",        dp:0, avg:g => tdiv(tsum(g, "dinner"), g.length),                    one:r => r.dinner,                                  note:r => "" },
+  { id:"food",   label:"Food per cover",       money:true, avg:g => tdiv(tsum(g, "food"), tsum(g, "lunch") + tsum(g, "dinner")), one:r => tdiv(r.food, r.lunch + r.dinner), note:r => `${tmoney(r.food)} of food on ${r.lunch + r.dinner} covers` },
+  { id:"bev",    label:"Drinks per cover",     money:true, avg:g => tdiv(tsum(g, "bev"), tsum(g, "lunch") + tsum(g, "dinner")),  one:r => tdiv(r.bev, r.lunch + r.dinner),  note:r => `${tmoney(r.bev)} of drinks on ${r.lunch + r.dinner} covers` },
+  { id:"bf",     label:"Breakfast spend",      money:true, avg:g => tdiv(tsum(g, "bfrev"), tsum(g, "bfast")),         one:r => tdiv(r.bfrev, r.bfast),                    note:r => `${tmoney(r.bfrev)} on ${r.bfast} breakfasts` },
+  { id:"rate",   label:"Rate per room sold",   money:true, avg:g => tdiv(tsum(g, "rrev"), tsum(g, "rooms")),          one:r => tdiv(r.rrev, r.rooms),                     note:r => `${tmoney(r.rrev)} of room revenue on ${r.rooms} rooms` },
+];
+const tfmt = (m, v) => m.money ? tmoney(v) : Number(v).toLocaleString("en-GB", { minimumFractionDigits:m.dp, maximumFractionDigits:m.dp });
+const typByDay = () => { const g = Object.fromEntries(WD7.map(w => [w, []])); for (const r of TY.data.days) if (g[r.dow]) g[r.dow].push(r); return g; };
+async function showTypical(){
+  const host = tyHost(); host.innerHTML = `<div class="loading">Loading…</div>`;
+  if (!TY.data) { try { TY.data = await tyLoad(); } catch(e){ host.innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; } }
+  if (!tyActive()) return;
+  const g = typByDay(), d = TY.data, n = d.days.length;
+  if (!n) { host.innerHTML = `<div class="pagehead"><h2>Typical days</h2></div><div class="empty">No finished days in the last 30 days yet.</div>`; return; }
+  const rows = WD7.filter(w => g[w].length).map(w => `<tr><td class="wd">${w}<small>${g[w].length} day${g[w].length === 1 ? "" : "s"}</small></td>${TYM.map(m => `<td><button type="button" class="fig" data-w="${w}" data-m="${m.id}" title="See the ${g[w].length} ${WDLONG[w]}s behind this figure">${tfmt(m, m.avg(g[w]))}</button></td>`).join("")}</tr>`).join("");
+  host.innerHTML = `<div class="pagehead"><h2>Typical days</h2><div class="hint">What a typical day of the week looks like, from the ${n} finished days in the last 30 days (${tyDate(d.from)} to ${tyDate(d.to)}). Click any figure to see the dates it comes from.</div></div>
+  <div class="card tycard"><div class="tablewrap"><table class="typ"><thead><tr><th></th>${TYM.map(m => `<th>${m.label}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table></div>
+  <div class="note tynote">Rooms and covers are an average per day. Guests per room, breakfasts per guest, food and drinks per cover, breakfast spend and the room rate are worked from the totals for those days (total divided by total). Food and drinks are per cover, lunch and dinner together, because the End of Day report puts all restaurant food and drink against dinner so they cannot be split. Drinks per cover includes bar-only trade, which has no covers.<br><br><b>Breakfasts per guest</b> can be over 1: it is the breakfasts served that morning divided by the guests staying that night. The people eating breakfast stayed the night before, so after a busy night followed by a quieter one (Saturday to Sunday, Sunday to Monday) there are more breakfasts than guests that night, and breakfast covers can also include people who did not stay. Click a figure to see both guest numbers for each day.</div></div>`;
+}
+function showFigure(w, id){
+  const m = TYM.find(x => x.id === id), g = typByDay()[w]; if (!m || !g || !g.length) return;
+  const vals = g.map(r => m.one(r)), avg = m.avg(g), hi = Math.max(...vals), lo = Math.min(...vals), top = Math.max(...vals.map(Math.abs), 0.0001);
+  const sorted = vals.slice().sort((a, b) => a - b), mid = sorted.length % 2 ? sorted[(sorted.length - 1) / 2] : (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2;
+  const off = v => g.length >= 3 && mid !== 0 && Math.abs(v - mid) / Math.abs(mid) > 0.25;      // against the middle value, so one odd day does not make the others look odd
+  const body = g.map((r, i) => { const v = vals[i]; return `<tr class="${off(v) ? "outlier" : ""}"><td class="strong">${tyLong(r.date)}</td><td class="num"><b>${tfmt(m, v)}</b></td><td><span class="bar ${v < 0 ? "neg" : ""}" style="width:${Math.max(2, Math.round(Math.abs(v) / top * 120))}px"></span></td><td class="muted">${esc(m.note(r))}${off(v) ? ` <b style="color:#8C6A1F">${v > mid ? "well above" : "well below"} the usual</b>` : ""}</td></tr>`; }).join("");
+  $("#figBox").innerHTML = `<div class="mh"><div><h3>${esc(m.label)}, ${WDLONG[w]}s</h3><div class="muted" style="font-size:13px">The ${g.length} finished ${WDLONG[w]}${g.length === 1 ? "" : "s"} between ${tyDate(TY.data.from)} and ${tyDate(TY.data.to)}</div></div><button class="btn ghost" id="figClose">Close</button></div>
+    <div class="tablewrap"><table class="grid"><thead><tr><th>Date</th><th class="num">${esc(m.label)}</th><th></th><th>What it is made of</th></tr></thead><tbody>${body}</tbody></table></div>
+    <div class="note" style="margin-top:12px"><b>Average ${tfmt(m, avg)}</b>${g.length > 1 ? ` &middot; lowest ${tfmt(m, lo)} &middot; highest ${tfmt(m, hi)}` : ""}${m.id === "rooms" || m.id === "lunch" || m.id === "dinner" ? "" : ". The average is the total over the total, so a busy day counts for more than a quiet one."}</div>`;
+  $("#figModal").classList.add("on"); $("#figClose").focus();
+}
+document.addEventListener("click", e => {
+  const b = e.target.closest && e.target.closest("button.fig"); if (b) return showFigure(b.dataset.w, b.dataset.m);
+  if (e.target.id === "figClose" || e.target.id === "figModal") $("#figModal").classList.remove("on");
+});
+document.addEventListener("keydown", e => { if (e.key === "Escape") $("#figModal").classList.remove("on"); });
 
 /* ------------------------------------------------------ CSV exports */
 const MONTH_COLS = [
