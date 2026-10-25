@@ -58,6 +58,7 @@ table.t{width:100%; border-collapse:collapse; font-size:14px} .t th{font-size:10
 @media(max-width:640px){ .pagehead h2{font-size:24px} .btn{min-height:44px} }
 
 .ordcell{width:64px;text-align:center}.ordtick{width:20px;height:20px;accent-color:var(--sage);cursor:pointer}.dtxt,.dtxt b,.dtxt .tiny{color:#9a9a96!important;text-decoration:line-through}.dec-done .pill{opacity:.7}
+.dgt.free{cursor:cell}.dgt.free:hover{background-color:#F4F0E4}
 .dgw{overflow-x:auto} .dgr{display:flex;border-bottom:1px solid var(--mist);min-height:36px} .dgr.hdr{position:sticky;top:0;background:#fff;z-index:3;min-height:26px;border-bottom:2px solid var(--gold)}
 .dgn{flex:0 0 112px;width:112px;position:sticky;left:0;z-index:2;background:#fff;border-right:1px solid var(--mist);padding:4px 8px;display:flex;flex-direction:column;justify-content:center;line-height:1.15} .dgn b{font-size:13px} .dgn span{font-size:11px;color:var(--sage-70)}
 .dgt{position:relative;height:36px;background-image:linear-gradient(90deg,var(--mist) 1px,transparent 1px);background-size:34px 100%} .dgr.pace .dgt,.dgr.hdr .dgt{display:flex;background-image:none}
@@ -614,9 +615,14 @@ function dgBlock(g){
 function dgRows(side, d){
   const tables = d.sides[side].tables, placed = d.placed.filter(g => g.side === side);
   const total = (dgMin(d.day_end) - DG.START) / 15 * DG.COL;
-  const mk = (name, sub, items) => `<div class="dgr"><div class="dgn"><b>${esc(name)}</b><span>${esc(sub)}</span></div><div class="dgt" style="width:${total}px">${items.map(dgBlock).join("")}</div></div>`;
-  let out = tables.map(t => mk(t.name, t.seats + " seats", placed.filter(g => g.table === t.name))).join("");
-  const loose = placed.filter(g => !g.table || !tables.some(t => t.name === g.table));
+  const mk = (name, sub, items, tbl) => `<div class="dgr"><div class="dgn"><b>${esc(name)}</b><span>${esc(sub)}</span></div><div class="dgt${tbl ? " free" : ""}" ${tbl ? `data-side="${side}" data-tbl="${esc(tbl.name)}" data-seats="${tbl.seats}" title="Click an empty space to put a booking here"` : ""} style="width:${total}px">${items.map(dgBlock).join("")}</div></div>`;
+  const parts = tb => String(tb || "").split("+").map(x => x.trim()).filter(Boolean);
+  let out = "", lastArea = null;
+  tables.forEach(t => {
+    if (side === "restaurant" && (t.area || "") !== lastArea) { lastArea = t.area || ""; if (lastArea) out += `<div class="dgs">${esc(lastArea)}</div>`; }
+    out += mk(t.name, t.seats + " seats", placed.filter(g => parts(g.table).includes(t.name)), t);
+  });
+  const loose = placed.filter(g => !g.table || !parts(g.table).every(n => tables.some(t => t.name === n)));
   if (loose.length) out += dgLanes(loose).map((l, i) => mk("No table " + (i + 1), "to be set", l.items)).join("");
   if (!out) out = `<div class="small muted" style="padding:10px 12px">${side === "restaurant" ? "Nobody placed in the Restaurant yet." : "Nobody placed in the Marquee yet. Tables are made as the bookings are placed."}</div>`;
   return out;
@@ -643,6 +649,39 @@ function renderDiary(){
     <div class="card"><h3>Not placed (${wait.length})</h3>${wait.length ? `<table class="t"><thead><tr><th>Booking</th><th class="n">Guests</th><th>Asked for</th><th>Why</th><th></th></tr></thead><tbody>${wait.map(g => `<tr><td>${esc(g.names)}<div class="tiny muted">${esc(g.refs.join(", "))}</div></td><td class="n">${g.size}</td><td class="small">${g.submitted ? esc(g.asked || "any time") + (g.area_pref ? ", " + esc(g.area_pref) : "") : ""}</td><td class="small">${g.submitted ? "No room found: place it by hand" : "Has not sent their pre-order yet"}</td><td><button class="btn small ghost" data-gid="${esc(g.gid)}">Open</button></td></tr>`).join("")}</tbody></table>` : `<p class="small muted" style="margin:0">Everyone is placed.</p>`}</div>`;
   $$("[data-gid]").forEach(b => b.onclick = () => dgOpen(b.dataset.gid));
   $$("[data-dg]").forEach(b => b.onclick = () => dgAct(b.dataset.dg, b));
+  if (canEdit()) $$(".dgt[data-tbl]").forEach(el => el.onclick = e => {
+    if (e.target.closest(".dgb")) return;
+    const slot = Math.floor((e.clientX - el.getBoundingClientRect().left) / DG.COL), min = DG.START + slot * 15;
+    if (min < DG.START || min > dgMin(S.dg.slots[S.dg.slots.length - 1])) { toast("Arrivals are from " + S.dg.slots[0] + " to " + S.dg.slots[S.dg.slots.length - 1] + ".", true); return; }
+    dgFree(el.dataset.side, el.dataset.tbl, Number(el.dataset.seats), minToStr(min));
+  });
+}
+/** A click on empty space on a table: pick any booking to put there at that arrival time (locked, so the diary leaves it). */
+function dgFree(side, table, seats, time){
+  const d = S.dg, all = d.waiting.concat(d.placed), sideName = side === "marquee" ? "Marquee" : "Restaurant";
+  const parts = tb => String(tb || "").split("+").map(x => x.trim()).filter(Boolean);
+  const durOf = n => n > 8 ? 240 : 180;
+  const start = dgMin(time);
+  const list = g => {
+    const warn = [], end = start + durOf(g.size);
+    if (g.size > seats) warn.push(`${g.size} guests, the table seats ${seats}`);
+    if (side === "restaurant" && g.size > 6) warn.push("over 6 guests, usually the Marquee");
+    d.placed.filter(o => o.gid !== g.gid && o.side === side && parts(o.table).includes(table) && dgMin(o.time) < end && dgMin(o.end) > start).forEach(o => warn.push(`clashes with ${o.lead} (${o.time} to ${o.end})`));
+    return warn;
+  };
+  const row = g => { const w = list(g); return `<tr data-q="${esc((g.names + " " + g.refs.join(" ")).toLowerCase())}"><td><b>${esc(g.names)}</b><div class="tiny muted">${esc(g.refs.join(", "))}${g.asked ? " · asked " + esc(g.asked) : ""}${g.area_pref ? " · " + esc(g.area_pref) : ""}</div>${w.length ? `<div class="tiny" style="color:var(--attn)">${esc(w.join("; "))}</div>` : ""}</td><td class="n">${g.size}</td><td class="small"><span class="pill ${g.submitted ? "ok" : "warn"}">${g.submitted ? "Pre-order in" : "No pre-order"}</span><div class="tiny muted">${g.time ? "now " + esc(g.time) + (g.table ? ", table " + esc(g.table) : "") : "not placed"}</div></td><td><button class="btn small" data-put="${esc(g.gid)}">Put here</button></td></tr>`; };
+  openModal(`<h3 style="margin:0 0 2px">Table ${esc(table)} at ${esc(time)}</h3><p class="small muted" style="margin:0 0 8px">${esc(sideName)}, seats ${seats}. Choose a booking to put here. It will be placed by hand, so the diary will not move it.</p>
+    <input id="dgfQ" placeholder="Search by name or booking reference" style="width:100%;margin:0 0 8px">
+    <div style="max-height:52vh;overflow:auto"><table class="t"><thead><tr><th>Booking</th><th class="n">Guests</th><th>Now</th><th></th></tr></thead><tbody id="dgfList">${all.slice().sort((a, b) => (!!a.time - !!b.time) || (b.submitted - a.submitted) || a.lead.localeCompare(b.lead)).map(row).join("") || `<tr><td colspan="4" class="muted">No bookings.</td></tr>`}</tbody></table></div>
+    <div style="text-align:right;margin-top:10px"><button class="btn ghost" onclick="closeModal()">Cancel</button></div>`);
+  $("#dgfQ").oninput = e => { const v = e.target.value.trim().toLowerCase(); $$("#dgfList tr[data-q]").forEach(r => { r.style.display = !v || r.dataset.q.includes(v) ? "" : "none"; }); };
+  $$("[data-put]").forEach(b => b.onclick = async () => {
+    const g = all.find(x => x.gid === b.dataset.put), w = list(g);
+    if (w.length && !confirm("Put " + g.names + " here anyway?" + String.fromCharCode(10, 10) + w.join(String.fromCharCode(10)))) return;
+    b.disabled = true;
+    try { await px("admin.place", { date_id:S.dgId, booking_id:g.booking_ids[0], time, side, table, force:true }); S.dg = await px("admin.diary", { date_id:S.dgId }); closeModal(); renderDiary(); toast(g.lead + " placed on table " + table + " at " + time + "."); }
+    catch(e){ toast(e.message, true); b.disabled = false; }
+  });
 }
 const minToStr = n => String(Math.floor(n / 60)).padStart(2, "0") + ":" + String(n % 60).padStart(2, "0");
 async function dgAct(a, btn){
@@ -661,15 +700,26 @@ async function dgRun(opts, ask, btn){
   catch(e){ toast(e.message, true); if (btn) btn.disabled = false; }
 }
 function dgTables(){
-  const cur = S.dg.sides.restaurant.tables.map(t => `${t.name}, ${t.seats}`).join("\n");
-  openModal(`<h3 style="margin:0 0 4px">The Restaurant's tables</h3><p class="small muted" style="margin:0 0 8px">The same list as ResDiary. One table a line: its name, then how many it seats (a comma or a space between), like <b>T12, 4</b>. Saving places everyone again onto these tables (anyone moved by hand stays).</p>
-    <textarea id="dgTb" style="width:100%;min-height:240px;font-family:monospace;font-size:13px" placeholder="1, 2&#10;2, 2&#10;3, 4&#10;10, 6">${esc(cur)}</textarea>
+  const cur = S.dg.sides.restaurant.tables.map(t => `${t.name}, ${t.seats}${t.area ? ", " + t.area : ""}`).join("\n");
+  const curJ = (S.dg.joins || []).map(j => `${j.tables} = ${j.seats}`).join("\n");
+  openModal(`<h3 style="margin:0 0 4px">The Restaurant's tables</h3><p class="small muted" style="margin:0 0 8px">The same list as ResDiary. One table a line: its name, how many it seats, then its area (optional), like <b>12, 4, Main Restaurant</b>. Saving places everyone again onto these tables (anyone moved by hand stays).</p>
+    <textarea id="dgTb" style="width:100%;min-height:220px;font-family:monospace;font-size:13px" placeholder="9, 8, Main Restaurant&#10;10, 6, Main Restaurant">${esc(cur)}</textarea>
+    <h4 style="margin:12px 0 4px">Table joins</h4><p class="small muted" style="margin:0 0 6px">Tables ResDiary lets you push together, and how many they seat: <b>9+10 = 9</b>. Used for a table of more than 6 when the Marquee has no room.</p>
+    <textarea id="dgJn" style="width:100%;min-height:110px;font-family:monospace;font-size:13px" placeholder="8+9 = 8&#10;9+10 = 9">${esc(curJ)}</textarea>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn" id="dgTbSave">Save and place again</button></div>`);
   $("#dgTbSave").onclick = async () => {
-    const lines = $("#dgTb").value.split("\n").map(x => x.trim()).filter(Boolean), tables = [];
-    for (const l of lines) { const m = /^(.*?)[,;\t ]+(\d+)\s*(?:seats?|covers?|pax)?$/i.exec(l); if (!m) { toast("Cannot read the line: " + l, true); return; } tables.push({ name:m[1].trim(), seats:Number(m[2]) }); }
+    const lines = $("#dgTb").value.split("\n").map(x => x.trim()).filter(Boolean), tables = [], joins = [];
+    for (const l of lines) {
+      let m = /^([^,;\t]+?)\s*[,;\t]\s*(\d+)\s*(?:[,;\t]\s*(.+))?$/.exec(l) || /^(\S+)\s+(\d+)\s*(?:seats?|covers?|pax)?$/i.exec(l);
+      if (!m) { toast("Cannot read the line: " + l, true); return; }
+      tables.push({ name:m[1].trim(), seats:Number(m[2]), area:(m[3] || "").trim() });
+    }
+    for (const l of $("#dgJn").value.split("\n").map(x => x.trim()).filter(Boolean)) {
+      const m = /^([\w+,\s]+?)\s*[=:]\s*(\d+)$/.exec(l); if (!m) { toast("Cannot read the join: " + l, true); return; }
+      joins.push({ names:m[1].split(/[+,\s]+/).filter(Boolean), seats:Number(m[2]) });
+    }
     const b = $("#dgTbSave"); b.disabled = true;
-    try { await px("admin.tables_set", { date_id:S.dgId, tables }); closeModal(); await dgRun({ reset:true }, null); }
+    try { await px("admin.tables_set", { date_id:S.dgId, tables, joins }); closeModal(); await dgRun({ reset:true }, null); }
     catch(e){ toast(e.message, true); b.disabled = false; }
   };
 }
