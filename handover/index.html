@@ -98,6 +98,7 @@ textarea{min-height:84px; resize:vertical}
 .toast{position:fixed; left:50%; bottom:26px; transform:translate(-50%,20px); background:var(--ink); color:var(--white); padding:12px 20px; border-radius:8px; z-index:200; opacity:0; transition:.2s; pointer-events:none; font-size:14px; max-width:90vw}
 .toast.on{opacity:1; transform:translate(-50%,0)} .toast.bad{background:var(--alert)}
 @media (max-width:640px){ .shell{padding:0 12px 48px} .topin,.tabsin{padding-left:12px;padding-right:12px} .pagehead h2{font-size:22px} .btn{width:100%} .btn.small{width:auto} .opt{flex:1 1 auto} .opts.rating .opt{flex:0 0 auto} }
+body.embed header.top, body.embed nav.tabs{display:none} body.embed .shell{padding-top:6px}
 </style>
 </head>
 <body>
@@ -120,6 +121,9 @@ textarea{min-height:84px; resize:vertical}
 <script>
 const CFG = { SUPABASE_URL:"https://safcrtrfdzsnftghibot.supabase.co", SUPABASE_KEY:"sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU" };
 const S = { me:null, view:"new", f:null, list:[], editing:null, ctxFor:"" };
+/* Inside the cash up (?embed=1&date=...): only the form, for that day; when it is sent the cash up is told. */
+const EMBED = new URLSearchParams(location.search).get("embed") === "1", EMBED_DATE = (new URLSearchParams(location.search).get("date") || "").slice(0, 10);
+if (EMBED) document.body.classList.add("embed");
 const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
 const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 const fmtDT = iso => { if(!iso) return ""; try { return new Date(iso).toLocaleString("en-GB",{ timeZone:"Europe/London", day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" }).replace(",",""); } catch(e){ return String(iso).slice(0,16); } };
@@ -195,7 +199,7 @@ function digestHtml(){
 }
 
 /* ------------------------------------------------------------- form */
-function blankForm(){ return { id:null, business_date:defaultDate(), had_wedding:null, restaurant_open:true, answers:{} }; }
+function blankForm(){ return { id:null, business_date:(EMBED && /^\d{4}-\d{2}-\d{2}$/.test(EMBED_DATE) ? EMBED_DATE : defaultDate()), had_wedding:null, restaurant_open:true, answers:{} }; }
 function formHtml(){
   const f = S.f;
   let h = `<div class="pagehead"><h2>${f.id ? "Edit hand over" : "Write a hand over"}</h2><div class="hint">Tap an answer. Anything that went wrong gets a note so the next team can pick it up.</div></div>
@@ -292,6 +296,12 @@ async function submitForm(){
     const payload = { business_date: f.business_date, had_wedding: f.had_wedding, restaurant_open: f.restaurant_open !== false, answers: a };
     if (f.id) await call("handover.update", { id: f.id, ...payload }); else await call("handover.create", payload);
     toast(f.id ? "Saved." : "Hand over submitted - thank you.");
+    if (EMBED && !f.id) {
+      S.f = null;
+      $("#views").innerHTML = `<div class="card" style="text-align:center"><h2 style="font-family:var(--display);color:var(--sage)">Hand over received</h2><p class="muted">Thank you. You can go back to the cash up now.</p></div>`;
+      try { parent.postMessage({ type:"bhb-handover-saved", date:f.business_date }, location.origin); } catch(e){}
+      return;
+    }
     S.f = null; goView("read");
   } catch(e){ toast(e.message, true); btn.disabled = false; }
 }

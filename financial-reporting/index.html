@@ -168,6 +168,8 @@ table.grid td{padding:10px 12px; border-top:1px solid var(--mist); vertical-alig
 table.grid td.num{text-align:right; font-variant-numeric:tabular-nums}
 /* the Cash Up history has twelve columns: a wider frame on a big screen, tighter cells and two-line headings so the whole row is in view */
 body.widepage{--maxw:1800px} body.widepage #kiosk{max-width:var(--maxw)}
+.cuTabs{display:flex; gap:6px; margin:0 0 12px; border-bottom:1px solid var(--line,#ddd)} .cuTabs button{background:none; border:0; border-bottom:3px solid transparent; padding:10px 14px; font:inherit; font-weight:600; color:var(--sage-70,#7B887C); cursor:pointer} .cuTabs button.on{color:var(--sage,#4D604F); border-bottom-color:var(--sage,#4D604F)} .cuTabs button.need{color:var(--alert,#8C4A3F)}
+.hoNote{background:#F7F0E4; color:#6d5320; border-radius:8px; padding:10px 14px; margin:0 0 12px; font-size:14px} .hoNote.ok{background:#EDF2ED; color:#2F5B31} .hoNote button{margin-left:8px}
 .noteBtn{position:relative; border:1px solid var(--mist); background:var(--white); border-radius:8px; width:36px; height:32px; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; color:var(--sage-70); padding:0}
 .noteBtn:hover{background:var(--sage-10); color:var(--sage)} .noteBtn.has{color:var(--sage); border-color:var(--celadon)}
 .noteBtn.need{color:var(--alert); border-color:var(--alert); background:var(--alert-bg)}
@@ -395,7 +397,7 @@ async function call(action, payload){
   });
   let d = {};
   try { d = await r.json(); } catch(e){}
-  if (!r.ok || d.error) throw new Error(d.error || `Request failed (${r.status})`);
+  if (!r.ok || d.error) { const err = new Error(d.error || `Request failed (${r.status})`); if (d.code) err.code = d.code; throw err; }
   return d;
 }
 
@@ -836,6 +838,9 @@ function viewCashUpEntry(){
       <button onclick="goView('cashup-history')">History</button>
     </div>`}
     <div class="pagehead"><h2>Cash Up</h2><div class="hint">Count the till's cash and enter what the till expects. The day's cards are checked once, after the last till.</div></div>
+    <div class="cuTabs" role="tablist"><button type="button" class="on" id="cuTabForm" data-cutab="form">Cash up</button><button type="button" id="cuTabHo" data-cutab="handover">Write a hand over</button></div>
+    <div id="hoNote" class="hoNote" hidden></div>
+    <div id="hoPane" hidden></div>
     <div id="cuForm">
     <div class="card">
       <div class="row">
@@ -951,7 +956,9 @@ function wireCashUpEntry(){
   const t = S.tills.find(x => x.key === $("#cu_till").value); CU.standard = t ? Number(t.float_amount) || 0 : 0;
   $("#cuForm").addEventListener("input", cuRecalc);
   const reload = () => { cuLoadContext(); cuLoadStock(); };
-  $("#cu_till").addEventListener("change", reload); $("#cu_date").addEventListener("change", reload);
+  $("#cu_till").addEventListener("change", reload); $("#cu_date").addEventListener("change", () => { reload(); hoCheck(); HO.loaded = ""; });
+  $$("[data-cutab]").forEach(b => b.addEventListener("click", () => cuTab(b.dataset.cutab)));
+  hoCheck();
   $("#cu_save").addEventListener("click", saveCashUp);
   cuRecalc(); reload();
 }
@@ -968,9 +975,43 @@ function afterSave(kioskView, historyView){
   }
 }
 
+/* The cash up needs the day's hand over first. The hand over form opens as a tab inside the cash up, so nobody leaves the app to write it. */
+const HO = { state:null, loaded:"" };
+async function hoCheck(){
+  const el = $("#cu_date"); if (!el) return null;
+  try { HO.state = await call("handover.status", { business_date: el.value }); } catch(e){ HO.state = null; }
+  hoPaint(); return HO.state;
+}
+function hoPaint(){
+  const st = HO.state, tab = $("#cuTabHo"), note = $("#hoNote"); if (!tab || !note) return;
+  const need = !!(st && st.required && !st.done);
+  tab.classList.toggle("need", need); tab.textContent = "Write a hand over" + (need ? " (needed)" : st && st.done ? " \u2713" : "");
+  if (need) { note.className = "hoNote"; note.hidden = false; note.innerHTML = `The hand over for <b>${esc(st.date_text)}</b> has not been written yet. You need to write it before you can finish the cash up. <button type="button" class="btn small" id="hoOpen">Write it now</button>`; const b = $("#hoOpen"); if (b) b.onclick = () => cuTab("handover"); }
+  else if (st && st.done) { note.className = "hoNote ok"; note.hidden = false; note.innerHTML = `Hand over written${st.by ? " by " + esc(st.by) : ""}${st.at ? " at " + esc(new Date(st.at).toLocaleTimeString("en-GB", { timeZone:"Europe/London", hour:"2-digit", minute:"2-digit" })) : ""}.`; }
+  else note.hidden = true;
+}
+function cuTab(which){
+  const form = $("#cuForm"), pane = $("#hoPane"); if (!form || !pane) return;
+  $$("[data-cutab]").forEach(b => b.classList.toggle("on", b.dataset.cutab === which));
+  form.hidden = which === "handover"; pane.hidden = which !== "handover";
+  if (which === "handover") {
+    const date = ($("#cu_date") || {}).value || todayIso();
+    if (HO.loaded !== date) { HO.loaded = date; pane.innerHTML = `<iframe title="Write a hand over" src="/handover/?embed=1&date=${encodeURIComponent(date)}" style="width:100%; height:78vh; min-height:560px; border:0; border-radius:10px; background:#fff"></iframe>`; }
+    pane.scrollIntoView && pane.scrollIntoView({ behavior:"smooth", block:"start" });
+  }
+}
+function hoAlert(st){
+  pcModal(`<h3 style="margin:0 0 8px">Hand over needed first</h3><p style="margin:0 0 14px">The cash up cannot be finished until the hand over for <b>${esc((st && st.date_text) || "today")}</b> has been written. It opens next, here in the cash up, so you do not need to leave.</p><div style="text-align:right"><button type="button" class="btn" id="hoOk">Write the hand over</button></div>`);
+  const b = $("#hoOk"); if (b) b.onclick = () => { pcClose(); cuTab("handover"); };
+}
+window.addEventListener("message", async e => {
+  if (e.origin !== location.origin || !e.data || e.data.type !== "bhb-handover-saved") return;
+  await hoCheck(); cuTab("form"); toast("Hand over received. You can finish the cash up now.");
+});
 async function saveCashUp(){
   const btn = $("#cu_save");
   if (denomsBad("cu")) return;
+  { const st = await hoCheck(); if (st && st.required && !st.done) { hoAlert(st); return; } }
   if (CU.pending > 0) { toast("Confirm the stock lines first.", true); return; }
   const { values } = readDenoms("cu");
   const expCash = r2(numv("cu_exp_cash")), expCard = r2(numv("cu_exp_card")), vouch = r2(numv("cu_vouchers")), room = r2(numv("cu_room"));
@@ -1000,7 +1041,7 @@ async function saveCashUp(){
     const out = await call("cashup.save", payload);
     toast(`Saved. Difference ${money(out.cashup.variance)}. Cash to bank ${money(out.cashup.cash_banking)}.`);
     cuAfterSave(out);
-  } catch(e) { toast(e.message, true); if (e.message && /stock/i.test(e.message)) cuLoadStock(); }
+  } catch(e) { if (e.code === "handover_required") { await hoCheck(); hoAlert(HO.state || { date_text: "" }); } else { toast(e.message, true); if (e.message && /stock/i.test(e.message)) cuLoadStock(); } }
   finally { btn.disabled = false; btn.textContent = "Save & archive"; cuRecalc(); }
 }
 
