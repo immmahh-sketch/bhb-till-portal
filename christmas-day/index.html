@@ -113,6 +113,12 @@ footer::before{content:"\2726  \2744  \2726  \2744  \2726";display:block;color:v
 <label class="chk" for="tmAck"><input type="checkbox" id="tmAck"><span>I have read and understand this</span></label>
 <button type="button" class="btn" id="tmClose" disabled>Close</button>
 </div></div>
+<div class="modal" id="drinksModal" role="dialog" aria-modal="true" aria-labelledby="dmTitle"><div class="box">
+<h2 id="dmTitle">Before you send: drinks for your table</h2>
+<p style="margin:0 0 8px">Drinks are <b>10% cheaper when you pre-order</b>, and they will be waiting for you, so you can enjoy a relaxed start without queuing or waiting for your first drinks.</p>
+<p style="margin:0 0 14px">It only takes a couple of minutes, and you can pay online.</p>
+<div style="display:grid;gap:10px"><button type="button" class="btn gold" id="dmGo">Pre-order and pay for drinks</button><button type="button" class="btn ghost" id="dmSkip" style="color:var(--sage);border-color:var(--sage)">No thanks, send my pre-order</button></div>
+</div></div>
 <script>
 const API = "https://safcrtrfdzsnftghibot.supabase.co/functions/v1/xmas-api";
 const KEY = "sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU";
@@ -216,6 +222,8 @@ function render(){
     (d.deadline.closed ? '<div class="err">Pre-orders closed on ' + esc(d.deadline.text) + '. Each guest without choices is served our standard menu. To change anything, please contact us.</div>' :
       '<div class="note"><b>Please complete this form by ' + esc(d.deadline.text) + '.</b> If we have not received your choices by then, each guest will be served our standard menu: ' + esc(joinWords(EV().courses.map(c => d.standard[c]))) + '.</div>') +
     (d.answers.submitted_at ? '<div class="ok">Your pre-order has been received.' + (d.deadline.closed ? '' : ' You can still change it below.') + '</div>' : "") + '<div id="topMsg"></div></div>' +
+    (d.drinks && d.drinks.open && d.drinks.shots ? '<div class="card drinks"><span class="badge">Extra for the table</span><h2>Add arrival shots</h2><p class="lead">Your ticket already includes drinks. If you would like to start the night with a bang, add arrival shots for your table: 10 Sourz shots for £20, or 10 Jägerbombs for £30. Pay online and they will be ready when you arrive.</p><p style="margin:14px 0 0"><a class="btn gold" href="' + esc(d.drinks.url) + '" style="display:inline-block;text-decoration:none">Add arrival shots</a></p></div>' : "") +
+    (d.drinks && d.drinks.open && !d.drinks.shots ? '<div class="card drinks"><span class="badge">10% off the drinks menu</span><h2>Drinks for your table</h2><p class="lead">Pre-order drinks so they are ready when you sit down. Choose one of our drinks packages, or anything from the full drinks menu, and pay online. You can come back and add more at any time before the day.</p><p style="margin:14px 0 0"><a class="btn gold" href="' + esc(d.drinks.url) + '" style="display:inline-block;text-decoration:none">Pre-order drinks</a></p></div>' : "") +
 
     payHtml() +
     (!EV().show_times ? (EV().arrival ? '<div class="card"><h2>On the night</h2><p class="lead" style="margin:0">' + esc(EV().arrival) + '</p></div>' : "") : '<div class="card"><h2>When and where would you like to sit?</h2><p class="lead">Please tell us about your table time.</p>' +
@@ -238,8 +246,6 @@ function render(){
     (EV().show_under3 ? '<div class="card"><h2>Under 3s</h2><p class="lead">Under 3s are free and do not need a ticket. If you are bringing any, please tell us so we can set your table.</p>' +
     '<div class="row"><div><label class="f" for="u3">How many under 3s are coming?</label><input type="number" id="u3" min="0" max="20" inputmode="numeric" value="' + (S.under3 || 0) + '"></div>' +
     '<div><label class="f" for="hc">How many high chairs do you need?</label><input type="number" id="hc" min="0" max="20" inputmode="numeric" value="' + (S.chairs || 0) + '"></div></div></div>' : "") +
-    (d.drinks && d.drinks.open && d.drinks.shots ? '<div class="card drinks"><span class="badge">Extra for the table</span><h2>Add arrival shots</h2><p class="lead">Your ticket already includes drinks. If you would like to start the night with a bang, add arrival shots for your table: 10 Sourz shots for £20, or 10 Jägerbombs for £30. Pay online and they will be ready when you arrive.</p><p style="margin:14px 0 0"><a class="btn gold" href="' + esc(d.drinks.url) + '" style="display:inline-block;text-decoration:none">Add arrival shots</a></p></div>' : "") +
-    (d.drinks && d.drinks.open && !d.drinks.shots ? '<div class="card drinks"><span class="badge">10% off the drinks menu</span><h2>Drinks for your table</h2><p class="lead">Pre-order drinks so they are ready when you sit down. Choose one of our drinks packages, or anything from the full drinks menu, and pay online. You can come back and add more at any time before the day.</p><p style="margin:14px 0 0"><a class="btn gold" href="' + esc(d.drinks.url) + '" style="display:inline-block;text-decoration:none">Pre-order drinks</a></p></div>' : "") +
     '<div id="linkBlock">' + linkedHtml() + '</div>' +
     '<div class="card"><div id="saveMsg"></div><p class="muted small" style="margin:0">Please complete the form for every guest, then press <b>Send my pre-order</b>. If you need more time, press <b>Save and finish later</b> and come back to this link.</p></div>' +
     (d.deadline.closed ? "" : '<div class="bar"><button type="button" class="btn ghost" id="draft">Save and finish later</button><button type="button" class="btn" id="final">Send my pre-order</button></div>');
@@ -271,24 +277,27 @@ document.addEventListener("input", e => {
 const msg = (id, cls, text) => { const el = $(id); if (el) el.innerHTML = text ? '<div class="' + cls + '">' + esc(text) + '</div>' : ""; };
 function payload(final){ return { final, preferred_time:S.time, area_pref:S.areapref, time_comment:S.tcomment, dietary:S.dietary, notes:S.notes, under3:S.under3, high_chairs:S.chairs, guests:S.guests.map(g => ({ seq:g.seq, name:g.name, starter:g.starter, main:g.main, dessert:g.dessert, dietary:g.dietary })) }; }
 function firstIncomplete(){ for (const g of S.guests) if (EV().courses.some(c => !g[c])) return g; return null; }
-async function save(final, btn){
+async function save(final, btn, skipAsk, thenGo){
   msg("#saveMsg", "", "");
   if (final && EV().show_times && (!S.time || (S.pref === "pref" && S.time === "none"))) { msg("#saveMsg", "err", "Please tell us your table time: any time between 12pm and 4pm, or choose a preferred time."); const el = $("#timeBox"); if (el) el.scrollIntoView({ behavior:"smooth", block:"center" }); return; }
   if (final) {
     const g = firstIncomplete();
     if (g) { msg("#saveMsg", "err", "Please choose a " + joinWords(EV().courses.map(c => WORD[c])) + " for " + (g.kind === "adult" ? "Adult " : "Child ") + g.n + "."); const el = $("#guest" + g.seq); if (el) el.scrollIntoView({ behavior:"smooth", block:"start" }); return; }
   }
+  if (final && !skipAsk && S.d.drinks && S.d.drinks.open && !S.d.drinks.shots && !S.d.drinks.ordered) { S.askBtn = btn; $("#drinksModal").classList.add("on"); const g = $("#dmGo"); if (g) g.focus(); return; }
   if (btn) btn.disabled = true;
   try {
     await call("form.save", payload(final));
     msg("#saveMsg", "ok", final ? "Thank you. Your pre-order has been received. You can come back to this link at any time to change it." : "Saved. Come back to this link whenever you are ready to finish.");
     if (final) { S.d.answers.submitted_at = new Date().toISOString(); }
     const el = $("#saveMsg"); if (el) el.scrollIntoView({ behavior:"smooth", block:"center" });
+    if (thenGo && S.d.drinks) { if (btn) btn.disabled = false; location.href = S.d.drinks.url; return; }
   } catch(e){ msg("#saveMsg", "err", e.message); }
   if (btn) btn.disabled = false;
 }
 document.addEventListener("click", async e => {
   const b = e.target.closest("button"); if (!b) return;
+  if (b.id === "dmGo" || b.id === "dmSkip") { $("#drinksModal").classList.remove("on"); return save(true, S.askBtn, true, b.id === "dmGo"); }
   if (b.id === "tmClose") { if ($("#tmAck").checked) { S.ack = S.time; $("#timeModal").classList.remove("on"); } return; }
   if (b.id === "payBal") {
     b.disabled = true; const old = b.textContent; b.textContent = "One moment…";
