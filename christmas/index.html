@@ -660,7 +660,7 @@ function renderDiary(){
       <div class="dgs">Restaurant</div>${dgRows("restaurant", d)}
       <div class="dgs">Marquee</div>${dgRows("marquee", d)}
     </div></div></div>
-    <p class="tiny muted" style="margin:6px 0 14px"><span class="dgkey ok"></span> pre-order received &nbsp; <span class="dgkey wait"></span> no pre-order yet &nbsp; <span class="dgkey rd"></span> in ResDiary, not on TicketSource &nbsp; <b>Drag a booking</b> to another table or time and you will be asked to confirm. &nbsp; &#128274; placed by hand, the diary will not move it. A table holds 3 hours, 4 hours over 8 guests; only a table under 8 that arrives by 1pm is turned round.</p>
+    <p class="tiny muted" style="margin:6px 0 14px"><span class="dgkey ok"></span> pre-order received &nbsp; <span class="dgkey wait"></span> no pre-order yet &nbsp; <span class="dgkey rd"></span> in ResDiary, not on TicketSource &nbsp; <b>Drag a booking</b> to another table or time and you will be asked to confirm. &nbsp; &#128274; placed by hand, the diary will not move it. A table is held for 2 hours (under 6 guests), 2&frac12; hours (6 to 8) or 4 hours (over 8); only a table under 8 that arrives by 1pm is turned round.</p>
     ${dgManualCard(d)}<div class="card"><h3>Not placed (${wait.length})</h3>${wait.length ? `<table class="t"><thead><tr><th>Booking</th><th class="n">Guests</th><th>Asked for</th><th>Why</th><th></th></tr></thead><tbody>${wait.map(g => `<tr><td>${esc(g.names)}<div class="tiny muted">${esc(g.refs.join(", "))}</div></td><td class="n">${g.size}</td><td class="small">${g.submitted ? esc(g.asked || "any time") + (g.area_pref ? ", " + esc(g.area_pref) : "") : ""}</td><td class="small">${g.submitted ? "No room found: place it by hand" : "Has not sent their pre-order yet"}</td><td><button class="btn small ghost" data-gid="${esc(g.gid)}">Open</button></td></tr>`).join("")}</tbody></table>` : `<p class="small muted" style="margin:0">Everyone is placed.</p>`}</div>`;
   $$("[data-gid]").forEach(b => b.onclick = () => dgOpen(b.dataset.gid));
   $$("[data-dg]").forEach(b => b.onclick = () => dgAct(b.dataset.dg, b));
@@ -685,7 +685,7 @@ function dgPlace(g){ return (g.time || "") + ", " + (g.side === "marquee" ? "Mar
 function dgMoveAsk(g, side, table, time){
   const d = S.dg, tbl = d.sides[side].tables.find(t => t.name === table), seats = tbl ? tbl.seats : 0;
   if (g.time === time && g.side === side && dgParts(g.table).join("+") === table) return;
-  const start = dgMin(time), end = start + (g.size > 8 ? 240 : 180), warn = [];
+  const start = dgMin(time), end = start + (g.size > 8 ? 240 : g.size >= 6 ? 150 : 120), warn = [];
   if (seats && g.size > seats) warn.push(`${g.size} guests, and table ${table} seats ${seats}`);
   if (side === "restaurant" && g.size > 6) warn.push("over 6 guests, usually the Marquee");
   d.placed.filter(o => o.gid !== g.gid && o.side === side && dgParts(o.table).includes(table) && dgMin(o.time) < end && dgMin(o.end) > start).forEach(o => warn.push(`clashes with ${o.lead} (${o.time} to ${o.end})`));
@@ -744,7 +744,7 @@ function dgMoveAsk(g, side, table, time){
 function dgFree(side, table, seats, time){
   const d = S.dg, all = d.waiting.concat(d.placed.filter(g => !g.manual)), sideName = side === "marquee" ? "Marquee" : "Restaurant";
   const parts = tb => String(tb || "").split("+").map(x => x.trim()).filter(Boolean);
-  const durOf = n => n > 8 ? 240 : 180;
+  const durOf = n => n > 8 ? 240 : n >= 6 ? 150 : 120;
   const start = dgMin(time);
   const list = g => {
     const warn = [], end = start + durOf(g.size);
