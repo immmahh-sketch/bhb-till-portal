@@ -72,10 +72,10 @@ table.t{width:100%; border-collapse:collapse; font-size:14px} .t th{font-size:10
 <script src="content.js?v=20261020"></script>
 <script>
 const CFG = { URL:"https://safcrtrfdzsnftghibot.supabase.co", KEY:"sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU" };
-const S = { me:null, people:[], view:"", ts:null, tsTimer:null, day:null, plan:null, planFilter:"open", corp:null, decor:null, decorArea:"" };
+const S = { pre:{ events:null, id:"", data:null }, me:null, people:[], view:"", ts:null, tsTimer:null, day:null, plan:null, planFilter:"open", corp:null, decor:null, decorArea:"" };
 const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
 const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
-const TABS = [["events","Christmas events"],["dining","Festive dining"],["day","Christmas Day"],["corporate","Corporate events"],["decorations","To Order"],["actions","Action plan"]];
+const TABS = [["events","Christmas events"],["dining","Festive dining"],["day","Christmas Day"],["preorders","Pre-orders"],["corporate","Corporate events"],["decorations","To Order"],["actions","Action plan"]];
 const staffEmail = () => { try { return sessionStorage.getItem("bhb_staff_email") || ""; } catch(e){ return ""; } };
 const money = n => { n = Number(n) || 0; return "£" + n.toLocaleString("en-GB", { minimumFractionDigits: Math.abs(n % 1) > 0.004 ? 2 : 0, maximumFractionDigits: 2 }); };
 const londonToday = () => new Intl.DateTimeFormat("en-CA", { timeZone:"Europe/London", year:"numeric", month:"2-digit", day:"2-digit" }).format(new Date());
@@ -190,7 +190,7 @@ async function viewDay(){
         <div class="small"><b>${p.submitted}</b> of ${p.of_bookings} sent back</div><div class="bar"><i style="width:${pc(p.submitted, p.of_bookings)}%"></i></div>
         <div class="small"><b>${p.guests_with_choices}</b> guests with a full set of choices (${p.guests_listed} listed)</div><div class="bar"><i style="width:${pc(p.guests_with_choices, k.adult + k.child)}%"></i></div>
         <div class="tiny muted" style="margin-top:6px">${p.under3} under 3 · ${p.high_chairs} high chair${p.high_chairs === 1 ? "" : "s"} · ${p.dietary} guest${p.dietary === 1 ? "" : "s"} with dietary notes</div>
-        <p class="tiny muted" style="margin:8px 0 0">Invitations and the booking-by-booking panel are in Weddings and events, Ticket sales, Christmas Day, Pre-orders.</p></div></div>
+        <p class="tiny muted" style="margin:8px 0 0">Invitations, the booking-by-booking list and the kitchen totals are on the Pre-orders tab, where each event is sent separately.</p></div></div>
       <div class="card" style="margin-top:14px"><h3>Kitchen totals so far</h3><p class="small muted" style="margin-top:0">Counted from the pre-orders sent back. Adults and children are included.</p><div class="grid" style="gap:10px">${[["Starters", p.starters], ["Mains", p.mains], ["Desserts", p.desserts]].map(([t, l]) => `<div>${dish(t, l)}</div>`).join("")}</div></div>`;
   }
   $("#views").innerHTML = `<div class="pagehead"><h2>Christmas Day</h2><span class="hint">${esc(D.when)}${d.found && d.counted_at ? ". Ticket numbers counted " + esc(fmtDT(d.counted_at)) + "." : ""}</span></div>
@@ -383,8 +383,130 @@ document.addEventListener("click", e => {
 });
 document.addEventListener("keydown", e => { if (e.key === "Escape") closeModal(); });
 
+/* ====================================================================== pre-orders
+   Every event that has a meal pre-order (Christmas Day and the three party nights) is sent on its own: its own menu, its own deadline, its own invitations and reminders. */
+const px = (action, p) => post("xmas-api", { action, staff_email: staffEmail(), ...(p || {}) });
+const PRE_STATUS = { "submitted": ["Sent back", "ok"], "started": ["Started", "warn"], "not started": ["Not started", ""] };
+async function viewPreorders(){
+  $("#views").innerHTML = `<div class="empty">Loading…</div>`;
+  try { S.pre.events = (await px("admin.events")).events || []; } catch(e){ $("#views").innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+  const evs = S.pre.events;
+  if (!evs.length) { $("#views").innerHTML = `<div class="pagehead"><h2>Pre-orders</h2></div><div class="card"><p class="muted" style="margin:0">No upcoming event has a pre-order yet.</p></div>`; return; }
+  if (!S.pre.id || !evs.some(e => e.date_id === S.pre.id)) S.pre.id = evs[0].date_id;
+  await loadPre();
+}
+async function loadPre(){
+  renderPre(true);
+  try { S.pre.data = await px("admin.overview", { date_id: S.pre.id }); S.pre.err = ""; } catch(e){ S.pre.data = null; S.pre.err = e.message; }
+  if (S.view === "preorders") renderPre();
+}
+function preEventCards(){
+  return `<div class="grid" style="margin-bottom:14px">${S.pre.events.map(e => {
+    const on = e.date_id === S.pre.id;
+    return `<div class="card" style="${on ? "border:2px solid var(--berry);" : ""}"><h3 style="margin:0 0 2px">${esc(e.name)}</h3><div class="small"><b>${esc(e.when)}</b></div>
+      <div class="small muted" style="margin:4px 0 6px">${e.tickets} ticket${e.tickets === 1 ? "" : "s"} · ${e.bookings} booking${e.bookings === 1 ? "" : "s"} · choices ${e.closed ? "closed" : "close"} ${esc(e.deadline)}</div>
+      <div class="row small"><span class="pill ${e.invited ? "ok" : ""}">${e.invited} invited</span><span class="pill ${e.submitted ? "ok" : ""}">${e.submitted} sent back</span></div>
+      <div style="margin-top:10px"><button class="btn small${on ? "" : " ghost"}" data-preev="${esc(e.date_id)}">${on ? "Showing" : "Open"}</button></div></div>`;
+  }).join("")}</div>`;
+}
+function preSendBlock(d){
+  const rows = d.rows, ev = d.event;
+  const notInvited = rows.filter(r => !r.invite_sent_at && r.email).length, noEmail = rows.filter(r => !r.email).length;
+  const pending = rows.filter(r => r.invite_sent_at && r.status !== "submitted" && r.email).length;
+  if (!canEdit()) return `<div class="card"><h3>Sending</h3><p class="small muted" style="margin:0">You can look at the pre-orders but not send. Ask the GM for edit rights on Christmas.</p></div>`;
+  return `<div class="card"><h3>Send to ${esc(ev.title)}</h3><p class="small muted" style="margin-top:0">Each booking gets its own private link. <b>Nothing is sent until you press a send button and confirm.</b> Only this event is sent to.</p>
+    <div class="field"><label>1. Send yourself a test (the first booking's email, marked [TEST], not recorded as sent)</label><div class="row"><input type="email" id="preTo" value="${esc(staffEmail())}" style="flex:1 1 240px;min-width:0"><button class="btn small" data-act="test">Send test</button><button class="btn small ghost" data-act="preview">Preview the email</button></div></div>
+    <div class="field"><label>2. Invitations</label><div class="small muted" style="margin-bottom:6px">${notInvited} booking${notInvited === 1 ? "" : "s"} not yet invited${noEmail ? ` (${noEmail} with no email address, skipped)` : ""}.</div><button class="btn" data-act="invite" ${notInvited ? "" : "disabled"}>Send to the ${notInvited} not yet invited</button></div>
+    <div class="field" style="margin:0"><label>3. Reminders</label><div class="small muted" style="margin-bottom:6px">${pending} invited booking${pending === 1 ? " has" : "s have"} not sent theirs back yet.</div><button class="btn ghost" data-act="remind" ${pending ? "" : "disabled"}>Send a reminder to those ${pending}</button></div></div>`;
+}
+function preDishes(d){
+  const courses = d.event.courses, label = { starter:"Starters", main:"Mains", dessert:"Desserts" };
+  const sum = c => { const m = new Map(); for (const kind of ["adult", "child"]) for (const x of (d.dishes[kind] || {})[c] || []) m.set(x.name, (m.get(x.name) || 0) + x.n); return [...m.entries()].sort((a, b) => b[1] - a[1]); };
+  return `<div class="card"><h3>Kitchen totals so far</h3><p class="small muted" style="margin-top:0">Counted from the choices sent back, adults and children together. ${d.standard.adults + d.standard.children} guest${d.standard.adults + d.standard.children === 1 ? "" : "s"} have no choices yet and will get the standard meal (${esc(d.standard.meal)}) once choices close ${esc(d.deadline.text)}.</p>
+    <div class="grid" style="gap:10px">${courses.map(c => { const l = sum(c); return `<div><div class="small"><b>${label[c]}</b></div>${l.length ? `<table class="t"><tbody>${l.map(([n, k]) => `<tr><td>${esc(n)}</td><td class="n"><b>${k}</b></td></tr>`).join("")}</tbody></table>` : `<div class="small muted">None yet</div>`}</div>`; }).join("")}</div></div>`;
+}
+function renderPre(loading){
+  const ev = S.pre.events.find(e => e.date_id === S.pre.id), d = S.pre.data;
+  let body = "";
+  if (loading || !d) body = S.pre.err ? `<div class="flags"><b>Could not load</b>${esc(S.pre.err)}</div>` : `<div class="empty">Loading ${esc(ev ? ev.name : "")}…</div>`;
+  else {
+    const t = d.totals, e = d.event;
+    body = `<div class="pagehead" style="margin-top:6px"><h2>${esc(e.title)}</h2><span class="hint">${esc(e.when)}. Choices ${d.deadline.closed ? "closed" : "close"} ${esc(d.deadline.text)}.</span><span class="spacer"></span><button class="btn small ghost" data-act="csv">Export for the kitchen (CSV)</button></div>
+      ${S.pre.note ? `<div class="flags" style="background:var(--good-bg);border-color:#cfe0cf;color:var(--good)">${esc(S.pre.note)}</div>` : ""}
+      <div class="tiles"><div class="tile"><div class="v">${t.bookings}</div><div class="l">bookings</div><div class="s">${t.tickets} ticket${t.tickets === 1 ? "" : "s"}</div></div><div class="tile"><div class="v">${t.invited}</div><div class="l">invited</div><div class="s">of ${t.bookings}</div></div><div class="tile"><div class="v">${t.submitted}</div><div class="l">sent back</div><div class="s">${t.started} started · ${t.not_started} not started</div></div>${e.show_under3 ? `<div class="tile"><div class="v">${t.under3}</div><div class="l">under 3s</div><div class="s">${t.high_chairs} high chair${t.high_chairs === 1 ? "" : "s"}</div></div>` : ""}</div>
+      ${preSendBlock(d)}
+      <div class="card"><h3>Bookings</h3><div style="overflow-x:auto"><table class="t"><thead><tr><th>Ref</th><th>Booked by</th><th>Email</th><th class="n">Guests</th><th>Status</th><th>Invited</th>${e.show_times ? "<th>Table time</th>" : ""}<th></th></tr></thead><tbody>${d.rows.map(r => {
+        const st = PRE_STATUS[r.status] || [r.status, ""], g = r.adults + r.children;
+        return `<tr><td>${esc(r.ref)}</td><td>${esc(r.name)}${r.linked_with.length ? `<div class="tiny muted">with ${esc(r.linked_with.join(", "))}</div>` : ""}${r.has_dietary ? `<div class="tiny" style="color:var(--attn)">dietary notes</div>` : ""}</td><td class="small">${r.email ? esc(r.email) : `<span class="muted">none</span>`}</td><td class="n">${g}</td>
+          <td><span class="pill ${st[1]}">${esc(st[0])}</span>${r.status !== "submitted" ? `<div class="tiny muted">${r.meals_done} of ${g} chosen</div>` : ""}</td><td class="small">${r.invite_sent_at ? esc(fmtDT(r.invite_sent_at)) : `<span class="muted">not yet</span>`}</td>${e.show_times ? `<td class="small">${esc(r.preferred_time === "none" ? "any time" : r.preferred_time || "")}</td>` : ""}
+          <td style="white-space:nowrap"><button class="btn small ghost" data-copy="${esc(r.link)}">Copy link</button>${canEdit() && r.email ? ` <button class="btn small ghost" data-one="${esc(r.booking_id)}" data-rem="${r.invite_sent_at ? 1 : 0}">${r.invite_sent_at ? "Resend" : "Send"}</button>` : ""}</td></tr>`;
+      }).join("")}</tbody></table></div></div>
+      ${preDishes(d)}`;
+  }
+  $("#views").innerHTML = `<div class="pagehead"><h2>Pre-orders</h2><span class="hint">One page for each event: its own menu, deadline and emails.</span></div>${preEventCards()}${body}`;
+  $$("[data-preev]").forEach(b => b.onclick = () => { if (b.dataset.preev !== S.pre.id) { S.pre.id = b.dataset.preev; S.pre.note = ""; loadPre(); } });
+  $$("[data-copy]").forEach(b => b.onclick = () => { const v = b.dataset.copy; (navigator.clipboard ? navigator.clipboard.writeText(v) : Promise.reject()).then(() => toast("Link copied."), () => { window.prompt("Copy this link", v); }); });
+  $$("[data-one]").forEach(b => b.onclick = () => preSend([b.dataset.one], b.dataset.rem === "1", b));
+  $$("[data-act]").forEach(b => b.onclick = () => preAct(b.dataset.act, b));
+}
+async function preAct(act, btn){
+  const d = S.pre.data; if (!d) return;
+  if (act === "preview") return prePreview(d);
+  if (act === "csv") return preCsv(d, btn);
+  if (act === "test") {
+    const to = ($("#preTo").value || "").trim(); if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) { toast("Type your own email address first.", true); return; }
+    btn.disabled = true;
+    try { const r = await px("admin.send", { date_id: S.pre.id, booking_ids: [d.rows[0].booking_id], test_to: to }); const x = r.results[0]; if (x.ok) toast("Test sent to " + to + "."); else toast("The test did not go: " + x.error, true); } catch(e){ toast(e.message, true); }
+    btn.disabled = false; return;
+  }
+  const rows = act === "invite" ? d.rows.filter(r => !r.invite_sent_at && r.email) : d.rows.filter(r => r.invite_sent_at && r.status !== "submitted" && r.email);
+  if (!rows.length) return;
+  const what = act === "invite" ? "invitation" : "reminder";
+  if (!confirm("Send " + rows.length + " " + what + (rows.length === 1 ? "" : "s") + " for " + d.event.title + " now? Only this event's bookings will be emailed.")) return;
+  preSend(rows.map(r => r.booking_id), act === "remind", btn);
+}
+async function preSend(ids, reminder, btn){
+  if (btn) btn.disabled = true;
+  let sent = 0; const bad = [];
+  try {
+    for (let i = 0; i < ids.length; i += 10) {
+      const r = await px("admin.send", { date_id: S.pre.id, booking_ids: ids.slice(i, i + 10), reminder });
+      for (const x of r.results || []) { if (x.ok) sent++; else bad.push(x.ref + ": " + x.error); }
+      if (ids.length > 10) toast("Sent " + sent + " of " + ids.length + "…");
+    }
+  } catch(e){ bad.push(e.message); }
+  S.pre.note = sent ? `Sent ${sent} ${reminder ? "reminder" : "invitation"}${sent === 1 ? "" : "s"}.` + (bad.length ? ` ${bad.length} did not go: ${bad.slice(0, 5).join("; ")}.` : "") : "";
+  if (!sent && bad.length) toast("Nothing went: " + bad[0], true); else toast(S.pre.note);
+  await loadPre();
+}
+async function prePreview(d){
+  try {
+    const first = d.rows[0]; const r = await px("admin.preview", { date_id: S.pre.id, booking_id: first.booking_id, reminder: false });
+    openModal(`<h3 style="margin:0 0 4px">Email preview</h3><p class="small muted" style="margin:0 0 8px"><b>Subject:</b> ${esc(r.subject)}<br>Shown with the first booking's details (${esc(first.name)}).</p><iframe sandbox="" srcdoc="${esc(r.html)}" style="width:100%;height:520px;border:1px solid var(--mist);border-radius:8px;background:#fff"></iframe><div style="margin-top:12px;text-align:right"><button class="btn ghost" onclick="closeModal()">Close</button></div>`);
+  } catch(e){ toast(e.message, true); }
+}
+async function preCsv(d, btn){
+  btn.disabled = true;
+  try {
+    const x = await px("admin.export", { date_id: S.pre.id }), e = d.event;
+    const cell = v => { v = String(v == null ? "" : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+    const time = t => (t === "none" ? "any time" : t || "");
+    const cols = [["Booking ref", r => r.ref], ["Booked by", r => r.booked_by], ["Email", r => r.email], ["Table (linked bookings)", r => r.table], ["Guests at table", r => r.table_guests]]
+      .concat(e.show_times ? [["Preferred time", r => time(r.preferred_time)]] : [])
+      .concat([["Guest", r => r.guest], ["Type", r => r.kind], ["Name", r => r.name]])
+      .concat(e.courses.map(c => [c[0].toUpperCase() + c.slice(1), r => r[c]]))
+      .concat([["Pre-ordered", r => r.pre_ordered], ["Guest allergies", r => r.guest_dietary], ["Booking dietary", r => r.booking_dietary], ["Notes", r => r.notes]])
+      .concat(e.show_under3 ? [["Under 3s", r => r.under3], ["High chairs", r => r.high_chairs]] : [])
+      .concat([["Submitted", r => r.submitted]]);
+    const csv = [cols.map(c => c[0])].concat((x.rows || []).map(r => cols.map(c => c[1](r)))).map(r => r.map(cell).join(",")).join("\r\n");
+    const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["\ufeff" + csv], { type:"text/csv" })); a.download = e.title.toLowerCase().replace(/[^a-z0-9]+/g, "-") + "-preorders.csv";
+    document.body.appendChild(a); a.click(); a.remove();
+  } catch(e){ toast(e.message, true); }
+  btn.disabled = false;
+}
+
 /* ====================================================================== shell */
-const VIEWS = { events: viewEvents, dining: viewDining, day: viewDay, corporate: viewCorporate, decorations: viewDecor, actions: viewActions };
+const VIEWS = { events: viewEvents, dining: viewDining, day: viewDay, preorders: viewPreorders, corporate: viewCorporate, decorations: viewDecor, actions: viewActions };
 function goView(v){
   clearTimeout(S.tsTimer); S.view = v;
   $$(".tabbtn").forEach(b => b.setAttribute("aria-current", b.dataset.view === v ? "page" : "false"));
