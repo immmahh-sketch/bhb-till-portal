@@ -74,6 +74,7 @@ button{font:inherit;cursor:pointer}
 .linked b{color:var(--good)}
 
 /* the drinks card stands out: brown, gold button */
+.paytbl{width:100%;border-collapse:collapse;margin:6px 0 0}.paytbl td{padding:9px 0;border-bottom:1px solid #E8E4DA;font-size:17px}.paytbl td:last-child{text-align:right;font-weight:700;white-space:nowrap}.paytbl tr.left td{border-bottom:0;color:var(--sage);font-size:20px;font-weight:700}
 .card.drinks{background:var(--sage-dark);color:var(--white);border-top-color:var(--gold)}
 .card.drinks h2{color:var(--white)}
 .card.drinks h2::before{content:"\1F377";font-size:.7em}
@@ -122,13 +123,25 @@ const DAY_EVENT = { key:"day", title:"Christmas Day", when:"", arrival:"", cours
 const EV = () => (S.d && S.d.event) || DAY_EVENT;
 const WORD = { starter:"starter", main:"main", dessert:"dessert" };
 const joinWords = a => a.length < 2 ? a.join("") : a.slice(0, -1).join(", ") + " and " + a[a.length - 1];
-const S = { d:null, guests:[], areapref:"", tcomment:"", time:"", dietary:"", notes:"", under3:0, chairs:0, busy:false, msg:null, pref:"", ack:"" };
+const S = { payMsg:null, d:null, guests:[], areapref:"", tcomment:"", time:"", dietary:"", notes:"", under3:0, chairs:0, busy:false, msg:null, pref:"", ack:"" };
 
 async function call(action, payload){
   const r = await fetch(API, { method:"POST", headers:{ "Content-Type":"application/json", Authorization:"Bearer " + KEY, apikey:KEY }, body:JSON.stringify(Object.assign({ action, t:T }, payload || {})) });
   const j = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(j.error || "Something went wrong. Please try again.");
   return j;
+}
+const gbp = n => "£" + Number(n).toLocaleString("en-GB", { minimumFractionDigits: Number(n) % 1 ? 2 : 0, maximumFractionDigits: 2 });
+function payHtml(){
+  const p = S.d.payment; if (!p) return "";
+  const msgHtml = S.payMsg ? '<div class="' + S.payMsg.cls + '" style="margin:0 0 12px">' + esc(S.payMsg.text) + '</div>' : "";
+  const status = p.state === "paid" ? "Paid in full" : p.deposit ? "Deposit paid" : "Part paid";
+  const lead = p.state === "paid" ? "Your booking is paid in full. There is nothing more to pay."
+    : p.deposit ? "You paid a deposit when you booked. The rest is due before the day, and you can pay it here whenever you like."
+    : "You have paid part of the cost. The rest is due before the day, and you can pay it here whenever you like.";
+  return '<div class="card" id="payCard"><h2>Your payment</h2>' + msgHtml + '<p class="lead">' + esc(lead) + '</p>' +
+    '<table class="paytbl"><tr><td>Total cost</td><td>' + gbp(p.due) + '</td></tr><tr><td>Paid so far <span class="pill">' + esc(status) + '</span></td><td>' + gbp(p.paid) + '</td></tr><tr class="left"><td>Still to pay</td><td>' + gbp(p.balance) + '</td></tr></table>' +
+    (p.balance >= 1 ? '<p style="margin:14px 0 0"><button type="button" class="btn" id="payBal">Pay remaining balance ' + gbp(p.balance) + '</button></p><p class="muted small" style="margin:10px 0 0">You will be taken to our secure card payment page, and brought back here afterwards. If your card is declined for a larger amount, please phone us on ' + esc(((S.d.contact || {}).phone) || "01207 232 569") + ' and we will take payment for you.</p>' : "") + '</div>';
 }
 const timeLabel = t => { if (t === "none") return "No preference"; const [h, m] = t.split(":").map(Number); return (h > 12 ? h - 12 : h) + ":" + String(m).padStart(2, "0") + (h >= 12 ? (h === 12 && m === 0 ? " noon" : "pm") : "am"); };
 const ukDate = iso => new Intl.DateTimeFormat("en-GB", { weekday:"long", day:"numeric", month:"long", year:"numeric", timeZone:"Europe/London" }).format(new Date(iso));
@@ -144,6 +157,20 @@ async function load(){
     for (let i = 0; i < d.booking.children; i++) { seq++; const g = have[seq] || {}; S.guests.push({ seq, kind:"child", n:i + 1, name:g.name || "", starter:g.starter || "", main:g.main || "", dessert:g.dessert || "", dietary:g.dietary || "" }); }
     S.time = d.answers.preferred_time || ""; S.pref = S.time === "none" ? "any" : S.time ? "pref" : ""; S.ack = S.time && S.time !== "none" ? S.time : ""; S.areapref = d.answers.area_pref || ""; S.tcomment = d.answers.time_comment || ""; S.dietary = d.answers.dietary || ""; S.notes = d.answers.notes || ""; S.under3 = d.answers.under3 || 0; S.chairs = d.answers.high_chairs || 0;
     render();
+    const paidId = new URLSearchParams(location.search).get("paid");                                  // back from the card payment page
+    if (paidId && d.payment) {
+      try { history.replaceState(null, "", location.pathname + "?t=" + T); } catch(e){}
+      S.payMsg = { cls:"note", text:"Checking your payment…" }; render();
+      try {
+        let c = await call("balance.check", { id:paidId });
+        for (let i = 0; i < 4 && c.status === "pending"; i++) { await new Promise(r => setTimeout(r, 2500)); c = await call("balance.check", { id:paidId }); }
+        S.d.payment = c.pay;
+        S.payMsg = c.status === "paid" ? { cls:"ok", text:"Thank you. We have received your payment of " + gbp(c.amount) + "." + (c.pay.balance < 1 ? " Your booking is now paid in full." : " You still have " + gbp(c.pay.balance) + " to pay.") }
+          : c.status === "failed" ? { cls:"err", text:"That payment did not go through, so nothing has been taken. You can try again below, or phone us." }
+          : { cls:"note", text:"Your payment is still being confirmed. This page will show it shortly. If you were charged, please do not pay again: refresh this page in a minute." };
+      } catch(e){ S.payMsg = { cls:"err", text:e.message }; }
+      render();
+    }
   } catch(e){ fail(e.message); }
 }
 function fail(m){ $("#app").innerHTML = '<div class="card"><h2>Sorry</h2><p>' + esc(m) + '</p></div>'; foot(); }
@@ -187,6 +214,7 @@ function render(){
       '<div class="note"><b>Please complete this form by ' + esc(d.deadline.text) + '.</b> If we have not received your choices by then, each guest will be served our standard menu: ' + esc(joinWords(EV().courses.map(c => d.standard[c]))) + '.</div>') +
     (d.answers.submitted_at ? '<div class="ok">Your pre-order has been received.' + (d.deadline.closed ? '' : ' You can still change it below.') + '</div>' : "") + '<div id="topMsg"></div></div>' +
 
+    payHtml() +
     (!EV().show_times ? (EV().arrival ? '<div class="card"><h2>On the night</h2><p class="lead" style="margin:0">' + esc(EV().arrival) + '</p></div>' : "") : '<div class="card"><h2>When would you like to sit down?</h2><p class="lead">Please tell us about your table time.</p>' +
     '<label class="opt' + (S.pref === "any" ? " on" : "") + '" for="tpAny"><input type="radio" id="tpAny" name="tpref" value="any"' + (S.pref === "any" ? " checked" : "") + '><span class="n">Any time between 12pm and 4pm is great</span></label>' +
     '<label class="opt' + (S.pref === "pref" ? " on" : "") + '" for="tpPref"><input type="radio" id="tpPref" name="tpref" value="pref"' + (S.pref === "pref" ? " checked" : "") + '><span class="n">I have a preferred time</span></label>' +
@@ -258,6 +286,12 @@ async function save(final, btn){
 document.addEventListener("click", async e => {
   const b = e.target.closest("button"); if (!b) return;
   if (b.id === "tmClose") { if ($("#tmAck").checked) { S.ack = S.time; $("#timeModal").classList.remove("on"); } return; }
+  if (b.id === "payBal") {
+    b.disabled = true; const old = b.textContent; b.textContent = "One moment…";
+    try { try { await call("form.save", payload(false)); } catch(e){} const r = await call("balance.start"); location.href = r.url; }
+    catch(err){ b.disabled = false; b.textContent = old; S.payMsg = { cls:"err", text:err.message }; const el = $("#payCard"); if (el) { const keep = window.scrollY; render(); window.scrollTo(0, keep); } }
+    return;
+  }
   if (b.id === "draft") return save(false, b);
   if (b.id === "final") return save(true, b);
   if (b.dataset.copy) {
