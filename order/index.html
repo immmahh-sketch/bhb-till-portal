@@ -446,6 +446,8 @@ function isCamper(){ return S.channel === "camper"; }
 // no tray or service charge, paid through SumUp as usual, logged against the booking, and never printed for the kitchen or bar.
 function isPreorder(){ return S.channel === "preorder"; }
 var PREORDER_GROUPS = ["Drinks Packages","Soft & Alcohol Free (pre-order)"];
+// Stevie D: the ticket already includes drinks, so the pre-order is just "Add arrival shots" (group "Arrival shots", only shown there)
+function isShotsOnly(){ return isPreorder() && !!(S.preorder && S.preorder.ctx && S.preorder.ctx.shots); }
 var PREORDER_DISCOUNT_PCT = 10; // % off the usual drinks menu when pre-ordered (the packages and the pre-order only list keep their own prices); sumup-create-checkout works out the real figure
 function preorderDiscount(lines){
   if(!isPreorder()) return 0;
@@ -630,7 +632,7 @@ function openSubGroups(sec){
 function renderSubGroups(sec){
   var box = $("drinkGroupList"); box.innerHTML = "";
   var isDrinks = sec === "Drinks";
-  var groupList = isDrinks ? (isPreorder() ? PREORDER_GROUPS.concat(DRINK_GROUPS) : DRINK_GROUPS) : SUNDAY_GROUPS;
+  var groupList = isDrinks ? (isShotsOnly() ? ["Arrival shots"] : isPreorder() ? PREORDER_GROUPS.concat(DRINK_GROUPS) : DRINK_GROUPS) : SUNDAY_GROUPS;
   var groupField = isDrinks ? "drink_group" : "sunday_group";
   var sectionItems = S.menu.filter(function(m){ return m.menu_section===sec; });
   var any = false;
@@ -904,7 +906,8 @@ function addComboToCart(){
       key: key, itemId: _comboItem.id, name: _comboItem.name + " (" + label + ")",
       category: _comboItem.category, station: _comboItem.kitchen_station || null,
       unitPrice: unitPrice, qty: 1, variant: label,
-      bundleGroup: _comboItem.bundle_group || null, bundleQty: _comboItem.bundle_qty || null, bundlePrice: _comboItem.bundle_price || null
+      bundleGroup: _comboItem.bundle_group || null, bundleQty: _comboItem.bundle_qty || null, bundlePrice: _comboItem.bundle_price || null,
+      preorderOnly: !!_comboItem.preorder_only
     };
   }
   saveCart();
@@ -1719,6 +1722,12 @@ async function initPreorder(token){
     S.preorder.ctx = d;
     $("roomFld").style.display = "none"; $("roomLockedFld").style.display = ""; $("roomLockedVal").textContent = d.ref;
     S.lockedRoom = d.ref;
+    if(d.shots){
+      $("welcomeTag").textContent = "Arrival Shots"; document.title = "Arrival shots — Black Horse Beamish";
+      $("welcomeMsg").textContent = "Add arrival shots to your table for " + d.event + " on " + d.when + ": 10 Sourz shots for £20, or 10 Jägerbombs for £30. Pay online and they will be ready when you arrive. Your order is logged against booking " + d.ref + ".";
+      $("catHeading").textContent = "Add Arrival Shots"; $("catSub").textContent = "Your ticket already includes drinks, so these are an extra for the table";
+      $("closedHeading").textContent = "Arrival shots for " + d.event + " have closed";
+    } else
     $("welcomeMsg").textContent = "Pre-order drinks for your table at " + d.event + " on " + d.when + ". Choose a drinks package or anything from our drinks menu, and pay online. Pre-ordering takes 10% off the drinks menu (the packages are already priced). Your order is logged against booking " + d.ref + ".";
     if(!d.open){ $("closedHeading").textContent = "Drinks pre-orders for " + d.event + " have closed"; show("closed"); }
   }catch(e){
