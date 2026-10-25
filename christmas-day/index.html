@@ -113,6 +113,12 @@ footer::before{content:"\2726  \2744  \2726  \2744  \2726";display:block;color:v
 <label class="chk" for="tmAck"><input type="checkbox" id="tmAck"><span>I have read and understand this</span></label>
 <button type="button" class="btn" id="tmClose" disabled>Close</button>
 </div></div>
+<div class="modal" id="linkModal" role="dialog" aria-modal="true" aria-labelledby="lmTitle"><div class="box">
+<h2 id="lmTitle">Are you sitting with another booking?</h2>
+<p style="margin:0 0 8px">If you have booked separately from friends or family and want to share a table, you need to <b>link your bookings</b> (it is the "Sit with another booking?" box further down this page). We can only seat you together on the day if the bookings are linked.</p>
+<p style="margin:0 0 14px">If you are only sitting with the people on this booking, just confirm below.</p>
+<div style="display:grid;gap:10px"><button type="button" class="btn gold" id="lmLink">Link a booking first</button><button type="button" class="btn ghost" id="lmAlone" style="color:var(--sage);border-color:var(--sage)">I confirm we are not sitting with another booking</button></div>
+</div></div>
 <div class="modal" id="drinksModal" role="dialog" aria-modal="true" aria-labelledby="dmTitle"><div class="box">
 <h2 id="dmTitle">Before you send: drinks for your table</h2>
 <p style="margin:0 0 8px">Drinks are <b>10% cheaper when you pre-order</b>, and they will be waiting for you, so you can enjoy a relaxed start without queuing or waiting for your first drinks.</p>
@@ -277,6 +283,7 @@ document.addEventListener("input", e => {
 const msg = (id, cls, text) => { const el = $(id); if (el) el.innerHTML = text ? '<div class="' + cls + '">' + esc(text) + '</div>' : ""; };
 function payload(final){ return { final, preferred_time:S.time, area_pref:S.areapref, time_comment:S.tcomment, dietary:S.dietary, notes:S.notes, under3:S.under3, high_chairs:S.chairs, guests:S.guests.map(g => ({ seq:g.seq, name:g.name, starter:g.starter, main:g.main, dessert:g.dessert, dietary:g.dietary })) }; }
 function firstIncomplete(){ for (const g of S.guests) if (EV().courses.some(c => !g[c])) return g; return null; }
+const noLinkAcked = () => { try { return localStorage.getItem("xmas_nolink_" + T) === "1"; } catch(e){ return false; } };
 async function save(final, btn, skipAsk, thenGo){
   msg("#saveMsg", "", "");
   if (final && EV().show_times && (!S.time || (S.pref === "pref" && S.time === "none"))) { msg("#saveMsg", "err", "Please tell us your table time: any time between 12pm and 4pm, or choose a preferred time."); const el = $("#timeBox"); if (el) el.scrollIntoView({ behavior:"smooth", block:"center" }); return; }
@@ -284,6 +291,7 @@ async function save(final, btn, skipAsk, thenGo){
     const g = firstIncomplete();
     if (g) { msg("#saveMsg", "err", "Please choose a " + joinWords(EV().courses.map(c => WORD[c])) + " for " + (g.kind === "adult" ? "Adult " : "Child ") + g.n + "."); const el = $("#guest" + g.seq); if (el) el.scrollIntoView({ behavior:"smooth", block:"start" }); return; }
   }
+  if (final && !skipAsk && !S.noLinkOk && !(S.d.linked || []).length && !noLinkAcked()) { S.askBtn = btn; $("#linkModal").classList.add("on"); const g = $("#lmLink"); if (g) g.focus(); return; }
   if (final && !skipAsk && S.d.drinks && S.d.drinks.open && !S.d.drinks.shots && !S.d.drinks.ordered) { S.askBtn = btn; $("#drinksModal").classList.add("on"); const g = $("#dmGo"); if (g) g.focus(); return; }
   if (btn) btn.disabled = true;
   try {
@@ -297,6 +305,8 @@ async function save(final, btn, skipAsk, thenGo){
 }
 document.addEventListener("click", async e => {
   const b = e.target.closest("button"); if (!b) return;
+  if (b.id === "lmLink") { $("#linkModal").classList.remove("on"); const el = $("#linkBlock"); if (el) el.scrollIntoView({ behavior:"smooth", block:"center" }); const r = $("#lkRef"); if (r) setTimeout(() => r.focus(), 400); return; }
+  if (b.id === "lmAlone") { $("#linkModal").classList.remove("on"); S.noLinkOk = true; try { localStorage.setItem("xmas_nolink_" + T, "1"); } catch(e){} return save(true, S.askBtn); }
   if (b.id === "dmGo" || b.id === "dmSkip") { $("#drinksModal").classList.remove("on"); return save(true, S.askBtn, true, b.id === "dmGo"); }
   if (b.id === "tmClose") { if ($("#tmAck").checked) { S.ack = S.time; $("#timeModal").classList.remove("on"); } return; }
   if (b.id === "payBal") {
