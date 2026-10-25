@@ -558,7 +558,7 @@ async function loadMenu(){
     var rows = await sb("roomservice_menu_items?select=*&menu_scope=eq."+scope+"&"+field+"=eq.true&order=sort_order.asc");
     var sunday = isSundayNow();
     S.menu = (rows || []).filter(function(m){
-      if(isPreorder()) return m.menu_section === "Drinks";
+      if(isPreorder()) return m.menu_section === "Drinks" && m.drink_group !== "Hot beverages";   // hot drinks are not pre-ordered
       if(m.preorder_only) return false;
       return !m.sunday_only || sunday;
     });
