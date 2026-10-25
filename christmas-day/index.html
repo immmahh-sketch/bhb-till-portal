@@ -132,6 +132,8 @@ async function call(action, payload){
   return j;
 }
 const gbp = n => "£" + Number(n).toLocaleString("en-GB", { minimumFractionDigits: Number(n) % 1 ? 2 : 0, maximumFractionDigits: 2 });
+const WA_NUMBER = "447455850424";
+function waLink(p){ const b = S.d.booking; return "https://wa.me/" + WA_NUMBER + "?text=" + encodeURIComponent("Hello, something doesn't look right with the payment on my Christmas Day booking " + b.ref + " (" + b.first + "). The page shows a total of " + gbp(p.due) + ", " + gbp(p.paid) + " paid and " + gbp(p.balance) + " still to pay."); }
 function payHtml(){
   const p = S.d.payment; if (!p) return "";
   const msgHtml = S.payMsg ? '<div class="' + S.payMsg.cls + '" style="margin:0 0 12px">' + esc(S.payMsg.text) + '</div>' : "";
@@ -141,6 +143,7 @@ function payHtml(){
     : "You have paid part of the cost. The rest is due before the day, and you can pay it here whenever you like.";
   return '<div class="card" id="payCard"><h2>Your payment</h2>' + msgHtml + '<p class="lead">' + esc(lead) + '</p>' +
     '<table class="paytbl"><tr><td>Total cost</td><td>' + gbp(p.due) + '</td></tr><tr><td>Paid so far <span class="pill">' + esc(status) + '</span></td><td>' + gbp(p.paid) + '</td></tr><tr class="left"><td>Still to pay</td><td>' + gbp(p.balance) + '</td></tr></table>' +
+    '<p class="small" style="margin:10px 0 0"><a href="' + esc(waLink(p)) + '" target="_blank" rel="noopener">Something doesn't look right?</a></p>' +
     (p.balance >= 1 ? '<p style="margin:14px 0 0"><button type="button" class="btn" id="payBal">Pay remaining balance ' + gbp(p.balance) + '</button></p><p class="muted small" style="margin:10px 0 0">You will be taken to our secure card payment page, and brought back here afterwards. If your card is declined for a larger amount, please phone us on ' + esc(((S.d.contact || {}).phone) || "01207 232 569") + ' and we will take payment for you.</p>' : "") + '</div>';
 }
 const timeLabel = t => { if (t === "none") return "No preference"; const [h, m] = t.split(":").map(Number); return (h > 12 ? h - 12 : h) + ":" + String(m).padStart(2, "0") + (h >= 12 ? (h === 12 && m === 0 ? " noon" : "pm") : "am"); };
