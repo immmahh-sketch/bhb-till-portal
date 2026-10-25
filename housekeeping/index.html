@@ -105,6 +105,7 @@ header.top{background:var(--sage); color:var(--white)}
 .pill.dep{background:var(--attention-bg); color:#6d531f; border:1px solid var(--olive)}
 .pill.stay{background:var(--sage-10); color:var(--sage-dark); border:1px solid var(--celadon)}
 .pill.setup{background:#E4EEF4; color:#27495E; border:1px solid #8FB0C4}
+.helpnote{font-size:15px; color:var(--sage-70); margin:0 0 12px; line-height:1.45} .room.help .acts{margin-top:10px} .leave{margin:6px 0 0}
 .with{font-size:16px; font-weight:700; color:var(--sage-dark); background:var(--sage-10); border-radius:10px; padding:7px 12px; margin:8px 0 0}
 .setupline{font-weight:700; color:#27495E; background:#E4EEF4; border-radius:10px; padding:9px 12px; margin:6px 0}
 .note.booking.big{border-width:2px; font-size:17px; font-weight:600}
@@ -388,6 +389,7 @@ function cardHtml(t, today){
   return `<article class="room ${kc}${S.recent.has(String(t.id)) ? " pop" : ""}" data-id="${esc(t.id)}" aria-label="${esc(label)}">
     <div class="rhead">${title}${pill}</div>
     ${w.length ? `<p class="with">Cleaning with ${esc(joinNames(w))}</p>` : ""}
+    ${t.can_leave && !t.started_at ? `<p class="leave"><button class="linkbtn" type="button" data-act="leave" data-id="${esc(t.id)}" ${busy ? "disabled" : ""}>I am not helping with this room after all</button></p>` : ""}
     <div class="rmeta"><span class="mins${mins >= 120 ? " long" : ""}">${esc(timeTxt)}</span></div>
     ${setup ? `<p class="setupline">Already clean. Please set it up before the guests arrive.</p>` : ""}
     ${cout}
@@ -401,6 +403,18 @@ function cardHtml(t, today){
       <button class="btn${t.started_at ? "" : " ghost"}" type="button" data-act="clean" data-id="${esc(t.id)}" ${busy ? "disabled" : ""}>${busy ? "Saving..." : (S.recent.has(String(t.id)) ? (setup ? "Done" : "Cleaned") : (setup ? "Set up done" : "Room cleaned"))}</button>
       <button class="btn ghost" type="button" data-act="issue" data-id="${esc(t.id)}">Report a maintenance issue</button>
     </div></article>`;
+}
+/* Rooms other people are cleaning that I could put myself on. The room's minutes are shared between everyone on it, so the finish times move for all of them. */
+function othersHtml(){
+  const os = (S.d && S.d.others) || []; if (!os.length) return "";
+  return `<div class="sechead">Help with another room (${os.length})</div><p class="helpnote">Finished, or not got a room? Put yourself on a room someone else is cleaning. The time is shared, so you will all finish sooner.</p>` + os.map(o => {
+    const busy = S.pend.has(String(o.id)), kc = kindClass(o), label = `Room ${o.room}${o.name ? " " + o.name : ""}`;
+    return `<article class="room help ${kc}" data-id="${esc(o.id)}" aria-label="${esc(label)}">
+      <div class="rhead"><div class="rname">${esc(o.room)} <small>${esc(o.name || "")}</small></div><span class="pill ${kc}">${o.kind === "departure" ? "Departure" : o.kind === "setup" ? "Set up" : "Stay over"}</span></div>
+      <p class="with">Being cleaned by ${esc(joinNames(o.cleaners || []))}${o.started ? " (started)" : ""}</p>
+      <div class="rmeta"><span class="mins${+o.minutes >= 120 ? " long" : ""}">${+o.minutes} min room</span>${o.finish_if_joined ? `<span class="mins"> Your finish would be ${esc(fmtHM(hm(o.finish_if_joined)))}</span>` : ""}</div>
+      <div class="acts"><button class="btn ghost" type="button" data-act="join" data-id="${esc(o.id)}" ${busy ? "disabled" : ""} aria-label="I'm helping with ${esc(label)}">${busy ? "Saving..." : "I'm helping with this room"}</button></div></article>`;
+  }).join("");
 }
 function render(){
   const root = $("#board"); if (!root) return;
@@ -417,7 +431,7 @@ function render(){
   if (S.staleMsg) h += `<div class="stale" role="status">${esc(S.staleMsg)}</div>`;
   if (d.message && String(d.message).trim()) h += `<section class="msg" aria-labelledby="msgh"><div class="kicker" id="msgh">Message from your head housekeeper</div><div class="body">${esc(String(d.message).trim())}</div></section>`;
   if (!ts.length) {
-    h += `<div class="empty"><p>No rooms have been given to you yet. Your head housekeeper adds them each morning.</p><button class="btn inline" type="button" data-act="retry">Refresh</button></div>`;
+    h += `<div class="empty"><p>No rooms have been given to you yet. Your head housekeeper adds them each morning.</p><button class="btn inline" type="button" data-act="retry">Refresh</button></div>` + othersHtml();
     root.innerHTML = h; paintCountdown(); paintMini(); return;
   }
   const startTxt = noZero((d.day && d.day.start_time) || "09:00"), br = d.day ? +d.day.break_minutes : 20;
@@ -438,10 +452,11 @@ function render(){
   const todo = ts.filter(t => !isDone(t) || S.recent.has(String(t.id))), doneL = ts.filter(t => isDone(t) && !S.recent.has(String(t.id)));
   if (todo.length) h += `<div class="sechead">To clean (${todo.length})</div>` + todo.map(t => cardHtml(t, today)).join("");
   if (doneL.length) h += `<div class="sechead">Cleaned (${doneL.length})</div>` + doneL.map(t => cardHtml(t, today)).join("");
+  h += othersHtml();
   h += `<div class="foot"><span>${S.fetchedAt ? "Updated " + esc(S.fetchedAt) : ""}</span><button class="linkbtn" type="button" data-act="retry">Refresh</button></div>`;
   root.innerHTML = h; paintCountdown(); paintMini();
 }
-const dataSig = d => d ? JSON.stringify([d.tasks, d.message, d.day, d.mine, d.date, d.me, d.issue_types]) : "";
+const dataSig = d => d ? JSON.stringify([d.tasks, d.message, d.day, d.mine, d.date, d.me, d.issue_types, d.others]) : "";
 
 /* ------------------------------------------------------------- data */
 function setData(d){
@@ -487,6 +502,23 @@ async function setCleaned(id, done){
   } finally { S.pend.delete(String(t.id)); S.mut++; render(); }
 }
 
+async function joinRoom(id){
+  const o = ((S.d && S.d.others) || []).find(x => String(x.id) === String(id)); if (!o || S.pend.has(String(id))) return;
+  const label = `room ${o.room}${o.name ? " " + o.name : ""}`;
+  if (!confirm(`Put yourself on ${label}, with ${joinNames(o.cleaners || [])}?${o.finish_if_joined ? `\n\nYour finish time would be about ${fmtHM(hm(o.finish_if_joined))}. Their finish times come earlier too.` : ""}`)) return;
+  S.mut++; S.pend.add(String(id)); render();
+  try { const d = await call("task.join", { id }); setData(d); S.sig = dataSig(d); toast("You are on " + label + ". Your finish time is now " + (d.mine && d.mine.finish ? fmtHM(hm(d.mine.finish)) : "updated") + "."); }
+  catch (e) { toast(e.message || "Could not do that. Please try again.", true); }
+  finally { S.pend.delete(String(id)); S.mut++; render(); }
+}
+async function leaveRoom(id){
+  const t = findTask(id); if (!t || S.pend.has(String(id))) return;
+  if (!confirm(`Take yourself off room ${t.room}? The others will have all of it again.`)) return;
+  S.mut++; S.pend.add(String(id)); render();
+  try { const d = await call("task.leave", { id }); setData(d); S.sig = dataSig(d); toast("You are off room " + t.room + "."); }
+  catch (e) { toast(e.message || "Could not do that. Please try again.", true); }
+  finally { S.pend.delete(String(id)); S.mut++; render(); }
+}
 async function setStarted(id, started){
   const t = findTask(id); if (!t || S.pend.has(String(t.id))) return;
   S.mut++; S.pend.add(String(t.id)); render();
@@ -580,6 +612,8 @@ document.addEventListener("click", ev => {
   else if (act === "unstart") setStarted(id, false);
   else if (act === "fixed") setFixed(id, true);
   else if (act === "notfixed") setFixed(id, false);
+  else if (act === "join") joinRoom(id);
+  else if (act === "leave") leaveRoom(id);
   else if (act === "issue") openSheet(id);
   else if (act === "issues") openIssues(id);
   else if (act === "retry") { S.d ? refresh(false) : (S.load = "loading", render(), refresh(false)); }
