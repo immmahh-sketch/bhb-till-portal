@@ -770,10 +770,11 @@ function buildItemEl(m){
     el.querySelector(".choose-btn").onclick = function(){ openCookingModal(m); };
   } else {
     var row = S.cart[m.id];
+    var isShot = m.drink_group === "Arrival shots";
     rowHtml =
       '<div class="info"><div class="nm">'+esc(m.name)+'</div>'+
-      dsc+
-      (S.isComp ? '' : '<div class="pr">£'+money(m.price)+'</div>')+
+      (isShot ? '' : dsc)+
+      (S.isComp ? '' : '<div class="pr">£'+money(isShot ? Number(m.price) - shotOff(shotsInCart()) : m.price)+(isShot ? ' each' : '')+'</div>')+
       dishBtnHtml(m)+
       '</div>'+
       '<div class="stepper">'+
@@ -800,8 +801,21 @@ function dishPhotoHtml(m){
   if(!src) return "";
   return '<div class="dish-photo"><img src="'+src+'" alt="'+esc(m.name)+'" loading="lazy"></div>';
 }
+function shotNoteEl(){
+  var n = shotsInCart(), off = shotOff(n), el = document.createElement("div");
+  el.className = "grouplabel"; el.style.cssText = "text-transform:none;letter-spacing:0;font-size:14px;line-height:1.5;padding:12px 14px";
+  var t = tmpl_shot_total(n, off);
+  el.innerHTML = '<b>Mix and match any shots.</b> £3.50 each (Tequila Rose, Apple and Limoncello £3), then 25p off every shot when you take 5 or more in total, and 50p off every shot at 10 or more.<br><b>' + (n ? n + ' shot' + (n === 1 ? '' : 's') + ' in your order' + (off ? ': ' + (off >= 0.5 ? '50p' : '25p') + ' off each' : (n < 5 ? ': ' + (5 - n) + ' more for 25p off each' : '')) : 'Choose how many of each') + '</b>' + t;
+  return el;
+}
+function tmpl_shot_total(n, off){
+  if(!n) return "";
+  var tot = Object.keys(S.cart).reduce(function(s,k){ var r = S.cart[k]; return s + (r && r.shot ? r.qty * (Number(r.basePrice) - off) : 0); }, 0);
+  return ' &middot; £' + money(Math.round(tot * 100) / 100);
+}
 function renderMenu(){
   var box = $("menuList"); box.innerHTML = "";
+  if(S.currentDrinkGroup === "Arrival shots") box.appendChild(shotNoteEl());
   var items = S.menu.filter(function(m){
     if(S.currentSection==="Drinks"){
       if(S.currentDrinkGroup==="Wine") return m.drink_group==="Wine" && m.wine_type===S.currentWineType;
@@ -1013,7 +1027,8 @@ function addToCart(item, variant){
       qty: 1,
       variant: variant ? variant.label : null,
       bundleGroup: item.bundle_group || null, bundleQty: item.bundle_qty || null, bundlePrice: item.bundle_price || null,
-      preorderOnly: !!item.preorder_only
+      preorderOnly: !!item.preorder_only,
+      shot: item.drink_group === "Arrival shots", basePrice: item.price
     };
   }
   renderMenu(); renderBasketBar();
@@ -1042,7 +1057,14 @@ function adjustCartQty(key, delta){
   renderMenu(); renderBasketBar();
   if($("basket").classList.contains("on")) renderBasket();
 }
-function cartLines(){ return Object.keys(S.cart).map(function(k){ return S.cart[k]; }); }
+// Arrival shots (Stevie D): mix and match. Each shot is its own price less 25p once there are 5 or more shots in the order, and less 50p at 10 or more (sumup-create-checkout works out the real figure).
+function shotOff(n){ return n >= 10 ? 0.5 : n >= 5 ? 0.25 : 0; }
+function shotsInCart(){ return Object.keys(S.cart).reduce(function(t,k){ var r = S.cart[k]; return t + (r && r.shot ? r.qty : 0); }, 0); }
+function applyShotRate(){
+  var off = shotOff(shotsInCart());
+  Object.keys(S.cart).forEach(function(k){ var r = S.cart[k]; if(r && r.shot) r.unitPrice = Math.round((Number(r.basePrice) - off) * 100) / 100; });
+}
+function cartLines(){ applyShotRate(); return Object.keys(S.cart).map(function(k){ return S.cart[k]; }); }
 function cartTotal(){ return cartLines().reduce(function(s,l){ return s + l.unitPrice*l.qty; }, 0); }
 function cartCount(){ return cartLines().reduce(function(s,l){ return s + l.qty; }, 0); }
 // Mirrors supabase/functions/_shared/bundle.ts computeBundleSavings exactly -
@@ -1724,7 +1746,7 @@ async function initPreorder(token){
     S.lockedRoom = d.ref;
     if(d.shots){
       $("welcomeTag").textContent = "Arrival Shots"; document.title = "Arrival shots — Black Horse Beamish";
-      $("welcomeMsg").textContent = "Add arrival shots to your table for " + d.event + " on " + d.when + ". Jägerbombs, Baby Guinness, Sambuca and Tequila are £3.50 a shot, £3.25 each for 5 and £3 each for 10; Tequila Rose, Apple and Limoncello are 50p less. Pay online and they will be ready when you arrive. Your order is logged against booking " + d.ref + ".";
+      $("welcomeMsg").textContent = "Add arrival shots to your table for " + d.event + " on " + d.when + ". Mix and match any shots. Jägerbombs, Baby Guinness, Sambuca and Tequila are £3.50 each, £3.25 each when you take 5 or more shots and £3 each for 10 or more. Tequila Rose, Apple and Limoncello are 50p less. Pay online and they will be ready when you arrive. Your order is logged against booking " + d.ref + ".";
       $("catHeading").textContent = "Add Arrival Shots"; $("catSub").textContent = "Your ticket already includes drinks, so these are an extra for the table";
       $("closedHeading").textContent = "Arrival shots for " + d.event + " have closed";
     } else
