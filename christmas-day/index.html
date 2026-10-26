@@ -88,6 +88,8 @@ button{font:inherit;cursor:pointer}
 .bar .btn:hover{background:#D3B72A}
 .bar .btn.ghost{background:transparent;color:var(--white);border:1px solid #fff}
 .muted{color:var(--sage-70)}
+.addp{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:16px 0 0;padding-top:14px;border-top:1px dashed var(--celadon)}
+#addErr:empty{display:none}
 ul.rules{margin:8px 0 0;padding-left:20px}ul.rules li{margin:0 0 7px}
 .small{font-size:14px}
 .spin{display:inline-block;width:20px;height:20px;border:3px solid var(--celadon);border-top-color:var(--sage);border-radius:50%;animation:s 1s linear infinite;vertical-align:middle}
@@ -119,6 +121,13 @@ footer::before{content:"\2726  \2744  \2726  \2744  \2726";display:block;color:v
 <p style="margin:0 0 8px">If you have booked separately from friends or family and want to share a table, you need to <b>link your bookings</b> (it is the "Sit with another booking?" box further down this page). We can only seat you together on the day if the bookings are linked.</p>
 <p style="margin:0 0 14px">If you are only sitting with the people on this booking, just confirm below.</p>
 <div style="display:grid;gap:10px"><button type="button" class="btn gold" id="lmLink">Link a booking first</button><button type="button" class="btn ghost" id="lmAlone" style="color:var(--sage);border-color:var(--sage)">I confirm we are not sitting with another booking</button></div>
+</div></div>
+<div class="modal" id="addModal" role="dialog" aria-modal="true" aria-labelledby="amTitle"><div class="box">
+<h2 id="amTitle">Add a person</h2>
+<p style="margin:0 0 8px">Another guest joining you? Choose who to add and pay in full online. Once your payment is confirmed they are added to your booking, and you can choose their meal on this page.</p>
+<div id="addOpts"></div>
+<div class="err" id="addErr"></div>
+<div class="row" style="margin-top:14px"><button type="button" class="btn" id="addGo">Pay now</button><button type="button" class="btn ghost" id="addNo">Cancel</button></div>
 </div></div>
 <div class="modal" id="drinksModal" role="dialog" aria-modal="true" aria-labelledby="dmTitle"><div class="box">
 <h2 id="dmTitle">Before you send: drinks for your table</h2>
@@ -179,6 +188,17 @@ const ukDate = iso => new Intl.DateTimeFormat("en-GB", { weekday:"long", day:"nu
 async function load(){
   if (!/^[0-9a-f]{32}$/.test(T)) return fail("This link doesn't look right. Please use the link in your email, or contact us.");
   try {
+    const addedId = new URLSearchParams(location.search).get("added");                                // back from paying for an extra person
+    if (addedId) {
+      try { history.replaceState(null, "", location.pathname + "?t=" + T); } catch(e){}
+      try {
+        let c = await call("person.check", { id:addedId });
+        for (let i = 0; i < 4 && c.status === "pending"; i++) { await new Promise(r => setTimeout(r, 2500)); c = await call("person.check", { id:addedId }); }
+        S.addMsg = c.status === "paid" ? { cls:"ok", text:"Thank you. We have received your payment of " + gbp(c.amount) + " and added an extra " + c.kind + " to your booking. Please choose their meal below, then press Send my pre-order." }
+          : c.status === "failed" ? { cls:"err", text:"That payment did not go through, so nothing has been taken and nobody has been added. You can try again, or phone us." }
+          : { cls:"note", text:"Your payment is still being confirmed. If you were charged, please do not pay again: refresh this page in a minute and the extra person will appear." };
+      } catch(e){ S.addMsg = { cls:"err", text:e.message }; }
+    }
     const d = await call("form.get"); S.d = d;
     document.title = EV().title + " pre-order | Black Horse Beamish"; const sub = document.querySelector(".top .sub"); if (sub) sub.textContent = EV().title + " pre-order";
     const have = {}; (d.answers.guests || []).forEach(g => { have[g.seq] = g; });
@@ -236,6 +256,18 @@ function linkedHtml(){
 }
 const STAY_URL = "https://booking.eu.guestline.app/BHBEAMISH/availability?hotel=BLACKHORSE", EVENTS_URL = "https://www.blackhorsebeamish.co.uk/viewallevents", LUNCH_URL = "https://www.blackhorsebeamish.co.uk/festive-dining";
 // links out to the rest of the festive offer: the stay on every pre-order, the other events on Christmas Day, Christmas lunch on the party nights
+// Add a person: one more adult or child, paid in full online; they are added to the booking (and the guest list) once the payment is confirmed
+function addPersonHtml(){
+  const a = S.d.add; if (!a || (!a.adult && !a.child)) return "";
+  return '<div class="addp"><button type="button" class="btn ghost" id="addPerson">Add a person</button><span class="muted small">Another guest joining you? Pay for them in full online and we will add them to your booking.</span></div>';
+}
+function addOpen(){
+  const a = S.d.add, day = EV().key === "day";
+  const opts = [a.adult ? ["adult", day ? "Adult" : "Add a person", a.adult] : null, a.child ? ["child", "Child (under 12)", a.child] : null].filter(Boolean);
+  $("#addOpts").innerHTML = opts.map((o, i) => '<label class="opt' + (i === 0 ? " on" : "") + '"><input type="radio" name="addkind" value="' + o[0] + '"' + (i === 0 ? " checked" : "") + '><span class="n">' + o[1] + ' <b>' + gbp(o[2]) + '</b></span></label>').join("");
+  const upd = () => { const v = (document.querySelector("input[name=addkind]:checked") || {}).value; $("#addGo").textContent = "Pay " + gbp(v === "child" ? a.child : a.adult) + " now"; document.querySelectorAll("#addOpts .opt").forEach(l => l.classList.toggle("on", !!l.querySelector("input").checked)); };
+  $("#addOpts").onchange = upd; upd(); $("#addErr").textContent = ""; $("#addModal").classList.add("on");
+}
 function moreHtml(){
   const a = (href, text) => '<p style="margin:12px 0 0"><a class="btn gold" href="' + href + '" target="_blank" rel="noopener" style="display:inline-block;text-decoration:none;line-height:1.35">' + text + '</a></p>';
   return '<div class="card drinks"><span class="badge">More festive fun</span><h2>Make a night of it</h2><p class="lead">Stay with us and enjoy the whole festive season without the journey home.</p>' +
@@ -251,7 +283,7 @@ function render(){
     '<p style="margin:10px 0 0"><span class="pill">' + esc(ukDate(b.starts_at)) + '</span><span class="pill">Booking ' + esc(b.ref) + '</span><span class="pill">' + esc(parts.join(" and ")) + '</span></p>' +
     (d.deadline.closed ? '<div class="err">Pre-orders closed on ' + esc(d.deadline.text) + '. Each guest without choices is served our standard menu. To change anything, please contact us.</div>' :
       '<div class="note"><b>Please complete this form by ' + esc(d.deadline.text) + '.</b> If we have not received your choices by then, each guest will be served our standard menu: ' + esc(joinWords(EV().courses.map(c => d.standard[c]))) + '.</div>') +
-    (d.answers.submitted_at ? '<div class="ok">Your pre-order has been received.' + (d.deadline.closed ? '' : ' You can still change it below.') + '</div>' : "") + '<div id="topMsg"></div></div>' +
+    (d.answers.submitted_at ? '<div class="ok">Your pre-order has been received.' + (d.deadline.closed ? '' : ' You can still change it below.') + '</div>' : "") + '<div id="topMsg"></div>' + (S.addMsg ? '<div class="' + S.addMsg.cls + '">' + esc(S.addMsg.text) + '</div>' : '') + '</div>' +
     notedHtml() +
     (d.drinks && d.drinks.open && d.drinks.shots ? '<div class="card drinks"><span class="badge">Extra for the table</span><h2>Add arrival shots</h2><p class="lead">Your ticket already includes drinks. If you would like to start the night with a bang, add arrival shots for your table. Mix and match any shots: Jägerbombs, Baby Guinness, Sambuca and Tequila are £3.50 each, £3.25 each when you take 5 or more and £3 each for 10 or more. Tequila Rose, Apple and Limoncello are 50p less. Pay online and they will be ready when you arrive.</p><p style="margin:14px 0 0"><a class="btn gold" href="' + esc(d.drinks.url) + '" style="display:inline-block;text-decoration:none">Add arrival shots</a></p></div>' : "") +
     (d.drinks && d.drinks.rules ? '<div class="card"><h2>' + esc(d.drinks.rules.title) + '</h2><ul class="rules">' + d.drinks.rules.items.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul></div>' : "") +
@@ -269,7 +301,7 @@ function render(){
 
     '<div class="card"><h2>Choose your meals</h2><p class="lead">' + (EV().key === "day" ? 'One choice for each guest. Festive canapés on arrival, a palate cleanser, and mince pies with tea or filter coffee to finish are included for everyone.' : 'One choice for each guest. Your ticket includes this two-course meal.') + '</p>' +
     (EV().key === "day" ? '<p class="muted small" style="margin:6px 0 0"><span class="tag">V</span> vegetarian <span class="tag">VE</span> vegan <span class="tag">GF</span> gluten free <span class="tag">GFA</span> gluten free available on request</p>' : '<p class="muted small" style="margin:6px 0 0"><span class="tag">V</span> vegetarian</p>') +
-    S.guests.map(guestHtml).join("") + '</div>' +
+    S.guests.map(guestHtml).join("") + addPersonHtml() + '</div>' +
 
     '<div class="card"><h2>Dietary requirements and notes</h2><p class="lead">Please tell us about any allergies or dietary needs, and anything else we should know.</p>' +
     '<label class="f" for="dietary">Allergies and dietary requirements</label><textarea id="dietary" maxlength="1500" placeholder="Anything for the whole party, or more detail than you have given above">' + esc(S.dietary) + '</textarea>' +
@@ -336,6 +368,14 @@ document.addEventListener("click", async e => {
   if (b.id === "notedChange") { const el = $("#timeCard"); if (el) el.scrollIntoView({ behavior:"smooth", block:"start" }); return; }
   if (b.id === "dmGo" || b.id === "dmSkip") { $("#drinksModal").classList.remove("on"); return save(true, S.askBtn, true, b.id === "dmGo"); }
   if (b.id === "tmClose") { if ($("#tmAck").checked) { S.ack = S.time; $("#timeModal").classList.remove("on"); } return; }
+  if (b.id === "addPerson") return addOpen();
+  if (b.id === "addNo") { $("#addModal").classList.remove("on"); return; }
+  if (b.id === "addGo") {
+    b.disabled = true; const old = b.textContent; b.textContent = "One moment…";
+    try { try { await call("form.save", payload(false)); } catch(e){} const r = await call("person.start", { kind:(document.querySelector("input[name=addkind]:checked") || {}).value }); location.href = r.url; }
+    catch(err){ b.disabled = false; b.textContent = old; $("#addErr").textContent = err.message; }
+    return;
+  }
   if (b.id === "payBal") {
     b.disabled = true; const old = b.textContent; b.textContent = "One moment…";
     try { try { await call("form.save", payload(false)); } catch(e){} const r = await call("balance.start"); location.href = r.url; }
