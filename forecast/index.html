@@ -731,6 +731,7 @@ async function importStays(out){
   if (!res || !mail) { out.push(`<span class="err">${esc((res || mail).name)}: the guest feedback emails need both the Reservations report and the Sales and Marketing query. Add the other one as well.</span>`); return true; }
   try {
     const r = await callFeedback("stays.import", { departures:res.stay, emails:mail.stay });
+    if (!r.checked_out) { out.push(`<span class="err">${esc(res.name)}: there are no <b>Checked Out</b> bookings in this Reservations report, so nothing was added to the guest feedback list. In Rezlynx, run the Reservations report for the departure date (yesterday) with Checked Out ticked in the statuses, then upload it again with the Sales and Marketing query.</span>`); S.imp.files = S.imp.files.filter(x => x.id !== res.id && x.id !== mail.id); return true; }
     const sk = Object.entries(r.skipped || {}).map(([k, n]) => `${n} ${esc(k)}`).join(", ");
     out.push(`${esc(res.name)} and ${esc(mail.name)}: ${r.checked_out} checked out, <b>${r.queued}</b> added to the guest feedback list${sk ? "; not emailed: " + sk : ""}${r.already_known ? "; " + r.already_known + " already on the list" : ""}.`);
     S.imp.files = S.imp.files.filter(x => x.id !== res.id && x.id !== mail.id); return false;
