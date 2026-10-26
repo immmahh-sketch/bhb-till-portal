@@ -88,6 +88,7 @@ button{font:inherit;cursor:pointer}
 .bar .btn:hover{background:#D3B72A}
 .bar .btn.ghost{background:transparent;color:var(--white);border:1px solid #fff}
 .muted{color:var(--sage-70)}
+ul.rules{margin:8px 0 0;padding-left:20px}ul.rules li{margin:0 0 7px}
 .small{font-size:14px}
 .spin{display:inline-block;width:20px;height:20px;border:3px solid var(--celadon);border-top-color:var(--sage);border-radius:50%;animation:s 1s linear infinite;vertical-align:middle}
 @keyframes s{to{transform:rotate(360deg)}}
@@ -103,7 +104,7 @@ footer::before{content:"\2726  \2744  \2726  \2744  \2726";display:block;color:v
 </style>
 </head>
 <body>
-<header class="top"><div class="in"><img class="logo" src="../app/logo-light.png" alt="Black Horse Beamish"><div class="brand">Christmas at Black Horse Beamish</div><div class="sub">Christmas Day pre-order</div><div class="flakes" aria-hidden="true">&#10022; &#10052; &#10022;</div></div></header>
+<header class="top"><div class="in"><a href="https://www.blackhorsebeamish.co.uk" target="_blank" rel="noopener" style="display:block"><img class="logo" src="../app/logo-light.png" alt="Black Horse Beamish"></a><div class="brand">Christmas at Black Horse Beamish</div><div class="sub">Christmas Day pre-order</div><div class="flakes" aria-hidden="true">&#10022; &#10052; &#10022;</div></div></header>
 <main id="app"><div class="card" style="text-align:center"><span class="spin"></span></div></main>
 <footer id="foot"></footer>
 <div class="modal" id="timeModal" role="dialog" aria-modal="true" aria-labelledby="tmTitle"><div class="box">
@@ -233,6 +234,15 @@ function linkedHtml(){
     '<p class="muted small" style="margin:8px 0">The reference is in their booking confirmation from TicketSource. They can link to you in the same way.</p><div id="lkMsg"></div><button type="button" class="btn" id="lkBtn">Link my booking</button></div>';
   return h;
 }
+const STAY_URL = "https://booking.eu.guestline.app/BHBEAMISH/availability?hotel=BLACKHORSE", EVENTS_URL = "https://www.blackhorsebeamish.co.uk/viewallevents", LUNCH_URL = "https://www.blackhorsebeamish.co.uk/festive-dining";
+// links out to the rest of the festive offer: the stay on every pre-order, the other events on Christmas Day, Christmas lunch on the party nights
+function moreHtml(){
+  const a = (href, text) => '<p style="margin:12px 0 0"><a class="btn gold" href="' + href + '" target="_blank" rel="noopener" style="display:inline-block;text-decoration:none;line-height:1.35">' + text + '</a></p>';
+  return '<div class="card drinks"><span class="badge">More festive fun</span><h2>Make a night of it</h2><p class="lead">Stay with us and enjoy the whole festive season without the journey home.</p>' +
+    a(STAY_URL, "Make a night of it: book your festive stay here") +
+    (EV().key === "day" ? a(EVENTS_URL, "Get the festive season started: click here to view our other events")
+      : '<h2 style="margin-top:20px">Christmas Lunch</h2><p class="lead">Let us take the work out of Christmas Day.</p>' + a(LUNCH_URL, "Join us for Christmas Lunch: click here for details and to book your table")) + '</div>';
+}
 function render(){
   const d = S.d, b = d.booking;
   const parts = []; if (b.adults) parts.push(b.adults + " adult" + (b.adults === 1 ? "" : "s")); if (b.children) parts.push(b.children + " child" + (b.children === 1 ? "" : "ren"));
@@ -244,6 +254,7 @@ function render(){
     (d.answers.submitted_at ? '<div class="ok">Your pre-order has been received.' + (d.deadline.closed ? '' : ' You can still change it below.') + '</div>' : "") + '<div id="topMsg"></div></div>' +
     notedHtml() +
     (d.drinks && d.drinks.open && d.drinks.shots ? '<div class="card drinks"><span class="badge">Extra for the table</span><h2>Add arrival shots</h2><p class="lead">Your ticket already includes drinks. If you would like to start the night with a bang, add arrival shots for your table. Mix and match any shots: Jägerbombs, Baby Guinness, Sambuca and Tequila are £3.50 each, £3.25 each when you take 5 or more and £3 each for 10 or more. Tequila Rose, Apple and Limoncello are 50p less. Pay online and they will be ready when you arrive.</p><p style="margin:14px 0 0"><a class="btn gold" href="' + esc(d.drinks.url) + '" style="display:inline-block;text-decoration:none">Add arrival shots</a></p></div>' : "") +
+    (d.drinks && d.drinks.rules ? '<div class="card"><h2>' + esc(d.drinks.rules.title) + '</h2><ul class="rules">' + d.drinks.rules.items.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul></div>' : "") +
     (d.drinks && d.drinks.open && !d.drinks.shots ? '<div class="card drinks"><span class="badge">10% off the drinks menu</span><h2>Drinks for your table</h2><p class="lead">Pre-order drinks so they are ready when you sit down. Choose one of our drinks packages, or anything from the full drinks menu, and pay online. You can come back and add more at any time before the day.' + (d.drinks.party ? ' You can also add arrival shots: mix and match Jägerbombs, Baby Guinness, Sambuca and Tequila at £3.50 each (£3.25 each when you take 5 or more, £3 each for 10 or more). Tequila Rose, Apple and Limoncello are 50p less.' : '') + '</p><p style="margin:14px 0 0"><a class="btn gold" href="' + esc(d.drinks.url) + '" style="display:inline-block;text-decoration:none">Pre-order drinks</a></p></div>' : "") +
 
     payHtml() +
@@ -267,7 +278,7 @@ function render(){
     (EV().show_under3 ? '<div class="card"><h2>Under 3s</h2><p class="lead">Under 3s are free and do not need a ticket. If you are bringing any, please tell us so we can set your table.</p>' +
     '<div class="row"><div><label class="f" for="u3">How many under 3s are coming?</label><input type="number" id="u3" min="0" max="20" inputmode="numeric" value="' + (S.under3 || 0) + '"></div>' +
     '<div><label class="f" for="hc">How many high chairs do you need?</label><input type="number" id="hc" min="0" max="20" inputmode="numeric" value="' + (S.chairs || 0) + '"></div></div></div>' : "") +
-    '<div id="linkBlock">' + linkedHtml() + '</div>' +
+    '<div id="linkBlock">' + linkedHtml() + '</div>' + moreHtml() +
     '<div class="card"><div id="saveMsg"></div><p class="muted small" style="margin:0">Please complete the form for every guest, then press <b>Send my pre-order</b>. If you need more time, press <b>Save and finish later</b> and come back to this link.</p></div>' +
     (d.deadline.closed ? "" : '<div class="bar"><button type="button" class="btn ghost" id="draft">Save and finish later</button><button type="button" class="btn" id="final">Send my pre-order</button></div>');
   foot();
