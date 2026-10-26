@@ -69,6 +69,50 @@ table.t{width:100%; border-collapse:collapse; font-size:14px} .t th{font-size:10
 .dgs{background:var(--sage-10);font-family:var(--display);font-size:16px;color:var(--berry);padding:5px 10px;position:sticky;left:0;border-bottom:1px solid var(--mist)}
 .dgb{position:absolute;top:3px;height:30px;border:0;border-radius:6px;color:#fff;font-size:12px;padding:0 7px;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,.25)} .dgb.ok{background:#2F5B31} .dgb.wait{background:#B08D57} .dgb.lock{outline:2px solid var(--ink);outline-offset:-2px} .dgb:hover{filter:brightness(1.12)}
 .dgkey{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-2px} .dgkey.ok{background:#2F5B31} .dgkey.wait{background:#B08D57}
+/* ---- print the table plan: a preview on screen, A4 landscape on paper */
+#planOv{position:fixed;inset:0;z-index:300;background:#d9d6cf;overflow:auto;padding:14px}
+#planOv .planbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;max-width:297mm;margin:0 auto 12px}
+#planPaper{width:297mm;max-width:100%;margin:0 auto;background:#fff;padding:10mm 11mm;box-shadow:0 6px 24px rgba(0,0,0,.22);color:#262626;font-family:Raleway,"Helvetica Neue",Arial,sans-serif;font-size:10pt;line-height:1.3}
+#planPaper .ph{display:flex;align-items:center;gap:14px;border-bottom:3px solid #C1A51D;padding:0 0 8px;margin:0 0 10px}
+#planPaper .ph img{height:34px;width:auto}
+#planPaper .ph .tt{flex:1}
+#planPaper .ph h1{font-family:"Cormorant Garamond",Georgia,serif;font-size:25pt;line-height:1.05;margin:0;color:#8A1C2B;font-weight:700}
+#planPaper .ph .sub{font-size:9.5pt;color:#6B5B5B;letter-spacing:.04em;margin-top:2px}
+#planPaper .ph .tot{text-align:right;font-size:9pt;color:#6B5B5B}
+#planPaper .ph .tot b{display:block;font-family:"Cormorant Garamond",Georgia,serif;font-size:17pt;color:#3F2F28;line-height:1.1}
+#planPaper h2{font-family:"Cormorant Garamond",Georgia,serif;font-size:13pt;color:#fff;background:#8A1C2B;margin:9px 0 5px;padding:2px 9px;letter-spacing:.06em;text-transform:uppercase;break-after:avoid;border-radius:2px}
+#planPaper h2 span{font-family:Raleway,Arial,sans-serif;font-size:8.5pt;font-weight:500;letter-spacing:.04em;text-transform:none;opacity:.85;margin-left:8px}
+#planPaper .grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px}
+#planPaper .tc{border:1px solid #CCCDB4;border-top:3px solid #C1A51D;border-radius:3px;padding:3px 5px 4px;break-inside:avoid;background:#FCFCFA;min-height:13mm}
+#planPaper .tc .th{display:flex;align-items:baseline;justify-content:space-between;border-bottom:1px solid #E3E5DE;margin:0 0 3px;padding:0 0 2px}
+#planPaper .tc .th b{font-family:"Cormorant Garamond",Georgia,serif;font-size:13pt;color:#3F2F28;line-height:1}
+#planPaper .tc .th span{font-size:8pt;color:#7A6A68}
+#planPaper .bk{margin:0 0 3px;padding:0 0 0 5px;border-left:3px solid #3F2F28}
+#planPaper .bk.auto{border-left-color:#B9B6A8;color:#6B6660}
+#planPaper .bk.rd{border-left-color:#2B5C8A}
+#planPaper .bk .tm{font-weight:700;font-size:8.5pt}
+#planPaper .bk .nm{font-size:8.5pt}
+#planPaper .bk .gs{font-weight:700}
+#planPaper .tag{display:inline-block;font-size:7pt;font-weight:700;letter-spacing:.05em;text-transform:uppercase;border-radius:2px;padding:0 3px;margin-left:3px;vertical-align:1px;background:#F4EFD3;color:#6B5B20}
+#planPaper .tag.acc{background:#8A1C2B;color:#fff}
+#planPaper .tag.rd{background:#DCE8F4;color:#1E4A73}
+#planPaper .free{color:#A8A39A;font-size:8.5pt}
+#planPaper .arr{break-before:page}
+#planPaper table.at{width:100%;border-collapse:collapse;font-size:9pt}
+#planPaper table.at th{text-align:left;font-size:7.5pt;letter-spacing:.1em;text-transform:uppercase;color:#7A6A68;border-bottom:2px solid #C1A51D;padding:2px 6px}
+#planPaper table.at td{padding:2px 6px;border-bottom:1px solid #E3E5DE;vertical-align:top}
+#planPaper table.at td.n{text-align:right;white-space:nowrap}
+#planPaper .leg{margin:10px 0 0;font-size:8pt;color:#6B5B5B;border-top:1px solid #E3E5DE;padding-top:5px}
+#planPaper .leg b.k1{border-left:3px solid #3F2F28;padding-left:4px}#planPaper .leg b.k2{border-left:3px solid #B9B6A8;padding-left:4px;color:#6B6660}#planPaper .leg b.k3{border-left:3px solid #2B5C8A;padding-left:4px}
+@media print{
+  @page{size:A4 landscape;margin:8mm}
+  html,body{background:#fff!important}
+  body>*:not(#planOv){display:none!important}
+  #planOv{position:static;background:#fff;padding:0;overflow:visible}
+  #planOv .planbar{display:none}
+  #planPaper{width:auto;max-width:none;margin:0;padding:0;box-shadow:none}
+  #planPaper *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
 </style>
 </head>
 <body>
@@ -666,15 +710,16 @@ function commentsHtml(f){
 /* ---- on the booking screen when it is opened from the diary: where the group sits, the other bookings in it, and moving it ---- */
 function diaryBlockHtml(g, id){
   const sideName = x => x === "marquee" ? "Marquee" : x === "restaurant" ? "Restaurant" : "";
+  const accessBlock = g.access ? `<p class="small" style="margin:6px 0 0"><span class="pill warn">Accessibility needs</span> ${esc(g.access_note)}${g.access_conflict ? ` <b>Placed in the George Ridley Room, which has steps.</b>` : " Not seated in the George Ridley Room."}</p>` : "";
   const others = g.booking_ids.length > 1 ? `<p class="small" style="margin:6px 0 0"><b>Bookings at this table:</b> ${g.booking_ids.map((bid, i) => `<button type="button" class="btn small ${bid === id ? "" : "ghost"}" data-fullg="${esc(bid)}">${esc(g.refs[i] || "Booking")}</button>`).join(" ")}</p>` : "";
   return `<div class="card" style="box-shadow:none;border:1px solid var(--mist);margin:12px 0 0"><h4 style="margin:0 0 6px">In the diary</h4>
     <p style="margin:0 0 4px"><span class="pill ${g.submitted ? "ok" : "warn"}">${g.submitted ? "Pre-order received" : "No pre-order yet"}</span> <span class="pill">${g.size} guest${g.size === 1 ? "" : "s"}</span>${g.linked ? ` <span class="pill">${g.booking_ids.length} bookings linked</span>` : ""} ${g.time ? `<span class="pill gold">${esc(g.time)} to ${esc(g.end)}, ${esc(sideName(g.side))}${g.table ? ", table " + esc(g.table) : ""}${g.locked ? " &#128274;" : ""}</span>` : `<span class="pill">not placed yet</span>`}</p>
-    ${g.asked || g.area_pref ? `<p class="small muted" style="margin:0 0 4px">Asked for ${g.asked ? esc(g.asked) : "any time"}${g.area_pref ? ", " + esc(g.area_pref) : ""}.${g.need ? ` A table of ${g.size} sits in the Marquee.` : ""}</p>` : ""}${others}
+    ${accessBlock}${g.asked || g.area_pref ? `<p class="small muted" style="margin:0 0 4px">Asked for ${g.asked ? esc(g.asked) : "any time"}${g.area_pref ? ", " + esc(g.area_pref) : ""}.${g.need ? ` A table of ${g.size} sits in the Marquee.` : ""}</p>` : ""}${others}
     ${canEdit() ? `<h4 style="margin:12px 0 6px">${g.time ? "Move this booking" : "Place this booking"}</h4><div class="three"><div class="field"><label>Arrival</label><select id="mvTime">${S.dg.slots.map(x => `<option value="${x}"${x === g.time ? " selected" : ""}>${x}</option>`).join("")}</select></div><div class="field"><label>Where</label><select id="mvSide"><option value="restaurant"${g.side !== "marquee" ? " selected" : ""}>Restaurant</option><option value="marquee"${g.side === "marquee" ? " selected" : ""}>Marquee</option></select></div><div class="field"><label>Table</label><input type="text" id="mvTable" maxlength="20" value="${esc(g.table || "")}" placeholder="e.g. 12 or M4"></div></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn small" id="mvSave">Move and lock here</button>${g.locked ? `<button class="btn small ghost" id="mvUnlock">Let the diary place it</button>` : ""}${g.time ? `<button class="btn small ghost" id="mvOff">Take out of the diary</button>` : ""}</div>` : ""}</div>`;
 }
 function diaryBlockWire(g, id){
-  const mv = async (body, msg) => { try { await px("admin.place", { date_id:S.dgId, booking_id:g.booking_ids[0], ...body }); S.dg = await px("admin.diary", { date_id:S.dgId }); closeModal(); renderDiary(); toast(msg); } catch(e){ if (/over 6/.test(e.message) && confirm(e.message)) return mv({ ...body, force:true }, msg); toast(e.message, true); } };
+  const mv = async (body, msg) => { try { await px("admin.place", { date_id:S.dgId, booking_id:g.booking_ids[0], ...body }); S.dg = await px("admin.diary", { date_id:S.dgId }); closeModal(); renderDiary(); toast(msg); } catch(e){ if (/over 6|steps/.test(e.message) && confirm(e.message)) return mv({ ...body, force:true }, msg); toast(e.message, true); } };
   const sv = $("#mvSave"); if (sv) sv.onclick = () => mv({ time:$("#mvTime").value, side:$("#mvSide").value, table:$("#mvTable").value.trim() }, "Moved and locked.");
   const ul = $("#mvUnlock"); if (ul) ul.onclick = () => mv({ unlock:true }, "The diary will place it.");
   const of = $("#mvOff"); if (of) of.onclick = () => mv({ unplace:true }, "Taken out of the diary.");
@@ -692,7 +737,7 @@ async function showFull(id, ctx){
       ${row("Email", (b.email ? `<a href="mailto:${esc(b.email)}">${esc(b.email)}</a>${b.email_added ? ` <span class="tiny muted">(added by the team)</span>` : ""}` : `<span class="muted">none on TicketSource</span>`) + (canEdit() ? ` <button type="button" class="btn small ghost" id="emOpen">${b.email ? "Change" : "Add an email"}</button><span id="emBox" style="display:none"> <input id="emIn" type="email" placeholder="name@example.com" style="width:230px;display:inline-block"> <button type="button" class="btn small" id="emSave">Save</button></span>` : ""))}${row("Phone", b.phone ? `<a href="tel:${esc(String(b.phone).replace(/\s+/g, ""))}">${esc(b.phone)}</a>` : "")}${row("Address", f.buyer && f.buyer.address ? esc(f.buyer.address) : "")}${row("Postcode", f.buyer && f.buyer.postcode ? esc(f.buyer.postcode) : "")}${row("Booked", esc(fmtDT(b.booked_at)))}${row("Booked via", f.buyer && f.buyer.booked_by ? esc(f.buyer.booked_by) : "")}${row("Status", f.cancelled ? `<span class="pill">Cancelled</span>` : "Booked")}
       ${row("Sitting", s.dining_time ? `<b>${esc(s.dining_time)}</b>${s.area ? ", the " + esc(s.area === "marquee" ? "Marquee" : "Restaurant") : ""}${s.table_number ? ", table <b>" + esc(s.table_number) + "</b>" : ""}${s.locked ? " (placed by hand)" : ""}` : `<span class="muted">not placed yet</span>`)}
       ${row("Pre-order", a.submitted_at ? `<span class="pill ok">Sent back</span> ${esc(fmtDT(a.submitted_at))}` : a.invite_sent_at ? `<span class="pill warn">Invited ${esc(fmtDT(a.invite_sent_at))}, not sent back</span>` : `<span class="pill">Not invited yet</span>`)}
-      ${row("Staff notes", a.staff_note ? esc(a.staff_note).replace(/\n/g, "<br>") : "")}${row("Asked for", a.preferred_time ? esc(a.preferred_time === "none" ? "any time" : a.preferred_time) : "")}${row("About the time", esc(a.time_comment))}${row("Restaurant or Marquee", a.area_pref ? esc(a.area_pref === "marquee" ? "would like the Marquee" : "would like the Restaurant") : "")}
+      ${row("Accessibility", a.access_needs === true ? `<span class="pill warn">Needs</span> ${esc(a.access_note)} <span class="muted">Not seated in the George Ridley Room (it has steps).</span>` : a.access_needs === false ? "None" : "")}${row("Staff notes", a.staff_note ? esc(a.staff_note).replace(/\n/g, "<br>") : "")}${row("Asked for", a.preferred_time ? esc(a.preferred_time === "none" ? "any time" : a.preferred_time) : "")}${row("About the time", esc(a.time_comment))}${row("Restaurant or Marquee", a.area_pref ? esc(a.area_pref === "marquee" ? "would like the Marquee" : "would like the Restaurant") : "")}
       ${row("Dietary (whole party)", esc(a.dietary))}${row("Other notes", esc(a.notes))}${ev.show_under3 ? row("Under 3s", `${a.under3} (${a.high_chairs} high chair${a.high_chairs === 1 ? "" : "s"})`) : ""}
       ${row("Linked with", f.linked.map(l => `${esc(l.name)} (${esc(l.ref)}, ${l.guests})`).join(", "))}
     </table>
@@ -766,7 +811,7 @@ function renderDiary(){
     return `<div class="dgp ${c}" style="width:${DG.COL}px" title="${p.used} arriving at ${p.time}; room for ${p.allowed}">${p.used || ""}</div>`; }).join("")}</div></div>`;
   const wait = d.waiting.slice().sort((a, b) => (b.submitted - a.submitted) || a.lead.localeCompare(b.lead));
   $("#views").innerHTML = `<div class="pagehead"><h2>Christmas Day diary</h2><span class="hint">${esc(d.event.when)}. Arrivals every 15 minutes, 12:00 to 16:00, 15 covers a slot on each side.</span><span class="spacer"></span>
-      ${edit ? `<button class="btn small" data-dg="alloc">Place new pre-orders</button> <button class="btn small ghost" data-dg="tables">Restaurant tables</button> <button class="btn small ghost" data-dg="more">More</button>` : ""}</div>
+      <button class="btn small ghost" data-dg="print">Print table plan</button> ${edit ? `<button class="btn small" data-dg="alloc">Place new pre-orders</button> <button class="btn small ghost" data-dg="tables">Restaurant tables</button> <button class="btn small ghost" data-dg="more">More</button>` : ""}</div>
     <div class="tiles"><div class="tile"><div class="v">${t.placed_covers}</div><div class="l">covers placed</div><div class="s">of ${t.covers} booked</div></div><div class="tile"><div class="v">${t.restaurant_covers}</div><div class="l">Restaurant</div></div><div class="tile"><div class="v">${t.marquee_covers}</div><div class="l">Marquee</div><div class="s">${d.sides.marquee.tables.length} tables so far</div></div><div class="tile"><div class="v">${t.waiting}</div><div class="l">not placed</div><div class="s">waiting for a pre-order or room</div></div></div>
     ${t.restaurant_tables_loaded ? "" : `<div class="flags"><b>The Restaurant's tables are not loaded yet</b>Until they are, Restaurant bookings are only held to the arrival limits and show without a table. Press <b>Restaurant tables</b> and paste the list from ResDiary (name and seats), and everything is placed again onto real tables.</div>`}
     <div class="card" style="padding:0;overflow:hidden"><div class="dgw"><div style="width:${DG.LEFT + total}px">
@@ -883,7 +928,41 @@ function dgFree(side, table, seats, time){
   });
 }
 const minToStr = n => String(Math.floor(n / 60)).padStart(2, "0") + ":" + String(n % 60).padStart(2, "0");
+/* ====================================================================== print the table plan */
+function dgPrint(){
+  const d = S.dg; if (!d) return;
+  const fmtDay = new Intl.DateTimeFormat("en-GB", { weekday:"long", day:"numeric", month:"long", year:"numeric", timeZone:"Europe/London" }).format(new Date(d.show.starts_at));
+  const now = new Intl.DateTimeFormat("en-GB", { day:"numeric", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit", timeZone:"Europe/London" }).format(new Date());
+  const pl = d.placed, covers = pl.reduce((t, g) => t + (g.size || 0), 0);
+  const tabs = [];      // every table, in the order of its area
+  const addTables = (side, label) => d.sides[side].tables.forEach(t => tabs.push({ side, name:t.name, seats:t.seats, area:side === "marquee" ? "Marquee" : (t.area || "Restaurant") }));
+  addTables("restaurant"); addTables("marquee");
+  const areaOrder = ["Main Restaurant", "Orangery", "George Ridley Room", "Restaurant", "Marquee"], areas = [...new Set(tabs.map(t => t.area))].sort((a, b) => (areaOrder.indexOf(a) < 0 ? 99 : areaOrder.indexOf(a)) - (areaOrder.indexOf(b) < 0 ? 99 : areaOrder.indexOf(b)));
+  const parts = tb => String(tb || "").split("+").map(x => x.trim()).filter(Boolean);
+  const on = new Map();
+  pl.forEach(g => parts(g.table).forEach((p, i, all) => { const k = g.side + "|" + p; (on.get(k) || on.set(k, []).get(k)).push({ g, joined:all.length > 1 ? all.join(" + ") : "" }); }));
+  const tag = (t, c) => `<span class="tag${c ? " " + c : ""}">${t}</span>`;
+  const entry = (g, joined) => `<div class="bk ${g.manual ? "rd" : g.locked ? "" : "auto"}"><span class="tm">${esc(g.time)}&ndash;${esc(g.end)}</span> <span class="nm">${esc(g.names)} <span class="gs">${g.size}</span>${g.access ? tag("Access", "acc") : ""}${g.manual ? tag("ResDiary", "rd") : ""}${g.dietary ? tag("Diet") : ""}${joined ? ` <span class="free">joined ${esc(joined)}</span>` : ""}</span></div>`;
+  const card = t => { const list = (on.get(t.side + "|" + t.name) || []).sort((a, b) => dgMin(a.g.time) - dgMin(b.g.time)); return `<div class="tc"><div class="th"><b>${esc(t.name)}</b><span>${t.seats} seats</span></div>${list.length ? list.map(x => entry(x.g, x.joined)).join("") : `<div class="free">free all day</div>`}</div>`; };
+  const loose = pl.filter(g => !parts(g.table).length);
+  const sections = areas.map(a => { const ts = tabs.filter(t => t.area === a), n = ts.reduce((c, t) => c + (on.get(t.side + "|" + t.name) || []).length, 0); return `<h2>${esc(a)}<span>${ts.length} tables</span></h2><div class="grid">${ts.map(card).join("")}</div>`; }).join("") +
+    (loose.length ? `<h2>No table set<span>${loose.length} bookings</span></h2><div class="grid">${loose.map(g => `<div class="tc">${entry(g, "")}</div>`).join("")}</div>` : "");
+  const byTime = {}; pl.forEach(g => { (byTime[g.time] = byTime[g.time] || []).push(g); });
+  const arrRows = Object.keys(byTime).sort().map(tm => { const gs = byTime[tm].sort((a, b) => a.names.localeCompare(b.names)); return `<tr><td><b>${esc(tm)}</b></td><td class="n"><b>${gs.reduce((t, g) => t + g.size, 0)}</b></td><td>${gs.map(g => `${esc(g.names)} (${g.size})${g.access ? " &ndash; access" : ""} &ndash; ${g.table ? esc(g.table) : "no table"}${g.side === "marquee" ? " Marquee" : ""}`).join("; ")}</td></tr>`; }).join("");
+  const html = `<div class="ph"><img src="../app/logo-dark.png" alt=""><div class="tt"><h1>Christmas Day table plan</h1><div class="sub">${esc(fmtDay)} &middot; Black Horse Beamish</div></div><div class="tot"><b>${covers} covers</b>${pl.length} bookings &middot; printed ${esc(now)}</div></div>
+    ${sections}
+    <div class="leg"><b class="k1">Placed by hand</b> &nbsp; <b class="k2">Placed automatically (may change)</b> &nbsp; <b class="k3">In ResDiary only</b> &nbsp; ${tag("Access", "acc")} accessibility needs (not seated in the George Ridley Room) &nbsp; ${tag("Diet")} dietary needs noted &nbsp; Times are arrival to expected finish. The number after each name is the party size.</div>
+    <div class="arr"><div class="ph"><img src="../app/logo-dark.png" alt=""><div class="tt"><h1>Arrivals by time</h1><div class="sub">${esc(fmtDay)}</div></div><div class="tot"><b>${covers} covers</b>${pl.length} bookings</div></div>
+    <table class="at"><thead><tr><th style="width:12mm">Arrive</th><th class="n" style="width:14mm">Guests</th><th>Bookings (table)</th></tr></thead><tbody>${arrRows}</tbody></table></div>`;
+  const old = $("#planOv"); if (old) old.remove();
+  const ov = document.createElement("div"); ov.id = "planOv";
+  ov.innerHTML = `<div class="planbar"><button type="button" class="btn" id="planGo">Print</button><button type="button" class="btn ghost" id="planX">Close</button><span class="small muted">Set for A4 landscape. If your print window asks, choose A4 and Landscape, and tick &ldquo;Background graphics&rdquo; for the colours.</span></div><div id="planPaper">${html}</div>`;
+  document.body.appendChild(ov);
+  $("#planGo").onclick = () => window.print();
+  $("#planX").onclick = () => ov.remove();
+}
 async function dgAct(a, btn){
+  if (a === "print") return dgPrint();
   if (a === "tables") return dgTables();
   if (a === "more") return openModal(`<h3 style="margin:0 0 8px">More</h3>
     <p class="small muted" style="margin:0 0 10px">The diary places each pre-order as it arrives, first come first served. These are for the exceptions.</p>

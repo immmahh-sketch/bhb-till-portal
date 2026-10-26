@@ -146,7 +146,7 @@ const DAY_EVENT = { key:"day", title:"Christmas Day", when:"", arrival:"", cours
 const EV = () => (S.d && S.d.event) || DAY_EVENT;
 const WORD = { starter:"starter", main:"main", dessert:"dessert" };
 const joinWords = a => a.length < 2 ? a.join("") : a.slice(0, -1).join(", ") + " and " + a[a.length - 1];
-const S = { payMsg:null, d:null, guests:[], areapref:"", tcomment:"", time:"", dietary:"", notes:"", under3:0, chairs:0, busy:false, msg:null, pref:"", ack:"" };
+const S = { payMsg:null, d:null, guests:[], access:"", accessNote:"", areapref:"", tcomment:"", time:"", dietary:"", notes:"", under3:0, chairs:0, busy:false, msg:null, pref:"", ack:"" };
 
 async function call(action, payload){
   const r = await fetch(API, { method:"POST", headers:{ "Content-Type":"application/json", Authorization:"Bearer " + KEY, apikey:KEY }, body:JSON.stringify(Object.assign({ action, t:T }, payload || {})) });
@@ -207,7 +207,7 @@ async function load(){
     for (let i = 0; i < d.booking.adults; i++) { seq++; const g = have[seq] || {}; S.guests.push({ seq, kind:"adult", n:i + 1, name:g.name || "", starter:g.starter || "", main:g.main || "", dessert:g.dessert || "", dietary:g.dietary || "" }); }
     for (let i = 0; i < d.booking.children; i++) { seq++; const g = have[seq] || {}; S.guests.push({ seq, kind:"child", n:i + 1, name:g.name || "", starter:g.starter || "", main:g.main || "", dessert:g.dessert || "", dietary:g.dietary || "" }); }
     for (let i = 0; i < (d.booking.infants || 0); i++) { seq++; const g = have[seq] || {}; S.guests.push({ seq, kind:"infant", n:i + 1, name:g.name || "", starter:"", main:g.main || "", dessert:"", dietary:g.dietary || "" }); }
-    S.time = d.answers.preferred_time || "none"; S.pref = S.time === "none" ? "any" : "pref"; S.ack = S.time && S.time !== "none" ? S.time : ""; S.areapref = d.answers.area_pref || ""; S.tcomment = d.answers.time_comment || ""; S.dietary = d.answers.dietary || ""; S.notes = d.answers.notes || ""; S.under3 = d.answers.under3 || 0; S.chairs = d.answers.high_chairs || 0;
+    S.time = d.answers.preferred_time || "none"; S.pref = S.time === "none" ? "any" : "pref"; S.ack = S.time && S.time !== "none" ? S.time : ""; S.areapref = d.answers.area_pref || ""; S.access = d.answers.access_needs === true ? "yes" : d.answers.access_needs === false ? "no" : ""; S.accessNote = d.answers.access_note || ""; S.tcomment = d.answers.time_comment || ""; S.dietary = d.answers.dietary || ""; S.notes = d.answers.notes || ""; S.under3 = d.answers.under3 || 0; S.chairs = d.answers.high_chairs || 0;
     render();
     const paidId = new URLSearchParams(location.search).get("paid");                                  // back from the card payment page
     if (paidId && d.payment) {
@@ -298,6 +298,9 @@ function render(){
     '<div class="timebox' + (S.pref === "pref" ? " on" : "") + '" id="timeBox"><label class="f" for="tm">Preferred table time</label><select id="tm"><option value="">Choose a time</option>' + d.times.map(t => '<option value="' + t + '"' + (S.time === t ? " selected" : "") + '>' + timeLabel(t) + '</option>').join("") + '</select></div>' +
     '<div class="area"><label class="f">Where would you like to sit?</label><p class="muted small" style="margin:0 0 8px">Tables of more than 6 are mainly in the Marquee. If your table is smaller and you would prefer the Marquee, or the Restaurant, let us know. Preferences cannot be guaranteed, and the seating plan will be confirmed on 25 November.</p>' +
       [["", "No preference"], ["restaurant", "The Restaurant"], ["marquee", "The Marquee"]].map(([v, l]) => '<label class="opt' + (S.areapref === v ? " on" : "") + '"><input type="radio" name="areapref" value="' + v + '"' + (S.areapref === v ? " checked" : "") + '><span class="n">' + l + '</span></label>').join("") + '</div>' +
+    '<div class="area" id="accessCard"><label class="f">Accessibility</label><p class="muted small" style="margin:0 0 8px">Does anyone in your party have accessibility needs, for example step-free access, wheelchair access or limited mobility? Some of our rooms have steps, so we will seat you where you can get around easily.</p>' +
+      [["no", "No"], ["yes", "Yes"]].map(([v, l]) => '<label class="opt' + (S.access === v ? " on" : "") + '"><input type="radio" name="access" value="' + v + '"' + (S.access === v ? " checked" : "") + '><span class="n">' + l + '</span></label>').join("") +
+      '<div class="timebox' + (S.access === "yes" ? " on" : "") + '" id="accessBox"><label class="f" for="accessNote">Please tell us what we need to know (optional)</label><textarea id="accessNote" maxlength="300" style="min-height:64px" placeholder="e.g. one guest uses a wheelchair, or needs a table close to the door">' + esc(S.accessNote) + '</textarea></div></div>' +
     '<label class="f" for="tcomment">Anything you would like us to know about your time? (optional)</label><textarea id="tcomment" maxlength="300" style="min-height:64px" placeholder="e.g. as late as possible, as early as possible, as close to 1pm as possible">' + esc(S.tcomment) + '</textarea>' +
     '<div class="note"><b>Table times are confirmed one month before, on 25 November.</b> If you have no preferred time, or there is no space left at the time you choose, we will give you a time that spreads our bookings across the day, so service runs smoothly for everyone.</div></div>') +
 
@@ -325,6 +328,7 @@ function askTime(v){
 document.addEventListener("change", e => {
   const t = e.target;
   if (t.id === "tmAck") { $("#tmClose").disabled = !t.checked; return; }
+  if (t.name === "access") { S.access = t.value; document.querySelectorAll('input[name="access"]').forEach(r => r.closest(".opt").classList.toggle("on", r.checked)); const ab = $("#accessBox"); if (ab) ab.classList.toggle("on", t.value === "yes"); return; }
   if (t.name === "areapref") { S.areapref = t.value; document.querySelectorAll('input[name="areapref"]').forEach(r => r.closest(".opt").classList.toggle("on", r.checked)); return; }
   if (t.name === "tpref") {
     S.pref = t.value; document.querySelectorAll('input[name="tpref"]').forEach(r => r.closest(".opt").classList.toggle("on", r.checked));
@@ -338,10 +342,10 @@ document.addEventListener("change", e => {
 document.addEventListener("input", e => {
   const t = e.target;
   if (t.dataset && t.dataset.field && t.dataset.seq) { const g = S.guests.find(x => x.seq === Number(t.dataset.seq)); g[t.dataset.field] = t.value; }
-  if (t.id === "tcomment") S.tcomment = t.value; if (t.id === "dietary") S.dietary = t.value; if (t.id === "notes") S.notes = t.value; if (t.id === "u3") S.under3 = Number(t.value) || 0; if (t.id === "hc") S.chairs = Number(t.value) || 0;
+  if (t.id === "accessNote") S.accessNote = t.value; if (t.id === "tcomment") S.tcomment = t.value; if (t.id === "dietary") S.dietary = t.value; if (t.id === "notes") S.notes = t.value; if (t.id === "u3") S.under3 = Number(t.value) || 0; if (t.id === "hc") S.chairs = Number(t.value) || 0;
 });
 const msg = (id, cls, text) => { const el = $(id); if (el) el.innerHTML = text ? '<div class="' + cls + '">' + esc(text) + '</div>' : ""; };
-function payload(final){ return { final, preferred_time:S.time, area_pref:S.areapref, time_comment:S.tcomment, dietary:S.dietary, notes:S.notes, under3:S.under3, high_chairs:S.chairs, guests:S.guests.map(g => ({ seq:g.seq, name:g.name, starter:g.starter, main:g.main, dessert:g.dessert, dietary:g.dietary })) }; }
+function payload(final){ return { final, access_needs:S.access === "yes" ? true : S.access === "no" ? false : null, access_note:S.access === "yes" ? S.accessNote : "", preferred_time:S.time, area_pref:S.areapref, time_comment:S.tcomment, dietary:S.dietary, notes:S.notes, under3:S.under3, high_chairs:S.chairs, guests:S.guests.map(g => ({ seq:g.seq, name:g.name, starter:g.starter, main:g.main, dessert:g.dessert, dietary:g.dietary })) }; }
 const kindWord = g => g.kind === "adult" ? "Adult " : g.kind === "child" ? "Child " : "Under 3 ";
 const coursesOf = g => g.kind === "infant" ? ["main"] : EV().courses;       // a child under 3 who is eating has a main only
 function firstIncomplete(){ for (const g of S.guests) if (coursesOf(g).some(c => !g[c])) return g; return null; }
@@ -349,6 +353,7 @@ const noLinkAcked = () => { try { return localStorage.getItem("xmas_nolink_" + T
 async function save(final, btn, skipAsk, thenGo){
   msg("#saveMsg", "", "");
   if (final && EV().show_times && (!S.time || (S.pref === "pref" && S.time === "none"))) { msg("#saveMsg", "err", "Please tell us your table time: any time between 12pm and 4pm, or choose a preferred time."); const el = $("#timeBox"); if (el) el.scrollIntoView({ behavior:"smooth", block:"center" }); return; }
+  if (final && EV().show_times && !S.access) { msg("#saveMsg", "err", "Please tell us whether anyone in your party has accessibility needs (Yes or No)."); const el = $("#accessCard"); if (el) el.scrollIntoView({ behavior:"smooth", block:"center" }); return; }
   if (final) {
     const g = firstIncomplete();
     if (g) { msg("#saveMsg", "err", "Please choose a " + joinWords(coursesOf(g).map(c => WORD[c])) + " for " + kindWord(g) + g.n + "."); const el = $("#guest" + g.seq); if (el) el.scrollIntoView({ behavior:"smooth", block:"start" }); return; }
