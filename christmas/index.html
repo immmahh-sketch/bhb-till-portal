@@ -601,8 +601,27 @@ function commentsHtml(f){
   return `<h4 style="margin:14px 0 4px">Comments</h4>${(f.comments || []).length ? f.comments.map(c => `<div style="padding:6px 0;border-bottom:1px solid var(--mist)"><div class="small" style="white-space:pre-wrap">${esc(c.comment)}</div><div class="tiny muted">${esc(c.by_name || "")} &middot; ${esc(fmtDT(c.created_at))}</div></div>`).join("") : `<p class="small muted" style="margin:0 0 6px">No comments yet.</p>`}
     ${edit ? `<textarea id="bcText" maxlength="2000" placeholder="Add a comment about this booking" style="margin-top:8px;width:100%;min-height:60px"></textarea><div style="margin-top:6px"><button class="btn small" id="bcAdd">Add comment</button></div>` : ""}`;
 }
-async function showFull(id){
+
+/* ---- on the booking screen when it is opened from the diary: where the group sits, the other bookings in it, and moving it ---- */
+function diaryBlockHtml(g, id){
+  const sideName = x => x === "marquee" ? "Marquee" : x === "restaurant" ? "Restaurant" : "";
+  const others = g.booking_ids.length > 1 ? `<p class="small" style="margin:6px 0 0"><b>Bookings at this table:</b> ${g.booking_ids.map((bid, i) => `<button type="button" class="btn small ${bid === id ? "" : "ghost"}" data-fullg="${esc(bid)}">${esc(g.refs[i] || "Booking")}</button>`).join(" ")}</p>` : "";
+  return `<div class="card" style="box-shadow:none;border:1px solid var(--mist);margin:12px 0 0"><h4 style="margin:0 0 6px">In the diary</h4>
+    <p style="margin:0 0 4px"><span class="pill ${g.submitted ? "ok" : "warn"}">${g.submitted ? "Pre-order received" : "No pre-order yet"}</span> <span class="pill">${g.size} guest${g.size === 1 ? "" : "s"}</span>${g.linked ? ` <span class="pill">${g.booking_ids.length} bookings linked</span>` : ""} ${g.time ? `<span class="pill gold">${esc(g.time)} to ${esc(g.end)}, ${esc(sideName(g.side))}${g.table ? ", table " + esc(g.table) : ""}${g.locked ? " &#128274;" : ""}</span>` : `<span class="pill">not placed yet</span>`}</p>
+    ${g.asked || g.area_pref ? `<p class="small muted" style="margin:0 0 4px">Asked for ${g.asked ? esc(g.asked) : "any time"}${g.area_pref ? ", " + esc(g.area_pref) : ""}.${g.need ? ` A table of ${g.size} sits in the Marquee.` : ""}</p>` : ""}${others}
+    ${canEdit() ? `<h4 style="margin:12px 0 6px">${g.time ? "Move this booking" : "Place this booking"}</h4><div class="three"><div class="field"><label>Arrival</label><select id="mvTime">${S.dg.slots.map(x => `<option value="${x}"${x === g.time ? " selected" : ""}>${x}</option>`).join("")}</select></div><div class="field"><label>Where</label><select id="mvSide"><option value="restaurant"${g.side !== "marquee" ? " selected" : ""}>Restaurant</option><option value="marquee"${g.side === "marquee" ? " selected" : ""}>Marquee</option></select></div><div class="field"><label>Table</label><input type="text" id="mvTable" maxlength="20" value="${esc(g.table || "")}" placeholder="e.g. 12 or M4"></div></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn small" id="mvSave">Move and lock here</button>${g.locked ? `<button class="btn small ghost" id="mvUnlock">Let the diary place it</button>` : ""}${g.time ? `<button class="btn small ghost" id="mvOff">Take out of the diary</button>` : ""}</div>` : ""}</div>`;
+}
+function diaryBlockWire(g, id){
+  const mv = async (body, msg) => { try { await px("admin.place", { date_id:S.dgId, booking_id:g.booking_ids[0], ...body }); S.dg = await px("admin.diary", { date_id:S.dgId }); closeModal(); renderDiary(); toast(msg); } catch(e){ if (/over 6/.test(e.message) && confirm(e.message)) return mv({ ...body, force:true }, msg); toast(e.message, true); } };
+  const sv = $("#mvSave"); if (sv) sv.onclick = () => mv({ time:$("#mvTime").value, side:$("#mvSide").value, table:$("#mvTable").value.trim() }, "Moved and locked.");
+  const ul = $("#mvUnlock"); if (ul) ul.onclick = () => mv({ unlock:true }, "The diary will place it.");
+  const of = $("#mvOff"); if (of) of.onclick = () => mv({ unplace:true }, "Taken out of the diary.");
+  $$("[data-fullg]").forEach(b => b.onclick = () => showFull(b.dataset.fullg, { gid:g.gid }));
+}
+async function showFull(id, ctx){
   let f; try { f = await px("admin.booking_full", { booking_id:id }); } catch(e){ toast(e.message, true); return; }
+  const dg = ctx && ctx.gid && S.dg ? S.dg.placed.concat(S.dg.waiting).find(x => x.gid === ctx.gid) : null;
   const b = f.booking, a = f.answers, s = f.seat, ev = f.event;
   const row = (l, v) => v ? `<tr><td class="small muted" style="padding:3px 12px 3px 0;white-space:nowrap;vertical-align:top">${esc(l)}</td><td class="small">${v}</td></tr>` : "";
   const cats = Object.entries(b.categories || {}).filter(([, n]) => Number(n) > 0).map(([k, n]) => `${n} x ${esc(k)}`).join(", ");
@@ -616,6 +635,7 @@ async function showFull(id){
       ${row("Dietary (whole party)", esc(a.dietary))}${row("Other notes", esc(a.notes))}${ev.show_under3 ? row("Under 3s", `${a.under3} (${a.high_chairs} high chair${a.high_chairs === 1 ? "" : "s"})`) : ""}
       ${row("Linked with", f.linked.map(l => `${esc(l.name)} (${esc(l.ref)}, ${l.guests})`).join(", "))}
     </table>
+    ${dg ? diaryBlockHtml(dg, id) : ""}
     ${payHtml(f)}
     ${commentsHtml(f)}
     ${(f.attendees || []).length ? `<h4 style="margin:14px 0 4px">Attendees</h4><div style="overflow-x:auto"><table class="t"><thead><tr><th>Name</th><th>Ticket</th><th>Email</th><th>Telephone</th></tr></thead><tbody>${f.attendees.map(x => `<tr><td class="small">${x.name ? esc(x.name) : `<span class="muted">Not given</span>`}</td><td class="small">${esc(x.type || "")}</td><td class="small">${esc(x.email || "")}</td><td class="small">${esc(x.telephone || "")}</td></tr>`).join("")}</tbody></table></div>` : ""}
@@ -625,7 +645,8 @@ async function showFull(id){
     ${f.pre.guests.length ? `<details style="margin:8px 0 0"><summary class="small muted" style="cursor:pointer">Guest by guest</summary><table class="t" style="margin-top:6px"><tbody>${f.pre.guests.map(g => `<tr><td class="small">${g.kind === "child" ? "Child" : "Adult"} ${g.seq}${g.name ? "<br>" + esc(g.name) : ""}</td><td class="small">${[g.starter, g.main, g.dessert].filter(Boolean).map(esc).join("<br>")}${g.dietary ? `<br><b>${esc(g.dietary)}</b>` : ""}</td></tr>`).join("")}</tbody></table></details>` : ""}
     ${f.drinks.length ? `<h4 style="margin:14px 0 4px">Drinks pre-ordered</h4>${f.drinks.map(o => `<p class="small" style="margin:0 0 4px">Order ${o.order_no}, ${money(o.total)}: ${o.lines.map(l => `${l.qty} x ${esc(l.label)}`).join(", ")}${o.notes ? ` <i>(${esc(o.notes)})</i>` : ""}</p>`).join("")}` : ""}
     <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:14px"><button class="btn small ghost" id="fbCopy">Copy their form link</button><button class="btn ghost" onclick="closeModal()">Close</button></div>`);
-  const again = async (msg) => { try { await showFull(id); if (msg) toast(msg); if (S.view === "preorders") loadPre(); if (S.view === "diary") { S.dg = await px("admin.diary", { date_id:S.dgId }); } } catch(e){ toast(e.message, true); } };
+  if (dg) diaryBlockWire(dg, id);
+  const again = async (msg) => { try { await showFull(id, ctx); if (msg) toast(msg); if (S.view === "preorders") loadPre(); if (S.view === "diary") { S.dg = await px("admin.diary", { date_id:S.dgId }); } } catch(e){ toast(e.message, true); } };
   const padd = $("#bpAdd"); if (padd) padd.onclick = async () => { const amt = Number($("#bpAmt").value); if (!(amt > 0)) { toast("Enter the amount paid, as a number above zero.", true); return; } padd.disabled = true; try { await px("admin.pay_add", { booking_id:id, amount:amt, note:$("#bpNote").value }); await again("Payment added."); } catch(e){ toast(e.message, true); padd.disabled = false; } };
   $$("[data-pvoid]").forEach(a => a.onclick = async (e) => { e.preventDefault(); if (!confirm("Remove this payment? It stays on the record, struck through.")) return; try { await px("admin.pay_void", { payment_id:a.dataset.pvoid }); await again("Payment removed."); } catch(err){ toast(err.message, true); } });
   const cadd = $("#bcAdd"); if (cadd) cadd.onclick = async () => { const t = $("#bcText").value.trim(); if (!t) { toast("Write a comment first.", true); return; } cadd.disabled = true; try { await px("admin.comment_add", { booking_id:id, comment:t }); await again("Comment added."); } catch(e){ toast(e.message, true); cadd.disabled = false; } };
@@ -872,25 +893,7 @@ function dgManualPick(id){
 async function dgOpen(gid){
   if (String(gid).indexOf("m:") === 0) return dgManualForm(S.dg.placed.find(x => x.gid === gid));
   const g = S.dg.placed.concat(S.dg.waiting).find(x => x.gid === gid); if (!g) return;
-  openModal(`<div class="empty" style="padding:20px">Loading…</div>`);
-  let fulls; try { fulls = await Promise.all(g.booking_ids.map(id => px("admin.booking_full", { booking_id:id }))); } catch(e){ closeModal(); toast(e.message, true); return; }
-  const sideName = s => s === "marquee" ? "Marquee" : s === "restaurant" ? "Restaurant" : "";
-  openModal(`<h3 style="margin:0 0 2px">${esc(g.names)}</h3>
-    <p style="margin:0 0 8px"><span class="pill ${g.submitted ? "ok" : "warn"}">${g.submitted ? "Pre-order received" : "No pre-order yet"}</span> <span class="pill">${g.size} guest${g.size === 1 ? "" : "s"}</span>${g.linked ? ` <span class="pill">${g.booking_ids.length} bookings linked</span>` : ""}${g.time ? ` <span class="pill gold">${esc(g.time)} to ${esc(g.end)}, ${esc(sideName(g.side))}${g.table ? ", table " + esc(g.table) : ""}${g.locked ? " &#128274;" : ""}</span>` : ""}</p>
-    ${g.asked || g.area_pref ? `<p class="small muted" style="margin:0 0 8px">Asked for ${g.asked ? esc(g.asked) : "any time"}${g.area_pref ? ", " + esc(g.area_pref) : ""}.${g.need ? ` A table of ${g.size} sits in the Marquee.` : ""}</p>` : ""}
-    ${fulls.map(f => `<div class="card" style="box-shadow:none;border:1px solid var(--mist);margin:0 0 10px"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><div><b>${esc(f.booking.name)}</b> <span class="small muted">${esc(f.booking.ref)}, ${f.booking.adults + f.booking.children} guest${f.booking.adults + f.booking.children === 1 ? "" : "s"}</span></div><button class="btn small" data-full="${esc(f.booking.booking_id)}">Open full booking</button></div>
-      ${f.answers.time_comment ? `<p class="small" style="margin:6px 0 0;background:var(--attn-bg);border-radius:8px;padding:6px 10px"><b>About the time:</b> ${esc(f.answers.time_comment)}</p>` : ""}
-      ${f.answers.staff_note ? `<p class="small" style="margin:6px 0 0;background:var(--gold-soft);border-radius:8px;padding:6px 10px"><b>Staff notes:</b><br>${esc(f.answers.staff_note).replace(/\n/g, "<br>")}</p>` : ""}
-      <div style="margin-top:8px">${f.pre.courses.map(c => `<div class="small" style="margin:0 0 3px"><b>${esc(c.label)}:</b> ${c.lines.length ? c.lines.map(l => `${l.n} ${esc(l.text)}`).join(", ") : `<span class="muted">none chosen yet</span>`}</div>`).join("")}</div>
-      ${f.answers.dietary ? `<div class="small" style="margin-top:4px"><b>Dietary:</b> ${esc(f.answers.dietary)}</div>` : ""}${f.drinks.length ? `<div class="small" style="margin-top:4px"><b>Drinks:</b> ${money(f.drinks.reduce((t, o) => t + o.total, 0))} pre-ordered</div>` : ""}</div>`).join("")}
-    ${canEdit() ? `<div class="card" style="box-shadow:none;border:1px solid var(--mist);margin:0 0 10px"><h4 style="margin:0 0 6px">Move this booking</h4><div class="three"><div class="field"><label>Arrival</label><select id="mvTime">${S.dg.slots.map(s => `<option value="${s}"${s === g.time ? " selected" : ""}>${s}</option>`).join("")}</select></div><div class="field"><label>Where</label><select id="mvSide"><option value="restaurant"${g.side !== "marquee" ? " selected" : ""}>Restaurant</option><option value="marquee"${g.side === "marquee" ? " selected" : ""}>Marquee</option></select></div><div class="field"><label>Table</label><input type="text" id="mvTable" maxlength="20" value="${esc(g.table || "")}" placeholder="e.g. 12 or M4"></div></div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn small" id="mvSave">Move and lock here</button>${g.locked ? `<button class="btn small ghost" id="mvUnlock">Let the diary place it</button>` : ""}${g.time ? `<button class="btn small ghost" id="mvOff">Take out of the diary</button>` : ""}</div></div>` : ""}
-    <div style="text-align:right"><button class="btn ghost" onclick="closeModal()">Close</button></div>`);
-  $$("[data-full]").forEach(b => b.onclick = () => showFull(b.dataset.full));
-  const mv = async (body, msg) => { try { await px("admin.place", { date_id:S.dgId, booking_id:g.booking_ids[0], ...body }); S.dg = await px("admin.diary", { date_id:S.dgId }); closeModal(); renderDiary(); toast(msg); } catch(e){ if (/over 6/.test(e.message) && confirm(e.message)) return mv({ ...body, force:true }, msg); toast(e.message, true); } };
-  const sv = $("#mvSave"); if (sv) sv.onclick = () => mv({ time:$("#mvTime").value, side:$("#mvSide").value, table:$("#mvTable").value.trim() }, "Moved and locked.");
-  const ul = $("#mvUnlock"); if (ul) ul.onclick = () => mv({ unlock:true }, "The diary will place it.");
-  const of = $("#mvOff"); if (of) of.onclick = () => mv({ unplace:true }, "Taken out of the diary.");
+  return showFull(g.booking_ids[0], { gid });                 // the same booking screen as everywhere else, with the diary's own part on it
 }
 
 /* ---- the emails: a copy of every pre-order, and the weekly report */
