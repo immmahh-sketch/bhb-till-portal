@@ -87,6 +87,7 @@ button{font:inherit;cursor:pointer}
 .bar .btn{background:var(--gold);color:var(--sage-dark)}
 .bar .btn:hover{background:#D3B72A}
 .bar .btn.ghost{background:transparent;color:var(--white);border:1px solid #fff}
+.bar .bn{flex:1 1 100%;margin:0 0 2px;font-size:13px;line-height:1.4;text-align:center;color:#F3E3E0}.bar .bn b{color:var(--white)}
 .muted{color:var(--sage-70)}
 .addp{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:16px 0 0;padding-top:14px;border-top:1px dashed var(--celadon)}
 #addErr:empty{display:none}
@@ -313,7 +314,7 @@ function render(){
     '<div><label class="f" for="hc">How many high chairs do you need?</label><input type="number" id="hc" min="0" max="20" inputmode="numeric" value="' + (S.chairs || 0) + '"></div></div></div>' : "") +
     '<div id="linkBlock">' + linkedHtml() + '</div>' + moreHtml() +
     '<div class="card"><div id="saveMsg"></div><p class="muted small" style="margin:0">Please complete the form for every guest, then press <b>Send my pre-order</b>. If you need more time, press <b>Save and finish later</b> and come back to this link.</p></div>' +
-    (d.deadline.closed ? "" : '<div class="bar"><button type="button" class="btn ghost" id="draft">Save and finish later</button><button type="button" class="btn" id="final">Send my pre-order</button></div>');
+    (d.deadline.closed ? "" : '<div class="bar">' + (EV().show_times ? '<p class="bn">Clicking <b>Save</b> lets the team know your table time and where you would like to sit, so we can allocate your table while we wait for your final pre-order. Please make sure you have chosen the right time and area before you save.</p>' : '') + '<button type="button" class="btn ghost" id="draft">Save and finish later</button><button type="button" class="btn" id="final">Send my pre-order</button></div>');
   foot();
 }
 
@@ -357,7 +358,7 @@ async function save(final, btn, skipAsk, thenGo){
   if (btn) btn.disabled = true;
   try {
     await call("form.save", payload(final));
-    msg("#saveMsg", "ok", final ? "Thank you. Your pre-order has been received. You can come back to this link at any time to change it." : "Saved. Come back to this link whenever you are ready to finish.");
+    msg("#saveMsg", "ok", final ? "Thank you. Your pre-order has been received. You can come back to this link at any time to change it." : (EV().show_times ? "Saved. We have your table time and area, so the team can start allocating your table. Come back to this link whenever you are ready to finish your pre-order." : "Saved. Come back to this link whenever you are ready to finish."));
     if (final) { S.d.answers.submitted_at = new Date().toISOString(); }
     const el = $("#saveMsg"); if (el) el.scrollIntoView({ behavior:"smooth", block:"center" });
     if (thenGo && S.d.drinks) { if (btn) btn.disabled = false; location.href = S.d.drinks.url; return; }
