@@ -440,7 +440,7 @@ function preSendBlock(d){
 }
 function preDishes(d){
   const courses = d.event.courses, label = { starter:"Starters", main:"Mains", dessert:"Desserts" };
-  const sum = c => { const m = new Map(); for (const kind of ["adult", "child"]) for (const x of (d.dishes[kind] || {})[c] || []) m.set(x.name, (m.get(x.name) || 0) + x.n); return [...m.entries()].sort((a, b) => b[1] - a[1]); };
+  const sum = c => { const m = new Map(); for (const kind of ["adult", "child", "infant"]) for (const x of (d.dishes[kind] || {})[c] || []) m.set(x.name, (m.get(x.name) || 0) + x.n); return [...m.entries()].sort((a, b) => b[1] - a[1]); };
   return `<div class="card"><h3>Kitchen totals so far</h3><p class="small muted" style="margin-top:0">Counted from the choices sent back, adults and children together. ${d.standard.adults + d.standard.children} guest${d.standard.adults + d.standard.children === 1 ? "" : "s"} have no choices yet and will get the standard meal (${esc(d.standard.meal)}) once choices close ${esc(d.deadline.text)}.</p>
     <div class="grid" style="gap:10px">${courses.map(c => { const l = sum(c); return `<div><div class="small"><b>${label[c]}</b></div>${l.length ? `<table class="t"><tbody>${l.map(([n, k]) => `<tr><td>${esc(n)}</td><td class="n"><b>${k}</b></td></tr>`).join("")}</tbody></table>` : `<div class="small muted">None yet</div>`}</div>`; }).join("")}</div></div>`;
 }
@@ -604,7 +604,7 @@ function addPeopleHtml(f){
       <p class="small muted" style="margin:0 0 8px">Choose who to add and what is being paid. A SumUp payment page opens; once the payment goes through they are added to this booking (and to the guest list, for their meal choices).</p>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
         <label style="flex:0 0 90px"><span class="muted tiny">Adults</span><input id="apAd" type="number" min="0" max="20" value="1"></label>
-        ${day ? `<label style="flex:0 0 90px"><span class="muted tiny">Children</span><input id="apCh" type="number" min="0" max="20" value="0"></label>` : ""}
+        ${day ? `<label style="flex:0 0 90px"><span class="muted tiny">Children</span><input id="apCh" type="number" min="0" max="20" value="0"></label><label style="flex:0 0 120px" title="A child under 3 who is eating: 10 pounds, tomato pasta or vegetables and gravy"><span class="muted tiny">Under 3s eating</span><input id="apIn" type="number" min="0" max="20" value="0"></label>` : ""}
         <label style="flex:0 0 140px"><span class="muted tiny">Amount to pay (&pound;)</span><input id="apAmt" type="number" min="0" step="0.01" placeholder="0.00"></label>
         <button type="button" class="btn small" id="apGo">Take payment</button>
       </div>
@@ -645,15 +645,15 @@ function addPeopleWire(f, id, again){
   };
   const open = $("#apOpen"); if (!open) return;
   const day = f.event.key === "day", price = f.add_default || {}; let touched = false;
-  const calc = () => { if (touched) return; const a = Number($("#apAd").value) || 0, c = day ? Number($("#apCh").value) || 0 : 0, v = a * (price.adult || 0) + c * (price.child || 0); $("#apAmt").value = v ? v.toFixed(2) : ""; };
+  const calc = () => { if (touched) return; const a = Number($("#apAd").value) || 0, c = day ? Number($("#apCh").value) || 0 : 0, n = day ? Number($("#apIn").value) || 0 : 0, v = a * (price.adult || 0) + c * (price.child || 0) + n * (price.infant || 0); $("#apAmt").value = v ? v.toFixed(2) : ""; };
   open.onclick = () => { const b = $("#apBox"); b.style.display = b.style.display === "none" ? "" : "none"; calc(); };
-  ["apAd", "apCh"].forEach(k => { const el = $("#" + k); if (el) el.oninput = calc; });
+  ["apAd", "apCh", "apIn"].forEach(k => { const el = $("#" + k); if (el) el.oninput = calc; });
   $("#apAmt").oninput = () => { touched = true; };
   $("#apGo").onclick = () => {
-    const a = Number($("#apAd").value) || 0, c = day ? Number($("#apCh").value) || 0 : 0, amt = Number($("#apAmt").value);
-    if (a + c < 1) { toast("Choose how many people to add. To take a payment on its own, use Take payment now under Payments.", true); return; }
+    const a = Number($("#apAd").value) || 0, c = day ? Number($("#apCh").value) || 0 : 0, n = day ? Number($("#apIn").value) || 0 : 0, amt = Number($("#apAmt").value);
+    if (a + c + n < 1) { toast("Choose how many people to add. To take a payment on its own, use Take payment now under Payments.", true); return; }
     if (!(amt > 0)) { toast("Enter the amount to pay, as a number above zero.", true); return; }
-    staffPayFlow(id, { adults:a, children:c, amount:amt }, $("#apOut"), $("#apGo"), again);
+    staffPayFlow(id, { adults:a, children:c, infants:n, amount:amt }, $("#apOut"), $("#apGo"), again);
   };
 }
 function commentsHtml(f){
@@ -687,7 +687,7 @@ async function showFull(id, ctx){
   const cats = Object.entries(b.categories || {}).filter(([, n]) => Number(n) > 0).map(([k, n]) => `${n} x ${esc(k)}`).join(", ");
   openModal(`<h3 style="margin:0 0 2px">${esc(b.name)}</h3><p class="small muted" style="margin:0 0 10px">${esc(ev.title)}, ${esc(ev.when)}. Booking ${esc(b.ref)}</p>
     <table style="border-collapse:collapse;width:100%">
-      ${row("Guests", `${b.adults} adult${b.adults === 1 ? "" : "s"}${b.children ? ` and ${b.children} child${b.children === 1 ? "" : "ren"}` : ""}`)}${row("Tickets", cats)}${f.pay ? row("Payment", `<span class="pill ${f.pay.state === "paid" ? "ok" : "warn"}">${esc(f.pay.note)}</span> Total ${money(f.pay.due)}, paid ${money(f.pay.paid)}, <b>${f.pay.balance >= 0.005 ? money(f.pay.balance) + " to pay" : "nothing to pay"}</b>${(f.pay_history || []).length ? `<div class="tiny muted" style="margin-top:3px">${f.pay_history.filter(h => !h.voided_at).map(h => `${money(h.amount)} ${esc(h.note || "payment")}${h.by_name ? " (" + esc(h.by_name) + ")" : ""}, ${esc(fmtDT(h.created_at))}`).join("<br>")}</div>` : ""}`) : row("Paid so far", b.paid ? money(b.paid) : "")}
+      ${row("Guests", `${b.adults} adult${b.adults === 1 ? "" : "s"}${b.children ? ` and ${b.children} child${b.children === 1 ? "" : "ren"}` : ""}${b.infants ? `, plus ${b.infants} under 3 eating` : ""}`)}${row("Tickets", cats)}${f.pay ? row("Payment", `<span class="pill ${f.pay.state === "paid" ? "ok" : "warn"}">${esc(f.pay.note)}</span> Total ${money(f.pay.due)}, paid ${money(f.pay.paid)}, <b>${f.pay.balance >= 0.005 ? money(f.pay.balance) + " to pay" : "nothing to pay"}</b>${(f.pay_history || []).length ? `<div class="tiny muted" style="margin-top:3px">${f.pay_history.filter(h => !h.voided_at).map(h => `${money(h.amount)} ${esc(h.note || "payment")}${h.by_name ? " (" + esc(h.by_name) + ")" : ""}, ${esc(fmtDT(h.created_at))}`).join("<br>")}</div>` : ""}`) : row("Paid so far", b.paid ? money(b.paid) : "")}
       ${row("Email", b.email ? `<a href="mailto:${esc(b.email)}">${esc(b.email)}</a>` : "")}${row("Phone", b.phone ? `<a href="tel:${esc(String(b.phone).replace(/\s+/g, ""))}">${esc(b.phone)}</a>` : "")}${row("Address", f.buyer && f.buyer.address ? esc(f.buyer.address) : "")}${row("Postcode", f.buyer && f.buyer.postcode ? esc(f.buyer.postcode) : "")}${row("Booked", esc(fmtDT(b.booked_at)))}${row("Booked via", f.buyer && f.buyer.booked_by ? esc(f.buyer.booked_by) : "")}${row("Status", f.cancelled ? `<span class="pill">Cancelled</span>` : "Booked")}
       ${row("Sitting", s.dining_time ? `<b>${esc(s.dining_time)}</b>${s.area ? ", the " + esc(s.area === "marquee" ? "Marquee" : "Restaurant") : ""}${s.table_number ? ", table <b>" + esc(s.table_number) + "</b>" : ""}${s.locked ? " (placed by hand)" : ""}` : `<span class="muted">not placed yet</span>`)}
       ${row("Pre-order", a.submitted_at ? `<span class="pill ok">Sent back</span> ${esc(fmtDT(a.submitted_at))}` : a.invite_sent_at ? `<span class="pill warn">Invited ${esc(fmtDT(a.invite_sent_at))}, not sent back</span>` : `<span class="pill">Not invited yet</span>`)}
@@ -703,7 +703,7 @@ async function showFull(id, ctx){
     ${f.buyer && f.buyer.consent ? `<p class="small muted" style="margin:10px 0 0">Marketing consent: email ${f.buyer.consent.email === true ? "yes" : f.buyer.consent.email === false ? "no" : "not recorded"}, post ${f.buyer.consent.post === true ? "yes" : f.buyer.consent.post === false ? "no" : "not recorded"}, SMS ${f.buyer.consent.sms === true ? "yes" : f.buyer.consent.sms === false ? "no" : "not recorded"}.</p>` : ""}
     <h4 style="margin:14px 0 4px">Pre-order, counted</h4>
     ${f.pre.courses.map(c => `<p class="small" style="margin:0 0 3px"><b>${esc(c.label)}:</b> ${c.lines.length ? c.lines.map(l => `${l.n} ${esc(l.text)}`).join(", ") : `<span class="muted">none chosen yet</span>`}</p>`).join("")}
-    ${f.pre.guests.length ? `<details style="margin:8px 0 0"><summary class="small muted" style="cursor:pointer">Guest by guest</summary><table class="t" style="margin-top:6px"><tbody>${f.pre.guests.map(g => `<tr><td class="small">${g.kind === "child" ? "Child" : "Adult"} ${g.seq}${g.name ? "<br>" + esc(g.name) : ""}</td><td class="small">${[g.starter, g.main, g.dessert].filter(Boolean).map(esc).join("<br>")}${g.dietary ? `<br><b>${esc(g.dietary)}</b>` : ""}</td></tr>`).join("")}</tbody></table></details>` : ""}
+    ${f.pre.guests.length ? `<details style="margin:8px 0 0"><summary class="small muted" style="cursor:pointer">Guest by guest</summary><table class="t" style="margin-top:6px"><tbody>${f.pre.guests.map(g => `<tr><td class="small">${g.kind === "child" ? "Child" : g.kind === "infant" ? "Under 3" : "Adult"} ${g.seq}${g.name ? "<br>" + esc(g.name) : ""}</td><td class="small">${[g.starter, g.main, g.dessert].filter(Boolean).map(esc).join("<br>")}${g.dietary ? `<br><b>${esc(g.dietary)}</b>` : ""}</td></tr>`).join("")}</tbody></table></details>` : ""}
     ${f.drinks.length ? `<h4 style="margin:14px 0 4px">Drinks pre-ordered</h4>${f.drinks.map(o => `<p class="small" style="margin:0 0 4px">Order ${o.order_no}, ${money(o.total)}: ${o.lines.map(l => `${l.qty} x ${esc(l.label)}`).join(", ")}${o.notes ? ` <i>(${esc(o.notes)})</i>` : ""}</p>`).join("")}` : ""}
     <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:14px"><button class="btn small ghost" id="fbCopy">Copy their form link</button><button class="btn ghost" onclick="closeModal()">Close</button></div>`);
   if (dg) diaryBlockWire(dg, id);

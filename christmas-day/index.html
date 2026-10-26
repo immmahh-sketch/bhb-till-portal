@@ -194,7 +194,7 @@ async function load(){
       try {
         let c = await call("person.check", { id:addedId });
         for (let i = 0; i < 4 && c.status === "pending"; i++) { await new Promise(r => setTimeout(r, 2500)); c = await call("person.check", { id:addedId }); }
-        S.addMsg = c.status === "paid" ? { cls:"ok", text:"Thank you. We have received your payment of " + gbp(c.amount) + " and added an extra " + c.kind + " to your booking. Please choose their meal below, then press Send my pre-order." }
+        S.addMsg = c.status === "paid" ? { cls:"ok", text:"Thank you. We have received your payment of " + gbp(c.amount) + " and added an extra " + ({ adult:"adult", child:"child", infant:"child under 3" }[c.kind] || "guest") + " to your booking. Please choose their meal below, then press Send my pre-order." }
           : c.status === "failed" ? { cls:"err", text:"That payment did not go through, so nothing has been taken and nobody has been added. You can try again, or phone us." }
           : { cls:"note", text:"Your payment is still being confirmed. If you were charged, please do not pay again: refresh this page in a minute and the extra person will appear." };
       } catch(e){ S.addMsg = { cls:"err", text:e.message }; }
@@ -205,6 +205,7 @@ async function load(){
     S.guests = []; let seq = 0;
     for (let i = 0; i < d.booking.adults; i++) { seq++; const g = have[seq] || {}; S.guests.push({ seq, kind:"adult", n:i + 1, name:g.name || "", starter:g.starter || "", main:g.main || "", dessert:g.dessert || "", dietary:g.dietary || "" }); }
     for (let i = 0; i < d.booking.children; i++) { seq++; const g = have[seq] || {}; S.guests.push({ seq, kind:"child", n:i + 1, name:g.name || "", starter:g.starter || "", main:g.main || "", dessert:g.dessert || "", dietary:g.dietary || "" }); }
+    for (let i = 0; i < (d.booking.infants || 0); i++) { seq++; const g = have[seq] || {}; S.guests.push({ seq, kind:"infant", n:i + 1, name:g.name || "", starter:"", main:g.main || "", dessert:"", dietary:g.dietary || "" }); }
     S.time = d.answers.preferred_time || "none"; S.pref = S.time === "none" ? "any" : "pref"; S.ack = S.time && S.time !== "none" ? S.time : ""; S.areapref = d.answers.area_pref || ""; S.tcomment = d.answers.time_comment || ""; S.dietary = d.answers.dietary || ""; S.notes = d.answers.notes || ""; S.under3 = d.answers.under3 || 0; S.chairs = d.answers.high_chairs || 0;
     render();
     const paidId = new URLSearchParams(location.search).get("paid");                                  // back from the card payment page
@@ -234,12 +235,12 @@ function dishHtml(g, course, dish){
 const KID_ONLY = ["mozzarella_sticks", "tomato_soup", "tomato_pasta", "brownie", "ice_cream"];
 const isKidOnly = d => KID_ONLY.indexOf(d.key) >= 0;
 function guestHtml(g){
-  const m = S.d.menu[g.kind], first = S.guests.find(x => x.kind === g.kind), label = (g.kind === "adult" ? "Adult " : "Child ") + g.n;
-  const copy = first && first.seq !== g.seq ? '<button type="button" class="btn ghost small" data-copy="' + g.seq + '">Same choices as ' + (g.kind === "adult" ? "Adult " : "Child ") + first.n + '</button>' : "";
+  const m = S.d.menu[g.kind], first = S.guests.find(x => x.kind === g.kind), label = (g.kind === "infant" ? "Under 3 (eating) " : kindWord(g)) + g.n;
+  const copy = first && first.seq !== g.seq ? '<button type="button" class="btn ghost small" data-copy="' + g.seq + '">Same choices as ' + (g.kind === "infant" ? "Under 3 " : kindWord(g)) + first.n + '</button>' : "";
   return '<div class="guest" id="guest' + g.seq + '"><header><h3>' + label + '</h3>' + copy + '</header>' +
     '<label class="f" for="nm' + g.seq + '">Name (optional)</label><input type="text" id="nm' + g.seq + '" data-seq="' + g.seq + '" data-field="name" maxlength="80" value="' + esc(g.name) + '" placeholder="So we can serve the right meal to the right person">' +
-    (g.kind === "child" ? '<p class="muted small" style="margin:10px 0 0">Children can have a smaller portion of any adult dish, or one of the children\'s dishes.</p>' : "") +
-    EV().courses.map(c => '<div class="course"><b>' + (c === "starter" ? "Starter" : c === "main" ? "Main" : "Dessert") + '</b>' + m[c].map(d => dishHtml(g, c, d)).join("") + '</div>').join("") +
+    (g.kind === "child" ? '<p class="muted small" style="margin:10px 0 0">Children can have a smaller portion of any adult dish, or one of the children\'s dishes.</p>' : g.kind === "infant" ? '<p class="muted small" style="margin:10px 0 0">A child under 3 who is eating has a main course: tomato pasta, or vegetables and gravy.</p>' : "") +
+    coursesOf(g).map(c => '<div class="course"><b>' + (c === "starter" ? "Starter" : c === "main" ? "Main" : "Dessert") + '</b>' + m[c].map(d => dishHtml(g, c, d)).join("") + '</div>').join("") +
     '<label class="f" for="dt' + g.seq + '">Allergies or dietary needs for this guest (optional)</label><input type="text" id="dt' + g.seq + '" data-seq="' + g.seq + '" data-field="dietary" maxlength="300" value="' + esc(g.dietary) + '" placeholder="e.g. gluten free, nut allergy, vegan"></div>';
 }
 function linkedHtml(){
@@ -263,9 +264,9 @@ function addPersonHtml(){
 }
 function addOpen(){
   const a = S.d.add, day = EV().key === "day";
-  const opts = [a.adult ? ["adult", day ? "Adult" : "Add a person", a.adult] : null, a.child ? ["child", "Child (under 12)", a.child] : null].filter(Boolean);
+  const opts = [a.adult ? ["adult", day ? "Adult" : "Add a person", a.adult] : null, a.child ? ["child", "Child (under 12)", a.child] : null, a.infant ? ["infant", "Child under 3, eating (tomato pasta, or vegetables and gravy)", a.infant] : null].filter(Boolean);
   $("#addOpts").innerHTML = opts.map((o, i) => '<label class="opt' + (i === 0 ? " on" : "") + '"><input type="radio" name="addkind" value="' + o[0] + '"' + (i === 0 ? " checked" : "") + '><span class="n">' + o[1] + ' <b>' + gbp(o[2]) + '</b></span></label>').join("");
-  const upd = () => { const v = (document.querySelector("input[name=addkind]:checked") || {}).value; $("#addGo").textContent = "Pay " + gbp(v === "child" ? a.child : a.adult) + " now"; document.querySelectorAll("#addOpts .opt").forEach(l => l.classList.toggle("on", !!l.querySelector("input").checked)); };
+  const upd = () => { const v = (document.querySelector("input[name=addkind]:checked") || {}).value; $("#addGo").textContent = "Pay " + gbp(a[v] != null ? a[v] : a.adult) + " now"; document.querySelectorAll("#addOpts .opt").forEach(l => l.classList.toggle("on", !!l.querySelector("input").checked)); };
   $("#addOpts").onchange = upd; upd(); $("#addErr").textContent = ""; $("#addModal").classList.add("on");
 }
 function moreHtml(){
@@ -277,7 +278,7 @@ function moreHtml(){
 }
 function render(){
   const d = S.d, b = d.booking;
-  const parts = []; if (b.adults) parts.push(b.adults + " adult" + (b.adults === 1 ? "" : "s")); if (b.children) parts.push(b.children + " child" + (b.children === 1 ? "" : "ren"));
+  const parts = []; if (b.adults) parts.push(b.adults + " adult" + (b.adults === 1 ? "" : "s")); if (b.children) parts.push(b.children + " child" + (b.children === 1 ? "" : "ren")); if (b.infants) parts.push(b.infants + " under 3 eating");
   $("#app").innerHTML =
     '<div class="card"><h1 class="hello">Hello ' + esc(b.first || "there") + '</h1><p class="lead">Thank you for booking ' + esc(EV().title) + ' at Black Horse Beamish. Choose a meal for everyone in your party below. It takes a few minutes, and you can come back to this link to change anything.</p>' +
     '<p style="margin:10px 0 0"><span class="pill">' + esc(ukDate(b.starts_at)) + '</span><span class="pill">Booking ' + esc(b.ref) + '</span><span class="pill">' + esc(parts.join(" and ")) + '</span></p>' +
@@ -307,7 +308,7 @@ function render(){
     '<label class="f" for="dietary">Allergies and dietary requirements</label><textarea id="dietary" maxlength="1500" placeholder="Anything for the whole party, or more detail than you have given above">' + esc(S.dietary) + '</textarea>' +
     '<label class="f" for="notes">Other notes</label><textarea id="notes" maxlength="1500" placeholder="e.g. a high chair, a birthday, wheelchair access">' + esc(S.notes) + '</textarea></div>' +
 
-    (EV().show_under3 ? '<div class="card"><h2>Under 3s</h2><p class="lead">Under 3s are free when eating from adults&#39; plates, and do not need a ticket. If you are bringing any, please tell us so we can set your table.</p>' +
+    (EV().show_under3 ? '<div class="card"><h2>Under 3s</h2><p class="lead">Under 3s are free when eating from adults&#39; plates, and do not need a ticket.' + (S.d.add && S.d.add.infant ? ' If you would like an under 3 to have their own meal (tomato pasta, or vegetables and gravy), use <b>Add a person</b> above: it is ' + gbp(S.d.add.infant) + '.' : '') + ' If you are bringing any, please tell us so we can set your table.</p>' +
     '<div class="row"><div><label class="f" for="u3">How many under 3s are coming?</label><input type="number" id="u3" min="0" max="20" inputmode="numeric" value="' + (S.under3 || 0) + '"></div>' +
     '<div><label class="f" for="hc">How many high chairs do you need?</label><input type="number" id="hc" min="0" max="20" inputmode="numeric" value="' + (S.chairs || 0) + '"></div></div></div>' : "") +
     '<div id="linkBlock">' + linkedHtml() + '</div>' + moreHtml() +
@@ -340,14 +341,16 @@ document.addEventListener("input", e => {
 });
 const msg = (id, cls, text) => { const el = $(id); if (el) el.innerHTML = text ? '<div class="' + cls + '">' + esc(text) + '</div>' : ""; };
 function payload(final){ return { final, preferred_time:S.time, area_pref:S.areapref, time_comment:S.tcomment, dietary:S.dietary, notes:S.notes, under3:S.under3, high_chairs:S.chairs, guests:S.guests.map(g => ({ seq:g.seq, name:g.name, starter:g.starter, main:g.main, dessert:g.dessert, dietary:g.dietary })) }; }
-function firstIncomplete(){ for (const g of S.guests) if (EV().courses.some(c => !g[c])) return g; return null; }
+const kindWord = g => g.kind === "adult" ? "Adult " : g.kind === "child" ? "Child " : "Under 3 ";
+const coursesOf = g => g.kind === "infant" ? ["main"] : EV().courses;       // a child under 3 who is eating has a main only
+function firstIncomplete(){ for (const g of S.guests) if (coursesOf(g).some(c => !g[c])) return g; return null; }
 const noLinkAcked = () => { try { return localStorage.getItem("xmas_nolink_" + T) === "1"; } catch(e){ return false; } };
 async function save(final, btn, skipAsk, thenGo){
   msg("#saveMsg", "", "");
   if (final && EV().show_times && (!S.time || (S.pref === "pref" && S.time === "none"))) { msg("#saveMsg", "err", "Please tell us your table time: any time between 12pm and 4pm, or choose a preferred time."); const el = $("#timeBox"); if (el) el.scrollIntoView({ behavior:"smooth", block:"center" }); return; }
   if (final) {
     const g = firstIncomplete();
-    if (g) { msg("#saveMsg", "err", "Please choose a " + joinWords(EV().courses.map(c => WORD[c])) + " for " + (g.kind === "adult" ? "Adult " : "Child ") + g.n + "."); const el = $("#guest" + g.seq); if (el) el.scrollIntoView({ behavior:"smooth", block:"start" }); return; }
+    if (g) { msg("#saveMsg", "err", "Please choose a " + joinWords(coursesOf(g).map(c => WORD[c])) + " for " + kindWord(g) + g.n + "."); const el = $("#guest" + g.seq); if (el) el.scrollIntoView({ behavior:"smooth", block:"start" }); return; }
   }
   if (final && !skipAsk && !S.noLinkOk && !(S.d.linked || []).length && !noLinkAcked()) { S.askBtn = btn; $("#linkModal").classList.add("on"); const g = $("#lmLink"); if (g) g.focus(); return; }
   if (final && !skipAsk && S.d.drinks && S.d.drinks.open && !S.d.drinks.shots && !S.d.drinks.ordered) { S.askBtn = btn; $("#drinksModal").classList.add("on"); const g = $("#dmGo"); if (g) g.focus(); return; }
