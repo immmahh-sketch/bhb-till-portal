@@ -594,14 +594,14 @@ function payHtml(f){
     <tr><td class="small" style="padding:3px 12px 3px 0"><b>Remaining</b></td><td class="small">${bal == null ? `<span class="muted">-</span>` : bal > 0.004 ? `<b>${money(bal)}</b>` : bal < -0.004 ? `Overpaid by ${money(-bal)}` : `<span style="color:var(--good)">Paid in full</span>`}</td></tr></table>
     <p class="small" style="margin:10px 0 4px"><b>Additional payments made</b></p>
     ${(f.pay_history || []).length ? `<div style="overflow-x:auto"><table class="t"><thead><tr><th>Added</th><th>By</th><th>Note</th><th class="n">Amount</th><th></th></tr></thead><tbody>${f.pay_history.map(x => `<tr${x.voided_at ? ` style="opacity:.5;text-decoration:line-through"` : ""}><td class="small">${esc(fmtDT(x.created_at))}</td><td class="small">${esc(x.by_name || "")}</td><td class="small">${esc(x.note || "")}</td><td class="n small">${money(x.amount)}</td><td class="small">${x.voided_at ? `<span class="muted" style="text-decoration:none">removed</span>` : edit ? `<a href="#" data-pvoid="${esc(x.id)}">Remove</a>` : ""}</td></tr>`).join("")}</tbody></table></div>` : `<p class="small muted" style="margin:0">None yet.</p>`}
-    ${edit ? `<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:8px"><label style="flex:0 0 130px"><span class="muted tiny">Amount paid (£)</span><input id="bpAmt" type="number" min="0" step="0.01" placeholder="0.00"></label><label style="flex:1 1 180px"><span class="muted tiny">Note (optional)</span><input id="bpNote" type="text" maxlength="300" placeholder="e.g. balance by bank transfer"></label><button class="btn small" id="bpAdd">Add</button></div>` : `<p class="tiny muted" style="margin:6px 0 0">You can look but not change: ask for edit rights on Christmas to add a payment.</p>`}`;
+    ${edit ? `<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:8px"><label style="flex:0 0 130px"><span class="muted tiny">Amount (£)</span><input id="bpAmt" type="number" min="0" step="0.01" placeholder="${bal != null && bal > 0.004 ? bal.toFixed(2) : "0.00"}"></label><label style="flex:1 1 180px"><span class="muted tiny">Note (optional)</span><input id="bpNote" type="text" maxlength="300" placeholder="e.g. balance by bank transfer"></label><button class="btn small" id="bpAdd" title="Record a payment that has already been taken (cash, bank transfer, card machine)">Payment already taken</button><button class="btn small ghost" id="bpNow" title="Open a SumUp payment page for this amount">Take payment now</button></div><div id="bpOut"></div>` : `<p class="tiny muted" style="margin:6px 0 0">You can look but not change: ask for edit rights on Christmas to add a payment.</p>`}`;
 }
 /* ---- add additional people: choose how many and how much, then pay on a SumUp page; they join the booking once the payment is confirmed ---- */
 function addPeopleHtml(f){
   const day = f.event.key === "day";
   return `<div style="margin-top:14px"><button type="button" class="btn small ghost" id="apOpen">Add additional people</button>
     <div id="apBox" style="display:none;margin-top:10px;padding:12px;border:1px solid var(--mist);border-radius:10px">
-      <p class="small muted" style="margin:0 0 8px">Choose who to add and what is being paid. A SumUp payment page opens; once the payment goes through they are added to this booking (and to the guest list, for their meal choices). To take a payment towards the balance instead, set adults and children to 0.</p>
+      <p class="small muted" style="margin:0 0 8px">Choose who to add and what is being paid. A SumUp payment page opens; once the payment goes through they are added to this booking (and to the guest list, for their meal choices).</p>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
         <label style="flex:0 0 90px"><span class="muted tiny">Adults</span><input id="apAd" type="number" min="0" max="20" value="1"></label>
         ${day ? `<label style="flex:0 0 90px"><span class="muted tiny">Children</span><input id="apCh" type="number" min="0" max="20" value="0"></label>` : ""}
@@ -611,37 +611,49 @@ function addPeopleHtml(f){
       <div id="apOut"></div>
     </div></div>`;
 }
+/* Opens a SumUp payment page for the team: shows the link, copies it, and watches for the payment (every 5 seconds, up to 10 minutes). When it is paid the booking screen is refreshed. */
+async function staffPayFlow(id, body, out, go, again){
+  go.disabled = true;
+  try {
+    const r = await px("admin.add_people", { booking_id:id, ...body });
+    out.innerHTML = `<div class="note" style="margin-top:10px"><b>Payment page ready (${esc(r.what)}, ${money(r.amount)}).</b><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><a class="btn small" href="${esc(r.url)}" target="_blank" rel="noopener" style="text-decoration:none">Open the payment page</a><button type="button" class="btn small ghost" data-spcopy>Copy the link</button><button type="button" class="btn small ghost" data-spchk>I have paid: check now</button></div><p class="small muted" style="margin:8px 0 0" data-spst>Waiting for the payment. This checks every few seconds.</p></div>`;
+    try { window.open(r.url, "_blank", "noopener"); } catch(e){}
+    out.querySelector("[data-spcopy]").onclick = () => { (navigator.clipboard ? navigator.clipboard.writeText(r.url) : Promise.reject()).then(() => toast("Link copied."), () => window.prompt("Copy this link", r.url)); };
+    let n = 0, busy = false, done = false;
+    const check = async () => {
+      const st = out.querySelector("[data-spst]");
+      if (busy || done) return; if (!st || !document.body.contains(out)) { done = true; clearInterval(t); return; }
+      busy = true;
+      try {
+        const c2 = await px("admin.add_people_check", { id:r.id });
+        if (c2.status === "paid") { done = true; clearInterval(t); await again("Payment received and added to the booking."); return; }
+        if (c2.status === "failed") { done = true; clearInterval(t); st.textContent = "That payment did not go through, so nothing has been recorded. Try again."; go.disabled = false; return; }
+        st.textContent = "Waiting for the payment. This checks every few seconds.";
+      } catch(e){ st.textContent = e.message; }
+      busy = false;
+    };
+    const t = setInterval(() => { if (++n > 120) { clearInterval(t); return; } check(); }, 5000);
+    out.querySelector("[data-spchk]").onclick = check;
+  } catch(e){ toast(e.message, true); go.disabled = false; }
+}
 function addPeopleWire(f, id, again){
+  const now = $("#bpNow");
+  if (now) now.onclick = () => {
+    const amt = Number($("#bpAmt").value);
+    if (!(amt > 0)) { toast("Enter the amount to take, as a number above zero.", true); return; }
+    staffPayFlow(id, { adults:0, children:0, amount:amt }, $("#bpOut"), now, again);
+  };
   const open = $("#apOpen"); if (!open) return;
   const day = f.event.key === "day", price = f.add_default || {}; let touched = false;
-  const calc = () => { if (touched) return; const a = Number($("#apAd").value) || 0, c = day ? Number($("#apCh").value) || 0 : 0, v = (a + c) ? a * (price.adult || 0) + c * (price.child || 0) : Math.max(0, Number(f.pay && f.pay.balance) || 0); $("#apAmt").value = v ? v.toFixed(2) : ""; };
+  const calc = () => { if (touched) return; const a = Number($("#apAd").value) || 0, c = day ? Number($("#apCh").value) || 0 : 0, v = a * (price.adult || 0) + c * (price.child || 0); $("#apAmt").value = v ? v.toFixed(2) : ""; };
   open.onclick = () => { const b = $("#apBox"); b.style.display = b.style.display === "none" ? "" : "none"; calc(); };
   ["apAd", "apCh"].forEach(k => { const el = $("#" + k); if (el) el.oninput = calc; });
   $("#apAmt").oninput = () => { touched = true; };
-  $("#apGo").onclick = async () => {
+  $("#apGo").onclick = () => {
     const a = Number($("#apAd").value) || 0, c = day ? Number($("#apCh").value) || 0 : 0, amt = Number($("#apAmt").value);
+    if (a + c < 1) { toast("Choose how many people to add. To take a payment on its own, use Take payment now under Payments.", true); return; }
     if (!(amt > 0)) { toast("Enter the amount to pay, as a number above zero.", true); return; }
-    const go = $("#apGo"); go.disabled = true;
-    try {
-      const r = await px("admin.add_people", { booking_id:id, adults:a, children:c, amount:amt });
-      $("#apOut").innerHTML = `<div class="note" style="margin-top:10px"><b>Payment page ready (${esc(r.what)}), ${money(r.amount)}.</b><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><a class="btn small" href="${esc(r.url)}" target="_blank" rel="noopener" style="text-decoration:none">Open the payment page</a><button type="button" class="btn small ghost" id="apCopy">Copy the link</button><button type="button" class="btn small ghost" id="apChk">I have paid: check now</button></div><p class="small muted" style="margin:8px 0 0" id="apSt">Waiting for the payment. This checks every few seconds.</p></div>`;
-      try { window.open(r.url, "_blank", "noopener"); } catch(e){}
-      $("#apCopy").onclick = () => { (navigator.clipboard ? navigator.clipboard.writeText(r.url) : Promise.reject()).then(() => toast("Link copied."), () => window.prompt("Copy this link", r.url)); };
-      let n = 0, busy = false, done = false;
-      const check = async () => {
-        if (busy || done) return; if (!$("#apSt")) { done = true; clearInterval(t); return; }
-        busy = true;
-        try {
-          const c2 = await px("admin.add_people_check", { id:r.id });
-          if (c2.status === "paid") { done = true; clearInterval(t); await again("Payment received and added to the booking."); return; }
-          if (c2.status === "failed") { done = true; clearInterval(t); $("#apSt").textContent = "That payment did not go through, so nobody has been added. Press Take payment to try again."; go.disabled = false; return; }
-          $("#apSt").textContent = "Waiting for the payment. This checks every few seconds.";
-        } catch(e){ if ($("#apSt")) $("#apSt").textContent = e.message; }
-        busy = false;
-      };
-      const t = setInterval(() => { if (++n > 120) { clearInterval(t); return; } check(); }, 5000);
-      $("#apChk").onclick = check;
-    } catch(e){ toast(e.message, true); go.disabled = false; }
+    staffPayFlow(id, { adults:a, children:c, amount:amt }, $("#apOut"), $("#apGo"), again);
   };
 }
 function commentsHtml(f){
