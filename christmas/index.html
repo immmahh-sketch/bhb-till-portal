@@ -416,6 +416,7 @@ async function viewPreorders(){
 }
 async function loadPre(){
   renderPre(true);
+  await pulseSnap("preorders", S.pre.id);
   try { S.pre.data = await px("admin.overview", { date_id: S.pre.id }); S.pre.err = ""; } catch(e){ S.pre.data = null; S.pre.err = e.message; }
   if (S.view === "preorders") renderPre();
 }
@@ -725,7 +726,7 @@ async function dgDayId(){
 }
 async function viewDiary(){
   $("#views").innerHTML = `<div class="empty">Loading…</div>`;
-  try { S.dgId = await dgDayId(); S.dg = await px("admin.diary", { date_id:S.dgId }); } catch(e){ $("#views").innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+  try { S.dgId = await dgDayId(); await pulseSnap("diary", S.dgId); S.dg = await px("admin.diary", { date_id:S.dgId }); } catch(e){ $("#views").innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
   renderDiary();
 }
 function dgLanes(groups){   // bookings with no table yet: stack them into as few rows as fit
@@ -973,6 +974,30 @@ async function preEmails(){
 
 /* ====================================================================== shell */
 const VIEWS = { events: viewEvents, dining: viewDining, day: viewDay, preorders: viewPreorders, diary: viewDiary, corporate: viewCorporate, decorations: viewDecor, actions: viewActions };
+/* ---- live: the Pre-orders and Diary pages ask every 5 seconds whether anything changed (a tiny fingerprint, not the data) and reload only when it did.
+   They wait while a pop-up is open, a field is being typed in or a booking is being dragged, and keep the scroll position. */
+const PULSE = { key:"", sig:null, busy:false };
+async function pulseSnap(view, id){ try { PULSE.sig = (await px("admin.pulse", { date_id:id })).sig; PULSE.key = view + "|" + id; } catch(e){ PULSE.key = ""; } }
+const pulseBusy = () => !!$("#modalbg") || !!document.querySelector(".dgb.dragging") || !!(document.activeElement && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName) && $("#views") && $("#views").contains(document.activeElement));
+async function pulseTick(){
+  const v = S.view; if (document.hidden || PULSE.busy || (v !== "preorders" && v !== "diary")) return;
+  const id = v === "diary" ? S.dgId : S.pre.id; if (!id || PULSE.key !== v + "|" + id) return;
+  PULSE.busy = true;
+  try {
+    const r = await px("admin.pulse", { date_id:id });
+    if (r.sig !== PULSE.sig && !pulseBusy()) {
+      let dg = null, pre = null, evs = null;
+      if (v === "diary") dg = await px("admin.diary", { date_id:id }); else { pre = await px("admin.overview", { date_id:id }); try { evs = (await px("admin.events")).events; } catch(e){} }
+      if (S.view === v && (v === "diary" ? S.dgId : S.pre.id) === id && !pulseBusy()) {
+        PULSE.sig = r.sig;
+        const y = window.scrollY, xs = $$(".dgw").map(e => e.scrollLeft);
+        if (dg) { S.dg = dg; renderDiary(); } else { S.pre.data = pre; S.pre.err = ""; if (evs) S.pre.events = evs; renderPre(); }
+        window.scrollTo(0, y); $$(".dgw").forEach((e, i) => { if (xs[i] != null) e.scrollLeft = xs[i]; });
+      }
+    }
+  } catch(e){} finally { PULSE.busy = false; }
+}
+setInterval(pulseTick, 5000);
 function goView(v){
   clearTimeout(S.tsTimer); S.view = v;
   $$(".tabbtn").forEach(b => b.setAttribute("aria-current", b.dataset.view === v ? "page" : "false"));
