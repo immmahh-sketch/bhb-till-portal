@@ -75,8 +75,9 @@ async function load(){
   if (S.form.already) { $("#main").innerHTML = `<div class="card thanks"><h1>${esc(S.form.title)}</h1><p style="text-align:center">${esc(S.form.message)}</p></div>`; return; }
   render();
 }
+const visible = q => !q.showIf || S.ans[q.showIf.id] === q.showIf.equals;      // a question that depends on an earlier answer (dined: Yes) shows only then
 function render(){
-  const f = S.form, qs = f.questions || [], need = qs.filter(q => q.required).length;
+  const f = S.form, qs = f.questions || [];
   document.title = f.title + " — Black Horse Beamish";
   let h = `${f.preview ? `<div class="preview"><b>Preview.</b> This is how the form looks. Nothing you enter is saved.</div>` : ""}
   <div class="card"><h1>${esc(f.title)}</h1><div class="open">${para(f.opening)}</div></div>
@@ -85,7 +86,7 @@ function render(){
   let cat = null;
   qs.forEach(q => {
     if (q.category && q.category !== cat) { cat = q.category; if (!["General","Comments","Recommend"].includes(cat) || qs.filter(x => x.category === cat).length > 1) h += `<div class="cat">${esc(cat)}</div>`; }
-    h += `<div class="q" data-q="${esc(q.id)}"><div class="ql">${esc(q.label)}${q.required ? "" : ' <span style="font-weight:400;color:var(--sage-70)">(optional)</span>'}</div>${q.hint ? `<div class="qh">${esc(q.hint)}</div>` : ""}`;
+    h += `<div class="q" data-q="${esc(q.id)}"${visible(q) ? "" : ' style="display:none"'}><div class="ql">${esc(q.label)}${q.required ? "" : ' <span style="font-weight:400;color:var(--sage-70)">(optional)</span>'}</div>${q.hint ? `<div class="qh">${esc(q.hint)}</div>` : ""}`;
     if (q.type === "rating") h += `<div class="rate">${[1,2,3,4,5].map(n => `<button type="button" data-v="${n}" aria-pressed="false"><b>${n}</b>${RATE[n-1]}</button>`).join("")}</div>${q.na ? `<button type="button" class="na" data-na="1" aria-pressed="false">Not applicable / did not use</button>` : ""}`;
     else if (q.type === "nps") h += `<div class="nps">${Array.from({length:11}, (_,n) => `<button type="button" data-v="${n}" aria-pressed="false">${n}</button>`).join("")}</div><div class="npslab"><span>Not at all likely</span><span>Extremely likely</span></div>`;
     else if (q.type === "choice") h += `<div class="chips">${(q.options||[]).map(o => `<button type="button" data-o="${esc(o)}" aria-pressed="false">${esc(o)}</button>`).join("")}</div>`;
@@ -96,18 +97,19 @@ function render(){
   if (!(f.kind === "noshow" && TOKEN)) h += `<div class="q"><label class="f" for="contact">Would you like us to get back to you? <span style="font-weight:400;color:var(--sage-70)">(optional)</span></label><div class="qh">Leave an email address or phone number. We will only use it to reply to this feedback.</div><input type="text" id="contact" maxlength="200" autocomplete="email"></div>`;
   h += `<div id="err" class="err" hidden></div><button class="btn" id="send">Send my feedback</button><div class="foot">Black Horse Beamish, Beamish, County Durham</div>`;
   $("#main").innerHTML = h;
-  const bar = () => { const done = qs.filter(q => q.required && S.ans[q.id] != null && S.ans[q.id] !== "").length; $("#pgbar").style.width = (need ? done / need * 100 : 100) + "%"; };
+  const bar = () => { const vq = qs.filter(q => visible(q) && q.required), done = vq.filter(q => S.ans[q.id] != null && S.ans[q.id] !== "").length; $("#pgbar").style.width = (vq.length ? done / vq.length * 100 : 100) + "%"; };
+  const showHide = () => { qs.filter(q => q.showIf).forEach(q => { const el = document.querySelector(`.q[data-q="${q.id}"]`); if (!el) return; const on = visible(q); el.style.display = on ? "" : "none"; if (!on && S.ans[q.id] !== undefined) { delete S.ans[q.id]; el.querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", "false")); const t = el.querySelector("textarea"); if (t) t.value = ""; } }); };
   const mark = (q, root) => root.querySelectorAll("button").forEach(b => { const v = b.dataset.na ? "na" : b.dataset.o != null ? b.dataset.o : +b.dataset.v; b.setAttribute("aria-pressed", String(S.ans[q.id] === v)); });
   $$(".q[data-q]").forEach(el => {
     const q = qs.find(x => x.id === el.dataset.q);
-    el.querySelectorAll("button").forEach(b => b.onclick = () => { const v = b.dataset.na ? "na" : b.dataset.o != null ? b.dataset.o : +b.dataset.v; S.ans[q.id] = S.ans[q.id] === v ? undefined : v; mark(q, el); bar(); });
+    el.querySelectorAll("button").forEach(b => b.onclick = () => { const v = b.dataset.na ? "na" : b.dataset.o != null ? b.dataset.o : +b.dataset.v; S.ans[q.id] = S.ans[q.id] === v ? undefined : v; mark(q, el); showHide(); bar(); });
     const t = el.querySelector("textarea"); if (t) t.oninput = () => { S.ans[q.id] = t.value; bar(); };
   });
   $("#send").onclick = send;
 }
 async function send(){
   const f = S.form, qs = f.questions || [], err = $("#err"); err.hidden = true;
-  const miss = qs.find(q => q.required && (q.type === "text" ? !String(S.ans[q.id] || "").trim() : (S.ans[q.id] == null || S.ans[q.id] === "")));
+  const miss = qs.find(q => visible(q) && q.required && (q.type === "text" ? !String(S.ans[q.id] || "").trim() : (S.ans[q.id] == null || S.ans[q.id] === "")));
   if (miss) { err.textContent = "Please answer every question that is not marked optional."; err.hidden = false; document.querySelector(`[data-q="${miss.id}"]`).scrollIntoView({ block:"center", behavior:"smooth" }); return; }
   const b = $("#send"); b.disabled = true; b.textContent = "Sending…";
   try {
