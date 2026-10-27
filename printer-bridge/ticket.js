@@ -362,6 +362,8 @@ function buildPreorderTicket(job) {
   const big = (t, width) => wrapText(plain(t, 300), width).forEach((l) => push(l + "\n"));   // double size = 16 characters a line, double height = 32
   chunks.push(escBytes([0x1b, 0x40])); // initialize
   chunks.push(escBytes([0x1b, 0x52, 0x03])); // UK character set
+  const testBanner = () => { align(1); bold(true); size(0x11); push("*** TEST ***\n"); size(0x01); push("DO NOT MAKE - TEST PRINT\n"); size(0); bold(false); push(rule()); };
+  if (p.is_test) testBanner();
   align(1); bold(true);
   size(0x11); push(plain(p.venue || "", 16).toUpperCase() + "\n");
   inverse(true); push(" " + plain(p.copy || "", 14).toUpperCase() + " \n"); inverse(false);
@@ -389,6 +391,7 @@ function buildPreorderTicket(job) {
   }
   push(rule());
   align(1); push(`Ref ${plain(p.ref, 12)}   ${p.seq || ""}/${p.total || ""}\n`);
+  if (p.is_test) { push(rule()); testBanner(); }
   chunks.push(escBytes([0x0a, 0x0a, 0x0a, 0x0a])); // feed
   chunks.push(escBytes([0x1d, 0x56, 0x42, 0x00])); // feed + partial cut
   return Buffer.concat(chunks);

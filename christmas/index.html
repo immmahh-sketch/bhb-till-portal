@@ -837,7 +837,7 @@ function renderDiary(){
     return `<div class="dgp ${c}" style="width:${DG.COL}px" title="${p.used} arriving at ${p.time}; room for ${p.allowed}">${p.used || ""}</div>`; }).join("")}</div></div>`;
   const wait = d.waiting.slice().sort((a, b) => (b.submitted - a.submitted) || a.lead.localeCompare(b.lead));
   $("#views").innerHTML = `<div class="pagehead"><h2>Christmas Day diary</h2><span class="hint">${esc(d.event.when)}. Arrivals every 15 minutes, 12:00 to 16:00, 15 covers a slot on each side.</span><span class="spacer"></span>
-      <button class="btn small ghost" data-dg="print">Print table plan</button> ${edit ? `<button class="btn small ghost" data-dg="kprint">Print pre-orders via kitchen printer</button> ` : ""}${edit ? `<button class="btn small" data-dg="alloc">Place new pre-orders</button> <button class="btn small ghost" data-dg="tables">Restaurant tables</button> <button class="btn small ghost" data-dg="more">More</button>` : ""}</div>
+      <button class="btn small ghost" data-dg="print">Print table plan</button> ${edit ? `<button class="btn small ghost" data-dg="kprint">Print pre-orders via kitchen printer</button> <button class="btn small ghost" data-dg="ktest">Test the kitchen printer</button> ` : ""}${edit ? `<button class="btn small" data-dg="alloc">Place new pre-orders</button> <button class="btn small ghost" data-dg="tables">Restaurant tables</button> <button class="btn small ghost" data-dg="more">More</button>` : ""}</div>
     <div class="tiles"><div class="tile"><div class="v">${t.placed_covers}</div><div class="l">covers placed</div><div class="s">of ${t.covers} booked</div></div><div class="tile"><div class="v">${t.restaurant_covers}</div><div class="l">Restaurant</div></div><div class="tile"><div class="v">${t.marquee_covers}</div><div class="l">Marquee</div><div class="s">${d.sides.marquee.tables.length} tables so far</div></div><div class="tile"><div class="v">${t.waiting}</div><div class="l">not placed</div><div class="s">waiting for a pre-order or room</div></div></div>
     ${t.restaurant_tables_loaded ? "" : `<div class="flags"><b>The Restaurant's tables are not loaded yet</b>Until they are, Restaurant bookings are only held to the arrival limits and show without a table. Press <b>Restaurant tables</b> and paste the list from ResDiary (name and seats), and everything is placed again onto real tables.</div>`}
     <div class="card" style="padding:0;overflow:hidden"><div class="dgw"><div style="width:${DG.LEFT + total}px">
@@ -1022,8 +1022,18 @@ async function dgKitchenPrint(){
     <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn" id="kpGo">Send ${r.tickets} tickets to the printer</button><button class="btn ghost" onclick="closeModal()">Cancel</button></div>`);
   $("#kpGo").onclick = async () => { $("#kpGo").disabled = true; $("#kpGo").textContent = "Sending…"; try { const out = await px("admin.print_preorders", { date_id:S.dgId, dry:false }); closeModal(); toast(out.tickets + " tickets sent to the kitchen printer."); } catch(e){ toast(e.message, true); $("#kpGo").disabled = false; $("#kpGo").textContent = "Send " + r.tickets + " tickets to the printer"; } };
 }
+/* a test of the kitchen printer: the first 3 arrivals in the Restaurant and the first 3 in the Marquee, all three copies, as if they were the only bookings (marked TEST on the ticket) */
+async function dgKitchenTest(){
+  let r; try { r = await px("admin.print_preorders", { date_id:S.dgId, dry:true, test:true }); } catch(e){ toast(e.message, true); return; }
+  openModal(`<h3 style="margin:0 0 6px">Test the kitchen printer</h3>
+    <p class="small" style="margin:0 0 8px">This sends <b>${r.tickets} test tickets</b>: the first ${r.restaurant} arrivals in the Restaurant and the first ${r.marquee} in the Marquee, with all three copies of each (Kitchen, The Pass, Host), in the same order as the real print. Nothing else is sent.</p>
+    <p class="small muted" style="margin:0 0 10px">The tickets carry the real booking details but are marked <b>TEST - DO NOT MAKE</b> at the top and bottom.</p>
+    <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn" id="ktGo">Print ${r.tickets} test tickets</button><button class="btn ghost" onclick="closeModal()">Cancel</button></div>`);
+  $("#ktGo").onclick = async () => { $("#ktGo").disabled = true; $("#ktGo").textContent = "Sending…"; try { const out = await px("admin.print_preorders", { date_id:S.dgId, dry:false, test:true }); closeModal(); toast(out.tickets + " test tickets sent to the kitchen printer."); } catch(e){ toast(e.message, true); $("#ktGo").disabled = false; $("#ktGo").textContent = "Print " + r.tickets + " test tickets"; } };
+}
 async function dgAct(a, btn){
   if (a === "print") return dgPrint();
+  if (a === "ktest") return dgKitchenTest();
   if (a === "kprint") return dgKitchenPrint();
   if (a === "tables") return dgTables();
   if (a === "more") return openModal(`<h3 style="margin:0 0 8px">More</h3>
