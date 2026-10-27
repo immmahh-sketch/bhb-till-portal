@@ -122,6 +122,10 @@ function buildTicket(job, opts = {}) {
 
   const chunks = [];
   const push = (s) => chunks.push(Buffer.from(s, "ascii"));
+  // The chefs asked for bigger text (27 Oct 2026): the item lines, notes and allergy text on the kitchen, bar and staff tickets print in double height and bold; the guest receipt stays as it was.
+  const big = kindKey !== "guest-copy";
+  const bigOn = () => { if (big) chunks.push(escBytes([0x1d, 0x21, 0x01, 0x1b, 0x45, 0x01])); };
+  const bigOff = () => { if (big) chunks.push(escBytes([0x1d, 0x21, 0x00, 0x1b, 0x45, 0x00])); };
   const lineNoPrice = (l) => push(`${l.qty} x ${l.name}\n`);
   const linePrice = (l) => push(priceRow(`${l.qty} x ${l.name}`, (Number(l.unit_price) || 0) * (Number(l.qty) || 0)));
 
@@ -172,7 +176,9 @@ function buildTicket(job, opts = {}) {
     push("DELIVER TO CAMPER VAN\n");
     chunks.push(escBytes([0x1d, 0x21, 0x00]));
   } else {
+    if (big) chunks.push(escBytes([0x1d, 0x21, 0x11])); // the room or table number in double size too (27 Oct 2026: bigger text for the chefs)
     push(isStaffFood ? "COLLECTING AT 12:30PM\n" : `${isOutside ? "Table " : "Room "}${p.room_number ?? "-"}\n`);
+    if (big) chunks.push(escBytes([0x1d, 0x21, 0x00]));
   }
   chunks.push(escBytes([0x1b, 0x45, 0x00])); // bold off
   push(rule());
@@ -182,7 +188,7 @@ function buildTicket(job, opts = {}) {
   // money()), so it can't be used literally anywhere else on the ticket -
   // "Order No." instead of "Order #".
   push(`Order No. ${p.order_no ?? "-"}   ${date} ${time}\n`);
-  if (p.guest_name) push(`${p.guest_name}\n`);
+  if (p.guest_name) { bigOn(); push(`${p.guest_name}\n`); bigOff(); }
   push(rule());
 
   const food = lines.filter((l) => l.category === "food");
@@ -192,7 +198,9 @@ function buildTicket(job, opts = {}) {
     chunks.push(escBytes([0x1b, 0x45, 0x01]));
     push(`${label}\n`);
     chunks.push(escBytes([0x1b, 0x45, 0x00]));
+    bigOn();
     items.forEach(showPrices ? linePrice : lineNoPrice);
+    bigOff();
   };
   printGroup("FOOD", food);
   printGroup("DRINKS", drink);
@@ -200,14 +208,14 @@ function buildTicket(job, opts = {}) {
 
   if (p.notes) {
     push(rule());
-    push(`Note: ${p.notes}\n`);
+    bigOn(); push(`Note: ${p.notes}\n`); bigOff();
   }
   if (p.allergy_notes || cfg.allergyAlways) {
     push(rule());
     chunks.push(escBytes([0x1b, 0x45, 0x01]));
     push("ALLERGY / DIETARY\n");
     chunks.push(escBytes([0x1b, 0x45, 0x00]));
-    push(`${p.allergy_notes || "N/A"}\n`);
+    bigOn(); push(`${p.allergy_notes || "N/A"}\n`); bigOff();
   }
 
   if (showPrices) {
@@ -340,6 +348,52 @@ function buildBotanicalsReceipt(job) {
   return Buffer.concat(chunks);
 }
 
+// Christmas pre-order ticket (27 Oct 2026). Three copies of each go to the kitchen printer, marked KITCHEN, THE PASS and HOST.
+// payload: { copy, venue, time, name, ref, table, adults, children, infants, courses:[{label, lines[]}], diet, standard_note, seq, total }
+// Everything that matters is in double height or double size, because the chefs said the ordinary text was too small.
+function buildPreorderTicket(job) {
+  const p = job.payload || {};
+  const chunks = [];
+  const push = (t) => chunks.push(Buffer.from(String(t), "ascii"));
+  const size = (n) => chunks.push(escBytes([0x1d, 0x21, n]));
+  const bold = (on) => chunks.push(escBytes([0x1b, 0x45, on ? 1 : 0]));
+  const align = (n) => chunks.push(escBytes([0x1b, 0x61, n]));
+  const inverse = (on) => chunks.push(escBytes([0x1d, 0x42, on ? 1 : 0]));
+  const big = (t, width) => wrapText(plain(t, 300), width).forEach((l) => push(l + "\n"));   // double size = 16 characters a line, double height = 32
+  chunks.push(escBytes([0x1b, 0x40])); // initialize
+  chunks.push(escBytes([0x1b, 0x52, 0x03])); // UK character set
+  align(1); bold(true);
+  size(0x11); push(plain(p.venue || "", 16).toUpperCase() + "\n");
+  inverse(true); push(" " + plain(p.copy || "", 14).toUpperCase() + " \n"); inverse(false);
+  size(0); bold(false); push(rule());
+  align(0); bold(true);
+  size(0x11); push("ARRIVE " + plain(p.time || "", 8) + "\n");
+  big(p.name || "", 16);
+  push("TABLE " + plain(p.table || "-", 10) + "\n");
+  size(0x01);
+  const parts = [];
+  if (p.adults) parts.push(`${p.adults} adult${p.adults === 1 ? "" : "s"}`);
+  if (p.children) parts.push(`${p.children} child${p.children === 1 ? "" : "ren"}`);
+  if (p.infants) parts.push(`${p.infants} under 3`);
+  big(`${(p.adults || 0) + (p.children || 0) + (p.infants || 0)} guests (${parts.join(", ")})`, 32);
+  size(0); bold(false); push(rule());
+  for (const c of Array.isArray(p.courses) ? p.courses : []) {
+    bold(true); size(0x11); push(plain(c.label, 16) + "\n"); size(0x01);
+    for (const l of Array.isArray(c.lines) ? c.lines : []) big(l, 32);
+    size(0); bold(false); push("\n");
+  }
+  if (!Array.isArray(p.courses) || !p.courses.length) { size(0x01); bold(true); push("NO CHOICES\n"); size(0); bold(false); }
+  if (p.standard_note) { size(0x01); big("* " + p.standard_note, 32); size(0); }
+  if (p.diet) {
+    push(rule()); bold(true); size(0x11); push("DIETARY\n"); size(0x01); big(p.diet, 32); size(0); bold(false);
+  }
+  push(rule());
+  align(1); push(`Ref ${plain(p.ref, 12)}   ${p.seq || ""}/${p.total || ""}\n`);
+  chunks.push(escBytes([0x0a, 0x0a, 0x0a, 0x0a])); // feed
+  chunks.push(escBytes([0x1d, 0x56, 0x42, 0x00])); // feed + partial cut
+  return Buffer.concat(chunks);
+}
+
 function printToDevice(buffer, ip, port) {
   return new Promise((resolve, reject) => {
     let settled = false;
@@ -365,4 +419,4 @@ function printToDevice(buffer, ip, port) {
   });
 }
 
-module.exports = { buildTicket, buildBotanicalsReceipt, printToDevice, LINE_WIDTH };
+module.exports = { buildTicket, buildBotanicalsReceipt, buildPreorderTicket, printToDevice, LINE_WIDTH };
