@@ -143,14 +143,14 @@ function occupancy(rows) {
 const MON = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
 function isoDay(t) { const m = /^(\d{1,2})\/([A-Za-z]{3})[a-z]*\/(\d{4})/.exec(String(t || "").trim()); if (!m || !MON[m[2].toLowerCase()]) return ""; return m[3] + "-" + pad(MON[m[2].toLowerCase()]) + "-" + pad(+m[1]); }
 function reservations(rows) {
-  const out = []; let cur = null; const keys = { "Guest:": "guest", "Room Type:": "room_type", "Arrival:": "arrival", "Departure:": "departure", "Package:": "package", "Status:": "status" };
+  const out = []; let cur = null; const keys = { "Guest:": "guest", "Room Id:": "room_id", "Room Type:": "room_type", "Arrival:": "arrival", "Departure:": "departure", "Package:": "package", "Status:": "status" };
   for (const r of rows) {
     const f = r.map((c) => (c == null ? "" : String(c).trim())).filter(Boolean); if (!f.length) continue;
     if (f[0] === "BookRef:") { cur = { ref: (f[1] || "").split("/")[0] }; out.push(cur); continue; }
     if (!cur) continue;
     f.forEach((x, i) => { const k = keys[x]; if (k && !(k in cur) && f[i + 1] != null && !/:$/.test(f[i + 1])) cur[k] = f[i + 1]; });
   }
-  const departures = out.map((b) => ({ ref: b.ref, guest: b.guest || "", room_type: b.room_type || "", package: b.package || "", arrival: isoDay(b.arrival), departure: isoDay(b.departure), status: b.status || "" })).filter((b) => b.ref);
+  const departures = out.map((b) => ({ ref: b.ref, guest: b.guest || "", room_id: b.room_id || "", room_type: b.room_type || "", package: b.package || "", arrival: isoDay(b.arrival), departure: isoDay(b.departure), status: b.status || "" })).filter((b) => b.ref);
   if (!departures.length) return { error: "No bookings were found in that Reservations report." };
   const out2 = departures.filter((d) => /^checked out$/i.test(d.status));
   const dates = out2.map((d) => d.departure).filter(Boolean).sort();
