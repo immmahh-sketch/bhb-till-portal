@@ -80,6 +80,20 @@ table.t{width:100%; border-collapse:collapse; font-size:13.5px} .t th,.t td{padd
 .toast.on{opacity:1; transform:translate(-50%,0)} .toast.bad{background:var(--alert)}
 @media (max-width:720px){ .grid2,.row2{grid-template-columns:1fr} }
 @media (max-width:640px){ .shell{padding:0 12px 48px} .topin,.tabsin{padding-left:12px;padding-right:12px} .btn{width:100%} .btn.small{width:auto} .pagehead h2{font-size:22px} }
+.kpi.click{cursor:pointer;transition:box-shadow .15s,transform .15s}.kpi.click:hover{box-shadow:0 6px 18px rgba(0,0,0,.14);transform:translateY(-1px)}.kpi.click .s b{color:#8A1C2B;text-decoration:underline}
+.sechead small.click{cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.rbg{position:fixed;inset:0;background:rgba(38,38,38,.55);display:flex;align-items:flex-start;justify-content:center;padding:4vh 12px;z-index:100;overflow:auto}
+.rbox{background:#fff;border-radius:14px;border-top:3px solid #C1A51D;max-width:780px;width:100%;padding:20px 22px;box-shadow:0 20px 60px rgba(38,38,38,.35);color:#262626}
+.rbox h3{margin:0 0 4px;font-size:26px}
+.rbox .sum{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 12px}
+.rbox table{width:100%;border-collapse:collapse;font-size:14px}.rbox th{text-align:left;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#6B5B5B;padding:6px 8px;border-bottom:2px solid #C1A51D}
+.rbox td{padding:9px 8px;border-bottom:1px solid #E3E5DE;vertical-align:top}.rbox tr.rr{cursor:pointer}.rbox tr.rr:hover td{background:#F7F4EA}
+.rbox .sc{display:inline-block;min-width:32px;text-align:center;border-radius:999px;padding:2px 9px;font-weight:700;font-size:13px}
+.rbox .sc.good{background:#DCE9DC;color:#2F5B31}.rbox .sc.gold{background:#F4EFD3;color:#6B5B20}.rbox .sc.bad{background:#F3DAD6;color:#8C2F2F}.rbox .sc.none{background:#EEE;color:#777}
+.rbox .qa{margin:0 0 8px}.rbox .qa b{display:block;font-weight:600;font-size:13px;color:#6B5B5B}.rbox .qa .a{font-size:15px}
+.rbox .catb{margin:14px 0 4px;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#8A1C2B;font-weight:700;border-bottom:1px solid #E3E5DE;padding-bottom:2px}
+.rbox .cm{background:#F7F4EA;border-left:4px solid #C1A51D;border-radius:6px;padding:8px 12px;margin:0 0 8px;white-space:pre-wrap}
+.rbox .acts{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
 </style>
 </head>
 <body>
@@ -143,11 +157,44 @@ function paintDashboard(){
   v.innerHTML = h;
   $$(".chip[data-src]").forEach(b => b.onclick = () => { S.src = b.dataset.src; paintDashboard(); });
   $("#rng").onchange = e => { S.range = e.target.value; paintDashboard(); };
+  // the response count opens the responses: each one, the Net Promoter Score, then the full answers
+  const sentFor = (S.src === "all" ? ["mystery","showround","stay"] : (S.src === "guest" ? [] : [S.src])).reduce((t,k) => t + ((d.requests[k]||{}).sent||0), 0);
+  const openList = () => respOpen(resp, (S.src === "all" ? "Feedback forms" : KIND_NAME[S.src]) + ": responses", (S.src === "stay" || S.src === "showround") && sentFor ? sentFor + " email" + (sentFor === 1 ? "" : "s") + " sent" : "");
+  ["#openResp", "#kpiResp"].forEach(sel => { const el = $(sel); if (el) { el.onclick = openList; el.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openList(); } }; } });
 }
 function ratingValues(r){ return (r.questions || []).filter(q => q.type === "rating").map(q => ({ q, v:Number(r.answers[q.id]) })).filter(x => x.v >= 1 && x.v <= 5); }
 function textAnswers(r){ return (r.questions || []).filter(q => q.type === "text").map(q => ({ q, t:String(r.answers[q.id] || "").trim() })).filter(x => x.t); }
+/* ---- click the response count: the responses, the Net Promoter Score, then each full response */
+const scClass = n => n == null ? "none" : n >= 9 ? "good" : n <= 6 ? "bad" : "gold";
+function npsOfList(list){ const v = list.map(r => r.nps).filter(n => n != null), pro = v.filter(n => n >= 9).length, det = v.filter(n => n <= 6).length; return { n:v.length, pro, det, pas:v.length - pro - det, score:v.length ? Math.round((pro - det) / v.length * 100) : null }; }
+function respClose(){ const m = $("#rbg"); if (m) m.remove(); document.removeEventListener("keydown", respKey); }
+function respKey(e){ if (e.key === "Escape") respClose(); }
+function respOpen(list, title, sentNote){
+  respClose();
+  const m = document.createElement("div"); m.className = "rbg"; m.id = "rbg"; document.body.appendChild(m);
+  m.addEventListener("click", e => { if (e.target === m) respClose(); }); document.addEventListener("keydown", respKey);
+  const rows = list.slice().sort((a, b) => String(b.submitted_at).localeCompare(String(a.submitted_at)));
+  const listView = () => {
+    const n = npsOfList(rows);
+    m.innerHTML = `<div class="rbox"><h3>${esc(title)}</h3><div class="muted">${rows.length} response${rows.length === 1 ? "" : "s"}${sentNote ? " &middot; " + sentNote : ""}. Press a response to read it in full.</div>
+      <div class="sum"><span class="tag ${n.score == null ? "" : n.score >= 50 ? "good" : n.score >= 0 ? "gold" : "bad"}">Net Promoter Score ${n.score == null ? "&ndash;" : (n.score > 0 ? "+" : "") + n.score}</span><span class="tag good">Promoters ${n.pro}</span><span class="tag gold">Passives ${n.pas}</span><span class="tag bad">Detractors ${n.det}</span><span class="muted">from ${n.n} recommend score${n.n === 1 ? "" : "s"} (promoters 9 or 10, detractors 6 or less)</span></div>
+      <div style="overflow-x:auto"><table><thead><tr><th>When</th><th>Guest</th><th>Recommend</th><th>Average</th><th>Comment</th></tr></thead><tbody>${rows.map((r, i) => { const t = textAnswers(r)[0]; return `<tr class="rr" data-i="${i}"><td class="small">${esc(fmtDT(r.submitted_at))}</td><td><b>${esc(r.guest_name || "No name given")}</b></td><td><span class="sc ${scClass(r.nps)}">${r.nps == null ? "&ndash;" : r.nps}</span></td><td>${r.avg == null ? "&ndash;" : Viz.f1(r.avg) + " / 5"}</td><td class="small muted">${t ? esc(t.t.length > 90 ? t.t.slice(0, 90) + "…" : t.t) : ""}</td></tr>`; }).join("")}</tbody></table></div>
+      <div class="acts"><button class="btn ghost" id="rclose">Close</button></div></div>`;
+    $("#rclose").onclick = respClose; m.querySelectorAll("tr.rr").forEach(tr => tr.onclick = () => detail(rows[Number(tr.dataset.i)]));
+  };
+  const detail = r => {
+    const cats = []; (r.questions || []).forEach(q => { const a = r.answers[q.id]; if (a == null || a === "") return; const k = q.category || "General"; let c = cats.find(x => x.k === k); if (!c) cats.push(c = { k, items:[] }); c.items.push({ q, a }); });
+    const body = cats.map(c => `<div class="catb">${esc(c.k)}</div>` + c.items.map(({ q, a }) => q.type === "text" ? `<div class="qa"><b>${esc(q.label)}</b><div class="cm">${esc(a)}</div></div>` : `<div class="qa"><b>${esc(q.label)}</b><div class="a">${q.type === "rating" ? (a === "na" ? "Not applicable" : esc(a) + " / 5") : q.type === "nps" ? `<span class="sc ${scClass(Number(a))}">${esc(a)}</span> out of 10` : esc(a)}</div></div>`).join("")).join("");
+    m.innerHTML = `<div class="rbox"><h3>${esc(r.guest_name || "No name given")}</h3><div class="muted">${esc(KIND_NAME[r.kind] || "")} &middot; ${esc(fmtDT(r.submitted_at))}${r.contact ? " &middot; " + esc(r.contact) : ""}</div>
+      <div class="sum">${r.nps != null ? `<span class="tag ${scClass(r.nps) === "good" ? "good" : scClass(r.nps) === "bad" ? "bad" : "gold"}">Recommend ${r.nps}/10</span>` : ""}${r.avg != null ? `<span class="tag">Average ${Viz.f1(r.avg)} / 5</span>` : ""}${r.high ? `<span class="tag good">Scored us highly</span>` : ""}</div>${body}
+      <div class="acts"><button class="btn ghost" id="rback">Back to the list</button><button class="btn ghost" id="rclose">Close</button></div></div>`;
+    $("#rback").onclick = listView; $("#rclose").onclick = respClose; m.scrollTop = 0;
+  };
+  listView();
+}
 function formsBlock(resp, d){
-  let h = `<div class="sechead">${S.src === "all" ? "Feedback forms" : esc(KIND_NAME[S.src])} <small>${resp.length} response${resp.length===1?"":"s"}</small></div>`;
+  const sentFor = (S.src === "all" ? ["mystery","showround","stay"] : (S.src === "guest" ? [] : [S.src])).reduce((t,k) => t + ((d.requests[k]||{}).sent||0), 0);
+  let h = `<div class="sechead">${S.src === "all" ? "Feedback forms" : esc(KIND_NAME[S.src])} <small class="click" id="openResp" title="See the responses">${resp.length} response${resp.length===1?"":"s"}</small>${(S.src === "stay" || S.src === "showround") && sentFor ? ` <small>&middot; ${sentFor} email${sentFor===1?"":"s"} sent</small>` : ""}</div>`;
   if (!resp.length) return h + `<div class="card"><div class="empty">${S.src === "noshow" ? "No one has answered the no-show email yet." : "No responses in this period yet." + (can("send") ? " Use “Send a form” to give someone a link." : "")}</div></div>`;
   if (S.src === "noshow") return h + noshowBlock(resp, d);
   const npsVals = resp.map(r => r.nps).filter(n => n != null), pro = npsVals.filter(n => n >= 9).length, det = npsVals.filter(n => n <= 6).length, pas = npsVals.length - pro - det;
@@ -155,7 +202,7 @@ function formsBlock(resp, d){
   const kinds = S.src === "all" ? ["mystery","showround"] : (S.src === "guest" ? [] : [S.src]);
   const sent = kinds.reduce((t,k) => t + ((d.requests[k]||{}).sent||0), 0), done = kinds.reduce((t,k) => t + ((d.requests[k]||{}).done||0), 0);
   h += `<div class="kpis">
-    <div class="kpi"><div class="l">Responses</div><div class="v">${resp.length}</div><div class="s">${sent ? `${done} of ${sent} links sent were used (${Math.round(done/sent*100)}%)` : "in this period"}</div></div>
+    <div class="kpi click" id="kpiResp" role="button" tabindex="0" title="See the responses"><div class="l">Responses</div><div class="v">${resp.length}</div><div class="s">${sent ? `${done} of ${sent} ${S.src === "stay" || S.src === "showround" ? "emails" : "links"} sent were answered (${Math.round(done/sent*100)}%)` : "in this period"} &middot; <b>see them</b></div></div>
     <div class="kpi"><div class="l">Net Promoter Score</div><div class="v">${npsVals.length ? ((pro-det)/npsVals.length*100 > 0 ? "+" : "") + Math.round((pro-det)/npsVals.length*100) : "–"}</div><div class="s">${npsVals.length ? `${npsVals.length} recommend scores` : "no recommend scores"}</div></div>
     <div class="kpi"><div class="l">Average rating</div><div class="v">${Viz.f1(Viz.avg(avgs))}<span style="font-size:16px"> / 5</span></div><div class="s">across all rating questions</div></div>
     <div class="kpi"><div class="l">Scored us highly</div><div class="v">${Math.round(highN/resp.length*100)}%</div><div class="s">${highN} sent on to TripAdvisor</div></div></div>`;
