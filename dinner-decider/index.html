@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Dinner Decider - The Black Horse</title>
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#4D604F">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;500;600;700&family=Cormorant+Garamond:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --green:#4D604F; --green-70:#7B887C; --green-10:#EDEFED; --brown:#3F2F28; --olive:#CCCDB4; --gold:#B8955A;
+  --bone:#F8F8F8; --mist:#E7E7E7; --white:#fff; --ink:#262626; --alert:#8C4A3F; --alert-bg:#F6EAE8; --note-bg:#F7F0E4; --note-ink:#6d5320;
+  --display:"Orpheus Pro","Cormorant Garamond",Georgia,serif; --body:Raleway,"Helvetica Neue",Arial,sans-serif;
+  --track:.16em; --radius:12px; --shadow:0 1px 2px rgba(38,38,38,.06),0 8px 24px rgba(38,38,38,.08);
+}
+*{box-sizing:border-box} html,body{margin:0;padding:0}
+[hidden]{display:none !important}
+body{font-family:var(--body);color:var(--ink);background:var(--bone);font-size:16px;line-height:1.5;-webkit-text-size-adjust:100%;font-style:normal;min-height:100vh}
+h1,h2,h3{font-family:var(--display);font-weight:600;margin:0;letter-spacing:.01em;color:var(--green)}
+button{font:inherit;color:inherit}
+.demo{background:var(--note-bg);color:var(--note-ink);font-size:13px;padding:8px 16px;text-align:center;border-bottom:1px solid #eadcc2}
+header.top{background:var(--green);color:var(--white);padding:14px 16px;padding-top:calc(14px + env(safe-area-inset-top,0px));text-align:center}
+.brand{font-family:var(--display);font-size:20px;letter-spacing:.14em;text-transform:uppercase;line-height:1.1}
+.brand small{display:block;font-family:var(--body);font-size:10px;letter-spacing:.3em;margin-top:4px;opacity:.85}
+main{max-width:720px;margin:0 auto;padding:20px 16px 90px}
+.hero h1{font-size:34px;line-height:1.1;margin:10px 0 10px}
+.hero p{margin:0 0 22px;color:#4a4a4a}
+.big{display:flex;flex-direction:column;gap:12px}
+.opt{background:var(--white);border:1px solid var(--mist);border-radius:var(--radius);padding:18px;text-align:left;cursor:pointer;box-shadow:var(--shadow);display:block;width:100%}
+.opt:active{transform:scale(.99)}
+.opt b{display:block;font-family:var(--display);font-size:23px;color:var(--green);font-weight:600}
+.opt span{color:#5f5f5f;font-size:14px}
+.btn{border:1px solid var(--green);background:var(--green);color:var(--white);border-radius:10px;padding:13px 20px;cursor:pointer;font-size:13px;font-weight:600;letter-spacing:var(--track);text-transform:uppercase;min-height:48px}
+.btn.ghost{background:var(--white);color:var(--green)}
+.btn.small{min-height:38px;padding:7px 14px;font-size:11px}
+.btn:disabled{opacity:.45;cursor:default}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.row.grow>*{flex:1 1 150px}
+.step{font-size:11px;letter-spacing:var(--track);text-transform:uppercase;color:var(--green-70);margin:4px 0 6px}
+h2{font-size:28px;line-height:1.15;margin:2px 0 8px}
+.lead{color:#5f5f5f;margin:0 0 14px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px}
+.chip{border:1px solid #cfd4cf;background:var(--white);border-radius:999px;padding:9px 16px;cursor:pointer;font-size:14px;min-height:42px}
+.chip[aria-pressed="true"]{background:var(--green);border-color:var(--green);color:var(--white);font-weight:600}
+.chip.avoid[aria-pressed="true"]{background:var(--alert);border-color:var(--alert)}
+.grp{font-size:11px;letter-spacing:var(--track);text-transform:uppercase;color:var(--green-70);margin:14px 0 6px}
+.avoidbar{background:var(--alert-bg);color:var(--alert);border-radius:10px;padding:9px 14px;font-size:13px;margin:0 0 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.avoidbar button{background:none;border:0;color:var(--alert);text-decoration:underline;cursor:pointer;padding:0;font-size:13px}
+.dish{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;margin:0 0 14px;display:grid;grid-template-columns:112px 1fr}
+.ph{background:linear-gradient(135deg,var(--green) 0%,#6B7F6D 100%);color:rgba(255,255,255,.9);display:flex;align-items:center;justify-content:center;font-family:var(--display);font-size:38px;min-height:112px;position:relative;overflow:hidden}
+.ph img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.dish .body{padding:12px 14px}
+.dish h3{font-size:21px;line-height:1.15;margin:0 0 2px}
+.dish .meta{font-size:12px;color:var(--green-70);margin:0 0 6px}
+.dish .desc{font-size:14px;color:#4a4a4a;margin:0 0 8px}
+.tags{display:flex;flex-wrap:wrap;gap:5px;margin:0 0 6px}
+.tag{font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;padding:3px 8px;border-radius:999px;background:var(--green-10);color:var(--green)}
+.tag.hit{background:var(--green);color:var(--white)}
+.al{font-size:12px;color:var(--alert);margin:0 0 6px}
+.flag{font-size:12px;background:var(--note-bg);color:var(--note-ink);border-radius:8px;padding:5px 9px;margin:0 0 6px;display:inline-block}
+.dish .act{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.price{font-weight:600;color:var(--brown);margin-right:auto}
+.bar{position:fixed;left:0;right:0;bottom:0;background:var(--white);border-top:1px solid var(--mist);padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));display:flex;gap:10px;z-index:20;box-shadow:0 -6px 20px rgba(38,38,38,.08)}
+.bar .btn{flex:1}
+.empty{padding:30px 16px;text-align:center;color:var(--green-70)}
+.note{background:var(--note-bg);color:var(--note-ink);border-radius:10px;padding:11px 14px;font-size:13px;margin:0 0 14px}
+.legal{font-size:12px;color:#6a6a6a;margin:22px 0 0;line-height:1.5}
+/* wheel */
+.wheelwrap{position:relative;width:min(86vw,340px);aspect-ratio:1;margin:8px auto 18px}
+.wheelwrap svg{width:100%;height:100%;display:block}
+#wheel{transform-origin:50% 50%;transition:transform 3.9s cubic-bezier(.215,.61,.355,1)}
+.pointer{position:absolute;left:50%;top:-6px;transform:translateX(-50%);width:0;height:0;border-left:13px solid transparent;border-right:13px solid transparent;border-top:24px solid var(--brown);filter:drop-shadow(0 2px 2px rgba(0,0,0,.25));z-index:2}
+.hub{position:absolute;left:50%;top:50%;width:56px;height:56px;margin:-28px 0 0 -28px;border-radius:50%;background:var(--white);border:3px solid var(--brown);display:flex;align-items:center;justify-content:center;font-family:var(--display);color:var(--brown);font-size:13px;letter-spacing:.08em;z-index:2;cursor:pointer}
+.result{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;margin:0 0 16px}
+.result .ph{min-height:190px;font-size:60px}
+.result .body{padding:16px}
+.result h2{font-size:30px}
+.pick{display:flex;gap:10px;align-items:center;background:var(--white);border:1px solid var(--mist);border-radius:10px;padding:10px 12px;margin:0 0 8px;cursor:pointer}
+.pick input{width:22px;height:22px;flex:none;accent-color:var(--green)}
+.pick .nm{font-weight:600}.pick .sub{font-size:12px;color:var(--green-70)}
+.search{width:100%;padding:12px 14px;border:1px solid #cfd4cf;border-radius:10px;font-size:16px;margin:0 0 12px;background:var(--white)}
+.back{background:none;border:0;color:var(--green);font-size:13px;letter-spacing:var(--track);text-transform:uppercase;cursor:pointer;padding:6px 0;margin:0 0 4px;font-weight:600}
+@media (prefers-reduced-motion:reduce){#wheel{transition-duration:.4s}}
+@media (min-width:600px){.dish{grid-template-columns:150px 1fr}}
+</style>
+</head>
+<body>
+<div class="demo" id="demo" hidden>Demonstration menu. The dishes, tags and allergen details shown are examples, not our live menu.</div>
+<header class="top"><div class="brand">The Black Horse<small>Beamish</small></div></header>
+<main id="app"><div class="empty">Loading the menu…</div></main>
+<div class="bar" id="bar" hidden></div>
+
+<script>
+const API = "https://safcrtrfdzsnftghibot.supabase.co/functions/v1/menu-decider-api";
+const KEY = "sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU";
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+const money = n => "£" + Number(n).toFixed(2);
+
+const M = { dishes:[], tags:[], allergens:[], settings:{}, tagLabel:{}, allergenLabel:{} };
+// what the guest has chosen so far (kept for this visit only, never sent anywhere)
+const S = { screen:"home", menu:"", course:"", avoid:new Set(), diet:"", moods:new Set(), basket:[], wheel:[], rot:0, spinning:false, result:null, from:"" };
+const WHEEL_MAX = 12;
+
+async function load(){
+  try {
+    const r = await fetch(API, { method:"POST", headers:{ "Content-Type":"application/json", apikey:KEY }, body:JSON.stringify({ action:"public.menu" }) });
+    const d = await r.json(); if (!r.ok || d.error) throw new Error(d.error || "Could not load");
+    M.dishes = d.dishes; M.tags = d.tags; M.allergens = d.allergens; M.settings = d.settings;
+    d.tags.forEach(t => M.tagLabel[t.key] = t.label); d.allergens.forEach(a => M.allergenLabel[a.key] = a.label);
+  } catch(e){ $("#app").innerHTML = `<div class="empty">Sorry, the menu could not be loaded just now.<br>Please ask a member of the team.</div>`; return; }
+  $("#demo").hidden = !M.settings.demo;
+  const menus = menuList(), want = new URLSearchParams(location.search).get("menu");
+  const hit = want && menus.find(m => m.toLowerCase().replace(/[^a-z]/g, "") === want.toLowerCase().replace(/[^a-z]/g, ""));
+  S.menu = hit || (menus.includes("A la carte") ? "A la carte" : menus[0] || "");
+  go("home");
+}
+const menuList = () => [...new Set(M.dishes.map(d => d.menu))];
+const COURSE_ORDER = ["Starters","Mains","Sides","Desserts"];
+const courseList = () => { const c = [...new Set(M.dishes.filter(d => d.menu === S.menu).map(d => d.course))]; return c.sort((a, b) => (COURSE_ORDER.indexOf(a) < 0 ? 9 : COURSE_ORDER.indexOf(a)) - (COURSE_ORDER.indexOf(b) < 0 ? 9 : COURSE_ORDER.indexOf(b))); };
+const courseLabel = c => ({ Starters:"A starter", Mains:"A main course", Sides:"Something on the side", Desserts:"A dessert" }[c] || c);
+
+/* ---- the rules: allergens are a hard filter, never a soft warning */
+function check(d){
+  // returns null if the dish is out, else { notes: [...] } (a dish that has an "on request" version of what the guest avoids stays in, with a note)
+  const notes = [];
+  const blocked = [...S.avoid].filter(a => d.allergens.includes(a));
+  for (const a of blocked) {
+    if (a === "gluten" && d.tags.includes("gf-option")) { notes.push("Gluten free version available: ask your server to make it gluten free."); continue; }
+    if ((a === "milk" || a === "eggs") && d.tags.includes("vegan-option") && blocked.every(x => x === "milk" || x === "eggs")) { if (!notes.some(n => /vegan/.test(n))) notes.push("Vegan version available: ask your server."); continue; }
+    return null;
+  }
+  if (S.diet === "vegetarian" && !d.tags.includes("vegetarian")) return null;
+  if (S.diet === "vegan" && !d.tags.includes("vegan")) { if (d.tags.includes("vegan-option")) notes.push("Vegan version available: ask your server."); else return null; }
+  return { notes };
+}
+function pool(){
+  return M.dishes.filter(d => d.menu === S.menu && (!S.course || d.course === S.course)).map(d => ({ d, c:check(d) })).filter(x => x.c);
+}
+const score = d => [...S.moods].filter(m => d.tags.includes(m)).length;
+
+/* ---- screens */
+function go(screen){ S.screen = screen; render(); window.scrollTo(0, 0); }
+function render(){
+  const a = $("#app"), bar = $("#bar"); bar.hidden = true; bar.innerHTML = "";
+  ({ home, course, avoid, mood, results, pickdishes, wheel }[S.screen] || home)(a, bar);
+}
+const legal = `<p class="legal">Allergen and dietary details are a guide to help you choose. Please tell your server about any allergy or intolerance before you order, even if a dish looks suitable here.</p>`;
+const avoidBar = () => S.avoid.size || S.diet ? `<div class="avoidbar"><span>${S.avoid.size ? "Avoiding: " + [...S.avoid].map(a => esc(M.allergenLabel[a] || a)).join(", ") : ""}${S.avoid.size && S.diet ? " · " : ""}${S.diet ? esc(S.diet === "vegan" ? "Vegan" : "Vegetarian") : ""}</span><button id="chgAvoid">Change</button></div>` : "";
+const bindAvoid = () => { const b = $("#chgAvoid"); if (b) b.onclick = () => { S.from = S.screen; go("avoid"); }; };
+
+function home(a){
+  const s = M.settings, menus = menuList();
+  a.innerHTML = `<div class="hero"><h1>${esc(s.title || "Not sure what to order?")}</h1><p>${esc(s.intro || "")}</p></div>
+    ${menus.length > 1 ? `<div class="step">Which menu?</div><div class="chips" id="menus">${menus.map(m => `<button class="chip" data-menu="${esc(m)}" aria-pressed="${m === S.menu}">${esc(m)}</button>`).join("")}</div>` : ""}
+    <div class="big">
+      <button class="opt" id="oHelp"><b>Help me choose</b><span>A few quick questions, then we suggest dishes that suit your mood.</span></button>
+      <button class="opt" id="oWheel"><b>Spin the wheel</b><span>Pick a few dishes you like the look of and let the wheel decide.</span></button>
+    </div>${legal}`;
+  a.querySelectorAll("[data-menu]").forEach(b => b.onclick = () => { S.menu = b.dataset.menu; S.course = ""; render(); });
+  $("#oHelp").onclick = () => { S.moods = new Set(); S.course = ""; S.from = ""; go("course"); };
+  $("#oWheel").onclick = () => { S.moods = new Set(); S.course = ""; S.basket = []; S.from = "wheelflow"; go("avoid"); };
+}
+function course(a){
+  const cs = courseList();
+  a.innerHTML = `<button class="back" id="bk">&larr; Back</button><div class="step">Question 1 of 3</div><h2>What are you after?</h2><p class="lead">Choose one, or see everything.</p>
+    <div class="chips" id="cs">${cs.map(c => `<button class="chip" data-c="${esc(c)}" aria-pressed="${S.course === c}">${esc(courseLabel(c))}</button>`).join("")}<button class="chip" data-c="" aria-pressed="${S.course === ""}">Show me everything</button></div>`;
+  $("#bk").onclick = () => go("home");
+  a.querySelectorAll("[data-c]").forEach(b => b.onclick = () => { S.course = b.dataset.c; S.from = "helpflow"; go("avoid"); });
+}
+function avoid(a, bar){
+  const flow = S.from === "wheelflow";
+  a.innerHTML = `<button class="back" id="bk">&larr; Back</button><div class="step">${flow ? "Before you pick" : "Question 2 of 3"}</div><h2>Anything you need to avoid?</h2>
+    <p class="lead">Dishes containing these are hidden. Tap any that apply, or carry on if there is nothing.</p>
+    <div class="grp">Diet</div><div class="chips" id="diet"><button class="chip" data-d="vegetarian" aria-pressed="${S.diet === "vegetarian"}">Vegetarian</button><button class="chip" data-d="vegan" aria-pressed="${S.diet === "vegan"}">Vegan</button></div>
+    <div class="grp">Allergens</div><div class="chips" id="als">${M.allergens.map(x => `<button class="chip avoid" data-a="${esc(x.key)}" aria-pressed="${S.avoid.has(x.key)}">${esc(x.label)}</button>`).join("")}</div>${legal}`;
+  bar.hidden = false; bar.innerHTML = `<button class="btn" id="nx">Continue</button>`;
+  $("#bk").onclick = () => go(S.from === "wheelflow" ? "home" : S.from === "results" || S.from === "pickdishes" || S.from === "mood" ? S.from : S.from === "helpflow" ? "course" : "home");
+  a.querySelectorAll("[data-d]").forEach(b => b.onclick = () => { S.diet = S.diet === b.dataset.d ? "" : b.dataset.d; render(); });
+  a.querySelectorAll("[data-a]").forEach(b => b.onclick = () => { const k = b.dataset.a; S.avoid.has(k) ? S.avoid.delete(k) : S.avoid.add(k); b.setAttribute("aria-pressed", S.avoid.has(k)); });
+  $("#nx").onclick = () => go(S.from === "wheelflow" ? "pickdishes" : S.from === "results" || S.from === "pickdishes" ? S.from : "mood");
+}
+function mood(a, bar){
+  const groups = {}; M.tags.filter(t => !["gf-option", "vegan-option", "vegetarian", "vegan"].includes(t.key)).forEach(t => (groups[t.grp] = groups[t.grp] || []).push(t));
+  const inPool = new Set(pool().flatMap(x => x.d.tags));
+  a.innerHTML = `<button class="back" id="bk">&larr; Back</button><div class="step">Question 3 of 3</div><h2>What are you in the mood for?</h2><p class="lead">Pick as many as you like. We will show the closest matches first.</p>${avoidBar()}
+    ${Object.keys(groups).map(g => { const ts = groups[g].filter(t => inPool.has(t.key)); return ts.length ? `<div class="grp">${esc(g)}</div><div class="chips">${ts.map(t => `<button class="chip" data-m="${esc(t.key)}" aria-pressed="${S.moods.has(t.key)}">${esc(t.label)}</button>`).join("")}</div>` : ""; }).join("")}`;
+  bar.hidden = false; bar.innerHTML = `<button class="btn ghost" id="skip">Surprise me</button><button class="btn" id="show">Show dishes</button>`;
+  bindAvoid(); $("#bk").onclick = () => go("avoid");
+  a.querySelectorAll("[data-m]").forEach(b => b.onclick = () => { const k = b.dataset.m; S.moods.has(k) ? S.moods.delete(k) : S.moods.add(k); b.setAttribute("aria-pressed", S.moods.has(k)); });
+  $("#show").onclick = () => { S.from = "mood"; go("results"); };
+  $("#skip").onclick = () => { S.moods = new Set(); startWheel(shuffle(pool().map(x => x.d.id)).slice(0, WHEEL_MAX), "mood"); };
+}
+const shuffle = arr => { const a = arr.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+
+function photo(d){ return `<div class="ph">${d.photo_url ? `<img src="${esc(d.photo_url)}" alt="${esc(d.name)}" loading="lazy">` : ""}<span>${esc(d.name.replace(/^[^A-Za-z]+/, "").charAt(0).toUpperCase())}</span></div>`; }
+function dishCard(x, hits, withAdd){
+  const d = x.d, inB = S.basket.includes(d.id);
+  const tagHtml = d.tags.filter(t => !["gf-option", "vegan-option"].includes(t)).map(t => `<span class="tag ${hits && S.moods.has(t) ? "hit" : ""}">${esc(M.tagLabel[t] || t)}</span>`).join("");
+  return `<div class="dish">${photo(d)}<div class="body"><h3>${esc(d.name)}</h3><p class="meta">${esc(d.course)}${d.menu !== "A la carte" ? " · " + esc(d.menu) : ""}</p>
+    ${d.description ? `<p class="desc">${esc(d.description)}</p>` : ""}<div class="tags">${tagHtml}</div>
+    ${d.allergens.length ? `<p class="al">Contains: ${d.allergens.map(a => esc(M.allergenLabel[a] || a)).join(", ")}</p>` : ""}
+    ${x.c.notes.map(n => `<span class="flag">${esc(n)}</span>`).join("")}
+    <div class="act">${M.settings.show_prices && d.price != null ? `<span class="price">${money(d.price)}</span>` : `<span class="price"></span>`}${withAdd ? `<button class="btn small ${inB ? "" : "ghost"}" data-add="${esc(d.id)}">${inB ? "On the wheel" : "Add to wheel"}</button>` : ""}</div></div></div>`;
+}
+function results(a, bar){
+  let list = pool(); const moods = [...S.moods];
+  let msg = "";
+  if (moods.length) { const hit = list.filter(x => score(x.d) > 0); if (hit.length) list = hit; else msg = `<div class="note">Nothing matches all of that, so here is everything that suits you, in case something catches your eye.</div>`; }
+  list.sort((p, q) => score(q.d) - score(p.d) || p.d.name.localeCompare(q.d.name));
+  a.innerHTML = `<button class="back" id="bk">&larr; Change my answers</button><h2>${list.length ? "How about these?" : "Nothing to show"}</h2>
+    <p class="lead">${list.length ? "Tap Add to wheel on any you like, then spin to choose between them." : "Try changing what you are avoiding or the mood you chose."}</p>${avoidBar()}${msg}
+    ${list.map(x => dishCard(x, true, true)).join("")}${legal}`;
+  bindAvoid(); $("#bk").onclick = () => go("mood");
+  const upd = () => { bar.hidden = !list.length; bar.innerHTML = list.length ? `<button class="btn ghost" id="spinTop" ${list.length < 2 ? "disabled" : ""}>Spin from these</button><button class="btn" id="spinMine" ${S.basket.length < 2 ? "disabled" : ""}>Spin my wheel (${S.basket.length})</button>` : ""; if (list.length) { $("#spinTop").onclick = () => startWheel(list.slice(0, WHEEL_MAX).map(x => x.d.id), "results"); $("#spinMine").onclick = () => startWheel(S.basket.slice(0, WHEEL_MAX), "results"); } };
+  upd();
+  a.querySelectorAll("[data-add]").forEach(b => b.onclick = () => { const id = b.dataset.add; const i = S.basket.indexOf(id); if (i >= 0) S.basket.splice(i, 1); else S.basket.push(id); b.classList.toggle("ghost", !S.basket.includes(id)); b.textContent = S.basket.includes(id) ? "On the wheel" : "Add to wheel"; upd(); });
+}
+function pickdishes(a, bar){
+  const list = pool().sort((p, q) => COURSE_ORDER.indexOf(p.d.course) - COURSE_ORDER.indexOf(q.d.course));
+  const courses = [...new Set(list.map(x => x.d.course))];
+  a.innerHTML = `<button class="back" id="bk">&larr; Back</button><h2>Pick your favourites</h2><p class="lead">Tick the dishes you fancy (up to ${WHEEL_MAX}) and the wheel will choose.</p>${avoidBar()}
+    <input class="search" id="q" type="search" placeholder="Search the menu" autocomplete="off">
+    <div id="pl">${list.length ? "" : `<div class="empty">Nothing to show with those choices.</div>`}</div>${legal}`;
+  const paint = () => {
+    const q = $("#q").value.trim().toLowerCase();
+    $("#pl").innerHTML = courses.map(c => { const rows = list.filter(x => x.d.course === c && (!q || (x.d.name + " " + x.d.description).toLowerCase().includes(q))); return rows.length ? `<div class="grp">${esc(c)}</div>${rows.map(x => `<label class="pick"><input type="checkbox" data-p="${esc(x.d.id)}" ${S.basket.includes(x.d.id) ? "checked" : ""}><span><span class="nm">${esc(x.d.name)}</span><br><span class="sub">${esc(x.d.description || "")}${x.c.notes.length ? " · " + esc(x.c.notes[0]) : ""}</span></span></label>`).join("")}` : ""; }).join("");
+    $("#pl").querySelectorAll("[data-p]").forEach(cb => cb.onchange = () => { const id = cb.dataset.p; if (cb.checked) { if (S.basket.length >= WHEEL_MAX) { cb.checked = false; return; } S.basket.push(id); } else S.basket = S.basket.filter(x => x !== id); upd(); });
+  };
+  const upd = () => { bar.hidden = false; bar.innerHTML = `<button class="btn" id="go" ${S.basket.length < 2 ? "disabled" : ""}>${S.basket.length < 2 ? "Pick at least 2" : `Spin the wheel (${S.basket.length})`}</button>`; $("#go").onclick = () => startWheel(S.basket.slice(), "pickdishes"); };
+  $("#bk").onclick = () => go("home"); $("#q").oninput = paint; bindAvoid(); paint(); upd();
+}
+
+/* ---- the wheel: the winner is chosen first, then the wheel is turned so that wedge ends up under the pointer */
+const PAL = ["#4D604F", "#3F2F28", "#7B887C", "#8A7B5A", "#6B7F6D", "#5A463C", "#99A38F", "#A68B5B"];
+const DARKTXT = new Set(["#99A38F", "#A68B5B"]);
+function startWheel(ids, back){ S.wheel = ids.map(id => M.dishes.find(d => d.id === id)).filter(Boolean); S.result = null; S.rot = 0; S.back = back; go("wheel"); }
+function wedge(i, n, R){ const a = 2 * Math.PI / n, a0 = i * a - Math.PI / 2, a1 = (i + 1) * a - Math.PI / 2; const x0 = R + R * Math.cos(a0), y0 = R + R * Math.sin(a0), x1 = R + R * Math.cos(a1), y1 = R + R * Math.sin(a1); return n === 1 ? `M${R},${R - R} A${R},${R} 0 1 1 ${R - 0.01},${R - R} Z` : `M${R},${R} L${x0},${y0} A${R},${R} 0 ${a > Math.PI ? 1 : 0} 1 ${x1},${y1} Z`; }
+function wheelSvg(){
+  const n = S.wheel.length, R = 150, a = 360 / n, max = n <= 5 ? 20 : n <= 8 ? 15 : 12, fs = n <= 6 ? 14 : n <= 9 ? 12.5 : 11.5;
+  return `<svg viewBox="0 0 300 300" role="img" aria-label="Wheel of dishes"><g id="wheel">${S.wheel.map((d, i) => {
+    const mid = i * a + a / 2 - 90, nm = d.name.length > max ? d.name.slice(0, max - 1).trim() + "…" : d.name, col = PAL[i % PAL.length];
+    return `<path d="${wedge(i, n, R)}" fill="${col}" stroke="#F8F8F8" stroke-width="2"/><text transform="translate(${R},${R}) rotate(${mid}) translate(${R - 12},0)" text-anchor="end" dominant-baseline="middle" font-family="Raleway,Arial,sans-serif" font-size="${fs}" font-weight="600" fill="${DARKTXT.has(col) ? "#262626" : "#fff"}">${esc(nm)}</text>`; }).join("")}</g></svg>`;
+}
+function wheel(a, bar){
+  const n = S.wheel.length;
+  if (n < 1) { a.innerHTML = `<div class="empty">There is nothing on the wheel yet.</div>`; return; }
+  a.innerHTML = `<button class="back" id="bk">&larr; ${S.back === "pickdishes" ? "Change my picks" : "Back to the dishes"}</button><h2 style="text-align:center">${S.result ? "The wheel has chosen" : "Spin to decide"}</h2>
+    <div class="wheelwrap"><div class="pointer"></div>${wheelSvg()}<button class="hub" id="hub" aria-label="Spin">SPIN</button></div><div id="res"></div>`;
+  $("#bk").onclick = () => go(S.back || "home");
+  const w = $("#wheel"); w.style.transform = `rotate(${S.rot}deg)`;
+  $("#hub").onclick = spin;
+  bar.hidden = false; bar.innerHTML = `<button class="btn" id="spin" ${S.spinning ? "disabled" : ""}>${S.result ? "Spin again" : "Spin the wheel"}</button>`; $("#spin").onclick = spin;
+  if (S.result) showResult();
+}
+function spin(){
+  if (S.spinning || !S.wheel.length) return;
+  const n = S.wheel.length, k = Math.floor(Math.random() * n), a = 360 / n, jitter = (Math.random() - .5) * a * .6;
+  const target = 360 - (k * a + a / 2) + jitter, base = Math.ceil(S.rot / 360) * 360;
+  S.rot = base + (5 + Math.floor(Math.random() * 3)) * 360 + target; S.spinning = true; S.result = null; $("#res").innerHTML = ""; $("#spin").disabled = true;
+  const w = $("#wheel"), quick = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  w.style.transform = `rotate(${S.rot}deg)`;
+  setTimeout(() => { S.spinning = false; S.result = S.wheel[k]; $("#spin").disabled = false; $("#spin").textContent = "Spin again"; document.querySelector("h2").textContent = "The wheel has chosen"; showResult(); }, quick ? 450 : 4020);
+}
+function showResult(){
+  const d = S.result; if (!d) return;
+  const c = check(d) || { notes: [] };
+  $("#res").innerHTML = `<div class="result">${photo(d)}<div class="body"><h2>${esc(d.name)}</h2><p class="meta" style="color:var(--green-70);margin:0 0 8px;font-size:13px">${esc(d.course)}${M.settings.show_prices && d.price != null ? " · " + money(d.price) : ""}</p>
+    ${d.description ? `<p class="desc" style="margin:0 0 8px">${esc(d.description)}</p>` : ""}<div class="tags">${d.tags.filter(t => !["gf-option", "vegan-option"].includes(t)).map(t => `<span class="tag">${esc(M.tagLabel[t] || t)}</span>`).join("")}</div>
+    ${d.allergens.length ? `<p class="al">Contains: ${d.allergens.map(x => esc(M.allergenLabel[x] || x)).join(", ")}</p>` : ""}${c.notes.map(x => `<span class="flag">${esc(x)}</span>`).join("")}
+    <div class="row" style="margin-top:10px"><button class="btn ghost small" id="rm" ${S.wheel.length < 3 ? "disabled" : ""}>Not this one: take it off and spin again</button></div></div></div>${legal}`;
+  $("#rm").onclick = () => { S.wheel = S.wheel.filter(x => x.id !== d.id); S.basket = S.basket.filter(x => x !== d.id); S.result = null; S.rot = 0; render(); };
+}
+load();
+</script>
+</body>
+</html>
