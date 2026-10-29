@@ -99,6 +99,7 @@ details{margin-top:4px} summary{cursor:pointer; color:var(--sage); font-weight:6
   <header class="top"><div class="topin"><div class="brand" id="brandname">Black Horse Botanicals</div><div class="who" id="whoname"></div></div></header>
   <nav class="tabs"><div class="tabsin" role="tablist">
     <button class="tabbtn" data-view="till" hidden>Till</button>
+    <button class="tabbtn" data-view="cashup" hidden>Cash up</button>
     <button class="tabbtn" data-view="reports" hidden>Reports</button>
     <button class="tabbtn" data-view="products" hidden>Products</button>
     <button class="tabbtn" data-view="settings" hidden>Receipt</button>
@@ -218,6 +219,7 @@ function cardStep(){
   const total = cartTotal(), ref = T.refund;
   ov(`<h3>${ref ? "Refund to card" : "Card payment"}</h3><div class="amt" style="color:${ref ? "var(--alert)" : "var(--sage)"}">${ref ? "-" : ""}${money(total)}</div>
     <p>${ref ? "Refund the customer on the SumUp reader, then tap Refund given." : "Take the payment on the SumUp reader, then tap Card payment taken."}</p>
+    <div class="note" style="text-align:left">${ref ? "Refund it from the SumUp app" : "On the reader, type the description"} <b>${esc(T.business || "Black Horse Botanicals")}</b>${ref ? ", with that description," : ""} so this payment shows as the shop's and not the pub's.</div>
     <button class="btn big ${ref ? "red" : ""}" id="paid">${ref ? "Refund given" : "Card payment taken"}</button><button class="btn ghost" id="back">Back</button>`);
   $("#back").onclick = payScreen; $("#paid").onclick = () => confirmPaid("card", null, $("#paid"));
 }
@@ -276,6 +278,92 @@ async function showRead(action){
     <p class="muted" style="font-size:13px">${r.voids} item${r.voids === 1 ? "" : "s"} removed before payment (${money(r.voids_value)}).</p>
     <button class="btn" id="rprint">Print this page</button> <button class="btn ghost" id="rdone">Close</button>`, "wide");
   $("#rdone").onclick = () => { ovClose(); paintTill(); }; $("#rprint").onclick = () => { try { window.print(); } catch(e){ toast("Printing is not available here.", true); } };
+}
+
+/* =========================================================== cash up */
+/* Compares what the till says with what is really there: the drawer (counted) and SumUp (card payments described as the shop's). A cash up covers everything sold since the one before. */
+const C = { d:null, date:"", sure:false };
+const num = v => Number(v) || 0;
+const r2n = v => Math.round(num(v) * 100) / 100;
+const diffTag = d => Math.abs(d) < 0.005 ? `<span class="tag good">Spot on</span>` : `<span class="tag bad">${d > 0 ? "+" : "-"}${money(Math.abs(d))}</span>`;
+async function viewCashup(){
+  const v = $("#views"); v.innerHTML = `<div class="loading">Loading…</div>`;
+  try { C.d = await call("cashup.load", C.date ? { date:C.date } : {}); } catch(e){ v.innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+  C.date = C.d.date; C.sure = false; paintCashup();
+}
+function paintCashup(){
+  const d = C.d, sn = d.since, pend = lsGet("bot_pending_sales", []).length, sumOk = d.sumup.ok;
+  const tc = sn.till.cash.net, tk = sn.till.card.net, cardNow = sumOk ? sn.sumup_card : null;
+  const chk = sn.check;
+  const list = (rows, f) => rows.map(f).join("");
+  const checkHtml = !sumOk ? "" : (chk && (chk.unmatched_till.length || chk.unmatched_sumup.length) ? `<div class="note" style="margin-top:12px"><b>Card payments that do not line up</b>
+      ${chk.unmatched_till.length ? `<p style="margin:8px 0 4px">In the till, but no SumUp payment described as the shop's:</p><ul style="margin:0 0 6px 18px">${list(chk.unmatched_till, x => `<li>${fmtDT(x.ts)}: ${money(x.amount)} (receipt ${x.seq})</li>`)}</ul>` : ""}
+      ${chk.possible.length ? `<p style="margin:8px 0 4px">These look like the same payments, taken on the reader without the description:</p><ul style="margin:0 0 6px 18px">${list(chk.possible, x => `<li>${money(x.amount)} at ${fmtDT(x.sumup_ts)}${x.desc ? ` (described “${esc(x.desc)}”)` : " (no description)"}</li>`)}</ul>` : ""}
+      ${chk.unmatched_sumup.length ? `<p style="margin:8px 0 4px">In SumUp as the shop's, but not in the till:</p><ul style="margin:0 0 6px 18px">${list(chk.unmatched_sumup, x => `<li>${fmtDT(x.ts)}: ${money(x.amount)}</li>`)}</ul>` : ""}
+      <p style="margin:6px 0 0" class="muted">Missing descriptions are the usual cause. A shop payment taken without the description is counted as the pub's in the pub's own SumUp figure.</p></div>` : "");
+  const f0 = sn.float_suggest;
+  let h = `<div class="pagehead"><h2>Cash up</h2><span class="hint">${esc(d.business)} · what the till says against what is really there</span></div>
+  ${pend ? `<div class="note">This device has ${pend} sale${pend === 1 ? "" : "s"} waiting to be sent (no connection earlier). Open the Till tab with a connection so they are sent before you cash up.</div>` : ""}
+  ${sumOk ? "" : `<div class="note">SumUp could not be read just now (${esc(d.sumup.error)}). You can type the card total from the SumUp app below; the saved cash up will say it was typed.</div>`}
+  <div class="card"><h3>Since the last cash up</h3>
+    <p class="muted">${sn.first ? "No cash up has been done yet: this counts everything sold so far." : `From ${fmtDT(sn.from_ts)} (last cash up by ${esc(d.last.counted_by)}).`} Up to ${fmtDT(sn.to_ts)}, when this screen was opened. Anything sold after that goes into the next one.</p>
+    <div class="kpis"><div class="kpi"><div class="l">Till: cash</div><div class="v">${money(tc)}</div><div class="s">${sn.till.cash.count} sale${sn.till.cash.count === 1 ? "" : "s"}${sn.till.cash.refunds ? `, ${money(sn.till.cash.refunds)} refunded` : ""}</div></div>
+      <div class="kpi"><div class="l">Till: card</div><div class="v">${money(tk)}</div><div class="s">${sn.till.card.count} sale${sn.till.card.count === 1 ? "" : "s"}${sn.till.card.refunds ? `, ${money(sn.till.card.refunds)} refunded` : ""}</div></div>
+      <div class="kpi"><div class="l">SumUp: card</div><div class="v">${cardNow == null ? "n/a" : money(cardNow)}</div><div class="s">${cardNow == null ? "could not be read" : `${sn.sumup_count} payment${sn.sumup_count === 1 ? "" : "s"} described as the shop's`}</div></div></div>
+    <div class="grid2"><div>
+      <div class="field"><label for="cu_by">Counted by</label><input id="cu_by" maxlength="40" placeholder="Your name" value="${esc(C.by || "")}"></div>
+      <div class="field"><label for="cu_fin">Float in the drawer at the start (£)</label><input id="cu_fin" type="number" step="0.01" min="0" inputmode="decimal" value="${f0.toFixed(2)}"></div>
+      <div class="field"><label for="cu_cnt">Cash counted in the drawer now (£)</label><input id="cu_cnt" type="number" step="0.01" min="0" inputmode="decimal" placeholder="0.00"></div>
+      <div class="field"><label for="cu_fout">Float to leave in the drawer (£)</label><input id="cu_fout" type="number" step="0.01" min="0" inputmode="decimal" value="${f0.toFixed(2)}"></div>
+      ${sumOk ? "" : `<div class="field"><label for="cu_card">Card total from the SumUp app (£)</label><input id="cu_card" type="number" step="0.01" min="0" inputmode="decimal"></div>`}
+      <div class="field"><label for="cu_note">Notes (optional)</label><input id="cu_note" maxlength="400"></div></div>
+    <div class="card" style="background:var(--sage-10);box-shadow:none"><h3 style="font-size:19px">The check</h3><div id="cu_sum" class="muted">Enter what you counted.</div></div></div>
+    <button class="btn big" id="cu_save">Save cash up</button>
+    ${checkHtml}</div>`;
+  const anchor = d.date;
+  h += `<div class="pagehead" style="margin-top:22px"><h2 style="font-size:22px">Day, week, month and period</h2><span class="hint">Till against actual</span><span class="spacer"></span><label class="muted">Around <input type="date" id="cu_date" value="${esc(anchor)}" max="${esc(today())}" style="padding:7px 10px;border:1px solid var(--mist);border-radius:8px"></label></div>
+  <div class="card"><div class="tw"><table class="t"><tr><th rowspan="2">Range</th><th colspan="3" style="text-align:center">Cash</th><th colspan="3" style="text-align:center">Card</th></tr>
+    <tr><th class="r">Till says</th><th class="r">Counted</th><th class="r">Difference</th><th class="r">Till says</th><th class="r">SumUp</th><th class="r">Difference</th></tr>
+    ${d.ranges.map(r => { const cd = r2n(r.counted_cash - r.till_cash), kd = r.sumup_card == null ? null : r2n(r.sumup_card - r.till_card); return `<tr><td><b>${esc(r.label)}</b><br><span class="muted" style="font-size:12px">${fmtD(r.from)}${r.from === r.to ? "" : " to " + fmtD(r.to)}</span></td>
+      <td class="r">${money(r.till_cash)}</td><td class="r">${money(r.counted_cash)}<br><span class="muted" style="font-size:12px">${r.cashups} cash up${r.cashups === 1 ? "" : "s"}</span></td><td class="r">${diffTag(cd)}</td>
+      <td class="r">${money(r.till_card)}</td><td class="r">${r.sumup_card == null ? "n/a" : money(r.sumup_card)}</td><td class="r">${kd == null ? "" : diffTag(kd)}</td></tr>`; }).join("")}</table></div>
+    <p class="muted" style="font-size:13px;margin:10px 0 0">Till says = sales less refunds. Counted = cash counted at the cash ups in that range, less the float. Cash taken but not counted yet shows as a shortfall until the next cash up. SumUp = card payments described as the shop's. Difference = actual less till. The period is the Forecast tile's trading period; where none is set up, the calendar month.</p></div>`;
+  h += `<div class="pagehead" style="margin-top:22px"><h2 style="font-size:22px">Past cash ups</h2><span class="spacer"></span><button class="btn ghost small" id="cu_csv" ${d.history.length ? "" : "disabled"}>Download CSV</button></div>
+  <div class="card">${d.history.length ? `<div class="tw"><table class="t"><tr><th>When</th><th>Counted by</th><th class="r">Till cash</th><th class="r">Counted</th><th class="r">Float in</th><th class="r">Float left</th><th class="r">Cash diff.</th><th class="r">Till card</th><th class="r">SumUp</th><th class="r">Card diff.</th><th>Notes</th></tr>
+    ${d.history.map(x => `<tr><td>${fmtDT(x.to_ts)}<br><span class="muted" style="font-size:12px">since ${fmtDT(x.from_ts)}</span></td><td>${esc(x.counted_by)}</td><td class="r">${money(x.till_cash)}</td><td class="r">${money(x.cash_counted)}</td><td class="r">${money(x.float_in)}</td><td class="r">${money(x.float_left)}</td><td class="r">${diffTag(num(x.cash_variance))}</td>
+      <td class="r">${money(x.till_card)}</td><td class="r">${x.sumup_card == null ? "n/a" : money(x.sumup_card)}${x.card_source === "typed" ? ` <span class="tag">typed</span>` : ""}</td><td class="r">${x.card_variance == null ? "" : diffTag(num(x.card_variance))}</td><td>${esc(x.notes || "")}</td></tr>`).join("")}</table></div>` : `<div class="empty">No cash ups yet.</div>`}</div>`;
+  $("#views").innerHTML = h;
+
+  const upd = () => {
+    const fin = num($("#cu_fin").value), cnt = $("#cu_cnt").value === "" ? null : num($("#cu_cnt").value), sum = $("#cu_sum");
+    if (cnt == null) { sum.innerHTML = `Enter what you counted.`; return; }
+    const expected = r2n(fin + tc), cd = r2n(cnt - expected);
+    const typed = $("#cu_card") ? ($("#cu_card").value === "" ? null : num($("#cu_card").value)) : cardNow, kd = typed == null ? null : r2n(typed - tk);
+    sum.innerHTML = `<table class="t"><tr><td>Float at the start + cash sales</td><td class="r">${money(expected)}</td></tr><tr><td>Counted</td><td class="r">${money(cnt)}</td></tr><tr><td><b>Cash difference</b></td><td class="r">${diffTag(cd)}</td></tr>
+      <tr><td>To take out of the drawer</td><td class="r">${money(Math.max(0, cnt - num($("#cu_fout").value)))}</td></tr>
+      <tr><td><b>Card difference</b> (SumUp less till)</td><td class="r">${kd == null ? "n/a" : diffTag(kd)}</td></tr></table>`;
+  };
+  ["cu_fin", "cu_cnt", "cu_fout", "cu_card"].forEach(id => { const e = $("#" + id); if (e) e.oninput = upd; });
+  $("#cu_by").oninput = () => { C.by = $("#cu_by").value; };
+  $("#cu_date").onchange = () => { if ($("#cu_date").value) { C.date = $("#cu_date").value; viewCashup(); } };
+  $("#cu_save").onclick = async () => {
+    const b = $("#cu_save");
+    if (!$("#cu_by").value.trim()) { toast("Enter the name of the person who counted.", true); return; }
+    if ($("#cu_cnt").value === "") { toast("Enter the cash you counted.", true); return; }
+    if (!sumOk && $("#cu_card").value === "") { toast("Enter the card total from the SumUp app.", true); return; }
+    if (b.dataset.sure !== "1") { b.dataset.sure = "1"; b.textContent = "Sure? Press again to save"; setTimeout(() => { b.dataset.sure = ""; b.textContent = "Save cash up"; }, 5000); return; }
+    b.disabled = true;
+    try {
+      const r = await call("cashup.save", { from_ts:sn.from_ts, to_ts:sn.to_ts, counted_by:$("#cu_by").value, float_in:$("#cu_fin").value, cash_counted:$("#cu_cnt").value, float_left:$("#cu_fout").value, card_typed:$("#cu_card") ? $("#cu_card").value : "", notes:$("#cu_note").value });
+      const x = r.cashup; toast(`Saved. Cash difference ${money(num(x.cash_variance))}${x.card_variance == null ? "" : `, card difference ${money(num(x.card_variance))}`}.`);
+      C.by = ""; viewCashup();
+    } catch(e){ toast(e.message, true); b.disabled = false; b.dataset.sure = ""; b.textContent = "Save cash up"; }
+  };
+  $("#cu_csv").onclick = () => {
+    const out = [["Cash up at","Since","Counted by","Till cash","Float in","Cash counted","Float left","Cash difference","Till card","SumUp card","Card total from","Card difference","Notes"]];
+    d.history.forEach(x => out.push([fmtDT(x.to_ts), fmtDT(x.from_ts), x.counted_by, num(x.till_cash).toFixed(2), num(x.float_in).toFixed(2), num(x.cash_counted).toFixed(2), num(x.float_left).toFixed(2), num(x.cash_variance).toFixed(2), num(x.till_card).toFixed(2), x.sumup_card == null ? "" : num(x.sumup_card).toFixed(2), x.card_source || "", x.card_variance == null ? "" : num(x.card_variance).toFixed(2), x.notes || ""]));
+    Viz.csv(out, "botanicals-cash-ups.csv");
+  };
 }
 
 /* =========================================================== reports */
@@ -403,7 +491,7 @@ async function viewSettings(){
 /* =========================================================== shell */
 function goView(v){
   S.view = v; $$(".tabbtn").forEach(b => b.setAttribute("aria-current", b.dataset.view === v ? "page" : "false"));
-  ({ till:viewTill, reports:viewReports, products:viewProducts, settings:viewSettings }[v] || viewReports)();
+  ({ till:viewTill, cashup:viewCashup, reports:viewReports, products:viewProducts, settings:viewSettings }[v] || viewReports)();
   window.scrollTo(0, 0);
 }
 async function boot(){
