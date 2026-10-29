@@ -179,7 +179,9 @@
             let put; try { put = await fetch(u.upload_url, { method: 'PUT', headers: { 'Content-Type': f.type || 'application/octet-stream', 'x-upsert': 'false' }, body: f }); } catch (e) { throw new Error('Could not reach the server. Check your connection.'); }
             if (!put.ok) throw new Error('The upload was refused (error ' + put.status + ').');
             file = { path: u.path, name: f.name, mime: f.type || '' };
-            status('Reading it…'); r = await ctx.call('doc.read', { path: u.path, name: f.name });
+            status('Reading it…');
+            let ptext = ''; if (/\.pdf$/i.test(f.name)) { try { ptext = await pdfToText(f); } catch (e) { ptext = ''; } }   // the server cannot open a PDF, so it is read here and the text goes with it
+            r = await ctx.call('doc.read', ptext.trim() ? { path: u.path, name: f.name, text: ptext } : { path: u.path, name: f.name });
           } else { status('Reading it…'); r = await ctx.call('doc.read', { text }); }
           const p = r.parsed || {};
           const warnings = [...(p.warnings || [])]; if (r.note) warnings.unshift(r.note); if (!r.readable && !r.note) warnings.unshift('I could not find any figures in that, so type them in.');
@@ -192,6 +194,30 @@
       ['dragleave', 'drop'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.remove('on'); }));
       dz.addEventListener('drop', e => { const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]; if (f) handle(f); });
       m.querySelector('#adReadText').onclick = () => { const t = m.querySelector('#adText').value.trim(); if (!t) { status('Paste some text first.'); return; } handle(null, t); };
+    }
+
+    /* PDF invoices: read their text in the browser (pdf.js from cdnjs) and send it to the server along with the file. */
+    let pdfLoad = null;
+    function loadPdfJs() {
+      if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+      if (pdfLoad) return pdfLoad;
+      pdfLoad = new Promise((res, rej) => {
+        const sc = document.createElement('script'); sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+        sc.onload = () => { try { window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; res(window.pdfjsLib); } catch (e) { rej(e); } };
+        sc.onerror = () => { pdfLoad = null; rej(new Error('Could not load the PDF reader.')); };
+        document.head.appendChild(sc);
+      });
+      return pdfLoad;
+    }
+    async function pdfToText(file) {
+      const lib = await loadPdfJs(), doc = await lib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+      let out = '';
+      for (let n = 1; n <= doc.numPages; n++) {
+        const tc = await (await doc.getPage(n)).getTextContent(); let line = '';
+        for (const it of tc.items) { line += it.str; if (it.hasEOL) { out += line + '\n'; line = ''; } else if (it.str && !/\s$/.test(it.str)) line += ' '; }
+        if (line.trim()) out += line + '\n';
+      }
+      return out;
     }
 
     function form(doc) {
