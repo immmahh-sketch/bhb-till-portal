@@ -258,7 +258,7 @@ function mood(a, bar){
 }
 const shuffle = arr => { const a = arr.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 
-function photo(d){ return `<div class="ph">${d.photo_url ? `<img src="${esc(d.photo_url)}" alt="${esc(d.name)}" loading="lazy">` : ""}<span class="big">${COURSE_EMOJI[d.course] || "🍽️"}</span></div>`; }
+function photo(d){ const ph = `<span class="big">${COURSE_EMOJI[d.course] || "🍽️"}</span>`; return `<div class="ph">${d.photo_url ? `<img src="${esc(d.photo_url)}" alt="${esc(d.name)}" loading="lazy" onerror="this.parentNode.innerHTML=this.parentNode.dataset.ph">` : ph}</div>`.replace('<div class="ph">', `<div class="ph" data-ph="${esc(ph)}">`); }
 function dishCard(x, hits, withAdd){
   const d = x.d, inB = S.basket.includes(d.id);
   const tagHtml = d.tags.filter(t => !["gf-option", "vegan-option"].includes(t)).map(t => `<span class="tag ${hits && S.moods.has(t) ? "hit" : ""}">${TAG_EMOJI[t] || ""} ${esc(M.tagLabel[t] || t)}</span>`).join("");
