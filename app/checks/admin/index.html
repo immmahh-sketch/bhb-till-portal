@@ -97,6 +97,8 @@
     #printarea,#printarea *{visibility:visible}
     #printarea{display:block!important;position:absolute;top:0;left:0;width:100%;padding:20px}
   }
+  .tplhead .live{display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;margin-right:6px;font-weight:600;cursor:pointer;white-space:nowrap}
+  .tplhead .live input{width:20px;height:20px;margin-right:6px}
 </style>
 </head>
 <body>
@@ -252,7 +254,7 @@ function renderOverview(){
   var now = new Date();
   var html = "";
   cats.forEach(function(c){
-    var list = ST.templates.filter(function(t){ return t.category===c[0] && t.active; });
+    var list = ST.templates.filter(function(t){ return t.category===c[0] && t.active && t.live; });
     if(!list.length) return;
     html += '<div class="catcard"><h3>'+c[1]+'</h3>';
     list.forEach(function(t){
@@ -283,7 +285,7 @@ function renderToday(){
   var any = false;
   cats.forEach(function(c){
     var list = ST.templates.filter(function(t){
-      if(t.category!==c[0] || !t.active) return false;
+      if(t.category!==c[0] || !t.active || !t.live) return false;
       var due = periodDueAt(t.frequency, t.due_time, now);
       return due.getFullYear()===now.getFullYear() && due.getMonth()===now.getMonth() && due.getDate()===now.getDate();
     });
@@ -428,6 +430,9 @@ function renderTemplateList(){
         '<b>'+esc(t.name)+'</b>' +
         '<span class="muted">'+CATLBL[t.category]+' · '+esc(t.area)+' · '+FREQ_LABEL[t.frequency]+' · due '+esc(t.due_time).slice(0,5)+'</span>' +
         '<span style="-webkit-flex:1;flex:1"></span>' +
+        '<label class="live" title="Ticked: this checklist appears on the checks app and counts as due. Unticked: it is still being built and the team cannot see it.">' +
+          '<input type="checkbox" data-act="live"'+(t.live?" checked":"")+'> Checklist live</label>' +
+        (t.live ? '' : '<span class="muted" style="font-weight:600">Not live yet</span>') +
         '<button data-act="toggle">'+(t.active?"Deactivate":"Activate")+'</button>' +
         '<button class="del" data-act="del">Delete checklist</button>' +
       '</div>' +
@@ -440,6 +445,7 @@ function renderTemplateList(){
     var itemsBox = div.querySelector(".items");
     items.forEach(function(it){ itemsBox.appendChild(itemRow(it)); });
     div.querySelector('[data-act=toggle]').onclick = function(){ toggleTemplate(t); };
+    div.querySelector('[data-act=live]').onchange = function(){ setLive(t, this.checked); };
     div.querySelector('[data-act=del]').onclick = function(){ deleteTemplate(t); };
     div.querySelector('[data-act=addItem]').onclick = function(){
       var p = div.querySelector('[data-new-prompt]').value.trim();
@@ -485,6 +491,10 @@ function addTemplate(){
   sb("checklist_templates", {method:"POST", prefer:"return=minimal", body:[body]})
     .then(function(){ $("mtName").value=""; $("mtArea").value=""; toast("Checklist added"); loadAll(); })
     .catch(function(e){ toast("Failed: "+e.message); });
+}
+function setLive(t, on){
+  sb("checklist_templates?id=eq."+t.id, {method:"PATCH", prefer:"return=minimal", body:{live: !!on}})
+    .then(function(){ toast(on ? t.name+" is live: the team can see it on the checks app" : t.name+" is hidden from the checks app"); loadAll(); }).catch(function(e){ toast("Failed: "+e.message); loadAll(); });
 }
 function toggleTemplate(t){
   sb("checklist_templates?id=eq."+t.id, {method:"PATCH", prefer:"return=minimal", body:{active: !t.active}})
