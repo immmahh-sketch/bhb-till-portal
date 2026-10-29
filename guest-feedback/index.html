@@ -158,9 +158,27 @@ function paintDashboard(){
   $$(".chip[data-src]").forEach(b => b.onclick = () => { S.src = b.dataset.src; paintDashboard(); });
   $("#rng").onchange = e => { S.range = e.target.value; paintDashboard(); };
   // the response count opens the responses: each one, the Net Promoter Score, then the full answers
-  const sentFor = (S.src === "all" ? ["mystery","showround","stay"] : (S.src === "guest" ? [] : [S.src])).reduce((t,k) => t + ((d.requests[k]||{}).sent||0), 0);
-  const openList = () => respOpen(resp, (S.src === "all" ? "Feedback forms" : KIND_NAME[S.src]) + ": responses", (S.src === "stay" || S.src === "showround") && sentFor ? sentFor + " email" + (sentFor === 1 ? "" : "s") + " sent" : "");
+  const sentFor = sentRows(d).length;
+  const openList = () => respOpen(resp, (S.src === "all" ? "Feedback forms" : KIND_NAME[S.src]) + ": responses", SENT_SRC.includes(S.src) && sentFor ? sentFor + " email" + (sentFor === 1 ? "" : "s") + " sent" : "");
+  const openSent = () => sentOpen(sentRows(d), (S.src === "all" ? "Feedback forms" : KIND_NAME[S.src]) + ": emails sent");
+  ["#openSent"].forEach(sel => { const el = $(sel); if (el) { el.onclick = openSent; el.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openSent(); } }; } });
   ["#openResp", "#kpiResp"].forEach(sel => { const el = $(sel); if (el) { el.onclick = openList; el.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openList(); } }; } });
+}
+/* ---- click "emails sent": every email that went out in the period, whether the guest opened the form link, and whether they answered */
+const SENT_SRC = ["stay", "showround", "noshow"];
+function sentRows(d){ const from = rangeFrom(), kinds = S.src === "all" ? ["mystery", "showround", "stay"] : (S.src === "guest" ? [] : [S.src]); return (d.sent_list || []).filter(r => kinds.includes(r.kind) && (!from || String(r.sent_at).slice(0, 10) >= from)); }
+function sentOpen(rows, title){
+  respClose();
+  const m = document.createElement("div"); m.className = "rbg"; m.id = "rbg"; document.body.appendChild(m);
+  m.addEventListener("click", e => { if (e.target === m) respClose(); }); document.addEventListener("keydown", respKey);
+  const n = rows.length, opened = rows.filter(r => r.opened_at || r.completed_at).length, answered = rows.filter(r => r.completed_at).length, pc = x => n ? Math.round(x / n * 100) + "%" : "–";
+  const stays = rows.some(r => r.kind === "stay"), mixed = new Set(rows.map(r => r.kind)).size > 1;
+  const state = r => r.completed_at ? `<span class="tag good">Answered</span> <span class="small muted">${esc(fmtDT(r.completed_at))}</span>` : r.opened_at ? `<span class="tag gold">Opened</span> <span class="small muted">${esc(fmtDT(r.opened_at))}</span>` : `<span class="tag">Not opened</span>`;
+  m.innerHTML = `<div class="rbox"><h3>${esc(title)}</h3><div class="muted">${n} email${n === 1 ? "" : "s"} sent. “Opened” means the guest opened the feedback form from the email; someone who read the email but did not press the link shows as not opened.</div>
+    <div class="sum"><span class="tag">Sent ${n}</span><span class="tag gold">Opened ${opened} (${pc(opened)})</span><span class="tag good">Answered ${answered} (${pc(answered)})</span></div>
+    ${n ? `<div style="overflow-x:auto"><table><thead><tr><th>Sent</th><th>Guest</th><th>Email</th>${mixed ? "<th>Form</th>" : ""}${stays ? "<th>Room</th><th>Checked out</th>" : ""}<th>Status</th></tr></thead><tbody>${rows.map(r => `<tr><td class="small">${esc(fmtDT(r.sent_at))}</td><td><b>${esc(r.guest_name || "No name")}</b></td><td class="small">${esc(r.email)}</td>${mixed ? `<td class="small">${esc(KIND_NAME[r.kind] || r.kind)}</td>` : ""}${stays ? `<td>${esc(r.room)}</td><td class="small">${esc(stayD(r.departure))}</td>` : ""}<td>${state(r)}</td></tr>`).join("")}</tbody></table></div>` : `<div class="empty">No emails were sent in this period.</div>`}
+    <div class="acts"><button class="btn ghost" id="rclose">Close</button></div></div>`;
+  $("#rclose").onclick = respClose;
 }
 function ratingValues(r){ return (r.questions || []).filter(q => q.type === "rating").map(q => ({ q, v:Number(r.answers[q.id]) })).filter(x => x.v >= 1 && x.v <= 5); }
 function textAnswers(r){ return (r.questions || []).filter(q => q.type === "text").map(q => ({ q, t:String(r.answers[q.id] || "").trim() })).filter(x => x.t); }
@@ -195,8 +213,8 @@ function respOpen(list, title, sentNote){
   listView();
 }
 function formsBlock(resp, d){
-  const sentFor = (S.src === "all" ? ["mystery","showround","stay"] : (S.src === "guest" ? [] : [S.src])).reduce((t,k) => t + ((d.requests[k]||{}).sent||0), 0);
-  let h = `<div class="sechead">${S.src === "all" ? "Feedback forms" : esc(KIND_NAME[S.src])} <small class="click" id="openResp" title="See the responses">${resp.length} response${resp.length===1?"":"s"}</small>${(S.src === "stay" || S.src === "showround") && sentFor ? ` <small>&middot; ${sentFor} email${sentFor===1?"":"s"} sent</small>` : ""}</div>`;
+  const sentFor = sentRows(d).length;
+  let h = `<div class="sechead">${S.src === "all" ? "Feedback forms" : esc(KIND_NAME[S.src])} <small class="click" id="openResp" title="See the responses">${resp.length} response${resp.length===1?"":"s"}</small>${SENT_SRC.includes(S.src) && sentFor ? ` <small class="click" id="openSent" title="See the emails sent and whether they were opened" tabindex="0" role="button">&middot; ${sentFor} email${sentFor===1?"":"s"} sent</small>` : ""}</div>`;
   if (!resp.length) return h + `<div class="card"><div class="empty">${S.src === "noshow" ? "No one has answered the no-show email yet." : "No responses in this period yet." + (can("send") ? " Use “Send a form” to give someone a link." : "")}</div></div>`;
   if (S.src === "noshow") return h + noshowBlock(resp, d);
   const npsVals = resp.map(r => r.nps).filter(n => n != null), pro = npsVals.filter(n => n >= 9).length, det = npsVals.filter(n => n <= 6).length, pas = npsVals.length - pro - det;
