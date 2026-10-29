@@ -148,9 +148,33 @@
     function paintDocs() {
       const d = $('#adDocs'); if (!d) return;
       if (!st.docs.length) { d.innerHTML = `<div class="card"><div class="empty">Nothing added yet. Press “Add a receipt or invoice” and drop in a Meta receipt email.</div></div>`; return; }
-      d.innerHTML = `<div class="wrap"><table class="t"><thead><tr><th class="l">Covers</th><th class="l">Platform</th><th class="l">Reference</th><th>Lines</th><th>Total</th><th class="l">Added by</th><th></th></tr></thead><tbody>${st.docs.map(x => `<tr><td class="l">${esc(fmtD(x.date_from))} to ${esc(fmtD(x.date_to))}</td><td class="l">${esc(x.platform)}${x.source === 'guess' ? ' <span class="muted small">(typed)</span>' : ''}</td><td class="l">${esc(x.reference || '')}${x.note ? `<div class="muted small">${esc(x.note)}</div>` : ''}</td><td class="n">${x.lines}</td><td class="n"><b>${money(x.total)}</b></td><td class="l small">${esc(x.created_by_name || '')}<br><span class="muted">${esc(fmtD(x.created_at))}</span></td><td class="n">${x.url ? `<a class="btn ghost small" href="${esc(x.url)}" target="_blank" rel="noopener">File</a> ` : ''}<button class="btn ghost small" data-edit="${esc(x.id)}">Edit</button> <button class="btn ghost small" data-del="${esc(x.id)}">Remove</button></td></tr>`).join('')}</tbody></table></div>`;
+      d.innerHTML = `<div class="wrap"><table class="t"><thead><tr><th class="l">Covers</th><th class="l">Platform</th><th class="l">Reference</th><th>Lines</th><th>Total</th><th class="l">Added by</th><th></th></tr></thead><tbody>${st.docs.map(x => `<tr><td class="l">${esc(fmtD(x.date_from))} to ${esc(fmtD(x.date_to))}</td><td class="l">${esc(x.platform)}${x.source === 'guess' ? ' <span class="muted small">(typed)</span>' : ''}</td><td class="l">${esc(x.reference || '')}${x.note ? `<div class="muted small">${esc(x.note)}</div>` : ''}</td><td class="n">${x.lines}</td><td class="n"><b>${money(x.total)}</b></td><td class="l small">${esc(x.created_by_name || '')}<br><span class="muted">${esc(fmtD(x.created_at))}</span></td><td class="n">${x.url ? `<button class="btn ghost small" data-view="${esc(x.id)}">File</button> ` : ''}<button class="btn ghost small" data-edit="${esc(x.id)}">Edit</button> <button class="btn ghost small" data-del="${esc(x.id)}">Remove</button></td></tr>`).join('')}</tbody></table></div>`;
       d.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => openAdd(b.dataset.edit));
+      d.querySelectorAll('[data-view]').forEach(b => b.onclick = () => { const x = st.docs.find(z => z.id === b.dataset.view); if (x) viewFile(x.url, x.file_name || 'File'); });
       d.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => { if (!confirm('Remove this receipt? Its spend leaves every total, and the file is deleted.')) return; try { await ctx.call('doc.remove', { id: b.dataset.del }); ctx.toast('Removed.'); refresh(); } catch (e) { ctx.toast(e.message, true); } });
+    }
+
+    /* A receipt's file in a pop-up. PDFs and pictures show in the page (a PDF is fetched and shown from a local copy, because the storage address cannot be framed directly); anything else is offered to open or download. */
+    async function viewFile(url, name) {
+      const isPdf = /\.pdf$/i.test(name), isImg = /\.(png|jpe?g|gif|webp)$/i.test(name);
+      const m = ctx.openModal(`<div class="adm"><h3 style="margin:0 0 8px;font-size:18px;word-break:break-word">${esc(name)}</h3><div id="adView" style="min-height:120px;height:${isPdf ? '74vh' : 'auto'};border:1px solid var(--mist,#e7e7e7);border-radius:8px;overflow:auto;background:#fff;display:flex;align-items:center;justify-content:center"><span class="muted">Loading…</span></div>
+        <div class="row-actions" style="margin-top:10px"><a class="btn ghost" id="adViewOpen" href="${esc(url)}" target="_blank" rel="noopener">Open in a new tab</a><button class="btn" id="adViewX">Close</button></div></div>`);
+      const card = m.firstElementChild; if (card) { card.style.maxWidth = '1000px'; card.style.width = '94vw'; }
+      let blobUrl = '';
+      const close = () => { if (blobUrl) URL.revokeObjectURL(blobUrl); ctx.closeModal(); };
+      m.querySelector('#adViewX').onclick = close;
+      const box = m.querySelector('#adView');
+      try {
+        if (isPdf) {
+          const r = await fetch(url); if (!r.ok) throw new Error('The file could not be fetched (' + r.status + ').');
+          blobUrl = URL.createObjectURL(new Blob([await r.arrayBuffer()], { type: 'application/pdf' }));
+          box.style.display = 'block'; box.innerHTML = `<iframe src="${blobUrl}" title="${esc(name)}" style="width:100%;height:100%;border:0"></iframe>`;
+        } else if (isImg) {
+          box.innerHTML = `<img src="${esc(url)}" alt="${esc(name)}" style="max-width:100%;max-height:74vh">`;
+        } else {
+          box.innerHTML = `<span class="muted" style="padding:20px;text-align:center">This kind of file cannot be shown here. Use Open in a new tab to download it.</span>`;
+        }
+      } catch (e) { box.innerHTML = `<span style="color:var(--alert,#8C4A3F);padding:20px">${esc(e.message || 'The file could not be shown.')}</span>`; }
     }
 
     /* ---------------------------------------------------------- add / edit */
