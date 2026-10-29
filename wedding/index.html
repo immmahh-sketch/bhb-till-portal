@@ -2011,6 +2011,12 @@ function viewPay(){
        nothing for anyone to reconcile afterwards. When one is waiting it
        is almost always the amount actually being asked for, so it leads,
        and paying something else is offered underneath. */
+    (d.bankClaims || []).forEach(function(c){
+      h += '<div class="notice notice--due" style="margin-bottom:16px"><strong>Bank transfer of ' + money(c.amount) + '.</strong> ' +
+        'You told us on ' + esc(ukDateShort(c.claimed_at)) + ' that this is on its way. We\'re checking it has arrived (usually within a working day), ' +
+        'and it will show here as paid once we have. ' +
+        '<a href="#" onclick="bankCancel(\'' + c.id + '\');return false">Not sent it after all? Remove this</a></div>';
+    });
     var links = (d.paylinks || []).filter(function(p){ return p.amount > 0; });
     links.forEach(function(p){
       var due = p.dueDate ? ukDateShort(p.dueDate) : null;
@@ -2024,13 +2030,14 @@ function viewPay(){
             (overdue ? 'Was due by ' : 'Due by ') + esc(due) + '</p>'
           : '<p class="muted" style="margin:0 0 16px;font-size:.9375rem">Requested by the venue</p>') +
         (p.description ? '<p style="margin:0 0 14px">' + esc(p.description) + '</p>' : '') +
-        '<a class="btn btn--primary" style="width:100%;text-align:center" ' +
+        '<a class="btn btn--primary" style="width:100%;text-align:center" data-card-link="1" data-amt="' + p.amount + '" data-uri="' + esc(p.uri) + '" ' +
         // In the test view the real payment page is never opened.
         (S.sandbox ? 'href="#" onclick="sbxPayBlocked();return false"'
                    : 'href="' + esc(p.uri) + '" target="_blank" rel="noopener"') +
-        '>Pay ' + money(p.amount) + ' now</a>' +
+        '>Pay ' + money(p.amount) + ' by card</a>' +
+        '<button type="button" class="btn" style="width:100%;margin-top:10px" data-bank-amt="' + p.amount + '">Pay ' + money(p.amount) + ' by bank transfer instead</button>' +
         '<p class="muted center" style="font-size:.8125rem;margin:12px 0 0">' +
-        'Goes straight onto your account, so it shows here as soon as it clears.</p>' +
+        'Card goes straight onto your account, so it shows here as soon as it clears. Bank transfer costs us nothing, so we\'d love it if you could.</p>' +
       '</div>';
     });
 
@@ -2051,7 +2058,10 @@ function viewPay(){
       '<div class="field"><span class="label">Amount</span>' +
       '<input id="payAmt" inputmode="decimal" placeholder="0.00"></div>' +
       '<div id="payErr" class="err hide"></div>' +
-      '<button id="payBtn" class="btn btn--primary" style="width:100%">Pay by card</button>' +
+      '<button id="bankBtn" class="btn btn--primary" style="width:100%">Pay by bank transfer</button>' +
+      '<p class="muted center" style="font-size:.8125rem;margin:8px 0 16px">' +
+      'Our preferred way: no card fees, and it takes a minute in your banking app.</p>' +
+      '<button id="payBtn" class="btn" style="width:100%">Pay by card</button>' +
       '<p class="muted center" style="font-size:.8125rem;margin:12px 0 0">' +
       'You\'ll be taken to our secure card payment page. We never see or store your card details.</p>' +
     '</div>';
@@ -2132,17 +2142,35 @@ function bindPay(){
     c.onclick = function(){ amt.value = Number(c.dataset.amt).toFixed(2); amt.focus(); };
   });
 
-  btn.onclick = async function(){
+  function chosenAmount(){
     err.classList.add("hide");
     var value = round2(parseFloat(String(amt.value).replace(/[^0-9.]/g,"")));
     if (!isFinite(value) || value <= 0) {
-      err.textContent = "Please enter an amount."; err.classList.remove("hide"); return;
+      err.textContent = "Please enter an amount."; err.classList.remove("hide"); return null;
     }
     if (value > S.data.balance.outstanding + 0.005) {
       err.textContent = "That's more than your outstanding balance of " + money(S.data.balance.outstanding) + ".";
-      err.classList.remove("hide"); return;
+      err.classList.remove("hide"); return null;
     }
+    return value;
+  }
+  var bb = $("bankBtn");
+  if (bb) bb.onclick = function(){ var v = chosenAmount(); if (v !== null) openBank(v); };
+  [].forEach.call(document.querySelectorAll("[data-bank-amt]"), function(b){ b.onclick = function(){ openBank(Number(b.dataset.bankAmt)); }; });
+  if (!S.sandbox) [].forEach.call(document.querySelectorAll("a[data-card-link]"), function(a){      // the test view keeps its own handler, which stops the real page opening
+    a.onclick = function(e){
+      e.preventDefault();
+      openCardNote(Number(a.dataset.amt), function(){ window.open(a.dataset.uri, "_blank", "noopener"); });
+    };
+  });
+
+  btn.onclick = function(){
+    var v = chosenAmount(); if (v === null) return;
     if (S.sandbox) { sbxPayBlocked(); return; }
+    openCardNote(v, function(){ startCard(v); });
+  };
+
+  async function startCard(value){
     btn.disabled = true; btn.innerHTML = '<span class="spin"></span>';
     try {
       var res = await callFn("sumup-create-wedding-checkout", {
@@ -2156,7 +2184,110 @@ function bindPay(){
       err.classList.remove("hide");
       btn.disabled = false; btn.textContent = "Pay by card";
     }
+  }
+}
+
+/* ---------- paying by bank transfer ----------
+   Card fees on larger payments are a real cost to the venue, so a transfer is the way we ask for. Choosing card first shows a reminder with a button straight to
+   the transfer details. A web page cannot open someone's own banking app (every bank has its own, and there is no standard link), so the details are shown with a
+   copy button on each, and "I've made the payment" tells the events team to look for it in the bank. Nothing counts against the balance until they confirm it.
+   Popups use the same placement as the meeting nudge: a dimmed card on its own, at the head of the page inside the website frame. */
+var BANK_FALLBACK = { sort_code: "30-92-79", account_number: "89272368" };
+function payPopClose(){ var n = $("payPop"); if (n) n.remove(); }
+function payPopup(card){
+  payPopClose();
+  var el = document.createElement("div");
+  el.id = "payPop";
+  if (isFramed()) {
+    el.className = "nudge nudge--inline";
+    el.innerHTML = card;
+    var v = $("views");
+    v.insertBefore(el, v.firstChild);
+    window.scrollTo({ top: 0 });
+  } else {
+    el.className = "nudge";
+    el.innerHTML = card;
+    document.body.appendChild(el);
+  }
+}
+function copyText(text, btn){
+  var done = function(){ if (btn) { var t = btn.textContent; btn.textContent = "Copied"; setTimeout(function(){ btn.textContent = t; }, 1600); } };
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done, fallback); return; }
+  } catch (e) {}
+  fallback();
+  function fallback(){
+    var t = document.createElement("textarea"); t.value = text; t.style.position = "fixed"; t.style.opacity = "0";
+    document.body.appendChild(t); t.select();
+    try { document.execCommand("copy"); done(); } catch (e) {}
+    t.remove();
+  }
+}
+
+/* The card reminder. `proceed` carries on to the card payment. */
+function openCardNote(amount, proceed){
+  payPopup('<div class="nudge-card">' +
+    '<span class="label">Before you pay by card</span>' +
+    '<h3>Could you pay by bank transfer instead?</h3>' +
+    '<p>Card payments cost us a processing fee, and on larger payments that adds up. If you can, we would really appreciate it if you paid ' + money(amount) + ' by bank transfer. It takes a minute and it comes straight to us.</p>' +
+    '<div class="nudge-acts">' +
+      '<button class="btn btn--primary" id="ppBank">Pay by bank transfer</button>' +
+      '<button class="btn" id="ppCard">Continue with card</button>' +
+    '</div></div>');
+  $("ppBank").onclick = function(){ openBank(amount); };
+  $("ppCard").onclick = function(){ payPopClose(); proceed(); };
+}
+
+/* The transfer details, with a copy button for each, then "I've made the payment". */
+function openBank(amount){
+  var b = (S.data && S.data.bank) || BANK_FALLBACK;
+  var ref = (S.data && S.data.bank && S.data.bank.reference) || (S.data && S.data.wedding && S.data.wedding.event_id) || "";
+  var rows = [["Sort code", b.sort_code], ["Account number", b.account_number], ["Reference", ref], ["Amount", Number(amount).toFixed(2)]];
+  payPopup('<div class="nudge-card">' +
+    '<span class="label">Pay by bank transfer</span>' +
+    '<h3>' + money(amount) + '</h3>' +
+    '<p style="margin-bottom:12px">Open your banking app, add us as a new payee (or choose to make a payment) and enter these details. ' +
+    '<strong>Please use the reference</strong> so we can match it to your ' + (S.data && S.data.event && /wedding/i.test(S.data.event.name || "") === false ? "booking" : "wedding") + '.</p>' +
+    '<table style="width:100%;margin:0 0 14px">' + rows.map(function(r, i){
+      return '<tr><td style="padding:6px 0"><span class="muted" style="font-size:.8125rem">' + esc(r[0]) + '</span><br>' +
+        '<strong class="num" style="font-size:1.125rem;letter-spacing:.02em">' + esc(r[1]) + '</strong></td>' +
+        '<td style="text-align:right;vertical-align:middle"><button type="button" class="btn btn--sm" data-copy="' + i + '">Copy</button></td></tr>';
+    }).join("") + '</table>' +
+    '<p class="muted" style="font-size:.8125rem;margin:0 0 14px">Once you have sent it, press the button below so we know to look out for it. ' +
+    'We check the bank and confirm it, usually within a working day, and it then shows here as paid.</p>' +
+    '<div id="bankErr" class="err hide"></div>' +
+    '<div class="nudge-acts">' +
+      '<button class="btn btn--primary" id="bankDone">I\'ve made the payment</button>' +
+      '<button class="btn" id="bankBack">Back</button>' +
+    '</div></div>');
+  [].forEach.call(document.querySelectorAll("[data-copy]"), function(c){
+    c.onclick = function(){ copyText(rows[Number(c.dataset.copy)][1], c); };
+  });
+  $("bankBack").onclick = payPopClose;
+  $("bankDone").onclick = async function(){
+    var btn = $("bankDone"), er = $("bankErr");
+    if (S.sandbox) { sbxPayBlocked(); return; }
+    er.classList.add("hide");
+    btn.disabled = true; btn.innerHTML = '<span class="spin"></span>';
+    try {
+      await api("bank.claim", { amount: amount });
+      payPopup('<div class="nudge-card">' +
+        '<span class="label">Thank you</span><h3>We\'ll look out for it</h3>' +
+        '<p>We\'ve been told about your ' + money(amount) + ' bank transfer. We\'ll check it has arrived, usually within a working day, and it will show here as paid. You\'ll get a receipt by email.</p>' +
+        '<div class="nudge-acts"><button class="btn btn--primary" id="bankOk">Done</button></div></div>');
+      $("bankOk").onclick = function(){ payPopClose(); start().then(function(){ go("pay"); }); };
+    } catch (e) {
+      er.textContent = e.message; er.classList.remove("hide");
+      btn.disabled = false; btn.textContent = "I've made the payment";
+    }
   };
+}
+
+async function bankCancel(id){
+  if (S.sandbox) { sbxPayBlocked(); return; }
+  if (!confirm("Remove this bank transfer? Only do this if you have not sent it.")) return;
+  try { await api("bank.cancel", { id: id }); await start(); go("pay"); }
+  catch (e) { alert(e.message); }
 }
 
 /* ---------- the nudge ----------

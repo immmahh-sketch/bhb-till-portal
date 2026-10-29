@@ -1294,9 +1294,10 @@ async function openFromRefParam(){
 async function refreshPending(){
   try {
     S.pending = await call("payments.pending");
-    var badge = $("recBadge");
-    badge.innerHTML = S.pending.length
-      ? ' <span class="pill pill--late" style="letter-spacing:.1em">' + S.pending.length + '</span>' : "";
+    try { S.claims = await call("payments.claims"); } catch (e) { S.claims = S.claims || []; }
+    var badge = $("recBadge"), nBadge = S.pending.length + (S.claims || []).length;
+    badge.innerHTML = nBadge
+      ? ' <span class="pill pill--late" style="letter-spacing:.1em">' + nBadge + '</span>' : "";
   } catch (e) { /* the badge is a nicety; a failure here shouldn't block the page */ }
 }
 
@@ -4713,7 +4714,7 @@ function viewWedding(){
       h += '<tr><td class="num">' + esc(ukDate(p.paid_at || p.created_at)) + '<br>' +
         '<span class="muted" style="font-size:.8125rem">' + esc(p.method) + '</span></td>' +
         '<td class="num"><strong>' + money(p.amount) + '</strong>' +
-        (p.status !== "succeeded" ? '<br><span class="pill pill--prov">' + esc(p.status) + '</span>' : '') + '</td>' +
+        (p.status !== "succeeded" ? '<br><span class="pill pill--prov">' + esc(p.status === "claimed" ? "couple says sent" : p.status) + '</span>' : '') + '</td>' +
         '<td class="num" style="font-size:.8125rem"><code>' + esc(p.payment_reference||"—") + '</code>' +
         (p.sumup_transaction_id ? '<br><span class="muted">txn ' + esc(p.sumup_transaction_id) + '</span>' : '') + '</td>' +
         '<td>' + (p.reconciled
@@ -4726,6 +4727,9 @@ function viewWedding(){
           (p.reconciled ? '<button class="btn btn--sm" onclick="unreconcile(\'' + p.id + '\')">Undo</button>' : '') +
           (p.method === "sumup" && p.status === "succeeded"
             ? '<br><button class="btn btn--sm" style="border:0;padding:4px 0" onclick="resend(\'' + p.id + '\')">Resend emails</button>' : '') +
+          (p.status === "claimed"
+            ? '<button class="btn btn--primary btn--sm" onclick="confirmClaim(\'' + p.id + '\',' + Number(p.amount) + ',true)">Received in the bank</button>' +
+              '<br><button class="btn btn--sm" style="border:0;padding:4px 0" onclick="rejectClaim(\'' + p.id + '\',true)">Not received</button>' : '') +
         '</td></tr>';
     });
     h += '</tbody></table>';
@@ -6900,11 +6904,32 @@ function exportBonus(){
 function viewReconcile(){
   var h = '<h1 style="margin-bottom:6px">Payments to post</h1>' +
     '<p class="muted" style="margin:0 0 18px">' +
-    'Card payments taken in the app. They don\'t reach Guestline on their own — post each one in Rezlynx, ' +
+    'Card payments and confirmed bank transfers taken in the app. They don\'t reach Guestline on their own — post each one in Rezlynx, ' +
     'then mark it here so the app stops counting it separately.</p>';
 
+  /* ---- bank transfers a couple says they have sent: nothing counts until someone has seen it in the bank ---- */
+  var claims = S.claims || [];
+  if (claims.length) {
+    h += '<div class="notice notice--late"><strong>' + claims.length + ' bank transfer' + (claims.length===1?"":"s") +
+      ' to confirm.</strong> Check the bank account for each one (the reference is the event reference), then confirm it. ' +
+      'Nothing is counted against the couple\'s balance until you do. Once confirmed it joins the list below, ready to post to Rezlynx.</div>' +
+      '<div class="card card--flush" style="margin-bottom:18px"><table><thead><tr>' +
+      '<th>Told us</th><th>Couple</th><th>Reference</th><th class="money">Amount they say</th><th></th></tr></thead><tbody>';
+    claims.forEach(function(p){
+      var w = p.wedding || {};
+      h += '<tr><td class="num">' + esc(ukDate(p.claimed_at || p.created_at)) + '</td>' +
+        '<td><strong>' + esc(w.salutation||"—") + '</strong><br><span class="muted" style="font-size:.8125rem">wedding ' + esc(ukDate(w.wedding_date)) + '</span></td>' +
+        '<td class="num" style="font-size:.8125rem"><code>' + esc(w.event_id||p.payment_reference||"—") + '</code></td>' +
+        '<td class="money num"><strong>' + money(p.amount) + '</strong></td>' +
+        '<td class="money"><button class="btn btn--primary btn--sm" onclick="confirmClaim(\'' + p.id + '\',' + Number(p.amount) + ')">Received in the bank</button>' +
+        '<br><button class="btn btn--sm" style="border:0;padding:4px 0" onclick="rejectClaim(\'' + p.id + '\')">Not received</button>' +
+        '<br><button class="btn btn--sm" style="border:0;padding:4px 0" onclick="open_(\'' + p.wedding_id + '\')">Open wedding</button></td></tr>';
+    });
+    h += '</tbody></table></div>';
+  }
+
   if (!S.pending.length) {
-    h += '<div class="card empty">Nothing waiting. Everything\'s posted.</div>';
+    h += '<div class="card empty">Nothing waiting to be posted. Everything\'s posted.</div>';
     return h;
   }
 
@@ -6917,7 +6942,7 @@ function viewReconcile(){
     '</tr></thead><tbody>';
   S.pending.forEach(function(p){
     var w = p.wedding || {};
-    h += '<tr><td class="num">' + esc(ukDate(p.paid_at)) + '</td>' +
+    h += '<tr><td class="num">' + esc(ukDate(p.paid_at)) + '<br><span class="muted" style="font-size:.75rem">' + (p.method === "bank_transfer" ? "Bank transfer" : "Card") + '</span></td>' +
       '<td><strong>' + esc(w.salutation||"—") + '</strong><br>' +
       '<span class="muted" style="font-size:.8125rem">wedding ' + esc(ukDate(w.wedding_date)) + '</span></td>' +
       '<td class="num" style="font-size:.8125rem"><code>' + esc(w.event_id||"—") + '</code><br>' +
@@ -6928,6 +6953,21 @@ function viewReconcile(){
   });
   h += '</tbody></table></div>';
   return h;
+}
+
+/* a couple's bank transfer: seen in the bank (counts from now, and a receipt goes to them) or not received (balance untouched) */
+async function confirmClaim(id, amount, inWedding){
+  var a = prompt("Amount that arrived in the bank (£)", Number(amount).toFixed(2)); if (a === null) return;
+  var by = prompt("Confirmed by whom?", ""); if (by === null) return;
+  try { await call("payments.confirm", { id:id, amount:a, by: by || "events team" });
+        await refreshPending(); if (inWedding && S.current) await loadWedding(S.current); render(); clearErr(); }
+  catch (e) { showErr(e.message); }
+}
+async function rejectClaim(id, inWedding){
+  var note = prompt("Why not? (kept on the record)", "Not received"); if (note === null) return;
+  try { await call("payments.reject", { id:id, note:note, by: "events team" });
+        await refreshPending(); if (inWedding && S.current) await loadWedding(S.current); render(); clearErr(); }
+  catch (e) { showErr(e.message); }
 }
 
 async function reconcileFromQueue(id){
