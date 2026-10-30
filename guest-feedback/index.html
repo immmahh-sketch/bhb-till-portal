@@ -499,10 +499,20 @@ function qEditor(){
     <div class="field"><label>Question</label><input data-f="label" value="${esc(q.label)}"></div>
     <div class="row2"><div class="field"><label>Group heading (used for “how each area scored”)</label><input data-f="category" value="${esc(q.category || "")}"></div><div class="field"><label>Hint (optional)</label><input data-f="hint" value="${esc(q.hint || "")}"></div></div>
     ${q.type === "choice" ? `<div class="field"><label>The choices, one per line</label><textarea data-f="options" rows="4">${esc((q.options || []).join("\n"))}</textarea></div>` : ""}
-    <div style="display:flex;gap:20px;flex-wrap:wrap">${q.type !== "text" ? `<label><input type="checkbox" data-f="required" ${q.required !== false ? "checked" : ""}> Must be answered</label>` : ""}${q.type === "rating" ? `<label><input type="checkbox" data-f="na" ${q.na ? "checked" : ""}> Offer “not applicable”</label>` : ""}</div></div>`).join("");
+    <div style="display:flex;gap:20px;flex-wrap:wrap">${q.type !== "text" ? `<label><input type="checkbox" data-f="required" ${q.required !== false ? "checked" : ""}> Must be answered</label>` : ""}${q.type === "rating" ? `<label><input type="checkbox" data-f="na" ${q.na ? "checked" : ""}> Offer “not applicable”</label>` : ""}</div>${showIfEditor(q, i)}</div>`).join("");
+}
+/* "Only ask this when an earlier question was answered ...": for a block that depends on a Yes/No (dined, stayed, breakfast ...). Only earlier "Choose one" questions can be used. */
+function showIfEditor(q, i){
+  const parents = S.qs.slice(0, i).filter(p => p.type === "choice" && p.id);
+  if (!parents.length && !q.showIf) return "";
+  const cur = q.showIf && parents.find(p => p.id === q.showIf.id), opts = cur ? (cur.options || []) : [];
+  return `<div class="row2" style="margin-top:8px"><div class="field"><label>Only ask this when…</label><select data-si="id"><option value="">Always ask</option>${parents.map(p => `<option value="${esc(p.id)}" ${q.showIf && q.showIf.id === p.id ? "selected" : ""}>${esc(p.label.length > 70 ? p.label.slice(0, 68) + "…" : p.label)}</option>`).join("")}</select></div>
+    <div class="field"><label>…was answered</label><select data-si="equals" ${cur ? "" : "disabled"}>${opts.map(o => `<option ${q.showIf && q.showIf.equals === o ? "selected" : ""}>${esc(o)}</option>`).join("")}</select></div></div>`;
 }
 function readQs(){
-  $$("#qlist .qe").forEach(el => { const q = S.qs[+el.dataset.i]; el.querySelectorAll("[data-f]").forEach(f => { const k = f.dataset.f; q[k] = f.type === "checkbox" ? f.checked : k === "options" ? f.value.split("\n").map(x => x.trim()).filter(Boolean) : f.value; }); });
+  $$("#qlist .qe").forEach(el => { const q = S.qs[+el.dataset.i]; el.querySelectorAll("[data-f]").forEach(f => { const k = f.dataset.f; q[k] = f.type === "checkbox" ? f.checked : k === "options" ? f.value.split("\n").map(x => x.trim()).filter(Boolean) : f.value; });
+    const sid = el.querySelector('[data-si="id"]'), seq = el.querySelector('[data-si="equals"]');
+    if (sid) { if (!sid.value) delete q.showIf; else { const parent = S.qs.find(p => p.id === sid.value), same = q.showIf && q.showIf.id === sid.value; q.showIf = { id: sid.value, equals: same && seq && seq.value ? seq.value : ((parent && parent.options) || [])[0] || "" }; } } });
 }
 function paintSettings(){
   const f = S.forms.find(x => x.kind === S.fk), s = S.settings;
@@ -557,6 +567,7 @@ function paintSettings(){
     <div class="field"><label>Send it to</label><input id="a_to" value="${esc(s.alert_email || "")}" placeholder="name@blackhorsebeamish.co.uk"></div><button class="btn" id="a_save">Save</button></div>`;
   $("#views").innerHTML = h;
   $$("[data-fk]").forEach(b => b.onclick = () => { S.fk = b.dataset.fk; S.qs = JSON.parse(JSON.stringify(S.forms.find(x => x.kind === S.fk).questions || [])); paintSettings(); });
+  $("#qlist").addEventListener("change", e => { if (e.target.dataset && e.target.dataset.si) { readQs(); $("#qlist").innerHTML = qEditor(); } });
   $("#qlist").addEventListener("click", e => { const b = e.target.closest("[data-act]"); if (!b) return; readQs(); const i = +b.closest(".qe").dataset.i, a = b.dataset.act; if (a === "del") S.qs.splice(i, 1); else if (a === "up" && i > 0) [S.qs[i-1], S.qs[i]] = [S.qs[i], S.qs[i-1]]; else if (a === "down" && i < S.qs.length - 1) [S.qs[i+1], S.qs[i]] = [S.qs[i], S.qs[i+1]]; $("#qlist").innerHTML = qEditor(); });
   $("#qlist").addEventListener("change", e => { if (e.target.dataset.f === "type") { readQs(); const q = S.qs[+e.target.closest(".qe").dataset.i]; if (q.type === "choice" && !(q.options || []).length) q.options = ["Yes", "No"]; $("#qlist").innerHTML = qEditor(); } });
   $("#addq").onclick = () => { readQs(); S.qs.push({ type:"rating", label:"", category:"General", required:true }); $("#qlist").innerHTML = qEditor(); };
