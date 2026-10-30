@@ -596,12 +596,18 @@ details summary::-webkit-details-marker{color:var(--sage-70)}
 #trackerApp .muted{color:var(--sage-70)}
 #trackerApp .strong{font-weight:600}
 
-#trackerApp .due-today{background:var(--attention-bg)}
-#trackerApp .due-soon{background:var(--good-bg)}
-#trackerApp .due-over{background:var(--alert-bg)}
-#trackerApp .due-over td:first-child{box-shadow:inset 3px 0 0 var(--alert)}
-#trackerApp .due-today td:first-child{box-shadow:inset 3px 0 0 var(--attention)}
-#trackerApp .due-soon td:first-child{box-shadow:inset 3px 0 0 var(--good)}
+#trackerApp .due-today{background:#F8E2A6}
+#trackerApp .due-soon{background:#D5E8D0}
+#trackerApp .due-over{background:#F4C6BF}
+#trackerApp .due-over td:first-child{box-shadow:inset 8px 0 0 #B3261E}
+#trackerApp .due-today td:first-child{box-shadow:inset 8px 0 0 #D08A00}
+#trackerApp .due-soon td:first-child{box-shadow:inset 8px 0 0 #3F7F3F}
+#trackerApp tr.due-over:hover, #trackerApp tr.due-today:hover, #trackerApp tr.due-soon:hover{filter:brightness(.96)}
+#trackerApp .duebadge{display:inline-block; margin-left:6px; padding:2px 9px; border-radius:999px; font-size:10.5px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:#fff; vertical-align:1px}
+#trackerApp .due-over .duebadge{background:#B3261E}
+#trackerApp .due-today .duebadge{background:#B87400}
+#trackerApp .due-soon .duebadge{background:#3F7F3F}
+#trackerApp .due-over td.nowrap.strong{color:#8E1A12}
 #trackerApp tr.closed{opacity:.55}
 
 #trackerApp .pill{
@@ -7252,6 +7258,10 @@ var TrackerApp = (function(){
   }
 
   /* ----------------------------------------------------- due colouring */
+  function dueBadge(r){
+    const c = dueClass(r);
+    return c === "due-over" ? ' <span class="duebadge">Overdue</span>' : c === "due-today" ? ' <span class="duebadge">Today</span>' : c === "due-soon" ? ' <span class="duebadge">Soon</span>' : "";
+  }
   function dueClass(r){
     if(r._needsAppSetup && !r.next_due) return "due-today";
     if(!r.next_due) return "";
@@ -7312,7 +7322,7 @@ var TrackerApp = (function(){
       </tr></thead>
       <tbody>${rows.map(r => `
         <tr class="${dueClass(r)}" data-id="${r.id}">
-          <td class="nowrap strong">${r._needsAppSetup && !r.next_due ? "Now" : ukDate(r.next_due)}</td>
+          <td class="nowrap strong">${r._needsAppSetup && !r.next_due ? "Now" : ukDate(r.next_due)}${dueBadge(r)}</td>
           <td class="strong">${esc(r.name)}${appTag(r)}${tourTag(r)}</td>
           <td class="nowrap">${ukDate(r.event_date)}</td>
           <td>${esc(r.event_type)}</td>
@@ -7397,7 +7407,7 @@ var TrackerApp = (function(){
           <td>${esc(r.venue)}</td>
           <td>${statusPill(r)}</td>
           <td>${esc(r.next_action)}</td>
-          <td class="nowrap">${ukDate(r.next_due)}</td>
+          <td class="nowrap">${ukDate(r.next_due)}${dueBadge(r)}</td>
           <td class="muted">${esc(r.email||"")}${r.phone?"<br>"+esc(r.phone):""}</td>
         </tr>`).join("")}</tbody>`;
   }
