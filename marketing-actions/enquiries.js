@@ -39,7 +39,7 @@
       try {
         if (!st.sheetUrl) { const b = await ctx.call('bootstrap'); st.sheetUrl = b.sheet_url; }
         const r = await ctx.call('list'); if (st.dead) return;
-        st.rows = r.rows; st.sum = r.summary; st.readAt = r.read_at; st.sel = new Set([...st.sel].filter(k => st.rows.some(x => x.key === k)));
+        st.rows = r.rows; st.sum = r.summary; st.readAt = r.read_at; st.settings = r.settings || { auto: false }; st.sel = new Set([...st.sel].filter(k => st.rows.some(x => x.key === k)));
       } catch (e) { if (!st.dead) el.innerHTML = `<div class="en"><div class="note bad">${esc(e.message)}</div><button class="btn" id="enRetry">Try again</button></div>`; const b = el.querySelector('#enRetry'); if (b) b.onclick = () => { el.innerHTML = `<div class="en"><div class="loading">Reading the sheet…</div></div>`; load(); }; return; }
       draw();
     }
@@ -59,6 +59,7 @@
         <div class="pagehead"><h2>Enquiries</h2><span class="hint">Everyone in the enquiry sheet, checked against the Weddings &amp; Events tracker. The sheet is read afresh whenever this tab opens.</span><span class="spacer"></span>
           <a class="btn ghost small" href="${esc(st.sheetUrl)}" target="_blank" rel="noopener">Open the sheet</a> <button class="btn ghost small" id="enRefresh">Refresh</button></div>
         <div class="strip"><div><b>${s.total}</b><span>In the sheet</span></div><div><b>${s.in}</b><span>Already in the tracker</span></div><div><b>${s.missing}</b><span>Not in the tracker</span></div><div><b>${s.form}</b><span>New form entries</span></div><div><b>${s.history}</b><span>Historic list</span></div></div>
+        <div class="note" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><span><b>Automatic adding is ${st.settings.auto ? 'ON' : 'OFF'}.</b> ${st.settings.auto ? `New form entries go into the tracker by themselves, checked every 10 minutes${st.settings.last_run_at ? ` (last check ${new Date(st.settings.last_run_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}${st.settings.last_added ? `, ${st.settings.last_added} added last time` : ''})` : ''}. Someone already in the tracker gets the new message added to their record instead.` : 'New form entries wait here until you add them.'}${st.settings.last_error ? ` <span style="color:var(--alert,#8C4A3F)">Last problem: ${esc(st.settings.last_error)}</span>` : ''}</span><span style="flex:1"></span><button class="btn ghost small" id="enAuto">${st.settings.auto ? 'Switch off' : 'Switch on'}</button></div>
         ${s.form === 0 ? `<div class="note">No one has come through the form yet. New enquiries appear here as they arrive in the first tab of the sheet.</div>` : ''}
         <div class="ctl">${[['missing', `Not in the tracker (${s.missing})`], ['possible', `Check (${s.possible})`], ['in', `In the tracker (${s.in})`], ['form', `New form (${s.form})`], ['history', `Historic (${s.history})`], ['all', `Everyone (${s.total})`]].map(([k, l]) => `<button class="chip" data-f="${k}" aria-pressed="${st.filter === k}">${l}</button>`).join('')}
           <span style="flex:1"></span>${missingAll.length ? `<button class="btn" id="enAddAll">Add all ${missingAll.length} missing to the tracker</button>` : ''}${st.sel.size ? ` <button class="btn ghost" id="enAddSel">Add the ${st.sel.size} ticked</button>` : ''}</div>
@@ -71,6 +72,7 @@
           : `<div class="empty">${st.filter === 'missing' ? 'Everyone in the sheet is already in the tracker.' : 'Nothing here.'}</div>`}
         <p class="small muted">Read from the sheet ${st.readAt ? new Date(st.readAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : ''}. A person is "in the tracker" when their email or phone number matches a tracker record. A form entry is added as a New Enquiry from the Website with a Send Brochure action due today; a historic one is added without a next action, so it does not fill the To Do list. The message goes in as the first note.</p></div>`;
       el.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { st.filter = b.dataset.f; draw(); });
+      el.querySelector('#enAuto').onclick = async () => { try { const r = await ctx.call('settings.save', { auto: !st.settings.auto }); st.settings = r.settings; ctx.toast(st.settings.auto ? 'Automatic adding is on.' : 'Automatic adding is off.'); draw(); } catch (e) { ctx.toast(e.message, true); } };
       el.querySelector('#enRefresh').onclick = () => { el.innerHTML = `<div class="en"><div class="loading">Reading the sheet…</div></div>`; load(); };
       el.querySelectorAll('[data-k]').forEach(c => c.onchange = () => { c.checked ? st.sel.add(c.dataset.k) : st.sel.delete(c.dataset.k); draw(); });
       el.querySelectorAll('[data-add]').forEach(b => b.onclick = () => { const r = st.rows.find(x => x.key === b.dataset.add); add({ keys: [r.key], force: r.match.state === 'possible' ? [r.key] : [] }, b); });
