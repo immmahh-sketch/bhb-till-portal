@@ -32,6 +32,7 @@ function paintUpsells(){
     <div class="kpi"><div class="l">Sales</div><div class="v">${real.length}</div><div class="s">${nUp} with a room upgrade</div></div>
     <div class="kpi"><div class="l">Revenue</div><div class="v">${gbp(rev)}</div><div class="s">${real.length ? "average " + gbp(rev / real.length) : "nothing yet"}</div></div>
     <div class="kpi"><div class="l">Offer emails sent</div><div class="v">${d.emails_sent}</div><div class="s">${d.emails_sent ? (real.length / d.emails_sent * 100).toFixed(1) + "% bought" : ""}</div></div>
+    <div class="kpi ${d.bids_waiting ? "click" : ""}" ${d.bids_waiting ? `data-gobids="1"` : ""}><div class="l">Offers to review</div><div class="v">${d.bids_waiting || 0}</div><div class="s">${d.bids_waiting ? "click to decide" : "none waiting"}</div></div>
     <div class="kpi ${d.open_total ? "click" : ""}"><div class="l">Still to add to Rezlynx</div><div class="v">${d.open_total}</div><div class="s">${d.open_total ? "tick each one when done" : "all done"}</div></div>
   </div>`;
   if (!keys.length) h += `<div class="card"><div class="empty">No upsells sold in this period yet.${d.emails_sent ? "" : " Offers are emailed from the Arrivals tab once the automatic email is switched on in Offers and email."}</div></div>`;
@@ -44,9 +45,46 @@ function paintUpsells(){
         <label class="sw" style="margin:8px 0 0"><input type="checkbox" data-done="${o.id}" ${o.done_at ? "checked" : ""}><span>Added to Rezlynx${o.done_at ? ` <span class="muted" style="font-weight:400">(${esc(o.done_by || "")}, ${fmtDT(o.done_at)})</span>` : ""}</span></label></div>`).join("")}</td></tr>` : ""}`; }).join("")}</tbody></table></div></div>`;
   $("#views").innerHTML = h;
   $$("[data-days]").forEach(b => b.onclick = () => { S.upDays = +b.dataset.days; viewUpsells(); });
+  $$("[data-gobids]").forEach(k => k.onclick = () => goView("bids"));
   $$("tr[data-day]").forEach(r => r.onclick = () => { S.upOpen = S.upOpen || {}; S.upOpen[r.dataset.day] = !S.upOpen[r.dataset.day]; paintUpsells(); });
   $$("[data-done]").forEach(c => c.onchange = async () => { try { await ucall("order.done", { id:c.dataset.done, done:c.checked }); const o = S.sales.orders.find(x => x.id === c.dataset.done); if (o) { o.done_at = c.checked ? new Date().toISOString() : null; o.done_by = S.me.name; } S.sales.open_total += c.checked ? -1 : 1; paintUpsells(); toast(c.checked ? "Marked as added to Rezlynx." : "Marked as still to add."); } catch(e){ toast(e.message, true); c.checked = !c.checked; } });
   $("#u_csv").onclick = () => downloadCsv(`upsell-sales-${d.from}-to-${d.to}.csv`, [["Paid","Guest","Email","Booking","Arrives","Departs","Room booked","What was sold","Total","Added to Rezlynx","SumUp reference","Test"]].concat(d.orders.map(o => [o.paid_at, o.guest, o.email, o.ref, o.arrival, o.departure, o.room, o.lines.map(l => l.text + " " + l.amount).join("; "), o.total, o.done_at ? "Yes" : "No", o.sumup || "", o.test ? "Yes" : ""])));
+}
+
+/* =========================================================== Bids */
+const BID_STATE = { review:["Needs your decision","gold"], approved:["Approved, waiting for them to pay","good"], countered:["Asked to raise, waiting for them",""], auto_accepted:["Accepted automatically, waiting for payment","good"], paid:["Paid","good"], rejected:["Rejected","bad"], auto_rejected:["Declined automatically","bad"], expired:["Expired",""], superseded:["Replaced by a newer offer",""] };
+async function viewBids(){
+  const v = $("#views"); v.innerHTML = `<div class="loading">Loading…</div>`;
+  let d; try { d = await ucall("bids.list"); } catch(e){ v.innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+  S.bids = d; paintBids();
+}
+function paintBids(){
+  const d = S.bids, all = d.bids, real = all.filter(b => !b.is_test), st = d.settings;
+  const review = all.filter(b => b.status === "review"), openOnes = all.filter(b => ["approved","countered","auto_accepted"].includes(b.status)), done = all.filter(b => !["review","approved","countered","auto_accepted"].includes(b.status));
+  const n = k => real.filter(b => b.status === k).length;
+  let h = `<div class="pagehead"><h2>Bids</h2><span class="hint">What guests have offered for an upgrade.</span></div>
+  <div class="note">Offers of <b>${st.auto_accept_pct}%</b> or more of the selling price are accepted automatically and go straight to payment. Offers under <b>${st.auto_reject_pct}%</b> are declined automatically. Everything in between waits here for you. You can change these levels in Offers and email.</div>
+  <div class="kpis"><div class="kpi"><div class="l">Waiting for you</div><div class="v">${review.filter(b => !b.is_test).length}</div></div><div class="kpi"><div class="l">Paid</div><div class="v">${n("paid")}</div></div><div class="kpi"><div class="l">Waiting for the guest</div><div class="v">${openOnes.filter(b => !b.is_test).length}</div></div><div class="kpi"><div class="l">Declined or rejected</div><div class="v">${n("auto_rejected") + n("rejected")}</div></div></div>
+  <div class="sechead">Needs your decision</div>`;
+  h += review.length ? review.map(b => { const mid = Math.round(b.selling_price * st.auto_accept_pct / 100);
+    return `<div class="card" data-bid="${b.id}"><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:baseline"><b style="font-size:17px">${esc(b.guest_name || "")}</b><span class="muted">${esc(b.ref)} · arrives ${dayName(b.arrival)} to ${dayName(b.departure)} · booked ${esc(b.room)}</span>${b.is_test ? `<span class="tag gold">test</span>` : ""}<span class="spacer"></span><span class="muted">${fmtDT(b.created_at)}</span></div>
+      <p style="margin:10px 0 4px;font-size:16px">Offered <b>${gbp(b.bid)}</b> for the <b>${esc(b.offer_title)}</b> <span class="muted">(${b.pct}% of the ${gbp(b.selling_price)} selling price, ${b.nights} night${b.nights === 1 ? "" : "s"})</span></p>${b.note ? `<div class="muted">Their note: ${esc(b.note)}</div>` : ""}
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-top:12px"><button class="btn small" data-act="approve">Approve ${gbp(b.bid)}</button>
+        <span style="display:inline-flex;gap:6px;align-items:flex-end"><span class="field" style="margin:0"><label>Ask them to raise to (£)</label><input type="number" class="bd_counter" min="${b.bid}" max="${b.selling_price}" step="1" value="${mid > b.bid ? mid : Math.min(b.selling_price, Math.ceil(b.bid + 1))}" style="max-width:120px"></span><button class="btn ghost small" data-act="counter">Ask them to raise</button></span>
+        <button class="btn danger small" data-act="reject">Reject</button></div>
+      <label class="sw" style="margin:10px 0 0"><input type="checkbox" class="bd_mail" checked><span style="font-weight:400">Email the guest straight away (approve: a link to pay; raise: your new price; reject: a polite note with a link to offer again)</span></label></div>`; }).join("")
+    : `<div class="card"><div class="empty">Nothing is waiting for your decision.</div></div>`;
+  if (openOnes.length) h += `<div class="sechead">Waiting for the guest</div><div class="card"><div class="tw"><table class="t"><thead><tr><th>Guest</th><th>Room</th><th>Offer</th><th>Where it is</th><th>Until</th></tr></thead><tbody>${openOnes.map(b => `<tr><td>${esc(b.guest_name || "")}<br><span class="muted">${esc(b.ref)}</span></td><td>${esc(b.offer_title)}</td><td>${gbp(b.bid)}${b.counter_amount ? ` → we asked ${gbp(b.counter_amount)}` : ""}</td><td><span class="tag ${BID_STATE[b.status][1]}">${BID_STATE[b.status][0]}</span></td><td class="muted">${b.expires_at ? fmtDT(b.expires_at) : ""}</td></tr>`).join("")}</tbody></table></div></div>`;
+  h += `<div class="sechead">History <small>the last 120 days</small></div>` + (done.length ? `<div class="card"><div class="tw"><table class="t"><thead><tr><th>When</th><th>Guest</th><th>Room</th><th>Offer</th><th>Result</th></tr></thead><tbody>${done.map(b => `<tr><td class="nowrap">${fmtDT(b.created_at)}</td><td>${esc(b.guest_name || "")}<br><span class="muted">${esc(b.ref)}</span></td><td>${esc(b.offer_title)}</td><td>${gbp(b.bid)} <span class="muted">(${b.pct}% of ${gbp(b.selling_price)})</span></td><td><span class="tag ${BID_STATE[b.status][1]}">${BID_STATE[b.status][0]}</span>${b.is_test ? ` <span class="tag gold">test</span>` : ""}${b.decided_by && b.decided_by !== "automatic" ? `<br><span class="muted">${esc(b.decided_by)}</span>` : ""}</td></tr>`).join("")}</tbody></table></div></div>` : `<div class="card"><div class="empty">No offers yet.</div></div>`);
+  $("#views").innerHTML = h;
+  $$("[data-bid] [data-act]").forEach(btn => btn.onclick = async () => {
+    const card = btn.closest("[data-bid]"), id = card.dataset.bid, act = btn.dataset.act, bid = all.find(x => x.id === id);
+    if (act === "reject" && !confirm("Reject this offer?")) return;
+    btn.disabled = true;
+    try { const r = await ucall("bid.decide", { id, decision:act, counter:card.querySelector(".bd_counter").value, send_email:card.querySelector(".bd_mail").checked });
+      toast((act === "approve" ? "Approved" : act === "counter" ? "Asked them to raise" : "Rejected") + (r.emailed ? ", and the guest has been emailed." : r.email_error ? ". The email failed: " + r.email_error : ".")); viewBids(); }
+    catch(e){ toast(e.message, true); btn.disabled = false; }
+  });
 }
 
 /* =========================================================== Arrivals */
@@ -135,7 +173,7 @@ function offerForm(o){
   return `<div class="qe" data-form="${o.id || "new"}"><div class="field"><label>Name guests see</label><input class="of_title" value="${esc(o.title || "")}" maxlength="80"></div>
     <div class="field"><label>Wording (a sentence or two that makes it sound tempting)</label><textarea class="of_blurb" maxlength="600">${esc(o.blurb || "")}</textarea></div>
     ${up ? `<div class="field"><label>Which room is this</label><div>${ROOMS.map(([k, n]) => `<label style="display:inline-flex;gap:6px;align-items:center;margin:0 14px 6px 0;font-size:14px;text-transform:none;letter-spacing:0;color:var(--ink)"><input type="checkbox" class="of_room" value="${k}" ${(o.room_types || []).includes(k) ? "checked" : ""}>${n}</label>`).join("")}</div></div>
-      <div class="field"><label>Discount on the price difference (%)</label><input type="number" class="of_disc" min="0" max="90" step="1" value="${o.discount_pct == null ? 50 : o.discount_pct}"><div class="muted" style="font-size:12.5px;margin-top:4px">The price is worked out live for each guest: the difference between their room and this one for every night of the stay, less this discount.</div></div>`
+      <div class="field"><label>Selling price: discount on the room difference (%)</label><input type="number" class="of_disc" min="0" max="90" step="1" value="${o.discount_pct == null ? 50 : o.discount_pct}"><div class="muted" style="font-size:12.5px;margin-top:4px">The selling price is worked out live for each guest: the difference between their room and this one for every night of the stay, less this discount (0 means the full difference). Guests bid against it, and the levels below decide what is accepted.</div></div>`
     : `<div class="row2"><div class="field"><label>Price (£)</label><input type="number" class="of_price" min="0" step="0.01" value="${o.price == null ? "" : o.price}"></div><div class="field"><label>Charged</label><select class="of_per">${[["stay","Once per stay"],["night","Per night"],["each","Each (guest picks how many)"]].map(([k, n]) => `<option value="${k}" ${o.per === k ? "selected" : ""}>${n}</option>`).join("")}</select></div></div>
       <div class="field"><label>The most a guest can choose</label><input type="number" class="of_max" min="1" max="20" value="${o.max_qty || 1}"></div>`}
     <div class="sw"><input type="checkbox" class="of_active" ${o.active !== false ? "checked" : ""} id="oa_${o.id || "new"}"><label for="oa_${o.id || "new"}">On offer</label></div>
@@ -147,7 +185,7 @@ function paintOffers(){
   const waiting = S.arrCount ? S.arrCount.bookings.filter(b => !b.skip && b.next_stage && !b.sent.some(x => x.stage === b.next_stage) && !b.paid).length : null;
   const line = o => { const ed = S.uoEdit === o.id; return `<div class="card" style="padding:14px 18px"><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:baseline"><b style="font-size:16px">${esc(o.title)}</b> ${o.kind === "upgrade" ? `<span class="tag">${o.discount_pct}% off</span>` : `<span class="tag">${gbp(o.price)} ${o.per === "night" ? "a night" : o.per === "each" ? "each" : "once"}</span>`} <span class="tag ${o.active ? "good" : ""}">${o.active ? "On offer" : "Off"}</span>${o.kind === "extra" && o.active ? `<span class="tag ${o.in_email ? "good" : ""}">${o.in_email ? "In the email" : "Page only"}</span>` : ""}<span class="spacer"></span><button class="btn ghost small" data-edit="${o.id}">${ed ? "Close" : "Edit"}</button></div>
     <div class="muted" style="font-size:13.5px">${esc(o.blurb || "")}</div>${ed ? offerForm(o) : ""}</div>`; };
-  let h = `<div class="pagehead"><h2>Offers and email</h2><span class="hint">What guests are offered, what it costs, and exactly what the email says.</span></div>
+  let h = `<div class="pagehead"><h2>Offers and email</h2><span class="hint">What guests can bid for, what the extras cost, and exactly what the emails say.</span></div>
   <div class="card"><h3>Automatic upgrade emails</h3>
     <div class="sw"><input type="checkbox" id="u_auto" ${s.auto ? "checked" : ""}><label for="u_auto">Email guests automatically</label></div>
     <p class="muted" style="margin:0 0 6px">${s.auto ? "ON: every day at " + s.send_hour + "am each guest is emailed once at each of these stages." : "OFF: nothing is sent until you switch this on."} ${waiting != null ? `<b>${waiting}</b> guest${waiting === 1 ? " is" : "s are"} waiting for an email now${s.auto ? "" : ", and would be emailed at " + s.send_hour + "am the next morning if you switch on"}.` : ""}</p>
@@ -157,6 +195,15 @@ function paintOffers(){
   <div class="sechead">Extras <small>fixed prices, from the team's list</small></div>${ex.map(line).join("")}
   <button class="btn ghost small" id="o_addex">Add an extra</button>
   ${S.uoEdit === "new-upgrade" ? `<div class="card">${offerForm({ kind:"upgrade" })}</div>` : ""}${S.uoEdit === "new-extra" ? `<div class="card">${offerForm({ kind:"extra", per:"stay", max_qty:1 })}</div>` : ""}
+  <div class="sechead">How bids are decided</div>
+  <div class="card"><div class="row2"><div class="field"><label>Accept automatically at or above (% of the selling price)</label><input type="number" id="bd_acc" min="1" max="100" step="1" value="${s.auto_accept_pct}"></div><div class="field"><label>Decline automatically below (% of the selling price)</label><input type="number" id="bd_rej" min="0" max="99" step="1" value="${s.auto_reject_pct}"></div></div>
+    <div class="row2"><div class="field"><label>Offers a guest can make on one booking</label><input type="number" id="bd_max" min="1" max="30" value="${s.max_bids}"></div><div class="field"><label>Hours an approved offer is kept for the guest</label><input type="number" id="bd_hrs" min="1" max="720" value="${s.approval_hours}"></div></div>
+    <p class="muted" style="margin:0 0 12px">An offer at or above the first level goes straight to the card payment. Below the second it is declined. Anything between waits in the Bids tab for you to approve, ask them to raise, or reject. The selling price is each upgrade's price above (the room difference for the stay, less its discount).</p>
+    <button class="btn" id="bd_save">Save</button></div>
+  <div class="sechead">Emails about an offer <small>sent from the Bids tab</small></div>
+  <div class="card"><div class="muted" style="font-size:12.5px;margin-bottom:10px">You can use <code>{first_name}</code> <code>{room}</code> <code>{amount}</code> (their offer) <code>{counter}</code> (your raised price) <code>{arrival_day}</code>. The button is added for you.</div>
+    ${[["approved","When you approve"],["counter","When you ask them to raise"],["reject","When you reject"]].map(([k, l]) => `<h4>${l}</h4><div class="field"><label>Subject</label><input id="bm_${k}_s" value="${esc(s["bid_" + k + "_subject"])}"></div><div class="field"><label>Message</label><textarea id="bm_${k}_b" style="min-height:190px">${esc(s["bid_" + k + "_body"])}</textarea></div>`).join("")}
+    <button class="btn" id="bm_save">Save these emails</button></div>
   <div class="sechead">The email guests receive</div>
   <div class="card"><div class="field"><label>Subject</label><input id="e_subject" value="${esc(s.subject)}"></div>
     <div class="field"><label>Heading</label><input id="e_heading" value="${esc(s.heading)}"></div>
@@ -195,6 +242,8 @@ function paintOffers(){
   const wording = () => ({ subject:$("#e_subject").value, heading:$("#e_heading").value, body:$("#e_body").value, stage_notes:Object.fromEntries($$(".e_note").map(t => [t.dataset.n, t.value])), upgrades_heading:$("#e_uh").value, upgrades_intro:$("#e_ui").value, extras_heading:$("#e_xh").value, extras_intro:$("#e_xi").value, small_print:$("#e_sp").value });
   $("#e_save").onclick = () => save(wording(), "Wording saved.");
   $("#e_prev").onclick = async () => { try { const r = await ucall("settings.save", wording()); S.uo.settings = r.settings; } catch(e){ toast(e.message, true); return; } showPreview("", (S.uo.settings.stages || [14])[0]); };
+  $("#bd_save").onclick = () => save({ auto_accept_pct:$("#bd_acc").value, auto_reject_pct:$("#bd_rej").value, max_bids:$("#bd_max").value, approval_hours:$("#bd_hrs").value }, "Bidding levels saved.");
+  $("#bm_save").onclick = () => save(Object.fromEntries(["approved","counter","reject"].flatMap(k => [["bid_" + k + "_subject", $("#bm_" + k + "_s").value], ["bid_" + k + "_body", $("#bm_" + k + "_b").value]])), "Emails saved.");
   $("#r_save").onclick = () => save({ receipt_subject:$("#r_subject").value, receipt_body:$("#r_body").value }, "Thank-you saved.");
   $("#s_save").onclick = () => save({ notify_emails:$("#s_notify").value, stages:$("#s_stages").value, send_hour:$("#s_hour").value, skip_relay:$("#s_relay").checked, skip_house:$("#s_house").checked, skip_wedding:$("#s_wed").checked }, "Saved.");
 }

@@ -29,7 +29,7 @@ h1{font-size:32px; margin-bottom:8px} h2{font-size:25px; margin:30px 0 6px}
 .bad{background:var(--alert-bg); color:var(--alert); border-radius:10px; padding:12px 14px; font-size:15px; margin:14px 0}
 .opt{display:block; position:relative; background:var(--white); border:2px solid var(--mist); border-radius:var(--radius); padding:18px 18px 16px 52px; margin:0 0 12px; cursor:pointer; transition:border-color .15s, box-shadow .15s}
 .opt:hover{border-color:var(--olive)} .opt.on{border-color:var(--sage); box-shadow:0 6px 20px rgba(77,96,79,.18)}
-.opt input{position:absolute; left:18px; top:22px; width:22px; height:22px; accent-color:var(--sage); margin:0}
+.opt input[type=radio]{position:absolute; left:18px; top:22px; width:22px; height:22px; accent-color:var(--sage); margin:0}
 .opt .tag{font-size:11px; font-weight:700; letter-spacing:.16em; text-transform:uppercase; color:var(--gold)}
 .opt .name{font-family:var(--display); font-size:25px; color:var(--sage); line-height:1.2; margin:2px 0 4px}
 .opt .blurb{font-size:15px; margin:0 0 10px}
@@ -59,13 +59,21 @@ h1{font-size:32px; margin-bottom:8px} h2{font-size:25px; margin:30px 0 6px}
 .done ul{list-style:none; padding:0; margin:14px 0; text-align:left}
 .done li{display:flex; justify-content:space-between; gap:12px; padding:8px 0; border-top:1px solid var(--mist)}
 .loading{text-align:center; padding:60px 10px; color:var(--sage-70)}
+.bidrow{margin-top:14px;border-top:1px solid var(--mist);padding-top:12px}
+.bidrow label{display:block;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--sage-70);margin-bottom:6px;font-weight:600}
+.bidin{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.bidin span{font-family:var(--display);font-size:28px;color:var(--sage)}
+.bidin input{width:120px;padding:11px 12px;border:1.5px solid var(--mist);border-radius:10px;font:inherit;font-size:20px;background:var(--white)}
+.bidin input:focus{outline:none;border-color:var(--sage)}
+.bidgo{flex:1;min-width:150px}
+.bidmsg .bad{margin:10px 0 0}
 @media (max-width:480px){ h1{font-size:27px} .opt .price{font-size:30px} .go{padding:14px 16px} }
 </style>
 </head>
 <body>
 <header><a href="https://www.blackhorsebeamish.co.uk"><img src="https://app.blackhorsebeamish.co.uk/app/logo-light.png" alt="Black Horse Beamish"></a></header>
 <main id="main"><div class="loading">One moment…</div></main>
-<div class="bar" id="bar" hidden><div class="barin"><div class="tot"><span id="tl">Your upgrade</span><b id="tv">£0</b></div><button class="go" id="go" disabled>Pay by card</button></div></div>
+<div class="bar" id="bar" hidden><div class="barin"><div class="tot"><span id="tl">Your extras</span><b id="tv">£0</b></div><button class="go" id="go" disabled>Pay by card</button></div></div>
 <script>
 const API = "https://safcrtrfdzsnftghibot.supabase.co/functions/v1/upsell-api", KEY = "sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU";
 const P = new URLSearchParams(location.search), T = P.get("t") || "", PREVIEW = P.get("preview") === "1", PAID = P.get("paid") || "", WANT = P.get("o") || "";
@@ -78,10 +86,9 @@ async function call(action, payload){
   if (!r.ok || d.error) throw new Error(d.error || "Something went wrong. Please try again.");
   return d;
 }
-const S = { d:null, pick:null, qty:{}, busy:false };
+const S = { d:null, qty:{}, busy:false };
 function total(){
   let t = 0; const d = S.d;
-  if (S.pick) { const o = d.options.find(x => x.id === S.pick); if (o) t += o.price; }
   d.extras.forEach(e => { const q = S.qty[e.id] || 0; if (q) t += e.price * q * (e.per === "night" ? d.nights : 1); });
   return Math.round(t * 100) / 100;
 }
@@ -90,21 +97,28 @@ function paint(){
   $("#tv").textContent = gbp(t);
   $("#go").disabled = !(t >= 1) || S.busy || PREVIEW;
   $("#go").textContent = PREVIEW ? "Preview only" : S.busy ? "One moment…" : t >= 1 ? "Pay " + gbp(t) + " by card" : "Choose something";
-  document.querySelectorAll(".opt").forEach(l => l.classList.toggle("on", l.dataset.id === S.pick));
   d.extras.forEach(e => { const el = document.querySelector('.ex[data-id="' + e.id + '"]'); if (!el) return; const q = S.qty[e.id] || 0; el.classList.toggle("on", q > 0); el.querySelector("output").textContent = q; el.querySelector(".minus").disabled = q < 1; el.querySelector(".plus").disabled = q >= e.max_qty; });
+}
+function bidBanner(d){
+  const b = d.open_bid; if (!b || d.upgraded) return "";
+  if (b.status === "review") return `<div class="done" style="margin:16px 0;text-align:left;border-top-color:var(--gold)"><b>Your offer of ${gbp(b.bid)} for the ${esc(b.title)} is with our team.</b><br>We will email you as soon as we have looked at it. You are welcome to put in a different offer below.</div>`;
+  const amt = b.status === "countered" ? b.counter : b.bid;
+  return `<div class="done" id="bidbox" style="margin:16px 0;text-align:left"><b>${b.status === "countered" ? `We would love to upgrade you to the ${esc(b.title)} for ${gbp(amt)}.` : `Good news! Your offer of ${gbp(amt)} for the ${esc(b.title)} has been accepted.`}</b><br>${b.status === "countered" ? "That is very close to your offer. You can accept it here, or put in a different offer below." : "We are keeping it for you. Pay securely by card to confirm it."}${b.expires_at ? `<br><span style="font-size:13px;color:var(--sage-70)">Kept for you until ${esc(new Date(b.expires_at).toLocaleString("en-GB", { weekday:"long", day:"numeric", month:"long", hour:"2-digit", minute:"2-digit" }))}.</span>` : ""}
+    <div style="margin-top:12px"><button class="go" id="paybid" ${PREVIEW ? "disabled" : ""}>${PREVIEW ? "Preview only" : "Pay " + gbp(amt) + " and confirm my upgrade"}</button></div><div id="biderr"></div></div>`;
 }
 function render(){
   const d = S.d, stayLine = `<div class="stay">Your stay: <b>${esc(d.arrival_day)}</b> to <b>${esc(d.departure_day)}</b> (${d.nights} night${d.nights === 1 ? "" : "s"}) in a <b>${esc(d.room)}</b><br><span style="color:var(--sage-70);font-size:13px">Booking ${esc(d.ref)}</span></div>`;
-  let h = (PREVIEW ? `<div class="banner">This is a preview of the page your guests see. Payment is switched off.</div>` : "") + `<h1>Hello ${esc(d.first_name)}</h1>`;
+  let h = (PREVIEW ? `<div class="banner">This is a preview of the page your guests see. Offers and payment are switched off.</div>` : "") + `<h1>Hello ${esc(d.first_name)}</h1>`;
   if (d.gone || d.started) { $("#main").innerHTML = h + `<p class="lead">Thank you for looking. This offer is only for stays that are still to come, and we cannot find an open one on this booking. If you think that is a mistake, please email <a href="mailto:stay@blackhorsebeamish.co.uk">stay@blackhorsebeamish.co.uk</a> and we will help.</p>`; return; }
-  h += stayLine;
+  h += stayLine + bidBanner(d);
   if (d.upgraded) h += `<div class="done" style="margin-top:16px"><div class="tick">&#10003;</div><h2 style="margin-top:0">You are already upgraded</h2><p>Thank you, your room upgrade is booked and we cannot wait to welcome you.</p></div>`;
   if (d.unavailable) h += `<div class="bad">We cannot check which rooms are free just now. Please try again in a few minutes, or email <a href="mailto:stay@blackhorsebeamish.co.uk">stay@blackhorsebeamish.co.uk</a>.</div>`;
   if (d.options.length) {
-    h += `<h2>${esc(d.upgrades_heading || "Treat yourself to a better room")}</h2><p class="lead">${esc(d.upgrades_intro || "")}</p>`;
-    h += d.options.map(o => `<label class="opt" data-id="${esc(o.id)}"><input type="radio" name="up" value="${esc(o.id)}"><div class="tag">${o.disc === 50 ? "Half price" : Math.round(o.disc) + "% off"} for guests already booked</div><div class="name">${esc(o.title)}</div>${o.blurb ? `<div class="blurb">${esc(o.blurb)}</div>` : ""}<div class="was">Usually <s>${gbp(o.was)}</s> extra for your ${o.nights === 1 ? "night" : o.nights + " nights"}</div><div class="price">${gbp(o.price)} <small>extra, you save ${gbp(o.save)}</small></div>${o.nights > 1 ? `<div class="per">About ${gbp(o.per_night)} a night</div>` : ""}</label>`).join("");
-    h += `<p class="small" style="margin-top:0"><a href="#" id="clear">Not for me, keep my room</a></p>`;
-  } else if (!d.upgraded && !d.unavailable) h += `<div class="banner" style="margin-top:16px">There is no higher room free for all of your nights at the moment. Rooms do change, so it is worth looking again nearer the time.</div>`;
+    h += `<h2>${esc(d.upgrades_heading || "Which room would you like?")}</h2><p class="lead">${esc(d.upgrades_intro || "")}</p>`;
+    h += d.options.map(o => `<div class="opt" data-id="${esc(o.id)}" style="padding-left:18px;cursor:default"><div class="tag">Name your own price</div><div class="name">${esc(o.title)}</div>${o.blurb ? `<div class="blurb">${esc(o.blurb)}</div>` : ""}<div class="was">Usual price for the extra over your ${o.nights === 1 ? "night" : o.nights + " nights"}</div><div class="price">${gbp(o.price)}</div>${o.nights > 1 ? `<div class="per">About ${gbp(o.per_night)} a night</div>` : ""}
+      <div class="bidrow"><label for="b_${esc(o.id)}">Your offer</label><div class="bidin"><span>£</span><input id="b_${esc(o.id)}" type="number" inputmode="decimal" min="1" max="${o.price}" step="0.01" placeholder="Your price"><button class="go bidgo" data-bid="${esc(o.id)}" ${PREVIEW || d.bids_left < 1 ? "disabled" : ""}>Make my offer</button></div>
+      <div class="bidmsg" id="m_${esc(o.id)}"></div><div class="per" style="margin-top:6px">${d.bids_left < 1 ? "You have made the most offers we can take online. Please email stay@blackhorsebeamish.co.uk." : `Or <a href="#" data-full="${esc(o.id)}">pay the usual ${gbp(o.price)} now</a> and it is yours.`}</div></div></div>`).join("");
+  } else if (!d.upgraded && !d.unavailable && !d.open_bid) h += `<div class="banner" style="margin-top:16px">There is no higher room free for all of your nights at the moment. Rooms do change, so it is worth looking again nearer the time.</div>`;
   if (d.extras.length) {
     h += `<h2>${esc(d.extras_heading || "Little extras")}</h2><p class="lead">${esc(d.extras_intro || "")}</p>`;
     h += d.extras.map(e => `<div class="ex" data-id="${esc(e.id)}"><div class="t"><b>${esc(e.title)}</b>${e.blurb ? `<span>${esc(e.blurb)}</span>` : ""}</div><div class="p">${gbp(e.price)}<small>${e.per === "night" ? "a night" : e.per === "each" ? "each" : ""}</small></div><div class="step"><button type="button" class="minus" aria-label="Fewer">&minus;</button><output>0</output><button type="button" class="plus" aria-label="More">+</button></div></div>`).join("");
@@ -112,18 +126,36 @@ function render(){
   }
   h += `<p class="small">${esc(d.small_print || "")}</p><div id="err"></div>`;
   $("#main").innerHTML = h;
-  const hasAny = d.options.length || d.extras.length; $("#bar").hidden = !hasAny;
-  document.querySelectorAll('.opt input').forEach(i => i.onchange = () => { S.pick = i.value; paint(); });
-  const clr = $("#clear"); if (clr) clr.onclick = ev => { ev.preventDefault(); S.pick = null; document.querySelectorAll('.opt input').forEach(i => i.checked = false); paint(); };
+  $("#bar").hidden = !d.extras.length;
   d.extras.forEach(e => { const el = document.querySelector('.ex[data-id="' + e.id + '"]'); el.querySelector(".minus").onclick = () => { S.qty[e.id] = Math.max(0, (S.qty[e.id] || 0) - 1); paint(); }; el.querySelector(".plus").onclick = () => { S.qty[e.id] = Math.min(e.max_qty, (S.qty[e.id] || 0) + 1); paint(); }; });
-  if (WANT && d.options.some(o => o.id === WANT)) { S.pick = WANT; const r = document.querySelector('.opt[data-id="' + WANT + '"] input'); if (r) r.checked = true; }
+  document.querySelectorAll("[data-bid]").forEach(b => b.onclick = () => bid(b.dataset.bid, +document.getElementById("b_" + b.dataset.bid).value));
+  document.querySelectorAll("[data-full]").forEach(a => a.onclick = ev => { ev.preventDefault(); if (PREVIEW) return; const o = d.options.find(x => x.id === a.dataset.full); bid(o.id, o.price); });
+  const pb = $("#paybid"); if (pb) pb.onclick = payBid;
   paint();
+  if (WANT) { const i = document.getElementById("b_" + WANT); if (i) i.scrollIntoView({ block:"center" }); } else if (P.get("bid") && $("#bidbox")) $("#bidbox").scrollIntoView({ block:"center" });
+}
+async function bid(id, amount){
+  if (S.busy || PREVIEW) return; const msg = document.getElementById("m_" + id);
+  if (!(amount >= 1)) { msg.innerHTML = `<div class="bad">Please enter an amount in pounds, for example 45.</div>`; return; }
+  S.busy = true; document.querySelectorAll("[data-bid]").forEach(b => b.disabled = true); msg.innerHTML = `<div class="per">One moment…</div>`;
+  try {
+    const r = await call("offer.bid", { offer_id:id, amount });
+    if (r.decision === "accepted") { msg.innerHTML = `<div class="done" style="padding:14px;margin-top:10px"><b>Yes! We would love to upgrade you for ${gbp(r.amount)}.</b><br>Taking you to our secure payment page…</div>`; location.href = r.url; return; }
+    if (r.decision === "declined") { msg.innerHTML = `<div class="bad">Thank you for your offer. ${gbp(r.amount)} is a little lower than we can do for this room. Please try a higher offer${r.left > 0 ? "" : ", or email stay@blackhorsebeamish.co.uk"}.</div>`; }
+    else { $("#main").innerHTML = `<div class="done" style="margin-top:6px"><div class="tick">&#10003;</div><h1>Thank you!</h1><p>We have your offer of <b>${gbp(r.amount)}</b>. Our team will look at it and email you very soon, and if we can say yes you will have a link to confirm it. You do not need to do anything else.</p><p><a href="?t=${encodeURIComponent(T)}">Back to the page</a></p></div>`; $("#bar").hidden = true; window.scrollTo(0, 0); }
+  } catch (e) { msg.innerHTML = `<div class="bad">${esc(e.message)}</div>`; }
+  S.busy = false; document.querySelectorAll("[data-bid]").forEach(b => b.disabled = PREVIEW || S.d.bids_left < 1);
+}
+async function payBid(){
+  const b = S.d.open_bid; const btn = $("#paybid"); btn.disabled = true; btn.textContent = "One moment…";
+  try { const r = await call("offer.pay", { bid_id:b.id }); location.href = r.url; }
+  catch (e) { $("#biderr").innerHTML = `<div class="bad">${esc(e.message)}</div>`; btn.disabled = false; btn.textContent = "Try again"; }
 }
 $("#go").onclick = async () => {
   if (S.busy || PREVIEW) return; S.busy = true; paint(); $("#err").innerHTML = "";
   try {
     const extras = S.d.extras.filter(e => S.qty[e.id] > 0).map(e => ({ id:e.id, qty:S.qty[e.id] }));
-    const d = await call("offer.pay", { picks:{ upgrade:S.pick, extras, note:($("#note") || {}).value || "" } });
+    const d = await call("offer.pay", { picks:{ extras, note:($("#note") || {}).value || "" } });
     location.href = d.url;
   } catch (e) { S.busy = false; $("#err").innerHTML = `<div class="bad">${esc(e.message)}</div>`; paint(); window.scrollTo({ top:document.body.scrollHeight, behavior:"smooth" }); }
 };
