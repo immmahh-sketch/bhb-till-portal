@@ -91,6 +91,28 @@ button.row:hover .t{text-decoration:underline}
 .pp .tag{margin-left:4px; vertical-align:2px}
 .soff{font-size:14px; padding-top:12px; margin-top:6px; border-top:1px solid var(--mist); overflow-wrap:anywhere}
 .soff b{font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); margin-right:6px}
+/* staffing timeline: time across the top, one row per job, a bar per shift */
+.stool{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:2px 0 10px}
+.stool label{font-size:10px; font-weight:700; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70)}
+.ssel{font:inherit; font-size:14px; padding:8px 12px; border:1px solid var(--sage); border-radius:8px; background:var(--white); color:var(--sage); min-height:44px}
+.tlwrap{overflow-x:auto; border-top:1px solid var(--mist); border-bottom:1px solid var(--mist)}
+.tlr{display:flex; align-items:stretch; border-bottom:1px solid var(--mist)}
+.tlr:last-child{border-bottom:0}
+.tlab{flex:0 0 140px; position:sticky; left:0; z-index:3; background:var(--white); padding:6px 10px 6px 0; font-size:12.5px; font-weight:600; color:var(--sage); display:flex; align-items:center; border-right:1px solid var(--mist); line-height:1.25}
+.tlab.sub{color:transparent}
+.tlt{flex:1 1 auto; position:relative; min-height:34px; background-image:linear-gradient(to right, rgba(77,96,79,.24) 1px, transparent 1px), linear-gradient(to right, rgba(77,96,79,.09) 1px, transparent 1px); background-size:calc(100% / var(--h)) 100%, calc(100% / var(--n)) 100%}
+.tlhead .tlt{min-height:30px}
+.tlhead .hr{position:absolute; top:7px; padding-left:3px; font-size:11px; color:var(--sage-70); white-space:nowrap}
+.tlcount .tlab{font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70)}
+.cseg{position:absolute; top:4px; bottom:4px; display:flex; align-items:center; justify-content:center; border-radius:5px; font-weight:700; font-size:13px; color:var(--sage)}
+.tldh{position:sticky; left:0; width:max-content; padding:12px 0 4px; font-size:10px; font-weight:700; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70)}
+.sbar{position:absolute; top:4px; bottom:4px; display:flex; align-items:center; padding:0 8px; border:0; border-radius:6px; background:var(--sage); color:#fff; font:inherit; font-size:12.5px; font-weight:600; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; cursor:default; text-align:left}
+.sbar.mgr{background:var(--brown, #3F2F28)}
+.sbar.draft{background:var(--sage-10); color:var(--sage); border:1px dashed var(--sage)}
+.sbar:focus-visible{outline:2px solid var(--brown, #3F2F28); outline-offset:1px}
+#sttip{position:fixed; z-index:50; display:none; max-width:300px; background:var(--brown, #3F2F28); color:#fff; padding:7px 11px; border-radius:8px; font-size:13px; line-height:1.4; pointer-events:none; box-shadow:0 4px 14px rgba(0,0,0,.25)}
+@media (max-width:900px){ .tl{min-width:calc(140px + var(--n) * 14px)} }
+@media (max-width:640px){ .tlab{flex-basis:118px; font-size:12px} .tl{min-width:calc(118px + var(--n) * 14px)} }
 .atwarn{background:#F7F0E4; color:#6d5320; border-radius:8px; padding:10px 14px; font-size:13.5px; line-height:1.45; margin:0 0 12px}
 .muted{color:var(--sage-70)} .empty{padding:14px 0; color:var(--sage-70)} .loading{padding:60px; text-align:center; color:var(--sage-70)}
 @media (max-width:640px){ .shell{padding:0 12px 48px} .topin,.daysin{padding-left:12px;padding-right:12px} .pagehead h2{font-size:25px} .pagehead .date{font-size:21px} .stat .v{font-size:32px} }
@@ -109,7 +131,7 @@ button.row:hover .t{text-decoration:underline}
 </div>
 <script>
 const CFG = { SUPABASE_URL:"https://safcrtrfdzsnftghibot.supabase.co", SUPABASE_KEY:"sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU" };
-const S = { data:null, idx:0, sr:null, view:"day", staff:{ state:"loading", byDate:{}, note:"" }, open:{} };
+const S = { data:null, idx:0, sr:null, view:"day", staff:{ state:"loading", byDate:{}, note:"" }, open:{}, staffDept:"all" };
 const $ = s => document.querySelector(s);
 const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 const dateOf = iso => new Date(iso + "T12:00:00Z");
@@ -154,8 +176,93 @@ function stat(label, v){
 function venueTag(v){ return `<span class="tag ${v==="Marquee"?"marquee":v==="George Ridley"?"george":""}">${esc(v)}</span>`; }
 
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
-function personRow(p){
-  return `<div class="pp"><div class="pn"><b>${esc(p.name)}</b>${p.job ? `<span class="pj">, ${esc(p.job)}</span>` : ""}${p.draft ? ` <span class="tag draft">Not published yet</span>` : ""}</div><div class="pt">${esc(p.start)}–${esc(p.end)}</div></div>`;
+/* ---- staffing as a timeline ----
+   Time runs across the top in 15 minute steps (07:00 to 23:00, wider if a shift needs it), with how many people are on shift under it.
+   Each job has its own row, and people whose shifts do not overlap share a line. Bars carry the first name; hover (or tap) for the full name and times. */
+const tmin = v => (+String(v).slice(0, 2)) * 60 + (+String(v).slice(3, 5));
+const hm = m => { m = ((m % 1440) + 1440) % 1440; return String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0"); };
+const BUCKET_RX = [["boh", /boh|kitchen|back of house/i], ["foh", /foh|front of house|bar|restaurant|floor/i], ["hk", /house ?keep|hk\b|rooms?\b/i], ["maint", /maint/i], ["office", /office|admin|management|reception/i]];
+const bucketOf = n => { for (const [k, rx] of BUCKET_RX) if (rx.test(n)) return k; return "other"; };
+// the order the rows run in, top to bottom, inside each department
+const ROLE_ORDER = {
+  foh: ["F&B Manager", "F&B Assistant Manager", "F&B Supervisor", "Team Member"],
+  boh: ["Head Chef", "Sous Chef", "CDP", "Trainee Chef", "Kitchen Porter"],
+  hk: ["Accommodations Manager", "Housekeeper"],
+  maint: ["Maintenance Manager", "Maintenance Team Member"],
+  office: ["General Manager", "Office Manager", "Wedding Coordinator"],
+};
+const MANAGERS = new Set(["F&B Manager", "F&B Assistant Manager", "Head Chef", "Sous Chef", "Accommodations Manager", "Maintenance Manager", "General Manager"]);
+function roleLabel(job, bucket){
+  const j = String(job || "").trim().toLowerCase();
+  if (!j) return "Other";
+  if (/agency/.test(j)) return "Agency";
+  if (/food\s*(&|and)\s*bev/.test(j)) return "F&B Manager";
+  if (/^bar manager/.test(j)) return "F&B Assistant Manager";
+  if (/^supervisor/.test(j)) return "F&B Supervisor";
+  if (/head chef/.test(j)) return "Head Chef";
+  if (/sous/.test(j)) return "Sous Chef";
+  if (/trainee/.test(j)) return "Trainee Chef";
+  if (/kitchen porter/.test(j)) return "Kitchen Porter";
+  if (/^cdp|chef de partie/.test(j)) return "CDP";
+  if (/head house/.test(j)) return "Accommodations Manager";
+  if (/^housekeep/.test(j)) return "Housekeeper";
+  if (/^maint?enance.*manager/.test(j)) return "Maintenance Manager";
+  if (/^maint?enance/.test(j)) return "Maintenance Team Member";
+  if (/^gm$|general manager/.test(j)) return "General Manager";
+  if (/^team member/.test(j)) return bucket === "boh" ? "CDP" : "Team Member";
+  return String(job).trim();
+}
+function roleRank(label, bucket){
+  if (label === "Agency") return 98;
+  const own = (ROLE_ORDER[bucket] || []).indexOf(label); if (own >= 0) return own;
+  for (const k in ROLE_ORDER) { const i = ROLE_ORDER[k].indexOf(label); if (i >= 0) return 20 + i; }
+  return 50;
+}
+const deptLabel = n => (/^[A-Z]{5,}$/.test(n) ? n.charAt(0) + n.slice(1).toLowerCase() : n);      // MAINTENANCE -> Maintenance (FOH and BOH stay as they are)
+const firstName = n => String(n || "").trim().split(/\s+/)[0] || "";
+
+function timelineHtml(shown){
+  const all = [];
+  shown.forEach(dep => dep.people.forEach(p => {
+    const s0 = tmin(p.start); let e0 = tmin(p.end); if (e0 <= s0) e0 += 1440;
+    all.push({ dep: dep.dept_name, bucket: bucketOf(dep.dept_name), p, s: s0, e: e0 });
+  }));
+  if (!all.length) return "";
+  const start = Math.min(7 * 60, Math.floor(Math.min(...all.map(x => x.s)) / 60) * 60);
+  const end = Math.max(23 * 60, Math.ceil(Math.max(...all.map(x => x.e)) / 60) * 60);
+  const total = end - start, n = total / 15, hrs = total / 60;
+  const pc = m => ((m - start) / total * 100).toFixed(3);
+  // how many are on shift between each pair of start/finish times, runs of the same number joined
+  const cuts = [...new Set(all.flatMap(x => [x.s, x.e]))].sort((a, b) => a - b);
+  const segs = [];
+  for (let i = 0; i < cuts.length - 1; i++) {
+    const a = cuts[i], b = cuts[i + 1], c = all.filter(x => x.s <= a && x.e >= b).length;
+    if (segs.length && segs[segs.length - 1].c === c && segs[segs.length - 1].b === a) segs[segs.length - 1].b = b; else segs.push({ a, b, c });
+  }
+  const max = Math.max(1, ...segs.map(x => x.c));
+  let h = `<div class="tlwrap"><div class="tl" style="--n:${n};--h:${hrs}">`;
+  h += `<div class="tlr tlhead"><div class="tlab"></div><div class="tlt">${Array.from({ length: hrs }, (_, i) => `<span class="hr" style="left:${pc(start + i * 60)}%">${hm(start + i * 60)}</span>`).join("")}</div></div>`;
+  h += `<div class="tlr tlcount"><div class="tlab">On shift</div><div class="tlt">${segs.filter(x => x.c > 0).map(x => `<div class="cseg" style="left:${pc(x.a)}%;width:${((x.b - x.a) / total * 100).toFixed(3)}%;background:rgba(77,96,79,${(0.1 + 0.4 * x.c / max).toFixed(2)})" title="${x.c} on shift, ${hm(x.a)} to ${hm(x.b)}">${x.c}</div>`).join("")}</div></div>`;
+  shown.forEach(dep => {
+    const mine = all.filter(x => x.dep === dep.dept_name); if (!mine.length) return;
+    const bucket = bucketOf(dep.dept_name), groups = new Map();
+    mine.forEach(x => { const l = roleLabel(x.p.job, bucket); if (!groups.has(l)) groups.set(l, []); groups.get(l).push(x); });
+    if (shown.length > 1) h += `<div class="tldh">${esc(deptLabel(dep.dept_name))} · ${new Set(mine.map(x => x.p.name)).size}</div>`;
+    [...groups.keys()].sort((a, b) => roleRank(a, bucket) - roleRank(b, bucket) || a.localeCompare(b)).forEach(label => {
+      const lanes = [];
+      groups.get(label).sort((a, b) => a.s - b.s || a.p.name.localeCompare(b.p.name)).forEach(x => {
+        const lane = lanes.find(l => l.end <= x.s);
+        if (lane) { lane.items.push(x); lane.end = x.e; } else lanes.push({ end: x.e, items: [x] });
+      });
+      lanes.forEach((l, i) => {
+        h += `<div class="tlr"><div class="tlab${i ? " sub" : ""}">${esc(label)}</div><div class="tlt">${l.items.map(x => {
+          const tip = `${x.p.name} · ${label} · ${hm(x.s)}–${hm(x.e)}${x.p.draft ? " · not published yet" : ""}`;
+          return `<button type="button" class="sbar${x.p.draft ? " draft" : MANAGERS.has(label) ? " mgr" : ""}" style="left:${pc(x.s)}%;width:${((x.e - x.s) / total * 100).toFixed(3)}%" data-tip="${esc(tip)}" aria-label="${esc(tip)}">${esc(firstName(x.p.name))}</button>`;
+        }).join("")}</div></div>`;
+      });
+    });
+  });
+  return h + `</div></div>`;
 }
 function staffBlock(d){
   const st = S.staff;
@@ -164,14 +271,19 @@ function staffBlock(d){
   if (!sd) return `<div class="card staff"><div class="sline plain">Staffing isn't available yet.</div></div>`;
   const open = S.open[d.date] !== undefined ? S.open[d.date] : d.date === S.data.days[0].date;
   const depts = sd.departments || [];
-  const on = depts.filter(x => x.count > 0 || (x.people && x.people.length));
+  const on = depts.filter(x => x.people && x.people.length);
   const none = depts.filter(x => !on.includes(x)).map(x => x.dept_name);
+  const pick = S.staffDept !== "all" && on.some(x => x.dept_name === S.staffDept) ? S.staffDept : "all";
+  const shown = pick === "all" ? on : on.filter(x => x.dept_name === pick);
+  const hasDraft = shown.some(x => x.people.some(p => p.draft));
   const off = (sd.off || []).map(o => esc(o.name) + (o.job ? ` (${esc(o.job)})` : "")).join(", ");
   const id = "staff-" + d.date;
   return `<div class="card staff${open ? " open" : ""}" data-date="${esc(d.date)}">
     <button class="stoggle" data-staff="${esc(d.date)}" aria-expanded="${open}" aria-controls="${id}"><span>Staffing</span><span class="scount">(${num(sd.total) ?? 0})</span><span class="chev" aria-hidden="true">›</span></button>
     <div class="sbody" id="${id}">
-      ${on.length ? on.map(x => `<div class="sdept">${esc(x.dept_name)} · ${num(x.count) ?? 0}</div>${(x.people || []).map(personRow).join("")}`).join("") : `<div class="sline plain" style="padding-top:4px">Nobody rostered yet.</div>`}
+      ${on.length ? `<div class="stool"><label for="staffdept">Show</label><select class="ssel" id="staffdept"><option value="all"${pick === "all" ? " selected" : ""}>All</option>${on.map(x => `<option value="${esc(x.dept_name)}"${pick === x.dept_name ? " selected" : ""}>${esc(deptLabel(x.dept_name))} (${num(x.count) ?? 0})</option>`).join("")}</select></div>
+      ${timelineHtml(shown)}
+      ${hasDraft ? `<div class="sline" style="padding-bottom:0"><span class="tag draft">Dashed</span> shifts are not published yet.</div>` : ""}` : `<div class="sline plain" style="padding-top:4px">Nobody rostered yet.</div>`}
       ${none.length && on.length ? `<div class="sline" style="padding-bottom:0">Nobody on: ${none.map(esc).join(", ")}.</div>` : ""}
       ${sd.open ? `<div class="sline" style="padding-bottom:0">${esc(plural(sd.open, "open shift has", "open shifts have"))} nobody assigned.</div>` : ""}
       <div class="soff"><b>Off</b>${off || '<span class="muted">nobody booked off</span>'}</div>
@@ -322,6 +434,23 @@ document.addEventListener("click", e => {
   const v = e.target.closest("[data-ev]"); if (v) { eventView(+v.dataset.ev); return; }
   if (e.target.closest("#back")) day();
 });
+
+/* the name tip: hover, keyboard focus or a tap */
+function staffTip(el){
+  let t = document.getElementById("sttip"); if (!t) { t = document.createElement("div"); t.id = "sttip"; t.setAttribute("role", "tooltip"); document.body.appendChild(t); }
+  if (!el) { t.style.display = "none"; return; }
+  t.textContent = el.dataset.tip; t.style.display = "block";
+  const r = el.getBoundingClientRect(), w = t.offsetWidth, h = t.offsetHeight;
+  t.style.left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8)) + "px";
+  t.style.top = (r.top - h - 6 < 8 ? r.bottom + 6 : r.top - h - 6) + "px";
+}
+document.addEventListener("mouseover", e => { const b = e.target.closest && e.target.closest(".sbar"); if (b) staffTip(b); });
+document.addEventListener("mouseout", e => { if (e.target.closest && e.target.closest(".sbar")) staffTip(null); });
+document.addEventListener("focusin", e => { const b = e.target.closest && e.target.closest(".sbar"); if (b) staffTip(b); });
+document.addEventListener("focusout", () => staffTip(null));
+document.addEventListener("click", e => { const b = e.target.closest(".sbar"); staffTip(b || null); });
+document.addEventListener("scroll", () => staffTip(null), true);
+document.addEventListener("change", e => { if (e.target && e.target.id === "staffdept") { S.staffDept = e.target.value; refreshStaff(); const x = $("#staffdept"); if (x) x.focus(); } });
 
 function openGate(msg){ $("#gate").hidden = false; $("#app").hidden = true; if (msg) $("#gerr").textContent = msg; }
 $("#signout").addEventListener("click", () => { try { sessionStorage.removeItem("bhb_staff_email"); } catch(e){} openGate(); });
