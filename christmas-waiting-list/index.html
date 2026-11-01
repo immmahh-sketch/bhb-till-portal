@@ -81,7 +81,8 @@ const nums = (lo, hi, sel) => Array.from({ length: hi - lo + 1 }, (_, i) => lo +
 function formHtml(){
   return '<div class="card"><h2>Join the waiting list</h2>' +
     '<p class="lead">Christmas Day is fully booked at the moment, while we finish arranging tables for the guests who have already booked. If a table becomes available we will email you a link to pay for your booking in full (' + gbp(I.prices.adult) + ' per adult, ' + gbp(I.prices.child) + ' per child). You will then have <b>' + I.hours + ' hours</b> to pay, or the table will be offered to someone else.</p>' +
-    '<div class="note"><b>Joining the list is not a booking</b> and you pay nothing now.</div></div>' +
+    '<div class="note"><b>Joining the list is not a booking</b> and you pay nothing now.</div>' +
+    '<div class="note"><b>Please be aware:</b> if a table becomes available, arrival times will be extremely limited. We will do what we can to give you the time you ask for, but it is unlikely to be exactly when and/or where you want it.</div></div>' +
     '<form class="card" id="form" novalidate><h2>Your details</h2>' +
     '<div class="qrow"><label class="f" for="name">Your name<span class="req">*</span></label><input type="text" id="name" maxlength="80" autocomplete="name"></div>' +
     '<div class="qrow"><label class="f" for="email">Email address<span class="req">*</span></label><input type="email" id="email" maxlength="120" autocomplete="email"></div>' +
@@ -91,8 +92,8 @@ function formHtml(){
       '<div><label for="children" style="font-size:14px">Children (under 12)</label><select id="children">' + nums(0, 40, 0) + '</select></div>' +
       '<div><label for="under3" style="font-size:14px">Under 3s</label><select id="under3">' + nums(0, 10, 0) + '</select></div></div>' +
     '<p class="hint" style="margin-top:6px">Under 3s are free when eating from adults&#39; plates. We will tell you if one needs their own meal.</p>' +
-    '<label class="f" for="time">When would you like to arrive?</label><select id="time"><option value="any">Any time between 12pm and 4pm</option>' + I.times.map(t => '<option value="' + t + '">' + timeLabel(t) + '</option>').join("") + '</select>' +
-    '<label class="f">Where would you like to sit?</label><p class="hint">Tables of more than 6 are mainly in the Marquee. Preferences cannot be guaranteed.</p>' +
+    '<label class="f" for="time">When would you like to arrive?</label><p class="hint">Arrival times will be extremely limited. We will do what we can, but it is unlikely to be exactly the time you ask for.</p><select id="time"><option value="any">Any time between 12pm and 4pm</option>' + I.times.map(t => '<option value="' + t + '">' + timeLabel(t) + '</option>').join("") + '</select>' +
+    '<label class="f">Where would you like to sit?</label><p class="hint">Tables of more than 6 are mainly in the Marquee. We will do what we can, but it is unlikely to be exactly where you ask for.</p>' +
     [["", "No preference"], ["restaurant", "The Restaurant"], ["marquee", "The Marquee"]].map(([v, l], i) => '<label class="opt' + (i === 0 ? " on" : "") + '"><input type="radio" name="area" value="' + v + '"' + (i === 0 ? " checked" : "") + '><span>' + l + '</span></label>').join("") +
     '<label class="f" for="notes">Anything else we should know?</label><p class="hint">For example accessibility needs, high chairs, or a special occasion.</p><textarea id="notes" maxlength="600"></textarea>' +
     '<div class="hp" aria-hidden="true"><label>Leave this empty <input type="text" id="website" tabindex="-1" autocomplete="off"></label></div>' +
@@ -121,6 +122,7 @@ async function submit(ev){
     window.scrollTo({ top:0, behavior:"smooth" }); if (EMBED && parent !== window) parent.postMessage({ bhbTop:true }, "*");
     $("#app").innerHTML = '<div class="card"><h2>You are on the waiting list</h2><div class="ok">Thank you, ' + esc(v("name").split(/\s+/)[0]) + '. We have emailed you a confirmation.</div>' +
       '<p class="lead"><b>This is not a booking.</b> If a table becomes available we will email you a link to pay for your booking in full. You will then have ' + I.hours + ' hours to pay, or the table will be offered to someone else.</p>' +
+      '<p class="lead"><b>Arrival times will be extremely limited.</b> We will do what we can to give you the time you asked for, but it is unlikely to be exactly when and/or where you want it.</p>' +
       '<p class="lead">Nothing more to do for now. If your plans change, reply to our email and we will take you off the list.</p></div>';
   } catch (e) { msg.innerHTML = '<div class="err">' + esc(e.message) + '</div>'; btn.disabled = false; btn.textContent = "Join the waiting list"; }
 }
