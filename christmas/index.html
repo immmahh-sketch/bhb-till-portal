@@ -525,7 +525,7 @@ function renderPre(loading){
   if (loading || !d) body = S.pre.err ? `<div class="flags"><b>Could not load</b>${esc(S.pre.err)}</div>` : `<div class="empty">Loading ${esc(ev ? ev.name : "")}…</div>`;
   else {
     const t = d.totals, e = d.event;
-    body = `<div class="pagehead" style="margin-top:6px"><h2>${esc(e.title)}</h2><span class="hint">${esc(e.when)}. Choices ${d.deadline.closed ? "closed" : "close"} ${esc(d.deadline.text)}.</span><span class="spacer"></span><button class="btn small ghost" data-act="emails">Emails</button> <button class="btn small ghost" data-act="drinkspdf">Drinks report (PDF)</button> <button class="btn small ghost" data-act="csv">Export (CSV)</button></div>
+    body = `<div class="pagehead" style="margin-top:6px"><h2>${esc(e.title)}</h2><span class="hint">${esc(e.when)}. Choices ${d.deadline.closed ? "closed" : "close"} ${esc(d.deadline.text)}.</span><span class="spacer"></span><button class="btn small ghost" data-act="emails">Emails</button> <button class="btn small ghost" data-act="auto">Automatic reminders</button> <button class="btn small ghost" data-act="drinkspdf">Drinks report (PDF)</button> <button class="btn small ghost" data-act="csv">Export (CSV)</button></div>
       ${S.pre.note ? `<div class="flags" style="background:var(--good-bg);border-color:#cfe0cf;color:var(--good)">${esc(S.pre.note)}</div>` : ""}
       <div class="tiles"><div class="tile"><div class="v">${t.bookings}</div><div class="l">bookings</div><div class="s">${t.tickets} ticket${t.tickets === 1 ? "" : "s"}</div></div><div class="tile"><div class="v">${t.invited}</div><div class="l">invited</div><div class="s">of ${t.bookings}</div></div><div class="tile"><div class="v">${t.submitted}</div><div class="l">sent back</div><div class="s">${t.started} started · ${t.not_started} not started</div></div>${e.show_under3 ? `<div class="tile"><div class="v">${t.under3}</div><div class="l">under 3s</div><div class="s">${t.high_chairs} high chair${t.high_chairs === 1 ? "" : "s"}</div></div>` : ""}<div class="tile"><div class="v">${money(t.drinks_total)}</div><div class="l">drinks pre-ordered</div><div class="s">${t.drinks_orders} paid order${t.drinks_orders === 1 ? "" : "s"}</div></div>${t.balance_total !== undefined && d.rows.some(r => r.pay) ? `<div class="tile"><div class="v">${money(t.balance_total)}</div><div class="l">still to collect</div><div class="s">${t.paid_in_full} of ${t.bookings} paid in full</div></div>` : ""}<div class="tile"><div class="v">${t.tabled}</div><div class="l">given a table</div><div class="s">of ${t.bookings} bookings</div></div></div>
       ${preFunnel(d)}
@@ -589,6 +589,7 @@ async function preAct(act, btn){
   if (act === "csv") return preCsv(d, btn);
   if (act === "drinkspdf") return preDrinksPdf(btn);
   if (act === "emails") return preEmails();
+  if (act === "auto") return preAuto();
   if (act === "test") {
     const to = ($("#preTo").value || "").trim(); if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) { toast("Type your own email address first.", true); return; }
     btn.disabled = true;
@@ -1146,6 +1147,42 @@ async function preEmails(){
     <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap"><button class="btn small ghost" id="emTest">Send me this week's report now</button><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn" id="emSave">Save</button></div>`);
   $("#emSave").onclick = async () => { try { await px("admin.settings_set", { backup_to:$("#emBk").value, weekly_to:$("#emWk").value, weekly_on:$("#emOn").checked }); closeModal(); toast("Saved."); } catch(e){ toast(e.message, true); } };
   $("#emTest").onclick = async () => { const b = $("#emTest"); b.disabled = true; try { const r = await px("admin.weekly_send", { test_to:staffEmail() }); toast(r.sent ? `Sent to ${staffEmail()}: ${r.received} received, ${r.to_chase} to chase.` : "Could not send.", !r.sent); } catch(e){ toast(e.message, true); } b.disabled = false; };
+}
+
+/* ---- automatic reminders: the standing rules (pre-order chase, payment countdown and overdue, the daily outstanding email) ---- */
+async function preAuto(){
+  let s; try { s = await px("admin.settings_get"); } catch(e){ toast(e.message, true); return; }
+  const ed = canEdit(), dis = ed ? "" : " disabled", d0 = new Date().toISOString().slice(0, 10);
+  openModal(`<h3 style="margin:0 0 4px">Automatic reminders</h3>
+    <p class="small muted" style="margin:0 0 12px">Sent by themselves at 8am (with a retry at noon). Each email goes once. A list of who was emailed comes to ${esc((s.backup_to || []).join(", "))} the same morning.</p>
+    <div class="field" style="margin:0 0 14px"><label class="small" style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" id="arC"${s.chase_on ? " checked" : ""}${dis}><span><b>Chase pre-orders.</b> Anyone who has not sent theirs and has not had an email for <input type="number" id="arCd" min="3" max="60" value="${esc(s.chase_days || 10)}" style="width:64px"${dis}> days gets the reminder, until that event's choices close.</span></label></div>
+    <div class="field" style="margin:0 0 14px"><label class="small" style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" id="arP"${s.pay_on ? " checked" : ""}${dis}><span><b>Payment reminders.</b> Full payment is due <input type="date" id="arPd" value="${esc(s.pay_due || "2026-11-25")}"${dis}>. Anyone with a balance is emailed 7 days, 3 days and 1 day before and on the day; then every day from the day after, counting down 72, 48 and 24 hours (we may release the table and they lose what they have paid); then one last email saying the table is now available to others.</span></label></div>
+    <div class="field" style="margin:0 0 14px"><label class="small" style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" id="arD"${s.digest_on ? " checked" : ""}${dis}><span><b>Daily outstanding email</b> from <input type="date" id="arDd" value="${esc(s.digest_from || "2026-11-20")}"${dis}> to <input type="text" id="arDt" value="${esc((s.digest_to || []).join(", "))}" style="width:290px"${dis}>: who still has pre-orders outstanding and who has a balance to pay. Not sent on a day when nobody is outstanding.</span></label></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin:0 0 14px">${ed ? `<button class="btn small" id="arSave">Save</button>` : ""}<button class="btn small ghost" onclick="closeModal()">Close</button></div>
+    <h4 style="margin:0 0 6px">Who would be emailed on a day</h4>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 8px"><input type="date" id="arDay" value="${d0}"><button class="btn small ghost" id="arShow">Show me</button><span class="tiny muted">Looks only: nothing is sent.</span></div>
+    <div id="arPlan" class="small"></div>
+    ${ed ? `<h4 style="margin:14px 0 6px">Send me an example</h4><div class="tiny muted" style="margin:0 0 6px">To ${esc(staffEmail())} only, never to a guest.</div><div style="display:flex;gap:6px;flex-wrap:wrap">${[["chase", "Pre-order reminder"], ["pay_t7", "7 days to go"], ["pay_t0", "Due today"], ["pay_o1", "72 hours left"], ["pay_final", "Final overdue"], ["digest", "Daily outstanding"]].map(([k, l]) => `<button class="btn small ghost" data-ex="${k}">${l}</button>`).join("")}</div>` : ""}`);
+  const sv = $("#arSave"); if (sv) sv.onclick = async () => {
+    try { await px("admin.settings_set", { chase_on:$("#arC").checked, chase_days:Number($("#arCd").value), pay_on:$("#arP").checked, pay_due:$("#arPd").value, digest_on:$("#arD").checked, digest_from:$("#arDd").value, digest_to:$("#arDt").value }); closeModal(); toast("Saved."); } catch(e){ toast(e.message, true); }
+  };
+  $("#arShow").onclick = async () => {
+    const box = $("#arPlan"); box.textContent = "Looking…";
+    try {
+      const r = await px("admin.rem_plan", { as_of:$("#arDay").value });
+      const names = l => l.slice(0, 40).map(x => `${esc(x.name)} <span class="muted">${esc(x.ref)}</span>`).join(", ") + (l.length > 40 ? `, and ${l.length - 40} more` : "");
+      const stepName = { pay_t7: "7 days to go", pay_t3: "3 days to go", pay_t1: "due tomorrow", pay_t0: "due today", pay_o1: "overdue, 72 hours left", pay_o2: "overdue, 48 hours left", pay_o3: "overdue, 24 hours left", pay_final: "final: table available to others" };
+      box.innerHTML = `<p style="margin:0 0 6px"><b>Pre-order reminders: ${r.chase.length}</b>${r.chase.length ? "<br>" + names(r.chase) : ""}</p>
+        <p style="margin:0 0 6px"><b>Payment emails${r.pay_step ? " (" + stepName[r.pay_step] + ")" : ""}: ${r.pay.length}</b>${r.pay.length ? "<br>" + r.pay.slice(0, 40).map(x => `${esc(x.name)} <span class="muted">${esc(x.ref)}, ${money(x.balance)} to pay</span>`).join(", ") + (r.pay.length > 40 ? `, and ${r.pay.length - 40} more` : "") : ""}</p>
+        <p style="margin:0">Daily outstanding email: ${r.digest ? "yes, to " + esc((r.digest.to || []).join(", ")) : "no"}</p>
+        <p class="tiny muted" style="margin:8px 0 0">This shows what each rule would do on that day, whether or not it is switched on. ${s.chase_on || s.pay_on || s.digest_on ? "" : "Nothing is switched on yet."}</p>`;
+    } catch(e){ box.textContent = e.message; }
+  };
+  $$("[data-ex]").forEach(b => b.onclick = async () => {
+    b.disabled = true;
+    try { const r = await px("admin.rem_test", { kind:b.dataset.ex, test_to:staffEmail() }); toast(r.sent ? `Example sent to ${staffEmail()}.` : "Could not send: " + (r.error || ""), !r.sent); } catch(e){ toast(e.message, true); }
+    b.disabled = false;
+  });
 }
 
 /* ====================================================================== shell */
