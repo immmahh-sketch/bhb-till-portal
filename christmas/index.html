@@ -115,6 +115,16 @@ table.t{width:100%; border-collapse:collapse; font-size:14px} .t th{font-size:10
 #planPaper .box{display:inline-block;width:5.5mm;height:5.5mm;border:1.4px solid #3F2F28;border-radius:1mm;background:#fff}
 #planPaper .tag{display:inline-block;font-size:6.5pt;font-weight:700;letter-spacing:.05em;text-transform:uppercase;border-radius:2px;padding:0 3px;margin-left:4px;vertical-align:1px;background:#F4EFD3;color:#6B5B20}
 #planPaper .tag.acc{background:#8A1C2B;color:#fff}#planPaper .tag.rd{background:#DCE8F4;color:#1E4A73}
+
+/* ---- Marquee plan */
+.mqgrid{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:14px;align-items:start} @media (max-width:1100px){.mqgrid{grid-template-columns:1fr}}
+.mqbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 10px} .mqbar select{padding:7px 9px;border-radius:8px;border:1px solid var(--celadon,#ccc);font:inherit}
+.mqside .card{margin:0 0 12px;padding:12px 14px} .mqside h3{margin:0 0 6px;font-size:17px}
+.mqbal{width:100%;border-collapse:collapse;font-size:13px} .mqbal th,.mqbal td{padding:3px 6px;text-align:center;border-bottom:1px solid #eee} .mqbal td.bad{background:#F6EAE8;color:#8C4A3F;font-weight:700} .mqbal td.cur,.mqbal th.cur{background:#F4EFD3}
+.mqwarn{font-size:13px;color:#8C4A3F;margin:2px 0} .mqkey{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:5px;vertical-align:-1px;border:1px solid #3F2F28}
+.mqsit{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;margin:6px 0} .mqsit select{width:100%;padding:6px;border-radius:8px;border:1px solid #ccc;font:inherit}
+#planPaper .mqsched td,#planPaper .mqsched th{padding:2px 5px;border-bottom:.5pt solid #ccc;text-align:left;vertical-align:top;font-size:8.5pt} #planPaper .mqsched th{font-size:7.5pt;text-transform:uppercase;letter-spacing:.06em;color:#6b6f66}
+#planPaper .mqpg svg{max-height:165mm}
 @media print{
   @page{size:A4 landscape;margin:6mm}
   html,body{background:#fff!important}
@@ -140,12 +150,13 @@ table.t{width:100%; border-collapse:collapse; font-size:14px} .t th{font-size:10
 </div>
 <div id="modalroot"></div><div class="toast" id="toast" role="status"></div>
 <script src="content.js?v=20261020"></script>
+<script src="marqueeplan.js?v=20261101"></script>
 <script>
 const CFG = { URL:"https://safcrtrfdzsnftghibot.supabase.co", KEY:"sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU" };
 const S = { dg:null, dgId:"", pre:{ events:null, id:"", data:null }, me:null, people:[], view:"", ts:null, tsTimer:null, day:null, plan:null, planFilter:"open", corp:null, decor:null, decorArea:"" };
 const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
 const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
-const TABS = [["events","Christmas events"],["dining","Festive dining"],["day","Christmas Day"],["preorders","Pre-orders"],["diary","Diary"],["waiting","Waiting list"],["corporate","Corporate events"],["decorations","To Order"],["actions","Action plan"]];
+const TABS = [["events","Christmas events"],["dining","Festive dining"],["day","Christmas Day"],["preorders","Pre-orders"],["diary","Diary"],["marquee","Marquee plan"],["waiting","Waiting list"],["corporate","Corporate events"],["decorations","To Order"],["actions","Action plan"]];
 const staffEmail = () => { try { return sessionStorage.getItem("bhb_staff_email") || ""; } catch(e){ return ""; } };
 const money = n => { n = Number(n) || 0; return "£" + n.toLocaleString("en-GB", { minimumFractionDigits: Math.abs(n % 1) > 0.004 ? 2 : 0, maximumFractionDigits: 2 }); };
 const londonToday = () => new Intl.DateTimeFormat("en-CA", { timeZone:"Europe/London", year:"numeric", month:"2-digit", day:"2-digit" }).format(new Date());
@@ -1300,7 +1311,168 @@ async function wlOffer(id){
   };
 }
 
-const VIEWS = { events: viewEvents, dining: viewDining, day: viewDay, preorders: viewPreorders, diary: viewDiary, waiting: viewWaiting, corporate: viewCorporate, decorations: viewDecor, actions: viewActions };
+
+/* ============================ MARQUEE PLAN ============================
+   The Marquee bookings from the Diary set out on the real furniture, in the real room (34.4 m x 14.75 m, three sections divided by curtains). The engine is marqueeplan.js; the layout is kept by xmas-api (admin.mq_get / admin.mq_save).
+   Bookings always come live from the Diary; the plan remembers where tables stand and which booking sits at which table. */
+S.mq = S.mq || { plan:null, bookings:[], at:null, dateId:null, dirty:false, saved:"", err:"" };
+const mqMin = t => Number(String(t).slice(0, 2)) * 60 + Number(String(t).slice(3, 5));
+const mqSecName = s => "Section " + (s + 1);
+function mqBookings(diary){
+  return diary.placed.filter(g => g.side === "marquee").map(g => ({ key: g.manual ? "m:" + g.id : g.booking_ids[0], name: g.names, size: g.size, start: mqMin(g.time), end: mqMin(g.end), refs: (g.refs || []).join(" "), access: !!g.access, manual: !!g.manual, locked: !!g.locked }));
+}
+async function viewMarquee(){
+  $("#views").innerHTML = `<div class="empty">Loading the Marquee…</div>`;
+  const m = S.mq;
+  try {
+    m.dateId = await dgDayId();
+    const [diary, got] = await Promise.all([px("admin.diary", { date_id:m.dateId }), px("admin.mq_get", { date_id:m.dateId })]);
+    m.diary = diary; m.bookings = mqBookings(diary); m.plan = got.plan; m.saved = got.updated_at ? "Saved " + fmtDT(got.updated_at) + (got.updated_by ? " by " + got.updated_by : "") : "";
+    if (!m.plan && canEdit()) { m.plan = MQ.autoLayout(m.bookings, null); await mqSaveNow(); }
+    m.err = "";
+  } catch(e){ $("#views").innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+  if (S.view === "marquee") renderMarquee();
+}
+function mqSlot(at){ return at == null ? null : (at - MQ.T0) / MQ.STEP; }
+function renderMarquee(){
+  const m = S.mq, edit = canEdit();
+  if (!m.plan) { $("#views").innerHTML = `<div class="pagehead"><h2>Marquee plan</h2></div><div class="empty">There is no Marquee plan yet. Someone with edit rights on Christmas needs to open this tab once to make it.</div>`; return; }
+  const plan = m.plan, rec = MQ.reconcile(plan, m.bookings), st = MQ.stats(plan, m.bookings), probs = MQ.problems(plan), bad = new Set(); probs.forEach(p => { bad.add(p.a); if (p.b) bad.add(p.b); });
+  const si = mqSlot(m.at);
+  const guestsIn = s => { let n = 0; plan.tables.forEach(t => { if (MQ.sectionOf(t.x) === s) { const b = MQ.sittingAt(t, rec.byKey, m.at == null ? -1 : m.at); if (b) n += b.size; } }); return n; };
+  const secText = [0, 1, 2].map(s => m.at == null ? `busiest: ${st.peak[s]} tables` : `${st.counts[s][si]} tables in use · ${guestsIn(s)} guests`);
+  const timeOpts = `<option value="">Whole day</option>` + Array.from({ length: (MQ.T1 - MQ.T0) / MQ.STEP }, (_, i) => MQ.T0 + i * MQ.STEP).map(t => `<option value="${t}"${m.at === t ? " selected" : ""}>${MQ.hm(t)}</option>`).join("");
+  const rows = []; for (let t = MQ.T0; t < 19 * 60 + 1; t += 30) { const i = (t - MQ.T0) / MQ.STEP, c = [st.counts[0][i], st.counts[1][i], st.counts[2][i]], gap = Math.max(...c) - Math.min(...c); rows.push(`<tr><th class="${m.at === t ? "cur" : ""}">${MQ.hm(t)}</th>${c.map(v => `<td class="${gap >= 3 ? "bad" : ""}${m.at === t ? " cur" : ""}">${v}</td>`).join("")}</tr>`); }
+  const inv = plan.inventory || MQ.DEFAULT_INVENTORY, used = st.used;
+  const furn = [["trestle", "Trestles"], ["round10", "6ft rounds"], ["round8", "5ft rounds"], ["small4", "Small tables"]].filter(([k]) => used[k] || inv[k] != null).map(([k, l]) => `<div><span class="mqkey" style="background:${MQ.TYPES[k].fill}"></span>${l}: <b>${used[k] || 0}</b>${inv[k] != null ? ` of ${inv[k]}` : " (hire as needed)"}</div>`).join("");
+  const un = rec.unassigned;
+  $("#views").innerHTML = `<div class="pagehead"><h2>Marquee table plan</h2><span class="hint">${m.bookings.length} bookings, ${m.bookings.reduce((t, b) => t + b.size, 0)} guests, from the Diary. Room 34.4 m x 14.75 m, three sections. ${edit ? "Drag a table to move it; click a table to change who sits there." : "Click a table to see who sits there."}</span><span class="spacer"></span>
+      <button class="btn small" data-mq="print">Print the plan</button> ${edit ? `<button class="btn small ghost" data-mq="add">Add a table</button> <button class="btn small ghost" data-mq="furn">Furniture we have</button> <button class="btn small ghost" data-mq="rebuild">Rebuild automatically</button>` : ""}</div>
+    <div class="mqbar"><button class="btn small ghost" data-mq="prev" aria-label="Earlier">&lsaquo;</button><select id="mqAt" aria-label="Time of day">${timeOpts}</select><button class="btn small ghost" data-mq="next" aria-label="Later">&rsaquo;</button>
+      <span class="small muted">${m.at == null ? "Showing the whole day: each table shows its first booking." : "Showing who is at each table at " + MQ.hm(m.at) + "; faded tables are free."}</span><span class="spacer"></span><span class="small muted" id="mqSaved">${esc(m.err || (m.dirty ? "Saving…" : m.saved))}</span></div>
+    <div class="mqgrid"><div class="card" style="padding:6px">${MQ.svg(plan, m.bookings, { at:m.at, edit:edit, bad, sections:secText })}</div>
+    <div class="mqside">
+      <div class="card"><h3>Balance across the sections</h3><p class="small muted" style="margin:0 0 6px">Tables in use at each time. Amber means the busiest and quietest sections are 3 or more tables apart.</p>
+        <table class="mqbal"><thead><tr><th></th><th>Sec 1</th><th>Sec 2</th><th>Sec 3</th></tr></thead><tbody>${rows.join("")}</tbody></table></div>
+      <div class="card"><h3>Furniture in use</h3><div class="small">${furn}</div>${st.short.length ? `<div class="mqwarn" style="margin-top:6px">${esc(st.short.join("; "))}</div>` : ""}</div>
+      ${un.length ? `<div class="card"><h3>${un.length} booking${un.length === 1 ? "" : "s"} not on a table</h3>${un.map(b => `<div class="small">${MQ.hm(b.start)} ${esc(b.name)} (${b.size})</div>`).join("")}${edit ? `<p style="margin:8px 0 0"><button class="btn small" data-mq="place">Put them on tables</button></p>` : ""}</div>` : ""}
+      ${probs.length || plan.tables.some(t => t.unplaced) ? `<div class="card"><h3>Check the spacing</h3>${probs.slice(0, 12).map(p => `<div class="mqwarn">${esc(p.text)}</div>`).join("")}${plan.tables.filter(t => t.unplaced).map(t => `<div class="mqwarn">${esc(t.id)} did not fit: drag it to a free spot.</div>`).join("")}<p class="small muted" style="margin:6px 0 0">Aim for at least 1 m between chairs so guests and staff can get round.</p></div>` : `<div class="card"><h3>Spacing</h3><div class="small" style="color:var(--good,#4F6B4F)">Every table has room to walk round it.</div></div>`}
+    </div></div>`;
+  $("#mqAt").onchange = () => { const v = $("#mqAt").value; m.at = v === "" ? null : Number(v); renderMarquee(); };
+  $$("[data-mq]").forEach(b => b.onclick = () => mqAct(b.dataset.mq));
+  mqBind();
+}
+function mqAct(a){
+  const m = S.mq;
+  if (a === "prev" || a === "next") { const cur = m.at == null ? (a === "next" ? MQ.T0 - MQ.STEP : MQ.T1) : m.at, n = cur + (a === "next" ? MQ.STEP : -MQ.STEP); m.at = n < MQ.T0 || n >= MQ.T1 ? null : n; return renderMarquee(); }
+  if (a === "print") return mqPrint();
+  if (a === "add") return mqAddTable();
+  if (a === "furn") return mqFurniture();
+  if (a === "rebuild") { if (!confirm("Rebuild the whole plan automatically? Every table goes back to where the plan would put it, and any tables you moved or changed by hand are lost.")) return; m.plan = MQ.autoLayout(m.bookings, m.plan && m.plan.inventory); mqChanged(); return renderMarquee(); }
+  if (a === "place") { const made = MQ.placeNew(m.plan, m.bookings); mqChanged(); toast(made.length ? "Put on tables, with " + made.length + " new table" + (made.length === 1 ? "" : "s") + "." : "Put on tables."); return renderMarquee(); }
+}
+/* saving: shortly after any change */
+function mqChanged(){ const m = S.mq; m.dirty = true; clearTimeout(m.timer); m.timer = setTimeout(mqSaveNow, 900); const el = $("#mqSaved"); if (el) el.textContent = "Saving…"; }
+async function mqSaveNow(){
+  const m = S.mq; if (!m.plan || !canEdit()) return;
+  try { const out = await px("admin.mq_save", { date_id:m.dateId, plan:m.plan }); m.dirty = false; m.err = ""; m.saved = "Saved " + fmtDT(out.saved_at); }
+  catch(e){ m.err = "Could not save: " + e.message; }
+  const el = $("#mqSaved"); if (el) el.textContent = m.err || m.saved;
+}
+/* dragging a table, or clicking it */
+function mqBind(){
+  const svg = $("#mqsvg"); if (!svg) return; const m = S.mq; let drag = null;
+  const pt = e => { const p = svg.createSVGPoint(); p.x = e.clientX; p.y = e.clientY; return p.matrixTransform(svg.getScreenCTM().inverse()); };
+  svg.addEventListener("pointerdown", e => {
+    const g = e.target.closest(".tbl"); if (!g) return; const t = m.plan.tables.find(x => x.id === g.dataset.t); if (!t) return;
+    const p = pt(e); drag = { g, t, sx:e.clientX, sy:e.clientY, off:{ x:p.x - t.x, y:p.y - t.y }, moved:false }; try { svg.setPointerCapture(e.pointerId); } catch(_){} e.preventDefault();
+  });
+  svg.addEventListener("pointermove", e => {
+    if (!drag || !canEdit()) return;
+    if (!drag.moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 6) return;
+    drag.moved = true; const p = pt(e), f = MQ.foot(drag.t);
+    const x = Math.min(MQ.ROOM.w - f.w / 2, Math.max(f.w / 2, Math.round((p.x - drag.off.x) * 10) / 10)), y = Math.min(MQ.ROOM.h - f.h / 2, Math.max(f.h / 2, Math.round((p.y - drag.off.y) * 10) / 10));
+    drag.t.x = x; drag.t.y = y; delete drag.t.unplaced; drag.g.setAttribute("transform", `translate(${x} ${y})`);
+  });
+  const end = e => { if (!drag) return; const d = drag; drag = null; if (d.moved) { mqChanged(); renderMarquee(); } else mqTableModal(d.t.id); };
+  svg.addEventListener("pointerup", end); svg.addEventListener("pointercancel", () => { if (drag) { drag = null; renderMarquee(); } });
+}
+/* clicking a table: who sits there */
+function mqTableModal(id){
+  const m = S.mq, plan = m.plan, t = plan.tables.find(x => x.id === id); if (!t) return;
+  const edit = canEdit(), rec = MQ.reconcile(plan, m.bookings), T = MQ.TYPES[t.type];
+  const where = {}; plan.tables.forEach(x => x.items.forEach(k => { where[k] = x.id; }));
+  const label = b => `${MQ.hm(b.start)}-${MQ.hm(b.end)}  ${b.name} (${b.size})${where[b.key] && where[b.key] !== t.id ? "  [now on " + where[b.key] + "]" : ""}`;
+  const sorted = m.bookings.slice().sort((a, b) => a.start - b.start || a.name.localeCompare(b.name));
+  const sits = t.items.map(k => rec.byKey[k]).filter(Boolean).sort((a, b) => a.start - b.start);
+  const issues = MQ.tableIssues(t, rec.byKey);
+  const sec = MQ.sectionOf(t.x), seats = MQ.seatsOf(t);
+  const typeOpts = Object.keys(MQ.TYPES).map(k => `<option value="${k}"${t.type === k ? " selected" : ""}>${MQ.TYPES[k].label}</option>`).join("");
+  openModal(`<h3 style="margin:0 0 2px">${esc(t.id)}: ${esc(T.label)}${t.type === "trestle" && (t.n || 1) > 1 ? ", " + t.n + " joined" : ""}</h3>
+    <p class="small muted" style="margin:0 0 8px">Seats ${seats} · Section ${sec + 1}</p>
+    <div id="mqSits">${sits.length ? sits.map((b, i) => `<div class="mqsit"><span class="small">${MQ.hm(b.start)}-${MQ.hm(b.end)}</span>${edit ? `<select data-swap="${esc(b.key)}">${sorted.map(o => `<option value="${esc(o.key)}"${o.key === b.key ? " selected" : ""}>${esc(label(o))}</option>`).join("")}</select><button class="btn small ghost" data-rm="${esc(b.key)}">Remove</button>` : `<span><b>${esc(b.name)}</b> (${b.size})${b.refs ? " · " + esc(b.refs) : ""}</span><span></span>`}</div>`).join("") : `<div class="small muted">Nobody is booked at this table.</div>`}</div>
+    ${edit ? `<div class="mqsit"><span class="small">Add</span><select id="mqAddB"><option value="">Choose a booking…</option>${sorted.filter(b => !where[b.key] || where[b.key] !== t.id).map(b => `<option value="${esc(b.key)}">${esc(label(b))}</option>`).join("")}</select><button class="btn small" id="mqAddGo">Add</button></div>` : ""}
+    ${issues.length ? `<div style="margin:8px 0">${issues.map(i => `<div class="mqwarn">${esc(i)}</div>`).join("")}</div>` : ""}
+    ${edit ? `<div class="row" style="gap:10px;margin:12px 0 4px;flex-wrap:wrap"><label class="small">Table<br><select id="mqType">${typeOpts}</select></label>
+      <label class="small" id="mqNwrap" style="${t.type === "trestle" ? "" : "display:none"}">Joined<br><select id="mqN">${[1, 2, 3, 4, 5, 6].map(n => `<option value="${n}"${(t.n || 1) === n ? " selected" : ""}>${n} (seats ${6 * n + 2})</option>`).join("")}</select></label>
+      <label class="small">&nbsp;<br><button class="btn small ghost" id="mqRot">Turn it round</button></label></div>` : ""}
+    <div style="display:flex;gap:8px;justify-content:space-between;margin-top:12px">${edit ? `<button class="btn small ghost" id="mqDel" style="color:var(--alert)">Remove this table</button>` : "<span></span>"}<button class="btn" onclick="closeModal()">Done</button></div>`);
+  if (!edit) return;
+  const redo = () => { mqChanged(); renderMarquee(); mqTableModal(id); };
+  $$("[data-swap]").forEach(sel => sel.onchange = () => { const old = sel.dataset.swap, nw = sel.value; if (old === nw) return; plan.tables.forEach(x => { x.items = x.items.filter(k => k !== nw); }); t.items = t.items.map(k => k === old ? nw : k); redo(); });
+  $$("[data-rm]").forEach(b => b.onclick = () => { t.items = t.items.filter(k => k !== b.dataset.rm); redo(); });
+  $("#mqAddGo").onclick = () => { const k = $("#mqAddB").value; if (!k) return; plan.tables.forEach(x => { x.items = x.items.filter(q => q !== k); }); t.items.push(k); redo(); };
+  $("#mqType").onchange = () => { t.type = $("#mqType").value; if (t.type !== "trestle") t.n = 1; else t.n = Number($("#mqN").value) || 1; redo(); };
+  $("#mqN").onchange = () => { t.n = Number($("#mqN").value) || 1; redo(); };
+  $("#mqRot").onclick = () => { if (t.type !== "trestle") { toast("A round table looks the same turned round."); return; } t.rot = t.rot === 90 ? 0 : 90; redo(); };
+  $("#mqDel").onclick = () => { if (!confirm("Remove " + t.id + (t.items.length ? " and take " + t.items.length + " booking" + (t.items.length === 1 ? "" : "s") + " off it" : "") + "?")) return; plan.tables = plan.tables.filter(x => x !== t); mqChanged(); closeModal(); renderMarquee(); };
+}
+function mqAddTable(){
+  openModal(`<h3 style="margin:0 0 8px">Add a table</h3><div class="row" style="gap:10px;flex-wrap:wrap"><label class="small">Table<br><select id="atType">${Object.keys(MQ.TYPES).map(k => `<option value="${k}">${MQ.TYPES[k].label}</option>`).join("")}</select></label>
+    <label class="small" id="atNw" style="display:none">Joined<br><select id="atN">${[1, 2, 3, 4, 5, 6].map(n => `<option value="${n}">${n} (seats ${6 * n + 2})</option>`).join("")}</select></label></div>
+    <p class="small muted">It goes in the quietest section where there is room; drag it wherever you like.</p>
+    <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn" id="atGo">Add</button><button class="btn ghost" onclick="closeModal()">Cancel</button></div>`);
+  $("#atType").onchange = () => { $("#atNw").style.display = $("#atType").value === "trestle" ? "" : "none"; };
+  $("#atGo").onclick = () => {
+    const m = S.mq, type = $("#atType").value, t = { id: "T" + m.plan.nextId++, type, n: type === "trestle" ? Number($("#atN").value) || 1 : 1, rot: 0, x: 0, y: 0, items: [] };
+    const rec = MQ.reconcile(m.plan, m.bookings), occ = {}; m.plan.tables.forEach(x => { occ[x.id] = MQ.occupancy(x.items, rec.byKey); });
+    const tot = [0, 1, 2].map(s => m.plan.tables.filter(x => MQ.sectionOf(x.x) === s).reduce((n, x) => n + occ[x.id].reduce((a, b) => a + b, 0), 0)), quiet = tot.indexOf(Math.min(...tot));
+    const p = MQ.freeSpot(m.plan, t, quiet); if (p) { t.x = p.x; t.y = p.y; } else { t.x = MQ.ROOM.w / 2; t.y = MQ.USABLE.y1 - 1; t.unplaced = true; }
+    m.plan.tables.push(t); mqChanged(); closeModal(); renderMarquee(); toast(p ? t.id + " added." : t.id + " added, but there is no free space: drag it to a spot.");
+  };
+}
+function mqFurniture(){
+  const m = S.mq, inv = m.plan.inventory || MQ.DEFAULT_INVENTORY, v = k => inv[k] == null ? "" : inv[k];
+  openModal(`<h3 style="margin:0 0 4px">Furniture we have</h3><p class="small muted" style="margin:0 0 8px">Leave a box empty for "as many as we need" (hired in above what we own). The plan uses what we own first.</p>
+    ${[["trestle", "6ft trestles"], ["round10", "6ft rounds (seat 10)"], ["round8", "5ft rounds (seat 8)"], ["small4", "Small tables (seat 4)"]].map(([k, l]) => `<label class="small" style="display:block;margin:6px 0">${l}<br><input type="number" min="0" max="500" id="fv_${k}" value="${v(k)}" placeholder="as many as needed" style="width:140px"></label>`).join("")}
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px"><button class="btn" id="fvGo">Save</button><button class="btn ghost" onclick="closeModal()">Cancel</button></div>`);
+  $("#fvGo").onclick = () => { const o = {}; ["trestle", "round10", "round8", "small4"].forEach(k => { const x = $("#fv_" + k).value.trim(); o[k] = x === "" ? null : Math.max(0, Math.round(Number(x))); }); m.plan.inventory = o; mqChanged(); closeModal(); renderMarquee(); toast("Saved. Press Rebuild automatically to lay the room out again with these."); };
+}
+/* printing: the room, then the table-by-table list, then arrivals in time order */
+function mqPrint(){
+  const m = S.mq, plan = m.plan; if (!plan) return;
+  const rec = MQ.reconcile(plan, m.bookings), st = MQ.stats(plan, m.bookings);
+  const day = m.diary ? new Intl.DateTimeFormat("en-GB", { weekday:"long", day:"numeric", month:"long", year:"numeric", timeZone:"Europe/London" }).format(new Date(m.diary.show.starts_at)) : "Christmas Day";
+  const now = new Intl.DateTimeFormat("en-GB", { day:"numeric", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit", timeZone:"Europe/London" }).format(new Date());
+  const hdr = (t, sub) => `<div class="ph"><img src="../app/logo-dark.png" alt=""><div class="tt"><h1>${esc(t)}</h1><div class="sub">${esc(sub)}</div></div><div class="tot"><b>${m.bookings.reduce((a, b) => a + b.size, 0)} guests</b>${m.bookings.length} bookings · printed ${esc(now)}</div></div>`;
+  const secText = [0, 1, 2].map(s => `busiest: ${st.peak[s]} tables`);
+  const furnLine = Object.keys(st.used).map(k => `${st.used[k]} ${MQ.TYPES[k].label.toLowerCase()}${st.used[k] === 1 ? "" : "s"}`).join(", ");
+  const ts = plan.tables.slice().sort((a, b) => a.id.localeCompare(b.id, "en", { numeric:true }));
+  const tableRows = ts.map(t => { const its = t.items.map(k => rec.byKey[k]).filter(Boolean).sort((a, b) => a.start - b.start); const T = MQ.TYPES[t.type];
+    return `<tr><td><b>${esc(t.id)}</b></td><td>${esc(T.label)}${t.type === "trestle" && (t.n || 1) > 1 ? " x" + t.n : ""}</td><td>${MQ.seatsOf(t)}</td><td>${MQ.sectionOf(t.x) + 1}</td><td>${its.map(b => `${MQ.hm(b.start)}-${MQ.hm(b.end)} <b>${esc(b.name)}</b> (${b.size})`).join("<br>") || "<span class='muted'>free</span>"}</td></tr>`; }).join("");
+  const where = {}; plan.tables.forEach(t => t.items.forEach(k => { where[k] = t; }));
+  const arr = m.bookings.slice().sort((a, b) => a.start - b.start || a.name.localeCompare(b.name)).map(b => `<tr><td>${MQ.hm(b.start)}</td><td><b>${esc(b.name)}</b>${b.access ? ' <span class="tag acc">Access</span>' : ""}${b.manual ? ' <span class="tag rd">ResDiary</span>' : ""}</td><td>${b.size}</td><td>${where[b.key] ? "<b>" + esc(where[b.key].id) + "</b> (section " + (MQ.sectionOf(where[b.key].x) + 1) + ")" : "<b>no table</b>"}</td><td>${esc(b.refs)}</td></tr>`).join("");
+  const html = `<section class="pg mqpg">${hdr("Christmas Day Marquee plan", day)}${MQ.svg(plan, m.bookings, { at:null, sections:secText })}<div class="small" style="margin-top:4px">${esc(furnLine)}. Each table shows its first booking; the list overleaf has every sitting.</div></section>
+    <section class="pg">${hdr("Marquee: table by table", day)}<table class="mqsched" style="width:100%;border-collapse:collapse"><thead><tr><th style="width:14mm">Table</th><th style="width:32mm">Furniture</th><th style="width:12mm">Seats</th><th style="width:14mm">Section</th><th>Sittings</th></tr></thead><tbody>${tableRows}</tbody></table></section>
+    <section class="pg">${hdr("Marquee: arrivals", day)}<table class="mqsched" style="width:100%;border-collapse:collapse"><thead><tr><th style="width:14mm">Time</th><th>Name</th><th style="width:14mm">Guests</th><th style="width:40mm">Table</th><th style="width:40mm">Booking refs</th></tr></thead><tbody>${arr}</tbody></table></section>`;
+  const old = $("#planOv"); if (old) old.remove();
+  const ov = document.createElement("div"); ov.id = "planOv";
+  ov.innerHTML = `<div class="planbar"><button type="button" class="btn" id="planGo">Print</button><button type="button" class="btn ghost" id="planX">Close</button><span class="small muted">A4 landscape, 3 pages. If the print window asks, choose A4 and Landscape, and tick &ldquo;Background graphics&rdquo; for the colours.</span></div><div id="planPaper">${html}</div>`;
+  document.body.appendChild(ov);
+  $("#planGo").onclick = () => window.print(); $("#planX").onclick = () => ov.remove();
+}
+
+const VIEWS = { events: viewEvents, dining: viewDining, day: viewDay, preorders: viewPreorders, diary: viewDiary, marquee: viewMarquee, waiting: viewWaiting, corporate: viewCorporate, decorations: viewDecor, actions: viewActions };
 /* ---- live: the Pre-orders and Diary pages ask every 5 seconds whether anything changed (a tiny fingerprint, not the data) and reload only when it did.
    They wait while a pop-up is open, a field is being typed in or a booking is being dragged, and keep the scroll position. */
 const PULSE = { key:"", sig:null, busy:false };
