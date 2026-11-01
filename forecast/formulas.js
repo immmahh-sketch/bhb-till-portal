@@ -32,7 +32,7 @@ export function dayFormula(key, c, actual, R) {
     case "rooms_pickup": return r("pickup_needed");
     case "rooms_fc": return `${r("rooms_bob")}+${r("rooms_pickup")}`;
     case "rate_bob": return LK(c, "Actual_forecast_1", 8);
-    case "rate_pickup": return S(c, 15);
+    case "rate_pickup": return actual ? r("rate_bob") : S(c, 15);
     case "rev_bob2": return `${r("rate_bob")}*${r("rooms_bob_in")}`;
     case "rev_pickup2": return `${r("rate_pickup")}*${r("pickup_needed")}`;
     case "rev_comb": return `${r("rooms_bob_in")}*${r("rate_bob")}+${r("pickup_needed")}*${r("rate_pickup")}`;

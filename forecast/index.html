@@ -315,7 +315,7 @@ function viewMonth(){
     <div class="savebar" id="savebar" ${S.pending.size ? "" : "hidden"}><b id="pcount">${S.pending.size} change${S.pending.size === 1 ? "" : "s"} not saved</b><span class="spacer"></span><button class="btn small" id="svBtn">Save changes</button><button class="btn small ghost" id="dcBtn">Discard</button></div>
     <div class="tbar"><label><input type="checkbox" id="keyonly" ${keyOnly ? "checked" : ""}> Key lines only</label><label><input type="checkbox" id="showwd" ${S.showWeekdays ? "checked" : ""}> Weekday totals</label>
       <button class="linkbtn" id="expAll">Open all sections</button><button class="linkbtn" id="colAll">Close all</button><span class="spacer"></span>
-      ${S.me.admin ? `<button class="btn small ghost" id="updBtn">Lock today's update</button> <button class="btn small ghost" id="lockBtn">Lock this forecast</button>` : ""}</div>
+      ${S.me.admin ? `<button class="btn small ghost" id="updBtn">Lock today's update</button> <button class="btn small ghost" id="lockBtn">Lock this forecast</button> <button class="btn small ghost" id="bobRateBtn" title="Sets each open day's Pickup Average Rate to its BOB Average Rate">Copy BOB rate to Pick up rate</button>` : ""}</div>
     <div class="legend"><span><i style="background:#fff3c4"></i>Not saved yet</span><span><i style="background:var(--blue)"></i>Typed by hand</span><span><i style="background:var(--celadon)"></i>From the old workbook / End of Day</span><span><i style="background:var(--attention-bg)"></i>Finished day</span>${S.me.admin ? `<span class="muted">Click any figure to type over it; empty it to go back to the calculated figure.</span>` : ""}</div>
     <div class="gridwrap" id="gridwrap"><table class="fg" style="width:${(window.innerWidth < 700 ? 150 : 230) + res.days.length * 68 + weekKeys.length * 84 + (S.showWeekdays ? 7 * 84 : 0) + 96}px"><colgroup><col style="width:${window.innerWidth < 700 ? 150 : 230}px">${res.days.map(() => `<col style="width:68px">`).join("")}${weekKeys.map(() => `<col style="width:84px">`).join("")}${S.showWeekdays ? "<col style='width:84px'>".repeat(7) : ""}<col style="width:96px"></colgroup>${head}<tbody>${body}${updRows}${lockRows}</tbody></table></div>`;
   bindMonth();
@@ -350,6 +350,7 @@ function bindMonth(){
   const sv = $("#svBtn"); if (sv) sv.onclick = savePending; const dc = $("#dcBtn"); if (dc) dc.onclick = () => { S.pending.clear(); keepScroll(); viewMonth(); };
   const lk = $("#lockBtn"); if (lk) lk.onclick = lockForecast;
   const ub = $("#updBtn"); if (ub) ub.onclick = lockUpdate;
+  const bb = $("#bobRateBtn"); if (bb) bb.onclick = copyBobToPickup;
   $$("#views [data-mv]").forEach(b => b.onclick = () => goMonth(b.dataset.mv === "today" ? todayYmd().slice(0, 7) : addMonths(S.ym, +b.dataset.mv)));
   const mp = $("#mpick"); if (mp) mp.onchange = () => goMonth(mp.value);
 }
@@ -386,8 +387,10 @@ function dayMenu(th){
     } catch (er) { toast(er.message, true); }
   };
 }
+const FINISHED_FIXED = new Set(["rooms_bob_in", "rooms_target", "rate_bob", "rate_pickup"]);      // on a finished day these are the actuals, whatever was typed
 function startEdit(td){
   closePop();
+  if (FINISHED_FIXED.has(td.dataset.k) && dayRow(td.dataset.d)?.actual && S.data.feed?.bob?.[td.dataset.d]) { toast("This day has finished, so rooms and rates show what actually happened.", true); return; }
   const day = td.dataset.d, key = td.dataset.k, l = LINES.find(x => x.key === key), res = calc(S.ym), c = res.days.find(x => x.date === day);
   const cur = c[key], inp = document.createElement("input"); inp.className = "cin"; inp.value = rawEdit(l, cur); inp.inputMode = l.fmt === "text" ? "text" : "decimal";
   td.innerHTML = ""; td.appendChild(inp); inp.focus(); inp.select();
@@ -410,6 +413,28 @@ function startEdit(td){
   };
   inp.onkeydown = ev => { if (ev.key === "Enter") { ev.preventDefault(); finish(true); } else if (ev.key === "Escape") finish(false); else if (ev.key === "Tab") { ev.preventDefault(); finish(true, true); } };
   inp.onblur = () => setTimeout(() => finish(true), 0);
+}
+/* "Copy BOB rate to Pick up rate" (the workbook's "Update pick up with BOB rate" button): every open day that already has rooms on the books gets its Pickup Average
+   Rate set to its BOB Average Rate. Finished days are left (they use the actual rate), and a day with nothing on the books keeps the pickup rate it has. */
+async function copyBobToPickup(){
+  const b = $("#bobRateBtn"); if (!b) return;
+  if (S.pending.size) { toast("Save or discard your changes first.", true); return; }
+  const res = calc(S.ym), changes = [];
+  for (const c of res.days) {
+    const row = dayRow(c.date); if (row && row.actual) continue;
+    if (!(c.rooms_bob_in > 0) || !(c.rate_bob > 0)) continue;
+    const nw = Math.round(c.rate_bob * 100) / 100;
+    if (Math.abs((c.rate_pickup || 0) - nw) < 0.005) continue;
+    changes.push({ day: c.date, key: "rate_pickup", value: nw });
+  }
+  if (!changes.length) { toast("Every open day's Pickup Average Rate already matches its BOB Average Rate."); return; }
+  if (!b.dataset.sure) { b.dataset.sure = "1"; b.textContent = `Tap again: change ${changes.length} day${changes.length === 1 ? "" : "s"}`; b.className = "btn small gold"; setTimeout(() => { if (b.isConnected) { delete b.dataset.sure; b.textContent = "Copy BOB rate to Pick up rate"; b.className = "btn small ghost"; } }, 4500); return; }
+  b.disabled = true; b.textContent = "Copying…";
+  try {
+    await call("ov.save", { changes });
+    for (const ch of changes) { let r = dayRow(ch.day); if (!r) S.data.days.push(r = { day:ch.day, ov:{}, ov_src:{}, actual:false }); r.ov[ch.key] = ch.value; r.ov_src[ch.key] = "typed"; }
+    S.calcCache = {}; toast(`Pickup Average Rate set to the BOB Average Rate on ${changes.length} day${changes.length === 1 ? "" : "s"}.`); keepScroll(); viewMonth();
+  } catch (e) { toast(e.message, true); b.disabled = false; b.textContent = "Copy BOB rate to Pick up rate"; }
 }
 async function savePending(){
   const changes = [...S.pending].map(([k, v]) => { const [day, key] = k.split("|"); return { day, key, value:v }; });

@@ -185,15 +185,19 @@ export function computeDay(input, day) {
 
   // rooms
   P("rooms_avail", num(setup.rooms));
-  P("rooms_bob_in", bobRow ? num(bobRow.rooms) : 0);
-  P("rooms_target", actual ? c.rooms_bob_in : S(SETUP_COLS.rooms_forecast));
+  // A finished day: what actually happened replaces anything typed for the rooms and the rates (rooms on the books = rooms sold, the forecast total
+  // is the same number, and both average rates are the actual rate). A day with no report row yet keeps whatever was typed.
+  const PF = (k, v) => { c[k] = v; return v; };
+  const fin = actual && !!bobRow, PA = fin ? PF : P;
+  PA("rooms_bob_in", bobRow ? num(bobRow.rooms) : 0);
+  PA("rooms_target", actual ? c.rooms_bob_in : S(SETUP_COLS.rooms_forecast));
   P("rooms_target_ai", 0);
   P("pickup_needed", c.rooms_target - c.rooms_bob_in);
   P("rooms_bob", c.rooms_bob_in);
   P("rooms_pickup", c.pickup_needed);
   P("rooms_fc", c.rooms_bob + c.rooms_pickup);
-  P("rate_bob", bobRow ? num(bobRow.arr) : 0);
-  P("rate_pickup", S(SETUP_COLS.pickup_rate));
+  PA("rate_bob", bobRow ? num(bobRow.arr) : 0);
+  if (fin) PF("rate_pickup", c.rate_bob); else P("rate_pickup", S(SETUP_COLS.pickup_rate));
   P("rev_bob2", c.rate_bob * c.rooms_bob_in);
   P("rev_pickup2", c.rate_pickup * c.pickup_needed);
   P("rev_comb", c.rooms_bob_in * c.rate_bob + c.pickup_needed * c.rate_pickup);
