@@ -361,6 +361,7 @@ async function viewSettings(){
     <div class="field"><label>Pop-up heading</label><input id="m_ptitle" value="${esc(s.popup_title || "")}"></div>
     <div class="field"><label>Pop-up message</label><textarea id="m_pbody" rows="5">${esc(s.popup_body || "")}</textarea></div>
     <div class="row2"><div class="field"><label>Main button</label><input id="m_pbtn" value="${esc(s.popup_button || "")}"></div><div class="field"><label>Second button</label><input id="m_plater" value="${esc(s.popup_later || "")}"></div></div>
+    <div class="field"><label>Not being surveyed (one sign-in email per line)</label><textarea id="m_exempt" rows="5">${esc(lines(s.exempt_emails || []))}</textarea><div class="muted" style="font-size:12.5px;margin-top:4px">These people get no pop-up, no red number and no survey push, and are left out of the "not completed" list and the number of people expected.</div></div>
     <div class="field"><label>Departments (one per line)</label><textarea id="m_dept" rows="8">${esc(lines(s.departments))}</textarea></div>
     <div class="field"><label>Length of service options (one per line)</label><textarea id="m_ten" rows="5">${esc(lines(s.tenure_options))}</textarea></div>
     <button class="btn" id="saveMsgs">Save</button>
@@ -379,7 +380,7 @@ async function viewSettings(){
   v.innerHTML = h;
   const saveSet = async (patch, msg) => { try { await call("settings.save", patch); toast(msg || "Saved."); viewSettings(); } catch(e){ toast(e.message, true); } };
   $("#saveSched").onclick = () => saveSet({ auto_repeat:$("#s_auto").checked, repeat_months:+$("#s_rep").value, length_days:+$("#s_len").value }, "Schedule saved.");
-  $("#saveMsgs").onclick = () => saveSet({ title:$("#m_title").value, intro:$("#m_intro").value, closing_text:$("#m_close").value, completed_text:$("#m_done").value, popup_title:$("#m_ptitle").value, popup_body:$("#m_pbody").value, popup_button:$("#m_pbtn").value, popup_later:$("#m_plater").value, departments:$("#m_dept").value.split("\n"), tenure_options:$("#m_ten").value.split("\n") });
+  $("#saveMsgs").onclick = () => saveSet({ title:$("#m_title").value, intro:$("#m_intro").value, closing_text:$("#m_close").value, completed_text:$("#m_done").value, popup_title:$("#m_ptitle").value, popup_body:$("#m_pbody").value, popup_button:$("#m_pbtn").value, popup_later:$("#m_plater").value, exempt_emails:$("#m_exempt").value.split("\n"), departments:$("#m_dept").value.split("\n"), tenure_options:$("#m_ten").value.split("\n") });
   $("#addRound").onclick = async () => { try { await call("round.save", { opens_on:$("#nr_o").value, closes_on:$("#nr_c").value }); toast("Round added."); viewSettings(); } catch(e){ toast(e.message, true); } };
   $$("[data-saveround]").forEach(b => b.onclick = async () => { const id = b.dataset.saveround; try { await call("round.save", { id, opens_on:$(`[data-o="${id}"]`).value, closes_on:$(`[data-c="${id}"]`).value }); toast("Dates saved."); viewSettings(); } catch(e){ toast(e.message, true); } });
   $$("[data-mv]").forEach(b => b.onclick = async () => { try { await call("question.move", { id:b.dataset.id, dir:b.dataset.mv }); viewSettings(); } catch(e){ toast(e.message, true); } });
