@@ -113,6 +113,15 @@ button.row:hover .t{text-decoration:underline}
 #sttip{position:fixed; z-index:50; display:none; max-width:300px; background:var(--brown, #3F2F28); color:#fff; padding:7px 11px; border-radius:8px; font-size:13px; line-height:1.4; pointer-events:none; box-shadow:0 4px 14px rgba(0,0,0,.25)}
 @media (max-width:900px){ .tl{min-width:calc(140px + var(--n) * 14px)} }
 @media (max-width:640px){ .tlab{flex-basis:118px; font-size:12px} .tl{min-width:calc(118px + var(--n) * 14px)} }
+.daybtn.sumbtn{border-style:dashed}
+.sumt{width:100%; border-collapse:collapse; font-size:14px; font-variant-numeric:tabular-nums}
+.sumt th{font-size:10px; font-weight:700; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); text-align:right; padding:6px 8px; border-bottom:1px solid var(--mist); white-space:nowrap}
+.sumt th:first-child, .sumt td:first-child{text-align:left; padding-left:0; position:sticky; left:0; background:var(--white)}
+.sumt td{padding:8px; text-align:right; border-bottom:1px solid var(--mist); white-space:nowrap}
+.sumt tr.tot td{font-weight:700; color:var(--sage); border-bottom:0; border-top:2px solid var(--sage)}
+.sumt td.nil{color:var(--celadon)}
+.sumwrap{overflow-x:auto}
+.row .when{font-size:12px; color:var(--sage-70); letter-spacing:.04em}
 .atwarn{background:#F7F0E4; color:#6d5320; border-radius:8px; padding:10px 14px; font-size:13.5px; line-height:1.45; margin:0 0 12px}
 .muted{color:var(--sage-70)} .empty{padding:14px 0; color:var(--sage-70)} .loading{padding:60px; text-align:center; color:var(--sage-70)}
 @media (max-width:640px){ .shell{padding:0 12px 48px} .topin,.daysin{padding-left:12px;padding-right:12px} .pagehead h2{font-size:25px} .pagehead .date{font-size:21px} .stat .v{font-size:32px} }
@@ -131,7 +140,7 @@ button.row:hover .t{text-decoration:underline}
 </div>
 <script>
 const CFG = { SUPABASE_URL:"https://safcrtrfdzsnftghibot.supabase.co", SUPABASE_KEY:"sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU" };
-const S = { data:null, idx:0, sr:null, view:"day", staff:{ state:"loading", byDate:{}, note:"" }, open:{}, staffDept:"all" };
+const S = { data:null, idx:0, sr:null, view:"day", staff:{ state:"loading", byDate:{}, note:"" }, open:{}, staffDept:"all", sumDept:"all", from:null };
 const $ = s => document.querySelector(s);
 const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 const dateOf = iso => new Date(iso + "T12:00:00Z");
@@ -160,11 +169,11 @@ const num = v => (v === null || v === undefined) ? null : Math.round(v);
 
 function chips(){
   const days = S.data.days;
-  $("#chips").innerHTML = days.map((d,i) => {
+  $("#chips").innerHTML = `<button class="daybtn sumbtn" data-sum="1" ${S.view === "summary" ? 'aria-current="page"' : ""}><b>Summary</b><span>The week</span></button>` + days.map((d,i) => {
     const dt = dateOf(d.date);
     const top = i === 0 ? "Today" : i === 1 ? "Tomorrow" : dt.toLocaleDateString("en-GB",{ timeZone:"UTC", weekday:"short" });
     const sub = `${dt.getUTCDate()} ${dt.toLocaleDateString("en-GB",{ timeZone:"UTC", month:"short" })}`;
-    return `<button class="daybtn" data-i="${i}" ${i===S.idx?'aria-current="page"':""}><b>${top}</b><span>${sub}</span></button>`;
+    return `<button class="daybtn" data-i="${i}" ${S.view !== "summary" && i===S.idx?'aria-current="page"':""}><b>${top}</b><span>${sub}</span></button>`;
   }).join("");
   const cur = $("#chips .daybtn[aria-current]"); if (cur && cur.scrollIntoView) cur.scrollIntoView({ inline:"center", block:"nearest" });
 }
@@ -291,6 +300,7 @@ function staffBlock(d){
   </div>`;
 }
 function refreshStaff(){
+  if (S.view === "summary") { summary(); return; }
   const slot = $("#staffslot"); if (!slot || S.view !== "day") return;
   slot.innerHTML = staffBlock(S.data.days[S.idx]);
   const f = $("#staffnote"); if (f) f.textContent = S.staff.state === "ok" && S.staff.note ? S.staff.note : "";
@@ -362,6 +372,64 @@ function day(){
     <div class="muted" style="font-size:12px">${S.data.rooms_updated ? "Rooms sold and rooms to clean as at " + new Date(S.data.rooms_updated).toLocaleString("en-GB",{ timeZone:"Europe/London", weekday:"short", hour:"2-digit", minute:"2-digit" }) + " (checked with the booking system at about 4am, 12 noon and 5pm). " : ""}${S.data.forecast_updated ? "Covers last updated " + new Date(S.data.forecast_updated).toLocaleString("en-GB",{ timeZone:"Europe/London", weekday:"short", day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" }) + "." : "No forecast figures loaded yet."}</div>`;
 }
 
+/* ---- Summary: the whole week shown on the day buttons, added up, with the lists ---- */
+const shiftHrs = p => { const a = tmin(p.start); let b = tmin(p.end); if (b <= a) b += 1440; return (b - a) / 60; };
+const fmtH = h => (Math.round(h * 10) / 10).toLocaleString("en-GB", { maximumFractionDigits: 1 });
+function summary(){
+  S.sr = null; S.view = "summary"; S.from = null;
+  const days = S.data.days, st = S.staff, first = days[0].date, last = days[days.length - 1].date;
+  const sd = d => (st.state === "ok" ? st.byDate[d.date] : null);
+  // department names in the order Planday gives them, for the dropdown and the hours table
+  const names = []; days.forEach(d => { const x = sd(d); if (x) (x.departments || []).forEach(dp => { if (dp.people && dp.people.length && !names.includes(dp.dept_name)) names.push(dp.dept_name); }); });
+  const pick = S.sumDept !== "all" && names.includes(S.sumDept) ? S.sumDept : "all";
+  const hours = (d, dept) => { const x = sd(d); if (!x) return null; return (x.departments || []).filter(dp => dept === "all" || dp.dept_name === dept).reduce((t, dp) => t + (dp.people || []).reduce((u, p) => u + shiftHrs(p), 0), 0); };
+  const col = {
+    clean: d => d.rooms_to_clean, sold: d => d.rooms_sold, bf: d => d.breakfast, lunch: d => d.lunch, dinner: d => d.dinner,
+    at: d => (d.afternoon_tea ? d.afternoon_tea.covers : null), hrs: d => hours(d, pick),
+  };
+  const tot = {}, miss = {};
+  Object.keys(col).forEach(k => { let t = 0, m = 0; days.forEach(d => { const v = col[k](d); if (v === null || v === undefined) m++; else t += Number(v); }); tot[k] = t; miss[k] = m; });
+  const big = (label, k, dec) => `<div class="stat"><div class="l">${esc(label)}</div><div class="v${miss[k] === days.length ? " none" : ""}">${miss[k] === days.length ? "–" : (dec ? fmtH(tot[k]) : Math.round(tot[k]).toLocaleString("en-GB"))}</div>${miss[k] && miss[k] < days.length ? `<div class="muted" style="font-size:11px">${miss[k]} ${miss[k] === 1 ? "day" : "days"} not available</div>` : ""}</div>`;
+  const cell = (v, dec) => (v === null || v === undefined ? `<td class="nil">–</td>` : `<td>${dec ? fmtH(v) : Math.round(v).toLocaleString("en-GB")}</td>`);
+  const rows = days.map(d => { const dt = dateOf(d.date); return `<tr><td>${esc(dt.toLocaleDateString("en-GB", { timeZone: "UTC", weekday: "short", day: "numeric", month: "short" }))}</td>${cell(col.clean(d))}${cell(col.sold(d))}${cell(col.bf(d))}${cell(col.lunch(d))}${cell(col.dinner(d))}${cell(col.at(d))}${cell(col.hrs(d), true)}</tr>`; }).join("");
+  const totRow = `<tr class="tot"><td>Total</td><td>${Math.round(tot.clean)}</td><td>${Math.round(tot.sold)}</td><td>${Math.round(tot.bf)}</td><td>${Math.round(tot.lunch)}</td><td>${Math.round(tot.dinner)}</td><td>${Math.round(tot.at)}</td><td>${st.state === "ok" ? fmtH(tot.hrs) : "–"}</td></tr>`;
+  // hours by department, each day and the week
+  let hoursTable = "";
+  if (st.state === "ok" && names.length) {
+    const head = days.map(d => `<th>${esc(dateOf(d.date).toLocaleDateString("en-GB", { timeZone: "UTC", weekday: "short", day: "numeric" }))}</th>`).join("");
+    const line = (label, dept, cls) => { const hs = days.map(d => hours(d, dept) || 0); return `<tr${cls ? ` class="${cls}"` : ""}><td>${esc(label)}</td>${hs.map(h => h ? `<td>${fmtH(h)}</td>` : `<td class="nil">–</td>`).join("")}<td><b>${fmtH(hs.reduce((a, b) => a + b, 0))}</b></td></tr>`; };
+    hoursTable = `<div class="card"><h3>Staff hours by department</h3><div class="sumwrap"><table class="sumt"><thead><tr><th>Department</th>${head}<th>Week</th></tr></thead><tbody>${names.map(n => line(deptLabel(n), n)).join("")}${line("All departments", "all", "tot")}</tbody></table></div>
+      <div class="muted" style="font-size:12px;margin-top:8px">Rostered hours: each shift from its start to its finish, as on the Planday rota, including shifts not published yet. Unpaid breaks are not taken off.</div></div>`;
+  } else if (st.state === "loading") hoursTable = `<div class="card"><h3>Staff hours by department</h3><div class="empty">Loading staffing…</div></div>`;
+  else hoursTable = `<div class="card"><h3>Staff hours by department</h3><div class="empty">Staffing isn't available yet.</div></div>`;
+  const sel = names.length ? `<div class="stool"><label for="sumdept">Staff hours for</label><select class="ssel" id="sumdept"><option value="all"${pick === "all" ? " selected" : ""}>All departments</option>${names.map(n => `<option value="${esc(n)}"${pick === n ? " selected" : ""}>${esc(deptLabel(n))}</option>`).join("")}</select></div>` : "";
+  // the lists
+  const dayTag = d => esc(dateOf(d.date).toLocaleDateString("en-GB", { timeZone: "UTC", weekday: "short", day: "numeric", month: "short" }));
+  const evs = []; days.forEach((d, di) => d.events.forEach((e, i) => evs.push({ d, di, e, i })));
+  const evHtml = evs.length ? evs.map(({ d, di, e, i }) => {
+    const g = e.guests !== null && e.guests !== undefined ? `${num(e.guests)} guests` : "Guests not set", eve = e.evening_guests ? ` · ${num(e.evening_guests)} in the evening` : "";
+    return `<button class="row" data-ev="${i}" data-evd="${di}"><div class="main"><div class="when">${dayTag(d)}</div><div class="t">${esc(e.name)}</div><div class="m">${esc(e.type ? e.type + " · " : "")}${g}${eve}</div></div>${venueTag(e.venue)}<div class="go">›</div></button>`;
+  }).join("") : `<div class="empty">No events this week.</div>`;
+  const srList2 = g => { const out = []; days.forEach((d, di) => srList(d, g).forEach((x, i) => out.push({ d, di, x, i }))); return out; };
+  const srHtml = g => { const l = srList2(g); return l.length ? l.map(({ d, di, x, i }) => `<button class="row" data-sr="${g}:${i}" data-srd="${di}"><div class="time">${esc(x.time)}</div><div class="main"><div class="when">${dayTag(d)}</div><div class="t">${esc(x.name)}</div>${g === "w" ? `<div class="m">Drink: ${esc(x.drink || "not given")}</div><div class="m">Song: ${esc(x.song || "not given")}</div>` : `<div class="m">${esc(x.phone || x.email || "")}</div>`}</div><div class="go">›</div></button>`).join("") : `<div class="empty">${SRG[g].none}</div>`; };
+  const r = S.data.afternoon_tea_report;
+  const atNote = r ? `Afternoon teas are as ResDiary stood at ${new Date(r.report_taken_at).toLocaleString("en-GB", { timeZone: "Europe/London", weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}: check ResDiary for changes since. ` : "No ResDiary afternoon tea report has been loaded yet. ";
+  $("#view").innerHTML = `
+    <div class="pagehead"><h2>Summary</h2><div class="date">${esc(longDay(first))} to ${esc(longDay(last))}</div></div>
+    ${sel}
+    <div class="grid">
+      ${big("Rooms cleaned", "clean")}${big("Rooms sold", "sold")}${big("Breakfasts", "bf")}${big("Lunches", "lunch")}${big("Dinners", "dinner")}${big("Afternoon teas", "at")}${big("Staff hours", "hrs", true)}
+    </div>
+    <div class="card"><h3>Day by day</h3><div class="sumwrap"><table class="sumt"><thead><tr><th>Day</th><th>Rooms cleaned</th><th>Rooms sold</th><th>Breakfasts</th><th>Lunches</th><th>Dinners</th><th>Afternoon teas</th><th>Staff hours${pick === "all" ? "" : " (" + esc(deptLabel(pick)) + ")"}</th></tr></thead><tbody>${rows}${totRow}</tbody></table></div></div>
+    ${hoursTable}
+    <div class="card"><h3>Events</h3>${evHtml}</div>
+    <div class="card"><h3>Wedding show-rounds</h3>${srHtml("w")}</div>
+    <div class="card"><h3>Event show-rounds</h3>${srHtml("e")}</div>
+    <div class="card"><h3>Wedding meetings</h3>${srHtml("m")}</div>
+    <div class="muted" style="font-size:12px;margin-bottom:6px">Rooms cleaned is each day's rooms to clean, and rooms sold is the room nights sold, added up. Lunches and dinners are covers booked, not forecast. ${esc(atNote)}</div>`;
+  window.scrollTo(0, 0);
+}
+
 async function eventView(i){
   const d = S.data.days[S.idx], e = d.events[i]; if (!e) return;
   const tok = S.evTok = (S.evTok || 0) + 1;
@@ -371,7 +439,7 @@ async function eventView(i){
     const names = x ? x.names : e.name, venue = x ? x.venue : e.venue, vnote = x ? String(x.venue_note || "") : "";
     const loc = venue !== "Other" ? venue + (vnote && vnote.toLowerCase() !== String(venue).toLowerCase() ? " (" + vnote + ")" : "") : vnote;
     $("#view").innerHTML = `
-      <div class="pagehead"><button class="btn" id="back">‹ Back to ${esc(longDay(d.date))}</button></div>
+      <div class="pagehead"><button class="btn" id="back">‹ Back to ${S.from === "summary" ? "the summary" : esc(longDay(d.date))}</button></div>
       <div class="card">
         <h3>${esc(names)}</h3>
         <div class="dl">
@@ -403,7 +471,7 @@ function showround(ref){
   const booked = s.booked_at ? new Date(s.booked_at).toLocaleString("en-GB",{ timeZone:"Europe/London", day:"numeric", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit" }) : "";
   const line = (l, v) => v ? `<div class="ans"><div class="al">${esc(l)}</div><div class="av">${v}</div></div>` : "";
   $("#view").innerHTML = `
-    <div class="pagehead"><button class="btn" id="back">‹ Back to ${esc(longDay(d.date))}</button></div>
+    <div class="pagehead"><button class="btn" id="back">‹ Back to ${S.from === "summary" ? "the summary" : esc(longDay(d.date))}</button></div>
     <div class="card">
       <h3>${esc(s.name)}</h3>
       <div class="dl">
@@ -429,10 +497,10 @@ document.addEventListener("click", e => {
     const date = t.dataset.staff, card = t.closest(".staff"), now = !card.classList.contains("open");
     S.open[date] = now; card.classList.toggle("open", now); t.setAttribute("aria-expanded", String(now)); return;
   }
-  const c = e.target.closest(".daybtn"); if (c) { S.idx = +c.dataset.i; chips(); day(); return; }
-  const r = e.target.closest("[data-sr]"); if (r) { showround(r.dataset.sr); return; }
-  const v = e.target.closest("[data-ev]"); if (v) { eventView(+v.dataset.ev); return; }
-  if (e.target.closest("#back")) day();
+  const c = e.target.closest(".daybtn"); if (c) { if (c.dataset.sum) { summary(); chips(); return; } S.idx = +c.dataset.i; S.from = null; day(); chips(); return; }
+  const r = e.target.closest("[data-sr]"); if (r) { if (r.dataset.srd !== undefined) { S.idx = +r.dataset.srd; S.from = "summary"; } else S.from = null; showround(r.dataset.sr); return; }
+  const v = e.target.closest("[data-ev]"); if (v) { if (v.dataset.evd !== undefined) { S.idx = +v.dataset.evd; S.from = "summary"; } else S.from = null; eventView(+v.dataset.ev); return; }
+  if (e.target.closest("#back")) { if (S.from === "summary") { summary(); chips(); } else { day(); chips(); } }
 });
 
 /* the name tip: hover, keyboard focus or a tap */
@@ -450,7 +518,8 @@ document.addEventListener("focusin", e => { const b = e.target.closest && e.targ
 document.addEventListener("focusout", () => staffTip(null));
 document.addEventListener("click", e => { const b = e.target.closest(".sbar"); staffTip(b || null); });
 document.addEventListener("scroll", () => staffTip(null), true);
-document.addEventListener("change", e => { if (e.target && e.target.id === "staffdept") { S.staffDept = e.target.value; refreshStaff(); const x = $("#staffdept"); if (x) x.focus(); } });
+document.addEventListener("change", e => { if (e.target && e.target.id === "sumdept") { S.sumDept = e.target.value; summary(); const y = $("#sumdept"); if (y) y.focus(); return; }
+   if (e.target && e.target.id === "staffdept") { S.staffDept = e.target.value; refreshStaff(); const x = $("#staffdept"); if (x) x.focus(); } });
 
 function openGate(msg){ $("#gate").hidden = false; $("#app").hidden = true; if (msg) $("#gerr").textContent = msg; }
 $("#signout").addEventListener("click", () => { try { sessionStorage.removeItem("bhb_staff_email"); } catch(e){} openGate(); });
