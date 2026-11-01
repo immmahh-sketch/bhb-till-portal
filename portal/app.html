@@ -770,6 +770,7 @@ async function loadNewAccess(){
   loadSurveyPrompt();
 }
 /* ---- an open Team Survey this person has not done: asked once each time the portal is opened (the tile also carries a red 1 until it is done) ---- */
+function svParas(t){ return String(t).split(/\n\s*\n/).map(p => p.trim()).filter(Boolean).map(p => "<p>" + esc(p).replace(/\n/g, "<br>") + "</p>").join(""); }
 async function loadSurveyPrompt(){
   if (!S.token || !$("#welcome").hidden || !$("#noticePop").hidden) return;
   try { if (sessionStorage.getItem("bhb_survey_prompted")) return; } catch(e){}
@@ -777,9 +778,9 @@ async function loadSurveyPrompt(){
   if (!d || !d.open) return;
   try { sessionStorage.setItem("bhb_survey_prompted", "1"); } catch(e){}
   const by = d.closes_on ? new Date(d.closes_on + "T12:00:00Z").toLocaleDateString("en-GB", { day: "numeric", month: "long", timeZone: "UTC" }) : "";
-  $("#noticePopCard").innerHTML = `<div class="welcome-top"><div class="eyebrow">Team Survey</div><h2 id="npTitle">Please take the team survey</h2></div>
-    <div class="welcome-body"><p>It is completely anonymous: your answers are saved without your name, and nobody can see who said what. It takes about ten minutes and helps us keep making this a place where everyone feels supported and enjoys working.</p>${by ? `<p class="np-meta">Open until ${esc(by)}.</p>` : ""}</div>
-    <div class="welcome-foot"><button type="button" id="svGo">Take the survey now</button><button type="button" class="np-sec" id="svLater">Remind me later</button></div>`;
+  $("#noticePopCard").innerHTML = `<div class="welcome-top"><div class="eyebrow">Team Survey</div><h2 id="npTitle">${esc(d.title || "Please take the team survey")}</h2></div>
+    <div class="welcome-body">${svParas(d.body || "It is completely anonymous: your answers are saved without your name, and nobody can see who said what. It takes about ten minutes and helps us keep making this a place where everyone feels supported and enjoys working.")}${by ? `<p class="np-meta">Open until ${esc(by)}.</p>` : ""}</div>
+    <div class="welcome-foot"><button type="button" id="svGo">${esc(d.button || "Take the survey now")}</button><button type="button" class="np-sec" id="svLater">${esc(d.later || "Remind me later")}</button></div>`;
   $("#noticePop").hidden = false;
   $("#svGo").onclick = () => { $("#noticePop").hidden = true; openPortal("team-survey"); };
   $("#svLater").onclick = () => { $("#noticePop").hidden = true; };
