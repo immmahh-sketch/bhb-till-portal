@@ -186,7 +186,7 @@ async function loadSetup(){
 function staffOptions(sel, current){
   const list = S.setup.team.slice();
   if (current && !list.some(t => String(t.id) === String(current.id))) list.unshift(current);
-  return `<option value="">Choose a team member…</option>` + list.map(t => `<option value="${t.id}"${String(sel) === String(t.id) ? " selected" : ""}>${esc(t.name)}</option>`).join("");
+  return `<option value="">Choose a team member…</option>` + list.map(t => `<option value="${t.id}"${String(sel) === String(t.id) ? " selected" : ""}>${esc(t.name)}${t.dept && t.dept !== "FOH" ? " (" + esc(t.dept) + ")" : ""}</option>`).join("");
 }
 function shotBox(img, target){
   return `<div class="shotbox">${img ? `<div class="shotimg"><img class="shot" src="${esc(img)}" alt="Screenshot of the review"></div><button class="btn small ghost" type="button" data-act="shotpick" data-t="${esc(target)}">Replace screenshot</button><button class="btn small danger" type="button" data-act="shotdrop" data-t="${esc(target)}">Remove screenshot</button>`
@@ -217,7 +217,7 @@ function renderSetup(){
         ${S.err.new ? `<div class="err" style="grid-column:1 / -1;margin:0">${esc(S.err.new)}</div>` : ""}</div>
       ${S.setup.entries.map(entryRow).join("")}
       ${S.setup.entries.length ? "" : `<div class="empty">Nothing added yet.</div>`}</div>
-    <p class="tiny muted">${S.setup.entries.length} ${S.setup.entries.length === 1 ? "line" : "lines"}, newest first. The team list is everyone in the FOH department in Planday.</p>`;
+    <p class="tiny muted">${S.setup.entries.length} ${S.setup.entries.length === 1 ? "line" : "lines"}, newest first. The team list is everyone active in Planday, from any department (agency and freelance staff are left out).</p>`;
   window.scrollTo(0, keepY);
 }
 
