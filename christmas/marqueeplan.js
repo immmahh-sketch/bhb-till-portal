@@ -5,13 +5,14 @@
 (function (root) {
   "use strict";
   const ROOM = { w: 34.4, h: 14.75 };
-  const SEC_W = ROOM.w / 3;
+  const SEC_W = ROOM.w / 3;      // the curtains
+  const TEAMS = 2, TEAM_X = ROOM.w / 2;      // two teams look after the room: the left half and the right half (the middle section is split down the middle)
   const T0 = 12 * 60, T1 = 20 * 60, STEP = 15, NSLOT = (T1 - T0) / STEP;       // 12:00 to 20:00 in quarter hours
   const TURN = 15;            // minutes to reset a table between two sittings
   const AISLE = 1.0;          // clear walkway between two tables' chairs, metres (the layout aims for this; under 0.8 is flagged)
   const AISLE_MIN = 0.8;
   const USABLE = { y0: 1.3, y1: 12.2 };      // keeps the top doors, and the bar, kitchen, toilets and main entrance along the bottom, clear
-  const SECTION_REGION = [{ x0: 1.3, x1: 11.0 }, { x0: 11.9, x1: 22.5 }, { x0: 23.4, x1: 33.9 }];
+  const SECTION_REGION = [{ x0: 1.3, x1: 16.7 }, { x0: 17.7, x1: 33.9 }];      // the floor each team looks after, with an aisle where the two meet
   const TYPES = {
     round10: { label: "6ft round", seats: 10, shape: "round", d: 2.95, table: 1.83, fill: "#E75AA8", ink: "#fff" },
     round8: { label: "5ft round", seats: 8, shape: "round", d: 2.65, table: 1.52, fill: "#6B1067", ink: "#fff" },
@@ -35,7 +36,7 @@
     const n = t.n || 1, w = n * 1.83 + 1.15, h = 1.85;
     return (t.rot || 0) % 180 ? { w: h, h: w } : { w, h };
   }
-  const sectionOf = (x) => (x < SEC_W ? 0 : x < 2 * SEC_W ? 1 : 2);
+  const sectionOf = (x) => (x < TEAM_X ? 0 : 1);      // which team a table belongs to, by where its centre stands
 
   // ---------------------------------------------------------------- which table each booking needs
   /** The tables a party can sit at, best first. Trestles take the least floor space, so they come first from 5 guests up (joined end to end, seats 6n + 2); small tables for up to 4; a 6 ft round for 9 to 10, where it is no bigger than two trestles; rounds are the fall-back if the trestles run out. */
@@ -140,13 +141,13 @@
 
   // ---------------------------------------------------------------- balance
   function sectionCounts(tables, occ) {
-    const c = [0, 1, 2].map(() => new Array(NSLOT).fill(0));
+    const c = Array.from({ length: TEAMS }, () => new Array(NSLOT).fill(0));
     for (const t of tables) { const s = sectionOf(t.x), o = occ[t.id]; for (let i = 0; i < NSLOT; i++) c[s][i] += o[i]; }
     return c;
   }
   function imbalance(c) {
     let cost = 0;
-    for (let i = 0; i < NSLOT; i++) { const m = (c[0][i] + c[1][i] + c[2][i]) / 3; for (let s = 0; s < 3; s++) cost += (c[s][i] - m) * (c[s][i] - m); }
+    for (let i = 0; i < NSLOT; i++) { let m = 0; for (let s = 0; s < TEAMS; s++) m += c[s][i]; m /= TEAMS; for (let s = 0; s < TEAMS; s++) cost += (c[s][i] - m) * (c[s][i] - m); }
     return cost;
   }
 
@@ -166,19 +167,19 @@
     }
     const occ = {}; tables.forEach((t) => { occ[t.id] = occupancy(t.items, byKey); });
     // sections: biggest users of the room first, each to the section that keeps the room most even, while the tables still fit
-    const secOf = {}, members = [[], [], []];
+    const secOf = {}, members = Array.from({ length: TEAMS }, () => []);
     const order = tables.slice().sort((a, b) => occ[b.id].reduce((s, v) => s + v, 0) * foot(b).w * foot(b).h - occ[a.id].reduce((s, v) => s + v, 0) * foot(a).w * foot(a).h);
     const fitMemo = {};
     const tryFit = (s, list) => { const k = s + ":" + list.map((t) => t.id).sort().join(","); if (!(k in fitMemo)) fitMemo[k] = pack(list, SECTION_REGION[s], AISLE, true).over.length === 0; return fitMemo[k]; };
-    const cost = () => { const c = [0, 1, 2].map((s) => { const v = new Array(NSLOT).fill(0); members[s].forEach((t) => { for (let i = 0; i < NSLOT; i++) v[i] += occ[t.id][i]; }); return v; }); return imbalance(c); };
+    const cost = () => { const c = Array.from({ length: TEAMS }, (_, s) => { const v = new Array(NSLOT).fill(0); members[s].forEach((t) => { for (let i = 0; i < NSLOT; i++) v[i] += occ[t.id][i]; }); return v; }); return imbalance(c); };
     for (const t of order) {
       let bestS = -1, bestC = Infinity;
-      for (let s = 0; s < 3; s++) {
+      for (let s = 0; s < TEAMS; s++) {
         if (!tryFit(s, members[s].concat([t]))) continue;
         members[s].push(t); const c = cost(); members[s].pop();
         if (c < bestC) { bestC = c; bestS = s; }
       }
-      if (bestS < 0) bestS = [0, 1, 2].sort((a, b) => members[a].length - members[b].length)[0];      // nothing fits: the fullest-room warning will say so
+      if (bestS < 0) bestS = Array.from({ length: TEAMS }, (_, i) => i).sort((a, b) => members[a].length - members[b].length)[0];      // nothing fits: the fullest-room warning will say so
       members[bestS].push(t); secOf[t.id] = bestS;
     }
     // improve: move or swap tables between sections while that makes the room more even and everything still fits
@@ -186,7 +187,7 @@
     while (improved && guard++ < 60) {
       improved = false;
       const base = cost();
-      outer: for (let s = 0; s < 3; s++) for (const t of members[s].slice()) for (let d = 0; d < 3; d++) {
+      outer: for (let s = 0; s < TEAMS; s++) for (const t of members[s].slice()) for (let d = 0; d < TEAMS; d++) {
         if (d === s) continue;
         members[s].splice(members[s].indexOf(t), 1); members[d].push(t);
         if (tryFit(d, members[d]) && cost() < base - 1e-9) { improved = true; break outer; }
@@ -199,15 +200,15 @@
       }
     }
     const leftovers = [];
-    for (let s = 0; s < 3; s++) {
+    for (let s = 0; s < TEAMS; s++) {
       let r = pack(members[s], SECTION_REGION[s], AISLE);
       if (r.over.length) { const r2 = pack(members[s], SECTION_REGION[s], AISLE_MIN); if (r2.over.length < r.over.length) r = r2; }
       const pos = {}; r.placed.forEach((p) => { pos[p.id] = p; });
       members[s].forEach((t) => { if (pos[t.id]) { t.x = pos[t.id].x; t.y = pos[t.id].y; } });
       r.over.forEach((t) => leftovers.push(t));
     }
-    const plan = { v: 1, inventory: inv, tables, nextId, built: new Date().toISOString() };
-    for (const t of leftovers) { const p = freeSpot(plan, t, sectionOfLeast(plan, byKey)); if (p) { t.x = p.x; t.y = p.y; } else { t.x = SEC_W * 1.5; t.y = USABLE.y1 - 0.5; t.unplaced = true; } }
+    const plan = { v: 1, teams: TEAMS, inventory: inv, tables, nextId, built: new Date().toISOString() };
+    for (const t of leftovers) { const p = freeSpot(plan, t, sectionOfLeast(plan, byKey)); if (p) { t.x = p.x; t.y = p.y; } else { t.x = ROOM.w / 2; t.y = USABLE.y1 - 0.5; t.unplaced = true; } }
     return plan;
   }
   function sectionOfLeast(plan, byKey) {
@@ -241,7 +242,7 @@
   /** A free position for a table near the middle of a section (or anywhere), keeping the aisles. */
   function freeSpot(plan, table, section) {
     const others = plan.tables.filter((t) => t !== table && (t.x || t.y)), f = foot(table);
-    const order = section == null ? [0, 1, 2] : [section, (section + 1) % 3, (section + 2) % 3];
+    const order = section == null ? [0, 1] : [section, (section + 1) % TEAMS];
     for (const gap of [AISLE, AISLE_MIN]) for (const s of order) {
       const r = SECTION_REGION[s];
       for (let y = USABLE.y0 + f.h / 2; y <= USABLE.y1 - f.h / 2 + 1e-9; y += 0.25) for (let x = r.x0 + f.w / 2; x <= r.x1 - f.w / 2 + 1e-9; x += 0.25) {
@@ -276,7 +277,7 @@
       let t = r.table;
       if (!t) {
         t = { id: "T" + plan.nextId++, type: r.make.type, n: r.make.n, rot: 0, x: 0, y: 0, items: [] };
-        const p = freeSpot(plan, t, sectionOfLeast(plan, byKey)); if (p) { t.x = p.x; t.y = p.y; } else { t.x = SEC_W * 1.5; t.y = USABLE.y1 - 0.5; t.unplaced = true; }
+        const p = freeSpot(plan, t, sectionOfLeast(plan, byKey)); if (p) { t.x = p.x; t.y = p.y; } else { t.x = ROOM.w / 2; t.y = USABLE.y1 - 0.5; t.unplaced = true; }
         plan.tables.push(t); made.push(t.id);
       }
       t.items.push(b.key);
@@ -288,7 +289,7 @@
     const occ = {}; plan.tables.forEach((t) => { occ[t.id] = occupancy(t.items, byKey); });
     const c = sectionCounts(plan.tables, occ);
     const peak = c.map((v) => Math.max.apply(null, v));
-    const worst = Math.max.apply(null, c[0].map((_, i) => Math.max(c[0][i], c[1][i], c[2][i]) - Math.min(c[0][i], c[1][i], c[2][i])));
+    const worst = Math.max.apply(null, c[0].map((_, i) => Math.max.apply(null, c.map((v) => v[i])) - Math.min.apply(null, c.map((v) => v[i]))));
     const used = {}; plan.tables.forEach((t) => { used[t.type] = (used[t.type] || 0) + (t.type === "trestle" ? (t.n || 1) : 1); });
     const inv = plan.inventory || DEFAULT_INVENTORY, short = [], hire = {};
     Object.keys(used).forEach((k) => { if (inv[k] == null) hire[k] = used[k]; else if (used[k] > inv[k]) short.push(`${used[k] - inv[k]} more ${TYPES[k].label.toLowerCase()}${used[k] - inv[k] === 1 ? "" : "s"} than you have`); });
@@ -342,10 +343,10 @@
   function svg(plan, bookings, opts) {
     const o = opts || {}, { byKey } = reconcile(plan, bookings);
     const W = ROOM.w, H = ROOM.h;
-    const tint = ["#FBF9F3", "#F6F3EA", "#FBF9F3"];
-    const secs = [0, 1, 2].map((s) => `<rect x="${s * SEC_W}" y="0" width="${SEC_W}" height="${H}" fill="${tint[s]}"/>`).join("");
-    const curtains = [1, 2].map((s) => `<line x1="${s * SEC_W}" y1="0" x2="${s * SEC_W}" y2="${H}" stroke="#444" stroke-width="0.07" stroke-dasharray="0.5 0.25"/>`).join("");
-    const heads = [0, 1, 2].map((s) => `<text x="${s * SEC_W + SEC_W / 2}" y="-0.95" text-anchor="middle" font-size="0.62" font-weight="700" fill="#3F2F28">SECTION ${s + 1}</text>` + (o.sections ? `<text x="${s * SEC_W + SEC_W / 2}" y="-0.4" text-anchor="middle" font-size="0.42" fill="#6b6f66">${esc(o.sections[s])}</text>` : "")).join("");
+    const tint = ["#FBF9F3", "#F3F1E8"];
+    const secs = [0, 1].map((s) => `<rect x="${s * TEAM_X}" y="0" width="${TEAM_X}" height="${H}" fill="${tint[s]}"/>`).join("");
+    const curtains = [1, 2].map((s) => `<line x1="${s * SEC_W}" y1="0" x2="${s * SEC_W}" y2="${H}" stroke="#777" stroke-width="0.05" stroke-dasharray="0.4 0.3"/>`).join("") + `<line x1="${TEAM_X}" y1="0" x2="${TEAM_X}" y2="${H}" stroke="#8A1C2B" stroke-width="0.11"/><text transform="translate(${TEAM_X + 0.45} ${H - 0.5}) rotate(-90)" font-size="0.34" fill="#8A1C2B">team divide</text>`;
+    const heads = [0, 1].map((s) => `<text x="${s * TEAM_X + TEAM_X / 2}" y="-0.95" text-anchor="middle" font-size="0.62" font-weight="700" fill="#3F2F28">TEAM ${s + 1}</text>` + (o.sections ? `<text x="${s * TEAM_X + TEAM_X / 2}" y="-0.4" text-anchor="middle" font-size="0.42" fill="#6b6f66">${esc(o.sections[s])}</text>` : "")).join("");
     const doors = FEATURES.doorsTop.map((d) => `<rect x="${d.x0 + 0.3}" y="-0.12" width="${d.x1 - d.x0 - 0.6}" height="0.24" fill="#9aa3a8"/><text x="${(d.x0 + d.x1) / 2}" y="0.9" text-anchor="middle" font-size="0.36" fill="#667">DOOR</text>`).join("") +
       `<rect x="-0.12" y="${FEATURES.doorLeft.y0}" width="0.24" height="${FEATURES.doorLeft.y1 - FEATURES.doorLeft.y0}" fill="#9aa3a8"/><text transform="translate(0.7 ${(FEATURES.doorLeft.y0 + FEATURES.doorLeft.y1) / 2}) rotate(-90)" text-anchor="middle" font-size="0.36" fill="#667">DOOR</text>`;
     const bottom = FEATURES.bottom.map((b) => `<rect x="${b.x0}" y="${H - 0.05}" width="${b.x1 - b.x0}" height="0.9" fill="#777"/><text x="${(b.x0 + b.x1) / 2}" y="${H + 1.45}" text-anchor="middle" font-size="0.4" fill="#3F2F28">${esc(b.label)}</text>`).join("");
@@ -359,6 +360,6 @@
       ${secs}<rect x="0" y="0" width="${W}" height="${H}" fill="none" stroke="#3F2F28" stroke-width="0.09"/>${curtains}${heads}${doors}${bottom}${socks}${dims}${tbl}</svg>`;
   }
 
-  const API = { ROOM, SEC_W, TYPES, DEFAULT_INVENTORY, FEATURES, USABLE, SECTION_REGION, T0, T1, STEP, NSLOT, TURN, AISLE, AISLE_MIN, hm, seatsOf, foot, sectionOf, neededType, autoLayout, problems, freeSpot, reconcile, tableIssues, placeNew, stats, sittingAt, svg, pack, occupancy };
+  const API = { ROOM, SEC_W, TEAMS, TEAM_X, TYPES, DEFAULT_INVENTORY, FEATURES, USABLE, SECTION_REGION, T0, T1, STEP, NSLOT, TURN, AISLE, AISLE_MIN, hm, seatsOf, foot, sectionOf, neededType, autoLayout, problems, freeSpot, reconcile, tableIssues, placeNew, stats, sittingAt, svg, pack, occupancy };
   if (typeof module !== "undefined" && module.exports) module.exports = API; else root.MQ = API;
 })(typeof window !== "undefined" ? window : globalThis);
