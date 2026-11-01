@@ -145,7 +145,7 @@ const CFG = { URL:"https://safcrtrfdzsnftghibot.supabase.co", KEY:"sb_publishabl
 const S = { dg:null, dgId:"", pre:{ events:null, id:"", data:null }, me:null, people:[], view:"", ts:null, tsTimer:null, day:null, plan:null, planFilter:"open", corp:null, decor:null, decorArea:"" };
 const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
 const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
-const TABS = [["events","Christmas events"],["dining","Festive dining"],["day","Christmas Day"],["preorders","Pre-orders"],["diary","Diary"],["corporate","Corporate events"],["decorations","To Order"],["actions","Action plan"]];
+const TABS = [["events","Christmas events"],["dining","Festive dining"],["day","Christmas Day"],["preorders","Pre-orders"],["diary","Diary"],["waiting","Waiting list"],["corporate","Corporate events"],["decorations","To Order"],["actions","Action plan"]];
 const staffEmail = () => { try { return sessionStorage.getItem("bhb_staff_email") || ""; } catch(e){ return ""; } };
 const money = n => { n = Number(n) || 0; return "£" + n.toLocaleString("en-GB", { minimumFractionDigits: Math.abs(n % 1) > 0.004 ? 2 : 0, maximumFractionDigits: 2 }); };
 const londonToday = () => new Intl.DateTimeFormat("en-CA", { timeZone:"Europe/London", year:"numeric", month:"2-digit", day:"2-digit" }).format(new Date());
@@ -1196,7 +1196,111 @@ async function preAuto(){
 }
 
 /* ====================================================================== shell */
-const VIEWS = { events: viewEvents, dining: viewDining, day: viewDay, preorders: viewPreorders, diary: viewDiary, corporate: viewCorporate, decorations: viewDecor, actions: viewActions };
+
+/* ============================ WAITING LIST ============================
+   Guests join from a public form (app.blackhorsebeamish.co.uk/christmas-waiting-list/). A place is offered from here: the guest is emailed a SumUp link for the full amount, good for 24 hours.
+   When it is paid the booking is held in the Diary as a ResDiary-only entry; an offer that is not paid in time expires and the team is emailed. */
+S.wl = S.wl || { data:null, filter:"waiting" };
+const WL_LABEL = { waiting:"Waiting", offered:"Offered", paid:"Paid", expired:"Expired", removed:"Removed" };
+const wlTime = t => t === "any" || !t ? "Any time 12 to 4" : (() => { const [h, m] = t.split(":").map(Number); return (h > 12 ? h - 12 : h) + (m ? ":" + String(m).padStart(2, "0") : "") + (h >= 12 ? "pm" : "am"); })();
+const wlArea = a => a === "marquee" ? "Marquee" : a === "restaurant" ? "Restaurant" : "No preference";
+const wlWhen = iso => iso ? new Intl.DateTimeFormat("en-GB", { timeZone:"Europe/London", weekday:"short", day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" }).format(new Date(iso)) : "";
+const wlLeft = iso => { const ms = new Date(iso) - Date.now(); if (ms <= 0) return "expired"; const h = Math.floor(ms / 3600000), m = Math.floor((ms % 3600000) / 60000); return h + "h " + String(m).padStart(2, "0") + "m left"; };
+const wlParty = r => [r.adults ? r.adults + " adult" + (r.adults === 1 ? "" : "s") : "", r.children ? r.children + " child" + (r.children === 1 ? "" : "ren") : "", r.under3 ? r.under3 + " under 3" : ""].filter(Boolean).join(", ");
+async function viewWaiting(){
+  $("#views").innerHTML = `<div class="empty">Loading…</div>`;
+  try { S.wl.data = await px("admin.wait_list"); } catch(e){ $("#views").innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+  if (S.view === "waiting") renderWaiting();
+}
+function renderWaiting(){
+  const d = S.wl.data, t = d.totals, edit = canEdit(), f = S.wl.filter;
+  const rows = d.rows.filter(r => f === "all" || r.status === f).sort((a, b) => f === "offered" ? new Date(a.offer_expires_at) - new Date(b.offer_expires_at) : new Date(a.created_at) - new Date(b.created_at));
+  const chip = k => `<button class="btn small${f === k ? "" : " ghost"}" data-wlf="${k}">${k === "all" ? "Everyone" : WL_LABEL[k]}${k !== "all" ? " (" + d.rows.filter(r => r.status === k).length + ")" : ""}</button>`;
+  const act = r => !edit ? "" : r.status === "waiting" ? `<button class="btn small" data-wlo="${r.id}">Offer a place</button> <button class="btn small ghost" data-wls="remove" data-id="${r.id}">Remove</button>`
+    : r.status === "offered" ? `<button class="btn small ghost" data-wls="resend" data-id="${r.id}">Send the email again</button> <button class="btn small ghost" data-wlo="${r.id}">Change offer</button> <button class="btn small ghost" data-wls="reopen" data-id="${r.id}">Take back</button>`
+    : r.status === "expired" ? `<button class="btn small" data-wlo="${r.id}">Offer again</button> <button class="btn small ghost" data-wls="reopen" data-id="${r.id}">Back on the list</button> <button class="btn small ghost" data-wls="remove" data-id="${r.id}">Remove</button>`
+    : r.status === "removed" ? `<button class="btn small ghost" data-wls="reopen" data-id="${r.id}">Put back on the list</button>` : "";
+  const statusCell = r => {
+    if (r.status === "offered") return `<span class="pill warn">Offered</span><div class="small muted">${esc(wlTime(r.offer_time))}, ${esc(wlArea(r.offer_area))}, ${esc(money(r.offer_amount))}<br>${esc(wlLeft(r.offer_expires_at))} (until ${esc(wlWhen(r.offer_expires_at))})<br>${r.offer_sent_at ? "Emailed " + esc(wlWhen(r.offer_sent_at)) : "<b>Email not sent</b>"} by ${esc(r.offered_by || "")}</div>`;
+    if (r.status === "paid") return `<span class="pill ok">Paid</span><div class="small muted">${esc(money(r.offer_amount))} on ${esc(wlWhen(r.paid_at))}<br>${esc(wlTime(r.offer_time))}, ${esc(wlArea(r.offer_area))}<br>Held in the Diary as a ResDiary-only booking</div>`;
+    if (r.status === "expired") return `<span class="pill bad">Expired</span><div class="small muted">Not paid by ${esc(wlWhen(r.offer_expires_at))}</div>`;
+    if (r.status === "removed") return `<span class="pill">Removed</span>`;
+    return `<span class="pill">Waiting</span>`;
+  };
+  $("#views").innerHTML = `<div class="pagehead"><h2>Christmas Day waiting list</h2><span class="hint">Guests join from a form on the website. Offer a place and they are emailed a payment link for the full amount, good for ${d.hours} hours.</span><span class="spacer"></span>
+      <button class="btn small ghost" data-wlcopy>Copy the sign-up link</button> ${edit ? `<button class="btn small ghost" data-wlopen="${d.open ? "0" : "1"}">${d.open ? "Stop taking new names" : "Start taking names again"}</button>` : ""}</div>
+    ${d.open ? "" : `<div class="flags"><b>The sign-up form is closed</b>Nobody can add their name until you press <b>Start taking names again</b>.</div>`}
+    <div class="tiles"><div class="tile"><div class="v">${t.waiting}</div><div class="l">parties waiting</div><div class="s">${t.waiting_guests} guests</div></div><div class="tile"><div class="v">${t.offered}</div><div class="l">offers out</div><div class="s">waiting for payment</div></div><div class="tile"><div class="v">${t.paid}</div><div class="l">paid</div><div class="s">${t.paid_guests} guests, ${esc(money(t.paid_amount))}</div></div><div class="tile"><div class="v">${t.expired}</div><div class="l">expired</div><div class="s">not paid in time</div></div></div>
+    <div class="row" style="margin:0 0 10px;gap:6px;flex-wrap:wrap">${["waiting", "offered", "paid", "expired", "removed", "all"].map(chip).join("")}</div>
+    <div class="card" style="padding:0;overflow:hidden">${rows.length ? `<div style="overflow-x:auto"><table class="t"><thead><tr><th>Joined</th><th>Guest</th><th>Party</th><th>Asked for</th><th>Status</th><th></th></tr></thead><tbody>${rows.map(r => `<tr>
+      <td class="small">${esc(wlWhen(r.created_at))}</td>
+      <td><b>${esc(r.name)}</b><div class="small"><a href="tel:${esc(String(r.phone).replace(/\s+/g, ""))}">${esc(r.phone)}</a><br><a href="mailto:${esc(r.email)}">${esc(r.email)}</a></div></td>
+      <td>${esc(wlParty(r))}<div class="small muted">${esc(money(r.adults * d.prices.adult + r.children * d.prices.child))} in full</div></td>
+      <td class="small">${esc(wlTime(r.pref_time))}<br>${esc(wlArea(r.area_pref))}${r.notes ? `<div class="muted" style="margin-top:4px">${esc(r.notes)}</div>` : ""}${r.staff_note ? `<div style="margin-top:4px;color:var(--berry)">${esc(r.staff_note).replace(/\n/g, "<br>")}</div>` : ""}</td>
+      <td>${statusCell(r)}</td>
+      <td style="white-space:nowrap">${act(r)}${edit ? ` <button class="btn small ghost" data-wln="${r.id}">Note</button>` : ""}</td></tr>`).join("")}</tbody></table></div>` : `<div class="empty">${f === "waiting" ? "Nobody is waiting." : "Nothing here."}</div>`}</div>
+    <p class="small muted" style="margin-top:10px">A paid offer holds the table in the Diary (a blue ResDiary-only booking, counted in the arrival limits) and emails events@ and the GM to add it to TicketSource and ResDiary and give it a table. An offer not paid in ${d.hours} hours expires by itself (checked every ten minutes) and the team is emailed.</p>`;
+  $$("[data-wlf]").forEach(b => b.onclick = () => { S.wl.filter = b.dataset.wlf; renderWaiting(); });
+  $$("[data-wlo]").forEach(b => b.onclick = () => wlOffer(b.dataset.wlo));
+  $$("[data-wln]").forEach(b => b.onclick = async () => { const r = d.rows.find(x => x.id === b.dataset.wln); const v = prompt("Note on " + r.name + " (only the team sees this):", r.staff_note || ""); if (v === null) return; try { await px("admin.wait_set", { id:r.id, op:"note", note:v }); viewWaiting(); } catch(e){ toast(e.message, true); } });
+  $$("[data-wls]").forEach(b => b.onclick = async () => {
+    const op = b.dataset.wls, r = d.rows.find(x => x.id === b.dataset.id);
+    if (op === "remove" && !confirm("Take " + r.name + " off the waiting list?")) return;
+    if (op === "reopen" && r.status === "offered" && !confirm("Take back the offer to " + r.name + "? Their payment link stops working.")) return;
+    b.disabled = true;
+    try { const out = await px("admin.wait_set", { id:r.id, op }); toast(op === "resend" ? "Email sent to " + out.sent + "." : "Done."); viewWaiting(); } catch(e){ toast(e.message, true); b.disabled = false; }
+  });
+  const c = $("[data-wlcopy]"); if (c) c.onclick = () => { const u = d.form_url; (navigator.clipboard ? navigator.clipboard.writeText(u) : Promise.reject()).then(() => toast("Link copied: " + u), () => prompt("Copy this link", u)); };
+  const o = $("[data-wlopen]"); if (o) o.onclick = async () => { const open = o.dataset.wlopen === "1"; if (!open && !confirm("Stop the sign-up form taking new names? Guests already on the list stay on it.")) return; try { await px("admin.wait_open", { open }); viewWaiting(); } catch(e){ toast(e.message, true); } };
+}
+async function wlOffer(id){
+  const d = S.wl.data, r = d.rows.find(x => x.id === id); if (!r) return;
+  const times = d.times, p = d.prices;
+  const startTime = r.offer_time || (r.pref_time && r.pref_time !== "any" ? r.pref_time : "13:00"), startArea = r.offer_area || r.area_pref || (r.adults + r.children > 6 ? "marquee" : "restaurant");
+  const n = (v, def) => Number(v == null ? def : v);
+  openModal(`<h3 style="margin:0 0 4px">Offer a place to ${esc(r.name)}</h3>
+    <p class="small muted" style="margin:0 0 10px">${esc(wlParty(r))}. Asked for: ${esc(wlTime(r.pref_time))}, ${esc(wlArea(r.area_pref))}.${r.notes ? " They said: " + esc(r.notes) : ""}</p>
+    <div class="row" style="gap:10px;flex-wrap:wrap"><label class="small">Adults<br><input type="number" id="wo_a" min="1" max="60" value="${n(r.offer_adults, r.adults)}" style="width:80px"></label>
+      <label class="small">Children<br><input type="number" id="wo_c" min="0" max="60" value="${n(r.offer_children, r.children)}" style="width:80px"></label>
+      <label class="small">Under 3s eating (${esc(money(p.infant))})<br><input type="number" id="wo_i" min="0" max="10" value="${n(r.offer_infants, 0)}" style="width:80px"></label></div>
+    <div class="row" style="gap:10px;flex-wrap:wrap;margin-top:10px"><label class="small">Arrival<br><select id="wo_t">${times.map(t => `<option value="${t}"${t === startTime ? " selected" : ""}>${esc(wlTime(t))}</option>`).join("")}</select></label>
+      <label class="small">Where<br><select id="wo_w"><option value="restaurant"${startArea === "restaurant" ? " selected" : ""}>Restaurant</option><option value="marquee"${startArea === "marquee" ? " selected" : ""}>Marquee</option></select></label></div>
+    <div id="wo_fit" class="small" style="margin:10px 0;padding:9px 11px;background:var(--attn-bg,#F4EFD3);border-radius:8px">Checking the diary…</div>
+    <label class="small">A line for the email (optional)<br><textarea id="wo_m" rows="2" maxlength="400" style="width:100%" placeholder="e.g. We have moved you to the Marquee so your whole party can sit together."></textarea></label>
+    <p style="margin:10px 0 4px;font-size:17px"><b>Total to pay: <span id="wo_tot"></span></b></p>
+    <label class="small" style="display:flex;gap:8px;align-items:center;margin:6px 0"><input type="checkbox" id="wo_s" checked> Email the guest now, with the payment link (good for ${d.hours} hours)</label>
+    <div id="wo_err" class="small" style="color:var(--alert);margin:6px 0"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px"><button class="btn" id="woGo">Send the offer</button><button class="btn ghost" onclick="closeModal()">Cancel</button></div>`);
+  let probe = null;
+  const total = () => { const a = n($("#wo_a").value, 0), c = n($("#wo_c").value, 0), i = n($("#wo_i").value, 0); return a * p.adult + c * p.child + i * p.infant; };
+  const fit = () => {
+    $("#wo_tot").textContent = money(total());
+    const el = $("#wo_fit"); if (!probe) { el.textContent = "Checking the diary…"; return; }
+    const t = $("#wo_t").value, w = $("#wo_w").value, row = probe.rows.find(x => x.time === t && x.side === w);
+    const alt = probe.rows.filter(x => x.pacing_ok && (x.table3h || x.table2h)).slice(0, 40);
+    if (row && row.pacing_ok && (row.table3h || row.table2h)) el.innerHTML = `<b>Room in the diary:</b> ${esc(wlTime(t))} in the ${esc(wlArea(w))}${row.table3h ? ", table " + esc(row.table3h) : ""}.`;
+    else { const near = alt.filter(x => x.side === w).map(x => x.time); el.innerHTML = `<b>No room at ${esc(wlTime(t))} in the ${esc(wlArea(w))}</b> for ${probe.size} guests (arrival limit or no free table).${near.length ? " Times that fit there: " + near.slice(0, 6).map(wlTime).join(", ") + "." : " Nothing fits there at any time."}`; }
+  };
+  const loadProbe = async () => { probe = null; fit(); try { probe = await px("admin.wait_probe", { size: Math.max(1, n($("#wo_a").value, 1) + n($("#wo_c").value, 0)) }); } catch(e){ probe = null; $("#wo_fit").textContent = "Could not check the diary: " + e.message; return; } fit(); };
+  ["wo_a", "wo_c", "wo_i"].forEach(k => $("#" + k).addEventListener("input", () => { fit(); }));
+  ["wo_a", "wo_c"].forEach(k => $("#" + k).addEventListener("change", loadProbe));
+  ["wo_t", "wo_w"].forEach(k => $("#" + k).addEventListener("change", fit));
+  fit(); loadProbe();
+  $("#woGo").onclick = async () => {
+    const send = $("#wo_s").checked, tot = total();
+    if (!confirm((send ? "Email " + r.name + " now" : "Make the payment link for " + r.name + " (no email)") + " for " + money(tot) + "? They will have " + d.hours + " hours to pay.")) return;
+    $("#woGo").disabled = true; $("#woGo").textContent = "Sending…";
+    try {
+      const out = await px("admin.wait_offer", { id:r.id, adults:n($("#wo_a").value, 0), children:n($("#wo_c").value, 0), infants:n($("#wo_i").value, 0), time:$("#wo_t").value, area:$("#wo_w").value, message:$("#wo_m").value, send });
+      closeModal();
+      if (send && !out.sent) { toast("The offer is made but the email failed: " + out.send_error, true); prompt("Send them this payment link yourself:", out.url); }
+      else toast(send ? "Offer emailed to " + r.name + "." : "Offer made. Payment link: " + out.url);
+      viewWaiting();
+    } catch(e){ $("#wo_err").textContent = e.message; $("#woGo").disabled = false; $("#woGo").textContent = "Send the offer"; }
+  };
+}
+
+const VIEWS = { events: viewEvents, dining: viewDining, day: viewDay, preorders: viewPreorders, diary: viewDiary, waiting: viewWaiting, corporate: viewCorporate, decorations: viewDecor, actions: viewActions };
 /* ---- live: the Pre-orders and Diary pages ask every 5 seconds whether anything changed (a tiny fingerprint, not the data) and reload only when it did.
    They wait while a pop-up is open, a field is being typed in or a booking is being dragged, and keep the scroll position. */
 const PULSE = { key:"", sig:null, busy:false };
