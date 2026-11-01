@@ -172,6 +172,18 @@ header.top{background:var(--sage); color:var(--white)}
 .tile.locked{opacity:.6}
 .tile.locked:hover{transform:none; box-shadow:var(--shadow)}
 .tile{position:relative}
+.tile .fav{position:absolute; top:10px; right:10px; width:30px; height:30px; display:flex; align-items:center; justify-content:center; border-radius:50%; color:var(--sage-70); cursor:pointer; z-index:2}
+.tile .fav svg{width:19px; height:19px; fill:none; stroke:currentColor; stroke-width:1.8}
+.tile .fav:hover{background:var(--sage-10, #EDEFED); color:var(--brown, #3F2F28)}
+.tile .fav.on{color:#B3402F}
+.tile .fav.on svg{fill:currentColor}
+.tile .fav:focus-visible{outline:2px solid var(--sage); outline-offset:1px}
+.tile.hasfav .bdg{right:46px}
+.favtabs{display:flex; gap:8px; margin:14px 0 4px}
+.favtabs button{font:inherit; font-size:13px; font-weight:600; letter-spacing:.04em; padding:9px 16px; min-height:42px; border-radius:999px; border:1px solid var(--sage); background:var(--white); color:var(--sage); cursor:pointer; display:flex; align-items:center; gap:7px}
+.favtabs button[aria-selected="true"]{background:var(--sage); color:#fff}
+.favtabs button .n{font-size:11.5px; opacity:.85}
+.favtabs svg{width:15px; height:15px; fill:currentColor}
 .bdg{position:absolute; top:12px; right:12px; min-width:26px; height:26px; padding:0 8px; border-radius:99px; background:#B3402F; color:#fff; font-size:13px; font-weight:700;
   display:flex; align-items:center; justify-content:center; box-shadow:0 1px 3px rgba(0,0,0,.25); letter-spacing:0}
 .nbdg{display:inline-block; min-width:18px; padding:0 6px; margin-left:8px; border-radius:99px; background:#B3402F; color:#fff; font-size:11px; font-weight:700; line-height:18px; text-align:center}
@@ -451,6 +463,7 @@ table.grid td{padding:10px 12px; border-top:1px solid var(--mist); vertical-alig
         </div>
         <div class="layout-tools" id="layoutTools"></div>
       </div>
+      <div class="favtabs" id="favTabs" role="tablist" aria-label="Show"></div>
       <div class="searchbar" id="tileSearchBar"><input id="tileSearch" type="search" placeholder="Search your portals" aria-label="Search your portals" autocomplete="off" enterkeyhint="go"><button class="sx" id="tileSearchX" type="button" aria-label="Clear the search">&times;</button></div>
       <div id="tiles"></div>
     </section>
@@ -1064,6 +1077,7 @@ wireSearch();
 function renderTiles(){
   $("#tileSearchBar").style.display = S.editing ? "none" : "";
   renderLayoutTools();
+  renderFavTabs();
   if(!S.portals.length){
     $("#tiles").innerHTML = `<div class="empty">No portals assigned to your account yet — ask an admin to give you access.</div>`;
     return;
@@ -1071,7 +1085,8 @@ function renderTiles(){
   const tileHtml = p => {
     const locked = p.granted === false;
     return `
-    <button class="tile${locked?' locked':''}" style="border-top-color:${esc(p.color||'#4D604F')}" data-key="${esc(p.key)}">
+    <button class="tile${locked?' locked':' hasfav'}" style="border-top-color:${esc(p.color||'#4D604F')}" data-key="${esc(p.key)}">
+      ${locked ? "" : `<span class="fav${favKeys().has(p.key) ? " on" : ""}" role="button" tabindex="0" data-fav="${esc(p.key)}" aria-pressed="${favKeys().has(p.key)}" aria-label="${favKeys().has(p.key) ? "Remove " : "Add "}${esc(p.label)}${favKeys().has(p.key) ? " from" : " to"} favourites" title="${favKeys().has(p.key) ? "Remove from favourites" : "Add to favourites"}">${HEART}</span>`}
       ${badgeHtml(p.key)}
       <div class="ic" style="color:${esc(p.color||'#4D604F')}">${iconFor(p.icon)}</div>
       <h3>${esc(p.label)}</h3>
@@ -1092,15 +1107,22 @@ function renderTiles(){
     $("#tiles").innerHTML = hits.length
       ? `<div class="searchnote">${hits.length} portal${hits.length === 1 ? "" : "s"} match${hits.length === 1 ? "es" : ""} "${esc(tq)}". Press Enter to open the first.</div><div class="tiles">${hits.map(tileHtml).join("")}</div>`
       : `<div class="empty">No portal matches "${esc(tq)}". Clear the search to see them all.</div>`;
-    $$("#tiles .tile").forEach(b => b.addEventListener("click", ()=> openPortal(b.dataset.key)));
+    wireTileClicks();
+    return;
+  }
+  if (getFtab() === "favs") {               // only the apps they have hearted, A to Z
+    const fl = S.portals.filter(p => p.granted !== false && favKeys().has(p.key)).sort(byLabel);
+    $("#tiles").innerHTML = fl.length ? `<div class="tiles" style="margin-top:6px">${fl.map(tileHtml).join("")}</div>`
+      : `<div class="empty">No favourites yet. Press the heart on any app in All apps and it will be kept here.</div>`;
+    wireTileClicks();
     return;
   }
   const shown = S.portals.filter(p => !isHidden(p)), nHidden = S.portals.length - shown.length;
   const hidNote = nHidden ? `<div class="hidnote">${nHidden} tile${nHidden === 1 ? " is" : "s are"} hidden. Open the menu (the three lines at the top) to open ${nHidden === 1 ? "it" : "them"} or show ${nHidden === 1 ? "it" : "them"} again. <button type="button" data-showall="1">Show all</button></div>` : "";
-  const wireHid = () => { const b = $("#tiles [data-showall]"); if (b) b.addEventListener("click", async () => { S.layout = hasOrder() ? { order: S.layout.order, hidden: [] } : null; renderTiles(); renderNav(); toast("All your tiles are showing."); await persistLayout(S.layout); }); };
+  const wireHid = () => { const b = $("#tiles [data-showall]"); if (b) b.addEventListener("click", async () => { S.layout = mkLayout(hasOrder() ? S.layout.order : [], []); renderTiles(); renderNav(); toast("All your tiles are showing."); await persistLayout(S.layout); }); };
   if (hasOrder()) {                         // this person's own order: a flat grid, no headings
     $("#tiles").innerHTML = `<div class="tiles" style="margin-top:6px">${orderedPortals().filter(p => !isHidden(p)).map(tileHtml).join("")}</div>${hidNote}`;
-    $$("#tiles .tile").forEach(b => b.addEventListener("click", ()=> openPortal(b.dataset.key)));
+    wireTileClicks();
     wireHid();
     return;
   }
@@ -1114,7 +1136,7 @@ function renderTiles(){
       <div class="tiles">${list.map(tileHtml).join("")}</div>
     </div>
   `).join("") + (shown.length ? "" : `<div class="empty">All your tiles are hidden. Open the menu (the three lines at the top) to open one or show them again.</div>`) + hidNote;
-  $$("#tiles .tile").forEach(b => b.addEventListener("click", ()=> openPortal(b.dataset.key)));
+  wireTileClicks();
   wireHid();
 }
 
@@ -1127,7 +1149,7 @@ const LS_LAYOUT = () => "bhb_layout_" + String((S.user && S.user.email) || "").t
 
 function loadLayout(fromServer){
   S.layout = null; S.editing = false; S.draft = [];
-  const valid = l => l && ((Array.isArray(l.order) && l.order.length) || (Array.isArray(l.hidden) && l.hidden.length)) ? { order: Array.isArray(l.order) ? l.order.map(String) : [], hidden: Array.isArray(l.hidden) ? l.hidden.map(String) : [] } : null;
+  const valid = l => l && ((Array.isArray(l.order) && l.order.length) || (Array.isArray(l.hidden) && l.hidden.length) || (Array.isArray(l.favs) && l.favs.length)) ? { order: Array.isArray(l.order) ? l.order.map(String) : [], hidden: Array.isArray(l.hidden) ? l.hidden.map(String) : [], favs: Array.isArray(l.favs) ? l.favs.map(String) : [] } : null;
   if (fromServer !== undefined) {           // the server knows about layouts: it is the truth (null = none saved)
     S.layout = valid(fromServer);
     try{ localStorage.removeItem(LS_LAYOUT()); }catch(e){}
@@ -1153,13 +1175,44 @@ function groupedPortals(){ return groupTiles(S.portals); }
 
 /* Tiles this person has hidden from their front page. They stay in the menu (the three lines), where they can be shown again. */
 const hiddenKeys = () => new Set((S.layout && S.layout.hidden) || []);
+/* Favourites: the apps this person has hearted. They live in the same saved layout (order, hidden, favs), so they follow the person to other devices. */
+const favKeys = () => new Set((S.layout && S.layout.favs) || []);
+const mkLayout = (order, hidden, favs) => { favs = favs || [...favKeys()]; return order.length || hidden.length || favs.length ? { order, hidden, favs } : null; };
+const LS_FTAB = () => "bhb_ftab_" + String((S.user && S.user.email) || "").toLowerCase();
+function getFtab(){ if (S.ftab) return S.ftab; try { S.ftab = localStorage.getItem(LS_FTAB()) === "favs" ? "favs" : "all"; } catch(e){ S.ftab = "all"; } return S.ftab; }
+function setFtab(t){ S.ftab = t; try { localStorage.setItem(LS_FTAB(), t); } catch(e){} renderTiles(); }
+const HEART = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.3 2.8 4.5 6.4 4.5c2 0 3.7 1.1 5.6 3.3 1.9-2.2 3.6-3.3 5.6-3.3 3.6 0 5.5 3.8 4 7.3C19.5 16.4 12 21 12 21z" stroke-linejoin="round"/></svg>';
+async function toggleFav(key){
+  const f = favKeys(); const was = f.has(key);
+  if (was) f.delete(key); else f.add(key);
+  S.layout = mkLayout(S.layout && S.layout.order ? S.layout.order : [], [...hiddenKeys()], [...f]);
+  const p = S.portals.find(x => x.key === key), name = p ? p.label : "That app";
+  renderTiles();
+  toast(was ? `${name} is no longer a favourite.` : `${name} is now one of your favourites.`);
+  await persistLayout(S.layout);
+}
+function wireTileClicks(){
+  $$("#tiles .tile").forEach(b => b.addEventListener("click", e => {
+    if (e.target.closest(".fav")) { e.preventDefault(); e.stopPropagation(); toggleFav(b.dataset.key); return; }
+    openPortal(b.dataset.key);
+  }));
+  $$("#tiles .fav").forEach(h => h.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); toggleFav(h.dataset.fav); } }));
+}
+function renderFavTabs(){
+  const el = $("#favTabs"); if (!el) return;
+  if (S.editing || !S.portals.length) { el.style.display = "none"; return; }
+  el.style.display = "";
+  const n = S.portals.filter(p => p.granted !== false && favKeys().has(p.key)).length, t = getFtab();
+  el.innerHTML = `<button type="button" role="tab" data-ftab="all" aria-selected="${t === "all"}">All apps</button><button type="button" role="tab" data-ftab="favs" aria-selected="${t === "favs"}">${HEART.replace("<svg", '<svg class="hrt"')} Favourites <span class="n">${n}</span></button>`;
+  $$("#favTabs [data-ftab]").forEach(b => b.addEventListener("click", () => setFtab(b.dataset.ftab)));
+}
 const hasOrder = () => !!(S.layout && S.layout.order && S.layout.order.length);
 const isHidden = p => hiddenKeys().has(p.key);
 async function toggleHide(key){
   const h = hiddenKeys(); const was = h.has(key);
   if (was) h.delete(key); else h.add(key);
   const hidden = [...h], order = hasOrder() ? S.layout.order : [];
-  S.layout = hidden.length || order.length ? { order, hidden } : null;
+  S.layout = mkLayout(order, hidden);
   renderTiles(); renderNav();
   const p = S.portals.find(x => x.key === key), name = p ? p.label : "That tile";
   toast(was ? `${name} is back on your front page.` : `${name} is hidden from your front page. You can still open it from the menu.`);
@@ -1193,13 +1246,13 @@ function startEditLayout(){
 }
 async function finishEditLayout(){
   const order = S.draft.slice();
-  S.editing = false; S.layout = { order, hidden: [...hiddenKeys()] }; renderTiles(); renderNav();
+  S.editing = false; S.layout = mkLayout(order, [...hiddenKeys()]); renderTiles(); renderNav();
   if (await persistLayout(S.layout)) toast("Layout saved.");
 }
 function cancelEditLayout(){ S.editing = false; renderTiles(); renderNav(); }
 async function resetLayout(){
   const keep = [...hiddenKeys()];
-  S.editing = false; S.layout = keep.length ? { order: [], hidden: keep } : null; renderTiles(); renderNav();
+  S.editing = false; S.layout = mkLayout([], keep); renderTiles(); renderNav();
   if (await persistLayout(S.layout)) toast("Back to the standard layout.");
 }
 function moveDraft(key, to){                // put `key` at index `to`
