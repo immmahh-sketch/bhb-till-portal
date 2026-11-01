@@ -244,11 +244,20 @@ function guestHtml(g){
     coursesOf(g).map(c => '<div class="course"><b>' + (c === "starter" ? "Starter" : c === "main" ? "Main" : "Dessert") + '</b>' + m[c].map(d => dishHtml(g, c, d)).join("") + '</div>').join("") +
     '<label class="f" for="dt' + g.seq + '">Allergies or dietary needs for this guest (optional)</label><input type="text" id="dt' + g.seq + '" data-seq="' + g.seq + '" data-field="dietary" maxlength="300" value="' + esc(g.dietary) + '" placeholder="e.g. gluten free, nut allergy, vegan"></div>';
 }
+// Another booking made by this same person (same email): say it is linked to this one, and take them to its pre-order
+function ownLinkedHtml(){
+  const ls = ((S.d && S.d.linked) || []).filter(l => l.same_booker && l.url);
+  if (!ls.length) return "";
+  return ls.map(l => { const n = l.adults + l.children;
+    return '<div class="ok" style="font-weight:400"><b>Your bookings are linked.</b> We have linked this booking with your other booking <b>' + esc(l.ref) + '</b> (' + n + ' guest' + (n === 1 ? "" : "s") + ') so you sit together.' +
+      (l.submitted ? ' Its pre-order has been received.' : ' It has its own pre-order, which still needs doing: ') +
+      ' <a href="' + esc(l.url) + '" style="font-weight:700">' + (l.submitted ? 'Open booking ' : 'Complete the pre-order for booking ') + esc(l.ref) + ' &rarr;</a></div>'; }).join("");
+}
 function linkedHtml(){
   const d = S.d, ls = d.linked || [];
   let h = '<div class="card"><h2>Sit with another booking?</h2><p class="lead">If you have booked separately from friends or family and would like to share a table, link your bookings. We will seat you together and see both bookings side by side. Each booking still orders and pays for its own guests.</p>';
   if (ls.length) {
-    h += ls.map(l => '<div class="linked"><span>Linked with <b>' + esc(l.first || "another booking") + '</b> (booking ' + esc(l.ref) + ', ' + (l.adults + l.children) + ' guest' + (l.adults + l.children === 1 ? "" : "s") + ')</span><button type="button" class="btn ghost small" data-unlink="' + esc(l.booking_id) + '">Remove link</button></div>').join("") +
+    h += ls.map(l => '<div class="linked"><span>' + (l.same_booker ? 'Your other booking, ' : 'Linked with ') + '<b>' + esc(l.same_booker ? l.ref : (l.first || "another booking")) + '</b> (booking ' + esc(l.ref) + ', ' + (l.adults + l.children) + ' guest' + (l.adults + l.children === 1 ? "" : "s") + ')</span><button type="button" class="btn ghost small" data-unlink="' + esc(l.booking_id) + '">Remove link</button></div>').join("") +
       '<div class="ok">Your table: ' + d.table_size + ' guests in total.</div>';
   }
   h += '<div class="row"><div><label class="f" for="lkRef">Their booking reference</label><input type="text" id="lkRef" maxlength="30" placeholder="e.g. 7CHVVT" autocapitalize="characters"></div>' +
@@ -285,6 +294,7 @@ function render(){
     '<p style="margin:10px 0 0"><span class="pill">' + esc(ukDate(b.starts_at)) + '</span><span class="pill">Booking ' + esc(b.ref) + '</span><span class="pill">' + esc(parts.join(" and ")) + '</span></p>' +
     (d.deadline.closed ? '<div class="err">Pre-orders closed on ' + esc(d.deadline.text) + '. Each guest without choices is served our standard menu. To change anything, please contact us.</div>' :
       '<div class="note"><b>Please complete this form by ' + esc(d.deadline.text) + '.</b> If we have not received your choices by then, each guest will be served our standard menu: ' + esc(joinWords(EV().courses.map(c => d.standard[c]))) + '.</div>') +
+    ownLinkedHtml() +
     (d.answers.submitted_at ? '<div class="ok">Your pre-order has been received.' + (d.deadline.closed ? '' : ' You can still change it below.') + '</div>' : "") + '<div id="topMsg"></div>' + (S.addMsg ? '<div class="' + S.addMsg.cls + '">' + esc(S.addMsg.text) + '</div>' : '') + '</div>' +
     notedHtml() +
     (d.drinks && d.drinks.open && d.drinks.shots ? '<div class="card drinks"><span class="badge">Extra for the table</span><h2>Add arrival shots</h2><p class="lead">Your ticket already includes drinks. If you would like to start the night with a bang, add arrival shots for your table. Mix and match any shots: Jägerbombs, Baby Guinness, Sambuca and Tequila are £3.50 each, £3.25 each when you take 5 or more and £3 each for 10 or more. Tequila Rose, Apple and Limoncello are 50p less. Pay online and they will be ready when you arrive.</p><p style="margin:14px 0 0"><a class="btn gold" href="' + esc(d.drinks.url) + '" style="display:inline-block;text-decoration:none">Add arrival shots</a></p></div>' : "") +
