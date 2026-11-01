@@ -2069,7 +2069,7 @@ function tkCsv(){
    Every tour booked through Calendly (Wedding Tour and Event Show around),
    upcoming and past, with everything Calendly told us. Rows are kept by the
    calendly-webhook function; click one to open it. */
-var SR = { rows:null, tab:"upcoming", open:null };
+var SR = { rows:null, tab:"upcoming", open:null, adding:false, editing:null, msg:"" };
 
 async function loadShowrounds(){
   try {
@@ -2082,6 +2082,59 @@ async function loadShowrounds(){
   }
 }
 
+function srFormUrl(r){ return "https://app.blackhorsebeamish.co.uk/showround/?t=" + r.form_token; }
+function srAddToggle(){ SR.adding = !SR.adding; SR.editing = null; SR.msg = ""; $("views").innerHTML = viewShowrounds(); }
+function srRow(id){ return (SR.rows || []).filter(function(r){ return r.invitee_uri === id; })[0]; }
+function srLocal(iso, part){
+  if (!iso) return "";
+  var p = new Intl.DateTimeFormat("en-CA", { timeZone:"Europe/London", year:"numeric", month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit", hourCycle:"h23" }).formatToParts(new Date(iso)), g = function(k){ return p.filter(function(x){ return x.type === k; })[0].value; };
+  return part === "date" ? g("year") + "-" + g("month") + "-" + g("day") : g("hour") + ":" + g("minute");
+}
+function srForm(){
+  var e = SR.editing ? srRow(SR.editing) : null, v = function(k){ return e ? esc(e[k] || "") : ""; };
+  return '<div class="card" style="margin-bottom:14px"><div class="card-body"><h3 style="margin:0 0 10px">' + (e ? 'Change this visit' : 'Add a show-round') + '</h3>' +
+    '<p class="muted" style="margin:0 0 12px;font-size:.9rem">' + (e ? 'The time shown on This week changes at once.' : 'For someone who arranged their visit with you by phone or email. It appears on This week straight away, and you can email them a private link to the same questions Calendly asks.') + '</p>' +
+    '<div class="row"><div class="field"><label class="label" for="sa_kind">Type of visit</label><select id="sa_kind"' + (e ? ' disabled' : '') + '><option value="wedding_tour"' + (e && e.kind === "wedding_tour" ? ' selected' : '') + '>Wedding Tour</option><option value="event_showaround"' + (e && e.kind === "event_showaround" ? ' selected' : '') + '>Event Show around</option></select></div>' +
+    '<div class="field"><label class="label" for="sa_date">Date</label><input type="date" id="sa_date" value="' + (e ? srLocal(e.start_time, "date") : '') + '"></div>' +
+    '<div class="field"><label class="label" for="sa_time">Time</label><input type="time" id="sa_time" step="900" value="' + (e ? srLocal(e.start_time, "time") : '') + '"></div></div>' +
+    '<div class="row"><div class="field"><label class="label" for="sa_first">First name</label><input type="text" id="sa_first" value="' + v("first_name") + '"></div>' +
+    '<div class="field"><label class="label" for="sa_last">Surname</label><input type="text" id="sa_last" value="' + v("last_name") + '"></div></div>' +
+    '<div class="row"><div class="field"><label class="label" for="sa_email">Email</label><input type="email" id="sa_email" value="' + v("email") + '"></div>' +
+    '<div class="field"><label class="label" for="sa_phone">Phone</label><input type="tel" id="sa_phone" value="' + v("phone") + '"></div></div>' +
+    (e ? '' : '<label style="display:flex;gap:8px;align-items:center;margin:6px 0 12px"><input type="checkbox" id="sa_send" checked> Email the questionnaire now</label>') +
+    '<div class="actions"><button class="btn" id="saGo" onclick="srSave()">' + (e ? 'Save changes' : 'Add show-round') + '</button> <button class="btn btn--sm" onclick="srAddToggle()">Cancel</button></div></div></div>';
+}
+async function srSave(){
+  var b = $("saGo"); b.disabled = true;
+  var pl = { kind: $("sa_kind").value, date: $("sa_date").value, time: $("sa_time").value, first_name: $("sa_first").value, last_name: $("sa_last").value, email: $("sa_email").value, phone: $("sa_phone").value };
+  try {
+    if (SR.editing) { pl.id = SR.editing; await call("showrounds.update", pl); SR.msg = "Saved."; }
+    else {
+      pl.send = !!($("sa_send") && $("sa_send").checked);
+      var d = await call("showrounds.create", pl);
+      SR.msg = 'Added ' + esc(pl.first_name) + ' to the show-rounds and to This week.' +
+        (d.enquiry ? ' Linked to the enquiry for ' + esc(d.enquiry) + ' on the tracker.' : ' No matching enquiry was found on the tracker.') +
+        (d.sent ? ' The questionnaire was emailed to ' + esc(d.sent) + '.' : '') + (d.send_error ? ' <b>The email could not be sent: ' + esc(d.send_error) + '</b> You can copy the link and send it yourself.' : '');
+    }
+    SR.adding = false; SR.editing = null; SR.tab = "upcoming"; clearErr(); await loadShowrounds();
+  } catch (e) { b.disabled = false; showErr(e.message); }
+}
+function srEdit(id){ SR.editing = id; SR.adding = false; SR.msg = ""; $("views").innerHTML = viewShowrounds(); window.scrollTo({ top:0 }); }
+function srCopy(id){
+  var r = srRow(id); if (!r) return; var u = srFormUrl(r);
+  var done = function(){ SR.msg = "Link copied. Anyone with it can answer the questions for this visit."; $("views").innerHTML = viewShowrounds(); };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(u).then(done, function(){ window.prompt("Copy this link", u); });
+  else window.prompt("Copy this link", u);
+}
+async function srResend(id){
+  try { var d = await call("showrounds.resend", { id:id }); SR.msg = 'Emailed to ' + esc(d.sent) + '.'; clearErr(); await loadShowrounds(); }
+  catch (e) { showErr(e.message); }
+}
+async function srCancel(id){
+  var r = srRow(id); if (!r || !confirm("Cancel the visit for " + (r.invitee_name || "this guest") + " on " + srDay(r.start_time) + "? It will come off This week.")) return;
+  try { await call("showrounds.cancel", { id:id }); SR.msg = "Cancelled."; SR.open = null; clearErr(); await loadShowrounds(); }
+  catch (e) { showErr(e.message); }
+}
 function srSetTab(t){ SR.tab = t; SR.open = null; $("views").innerHTML = viewShowrounds(); }
 function srToggle(id){ SR.open = SR.open === id ? null : id; $("views").innerHTML = viewShowrounds(); }
 
@@ -2122,12 +2175,23 @@ function srDetail(r){
       : 'Booked') +
     row("Cancel reason", esc(r.cancel_reason || "")) +
     row("On the tracker", r.enquiry_id ? 'Yes - see Enquiries' : '<span class="muted">Not on the enquiries tracker</span>') +
+    (r.source === "form" ? row("Arranged by", esc(r.added_by || "the team") + ' (phone or email, not Calendly)') +
+      row("Questionnaire", r.form_submitted_at ? 'Answered ' + esc(tkBooked(r.form_submitted_at)) : (r.form_sent_at ? 'Emailed ' + esc(tkBooked(r.form_sent_at)) + ', not answered yet' : 'Not emailed yet')) : '') +
     '</dl>';
   var qa = Array.isArray(r.questions) ? r.questions.filter(function(x){ return x && String(x.answer || "").trim(); }) : [];
   if (qa.length) {
     h += '<h4 style="margin:16px 0 6px;font-size:.75rem;letter-spacing:.08em;text-transform:uppercase;color:var(--sage-70)">Their answers</h4>' +
       '<dl style="display:grid;grid-template-columns:150px 1fr;gap:5px 14px;margin:0">' +
       qa.map(function(x){ return '<dt>' + esc(x.question || "") + '</dt><dd style="margin:0;white-space:pre-wrap">' + esc(x.answer) + '</dd>'; }).join("") + '</dl>';
+  }
+  if (r.source === "form" && r.form_token) {
+    var u = srFormUrl(r), id = esc(r.invitee_uri);
+    h += '<p style="margin:14px 0 0;display:flex;gap:8px;flex-wrap:wrap">' +
+      '<button class="btn btn--sm" onclick="event.stopPropagation();srCopy(\'' + id + '\')">Copy questionnaire link</button>' +
+      (r.status !== "canceled" ? '<button class="btn btn--sm" onclick="event.stopPropagation();srResend(\'' + id + '\')"' + (r.email ? '' : ' disabled title="No email address"') + '>' + (r.form_sent_at ? 'Email it again' : 'Email the questionnaire') + '</button>' +
+        '<button class="btn btn--sm" onclick="event.stopPropagation();srEdit(\'' + id + '\')">Change time or details</button>' +
+        '<button class="btn btn--sm" onclick="event.stopPropagation();srCancel(\'' + id + '\')">Cancel this visit</button>' : '') + '</p>' +
+      '<p class="muted" style="margin:6px 0 0;font-size:.85rem;word-break:break-all">' + esc(u) + '</p>';
   }
   var links = [];
   if (r.reschedule_url && r.status !== "canceled") links.push('<a href="' + esc(r.reschedule_url) + '" target="_blank" rel="noopener">Reschedule</a>');
@@ -2139,9 +2203,10 @@ function srDetail(r){
 function viewShowrounds(){
   var up = SR.tab === "upcoming", rows = srRows();
   var all = SR.rows || [];
-  var h = '<div class="split" style="margin-bottom:6px"><h1>Calendly show-rounds</h1></div>' +
-    '<p class="muted" style="margin:0 0 12px">Tours booked at calendly.com/bookaviewing (Wedding Tour and Event Show around). ' +
+  var h = '<div class="split" style="margin-bottom:6px"><h1>Show-rounds</h1><button class="btn btn--sm" onclick="srAddToggle()">' + (SR.adding ? 'Close' : '+ Add a show-round') + '</button></div>' +
+    '<p class="muted" style="margin:0 0 12px">Tours booked at calendly.com/bookaviewing (Wedding Tour and Event Show around), and visits you add here for people who arranged theirs by phone or email: they are sent the same questions to answer, and show on This week. ' +
     'Click a line for the full booking.</p>' +
+    (SR.msg ? '<div class="syncnote" style="margin:0 0 12px">' + SR.msg + '</div>' : '') + (SR.adding || SR.editing ? srForm() : '') +
     '<div class="subnav" style="margin-top:0">' +
     '<button class="btn btn--sm' + (up ? ' on' : '') + '" onclick="srSetTab(\'upcoming\')">Upcoming</button>' +
     '<button class="btn btn--sm' + (up ? '' : ' on') + '" onclick="srSetTab(\'past\')">Past</button></div>';
@@ -2158,7 +2223,7 @@ function viewShowrounds(){
       '<td>' + esc(srTime(r.start_time)) + '</td>' +
       '<td>' + esc(r.invitee_name || r.email || "") + '</td>' +
       '<td>' + esc(r.event_name || "") + '</td>' +
-      '<td>' + (gone ? '<span class="pill pill--late">Cancelled</span>' : '') + '</td></tr>';
+      '<td>' + (gone ? '<span class="pill pill--late">Cancelled</span>' : (r.source === "form" ? (r.form_submitted_at ? '<span class="pill pill--ok">Answers in</span>' : '<span class="pill pill--due">Waiting for answers</span>') : '')) + '</td></tr>';
     if (isOpen) h += '<tr><td colspan="5" style="background:var(--bone)">' + srDetail(r) + '</td></tr>';
   });
   return h + '</tbody></table></div></div>';

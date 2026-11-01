@@ -133,7 +133,7 @@ function srRows(d, g){
   const list = srList(d, g);
   return list.length ? list.map((s,i) =>
     `<button class="row" data-sr="${g}:${i}"><div class="time">${esc(s.time)}</div><div class="main"><div class="t">${esc(s.name)}</div>` +
-    (g === "w" ? `<div class="m">Drink: ${esc(s.drink || "not given")}</div><div class="m">Song: ${esc(s.song || "not given")}</div>` : `<div class="m">${esc(s.phone || s.email || "")}</div>`) +
+    (s.form_pending ? `<div class="m">Questionnaire not back yet</div>` : g === "w" ? `<div class="m">Drink: ${esc(s.drink || "not given")}</div><div class="m">Song: ${esc(s.song || "not given")}</div>` : `<div class="m">${esc(s.phone || s.email || "")}</div>`) +
     `</div><div class="go">›</div></button>`
   ).join("") : `<div class="empty">${SRG[g].none}</div>`;
 }
@@ -237,7 +237,7 @@ function showround(ref){
       </div>
     </div>
     <div class="card"><h3>Their answers</h3><div class="dl">
-      ${s.questions.length ? s.questions.map(x => `<div class="ans"><div class="al">${esc(x.question)}</div><div class="av">${esc(x.answer)}</div></div>`).join("") : `<div class="empty">No answers recorded.</div>`}
+      ${s.questions.length ? s.questions.map(x => `<div class="ans"><div class="al">${esc(x.question)}</div><div class="av">${esc(x.answer)}</div></div>`).join("") : `<div class="empty">${s.form_pending ? "Waiting for their questionnaire" + (s.arranged_by ? " (arranged by " + esc(s.arranged_by) + ")" : "") + "." : "No answers recorded."}</div>`}
     </div></div>
     ${(s.reschedule_url || s.cancel_url) ? `<div class="muted" style="font-size:13px">${s.reschedule_url ? `<a href="${esc(s.reschedule_url)}" target="_blank" rel="noopener">Reschedule</a>` : ""}${s.reschedule_url && s.cancel_url ? " · " : ""}${s.cancel_url ? `<a href="${esc(s.cancel_url)}" target="_blank" rel="noopener">Cancel</a>` : ""}</div>` : ""}`;
   window.scrollTo(0, 0);
