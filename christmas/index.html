@@ -771,7 +771,7 @@ async function showFull(id, ctx){
     ${f.pre.courses.map(c => `<p class="small" style="margin:0 0 3px"><b>${esc(c.label)}:</b> ${c.lines.length ? c.lines.map(l => `${l.n} ${esc(l.text)}`).join(", ") : `<span class="muted">none chosen yet</span>`}</p>`).join("")}
     ${f.pre.guests.length ? `<details style="margin:8px 0 0"><summary class="small muted" style="cursor:pointer">Guest by guest</summary><table class="t" style="margin-top:6px"><tbody>${f.pre.guests.map(g => `<tr><td class="small">${g.kind === "child" ? "Child" : g.kind === "infant" ? "Under 3" : "Adult"} ${g.seq}${g.name ? "<br>" + esc(g.name) : ""}</td><td class="small">${[g.starter, g.main, g.dessert].filter(Boolean).map(esc).join("<br>")}${g.dietary ? `<br><b>${esc(g.dietary)}</b>` : ""}</td></tr>`).join("")}</tbody></table></details>` : ""}
     ${f.drinks.length ? `<h4 style="margin:14px 0 4px">Drinks pre-ordered</h4>${f.drinks.map(o => `<p class="small" style="margin:0 0 4px">Order ${o.order_no}, ${money(o.total)}: ${o.lines.map(l => `${l.qty} x ${esc(l.label)}`).join(", ")}${o.notes ? ` <i>(${esc(o.notes)})</i>` : ""}</p>`).join("")}` : ""}
-    <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:14px"><button class="btn small ghost" id="fbCopy">Copy their form link</button><button class="btn ghost" onclick="closeModal()">Close</button></div>`);
+    <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:14px">${canEdit() && !a.submitted_at && !a.cancelled_at && b.email ? `<button class="btn small" id="fbResend" title="Emails ${esc(b.email)} the pre-order form link">${a.invite_sent_at ? "Resend pre-order form" : "Send pre-order form"}</button>` : ""}<button class="btn small ghost" id="fbCopy">Copy their form link</button><button class="btn ghost" onclick="closeModal()">Close</button></div>`);
   if (dg) diaryBlockWire(dg, id);
   const again = async (msg) => { try { await showFull(id, ctx); if (msg) toast(msg); if (S.view === "preorders") loadPre(); if (S.view === "diary") { S.dg = await px("admin.diary", { date_id:S.dgId }); } } catch(e){ toast(e.message, true); } };
   const padd = $("#bpAdd"); if (padd) padd.onclick = async () => { const amt = Number($("#bpAmt").value); if (!(amt > 0)) { toast("Enter the amount paid, as a number above zero.", true); return; } padd.disabled = true; try { await px("admin.pay_add", { booking_id:id, amount:amt, note:$("#bpNote").value }); await again("Payment added."); } catch(e){ toast(e.message, true); padd.disabled = false; } };
@@ -786,6 +786,15 @@ async function showFull(id, ctx){
   const emo = $("#emOpen"); if (emo) { emo.onclick = () => { $("#emBox").style.display = ""; emo.style.display = "none"; $("#emIn").value = b.email || ""; $("#emIn").focus(); };
     $("#emSave").onclick = async () => { const v = $("#emIn").value.trim(); if (!v) { toast("Type the email address first.", true); return; } $("#emSave").disabled = true; try { await px("admin.email_set", { booking_id:id, email:v }); await again("Email saved."); } catch(e){ toast(e.message, true); $("#emSave").disabled = false; } }; }
   const cadd = $("#bcAdd"); if (cadd) cadd.onclick = async () => { const t = $("#bcText").value.trim(); if (!t) { toast("Write a comment first.", true); return; } cadd.disabled = true; try { await px("admin.comment_add", { booking_id:id, comment:t }); await again("Comment added."); } catch(e){ toast(e.message, true); cadd.disabled = false; } };
+  const rs = $("#fbResend"); if (rs) rs.onclick = async () => {
+    if (!confirm((a.invite_sent_at ? "Send the pre-order form again to " : "Send the pre-order form to ") + b.email + "?")) return;
+    rs.disabled = true; rs.textContent = "Sending…";
+    try {
+      const r = await px("admin.send", { date_id: b.date_id, booking_ids: [id], reminder: !!a.invite_sent_at }), x = (r.results || [])[0];
+      if (x && x.ok) { await again((a.invite_sent_at ? "Pre-order form resent to " : "Pre-order form sent to ") + x.to + "."); }
+      else { toast("It did not go: " + ((x && x.error) || "no answer"), true); rs.disabled = false; rs.textContent = a.invite_sent_at ? "Resend pre-order form" : "Send pre-order form"; }
+    } catch(e){ toast(e.message, true); rs.disabled = false; rs.textContent = a.invite_sent_at ? "Resend pre-order form" : "Send pre-order form"; }
+  };
   $("#fbCopy").onclick = () => { (navigator.clipboard ? navigator.clipboard.writeText(f.form_link) : Promise.reject()).then(() => toast("Link copied."), () => window.prompt("Copy this link", f.form_link)); };
 }
 function openFullInPreorders(id){ closeModal(); S.pre.pendingFull = id; S.pre.id = S.dg ? S.dg.show.date_id : S.pre.id; goView("preorders"); }
