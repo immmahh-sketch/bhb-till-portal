@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#4D604F" />
+<meta name="robots" content="noindex" />
+<title>Sunday Carvery — Black Horse Beamish</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;500;600;700;800;900&family=Playfair+Display:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  /* Same look as the room service ordering app: Raleway for text, Playfair Display standing in for Orpheus Pro, dark green and off-white. */
+  :root{ --ink:#4D604F; --brown:#3F2F28; --paper:#F8F8F8; --olive:#CCCDB4; --line:rgba(77,96,79,.18); --muted:rgba(77,96,79,.68); --alert:#b3261e; --good:#2f6b3a; }
+  *{box-sizing:border-box}
+  html,body{margin:0;min-height:100%;font-family:'Raleway',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--paper);color:var(--ink);-webkit-text-size-adjust:100%}
+  h1,h2,.serif{font-family:'Playfair Display',Georgia,serif;font-weight:600}
+  button{font:inherit;cursor:pointer}
+  input,textarea{font:inherit;color:var(--ink)}
+  .screen{position:fixed;inset:0;display:none;flex-direction:column;background:var(--paper)}
+  .screen.on{display:flex}
+  #testBanner{display:none;position:fixed;top:0;left:0;right:0;z-index:120;background:var(--alert);color:#fff;text-align:center;font-size:12px;font-weight:700;letter-spacing:.5px;padding:7px 8px}
+  body.test #testBanner{display:block}
+  body.test .screen{top:28px}
+  header.top{flex:0 0 auto;background:var(--ink);color:#fff;padding:14px 16px;display:flex;align-items:center;gap:12px}
+  header.top img{height:30px}
+  header.top .ttl{flex:1;min-width:0}
+  header.top h1{font-size:17px;margin:0;font-weight:600;letter-spacing:2px;text-transform:uppercase;font-family:'Raleway',sans-serif}
+  header.top .sub{font-size:12px;color:#ffffffb0;margin-top:2px}
+  header.top .tbl{background:#fff;color:var(--ink);border-radius:20px;padding:6px 13px;font-weight:800;font-size:14px;white-space:nowrap}
+  .scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:18px 16px 120px}
+  .wrap{max-width:560px;margin:0 auto}
+  .card{background:#fff;border:1px solid var(--line);border-radius:6px;padding:18px 16px;margin-bottom:14px}
+  .card h2{margin:0 0 8px;font-size:24px}
+  .lead{margin:0 0 12px;color:var(--muted);line-height:1.5;font-size:15px}
+  label.f{display:block;font-weight:700;font-size:13px;letter-spacing:.4px;margin:14px 0 6px}
+  input[type=text],input[type=email],input[type=tel],textarea{width:100%;padding:13px 14px;border:1.5px solid var(--olive);border-radius:6px;background:#fff;font-size:17px}
+  textarea{min-height:80px;resize:vertical}
+  input:focus,textarea:focus{outline:2px solid var(--ink);outline-offset:1px}
+  .btn{display:block;width:100%;background:var(--ink);color:#fff;border:0;border-radius:6px;padding:16px 18px;font-weight:800;font-size:16px;letter-spacing:.8px;text-transform:uppercase}
+  .btn:disabled{opacity:.55}
+  .btn.ghost{background:#fff;color:var(--ink);border:1.5px solid var(--ink)}
+  .link{background:none;border:0;color:var(--ink);text-decoration:underline;font-weight:600;padding:6px 0;font-size:14px}
+  .err{color:var(--alert);font-weight:700;margin:10px 0 0;font-size:14px;min-height:1px}
+  .chk{display:flex;gap:11px;align-items:flex-start;margin:14px 0 4px;font-size:14.5px;line-height:1.4}
+  .chk input{width:22px;height:22px;margin:1px 0 0;accent-color:var(--ink);flex:0 0 auto}
+  .tablebox{display:flex;align-items:center;gap:14px;background:var(--ink);color:#fff;border-radius:8px;padding:14px 18px;margin-bottom:14px}
+  .tablebox .k{font-size:12px;letter-spacing:2px;text-transform:uppercase;opacity:.8;font-weight:700}
+  .tablebox .v{font-size:44px;line-height:1;font-weight:900}
+  .tablebox .chg{margin-left:auto}
+  .tablebox .chg button{background:none;border:1px solid #ffffff80;color:#fff;border-radius:18px;padding:7px 13px;font-size:13px;font-weight:600}
+  ol.how{margin:0;padding:0;list-style:none;counter-reset:s}
+  ol.how li{counter-increment:s;display:flex;gap:12px;align-items:flex-start;padding:9px 0;line-height:1.45;font-size:15px;border-top:1px solid var(--line)}
+  ol.how li:first-child{border-top:0}
+  ol.how li::before{content:counter(s);flex:0 0 28px;height:28px;border-radius:50%;background:var(--ink);color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center;font-size:14px;margin-top:-1px}
+  /* menu */
+  .tabs{flex:0 0 auto;display:flex;background:#fff;border-bottom:1px solid var(--line);overflow-x:auto}
+  .tabs button{flex:1 0 auto;background:none;border:0;border-bottom:3px solid transparent;padding:14px 16px 11px;font-weight:700;font-size:14px;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);position:relative;white-space:nowrap}
+  .tabs button.on{color:var(--ink);border-bottom-color:var(--ink)}
+  .tabs .n{display:inline-block;min-width:19px;height:19px;border-radius:10px;background:var(--ink);color:#fff;font-size:11px;line-height:19px;margin-left:6px;padding:0 5px;text-align:center}
+  .grp{font-size:12px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin:22px 4px 10px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+  .grp:first-child{margin-top:4px}
+  .item{background:#fff;border:1px solid var(--line);border-radius:6px;padding:15px 15px 6px;margin-bottom:10px}
+  .item .nm{font-weight:700;font-size:17px;line-height:1.3}
+  .item .dsc{font-size:13.5px;color:var(--muted);margin-top:4px;line-height:1.45}
+  .opt{display:flex;align-items:center;gap:10px;padding:11px 0;border-top:1px solid var(--line);margin-top:11px}
+  .item .nm + .opt, .item .dsc + .opt{margin-top:11px}
+  .opt .ol{flex:1;font-weight:600;font-size:15px}
+  .opt .op{font-weight:800;font-size:15px;min-width:54px;text-align:right}
+  .stepper{display:flex;align-items:center;flex:0 0 auto}
+  .stepper button{width:38px;height:38px;border-radius:50%;border:1.5px solid var(--ink);background:#fff;font-size:21px;font-weight:700;line-height:1;display:flex;align-items:center;justify-content:center;color:var(--ink);padding:0}
+  .stepper button.add{background:var(--ink);color:#fff}
+  .stepper .qty{width:30px;text-align:center;font-weight:800;font-size:16px}
+  .howbox{background:#fff;border:1.5px solid var(--ink);border-radius:8px;padding:14px 15px;margin-bottom:14px}
+  .howbox b.h{display:block;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px}
+  .foot{font-size:13.5px;color:var(--muted);text-align:center;margin:18px 0 0}
+  .bar{position:fixed;left:16px;right:16px;bottom:calc(16px + env(safe-area-inset-bottom));display:none;background:var(--ink);color:#fff;border-radius:8px;padding:16px 18px;align-items:center;justify-content:space-between;border:0;font-weight:700;box-shadow:0 6px 22px rgba(0,0,0,.25);z-index:30}
+  .bar.show{display:flex}
+  .bar .go{letter-spacing:1px;text-transform:uppercase;font-size:14px}
+  body.test .bar{bottom:calc(16px + env(safe-area-inset-bottom))}
+  /* basket */
+  .bl{display:flex;align-items:center;gap:10px;padding:11px 0;border-top:1px solid var(--line)}
+  .bl:first-of-type{border-top:0}
+  .bl .t{flex:1;font-weight:600;font-size:15px;line-height:1.3}
+  .bl .p{font-weight:700;min-width:58px;text-align:right}
+  .tot{display:flex;justify-content:space-between;align-items:baseline;font-weight:800;font-size:22px;padding:14px 0 2px;border-top:2px solid var(--ink);margin-top:6px}
+  .nocharge{font-size:13px;color:var(--muted);margin:2px 0 0}
+  /* status + ticket */
+  .center{margin:auto;text-align:center;padding:30px 24px;max-width:420px}
+  .spin{width:46px;height:46px;border:5px solid var(--olive);border-top-color:var(--ink);border-radius:50%;animation:sp 1s linear infinite;margin:0 auto 18px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .tk{padding:0 0 40px;background:var(--paper)}
+  .tk .hd{background:var(--ink);color:#fff;padding:16px 18px 14px;text-align:center}
+  .tk .hd .t1{font-size:15px;font-weight:800;letter-spacing:3px;text-transform:uppercase;opacity:.9}
+  .tk .hd .t2{font-size:64px;line-height:1.02;font-weight:900;margin-top:2px}
+  .tk .hd .t3{font-size:16px;font-weight:600;margin-top:4px;opacity:.9}
+  .tk .clock{text-align:center;font-weight:800;font-size:22px;padding:10px 0 4px;font-variant-numeric:tabular-nums;color:var(--brown)}
+  .tk .sec{margin:14px 14px 0;border-radius:10px;padding:16px 14px;background:#fff;border:3px solid var(--ink)}
+  .tk .sec .lbl{font-size:14px;font-weight:900;letter-spacing:2px;text-transform:uppercase;text-align:center}
+  .tk .sec .sub{font-size:14.5px;text-align:center;color:var(--muted);margin:3px 0 8px;line-height:1.4;font-weight:600}
+  .tk .big{font-weight:900;font-size:52px;line-height:1.08;text-align:center;text-transform:uppercase;color:var(--brown);padding:6px 0;border-top:1px dashed var(--olive);word-break:break-word}
+  .tk .big:first-of-type{border-top:0}
+  .tk .big small{font-size:.5em;letter-spacing:1px;display:block;font-weight:800;color:var(--ink)}
+  .tk .sec.done{background:#e8e8e2;border-color:#9a9a90}
+  .tk .sec.done .big{color:#8a8a82;text-decoration:line-through;text-decoration-thickness:4px}
+  .tk .stamp{margin:12px 0 2px;text-align:center;font-weight:900;font-size:40px;letter-spacing:3px;color:var(--good);border:5px solid var(--good);border-radius:12px;padding:8px 6px;transform:rotate(-3deg);text-transform:uppercase}
+  .tk .stamp small{display:block;font-size:16px;letter-spacing:1px;font-weight:700}
+  .tk .tbl2{margin:16px 14px 0}
+  .tk .tbl2 h3{font-size:14px;font-weight:900;letter-spacing:2px;text-transform:uppercase;margin:0 0 6px}
+  .tk .tbl2 .row{font-weight:800;font-size:21px;line-height:1.3;padding:7px 0;border-top:1px solid var(--line)}
+  .tk .tbl2 .row b{color:var(--brown)}
+  .tk .note{margin:14px 14px 0;font-size:14.5px;line-height:1.5;color:var(--muted)}
+  .swipe{position:relative;margin:16px 0 4px;height:76px;border-radius:40px;background:var(--ink);overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
+  .swipe .tx{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding-left:60px;color:#fff;font-weight:900;font-size:21px;letter-spacing:1.5px;text-transform:uppercase;pointer-events:none}
+  .swipe .hnd{position:absolute;left:6px;top:6px;width:64px;height:64px;border-radius:50%;background:#fff;color:var(--ink);display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:900;box-shadow:0 2px 8px rgba(0,0,0,.3);touch-action:none}
+  .swipe .fill{position:absolute;left:0;top:0;bottom:0;width:0;background:rgba(255,255,255,.18)}
+  .swipe.busy{opacity:.7}
+  .swipe-help{text-align:center;font-size:13px;color:var(--muted);margin:2px 0 0;font-weight:600}
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:200;padding:20px}
+  .modal.on{display:flex}
+  .modal .box{background:#fff;border-radius:10px;padding:20px 18px;width:100%;max-width:380px}
+  .modal h3{margin:0 0 8px;font-size:22px}
+</style>
+</head>
+<body>
+<div id="testBanner">TEST MODE: no payment is taken and nothing is charged</div>
+
+<!-- first screen: table, name, how it works -->
+<section class="screen" id="s-welcome">
+  <header class="top"><img src="../app/logo-light.png" alt="Black Horse Beamish"><div class="ttl"><h1>Sunday Carvery</h1><div class="sub">Served 12pm to 4pm</div></div></header>
+  <div class="scroll"><div class="wrap">
+    <div id="resume" class="card" style="display:none"></div>
+    <div id="tableFixed" class="tablebox" style="display:none"><div><div class="k">Your table</div><div class="v" id="tableBig"></div></div><div class="chg"><button type="button" id="tableChange">Not your table?</button></div></div>
+    <div class="card">
+      <h2 class="serif">Order from your phone</h2>
+      <p class="lead">Order your starters, carvery, desserts and drinks here and pay in the app. There is no tray charge or service charge.</p>
+      <div id="tableField" style="display:none"><label class="f" for="tableIn">Your table number</label><input type="text" id="tableIn" maxlength="8" autocomplete="off" inputmode="text"></div>
+      <label class="f" for="nameIn">Your name</label><input type="text" id="nameIn" maxlength="60" autocomplete="given-name">
+      <div class="err" id="welcomeErr"></div>
+      <div style="height:14px"></div>
+      <button class="btn" id="startBtn" type="button">Start your order</button>
+    </div>
+    <div class="card">
+      <h2 class="serif" style="font-size:21px">How it works</h2>
+      <ol class="how">
+        <li>Choose your starters, carvery, desserts and drinks, and pay in the app.</li>
+        <li>Your drinks, starters and desserts are brought to your table.</li>
+        <li>You collect your carvery yourself. Go to the carvery and show the server your phone.</li>
+        <li>The server checks your order on the screen. Then swipe <b>Redeemed</b> and choose your meats and trimmings.</li>
+      </ol>
+    </div>
+  </div></div>
+</section>
+
+<!-- email, before the menu -->
+<section class="screen" id="s-email">
+  <header class="top"><img src="../app/logo-light.png" alt="Black Horse Beamish"><div class="ttl"><h1>Sunday Carvery</h1><div class="sub">One quick thing first</div></div></header>
+  <div class="scroll"><div class="wrap">
+    <div class="card" id="emailStep1">
+      <h2 class="serif">Your email address</h2>
+      <p class="lead">We will email you a 6-digit code to check it is yours. It is also where we send your receipt, if you would like one.</p>
+      <label class="f" for="emailIn">Email address</label><input type="email" id="emailIn" maxlength="120" autocomplete="email">
+      <label class="chk"><input type="checkbox" id="optIn"><span>Yes, I would like to hear about special offers and events at Black Horse Beamish. (Optional. You can unsubscribe at any time.)</span></label>
+      <div class="err" id="emailErr"></div>
+      <div style="height:12px"></div>
+      <button class="btn" id="emailGo" type="button">Continue</button>
+    </div>
+    <div class="card" id="emailStep2" style="display:none">
+      <h2 class="serif">Enter your code</h2>
+      <p class="lead" id="codeMsg"></p>
+      <label class="f" for="codeIn">6-digit code</label><input type="text" id="codeIn" maxlength="6" inputmode="numeric" autocomplete="one-time-code" style="font-size:26px;letter-spacing:8px;text-align:center">
+      <div class="err" id="codeErr"></div>
+      <div style="height:12px"></div>
+      <button class="btn" id="codeGo" type="button">Check code</button>
+      <div style="text-align:center;margin-top:10px"><button class="link" id="codeBack" type="button">Use a different email address</button></div>
+      <div style="text-align:center"><button class="link" id="codeSkip" type="button" style="display:none">Continue without checking my email</button></div>
+    </div>
+  </div></div>
+</section>
+
+<!-- the menu -->
+<section class="screen" id="s-menu">
+  <header class="top"><img src="../app/logo-light.png" alt="Black Horse Beamish"><div class="ttl"><h1>Sunday Carvery</h1><div class="sub" id="menuWho"></div></div><div class="tbl" id="menuTable"></div></header>
+  <nav class="tabs" id="tabs"></nav>
+  <div class="scroll"><div class="wrap" id="menuBody"></div></div>
+  <button class="bar" id="bar" type="button"><span id="barN"></span><span class="go">View your order &rsaquo;</span></button>
+</section>
+
+<!-- the order and payment -->
+<section class="screen" id="s-basket">
+  <header class="top"><img src="../app/logo-light.png" alt="Black Horse Beamish"><div class="ttl"><h1>Your order</h1><div class="sub" id="basketWho"></div></div><div class="tbl" id="basketTable"></div></header>
+  <div class="scroll"><div class="wrap">
+    <div class="card" id="basketCard"></div>
+    <div class="card">
+      <label class="f" for="allergyIn" style="margin-top:0">Allergies, or anything we should know</label>
+      <textarea id="allergyIn" maxlength="300" placeholder="For example: allergic to nuts"></textarea>
+      <label class="chk" id="receiptRow"><input type="checkbox" id="receiptIn"><span id="receiptTxt"></span></label>
+    </div>
+    <div class="err" id="basketErr" style="margin:0 4px 12px"></div>
+    <button class="btn" id="payBtn" type="button">Pay</button>
+    <div style="text-align:center;margin-top:8px"><button class="link" id="backMenu" type="button">&lsaquo; Back to the menu</button></div>
+  </div></div>
+</section>
+
+<!-- waiting for the payment, or a problem with it -->
+<section class="screen" id="s-status">
+  <header class="top"><img src="../app/logo-light.png" alt="Black Horse Beamish"><div class="ttl"><h1>Sunday Carvery</h1></div></header>
+  <div class="center"><div class="spin" id="stSpin"></div><h2 id="stBig" style="margin:0 0 10px;font-size:26px"></h2><p class="lead" id="stMsg"></p><button class="btn" id="stBack" type="button" style="display:none;margin-top:10px">Back to your order</button></div>
+</section>
+
+<!-- the paid order: big writing for the server to check -->
+<section class="screen" id="s-ticket"><div class="tk" id="ticket" style="overflow-y:auto;-webkit-overflow-scrolling:touch;flex:1"></div></section>
+
+<section class="screen" id="s-closed">
+  <header class="top"><img src="../app/logo-light.png" alt="Black Horse Beamish"><div class="ttl"><h1>Sunday Carvery</h1></div></header>
+  <div class="center"><h2 id="closedBig" style="margin:0 0 10px;font-size:26px">Ordering is closed</h2><p class="lead" id="closedMsg"></p></div>
+</section>
+
+<div class="modal" id="testModal"><div class="box"><h3 class="serif">Test order</h3><p class="lead">Enter the test password. No payment will be taken.</p><input type="text" id="testPass" autocomplete="off"><div class="err" id="testErr"></div><div style="height:12px"></div><button class="btn" id="testGo" type="button">Place test order</button><div style="text-align:center;margin-top:8px"><button class="link" id="testNo" type="button">Cancel</button></div></div></div>
+
+<script>
+var SUPA = "https://safcrtrfdzsnftghibot.supabase.co", KEY = "sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU";
+var $ = function(id){ return document.getElementById(id); };
+var P = new URLSearchParams(location.search);
+var TEST = P.get("test") === "1";
+var S = { table: "", name: "", email: "", verified: false, optIn: false, menu: [], open: true, why: "", cart: {}, tab: "Starters", lastOrder: null, testPass: "" };
+if (TEST) document.body.classList.add("test");
+
+function fn(name, body){
+  return fetch(SUPA + "/functions/v1/" + name, { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + KEY, apikey: KEY }, body: JSON.stringify(body) })
+    .then(function(r){ return r.json().catch(function(){ return {}; }).then(function(j){ if (!r.ok) throw new Error(j.error || ("Something went wrong (" + r.status + ")")); return j; }); });
+}
+var api = function(action, b){ return fn("carvery-api", Object.assign({ action: action }, b || {})); };
+function esc(s){ return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){ return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+function gbp(n){ return "£" + (Math.round(n * 100) / 100).toFixed(2); }
+function show(id){ document.querySelectorAll(".screen").forEach(function(s){ s.classList.toggle("on", s.id === "s-" + id); }); window.scrollTo(0, 0); var sc = document.querySelector("#s-" + id + " .scroll"); if (sc) sc.scrollTop = 0; }
+function ls(k, v){ try{ if (v === undefined) return localStorage.getItem(k); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); }catch(e){} return null; }
+
+/* ---------- saved things on this phone ---------- */
+function loadSaved(){
+  try{ var d = JSON.parse(ls("bhb_guest_email_v1") || "null"); if (d && d.email && d.verified){ S.email = d.email; S.verified = true; S.optIn = !!d.marketingOptin; } }catch(e){}
+  S.name = ls("bhb_carvery_name") || "";
+  try{ var c = JSON.parse(ls("bhb_carvery_cart") || "null"); if (c && c.table === S.table && Date.now() - c.at < 6 * 3600 * 1000) S.cart = c.cart || {}; }catch(e){}
+  try{ var o = JSON.parse(ls("bhb_carvery_order") || "null"); if (o && o.id && Date.now() - o.at < 10 * 3600 * 1000) S.lastOrder = o; }catch(e){}
+}
+function saveCart(){ ls("bhb_carvery_cart", JSON.stringify({ table: S.table, cart: S.cart, at: Date.now() })); }
+
+/* ---------- menu helpers ---------- */
+function sectionOf(it){ if (it.menu_section === "Small Plates & Starters") return "Starters"; if (it.menu_section === "Main Courses") return "Carvery"; if (it.menu_section === "Desserts") return "Desserts"; return "Drinks"; }
+var TABS = ["Starters", "Carvery", "Desserts", "Drinks"];
+function optionsOf(it){
+  if (Array.isArray(it.variants) && it.variants.length) return it.variants.map(function(v){ return { label: v.label, price: Number(v.price) }; });
+  if (Array.isArray(it.combo_groups) && it.combo_groups.length) return (it.combo_groups[0].options || []).map(function(o){ return typeof o === "object" ? { label: String(o.label), price: Number(it.price) + (Number(o.price) || 0) } : { label: String(o), price: Number(it.price) }; });
+  return [{ label: "", price: Number(it.price) }];
+}
+var kk = function(id, v){ return id + "|" + (v || ""); };
+function qtyOf(id, v){ return S.cart[kk(id, v)] || 0; }
+function setQty(id, v, n){ n = Math.max(0, Math.min(20, n)); if (n) S.cart[kk(id, v)] = n; else delete S.cart[kk(id, v)]; saveCart(); }
+function itemById(id){ return S.menu.filter(function(i){ return i.id === id; })[0]; }
+function cartLines(){
+  var out = [];
+  Object.keys(S.cart).forEach(function(k){ var p = k.split("|"), it = itemById(p[0]); if (!it) return; var o = optionsOf(it).filter(function(x){ return x.label === p[1]; })[0]; if (!o) return; out.push({ item: it, variant: p[1], price: o.price, qty: S.cart[k], section: sectionOf(it) }); });
+  out.sort(function(a, b){ return TABS.indexOf(a.section) - TABS.indexOf(b.section) || a.item.sort_order - b.item.sort_order; });
+  return out;
+}
+function cartTotal(){ return cartLines().reduce(function(t, l){ return t + l.price * l.qty; }, 0); }
+function cartCount(){ return cartLines().reduce(function(t, l){ return t + l.qty; }, 0); }
+function lineName(l){ return l.variant ? l.item.name + " (" + l.variant + ")" : l.item.name; }
+
+/* ---------- welcome ---------- */
+function showWelcome(){
+  var fixed = !!S.table;
+  $("tableFixed").style.display = fixed ? "" : "none"; $("tableBig").textContent = S.table;
+  $("tableField").style.display = fixed ? "none" : "";
+  $("nameIn").value = S.name;
+  var r = $("resume");
+  if (S.lastOrder){ r.style.display = ""; r.innerHTML = '<h2 class="serif" style="font-size:20px">You have an order</h2><p class="lead" style="margin-bottom:10px">Order ' + esc(S.lastOrder.no || "") + ' at table ' + esc(S.lastOrder.table || "") + '. Your carvery screen is saved here.</p><button class="btn ghost" type="button" id="resumeBtn">View your order</button>'; $("resumeBtn").onclick = function(){ openOrder(S.lastOrder.id); }; }
+  else r.style.display = "none";
+  $("welcomeErr").textContent = (!S.open && !TEST) ? S.why : "";
+  show("welcome");
+}
+$("tableChange").onclick = function(){ S.table = ""; $("tableIn").value = ""; showWelcome(); setTimeout(function(){ $("tableIn").focus(); }, 40); };
+$("startBtn").onclick = function(){
+  var err = $("welcomeErr"); err.textContent = "";
+  var t = S.table || ($("tableIn").value || "").trim().toUpperCase().replace(/[^A-Z0-9 \-]/g, "");
+  var n = ($("nameIn").value || "").trim();
+  if (!t){ err.textContent = "Please enter your table number."; return; }
+  if (!n){ err.textContent = "Please enter your name."; return; }
+  if (t !== S.table){ S.table = t; S.cart = {}; }
+  S.name = n; ls("bhb_carvery_name", n);
+  if (!S.open && !TEST){ closedScreen(); return; }
+  if (S.verified && S.email) enterMenu(); else openEmail();
+};
+
+/* ---------- email check ---------- */
+var codeFails = 0;
+function openEmail(){ $("emailStep1").style.display = ""; $("emailStep2").style.display = "none"; $("emailIn").value = S.email || ""; $("optIn").checked = !!S.optIn; $("emailErr").textContent = ""; show("email"); }
+function persistEmail(){ ls("bhb_guest_email_v1", JSON.stringify({ email: S.email, verified: S.verified, marketingOptin: S.optIn })); }
+$("emailGo").onclick = function(){
+  var e = ($("emailIn").value || "").trim().toLowerCase(), b = $("emailGo"); $("emailErr").textContent = "";
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)){ $("emailErr").textContent = "Please enter a valid email address."; return; }
+  b.disabled = true; b.textContent = "Please wait…";
+  fn("request-email-code", { email: e, marketing_opt_in: $("optIn").checked }).then(function(d){
+    S.email = e; S.optIn = $("optIn").checked;
+    if (d.known && d.verified){ S.verified = true; persistEmail(); enterMenu(); return; }
+    codeFails = 0; $("codeMsg").textContent = "We have sent a 6-digit code to " + e + ". It can take a minute. Please check your junk folder too."; $("codeIn").value = ""; $("codeErr").textContent = ""; $("codeSkip").style.display = "none";
+    $("emailStep1").style.display = "none"; $("emailStep2").style.display = ""; setTimeout(function(){ $("codeIn").focus(); }, 40);
+  }).catch(function(x){ $("emailErr").textContent = x.message || "We couldn't send a code. Please try again."; }).then(function(){ b.disabled = false; b.textContent = "Continue"; });
+};
+$("codeGo").onclick = function(){
+  var c = ($("codeIn").value || "").trim(); $("codeErr").textContent = "";
+  if (!/^\d{6}$/.test(c)){ $("codeErr").textContent = "Enter the 6 numbers from the email."; return; }
+  fn("verify-email-code", { email: S.email, code: c }).then(function(d){
+    if (d.verified){ S.verified = true; persistEmail(); enterMenu(); return; }
+    bad();
+  }).catch(function(x){ $("codeErr").textContent = x.message || "That code wasn't right."; bad(true); });
+  function bad(msgSet){ if (!msgSet) $("codeErr").textContent = "That code wasn't right. Please try again."; codeFails++; if (codeFails >= 2) $("codeSkip").style.display = ""; }
+};
+$("codeIn").addEventListener("keydown", function(e){ if (e.key === "Enter") $("codeGo").click(); });
+$("codeBack").onclick = function(){ $("emailStep2").style.display = "none"; $("emailStep1").style.display = ""; };
+$("codeSkip").onclick = function(){ S.verified = false; enterMenu(); };
+
+/* ---------- menu ---------- */
+function enterMenu(){
+  $("menuWho").textContent = S.name; $("menuTable").textContent = "Table " + S.table;
+  renderMenu(); show("menu");
+}
+function stepper(id, v){
+  var n = qtyOf(id, v);
+  return '<div class="stepper">' + (n ? '<button type="button" data-m="' + id + '|' + esc(v) + '" aria-label="Remove one">&minus;</button><span class="qty">' + n + '</span>' : '') + '<button type="button" class="add" data-p="' + id + '|' + esc(v) + '" aria-label="Add one">+</button></div>';
+}
+function itemHtml(it){
+  var opts = optionsOf(it), multi = opts.length > 1 || opts[0].label !== "";
+  var head = '<div class="nm">' + esc(it.name) + '</div>' + (it.description && it.menu_section !== "Main Courses" ? '<div class="dsc">' + esc(it.description) + '</div>' : "");
+  return '<div class="item">' + head + opts.map(function(o){ return '<div class="opt"><div class="ol">' + (multi ? esc(o.label) : "") + '</div><div class="op">' + gbp(o.price) + '</div>' + stepper(it.id, o.label) + '</div>'; }).join("") + '</div>';
+}
+function renderMenu(){
+  var counts = {}; cartLines().forEach(function(l){ counts[l.section] = (counts[l.section] || 0) + l.qty; });
+  $("tabs").innerHTML = TABS.map(function(t){ return '<button type="button" data-tab="' + t + '" class="' + (S.tab === t ? "on" : "") + '">' + t + (counts[t] ? '<span class="n">' + counts[t] + '</span>' : "") + '</button>'; }).join("");
+  var items = S.menu.filter(function(i){ return sectionOf(i) === S.tab; }), h = "";
+  if (S.tab === "Carvery"){
+    h += '<div class="howbox"><b class="h">How the carvery works</b><ol class="how" style="font-size:14.5px"><li>Order and pay here. Your carvery meals are shown in big writing on your phone.</li><li>Go to the carvery yourself. Your starters, desserts and drinks are brought to your table.</li><li>Show your phone to the server. They check what is on the screen.</li><li>Then swipe <b>Redeemed</b>. Choose your meats and trimmings.</li></ol></div>';
+    h += '<div class="grp">Sunday Carvery</div>';
+    h += items.map(function(it){ var p = optionsOf(it); return '<div class="item"><div class="nm">Choice of meats</div><div class="dsc">Topside of Beef &middot; Traditional Roast Turkey &middot; Honey Mustard Glazed Gammon &middot; Rosemary Leg of Lamb<br>Served with your choice of trimmings</div>' + p.map(function(o){ return '<div class="opt"><div class="ol">' + esc(o.label) + '</div><div class="op">' + gbp(o.price) + '</div>' + stepper(it.id, o.label) + '</div>'; }).join("") + '</div>'; }).join("");
+  } else if (S.tab === "Drinks"){
+    var groups = [["Bottles and Draft", "Draught"], ["Soft drinks", "Softs"]];
+    groups.forEach(function(g){ var gi = items.filter(function(i){ return i.drink_group === g[0]; }); if (gi.length) h += '<div class="grp">' + g[1] + '</div>' + gi.map(itemHtml).join(""); });
+    h += '<p class="foot">Full drinks selection available at the bar</p>';
+  } else {
+    h += '<div class="grp">' + S.tab + '</div>' + items.map(itemHtml).join("");
+  }
+  $("menuBody").innerHTML = h;
+  var n = cartCount(); $("bar").classList.toggle("show", n > 0); $("barN").textContent = n + (n === 1 ? " item" : " items") + " · " + gbp(cartTotal());
+  var sc = document.querySelector("#s-menu .scroll"); sc.scrollTop = sc.scrollTop;
+}
+document.addEventListener("click", function(e){
+  var t = e.target.closest ? e.target.closest("[data-tab],[data-p],[data-m],[data-bp],[data-bm]") : null; if (!t) return;
+  if (t.dataset.tab){ S.tab = t.dataset.tab; var y = 0; renderMenu(); document.querySelector("#s-menu .scroll").scrollTop = y; return; }
+  var key = t.dataset.p || t.dataset.m || t.dataset.bp || t.dataset.bm, i = key.indexOf("|"), id = key.slice(0, i), v = key.slice(i + 1);
+  setQty(id, v, qtyOf(id, v) + ((t.dataset.p || t.dataset.bp) ? 1 : -1));
+  if (t.dataset.bp || t.dataset.bm){ if (!cartCount()){ enterMenu(); return; } renderBasket(); } else { var sc = document.querySelector("#s-menu .scroll"), top = sc.scrollTop; renderMenu(); sc.scrollTop = top; }
+});
+$("bar").onclick = function(){ renderBasket(); show("basket"); };
+$("backMenu").onclick = function(){ enterMenu(); };
+
+/* ---------- basket and payment ---------- */
+function renderBasket(){
+  $("basketWho").textContent = S.name; $("basketTable").textContent = "Table " + S.table;
+  var lines = cartLines(), h = "", cur = "";
+  lines.forEach(function(l){
+    if (l.section !== cur){ cur = l.section; h += '<div class="grp" style="margin-top:' + (h ? 16 : 0) + 'px">' + cur + '</div>'; }
+    h += '<div class="bl"><div class="t">' + esc(lineName(l)) + '</div><div class="p">' + gbp(l.price * l.qty) + '</div><div class="stepper"><button type="button" data-bm="' + l.item.id + '|' + esc(l.variant) + '">&minus;</button><span class="qty">' + l.qty + '</span><button type="button" class="add" data-bp="' + l.item.id + '|' + esc(l.variant) + '">+</button></div></div>';
+  });
+  h += '<div class="tot"><span>Total</span><span>' + gbp(cartTotal()) + '</span></div><p class="nocharge">No tray charge or service charge.</p>';
+  var hasCarvery = lines.some(function(l){ return l.section === "Carvery"; });
+  if (hasCarvery) h += '<p class="nocharge" style="margin-top:10px"><b>Your carvery:</b> after you pay, your phone shows your carvery meals. Collect them yourself from the carvery.</p>';
+  $("basketCard").innerHTML = h;
+  var canR = !!S.email;
+  $("receiptRow").style.display = canR ? "" : "none";
+  $("receiptTxt").textContent = canR ? "Email me a receipt to " + S.email : "";
+  $("payBtn").textContent = TEST ? "Place test order (no payment)" : "Pay " + gbp(cartTotal());
+  $("basketErr").textContent = "";
+}
+function doOrder(test){
+  var lines = cartLines().map(function(l){ return { item_id: l.item.id, variant: l.variant || null, qty: l.qty }; });
+  return api("place", { table: S.table, name: S.name, email: S.email, receipt: $("receiptIn").checked, allergy: $("allergyIn").value.trim(), lines: lines, test: test || undefined, test_pass: test ? S.testPass : undefined });
+}
+$("payBtn").onclick = function(){
+  if (!cartCount()) return;
+  if (TEST){ $("testPass").value = S.testPass || ""; $("testErr").textContent = ""; $("testModal").classList.add("on"); return; }
+  var b = $("payBtn"), old = b.textContent; b.disabled = true; b.textContent = "Please wait…"; $("basketErr").textContent = "";
+  doOrder(false).then(function(r){
+    ls("bhb_carvery_order", JSON.stringify({ id: r.order_id, at: Date.now(), table: S.table }));
+    return fn("sumup-create-checkout", { order_id: r.order_id, redirect_url: location.origin + location.pathname + "?order=" + r.order_id }).then(function(d){
+      if (!d.hosted_checkout_url) throw new Error(d.error || "Payment could not be set up.");
+      S.cart = {}; saveCart(); location.href = d.hosted_checkout_url;
+    });
+  }).catch(function(e){ $("basketErr").textContent = e.message; b.disabled = false; b.textContent = old; });
+};
+$("testNo").onclick = function(){ $("testModal").classList.remove("on"); };
+$("testGo").onclick = function(){
+  S.testPass = $("testPass").value; $("testErr").textContent = ""; var b = $("testGo"); b.disabled = true;
+  doOrder(true).then(function(r){ $("testModal").classList.remove("on"); S.cart = {}; saveCart(); ls("bhb_carvery_order", JSON.stringify({ id: r.order_id, at: Date.now(), table: S.table })); openOrder(r.order_id); })
+    .catch(function(e){ $("testErr").textContent = e.message; }).then(function(){ b.disabled = false; });
+};
+
+/* ---------- the order after payment ---------- */
+var pollT = null, clockT = null, refreshT = null;
+function openOrder(id){
+  clearInterval(pollT); clearInterval(clockT); clearInterval(refreshT);
+  show("status"); $("stSpin").style.display = ""; $("stBack").style.display = "none"; $("stBig").textContent = "Checking your order…"; $("stMsg").textContent = "This only takes a few seconds. Please don't close this page.";
+  var tries = 0;
+  function go(){
+    tries++;
+    api("order", { id: id }).then(function(o){
+      if (o.status === "paid"){ clearInterval(pollT); S.lastOrder = { id: id, at: Date.now(), table: o.table, no: o.order_no }; ls("bhb_carvery_order", JSON.stringify(S.lastOrder)); renderTicket(id, o); }
+      else if (o.status === "failed" || o.status === "cancelled"){ clearInterval(pollT); $("stSpin").style.display = "none"; $("stBig").textContent = "Payment not completed"; $("stMsg").textContent = "Your card wasn't charged. You can go back and try again."; $("stBack").style.display = ""; $("stBack").onclick = function(){ ls("bhb_carvery_order", null); S.lastOrder = null; boot(true); }; }
+      else if (tries > 40){ clearInterval(pollT); $("stSpin").style.display = "none"; $("stBig").textContent = "Still confirming…"; $("stMsg").textContent = "This is taking longer than expected. If your card was charged, your order will still come through. Please ask a member of the team."; $("stBack").style.display = ""; $("stBack").onclick = function(){ openOrder(id); }; $("stBack").textContent = "Check again"; }
+    }).catch(function(e){ if (/find that order|doesn't look right/.test(e.message)){ clearInterval(pollT); ls("bhb_carvery_order", null); S.lastOrder = null; $("stSpin").style.display = "none"; $("stBig").textContent = "We couldn't find that order"; $("stMsg").textContent = "Please ask a member of the team."; $("stBack").style.display = ""; $("stBack").textContent = "Start a new order"; $("stBack").onclick = function(){ boot(true); }; } });
+  }
+  go(); pollT = setInterval(go, 3000);
+}
+function fmtTime(iso){ return new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" }); }
+function sizeWord(c){ var v = String(c.variant || "").toUpperCase(); return v ? v : esc(c.name).toUpperCase(); }
+function renderTicket(id, o){
+  var hasC = o.carvery.length > 0, done = !!o.redeemed_at, h = "";
+  h += '<div class="hd"><div class="t1">Table</div><div class="t2">' + esc(o.table) + '</div><div class="t3">' + esc(o.name) + ' &middot; Order ' + esc(o.order_no) + (o.is_test ? ' &middot; TEST' : '') + '</div></div>';
+  h += '<div class="clock" id="clock"></div>';
+  if (hasC){
+    h += '<div class="sec' + (done ? " done" : "") + '"><div class="lbl">Your carvery</div><div class="sub">' + (done ? "Collected" : "Show this screen to the carvery server") + '</div>';
+    h += o.carvery.map(function(c){ return '<div class="big">' + c.qty + ' &times; ' + sizeWord(c) + '</div>'; }).join("");
+    if (done) h += '<div class="stamp">Redeemed<small>at ' + fmtTime(o.redeemed_at) + '</small></div>';
+    else h += '<div class="swipe" id="swipe"><div class="fill" id="swFill"></div><div class="tx">Swipe to redeem</div><div class="hnd" id="swHnd">&rsaquo;&rsaquo;</div></div><div class="swipe-help" id="swHelp">Only swipe once the server has checked this screen</div>';
+    h += '</div>';
+  }
+  if (o.table_items.length) h += '<div class="tbl2"><h3>' + (hasC ? "Coming to your table" : "Coming to your table") + '</h3>' + o.table_items.map(function(t){ return '<div class="row"><b>' + t.qty + ' &times;</b> ' + esc(t.name) + '</div>'; }).join("") + '</div>';
+  if (o.allergy_notes) h += '<div class="note"><b>Allergies:</b> ' + esc(o.allergy_notes) + '</div>';
+  if (hasC && !done) h += '<div class="note"><b>How to collect your carvery</b><ol class="how" style="margin-top:6px"><li>Go to the carvery.</li><li>Show your phone to the server so they can check your order.</li><li>Swipe Redeemed above.</li><li>Choose your meats and your trimmings.</li></ol></div>';
+  h += '<div class="note">' + (o.receipt_email ? 'A receipt is being emailed to ' + esc(o.receipt_email) + '. ' : '') + 'Paid ' + gbp(o.total) + '. Please keep this page open until you have collected your carvery.</div>';
+  h += '<div style="margin:16px 14px 0"><button class="btn ghost" type="button" id="moreBtn">Order something else</button></div>';
+  $("ticket").innerHTML = h; show("ticket");
+  var tick = function(){ var c = $("clock"); if (c) c.textContent = new Date().toLocaleTimeString("en-GB", { timeZone: "Europe/London" }); };
+  tick(); clearInterval(clockT); clockT = setInterval(tick, 1000);
+  $("moreBtn").onclick = function(){ clearInterval(clockT); clearInterval(refreshT); S.cart = {}; var t = S.table || o.table; S.table = t; enterMenuFromTicket(); };
+  if (hasC && !done) bindSwipe(id);
+  clearInterval(refreshT); if (hasC && !done) refreshT = setInterval(function(){ api("order", { id: id }).then(function(n){ if (n.redeemed_at) renderTicket(id, n); }).catch(function(){}); }, 30000);
+}
+function enterMenuFromTicket(){ if (!S.name) S.name = ls("bhb_carvery_name") || ""; if (S.name && S.table) enterMenu(); else showWelcome(); }
+function bindSwipe(id){
+  var tr = $("swipe"), hd = $("swHnd"), fl = $("swFill"); if (!tr) return;
+  var drag = false, x0 = 0, max = 0, busy = false;
+  function pos(x){ var v = Math.max(0, Math.min(max, x)); hd.style.transform = "translateX(" + v + "px)"; fl.style.width = (v + 70) + "px"; return v; }
+  hd.addEventListener("pointerdown", function(e){ if (busy) return; drag = true; max = tr.clientWidth - hd.offsetWidth - 12; x0 = e.clientX; try{ hd.setPointerCapture(e.pointerId); }catch(x){} e.preventDefault(); });
+  hd.addEventListener("pointermove", function(e){ if (!drag) return; pos(e.clientX - x0); });
+  function end(e){
+    if (!drag) return; drag = false; var cur = parseFloat((hd.style.transform.match(/translateX\(([-\d.]+)px/) || [0, 0])[1]) || 0;
+    if (cur >= max * 0.88){ pos(max); busy = true; tr.classList.add("busy"); $("swHelp").textContent = "Redeeming…";
+      api("redeem", { id: id }).then(function(r){ return api("order", { id: id }); }).then(function(n){ renderTicket(id, n); })
+        .catch(function(err){ busy = false; tr.classList.remove("busy"); pos(0); $("swHelp").textContent = err.message || "That didn't work. Please try again."; });
+    } else { hd.style.transition = "transform .2s"; fl.style.transition = "width .2s"; pos(0); setTimeout(function(){ hd.style.transition = ""; fl.style.transition = ""; }, 220); }
+  }
+  hd.addEventListener("pointerup", end); hd.addEventListener("pointercancel", end);
+  pos(0);
+}
+
+function closedScreen(){ $("closedMsg").textContent = S.why || "The Sunday Carvery is served on Sundays from 12pm to 4pm."; show("closed"); }
+
+/* ---------- start ---------- */
+function boot(again){
+  S.table = (P.get("table") || "").trim().toUpperCase().replace(/[^A-Z0-9 \-]/g, "").slice(0, 8);
+  loadSaved();
+  api("info").then(function(i){ S.menu = i.menu || []; S.open = i.open; S.why = i.why; }).catch(function(){ S.menu = []; S.open = true; })
+    .then(function(){
+      var oid = P.get("order");
+      if (oid && !again){ openOrder(oid); return; }
+      if (!S.menu.length && !again){ $("closedBig").textContent = "We couldn't load the menu"; $("closedMsg").textContent = "Please check your connection and try again."; show("closed"); return; }
+      showWelcome();
+    });
+}
+boot(false);
+</script>
+</body>
+</html>
