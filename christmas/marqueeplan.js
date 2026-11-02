@@ -323,19 +323,26 @@
     else shape = `<rect x="${-(t.n || 1) * 1.83 / 2}" y="-0.38" width="${(t.n || 1) * 1.83}" height="0.76" rx="0.05" fill="${T.fill}" stroke="#3F2F28" stroke-width="0.05"/>` + ((t.n || 1) > 1 ? Array.from({ length: (t.n || 1) - 1 }, (_, i) => `<line x1="${-(t.n) * 1.83 / 2 + 1.83 * (i + 1)}" y1="-0.38" x2="${-(t.n) * 1.83 / 2 + 1.83 * (i + 1)}" y2="0.38" stroke="#3F2F28" stroke-width="0.04"/>`).join("") : "");
     const dots = chairs(t).map(([x, y, r]) => `<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="${r}" fill="#fff" stroke="#8a7f78" stroke-width="0.03"/>`).join("");
     const footprint = o.edit ? (T.shape === "round" ? `<circle r="${f.w / 2}" fill="none" stroke="${bad ? "#C0392B" : "#b9b3a6"}" stroke-width="0.04" stroke-dasharray="0.2 0.15"/>` : "") : "";
-    // the label stays upright whatever the rotation
-    let l1 = "", l2 = "", l3 = "";
-    l1 = t.id;
-    if (o.at != null) { if (sit) { l2 = short(sit.name, 13); l3 = `${sit.size} guests`; } else { const nx = its.find((b) => b.start > o.at); l2 = "free"; l3 = nx ? `from ${hm(nx.start)}` : ""; } }
-    else { if (its[0]) { l2 = short(its[0].name, 13); l3 = `${its[0].size}${its.length > 1 ? " · +" + (its.length - 1) + " more" : ""}`; } else l2 = "no booking"; }
-    const ink = T.ink, small = (T.shape === "round" && T.table < 1.2) || (T.shape === "rect" && (t.n || 1) < 2);      // too small to write the booking on: it goes underneath
-    const fs = small ? 0.24 : 0.33;
-    const rect = T.shape === "rect" && (!((t.rot || 0) % 180)) ;
-    const txt = `<g transform="rotate(${-(t.rot || 0) % 360})"><text text-anchor="middle" y="${small ? 0.1 : -0.16}" font-size="${small ? 0.3 : 0.42}" font-weight="700" fill="${ink}">${esc(l1)}</text>` +
-      (small ? "" : `<text text-anchor="middle" y="0.2" font-size="${fs}" fill="${ink}">${esc(l2)}</text><text text-anchor="middle" y="0.58" font-size="${fs * 0.9}" fill="${ink}">${esc(l3)}</text>`) + `</g>`;
+    // the label stays upright whatever the rotation. The table number goes on the table; the name goes underneath, cut to what fits the width of the table (a long name never runs into the next table)
+    const first = o.at == null ? its[0] : sit, n = first ? first.size : 0, more = o.at == null && its.length > 1 ? its.length - 1 : 0;
+    const small = (T.shape === "round" && T.table < 1.2) || (T.shape === "rect" && (t.n || 1) < 2);
+    const round = T.shape === "round", sizeInside = round && !small;
+    let under;
+    if (o.at != null && !sit) { const nx = its.find((b) => b.start > o.at); under = "free" + (nx ? ` from ${hm(nx.start)}` : ""); }
+    else if (!first) under = "no booking";
+    else {
+      const budget = Math.max(15, Math.min(34, Math.floor((f.w + 0.5) / 0.165))), head = sizeInside ? "" : " " + n;
+      let suffix = head + (more ? " +" + more + " more" : "");
+      if (budget - suffix.length < 10) suffix = head + (more ? " +" + more : "");      // not much room: "+1" instead of "+1 more"
+      under = short(first.name, Math.max(8, budget - suffix.length)) + suffix;
+    }
+    const ink = T.ink, dimOp = dim ? ' opacity="0.6"' : "";
+    const idY = sizeInside ? -0.06 : 0.13, idFs = round && !small ? 0.4 : (small ? 0.3 : 0.36);
+    const txt = `<g transform="rotate(${-(t.rot || 0) % 360})"><text text-anchor="middle" y="${idY}" font-size="${idFs}" font-weight="700" fill="${ink}">${esc(t.id)}</text>` +
+      (sizeInside ? `<text text-anchor="middle" y="0.36" font-size="0.3" fill="${ink}">${first ? n : ""}</text>` : "") + `</g>`;
     const out = `<g class="tbl${dim ? " dim" : ""}${bad ? " bad" : ""}" data-t="${esc(t.id)}" transform="translate(${t.x} ${t.y})" ${dim ? 'opacity="0.38"' : ""} style="cursor:${o.edit ? "grab" : "pointer"}">
       ${footprint}<g transform="rotate(${t.rot || 0})">${dots}${shape}</g>${txt}
-      ${small ? `<text text-anchor="middle" y="${f.h / 2 + 0.38}" font-size="0.3" fill="#3F2F28" ${dim ? 'opacity="0.6"' : ""}>${esc(l2)}${l3 ? " " + esc(l3.replace(" guests", "").replace(" · +", " +")) : ""}</text>` : ""}
+      <text text-anchor="middle" y="${f.h / 2 + 0.38}" font-size="0.3" fill="#3F2F28"${dimOp}>${esc(under)}</text>
       <circle r="${Math.max(f.w, f.h) / 2}" fill="transparent"/></g>`;
     return out;
   }
