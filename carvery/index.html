@@ -131,12 +131,13 @@
   <div class="scroll"><div class="wrap">
     <div id="resume" class="card" style="display:none"></div>
     <div id="testCard" class="card" style="display:none;border:2px solid var(--alert)">
-      <h2 class="serif" style="font-size:20px">Test: see the redeem screen</h2>
-      <p class="lead" style="margin-bottom:10px">Makes a test order (2 Standard carvery, 1 Kids carvery, a soup and a Guinness) and opens the screen the guest sees. Nothing is paid. You can swipe Redeemed, then make another to start again.</p>
+      <h2 class="serif" style="font-size:20px">Test mode</h2>
+      <p class="lead" style="margin-bottom:10px">Go through the whole order as a guest would, every screen, with a pretend payment at the end. Nothing is charged and no email is sent.</p>
       <label class="f" for="tpass" style="margin-top:0">Test password</label><input type="text" id="tpass" autocomplete="off">
       <div class="err" id="tpassErr"></div>
-      <div style="height:10px"></div>
-      <button class="btn" id="tgo" type="button">Open a test order</button>
+      <div style="height:6px"></div>
+      <p class="lead" style="margin:6px 0 8px;font-size:14px">Press <b>Start your order</b> below for the full run, or jump straight to the redeem screen:</p>
+      <button class="btn ghost" id="tgo" type="button">Skip to the redeem screen</button>
     </div>
     <div id="tableFixed" class="tablebox" style="display:none"><div><div class="k">Your table</div><div class="v" id="tableBig"></div></div><div class="chg"><button type="button" id="tableChange">Not your table?</button></div></div>
     <div class="card">
@@ -210,6 +211,25 @@
   </div></div>
 </section>
 
+<!-- test mode only: a pretend card payment page -->
+<section class="screen" id="s-pay">
+  <header class="top"><div class="ttl"><h1>Secure payment</h1><div class="sub">TEST: this is a pretend payment page</div></div></header>
+  <div class="scroll"><div class="wrap">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px"><span style="font-weight:700">Black Horse Beamish</span><span style="font-weight:900;font-size:26px" id="payAmt"></span></div>
+      <p class="lead" style="margin:0 0 6px;font-size:14px">Carvery order, table <b id="payTbl"></b></p>
+      <label class="f">Card number</label><input type="text" value="4242 4242 4242 4242" readonly>
+      <div style="display:flex;gap:10px"><div style="flex:1"><label class="f">Expiry</label><input type="text" value="12 / 30" readonly></div><div style="flex:1"><label class="f">Security code</label><input type="text" value="123" readonly></div></div>
+      <label class="f" for="payName">Name on card</label><input type="text" id="payName">
+      <div class="err" id="payErr"></div>
+      <div style="height:12px"></div>
+      <button class="btn" id="payGo" type="button">Pay</button>
+      <div style="text-align:center;margin-top:8px"><button class="link" id="payCancel" type="button">Cancel and go back</button></div>
+      <p class="nocharge" style="text-align:center;margin-top:10px">Nothing is charged. The real page is run by SumUp.</p>
+    </div>
+  </div></div>
+</section>
+
 <!-- waiting for the payment, or a problem with it -->
 <section class="screen" id="s-status">
   <header class="top"><img src="../app/logo-light.png" alt="Black Horse Beamish"><div class="ttl"><h1>Sunday Carvery</h1></div></header>
@@ -224,7 +244,7 @@
   <div class="center"><h2 id="closedBig" style="margin:0 0 10px;font-size:26px">Ordering is closed</h2><p class="lead" id="closedMsg"></p></div>
 </section>
 
-<div class="modal" id="testModal"><div class="box"><h3 class="serif">Test order</h3><p class="lead">Enter the test password. No payment will be taken.</p><input type="text" id="testPass" autocomplete="off"><div class="err" id="testErr"></div><div style="height:12px"></div><button class="btn" id="testGo" type="button">Place test order</button><div style="text-align:center;margin-top:8px"><button class="link" id="testNo" type="button">Cancel</button></div></div></div>
+
 
 <script>
 var SUPA = "https://safcrtrfdzsnftghibot.supabase.co", KEY = "sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU";
@@ -246,7 +266,7 @@ function ls(k, v){ try{ if (v === undefined) return localStorage.getItem(k); if 
 
 /* ---------- saved things on this phone ---------- */
 function loadSaved(){
-  try{ var d = JSON.parse(ls("bhb_guest_email_v1") || "null"); if (d && d.email && d.verified){ S.email = d.email; S.verified = true; S.optIn = !!d.marketingOptin; } }catch(e){}
+  try{ var d = TEST ? null : JSON.parse(ls("bhb_guest_email_v1") || "null"); if (d && d.email && d.verified){ S.email = d.email; S.verified = true; S.optIn = !!d.marketingOptin; } }catch(e){}
   S.name = ls("bhb_carvery_name") || "";
   try{ var c = JSON.parse(ls("bhb_carvery_cart") || "null"); if (c && c.table === S.table && Date.now() - c.at < 6 * 3600 * 1000) S.cart = c.cart || {}; }catch(e){}
   try{ var o = JSON.parse(ls("bhb_carvery_order") || "null"); if (o && o.id && Date.now() - o.at < 10 * 3600 * 1000) S.lastOrder = o; }catch(e){}
@@ -295,6 +315,7 @@ $("startBtn").onclick = function(){
   var n = ($("nameIn").value || "").trim();
   if (!t){ err.textContent = "Please enter your table number."; return; }
   if (!n){ err.textContent = "Please enter your name."; return; }
+  if (TEST){ var tp = ($("tpass").value || ""); if (!tp){ $("tpassErr").textContent = "Enter the test password first."; window.scrollTo(0, 0); var sc0 = document.querySelector("#s-welcome .scroll"); if (sc0) sc0.scrollTop = 0; return; } S.testPass = tp; ls("bhb_carvery_testpass", tp); }
   if (t !== S.table){ S.table = t; S.cart = {}; }
   S.name = n; ls("bhb_carvery_name", n);
   if (!S.open && !TEST){ closedScreen(); return; }
@@ -308,6 +329,10 @@ function persistEmail(){ ls("bhb_guest_email_v1", JSON.stringify({ email: S.emai
 $("emailGo").onclick = function(){
   var e = ($("emailIn").value || "").trim().toLowerCase(), b = $("emailGo"); $("emailErr").textContent = "";
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)){ $("emailErr").textContent = "Please enter a valid email address."; return; }
+  if (TEST){
+    S.email = e; S.optIn = $("optIn").checked; codeFails = 0; $("codeMsg").innerHTML = "<b>TEST:</b> no email is sent. Type the code <b>123456</b>."; $("codeIn").value = ""; $("codeErr").textContent = ""; $("codeSkip").style.display = "none";
+    $("emailStep1").style.display = "none"; $("emailStep2").style.display = ""; setTimeout(function(){ $("codeIn").focus(); }, 40); return;
+  }
   b.disabled = true; b.textContent = "Please wait…";
   fn("request-email-code", { email: e, marketing_opt_in: $("optIn").checked }).then(function(d){
     S.email = e; S.optIn = $("optIn").checked;
@@ -319,6 +344,7 @@ $("emailGo").onclick = function(){
 $("codeGo").onclick = function(){
   var c = ($("codeIn").value || "").trim(); $("codeErr").textContent = "";
   if (!/^\d{6}$/.test(c)){ $("codeErr").textContent = "Enter the 6 numbers from the email."; return; }
+  if (TEST){ if (c === "123456"){ S.verified = true; enterMenu(); } else { $("codeErr").textContent = "That is not the test code. It is 123456."; codeFails++; if (codeFails >= 2) $("codeSkip").style.display = ""; } return; }
   fn("verify-email-code", { email: S.email, code: c }).then(function(d){
     if (d.verified){ S.verified = true; persistEmail(); enterMenu(); return; }
     bad();
@@ -387,7 +413,7 @@ function renderBasket(){
   var canR = !!S.email;
   $("receiptRow").style.display = canR ? "" : "none";
   $("receiptTxt").textContent = canR ? "Email me a receipt to " + S.email : "";
-  $("payBtn").textContent = TEST ? "Place test order (no payment)" : "Pay " + gbp(cartTotal());
+  $("payBtn").textContent = "Pay " + gbp(cartTotal());
   $("basketErr").textContent = "";
 }
 function doOrder(test){
@@ -396,7 +422,7 @@ function doOrder(test){
 }
 $("payBtn").onclick = function(){
   if (!cartCount()) return;
-  if (TEST){ $("testPass").value = S.testPass || ""; $("testErr").textContent = ""; $("testModal").classList.add("on"); return; }
+  if (TEST){ showPay(); return; }
   var b = $("payBtn"), old = b.textContent; b.disabled = true; b.textContent = "Please wait…"; $("basketErr").textContent = "";
   doOrder(false).then(function(r){
     ls("bhb_carvery_order", JSON.stringify({ id: r.order_id, at: Date.now(), table: S.table }));
@@ -406,22 +432,19 @@ $("payBtn").onclick = function(){
     });
   }).catch(function(e){ $("basketErr").textContent = e.message; b.disabled = false; b.textContent = old; });
 };
-$("testNo").onclick = function(){ $("testModal").classList.remove("on"); };
-$("testGo").onclick = function(){
-  S.testPass = $("testPass").value; $("testErr").textContent = ""; var b = $("testGo"); b.disabled = true;
-  doOrder(true).then(function(r){ $("testModal").classList.remove("on"); S.cart = {}; saveCart(); ls("bhb_carvery_order", JSON.stringify({ id: r.order_id, at: Date.now(), table: S.table })); openOrder(r.order_id); })
-    .catch(function(e){ $("testErr").textContent = e.message; }).then(function(){ b.disabled = false; });
-};
-
-$("tgo").onclick = function(){
-  var pass = $("tpass").value, b = $("tgo"), by = function(n){ return S.menu.filter(function(i){ return i.name === n; })[0]; };
-  $("tpassErr").textContent = ""; b.disabled = true;
-  var car = by("Sunday Carvery"), soup = by("Soup of the Day (V) (VGA)"), gin = by("Guinness");
-  if (!car || !soup || !gin){ $("tpassErr").textContent = "The menu has not loaded."; b.disabled = false; return; }
-  var lines = [{ item_id: car.id, variant: "Standard", qty: 2 }, { item_id: car.id, variant: "Kids", qty: 1 }, { item_id: soup.id, variant: null, qty: 1 }, { item_id: gin.id, variant: "Pint", qty: 1 }];
-  api("place", { table: S.table || "TEST", name: (($("nameIn").value || "").trim() || "Test"), lines: lines, test: true, test_pass: pass }).then(function(r){
-    ls("bhb_carvery_testpass", pass); ls("bhb_carvery_order", JSON.stringify({ id: r.order_id, at: Date.now(), table: S.table || "TEST" })); openOrder(r.order_id);
-  }).catch(function(e){ $("tpassErr").textContent = e.message; }).then(function(){ b.disabled = false; });
+/* ---------- test mode: a pretend payment screen, standing in for the SumUp page ---------- */
+function showPay(){
+  var t = gbp(cartTotal());
+  $("payAmt").textContent = t; $("payTbl").textContent = S.table; $("payGo").textContent = "Pay " + t; $("payGo").disabled = false; $("payErr").textContent = ""; $("payCancel").style.display = "";
+  $("payName").value = S.name || ""; show("pay");
+}
+$("payCancel").onclick = function(){ renderBasket(); show("basket"); };
+$("payGo").onclick = function(){
+  var b = $("payGo"); b.disabled = true; b.textContent = "Processing…"; $("payCancel").style.display = "none"; $("payErr").textContent = "";
+  setTimeout(function(){
+    doOrder(true).then(function(r){ S.cart = {}; saveCart(); ls("bhb_carvery_order", JSON.stringify({ id: r.order_id, at: Date.now(), table: S.table })); openOrder(r.order_id); })
+      .catch(function(e){ $("payErr").textContent = e.message; b.disabled = false; b.textContent = "Pay " + gbp(cartTotal()); $("payCancel").style.display = ""; });
+  }, 1800);
 };
 
 /* ---------- the order after payment ---------- */
