@@ -30,6 +30,7 @@ header.top{background:var(--berry); color:var(--white)} .topin{max-width:var(--m
 nav.tabs{background:#6f2424} .tabsin{max-width:var(--maxw); margin:0 auto; padding:0 16px; display:flex; gap:2px; overflow-x:auto}
 .tabbtn{background:transparent; border:0; cursor:pointer; color:rgba(255,255,255,.75); padding:12px 14px; font-size:12px; font-weight:600; white-space:nowrap; letter-spacing:var(--track-label); text-transform:uppercase; border-bottom:3px solid transparent}
 .tabbtn[aria-current="page"]{color:#fff; border-bottom-color:var(--gold)}
+.tabbtn{position:relative} .tabn{position:absolute; top:3px; right:2px; min-width:17px; height:17px; padding:0 5px; border-radius:9px; background:#d23b3b; color:#fff; font-size:11px; font-weight:700; line-height:17px; text-align:center; letter-spacing:0; box-sizing:border-box; pointer-events:none}
 .pagehead{display:flex; align-items:flex-end; gap:14px; flex-wrap:wrap; margin:22px 0 14px} .pagehead h2{font-size:28px; color:var(--berry)} .hint{font-size:13px; color:var(--sage-70)} .spacer{margin-left:auto}
 .btn{border:1px solid var(--sage); background:var(--sage); color:#fff; border-radius:8px; padding:9px 16px; cursor:pointer; font-size:12px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; min-height:42px}
 .btn.ghost{background:#fff; color:var(--sage)} .btn.small{min-height:34px; padding:5px 12px; font-size:11px} .btn.danger{background:#fff; color:var(--alert); border-color:var(--alert)} .btn:disabled{opacity:.5; cursor:default}
@@ -151,7 +152,7 @@ table.t{width:100%; border-collapse:collapse; font-size:14px} .t th{font-size:10
 </div>
 <div id="modalroot"></div><div class="toast" id="toast" role="status"></div>
 <script src="content.js?v=20261020"></script>
-<script src="marqueeplan.js?v=20261102b"></script>
+<script src="marqueeplan.js?v=20261102c"></script>
 <script>
 const CFG = { URL:"https://safcrtrfdzsnftghibot.supabase.co", KEY:"sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU" };
 const S = { dg:null, dgId:"", pre:{ events:null, id:"", data:null }, me:null, people:[], view:"", ts:null, tsTimer:null, day:null, plan:null, planFilter:"open", corp:null, decor:null, decorArea:"" };
@@ -366,11 +367,18 @@ function decorForm(r){
 /* ====================================================================== action plan (works like Marketing Actions) */
 const ST = { outstanding:["Outstanding","warn"], in_progress:["In progress","gold"], completed:["Completed","ok"], parked:["Parked",""] };
 const isOpen = a => a.status === "outstanding" || a.status === "in_progress";
+/* the red number on the Action plan tab: my open actions that are due today or overdue (the same count as the tile on the portal) */
+function actBadge(actions){
+  const b = document.querySelector('.tabbtn[data-view="actions"]'); if (!b) return;
+  const n = (actions || []).filter(a => isOpen(a) && (a.assignees || []).includes(S.me.email) && a.due_date && daysTo(a.due_date) <= 0).length;
+  const old = b.querySelector(".tabn"); if (old) old.remove();
+  if (n) { const t = document.createElement("span"); t.className = "tabn"; t.textContent = n; t.setAttribute("aria-label", n + " of your actions need attention"); b.appendChild(t); b.title = n + " of your actions are due or overdue"; } else b.removeAttribute("title");
+}
 const pname = e => (S.people.find(p => p.email === e) || {}).name || e;
 async function viewActions(){
   $("#views").innerHTML = `<div class="empty">Loading…</div>`;
   try { S.plan = await api("plan.list"); } catch(e){ $("#views").innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
-  renderActions();
+  actBadge(S.plan.actions); renderActions();
 }
 /* people on this action who work in the Marketing plan, when the action is not there and nobody has said no */
 const mkAsk = a => (a.linked && (a.linked.marketing || a.linked.declined)) ? [] : (a.assignees || []).filter(e => e !== S.me.email && (S.people.find(p => p.email === e) || {}).marketing);
@@ -1345,7 +1353,7 @@ function renderMarquee(){
   const timeOpts = `<option value="">Whole day</option>` + Array.from({ length: (MQ.T1 - MQ.T0) / MQ.STEP }, (_, i) => MQ.T0 + i * MQ.STEP).map(t => `<option value="${t}"${m.at === t ? " selected" : ""}>${MQ.hm(t)}</option>`).join("");
   const rows = []; for (let t = MQ.T0; t < 19 * 60 + 1; t += 30) { const i = (t - MQ.T0) / MQ.STEP, c = [st.counts[0][i], st.counts[1][i]], gap = Math.max(...c) - Math.min(...c); rows.push(`<tr><th class="${m.at === t ? "cur" : ""}">${MQ.hm(t)}</th>${c.map(v => `<td class="${gap >= 3 ? "bad" : ""}${m.at === t ? " cur" : ""}">${v}</td>`).join("")}</tr>`); }
   const inv = plan.inventory || MQ.DEFAULT_INVENTORY, used = st.used;
-  const furn = [["trestle", "Trestles"], ["round10", "6ft rounds"], ["round8", "5ft rounds"], ["small4", "Small tables"]].filter(([k]) => used[k] || inv[k] != null).map(([k, l]) => `<div><span class="mqkey" style="background:${MQ.TYPES[k].fill}"></span>${l}: <b>${used[k] || 0}</b>${inv[k] != null ? ` of ${inv[k]}` : " (hire as needed)"}</div>`).join("");
+  const furn = [["trestle", "Trestles"], ["round10", "6ft rounds"], ["round8", "5ft rounds"], ["small4", "Small square tables"]].filter(([k]) => used[k] || inv[k] != null).map(([k, l]) => `<div><span class="mqkey" style="background:${MQ.TYPES[k].fill}"></span>${l}: <b>${used[k] || 0}</b>${inv[k] != null ? ` of ${inv[k]}` : " (hire as needed)"}</div>`).join("");
   const un = rec.unassigned, oldPlan = plan.teams !== MQ.TEAMS;
   $("#views").innerHTML = `<div class="pagehead"><h2>Marquee table plan</h2><span class="hint">${m.bookings.length} bookings, ${m.bookings.reduce((t, b) => t + b.size, 0)} guests, from the Diary. Room 34.4 m x 14.75 m, two teams (left and right of the middle). ${edit ? "Drag a table to move it; click a table to change who sits there." : "Click a table to see who sits there."}</span><span class="spacer"></span>
       <button class="btn small" data-mq="print">Print the plan</button> <button class="btn small ghost" data-mq="full">Full screen</button> ${edit ? `<button class="btn small ghost" data-mq="add">Add a table</button> <button class="btn small ghost" data-mq="furn">Furniture we have</button> <button class="btn small ghost" data-mq="rebuild">Rebuild automatically</button>` : ""}</div>
@@ -1448,7 +1456,7 @@ function mqAddTable(){
 function mqFurniture(){
   const m = S.mq, inv = m.plan.inventory || MQ.DEFAULT_INVENTORY, v = k => inv[k] == null ? "" : inv[k];
   openModal(`<h3 style="margin:0 0 4px">Furniture we have</h3><p class="small muted" style="margin:0 0 8px">Leave a box empty for "as many as we need" (hired in above what we own). The plan uses what we own first.</p>
-    ${[["trestle", "6ft trestles"], ["round10", "6ft rounds (seat 10)"], ["round8", "5ft rounds (seat 8)"], ["small4", "Small tables (seat 4)"]].map(([k, l]) => `<label class="small" style="display:block;margin:6px 0">${l}<br><input type="number" min="0" max="500" id="fv_${k}" value="${v(k)}" placeholder="as many as needed" style="width:140px"></label>`).join("")}
+    ${[["trestle", "6ft trestles"], ["round10", "6ft rounds (seat 10)"], ["round8", "5ft rounds (seat 8)"], ["small4", "Small square tables (seat 4)"]].map(([k, l]) => `<label class="small" style="display:block;margin:6px 0">${l}<br><input type="number" min="0" max="500" id="fv_${k}" value="${v(k)}" placeholder="as many as needed" style="width:140px"></label>`).join("")}
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px"><button class="btn" id="fvGo">Save</button><button class="btn ghost" onclick="closeModal()">Cancel</button></div>`);
   $("#fvGo").onclick = () => { const o = {}; ["trestle", "round10", "round8", "small4"].forEach(k => { const x = $("#fv_" + k).value.trim(); o[k] = x === "" ? null : Math.max(0, Math.round(Number(x))); }); m.plan.inventory = o; mqChanged(); closeModal(); renderMarquee(); toast("Saved. Press Rebuild automatically to lay the room out again with these."); };
 }
@@ -1515,6 +1523,7 @@ async function boot(){
   $("#tabsin").innerHTML = mine.map(t => `<button class="tabbtn" role="tab" data-view="${t[0]}">${esc(t[1])}</button>`).join("");
   $$(".tabbtn").forEach(b => b.addEventListener("click", () => goView(b.dataset.view)));
   goView(mine[0][0]);
+  if (mine.some(t => t[0] === "actions")) api("plan.list").then(p => { if (!S.plan) S.plan = p; actBadge(p.actions); }).catch(() => {});
 }
 (function(){ if (staffEmail()) { $("#gate").hidden = true; boot(); } else { $("#gate").hidden = false; } })();
 </script>

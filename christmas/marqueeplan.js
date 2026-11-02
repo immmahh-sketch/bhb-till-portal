@@ -1,7 +1,7 @@
 /* Marquee table plan: the layout engine and the drawing. Pure functions (no page, no network), so it can be tested on its own.
    Units are metres. The room is 34.4 m wide and 14.75 m deep, in three equal sections divided by curtains (tables may run across a curtain).
    A booking is { key, name, size, start, end } with start/end in minutes since midnight. A plan is { v, inventory, tables:[{ id, type, n, x, y, rot, items:[bookingKey] }], nextId, built }.
-   Furniture: round10 = 6 ft round (10), round8 = 5 ft round (8), small4 = small table (4), trestle = 6 ft trestle, n joined end to end (seats 6n + 2: 8, 14, 20, 26). */
+   Furniture: round10 = 6 ft round (10), round8 = 5 ft round (8), small4 = small square table (4), trestle = 6 ft trestle, n joined end to end (seats 6n + 2: 8, 14, 20, 26). */
 (function (root) {
   "use strict";
   const ROOM = { w: 34.4, h: 14.75 };
@@ -16,7 +16,7 @@
   const TYPES = {
     round10: { label: "6ft round", seats: 10, shape: "round", d: 2.95, table: 1.83, fill: "#E75AA8", ink: "#fff" },
     round8: { label: "5ft round", seats: 8, shape: "round", d: 2.65, table: 1.52, fill: "#6B1067", ink: "#fff" },
-    small4: { label: "Small table", seats: 4, shape: "round", d: 2.0, table: 0.9, fill: "#A9D0DB", ink: "#223" },
+    small4: { label: "Small square table", seats: 4, shape: "square", d: 2.0, table: 0.9, fill: "#A9D0DB", ink: "#223" },
     trestle: { label: "6ft trestle", shape: "rect", fill: "#D3B26B", ink: "#2b2418" },
   };
   const DEFAULT_INVENTORY = { round10: 20, round8: 5, small4: null, trestle: 50 };      // what we own (a trestle counts as 1 however many are joined); null = as many as we need, hired in above what we have
@@ -303,7 +303,8 @@
   const short = (s, n) => { s = String(s || ""); return s.length > n ? s.slice(0, n - 1).trim() + "…" : s; };
   function chairs(t) {
     const out = [], r = 0.17;
-    if (t.type !== "trestle") {
+    if (TYPES[t.type].shape === "square") { const R = TYPES[t.type].table / 2 + 0.38; out.push([0, -R, r], [R, 0, r], [0, R, r], [-R, 0, r]); }      // a small square table: one chair on each side
+    else if (t.type !== "trestle") {
       const T = TYPES[t.type], R = T.table / 2 + 0.38;
       for (let i = 0; i < T.seats; i++) { const a = (i / T.seats) * Math.PI * 2 - Math.PI / 2; out.push([Math.cos(a) * R, Math.sin(a) * R, r]); }
     } else {
@@ -320,12 +321,13 @@
     const bad = o.bad && o.bad.has(t.id);
     let shape;
     if (T.shape === "round") shape = `<circle r="${T.table / 2}" fill="${T.fill}" stroke="#3F2F28" stroke-width="0.05"/>`;
+    else if (T.shape === "square") shape = `<rect x="${-T.table / 2}" y="${-T.table / 2}" width="${T.table}" height="${T.table}" rx="0.05" fill="${T.fill}" stroke="#3F2F28" stroke-width="0.05"/>`;
     else shape = `<rect x="${-(t.n || 1) * 1.83 / 2}" y="-0.38" width="${(t.n || 1) * 1.83}" height="0.76" rx="0.05" fill="${T.fill}" stroke="#3F2F28" stroke-width="0.05"/>` + ((t.n || 1) > 1 ? Array.from({ length: (t.n || 1) - 1 }, (_, i) => `<line x1="${-(t.n) * 1.83 / 2 + 1.83 * (i + 1)}" y1="-0.38" x2="${-(t.n) * 1.83 / 2 + 1.83 * (i + 1)}" y2="0.38" stroke="#3F2F28" stroke-width="0.04"/>`).join("") : "");
     const dots = chairs(t).map(([x, y, r]) => `<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="${r}" fill="#fff" stroke="#8a7f78" stroke-width="0.03"/>`).join("");
-    const footprint = o.edit ? (T.shape === "round" ? `<circle r="${f.w / 2}" fill="none" stroke="${bad ? "#C0392B" : "#b9b3a6"}" stroke-width="0.04" stroke-dasharray="0.2 0.15"/>` : "") : "";
+    const footprint = o.edit ? (T.shape === "round" ? `<circle r="${f.w / 2}" fill="none" stroke="${bad ? "#C0392B" : "#b9b3a6"}" stroke-width="0.04" stroke-dasharray="0.2 0.15"/>` : T.shape === "square" ? `<rect x="${-f.w / 2}" y="${-f.h / 2}" width="${f.w}" height="${f.h}" fill="none" stroke="${bad ? "#C0392B" : "#b9b3a6"}" stroke-width="0.04" stroke-dasharray="0.2 0.15"/>` : "") : "";
     // the label stays upright whatever the rotation. The table number goes on the table; the name goes underneath, cut to what fits the width of the table (a long name never runs into the next table)
     const first = o.at == null ? its[0] : sit, n = first ? first.size : 0, more = o.at == null && its.length > 1 ? its.length - 1 : 0;
-    const small = (T.shape === "round" && T.table < 1.2) || (T.shape === "rect" && (t.n || 1) < 2);
+    const small = (T.shape !== "rect" && T.table < 1.2) || (T.shape === "rect" && (t.n || 1) < 2);
     const round = T.shape === "round", sizeInside = round && !small;
     let under;
     if (o.at != null && !sit) { const nx = its.find((b) => b.start > o.at); under = "free" + (nx ? ` from ${hm(nx.start)}` : ""); }
