@@ -130,6 +130,14 @@
   <header class="top"><img src="../app/logo-light.png" alt="Black Horse Beamish"><div class="ttl"><h1>Sunday Carvery</h1><div class="sub">Served 12pm to 4pm</div></div></header>
   <div class="scroll"><div class="wrap">
     <div id="resume" class="card" style="display:none"></div>
+    <div id="testCard" class="card" style="display:none;border:2px solid var(--alert)">
+      <h2 class="serif" style="font-size:20px">Test: see the redeem screen</h2>
+      <p class="lead" style="margin-bottom:10px">Makes a test order (2 Standard carvery, 1 Kids carvery, a soup and a Guinness) and opens the screen the guest sees. Nothing is paid. You can swipe Redeemed, then make another to start again.</p>
+      <label class="f" for="tpass" style="margin-top:0">Test password</label><input type="text" id="tpass" autocomplete="off">
+      <div class="err" id="tpassErr"></div>
+      <div style="height:10px"></div>
+      <button class="btn" id="tgo" type="button">Open a test order</button>
+    </div>
     <div id="tableFixed" class="tablebox" style="display:none"><div><div class="k">Your table</div><div class="v" id="tableBig"></div></div><div class="chg"><button type="button" id="tableChange">Not your table?</button></div></div>
     <div class="card">
       <h2 class="serif">Order from your phone</h2>
@@ -277,6 +285,7 @@ function showWelcome(){
   if (S.lastOrder){ r.style.display = ""; r.innerHTML = '<h2 class="serif" style="font-size:20px">You have an order</h2><p class="lead" style="margin-bottom:10px">Order ' + esc(S.lastOrder.no || "") + ' at table ' + esc(S.lastOrder.table || "") + '. Your carvery screen is saved here.</p><button class="btn ghost" type="button" id="resumeBtn">View your order</button>'; $("resumeBtn").onclick = function(){ openOrder(S.lastOrder.id); }; }
   else r.style.display = "none";
   $("welcomeErr").textContent = (!S.open && !TEST) ? S.why : "";
+  $("testCard").style.display = TEST ? "" : "none"; if (TEST && !$("tpass").value) $("tpass").value = ls("bhb_carvery_testpass") || "";
   show("welcome");
 }
 $("tableChange").onclick = function(){ S.table = ""; $("tableIn").value = ""; showWelcome(); setTimeout(function(){ $("tableIn").focus(); }, 40); };
@@ -402,6 +411,17 @@ $("testGo").onclick = function(){
   S.testPass = $("testPass").value; $("testErr").textContent = ""; var b = $("testGo"); b.disabled = true;
   doOrder(true).then(function(r){ $("testModal").classList.remove("on"); S.cart = {}; saveCart(); ls("bhb_carvery_order", JSON.stringify({ id: r.order_id, at: Date.now(), table: S.table })); openOrder(r.order_id); })
     .catch(function(e){ $("testErr").textContent = e.message; }).then(function(){ b.disabled = false; });
+};
+
+$("tgo").onclick = function(){
+  var pass = $("tpass").value, b = $("tgo"), by = function(n){ return S.menu.filter(function(i){ return i.name === n; })[0]; };
+  $("tpassErr").textContent = ""; b.disabled = true;
+  var car = by("Sunday Carvery"), soup = by("Soup of the Day (V) (VGA)"), gin = by("Guinness");
+  if (!car || !soup || !gin){ $("tpassErr").textContent = "The menu has not loaded."; b.disabled = false; return; }
+  var lines = [{ item_id: car.id, variant: "Standard", qty: 2 }, { item_id: car.id, variant: "Kids", qty: 1 }, { item_id: soup.id, variant: null, qty: 1 }, { item_id: gin.id, variant: "Pint", qty: 1 }];
+  api("place", { table: S.table || "TEST", name: (($("nameIn").value || "").trim() || "Test"), lines: lines, test: true, test_pass: pass }).then(function(r){
+    ls("bhb_carvery_testpass", pass); ls("bhb_carvery_order", JSON.stringify({ id: r.order_id, at: Date.now(), table: S.table || "TEST" })); openOrder(r.order_id);
+  }).catch(function(e){ $("tpassErr").textContent = e.message; }).then(function(){ b.disabled = false; });
 };
 
 /* ---------- the order after payment ---------- */
