@@ -11,7 +11,7 @@
   const TURN = 15;            // minutes to reset a table between two sittings
   const AISLE = 1.0;          // clear walkway between two tables' chairs, metres (the layout aims for this; under 0.8 is flagged)
   const AISLE_MIN = 0.8;
-  const USABLE = { y0: 1.3, y1: 12.2 };      // keeps the top doors, and the bar, kitchen, toilets and main entrance along the bottom, clear
+  const USABLE = { y0: 1.3, y1: 12.2 };      // keeps the top doors, and the bar, kitchen and toilets along the bottom, clear
   const SECTION_REGION = [{ x0: 1.3, x1: 16.7 }, { x0: 17.7, x1: 33.9 }];      // the floor each team looks after, with an aisle where the two meet
   const TYPES = {
     round10: { label: "6ft round", seats: 10, shape: "round", d: 2.95, table: 1.83, fill: "#E75AA8", ink: "#fff" },
@@ -24,7 +24,7 @@
   const FEATURES = {
     doorsTop: [{ x0: 0, x1: 12.9 }, { x0: 21.4, x1: 34.4 }],
     doorLeft: { y0: 7.8, y1: 11.5 },
-    bottom: [{ label: "Access to toilets", x0: 5.0, x1: 6.5 }, { label: "Access to kitchen", x0: 11.1, x1: 14.1 }, { label: "Bar", x0: 16.4, x1: 20.8 }, { label: "Main entrance", x0: 29.4, x1: 34.3 }],
+    bottom: [{ label: "Access to toilets", x0: 5.0, x1: 6.5 }, { label: "Access to kitchen", x0: 11.1, x1: 14.1 }, { label: "Bar", x0: 16.4, x1: 20.8 }],
     sockets: [{ x: 12.7, y: -0.1 }, { x: -0.1, y: 3.1 }, { x: -0.1, y: 14.4 }],
   };
 
@@ -230,7 +230,7 @@
     for (let i = 0; i < ts.length; i++) {
       const a = ts[i], f = foot(a);
       if (a.x - f.w / 2 < 0.3 || a.x + f.w / 2 > ROOM.w - 0.3 || a.y - f.h / 2 < 0.3 || a.y + f.h / 2 > ROOM.h - 0.3) out.push({ kind: "wall", a: a.id, text: `${a.id} is against the edge of the room` });
-      else if (a.y + f.h / 2 > USABLE.y1 + 0.6) out.push({ kind: "wall", a: a.id, text: `${a.id} is in the way of the bar, kitchen or entrance` });
+      else if (a.y + f.h / 2 > USABLE.y1 + 0.6) out.push({ kind: "wall", a: a.id, text: `${a.id} is in the way of the bar, kitchen or toilets` });
       for (let j = i + 1; j < ts.length; j++) {
         const b = ts[j], g = gapBetween(a, b);
         if (g < 0) out.push({ kind: "overlap", a: a.id, b: b.id, text: `${a.id} and ${b.id} overlap` });
