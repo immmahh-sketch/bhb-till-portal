@@ -44,9 +44,15 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--berry);outline-o
 .ok{background:var(--good-bg);color:var(--good);border-left:4px solid var(--good);border-radius:10px;padding:12px 14px;margin:14px 0;font-weight:600}
 .bad label.f{color:var(--alert)}
 .bad input,.bad select{border-color:var(--alert)}
+.pop{position:absolute;left:0;right:0;top:0;z-index:50;display:flex;justify-content:center;align-items:flex-start}
+.pop .bk{position:fixed;inset:0;background:rgba(38,38,38,.45)}
+.pop .bx{position:relative;margin:0 14px;max-width:420px;width:100%;background:var(--white);border-radius:var(--radius);border-top:3px solid var(--gold);box-shadow:0 14px 40px rgba(38,38,38,.3);padding:20px 20px 18px}
+.pop h3{font-size:22px;margin:0 0 8px}
+.pop p{margin:0 0 16px}
 .hp{position:absolute;left:-5000px;width:1px;height:1px;overflow:hidden}
 .spin{display:inline-block;width:22px;height:22px;border:3px solid var(--celadon);border-top-color:var(--berry);border-radius:50%;animation:sp 1s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}
+body{position:relative}
 body.embed header.top,body.embed footer{display:none}
 body.embed main{padding-top:4px;padding-bottom:20px}
 footer{max-width:720px;margin:0 auto;padding:0 14px 36px;font-size:14px;color:var(--muted);text-align:center}
@@ -103,8 +109,29 @@ function formHtml(){
 function render(){
   if (!I.open) { $("#app").innerHTML = '<div class="card"><h2>The waiting list is closed</h2><p class="lead">We are not taking any more names at the moment. Please phone us on ' + esc(I.contact.phone) + ' or email ' + esc(I.contact.email) + '.</p></div>'; return; }
   $("#app").innerHTML = formHtml();
-  $("#form").addEventListener("change", e => { if (e.target.name === "area") document.querySelectorAll(".opt").forEach(o => o.classList.toggle("on", o.contains(e.target))); });
+  $("#form").addEventListener("change", e => {
+    if (e.target.name === "area") document.querySelectorAll(".opt").forEach(o => o.classList.toggle("on", o.contains(e.target)));
+    if (e.target.id === "time" && e.target.value !== "any") askNicely("time", e.target);
+    if (e.target.name === "area" && e.target.value) askNicely("area", e.target);
+  });
   $("#form").addEventListener("submit", submit);
+}
+// a pop-up, set beside the control that was just changed (the page may sit in a tall frame on the website, so it is not centred on the screen)
+function askNicely(kind, from){
+  const old = $("#pop"); if (old) old.remove();
+  const what = kind === "time" ? "the arrival time" : "the area";
+  const top = Math.max(10, from.getBoundingClientRect().top + window.scrollY - 150);
+  const d = document.createElement("div"); d.className = "pop"; d.id = "pop"; d.setAttribute("role", "dialog"); d.setAttribute("aria-modal", "true"); d.setAttribute("aria-labelledby", "pophead");
+  d.style.top = top + "px";
+  d.innerHTML = '<div class="bk"></div><div class="bx"><h3 id="pophead">We will do our best</h3><p>It is unlikely that we will be able to give you exactly ' + what + ' you have asked for, but we will do our best to get as close as we can.</p><button type="button" class="btn" id="popok">OK, I understand</button></div>';
+  document.body.appendChild(d);
+  const close = () => { d.remove(); document.removeEventListener("keydown", esc2); try { from.focus({ preventScroll:true }); } catch (e) {} };
+  const esc2 = e => { if (e.key === "Escape") close(); };
+  document.addEventListener("keydown", esc2);
+  d.querySelector(".bk").addEventListener("click", close);
+  $("#popok").addEventListener("click", close);
+  $("#popok").focus({ preventScroll:true });
+  tellHeight();
 }
 async function submit(ev){
   ev.preventDefault();
