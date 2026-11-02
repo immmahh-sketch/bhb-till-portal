@@ -117,6 +117,7 @@ table.t{width:100%; border-collapse:collapse; font-size:14px} .t th{font-size:10
 #planPaper .tag.acc{background:#8A1C2B;color:#fff}#planPaper .tag.rd{background:#DCE8F4;color:#1E4A73}
 
 /* ---- Marquee plan */
+.mqplan.mqfull{position:fixed;inset:0;left:0;transform:none;width:auto;margin:0;border-radius:0;z-index:450;padding:8px 12px;display:flex;flex-direction:column;background:var(--white,#fff)} .mqfull .mqfbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 6px} .mqfull .mqfit{flex:1;min-height:0} .mqfull .mqfit svg{height:100%!important;width:100%}
 .mqgrid{display:block} .mqplan{width:min(1800px,calc(100vw - 40px));position:relative;left:50%;transform:translateX(-50%);margin:0 0 14px} .mqgrid .mqside{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;align-items:start}
 .mqbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 10px} .mqbar select{padding:7px 9px;border-radius:8px;border:1px solid var(--celadon,#ccc);font:inherit}
 .mqside .card{margin:0;padding:12px 14px} .mqside h3{margin:0 0 6px;font-size:17px}
@@ -468,7 +469,7 @@ document.addEventListener("click", e => {
   if (e.target.closest("[data-close]")) { closeModal(); return; }
   const g = e.target.closest("[data-goto]"); if (g) { e.preventDefault(); goView(g.dataset.goto); }
 });
-document.addEventListener("keydown", e => { if (e.key === "Escape") closeModal(); });
+document.addEventListener("keydown", e => { if (e.key === "Escape") { if (S.mq && S.mq.full && !document.querySelector(".modalbg")) { S.mq.full = false; renderMarquee(); } closeModal(); } });
 
 /* ====================================================================== pre-orders
    Every event that has a meal pre-order (Christmas Day and the three party nights) is sent on its own: its own menu, its own deadline, its own invitations and reminders. */
@@ -1323,7 +1324,7 @@ function mqBookings(diary){
 }
 async function viewMarquee(){
   $("#views").innerHTML = `<div class="empty">Loading the Marquee…</div>`;
-  const m = S.mq;
+  const m = S.mq; m.full = false;
   try {
     m.dateId = await dgDayId();
     const [diary, got] = await Promise.all([px("admin.diary", { date_id:m.dateId }), px("admin.mq_get", { date_id:m.dateId })]);
@@ -1347,11 +1348,11 @@ function renderMarquee(){
   const furn = [["trestle", "Trestles"], ["round10", "6ft rounds"], ["round8", "5ft rounds"], ["small4", "Small tables"]].filter(([k]) => used[k] || inv[k] != null).map(([k, l]) => `<div><span class="mqkey" style="background:${MQ.TYPES[k].fill}"></span>${l}: <b>${used[k] || 0}</b>${inv[k] != null ? ` of ${inv[k]}` : " (hire as needed)"}</div>`).join("");
   const un = rec.unassigned, oldPlan = plan.teams !== MQ.TEAMS;
   $("#views").innerHTML = `<div class="pagehead"><h2>Marquee table plan</h2><span class="hint">${m.bookings.length} bookings, ${m.bookings.reduce((t, b) => t + b.size, 0)} guests, from the Diary. Room 34.4 m x 14.75 m, two teams (left and right of the middle). ${edit ? "Drag a table to move it; click a table to change who sits there." : "Click a table to see who sits there."}</span><span class="spacer"></span>
-      <button class="btn small" data-mq="print">Print the plan</button> ${edit ? `<button class="btn small ghost" data-mq="add">Add a table</button> <button class="btn small ghost" data-mq="furn">Furniture we have</button> <button class="btn small ghost" data-mq="rebuild">Rebuild automatically</button>` : ""}</div>
+      <button class="btn small" data-mq="print">Print the plan</button> <button class="btn small ghost" data-mq="full">Full screen</button> ${edit ? `<button class="btn small ghost" data-mq="add">Add a table</button> <button class="btn small ghost" data-mq="furn">Furniture we have</button> <button class="btn small ghost" data-mq="rebuild">Rebuild automatically</button>` : ""}</div>
     ${oldPlan ? `<div class="flags"><b>This plan was laid out for three sections</b>The room now has two teams. The tables are still where they were, but they were not arranged to keep the two teams evenly busy.${edit ? ` <button class="btn small" data-mq="rebuild2" style="margin-left:8px">Rebuild for two teams</button>` : ""}</div>` : ""}
     <div class="mqbar"><button class="btn small ghost" data-mq="prev" aria-label="Earlier">&lsaquo;</button><select id="mqAt" aria-label="Time of day">${timeOpts}</select><button class="btn small ghost" data-mq="next" aria-label="Later">&rsaquo;</button>
       <span class="small muted">${m.at == null ? "Showing the whole day: each table shows its first booking." : "Showing who is at each table at " + MQ.hm(m.at) + "; faded tables are free."}</span><span class="spacer"></span><span class="small muted" id="mqSaved">${esc(m.err || (m.dirty ? "Saving…" : m.saved))}</span></div>
-    <div class="mqgrid"><div class="card mqplan" style="padding:6px">${MQ.svg(plan, m.bookings, { at:m.at, edit:edit, bad, sections:secText })}</div>
+    <div class="mqgrid"><div class="card mqplan${m.full ? " mqfull" : ""}" style="padding:6px">${m.full ? `<div class="mqfbar"><button class="btn small" data-mq="unfull">Exit full screen</button><button class="btn small ghost" data-mq="prev" aria-label="Earlier">&lsaquo;</button><select id="mqAt2" aria-label="Time of day">${timeOpts}</select><button class="btn small ghost" data-mq="next" aria-label="Later">&rsaquo;</button><span class="small muted">${m.at == null ? "Whole day: each table shows its first booking." : "Who is at each table at " + MQ.hm(m.at) + "."}</span><span class="spacer"></span><span class="small muted">${esc(m.err || (m.dirty ? "Saving…" : m.saved))}</span></div><div class="mqfit">` : ""}${MQ.svg(plan, m.bookings, { at:m.at, edit:edit, bad, sections:secText })}${m.full ? "</div>" : ""}</div>
     <div class="mqside">
       <div class="card"><h3>Balance between the two teams</h3><p class="small muted" style="margin:0 0 6px">Tables in use at each time. Amber means one team has 3 or more tables more than the other.</p>
         <table class="mqbal"><thead><tr><th></th><th>Team 1</th><th>Team 2</th></tr></thead><tbody>${rows.join("")}</tbody></table></div>
@@ -1359,13 +1360,14 @@ function renderMarquee(){
       ${un.length ? `<div class="card"><h3>${un.length} booking${un.length === 1 ? "" : "s"} not on a table</h3>${un.map(b => `<div class="small">${MQ.hm(b.start)} ${esc(b.name)} (${b.size})</div>`).join("")}${edit ? `<p style="margin:8px 0 0"><button class="btn small" data-mq="place">Put them on tables</button></p>` : ""}</div>` : ""}
       ${probs.length || plan.tables.some(t => t.unplaced) ? `<div class="card"><h3>Check the spacing</h3>${probs.slice(0, 12).map(p => `<div class="mqwarn">${esc(p.text)}</div>`).join("")}${plan.tables.filter(t => t.unplaced).map(t => `<div class="mqwarn">${esc(t.id)} did not fit: drag it to a free spot.</div>`).join("")}<p class="small muted" style="margin:6px 0 0">Aim for at least 1 m between chairs so guests and staff can get round.</p></div>` : `<div class="card"><h3>Spacing</h3><div class="small" style="color:var(--good,#4F6B4F)">Every table has room to walk round it.</div></div>`}
     </div></div>`;
-  $("#mqAt").onchange = () => { const v = $("#mqAt").value; m.at = v === "" ? null : Number(v); renderMarquee(); };
+  [$("#mqAt"), $("#mqAt2")].forEach(sel => { if (sel) sel.onchange = () => { const v = sel.value; m.at = v === "" ? null : Number(v); renderMarquee(); }; });
   $$("[data-mq]").forEach(b => b.onclick = () => mqAct(b.dataset.mq));
   mqBind();
 }
 function mqAct(a){
   const m = S.mq;
   if (a === "prev" || a === "next") { const cur = m.at == null ? (a === "next" ? MQ.T0 - MQ.STEP : MQ.T1) : m.at, n = cur + (a === "next" ? MQ.STEP : -MQ.STEP); m.at = n < MQ.T0 || n >= MQ.T1 ? null : n; return renderMarquee(); }
+  if (a === "full" || a === "unfull") { m.full = a === "full"; return renderMarquee(); }
   if (a === "print") return mqPrint();
   if (a === "add") return mqAddTable();
   if (a === "furn") return mqFurniture();
