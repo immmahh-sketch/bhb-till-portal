@@ -49,6 +49,12 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--berry);outline-o
 .pop .bx{position:relative;margin:0 14px;max-width:420px;width:100%;background:var(--white);border-radius:var(--radius);border-top:3px solid var(--gold);box-shadow:0 14px 40px rgba(38,38,38,.3);padding:20px 20px 18px}
 .pop h3{font-size:22px;margin:0 0 8px}
 .pop p{margin:0 0 16px}
+.vbox{margin:10px 0 0;padding:12px 14px;background:var(--gold-soft);border-left:4px solid var(--gold);border-radius:10px}
+.vrow{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:8px 0 0}
+.vrow input{width:11ch;font-size:22px;letter-spacing:.3em;text-align:center}
+.vrow .btn{padding:11px 18px}
+.btn.ghost{background:var(--white);color:var(--berry);border:1px solid var(--berry)}
+.vok{color:var(--good);font-weight:600;margin:8px 0 0}
 .hp{position:absolute;left:-5000px;width:1px;height:1px;overflow:hidden}
 .spin{display:inline-block;width:22px;height:22px;border:3px solid var(--celadon);border-top-color:var(--berry);border-radius:50%;animation:sp 1s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}
@@ -73,7 +79,7 @@ if (EMBED && window.ResizeObserver) new ResizeObserver(tellHeight).observe(docum
 const $ = s => document.querySelector(s);
 const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
 const gbp = n => "£" + Number(n).toLocaleString("en-GB", { minimumFractionDigits: Number(n) % 1 ? 2 : 0, maximumFractionDigits: 2 });
-let I = null;
+let I = null, PROOF = "", PROOF_FOR = "";
 
 async function call(action, payload){
   const r = await fetch(API, { method:"POST", headers:{ "Content-Type":"application/json", Authorization:"Bearer " + KEY, apikey:KEY }, body:JSON.stringify(Object.assign({ action }, payload || {})) });
@@ -91,7 +97,7 @@ function formHtml(){
     '<div class="note"><b>Please be aware:</b> if a table becomes available, arrival times will be extremely limited. We will do what we can to give you the time you ask for, but it is unlikely to be exactly when and/or where you want it.</div></div>' +
     '<form class="card" id="form" novalidate><h2>Your details</h2>' +
     '<div class="qrow"><label class="f" for="name">Your name<span class="req">*</span></label><input type="text" id="name" maxlength="80" autocomplete="name"></div>' +
-    '<div class="qrow"><label class="f" for="email">Email address<span class="req">*</span></label><input type="email" id="email" maxlength="120" autocomplete="email"></div>' +
+    '<div class="qrow"><label class="f" for="email">Email address<span class="req">*</span></label><input type="email" id="email" maxlength="120" autocomplete="email"><div id="vbox"></div></div>' +
     '<div class="qrow"><label class="f" for="phone">Phone number<span class="req">*</span></label><input type="tel" id="phone" maxlength="30" autocomplete="tel" inputmode="tel"></div>' +
     '<label class="f">Who is coming?</label><div class="cols">' +
       '<div><label for="adults" style="font-size:14px">Adults</label><select id="adults">' + nums(1, 40, 2) + '</select></div>' +
@@ -115,6 +121,7 @@ function render(){
     if (e.target.name === "area" && e.target.value) askNicely("area", e.target);
   });
   $("#form").addEventListener("submit", submit);
+  $("#email").addEventListener("change", vStart); $("#email").addEventListener("input", () => { if (PROOF && PROOF_FOR !== emailNow()) { PROOF = ""; PROOF_FOR = ""; vShow(""); } });
 }
 // a pop-up, set beside the control that was just changed (the page may sit in a tall frame on the website, so it is not centred on the screen)
 function askNicely(kind, from){
@@ -133,6 +140,33 @@ function askNicely(kind, from){
   $("#popok").focus({ preventScroll:true });
   tellHeight();
 }
+// the email check: ask for a code, type it in, and the form holds a one-off proof for that address
+const emailNow = () => ($("#email").value || "").trim().toLowerCase();
+function vShow(html){ $("#vbox").innerHTML = html ? '<div class="vbox">' + html + '</div>' : ""; tellHeight(); }
+function vStart(){
+  const e = emailNow();
+  if (PROOF && PROOF_FOR === e) { vShow('<div class="vok" style="margin:0">&#10003; Email address checked.</div>'); return; }
+  PROOF = ""; PROOF_FOR = "";
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) { vShow(""); return; }
+  vShow('<b>Check your email address.</b> We will send a 6-digit code to ' + esc(e) + '.<div class="vrow"><button type="button" class="btn" id="vsend">Send me a code</button></div><div id="vmsg"></div>');
+  $("#vsend").onclick = vSend;
+}
+async function vSend(){
+  const e = emailNow(), b = $("#vsend"); b.disabled = true; b.textContent = "Sending...";
+  try {
+    await call("waiting.send_code", { email:e, website:($("#website").value || "").trim() });
+    vShow('<b>We have emailed a 6-digit code to ' + esc(e) + '.</b> It can take a minute or two. Please also look in your junk folder.<div class="vrow"><input type="text" id="vcode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" aria-label="6-digit code"><button type="button" class="btn" id="vgo">Check code</button><button type="button" class="btn ghost" id="vagain">Send a new code</button></div><div id="vmsg"></div>');
+    $("#vcode").focus(); $("#vgo").onclick = vCheck; $("#vagain").onclick = vSend;
+    $("#vcode").addEventListener("keydown", ev => { if (ev.key === "Enter") { ev.preventDefault(); vCheck(); } });
+  } catch (err) { vStart(); $("#vmsg").innerHTML = '<div class="err">' + esc(err.message) + '</div>'; }
+}
+async function vCheck(){
+  const e = emailNow(), code = ($("#vcode").value || "").replace(/\s+/g, ""), b = $("#vgo");
+  if (!/^\d{6}$/.test(code)) { $("#vmsg").innerHTML = '<div class="err">Please type the 6 numbers from the email.</div>'; return; }
+  b.disabled = true; b.textContent = "Checking...";
+  try { const r = await call("waiting.verify_code", { email:e, code }); PROOF = r.proof; PROOF_FOR = e; vStart(); }
+  catch (err) { $("#vmsg").innerHTML = '<div class="err">' + esc(err.message) + '</div>'; b.disabled = false; b.textContent = "Check code"; }
+}
 async function submit(ev){
   ev.preventDefault();
   const v = id => ($("#" + id).value || "").trim();
@@ -141,11 +175,12 @@ async function submit(ev){
   let firstBad = null; need.forEach(([k, val]) => { if (!val) { const r = $("#" + k).closest(".qrow"); r.classList.add("bad"); if (!firstBad) firstBad = r; } });
   const msg = $("#msg"); msg.innerHTML = "";
   if (firstBad) { msg.innerHTML = '<div class="err">Please fill in your name, email address and phone number.</div>'; firstBad.scrollIntoView({ behavior:"smooth", block:"center" }); return; }
+  if (!PROOF || PROOF_FOR !== emailNow()) { msg.innerHTML = '<div class="err">Please check your email address first: press "Send me a code" under the email box, then type in the 6-digit code we email you.</div>'; $("#email").closest(".qrow").classList.add("bad"); $("#email").closest(".qrow").scrollIntoView({ behavior:"smooth", block:"center" }); if (!$("#vbox").innerHTML) vStart(); return; }
   if (!$("#consent").checked) { msg.innerHTML = '<div class="err">Please tick the box to say we may contact you.</div>'; return; }
   const btn = $("#go"); btn.disabled = true; btn.textContent = "Sending...";
   try {
     const area = (document.querySelector('input[name="area"]:checked') || {}).value || "";
-    await call("waiting.join", { name:v("name"), email:v("email"), phone:v("phone"), adults:Number($("#adults").value), children:Number($("#children").value), under3:Number($("#under3").value), pref_time:$("#time").value, area_pref:area, notes:v("notes"), website:v("website"), consent:true });
+    await call("waiting.join", { name:v("name"), email:v("email"), phone:v("phone"), adults:Number($("#adults").value), children:Number($("#children").value), under3:Number($("#under3").value), proof:PROOF, pref_time:$("#time").value, area_pref:area, notes:v("notes"), website:v("website"), consent:true });
     window.scrollTo({ top:0, behavior:"smooth" }); if (EMBED && parent !== window) parent.postMessage({ bhbTop:true }, "*");
     $("#app").innerHTML = '<div class="card"><h2>You are on the waiting list</h2><div class="ok">Thank you, ' + esc(v("name").split(/\s+/)[0]) + '. We have emailed you a confirmation.</div>' +
       '<p class="lead"><b>This is not a booking.</b> If a table becomes available we will email you a link to pay for your booking in full. You will then have ' + I.hours + ' hours to pay, or the table will be offered to someone else.</p>' +
