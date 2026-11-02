@@ -49,6 +49,8 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--berry);outline-o
 .pop .bx{position:relative;margin:0 14px;max-width:420px;width:100%;background:var(--white);border-radius:var(--radius);border-top:3px solid var(--gold);box-shadow:0 14px 40px rgba(38,38,38,.3);padding:20px 20px 18px}
 .pop h3{font-size:22px;margin:0 0 8px}
 .pop p{margin:0 0 16px}
+.gated{border:0;margin:0;padding:0;min-width:0}
+.gated:disabled{opacity:.38;filter:grayscale(1);pointer-events:none;user-select:none}
 .vbox{margin:10px 0 0;padding:12px 14px;background:var(--gold-soft);border-left:4px solid var(--gold);border-radius:10px}
 .vrow{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:8px 0 0}
 .vrow input{width:11ch;font-size:22px;letter-spacing:.3em;text-align:center}
@@ -79,7 +81,7 @@ if (EMBED && window.ResizeObserver) new ResizeObserver(tellHeight).observe(docum
 const $ = s => document.querySelector(s);
 const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
 const gbp = n => "£" + Number(n).toLocaleString("en-GB", { minimumFractionDigits: Number(n) % 1 ? 2 : 0, maximumFractionDigits: 2 });
-let I = null, PROOF = "", PROOF_FOR = "";
+let I = null, PROOF = "", PROOF_FOR = "", V_SENT_FOR = "";
 
 async function call(action, payload){
   const r = await fetch(API, { method:"POST", headers:{ "Content-Type":"application/json", Authorization:"Bearer " + KEY, apikey:KEY }, body:JSON.stringify(Object.assign({ action }, payload || {})) });
@@ -98,7 +100,7 @@ function formHtml(){
     '<form class="card" id="form" novalidate><h2>Your details</h2>' +
     '<div class="qrow"><label class="f" for="name">Your name<span class="req">*</span></label><input type="text" id="name" maxlength="80" autocomplete="name"></div>' +
     '<div class="qrow"><label class="f" for="email">Email address<span class="req">*</span></label><input type="email" id="email" maxlength="120" autocomplete="email"><div id="vbox"></div></div>' +
-    '<div class="qrow"><label class="f" for="phone">Phone number<span class="req">*</span></label><input type="tel" id="phone" maxlength="30" autocomplete="tel" inputmode="tel"></div>' +
+    '<fieldset class="gated" id="gated" disabled><div class="qrow"><label class="f" for="phone">Phone number<span class="req">*</span></label><input type="tel" id="phone" maxlength="30" autocomplete="tel" inputmode="tel"></div>' +
     '<label class="f">Who is coming?</label><div class="cols">' +
       '<div><label for="adults" style="font-size:14px">Adults</label><select id="adults">' + nums(1, 40, 2) + '</select></div>' +
       '<div><label for="children" style="font-size:14px">Children (under 12)</label><select id="children">' + nums(0, 40, 0) + '</select></div>' +
@@ -110,7 +112,7 @@ function formHtml(){
     '<label class="f" for="notes">Anything else we should know?</label><p class="hint">For example accessibility needs, high chairs, or a special occasion.</p><textarea id="notes" maxlength="600"></textarea>' +
     '<div class="hp" aria-hidden="true"><label>Leave this empty <input type="text" id="website" tabindex="-1" autocomplete="off"></label></div>' +
     '<label class="chk"><input type="checkbox" id="consent"><span>I am happy for Black Horse Beamish to use these details to contact me about a Christmas Day table. They will not be used for anything else.</span></label>' +
-    '<div id="msg"></div><p style="margin:20px 0 0"><button type="submit" class="btn" id="go">Join the waiting list</button></p></form>';
+    '<div id="msg"></div><p style="margin:20px 0 0"><button type="submit" class="btn" id="go">Join the waiting list</button></p></fieldset></form>';
 }
 function render(){
   if (!I.open) { $("#app").innerHTML = '<div class="card"><h2>The waiting list is closed</h2><p class="lead">We are not taking any more names at the moment. Please phone us on ' + esc(I.contact.phone) + ' or email ' + esc(I.contact.email) + '.</p></div>'; return; }
@@ -121,7 +123,9 @@ function render(){
     if (e.target.name === "area" && e.target.value) askNicely("area", e.target);
   });
   $("#form").addEventListener("submit", submit);
-  $("#email").addEventListener("change", vStart); $("#email").addEventListener("input", () => { if (PROOF && PROOF_FOR !== emailNow()) { PROOF = ""; PROOF_FOR = ""; vShow(""); } });
+  $("#email").addEventListener("change", vStart);
+  $("#email").addEventListener("input", () => { if (!$("#vcode") || V_SENT_FOR !== emailNow() || PROOF) vStart(); });
+  vStart();
 }
 // a pop-up, set beside the control that was just changed (the page may sit in a tall frame on the website, so it is not centred on the screen)
 function askNicely(kind, from){
@@ -143,19 +147,19 @@ function askNicely(kind, from){
 // the email check: ask for a code, type it in, and the form holds a one-off proof for that address
 const emailNow = () => ($("#email").value || "").trim().toLowerCase();
 function vShow(html){ $("#vbox").innerHTML = html ? '<div class="vbox">' + html + '</div>' : ""; tellHeight(); }
+const gate = () => { const on = !!(PROOF && PROOF_FOR === emailNow()); $("#gated").disabled = !on; };
 function vStart(){
-  const e = emailNow();
-  if (PROOF && PROOF_FOR === e) { vShow('<div class="vok" style="margin:0">&#10003; Email address checked.</div>'); return; }
-  PROOF = ""; PROOF_FOR = "";
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) { vShow(""); return; }
-  vShow('<b>Check your email address.</b> We will send a 6-digit code to ' + esc(e) + '.<div class="vrow"><button type="button" class="btn" id="vsend">Send me a code</button></div><div id="vmsg"></div>');
+  const e = emailNow(), valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+  if (PROOF && PROOF_FOR === e) { vShow('<div class="vok" style="margin:0">&#10003; Email address checked. You can fill in the rest of the form.</div>'); gate(); return; }
+  PROOF = ""; PROOF_FOR = ""; V_SENT_FOR = ""; gate();
+  vShow('<b>Two-factor check.</b> ' + (valid ? 'We will send a 6-digit code to ' + esc(e) + '.' : 'Type your email address above, then press the button. We will send you a 6-digit code.') + ' The rest of the form opens once you have entered it.<div class="vrow"><button type="button" class="btn" id="vsend"' + (valid ? "" : " disabled") + '>Send 2-factor code</button></div><div id="vmsg"></div>');
   $("#vsend").onclick = vSend;
 }
 async function vSend(){
   const e = emailNow(), b = $("#vsend"); b.disabled = true; b.textContent = "Sending...";
   try {
-    await call("waiting.send_code", { email:e, website:($("#website").value || "").trim() });
-    vShow('<b>We have emailed a 6-digit code to ' + esc(e) + '.</b> It can take a minute or two. Please also look in your junk folder.<div class="vrow"><input type="text" id="vcode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" aria-label="6-digit code"><button type="button" class="btn" id="vgo">Check code</button><button type="button" class="btn ghost" id="vagain">Send a new code</button></div><div id="vmsg"></div>');
+    await call("waiting.send_code", { email:e, website:($("#website").value || "").trim() }); V_SENT_FOR = e;
+    vShow('<b>Enter your 2-factor code.</b> We have emailed a 6-digit code to ' + esc(e) + '. It can take a minute or two. Please also look in your junk folder.<div class="vrow"><input type="text" id="vcode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" aria-label="6-digit code"><button type="button" class="btn" id="vgo">Check code</button><button type="button" class="btn ghost" id="vagain">Send a new code</button></div><div id="vmsg"></div>');
     $("#vcode").focus(); $("#vgo").onclick = vCheck; $("#vagain").onclick = vSend;
     $("#vcode").addEventListener("keydown", ev => { if (ev.key === "Enter") { ev.preventDefault(); vCheck(); } });
   } catch (err) { vStart(); $("#vmsg").innerHTML = '<div class="err">' + esc(err.message) + '</div>'; }
@@ -175,7 +179,7 @@ async function submit(ev){
   let firstBad = null; need.forEach(([k, val]) => { if (!val) { const r = $("#" + k).closest(".qrow"); r.classList.add("bad"); if (!firstBad) firstBad = r; } });
   const msg = $("#msg"); msg.innerHTML = "";
   if (firstBad) { msg.innerHTML = '<div class="err">Please fill in your name, email address and phone number.</div>'; firstBad.scrollIntoView({ behavior:"smooth", block:"center" }); return; }
-  if (!PROOF || PROOF_FOR !== emailNow()) { msg.innerHTML = '<div class="err">Please check your email address first: press "Send me a code" under the email box, then type in the 6-digit code we email you.</div>'; $("#email").closest(".qrow").classList.add("bad"); $("#email").closest(".qrow").scrollIntoView({ behavior:"smooth", block:"center" }); if (!$("#vbox").innerHTML) vStart(); return; }
+  if (!PROOF || PROOF_FOR !== emailNow()) { msg.innerHTML = '<div class="err">Please check your email address first: press "Send 2-factor code" under the email box, then type in the 6-digit code we email you.</div>'; $("#email").closest(".qrow").classList.add("bad"); $("#email").closest(".qrow").scrollIntoView({ behavior:"smooth", block:"center" }); if (!$("#vbox").innerHTML) vStart(); return; }
   if (!$("#consent").checked) { msg.innerHTML = '<div class="err">Please tick the box to say we may contact you.</div>'; return; }
   const btn = $("#go"); btn.disabled = true; btn.textContent = "Sending...";
   try {
