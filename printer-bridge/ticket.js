@@ -397,6 +397,53 @@ function buildPreorderTicket(job) {
   return Buffer.concat(chunks);
 }
 
+// Staff lunch ticket (3 Nov 2026). One per order, printed on Kitchen Printer 1 (the main printer).
+// payload: { order_no, name, date, choice: main|soup|sandwich, item, message, requested_time: "11:45" | null, is_test }
+// Name, time and dish are in double height or double size, because the chefs said the ordinary text was too small.
+function buildLunchTicket(job) {
+  const p = job.payload || {};
+  const chunks = [];
+  const push = (t) => chunks.push(Buffer.from(String(t), "ascii"));
+  const size = (n) => chunks.push(escBytes([0x1d, 0x21, n]));
+  const bold = (on) => chunks.push(escBytes([0x1b, 0x45, on ? 1 : 0]));
+  const align = (n) => chunks.push(escBytes([0x1b, 0x61, n]));
+  const big = (t, width) => wrapText(plain(t, 300), width).forEach((l) => push(l + "\n"));   // double size = 16 characters a line, double height = 32
+  const clock12 = (hhmm) => { const [h, m] = String(hhmm).split(":").map(Number); return `${h > 12 ? h - 12 : h}:${String(m).padStart(2, "0")}${h >= 12 ? "pm" : "am"}`; };
+  chunks.push(escBytes([0x1b, 0x40])); // initialize
+  chunks.push(escBytes([0x1b, 0x52, 0x03])); // UK character set
+  const testBanner = () => { align(1); bold(true); size(0x11); push("*** TEST ***\n"); size(0x01); push("DO NOT MAKE - TEST ORDER\n"); size(0); bold(false); push(rule()); };
+  if (p.is_test) testBanner();
+  align(1); bold(true);
+  size(0x11); push("STAFF LUNCH\n");
+  size(0); bold(false);
+  const day = p.date ? new Date(p.date + "T12:00:00Z").toLocaleDateString("en-GB", { timeZone: "UTC", weekday: "long", day: "numeric", month: "long" }) : "";
+  push(plain(day, 40) + (p.order_no ? `   #${plain(p.order_no, 8)}` : "") + "\n");
+  push(rule());
+  align(0); bold(true);
+  size(0x11); big(p.name || "", 16);
+  size(0); bold(false); push("\n");
+  bold(true); size(0x01);
+  push(p.requested_time ? "TIME REQUESTED\n" : "TIME\n");
+  size(0x11);
+  push(p.requested_time ? clock12(p.requested_time) + "\n" : "ANY TIME\n");
+  size(0x01);
+  if (!p.requested_time) push("11:30am - 12:30pm\n");
+  size(0); bold(false); push(rule());
+  const label = p.choice === "soup" ? "SOUP" : p.choice === "sandwich" ? "SANDWICH" : "MAIN DISH";
+  bold(true); size(0x01); push(label + "\n");
+  size(0x11); big(p.item || "", 16);
+  size(0); bold(false);
+  if (p.message) {
+    push(rule()); bold(true); size(0x01); push("MESSAGE TO THE KITCHEN\n"); size(0); bold(false);
+    size(0x01); big(p.message, 32); size(0);
+  }
+  push(rule());
+  if (p.is_test) testBanner();
+  chunks.push(escBytes([0x0a, 0x0a, 0x0a, 0x0a])); // feed
+  chunks.push(escBytes([0x1d, 0x56, 0x42, 0x00])); // feed + partial cut
+  return Buffer.concat(chunks);
+}
+
 function printToDevice(buffer, ip, port) {
   return new Promise((resolve, reject) => {
     let settled = false;
@@ -422,4 +469,4 @@ function printToDevice(buffer, ip, port) {
   });
 }
 
-module.exports = { buildTicket, buildBotanicalsReceipt, buildPreorderTicket, printToDevice, LINE_WIDTH };
+module.exports = { buildTicket, buildBotanicalsReceipt, buildPreorderTicket, buildLunchTicket, printToDevice, LINE_WIDTH };

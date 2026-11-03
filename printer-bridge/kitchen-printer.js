@@ -28,7 +28,7 @@
 //
 // Run with: node kitchen-printer.js   (needs Node 18+ for built-in fetch)
 
-const { buildTicket, buildPreorderTicket, printToDevice } = require("./ticket.js");
+const { buildTicket, buildPreorderTicket, buildLunchTicket, printToDevice } = require("./ticket.js");
 const wake = require("./wake.js");
 
 const SUPABASE_URL = "https://safcrtrfdzsnftghibot.supabase.co";
@@ -166,6 +166,25 @@ async function printXmasTickets() {
   }
 }
 
+// Staff lunch orders (3 Nov 2026): destination "staff-lunch", one ticket each on Kitchen Printer 1 (the main printer, which also prints guest receipts).
+async function printLunchTickets() {
+  const jobs = await rest("print_jobs?destination=eq.staff-lunch&status=eq.pending&order=created_at.asc&limit=100&select=*");
+  for (const job of jobs) {
+    const p = job.payload || {}, label = `staff lunch #${p.order_no ?? "?"} ${p.name || ""}`;
+    try {
+      const claimed = await rest(`print_jobs?id=eq.${job.id}&status=eq.pending`, { method: "PATCH", headers: { Prefer: "return=representation" }, body: JSON.stringify({ status: "printing" }) });
+      if (!Array.isArray(claimed) || claimed.length === 0) continue;
+      await printToDevice(buildLunchTicket(job), PRINTER1_IP, PRINTER_PORT);
+      await rest(`print_jobs?id=eq.${job.id}`, { method: "PATCH", body: JSON.stringify({ status: "printed", printed_at: new Date().toISOString() }) });
+      console.log(`[${new Date().toLocaleTimeString()}] printed ${label}`);
+    } catch (e) {
+      console.error(`[${new Date().toLocaleTimeString()}] FAILED to print ${label}: ${e.message}`);
+      await rest(`print_jobs?id=eq.${job.id}&status=eq.printing`, { method: "PATCH", body: JSON.stringify({ status: "pending" }) }).catch(() => {});
+      return;      // the printer is probably off or out of paper: stop here, try again next time, keep the order
+    }
+  }
+}
+
 async function printRequestedReceipts() {
   const orders = await rest(
     `roomservice_orders?select=*&receipt_requested_at=gte.${encodeURIComponent(new Date(Date.now() - 2 * 86400000).toISOString())}&order=receipt_requested_at.asc`
@@ -203,6 +222,7 @@ async function pollOnce() {
   try {
     await printAutoTickets();
     await printXmasTickets();
+    await printLunchTickets();
     await printRequestedReceipts();
   } finally {
     busy = false;
@@ -215,11 +235,11 @@ console.log(`Kitchen printer bridge running — woken by live updates (checking 
 // whenever live updates aren't working (old Node, network blip), as it always used to.
 // A job left "printing" can only mean this program stopped mid-print (it is the only thing that prints "kitchen" jobs), so on
 // start-up put them back to pending and they print again, rather than sitting there for ever with nothing to retry them.
-rest("print_jobs?destination=in.(kitchen,xmas-kitchen)&status=eq.printing", { method: "PATCH", body: JSON.stringify({ status: "pending" }) })
+rest("print_jobs?destination=in.(kitchen,xmas-kitchen,staff-lunch)&status=eq.printing", { method: "PATCH", body: JSON.stringify({ status: "pending" }) })
   .then(() => console.log("start-up: released any jobs left half-printed"))
   .catch((e) => console.error("start-up release failed:", e.message));
 let live = false, timer = null;
 function schedule() { clearTimeout(timer); timer = setTimeout(tick, live ? SAFETY_MS : POLL_MS); }
 function tick() { pollOnce().catch((e) => console.error("poll error:", e.message)).finally(schedule); }
-wake.watch({ name: "kitchen", changes: [{ table: "print_jobs", filter: "destination=eq.kitchen" }, { table: "print_jobs", filter: "destination=eq.xmas-kitchen" }, { table: "roomservice_orders" }], onChange: () => pollOnce().catch((e) => console.error("poll error:", e.message)), onStatus: (v) => { live = v; schedule(); } });
+wake.watch({ name: "kitchen", changes: [{ table: "print_jobs", filter: "destination=eq.kitchen" }, { table: "print_jobs", filter: "destination=eq.xmas-kitchen" }, { table: "print_jobs", filter: "destination=eq.staff-lunch" }, { table: "roomservice_orders" }], onChange: () => pollOnce().catch((e) => console.error("poll error:", e.message)), onStatus: (v) => { live = v; schedule(); } });
 tick();
