@@ -155,3 +155,10 @@ A person with `kind:'existing'` ("team member") has no contract or health forms.
 
 ## Documents are compulsory (8 Oct 2026)
 `p.submit` refuses unless the starter has uploaded at least one `rtw` file, and at least one `ni` file unless `details.ni_unknown` is true ("Still to do: your right to work document, proof of your National Insurance number."). The form no longer offers the "I will bring it on my first day" tick (`details.rtw_later` is now always saved false). The originals are still brought on day one and checked there. Existing team members (`p.docs_done`) still only need a right to work file.
+
+## Authority to Recruit (3 Nov 2026)
+New starters now come from an approved ATR (the `atr` tile, `atr-api`). When an ATR is approved, atr-api inserts a draft `onb_starters` row carrying the ATR's job title, department, pay (hourly or salary), hours, `employment_type`, `term` (temporary when fixed term), the reason in `notes`, `atr_id`, `owner_email` = the Head of Department, and `line_manager`.
+- `starter.save` without `id` is refused (403) unless the caller is an administrator; `team.add` likewise.
+- A starter with `atr_id` has its job, department, group, contract type, pay, hours, employment type and permanent/fixed term locked for non-administrators (the server keeps the approved values; the form disables the fields). Name, email, mobile, start date, fixed term end date, line manager and notes stay editable.
+- A starter from an ATR may have no name (`name_tbc` true, first name "New starter"), an empty email and no start date (`start_date` is now nullable). `starter.send` refuses until those are filled in.
+- `starter.get` also returns `atr` (ref, position type, reason, who requested and approved).

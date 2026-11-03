@@ -417,7 +417,7 @@ function cardHtml(s){
   const cls = ["scard", "card"]; if (risk) cls.push("hasrisk"); else if (s.status === "complete" || s.status === "in_planday") cls.push("done"); if (s.status === "cancelled") cls.push("cx");
   return `<a class="${cls.join(" ")}" href="#/s/${encodeURIComponent(s.id)}">
     <div class="r1"><div><h3>${esc(fullName(s))}</h3><div class="sub">${esc(s.job_title || "No job title")}${s.department_name ? " &middot; " + esc(s.department_name) : ""}</div></div><span class="badge st-${esc(s.status)}">${esc(STATUS[s.status] || s.status)}</span></div>
-    <div class="badges"><span class="sub">${s.start_date ? "Starts " + esc(fmtDay(s.start_date)) : "No start date"}</span><span class="badge kind">${esc(CONTRACT[s.contract_type] || s.contract_type || "")}</span>
+    <div class="badges"><span class="sub">${s.start_date ? "Starts " + esc(fmtDay(s.start_date)) : "No start date"}</span><span class="badge kind">${esc(CONTRACT[s.contract_type] || s.contract_type || "")}</span>${s.atr_id ? `<span class="badge kind">From an ATR</span>` : ""}${s.status === "draft" && (s.name_tbc || !s.email || !s.start_date) ? `<span class="badge flags">Add name, email and start date</span>` : ""}
       ${risk ? `<span class="badge risk">Risk assessment needed</span>` : ""}${s.flags > 0 ? `<span class="badge flags">${s.flags} flag${s.flags === 1 ? "" : "s"}</span>` : ""}${["submitted", "in_planday"].includes(s.status) ? ["rtw", "ni"].filter(k => !(s.checks || {})[k]).map(k => `<span class="badge flags">${k === "rtw" ? "Right to work" : "NI proof"} not checked</span>`).join("") : ""}</div>
     ${stripHtml(s)}${ex ? `<div class="foot${ex.bad ? " bad" : ""}">${ex.t}</div>` : ""}</a>`;
 }
@@ -426,8 +426,8 @@ function renderList(){
   const chips = [["open", "Open"], ["all", "All"], ["cancelled", "Cancelled"]].map(([k, l]) => `<button class="chip" data-act="filter" data-k="${k}" aria-pressed="${S.filter === k}">${l}</button>`).join("");
   const body = L === null ? skeletonList()
     : L.length ? L.map(cardHtml).join("")
-    : `<div class="card empty">${S.filter === "open" ? "No new starters yet. Press New starter when someone accepts a job." : S.filter === "cancelled" ? "No cancelled starters." : "No starters yet. Press New starter when someone accepts a job."}</div>`;
-  $("#views").innerHTML = `<div class="pagehead"><h2>New starters</h2><button class="btn small ghost" data-act="refresh">Refresh</button>${S.me && S.me.payroll_only ? "" : '<button class="btn" data-act="new">New starter</button>'}</div>
+    : `<div class="card empty">${S.filter === "open" ? "No new starters yet. They appear here once an Authority to Recruit is approved." : S.filter === "cancelled" ? "No cancelled starters." : "No starters yet. They appear here once an Authority to Recruit is approved."}</div>`;
+  $("#views").innerHTML = `<div class="pagehead"><h2>New starters</h2><button class="btn small ghost" data-act="refresh">Refresh</button>${S.me && S.me.admin ? '<button class="btn" data-act="new">New starter</button>' : ""}</div>${S.me && !S.me.admin && !S.me.payroll_only ? '<div class="notice info" style="margin-bottom:8px">New starters come from an approved Authority to Recruit. Raise one in the <b>Authority to Recruit</b> tile; once it is approved the person appears here by themselves.</div>' : ""}
     <div class="toolrow" style="margin-top:6px" role="group" aria-label="Show">${chips}</div>${body}
     <p class="muted tiny" style="margin-top:14px">Updates itself every minute${S.fetchedAt ? ". Last checked " + esc(new Date(S.fetchedAt).toLocaleTimeString("en-GB", { hour:"2-digit", minute:"2-digit" })) : ""}.</p>`;
   window.scrollTo(0, keepY);
@@ -452,6 +452,7 @@ async function showList(){ if (S.list === null || S.listFilter !== S.filter) S.l
 /* ------------------------------------------------------------- form */
 function fieldVal(s, k, d){ return s && s[k] !== undefined && s[k] !== null ? s[k] : d; }
 async function showForm(id){
+  if (!id && !(S.me && S.me.admin)) { $("#views").innerHTML = `<button class="back" data-act="back">&larr; Back to the list</button><div class="card"><h3 style="font-size:24px">Raise an Authority to Recruit first</h3><p class="muted">A new starter can only be added from an approved Authority to Recruit (ATR). Raise one in the Authority to Recruit tile of the Staff Portal; once it is approved the person appears in this list by themselves and you are emailed. Only an administrator can add someone without one.</p></div>`; return; }
   $("#views").innerHTML = `<div class="pagehead"><h2>${id ? "Edit starter" : "New starter"}</h2></div>${skeletonList()}`;
   let s = null;
   if (id) {
@@ -466,35 +467,38 @@ async function showForm(id){
   const signed = !!(s && s.signed_at), ct = fieldVal(s, "contract_type", "hourly");
   const sel = (items, curId, curName, idf, label) => {
     const has = items.some(i => String(i.id) === String(curId));
-    return `<select id="f_${idf}" name="${idf}"><option value="">Choose...</option>${items.map(i => `<option value="${esc(i.id)}"${String(i.id) === String(curId) ? " selected" : ""}>${esc(i.name)}</option>`).join("")}${curName && !has ? `<option value="${esc(curId || "")}" selected>${esc(curName)}</option>` : ""}</select>`;
+    return `<select id="f_${idf}" name="${idf}"${dl}><option value="">Choose...</option>${items.map(i => `<option value="${esc(i.id)}"${String(i.id) === String(curId) ? " selected" : ""}>${esc(i.name)}</option>`).join("")}${curName && !has ? `<option value="${esc(curId || "")}" selected>${esc(curName)}</option>` : ""}</select>`;
   };
   const dis = signed ? " disabled" : "";
-  const pickTwo = (name, cur, opts) => `<div class="pick">${opts.map(([v, l]) => `<label class="${cur === v ? "on" : ""}"><input type="radio" name="${name}" value="${v}"${cur === v ? " checked" : ""}> ${l}</label>`).join("")}</div>`;
+  // what an approved ATR fixed (job, department, pay, hours, permanent or fixed term) cannot be changed by the manager; the server enforces it too
+  const atrLock = !!(s && s.atr_id && !(S.me && S.me.admin)), dl = signed || atrLock ? " disabled" : "", atr = S.d && S.d.atr;
+  const tbc = !!(s && s.name_tbc);
+  const pickTwo = (name, cur, opts, off) => `<div class="pick">${opts.map(([v, l]) => `<label class="${cur === v ? "on" : ""}"><input type="radio" name="${name}" value="${v}"${cur === v ? " checked" : ""}${off ? " disabled" : ""}> ${l}</label>`).join("")}</div>`;
   $("#views").innerHTML = `<button class="back" data-act="back">&larr; ${id ? "Back to " + esc(fullName(s)) : "Back to the list"}</button>
     <div class="pagehead"><h2>${id ? "Edit starter" : "New starter"}</h2></div>
     <form id="sform" novalidate autocomplete="off" data-id="${esc(id || "")}">
     <div class="card"><h3 style="font-size:23px;margin-bottom:8px">Who is starting</h3>
-      <div class="grid2"><div class="field"><label for="f_first_name">First name</label><input id="f_first_name" value="${esc(fieldVal(s, "first_name", ""))}" autocomplete="off"><div class="ferr" data-err="first_name"></div></div>
-      <div class="field"><label for="f_last_name">Last name</label><input id="f_last_name" value="${esc(fieldVal(s, "last_name", ""))}" autocomplete="off"><div class="ferr" data-err="last_name"></div></div>
+      <div class="grid2"><div class="field"><label for="f_first_name">First name</label><input id="f_first_name" value="${esc(tbc && s.first_name === "New starter" ? "" : fieldVal(s, "first_name", ""))}" autocomplete="off"><div class="ferr" data-err="first_name"></div></div>
+      <div class="field"><label for="f_last_name">Last name</label><input id="f_last_name" value="${esc(tbc ? "" : fieldVal(s, "last_name", ""))}" autocomplete="off"><div class="ferr" data-err="last_name"></div></div>
       <div class="field"><label for="f_email">Email</label><input id="f_email" type="email" inputmode="email" value="${esc(fieldVal(s, "email", ""))}" autocomplete="off"><div class="hint">The link to their forms is sent here.</div><div class="ferr" data-err="email"></div></div>
       <div class="field"><label for="f_mobile">Mobile (optional)</label><input id="f_mobile" type="tel" inputmode="tel" value="${esc(fieldVal(s, "mobile", ""))}" autocomplete="off"><div class="ferr" data-err="mobile"></div></div></div></div>
-    <div class="card"><h3 style="font-size:23px;margin-bottom:8px">The job</h3>
-      <div class="grid2"><div class="field"><label for="f_job_title">Job title</label><input id="f_job_title" value="${esc(fieldVal(s, "job_title", ""))}"><div class="ferr" data-err="job_title"></div></div>
+    <div class="card"><h3 style="font-size:23px;margin-bottom:8px">The job</h3>${atrLock ? `<div class="notice info" style="margin-bottom:10px">Set by the approved Authority to Recruit${atr ? " (" + esc(atr.ref) + ")" : ""}: the job, pay, hours and permanent or fixed term cannot be changed here. If any of it needs to change, raise a new ATR.</div>` : ""}
+      <div class="grid2"><div class="field"><label for="f_job_title">Job title</label><input id="f_job_title" value="${esc(fieldVal(s, "job_title", ""))}"${dl}><div class="ferr" data-err="job_title"></div></div>
       <div class="field"><label for="f_start_date">Start date</label><input id="f_start_date" type="date" value="${esc(String(fieldVal(s, "start_date", "")).slice(0, 10))}"><div class="ferr" data-err="start_date"></div></div>
-      <div class="field"><label for="f_department">Department</label>${depts.length ? sel(depts, fieldVal(s, "department_id", ""), fieldVal(s, "department_name", ""), "department") : `<input id="f_department" value="${esc(fieldVal(s, "department_name", ""))}" placeholder="For example Kitchen">`}${depts.length ? "" : `<div class="hint">Planday is not connected, so type the department.</div>`}</div>
-      <div class="field"><label for="f_group">Job role / group</label>${groups.length ? sel(groups, fieldVal(s, "group_id", ""), fieldVal(s, "group_name", ""), "group") : `<input id="f_group" value="${esc(fieldVal(s, "group_name", ""))}" placeholder="For example Kitchen team">`}<div class="hint">Needed to create them in Planday.</div></div>
+      <div class="field"><label for="f_department">Department</label>${depts.length ? sel(depts, fieldVal(s, "department_id", ""), fieldVal(s, "department_name", ""), "department") : `<input id="f_department" value="${esc(fieldVal(s, "department_name", ""))}" placeholder="For example Kitchen"${dl}>`}${depts.length ? "" : `<div class="hint">Planday is not connected, so type the department.</div>`}</div>
+      <div class="field"><label for="f_group">Job role / group</label>${groups.length ? sel(groups, fieldVal(s, "group_id", ""), fieldVal(s, "group_name", ""), "group") : `<input id="f_group" value="${esc(fieldVal(s, "group_name", ""))}" placeholder="For example Kitchen team"${dl}>`}<div class="hint">Needed to create them in Planday.</div></div>
       <div class="field"><label for="f_work_location">Work location</label><input id="f_work_location" value="${esc(fieldVal(s, "work_location", "Black Horse Beamish"))}"></div></div></div>
     <div class="card"><h3 style="font-size:23px;margin-bottom:8px">Contract</h3>
       <div class="bigchoice" role="radiogroup" aria-label="Contract type">
-        <label class="${ct === "hourly" ? "on" : ""}"><input type="radio" name="ct" value="hourly"${ct === "hourly" ? " checked" : ""}${dis}>Hourly paid<small>Paid by the hour</small></label>
-        <label class="${ct === "salaried" ? "on" : ""}"><input type="radio" name="ct" value="salaried"${ct === "salaried" ? " checked" : ""}${dis}>Salaried<small>Annual salary, set hours</small></label></div>
+        <label class="${ct === "hourly" ? "on" : ""}"><input type="radio" name="ct" value="hourly"${ct === "hourly" ? " checked" : ""}${dl}>Hourly paid<small>Paid by the hour</small></label>
+        <label class="${ct === "salaried" ? "on" : ""}"><input type="radio" name="ct" value="salaried"${ct === "salaried" ? " checked" : ""}${dl}>Salaried<small>Annual salary, set hours</small></label></div>
       <div class="hint" style="margin-bottom:10px">This fills the contract they will read and sign.${signed ? " They have already signed, so the contract details are locked." : ""}</div>
       <div class="ferr" data-err="contract_type"></div>
-      <div class="grid2"><div class="field pay ${ct === "hourly" ? "" : "off"}" id="w_rate"><label for="f_hourly_rate">Hourly rate</label><span class="cur">£</span><input id="f_hourly_rate" type="number" inputmode="decimal" step="0.01" min="0" value="${esc(fieldVal(s, "hourly_rate", ""))}"${dis}><div class="ferr" data-err="hourly_rate"></div></div>
-      <div class="field pay ${ct === "salaried" ? "" : "off"}" id="w_sal"><label for="f_salary">Annual salary</label><span class="cur">£</span><input id="f_salary" type="number" inputmode="decimal" step="0.01" min="0" value="${esc(fieldVal(s, "salary", ""))}"${dis}><div class="ferr" data-err="salary"></div></div>
-      <div class="field ${ct === "salaried" ? "" : "off"}" id="w_hours"><label for="f_hours">Hours per week</label><input id="f_hours" type="number" inputmode="decimal" step="0.5" min="0" value="${esc(fieldVal(s, "hours", ""))}"${dis}><div class="ferr" data-err="hours"></div></div></div>
-      <div class="grid2" style="margin-top:6px"><div class="field"><span class="lbl">Hours</span>${pickTwo("employment_type", fieldVal(s, "employment_type", "full_time"), [["full_time", "Full time"], ["part_time", "Part time"], ["zero_hours", "Zero hours"]])}</div>
-      <div class="field"><span class="lbl">Permanent or temporary</span>${pickTwo("term", fieldVal(s, "term", "permanent"), [["permanent", "Permanent"], ["temporary", "Temporary"]])}</div></div>
+      <div class="grid2"><div class="field pay ${ct === "hourly" ? "" : "off"}" id="w_rate"><label for="f_hourly_rate">Hourly rate</label><span class="cur">£</span><input id="f_hourly_rate" type="number" inputmode="decimal" step="0.01" min="0" value="${esc(fieldVal(s, "hourly_rate", ""))}"${dl}><div class="ferr" data-err="hourly_rate"></div></div>
+      <div class="field pay ${ct === "salaried" ? "" : "off"}" id="w_sal"><label for="f_salary">Annual salary</label><span class="cur">£</span><input id="f_salary" type="number" inputmode="decimal" step="0.01" min="0" value="${esc(fieldVal(s, "salary", ""))}"${dl}><div class="ferr" data-err="salary"></div></div>
+      <div class="field ${ct === "salaried" ? "" : "off"}" id="w_hours"><label for="f_hours">Hours per week</label><input id="f_hours" type="number" inputmode="decimal" step="0.5" min="0" value="${esc(fieldVal(s, "hours", ""))}"${dl}><div class="ferr" data-err="hours"></div></div></div>
+      <div class="grid2" style="margin-top:6px"><div class="field"><span class="lbl">Hours</span>${pickTwo("employment_type", fieldVal(s, "employment_type", "full_time"), [["full_time", "Full time"], ["part_time", "Part time"], ["zero_hours", "Zero hours"]], atrLock)}</div>
+      <div class="field"><span class="lbl">Permanent or temporary</span>${pickTwo("term", fieldVal(s, "term", "permanent"), [["permanent", "Permanent"], ["temporary", "Temporary"]], atrLock)}</div></div>
       <div class="field ${fieldVal(s, "term", "permanent") === "temporary" ? "" : "off"}" id="w_termend" style="margin-top:6px"><label for="f_term_end_date">Fixed term contract ends on</label><input id="f_term_end_date" type="date" value="${esc(String(fieldVal(s, "term_end_date", "")).slice(0, 10))}"${dis}><div class="hint">This goes into clause 2.1 of the contract they sign.</div><div class="ferr" data-err="term_end_date"></div></div>
 </div>
     <div class="card"><h3 style="font-size:23px;margin-bottom:2px">Line manager</h3><div class="hint" style="margin-bottom:10px">Printed on their health form.</div>
@@ -675,10 +679,11 @@ function headerActions(s, d){
   if (S.me && S.me.payroll_only) return `<div class="notice info" style="margin-top:12px">Payroll view: you can look at this record but not change it. Health answers and right to work documents are not shown.</div>`;
   const st = s.status, ex = expiryText(s), expired = ex && ex.bad, btns = [];
   const live = ["draft", "link_sent", "in_progress", "signed"].includes(st);
-  if (st === "draft") btns.push(`<button class="btn" data-act="send">Send link</button>`);
+  const incomplete = s.kind !== "existing" && (s.name_tbc || !s.email || !s.start_date);
+  if (st === "draft") btns.push(incomplete ? `<a class="btn" href="#/s/${encodeURIComponent(s.id)}/edit">Add their details</a>` : `<button class="btn" data-act="send">Send link</button>`);
   if (["link_sent", "in_progress", "signed"].includes(st)) btns.push(`<button class="btn${expired ? " gold" : " ghost"}" data-act="send">${expired ? "Send a new link" : "Resend link"}</button>`);
   if (live) btns.push(`<button class="btn ghost" data-act="copylink">Copy link</button>`);
-  if (!LOCKED.includes(st)) btns.push(`<a class="btn ghost" href="#/s/${encodeURIComponent(s.id)}/edit">Edit</a>`);
+  if (!LOCKED.includes(st) && !(st === "draft" && incomplete)) btns.push(`<a class="btn ghost" href="#/s/${encodeURIComponent(s.id)}/edit">Edit</a>`);
   if (S.me && S.me.admin && st !== "cancelled") btns.push(`<button class="btn gold" data-act="dlall">Download all</button>`);
   if (st !== "cancelled" && st !== "complete") btns.push(`<button class="btn danger" data-act="cancelask">Cancel starter</button>`);
   let note = "";
@@ -689,6 +694,14 @@ function headerActions(s, d){
   const sendNote = S.ui.sendNote ? `<div class="notice bad" role="alert"><b>The email did not go.</b> ${esc(S.ui.sendNote.error)} Copy the link below and send it to ${esc(s.first_name)} yourself.</div>` : "";
   const lk = S.ui.link ? `<div class="linkbox"><input id="linkfield" readonly value="${esc(S.ui.link.link)}" aria-label="Link for the starter" onfocus="this.select()"><button class="btn small" data-act="copyfield">Copy</button></div>${S.ui.link.expires_at ? `<div class="tiny muted" style="margin-top:4px">Works until ${esc(fmtDay(S.ui.link.expires_at))}. Anyone with this link can open ${esc(s.first_name)}'s forms, so send it only to them.</div>` : `<div class="tiny muted" style="margin-top:4px">Anyone with this link can open ${esc(s.first_name)}'s forms, so send it only to them.</div>`}` : "";
   return `${btns.length ? `<div class="row-actions" style="margin-top:12px">${btns.join("")}</div>` : ""}${note}${sendNote}${lk}${ask}`;
+}
+const ATR_POS = { new: "New position", replacement: "Replacement", re_employed: "Re-employed" };
+function atrCard(s, d){
+  const a = d && d.atr; if (!a) return "";
+  const todo = s.status === "draft" && (s.name_tbc || !s.email || !s.start_date)
+    ? `<div class="notice" style="margin:0 0 10px"><b>Next step:</b> press <b>Add their details</b> and enter ${s.name_tbc ? "their name, " : ""}${!s.email ? "their email address, " : ""}${!s.start_date ? "their start date" : ""}${s.term === "temporary" ? " and the date the fixed term contract ends" : ""}. Then you can send them the link.</div>` : "";
+  return `<div class="card"><h3 style="font-size:21px;margin-bottom:8px">Authority to Recruit ${esc(a.ref)}</h3>${todo}
+    <dl class="kvs">${[["Position", ATR_POS[a.position_type] || a.position_type], ["Reason", a.reason], ["Fixed term", a.fixed_term ? (a.fixed_term_length || "Yes") : "No, permanent"], ["Requested by", a.requested_by_name + ", " + fmtDT(a.requested_at)], ["Approved by", a.decided_by_name ? a.decided_by_name + ", " + fmtDT(a.decided_at) : ""], ["Approval note", a.decision_note]].map(([l, v]) => `<div class="kv nocopy"><dt>${esc(l)}</dt><dd>${v ? esc(v) : '<span class="muted">None</span>'}</dd></div>`).join("")}</dl></div>`;
 }
 function kvRow(label, show, copy){
   const blank = show === "" || show === null || show === undefined;
@@ -964,7 +977,7 @@ function renderTeam(){
   el.innerHTML = `<div class="card teamcard"><h3 style="font-size:24px">Team right to work: upload links</h3>
     <p class="small muted" style="margin:2px 0 10px">Email every team member a personal link to photograph their right to work document. You then check the original and record it.</p>
     <div class="stats">${stat(c.all, "in the register")}${stat(c.notSent, "link not sent")}${stat(c.sent, "link sent")}${stat(c.opened, "opened")}${stat(c.up, "uploaded")}${stat(c.checked, "original checked")}</div>
-    <div class="row-actions" style="margin-top:12px"><button class="btn small" data-act="teamadd"${busy || T.mode === "sending" ? " disabled" : ""}>Add the team from Planday</button><button class="btn small ghost" data-act="teamhand"${busy || T.mode === "sending" ? " disabled" : ""}>Add someone by hand</button>
+    <div class="row-actions" style="margin-top:12px">${S.me && S.me.admin ? `<button class="btn small" data-act="teamadd"${busy || T.mode === "sending" ? " disabled" : ""}>Add the team from Planday</button><button class="btn small ghost" data-act="teamhand"${busy || T.mode === "sending" ? " disabled" : ""}>Add someone by hand</button>` : ""}
     <button class="btn gold" data-act="sendask"${N && !busy && T.mode !== "sending" ? "" : " disabled"}>Send the upload link to everyone who has not uploaded${N ? " (" + N + ")" : ""}</button></div>
     ${N === 0 && c.all ? `<div class="tiny muted" style="margin-top:6px">Everyone in the register has uploaded or been checked.</div>` : ""}${sub}</div>`;
   if (aeId) { const n = document.getElementById(aeId); if (n && n.focus) { n.focus({ preventScroll:true }); try { if (pos !== null && pos !== undefined) n.setSelectionRange(pos, pos); } catch(e){} } }
@@ -1068,6 +1081,7 @@ function renderDetail(){
       <div class="badges" style="margin:0"><span class="badge st-${esc(s.status)}">${esc(STATUS[s.status] || s.status)}</span>${needsRisk(s) ? `<span class="badge risk">Risk assessment needed</span>` : ""}</div></div>
       <div class="muted small" style="margin-top:6px">${esc(s.email || "")}${s.mobile ? " &middot; " + esc(s.mobile) : ""}</div>
       ${headerActions(s, d)}</div>
+    ${atrCard(s, d)}
     ${flagsBanner(s, h)}
     ${flags || s.risk_required || (s.risk_status && s.risk_status !== "none") ? riskBox(s) : ""}
     ${flags ? `<div class="conf">Health information is confidential: only share what the manager of this person needs.</div>` : ""}

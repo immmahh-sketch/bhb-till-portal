@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<script src="/shared/auth.js"></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Authority to Recruit — Black Horse Beamish</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;500;600;700&family=Cormorant+Garamond:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --sage:#4D604F; --sage-70:#7B887C; --sage-10:#EDEFED; --sage-dark:#3F2F28;
+  --bone:#F8F8F8; --celadon:#CCCDB4; --mist:#E7E7E7; --white:#fff; --ink:#262626; --olive:#CCCDB4;
+  --attention:#B08D57; --attention-bg:#F7F0E4; --attention-ink:#6d5320; --alert:#8C4A3F; --alert-bg:#F6EAE8; --good:#4F6B4F; --good-bg:#EDF2ED;
+  --display:"Orpheus Pro","Cormorant Garamond",Georgia,serif; --body:Raleway,"Helvetica Neue",Arial,sans-serif;
+  --track-label:.18em; --radius:10px; --shadow:0 1px 2px rgba(38,38,38,.06),0 8px 24px rgba(38,38,38,.07); --maxw:900px;
+}
+*{box-sizing:border-box} html,body{margin:0;padding:0}
+body{font-family:var(--body); color:var(--ink); background:var(--bone); font-size:15px; line-height:1.5; -webkit-text-size-adjust:100%; overflow-x:hidden}
+h1,h2,h3{font-family:var(--display); font-weight:600; margin:0; letter-spacing:.01em}
+button,input,textarea,select{font:inherit; color:inherit}
+[hidden]{display:none!important}
+.shell{max-width:var(--maxw); margin:0 auto; padding:0 16px 64px}
+#gate{position:fixed; inset:0; background:var(--sage); z-index:100; display:flex; align-items:center; justify-content:center; padding:24px}
+.gatecard{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); width:100%; max-width:380px; padding:32px 28px; text-align:center}
+.gatecard h1{font-size:26px; color:var(--sage); line-height:1.15}
+.gatecard .sub{font-size:11px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); margin:6px 0 22px}
+.gateerr{color:var(--alert); font-size:13px; min-height:18px; margin-top:8px}
+header.top{background:var(--sage); color:var(--white)}
+.topin{max-width:var(--maxw); margin:0 auto; padding:14px 16px; display:flex; align-items:center; gap:18px; flex-wrap:wrap}
+.brand{font-family:var(--display); font-size:21px; line-height:1.1}
+.brand small{display:block; font-family:var(--body); font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; opacity:.75}
+.who{margin-left:auto; display:flex; align-items:center; gap:10px; font-size:12px; opacity:.9}
+.who button{background:transparent; border:1px solid rgba(255,255,255,.4); color:var(--white); border-radius:6px; padding:5px 10px; cursor:pointer; font-size:11px; letter-spacing:.06em; text-transform:uppercase}
+nav.tabs{background:var(--sage-dark)}
+.tabsin{max-width:var(--maxw); margin:0 auto; padding:0 16px; display:flex; gap:2px; overflow-x:auto}
+.tabbtn{background:transparent; border:0; cursor:pointer; color:rgba(255,255,255,.72); padding:12px 16px; font-size:12px; font-weight:600; white-space:nowrap; letter-spacing:var(--track-label); text-transform:uppercase; border-bottom:3px solid transparent}
+.tabbtn[aria-current="page"]{color:var(--white); border-bottom-color:var(--olive)}
+.tabn{display:inline-block; min-width:18px; padding:1px 6px; margin-left:6px; border-radius:999px; background:var(--attention); color:#fff; font-size:10px; letter-spacing:0; text-align:center}
+.pagehead{display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; margin:24px 0 16px}
+.pagehead h2{font-size:26px; color:var(--sage)}
+.hint{font-size:13px; color:var(--sage-70)}
+.spacer{margin-left:auto}
+.btn{border:1px solid var(--sage); background:var(--sage); color:var(--white); border-radius:8px; padding:9px 16px; cursor:pointer; font-size:12px; font-weight:600; letter-spacing:var(--track-label); text-transform:uppercase; min-height:44px; text-decoration:none; display:inline-flex; align-items:center; justify-content:center}
+.btn.ghost{background:var(--white); color:var(--sage)} .btn.ghost:hover{background:var(--sage-10)}
+.btn.danger{background:var(--white); border-color:var(--alert); color:var(--alert)}
+.btn.small{min-height:36px; padding:6px 12px; font-size:11px}
+.btn:disabled{opacity:.5; cursor:default}
+.card{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); padding:18px 20px; margin-bottom:14px}
+.card h3{font-size:22px; color:var(--sage); margin-bottom:12px}
+.notice{background:var(--attention-bg); color:var(--attention-ink); border-radius:8px; padding:12px 14px; margin-bottom:14px; font-size:14px}
+.notice.good{background:var(--good-bg); color:var(--good)} .notice.bad{background:var(--alert-bg); color:var(--alert)}
+.field{margin-bottom:14px} .field>label,.lbl{display:block; font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); margin-bottom:4px}
+.field input,.field textarea,.field select{width:100%; padding:11px 12px; border:1px solid var(--mist); border-radius:8px; font-size:16px; background:var(--white)}
+.field input[aria-invalid="true"],.field textarea[aria-invalid="true"],.field select[aria-invalid="true"]{border-color:var(--alert)}
+textarea{min-height:84px; resize:vertical}
+.ferr{color:var(--alert); font-size:13px; min-height:0} .ferr:empty{display:none}
+.grid2{display:grid; grid-template-columns:1fr 1fr; gap:0 16px}
+.opts{display:flex; gap:8px; flex-wrap:wrap}
+.opt{border:1px solid var(--mist); background:var(--bone); border-radius:999px; padding:9px 16px; cursor:pointer; font-size:14px; min-height:44px}
+.opt:hover{background:var(--sage-10)}
+.opt[aria-pressed="true"]{background:var(--sage); border-color:var(--sage); color:var(--white); font-weight:600}
+.money{position:relative} .money span{position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--sage-70)} .money input{padding-left:26px}
+.sign{border:1px dashed var(--celadon); border-radius:8px; padding:14px 16px; background:var(--bone)}
+.sign label.chk{display:flex; gap:10px; align-items:flex-start; cursor:pointer; font-size:14px}
+.sign input[type=checkbox]{width:22px; height:22px; margin-top:1px; flex:none}
+.tag{display:inline-block; border-radius:999px; padding:3px 10px; font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; background:var(--sage-10); color:var(--sage); white-space:nowrap}
+.tag.pending{background:var(--attention-bg); color:var(--attention-ink)}
+.tag.approved{background:var(--good-bg); color:var(--good)}
+.tag.declined{background:var(--alert-bg); color:var(--alert)}
+.tag.withdrawn{background:var(--mist); color:var(--sage-70)}
+.job{border-left:4px solid var(--celadon); cursor:pointer; display:block; text-decoration:none; color:inherit}
+.job.pending{border-left-color:var(--attention)} .job.approved{border-left-color:var(--good)} .job.declined{border-left-color:var(--alert)}
+.job .t{font-family:var(--display); font-size:22px; color:var(--sage); line-height:1.15}
+.job .m{font-size:13px; color:var(--sage-70); margin-top:3px}
+.job .row{display:flex; justify-content:space-between; gap:10px; align-items:flex-start}
+.filters{display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:14px}
+.muted{color:var(--sage-70)} .empty{padding:40px 20px; text-align:center; color:var(--sage-70)} .loading{padding:60px; text-align:center; color:var(--sage-70)}
+.back{background:none; border:0; color:var(--sage); cursor:pointer; padding:14px 0 0; font-size:13px; font-weight:600}
+/* the form as it looks on paper */
+.paper{background:var(--white); border:1px solid var(--mist); border-radius:var(--radius); padding:22px 24px}
+.paper h3{font-size:24px; text-align:center; letter-spacing:.06em; text-transform:uppercase; margin-bottom:4px}
+.paper .lead{text-align:center; color:var(--sage-70); font-size:13px; margin-bottom:18px}
+.paper dl{margin:0; display:grid; grid-template-columns:minmax(150px,230px) 1fr; border-top:1px solid var(--mist)}
+.paper dt,.paper dd{margin:0; padding:9px 4px; border-bottom:1px solid var(--mist)}
+.paper dt{font-weight:600; font-size:13px; color:var(--sage)} .paper dd{white-space:pre-wrap; overflow-wrap:anywhere}
+.sigs{display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:18px}
+.sigbox{border:1px solid var(--mist); border-radius:8px; padding:12px 14px; min-height:96px}
+.sigbox .who2{font-family:var(--display); font-size:22px; color:var(--sage); margin:6px 0 2px}
+.sigbox .waiting{color:var(--attention-ink); font-size:14px; margin-top:12px}
+.tl{border-top:1px solid var(--mist); margin-top:6px}
+.ev{padding:9px 0; border-bottom:1px solid var(--mist); font-size:14px} .ev:last-child{border-bottom:0} .ev .h{font-size:12px; color:var(--sage-70)}
+.toast{position:fixed; left:50%; bottom:26px; transform:translate(-50%,20px); background:var(--ink); color:var(--white); padding:12px 20px; border-radius:8px; z-index:200; opacity:0; transition:.2s; pointer-events:none; font-size:14px; max-width:90vw}
+.toast.on{opacity:1; transform:translate(-50%,0)} .toast.bad{background:var(--alert)}
+@media (max-width:640px){ .shell{padding:0 12px 48px} .topin,.tabsin{padding-left:12px;padding-right:12px} .pagehead h2{font-size:22px} .btn{width:100%} .btn.small{width:auto} .grid2,.sigs{grid-template-columns:1fr} .paper{padding:16px 14px} .paper dl{grid-template-columns:1fr} .paper dt{border-bottom:0; padding-bottom:0} }
+@media print{
+  header.top,nav.tabs,.noprint,.back,.toast,#gate{display:none!important}
+  body{background:#fff} .shell{max-width:none; padding:0} .paper{border:0; padding:0} .card{box-shadow:none; padding:0}
+}
+</style>
+</head>
+<body>
+<div id="gate"><div class="gatecard"><h1>Authority to Recruit</h1><div class="sub">Black Horse Beamish</div>
+  <p style="margin:0 0 16px;font-size:14px;color:var(--sage-70)">This opens from the Staff Portal, which knows who you are and what you can see.</p>
+  <a href="https://app.blackhorsebeamish.co.uk/portal/app.html" style="display:block;padding:12px;border-radius:8px;background:var(--sage);color:#fff;text-decoration:none;font-weight:600;letter-spacing:var(--track-label);text-transform:uppercase;font-size:12px">Open the Staff Portal</a>
+  <div class="gateerr" id="gerr"></div></div></div>
+<div id="app" hidden>
+  <header class="top"><div class="topin"><div class="brand">Authority to Recruit<small>Black Horse Beamish</small></div>
+    <div class="who"><span id="whoname"></span><button id="signout">Sign out</button></div></div></header>
+  <nav class="tabs"><div class="tabsin" role="tablist" id="tabs"></div></nav>
+  <div class="shell"><div id="views"></div></div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+const CFG = { SUPABASE_URL:"https://safcrtrfdzsnftghibot.supabase.co", SUPABASE_KEY:"sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU" };
+const POS = { new:"New position", replacement:"Replacement", re_employed:"Re-employed staff" };
+const REASON = { new:["Reason for the new position", "Why is this position needed?"], replacement:["Who are they replacing?", "Who is leaving, and why?"], re_employed:["Who is being re-employed, and why?", "Their name, and why they are returning"] };
+const STATUS = { pending:"Waiting for approval", approved:"Approved", declined:"Declined", withdrawn:"Withdrawn" };
+const S = { me:null, deps:[], view:"request", list:null, status:"", openId:null, detail:null, draft:null, pending:0, busy:false };
+const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
+const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const fmtDT = iso => { if(!iso) return ""; try { return new Date(iso).toLocaleString("en-GB",{ timeZone:"Europe/London", day:"numeric", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit" }).replace(",",""); } catch(e){ return String(iso).slice(0,16); } };
+const fmtDay = iso => { if(!iso) return ""; try { return new Date(iso).toLocaleDateString("en-GB",{ timeZone:"Europe/London", day:"numeric", month:"long", year:"numeric" }); } catch(e){ return String(iso).slice(0,10); } };
+const gbp = n => "£" + Number(n).toLocaleString("en-GB", { minimumFractionDigits: Number(n) % 1 ? 2 : 0, maximumFractionDigits:2 });
+const payText = a => a.pay_type === "salaried" ? gbp(a.salary) + " a year" : gbp(a.hourly_rate) + " an hour";
+const hoursText = a => a.hours_type === "zero" ? "Zero hours" : "Contracted, " + Number(a.hours) + " hours a week";
+function toast(msg, bad){ const t=$("#toast"); t.textContent=msg; t.className="toast on"+(bad?" bad":""); clearTimeout(toast._t); toast._t=setTimeout(()=>{t.className="toast";}, bad?5600:2800); }
+function staffEmail(){ try { return sessionStorage.getItem("bhb_staff_email") || ""; } catch(e){ return ""; } }
+async function call(action, payload){
+  const r = await fetch(CFG.SUPABASE_URL + "/functions/v1/atr-api", { method:"POST", headers:{ "Content-Type":"application/json", Authorization:"Bearer "+CFG.SUPABASE_KEY, apikey:CFG.SUPABASE_KEY }, body: JSON.stringify({ action, staff_email: staffEmail(), ...(payload||{}) }) });
+  let d = {}; try { d = await r.json(); } catch(e){}
+  if (!r.ok || d.error) throw new Error(d.error || `Request failed (${r.status})`);
+  return d;
+}
+
+/* ------------------------------------------------------------- the request form */
+const blank = () => ({ position_type:"", candidate_name:"", department_id:"", department_name:"", job_title:"", pay_type:"hourly", hourly_rate:"", salary:"", reason:"", hours_type:"", hours:"", fixed_term:null, fixed_term_length:"", confirm:false });
+function fromAtr(a){
+  return { position_type:a.position_type, candidate_name:a.candidate_name || "", department_id:a.department_id || "", department_name:a.department_name, job_title:a.job_title, pay_type:a.pay_type,
+    hourly_rate:a.hourly_rate ?? "", salary:a.salary ?? "", reason:a.reason, hours_type:a.hours_type, hours:a.hours ?? "", fixed_term:!!a.fixed_term, fixed_term_length:a.fixed_term_length || "", confirm:false };
+}
+function pressed(name, val, label){ return `<button type="button" class="opt" data-pick="${name}" data-v="${esc(val)}" aria-pressed="${String(S.draft[name]) === String(val)}">${label}</button>`; }
+function viewRequest(editId){
+  if (!S.draft) S.draft = blank();
+  const d = S.draft, editing = !!editId;
+  const rl = REASON[d.position_type] || ["Replacing who? / Reason for the new position", "Who they replace, or why the position is needed"];
+  const deptField = S.deps.length
+    ? `<select id="f_dept"><option value="">Choose...</option>${S.deps.map(x => `<option value="${esc(x.id)}"${String(x.id) === String(d.department_id) ? " selected" : ""}>${esc(x.name)}</option>`).join("")}${d.department_name && !S.deps.some(x => String(x.id) === String(d.department_id)) ? `<option value="" selected>${esc(d.department_name)}</option>` : ""}</select>`
+    : `<input id="f_dept" value="${esc(d.department_name)}" placeholder="For example Kitchen">`;
+  $("#views").innerHTML = `<div class="pagehead"><h2>${editing ? "Change your request" : "Authority to Recruit request"}</h2></div>
+    <div class="notice"><b>Complete this before you advertise.</b> Do not list the position on Indeed or anywhere else until it has been approved. Please complete one for all new, replacement and re-employed staff.</div>
+    <form id="rform" novalidate autocomplete="off">
+    <div class="card"><h3>The position</h3>
+      <div class="field"><span class="lbl">Replacement / new position</span><div class="opts">${pressed("position_type","new","New position")}${pressed("position_type","replacement","Replacement")}${pressed("position_type","re_employed","Re-employed staff")}</div><div class="ferr" data-err="position_type"></div></div>
+      <div class="grid2"><div class="field"><label for="f_dept">Department</label>${deptField}<div class="ferr" data-err="department_name"></div></div>
+      <div class="field"><label for="f_job">Job title</label><input id="f_job" value="${esc(d.job_title)}" placeholder="For example Waiter / Waitress"><div class="ferr" data-err="job_title"></div></div></div>
+      <div class="field"><label for="f_cand">Name of possible employee (if you know it)</label><input id="f_cand" value="${esc(d.candidate_name)}" placeholder="Leave blank if you have not found anyone yet"><div class="ferr" data-err="candidate_name"></div></div>
+      <div class="field"><label for="f_reason">${esc(rl[0])}</label><textarea id="f_reason" placeholder="${esc(rl[1])}">${esc(d.reason)}</textarea><div class="ferr" data-err="reason"></div></div></div>
+    <div class="card"><h3>Pay and hours</h3>
+      <div class="field"><span class="lbl">Rate of pay</span><div class="opts">${pressed("pay_type","hourly","Hourly paid")}${pressed("pay_type","salaried","Salaried")}</div></div>
+      <div class="grid2"><div class="field"><label for="f_pay">${d.pay_type === "salaried" ? "Annual salary" : "Hourly rate"}</label><div class="money"><span>£</span><input id="f_pay" type="number" inputmode="decimal" step="0.01" min="0" value="${esc(d.pay_type === "salaried" ? d.salary : d.hourly_rate)}"></div><div class="ferr" data-err="pay"></div></div></div>
+      <div class="field"><span class="lbl">Zero / contracted hours</span><div class="opts">${pressed("hours_type","contracted","Contracted hours")}${pressed("hours_type","zero","Zero hours")}</div><div class="ferr" data-err="hours_type"></div></div>
+      <div class="field" ${d.hours_type === "contracted" ? "" : "hidden"} id="w_hours" style="max-width:240px"><label for="f_hours">Number of hours a week</label><input id="f_hours" type="number" inputmode="decimal" step="0.5" min="0" value="${esc(d.hours)}"><div class="ferr" data-err="hours"></div></div>
+      <div class="field"><span class="lbl">Is it a fixed term contract?</span><div class="opts">${pressed("fixed_term","false","No, permanent")}${pressed("fixed_term","true","Yes, fixed term")}</div><div class="ferr" data-err="fixed_term"></div></div>
+      <div class="field" ${d.fixed_term === true ? "" : "hidden"} id="w_ft"><label for="f_ftl">How long are they to be employed for?</label><input id="f_ftl" value="${esc(d.fixed_term_length)}" placeholder="For example 6 months, or until 31 March 2027"><div class="ferr" data-err="fixed_term_length"></div></div></div>
+    <div class="card"><h3>Signed by Head of Department</h3>
+      <div class="sign"><div style="display:flex;gap:24px;flex-wrap:wrap;margin-bottom:10px"><div><div class="lbl">Print name</div><b>${esc(S.me.name)}</b></div><div><div class="lbl">Date</div><b>${esc(fmtDay(new Date().toISOString()))}</b></div></div>
+        <label class="chk"><input type="checkbox" id="f_confirm"${d.confirm ? " checked" : ""}><span>I am the Head of Department. I confirm this position is needed and that the details above are correct. Ticking this is my signature.</span></label></div>
+      <div class="ferr" data-err="confirm" style="margin-top:6px"></div></div>
+    <div class="ferr" id="formerr" role="alert" style="margin:0 2px 8px"></div>
+    <div class="opts noprint"><button type="button" class="btn" data-act="submit">${editing ? "Save changes" : "Send for approval"}</button>${editing ? '<button type="button" class="btn ghost" data-act="canceledit">Cancel</button>' : ""}</div>
+    </form>`;
+  const form = $("#rform");
+  form.addEventListener("click", e => {
+    const b = e.target.closest("[data-pick]"); if (!b) return;
+    const k = b.dataset.pick; let v = b.dataset.v; if (k === "fixed_term") v = v === "true";
+    sync(); S.draft[k] = v;
+    if (k === "pay_type") { /* keep each amount separately */ }
+    viewRequest(editId);
+  });
+  form.addEventListener("click", e => { const b = e.target.closest("[data-act]"); if (!b) return; if (b.dataset.act === "submit") submit(editId); if (b.dataset.act === "canceledit") { S.draft = null; openJob(editId); } });
+}
+function sync(){
+  const d = S.draft, v = id => { const e = $("#" + id); return e ? e.value.trim() : null; };
+  const g = (id, k) => { const x = v(id); if (x !== null) d[k] = x; };
+  g("f_cand","candidate_name"); g("f_job","job_title"); g("f_reason","reason"); g("f_hours","hours"); g("f_ftl","fixed_term_length");
+  const pay = v("f_pay"); if (pay !== null) d[d.pay_type === "salaried" ? "salary" : "hourly_rate"] = pay;
+  const dept = $("#f_dept");
+  if (dept) {
+    if (dept.tagName === "SELECT") { const o = dept.selectedOptions[0], t = o ? o.textContent : ""; d.department_id = dept.value; d.department_name = t && t !== "Choose..." ? t : ""; }
+    else { d.department_name = dept.value.trim(); d.department_id = ""; }
+  }
+  const c = $("#f_confirm"); if (c) d.confirm = c.checked;
+}
+function problems(d){
+  const e = {};
+  if (!d.position_type) e.position_type = "Say whether this is a new position, a replacement or re-employed staff.";
+  if (!d.department_name) e.department_name = "Choose the department.";
+  if (!d.job_title) e.job_title = "Enter the job title.";
+  if (d.position_type === "re_employed" && !d.candidate_name) e.candidate_name = "Enter the name of the person being re-employed.";
+  if (!d.reason || d.reason.length < 3) e.reason = d.position_type === "replacement" ? "Say who they are replacing." : d.position_type === "re_employed" ? "Say who is being re-employed and why." : "Say why the position is needed.";
+  const amt = Number(d.pay_type === "salaried" ? d.salary : d.hourly_rate);
+  if (!(amt > 0)) e.pay = d.pay_type === "salaried" ? "Enter the annual salary in pounds." : "Enter the hourly rate in pounds.";
+  if (!d.hours_type) e.hours_type = "Choose contracted or zero hours.";
+  else if (d.hours_type === "zero" && d.pay_type === "salaried") e.hours_type = "A salaried position needs contracted hours.";
+  else if (d.hours_type === "contracted" && !(Number(d.hours) > 0)) e.hours = "Enter the number of hours a week.";
+  if (d.fixed_term === null) e.fixed_term = "Say whether it is a fixed term contract.";
+  else if (d.fixed_term && !d.fixed_term_length) e.fixed_term_length = "Say how long they are to be employed for.";
+  if (!d.confirm) e.confirm = "Tick the box to sign the request.";
+  return e;
+}
+function showErrors(e){
+  $$("#rform [data-err]").forEach(n => { n.textContent = e[n.dataset.err] || ""; });
+  const first = Object.keys(e)[0]; if (!first) return;
+  const el = $(`#rform [data-err="${first}"]`); if (el) el.scrollIntoView({ block:"center", behavior:"smooth" });
+}
+async function submit(editId){
+  if (S.busy) return;
+  sync(); const d = S.draft, errs = problems(d); showErrors(errs); $("#formerr").textContent = "";
+  if (Object.keys(errs).length) { $("#formerr").textContent = "Please fix the highlighted parts."; return; }
+  const body = { position_type:d.position_type, candidate_name:d.candidate_name, department_id:d.department_id || null, department_name:d.department_name, job_title:d.job_title, pay_type:d.pay_type,
+    hourly_rate:d.pay_type === "hourly" ? d.hourly_rate : null, salary:d.pay_type === "salaried" ? d.salary : null, reason:d.reason, hours_type:d.hours_type, hours:d.hours_type === "contracted" ? d.hours : null,
+    fixed_term:d.fixed_term === true, fixed_term_length:d.fixed_term ? d.fixed_term_length : "", confirm:true };
+  S.busy = true; document.querySelectorAll("[data-act=submit]").forEach(b => b.disabled = true);
+  try {
+    const r = editId ? await call("atr.update", { id:editId, ...body }) : await call("atr.create", body);
+    S.draft = null; S.list = null;
+    toast(editId ? "Changes saved." : (r.email_error ? "Sent, but the email to the approver did not go: " + r.email_error : "Sent for approval. The approver has been emailed."), !!r.email_error);
+    S.openId = r.atr.id; goView("mine", r.atr.id);
+  } catch(e){ $("#formerr").textContent = e.message; toast(e.message, true); }
+  finally { S.busy = false; document.querySelectorAll("[data-act=submit]").forEach(b => b.disabled = false); }
+}
+
+/* ------------------------------------------------------------- lists */
+function card(a, showWho){
+  return `<a class="card job ${esc(a.status)}" href="#" data-open="${esc(a.id)}"><div class="row"><div><div class="t">${esc(a.job_title)}</div>
+    <div class="m">${esc(a.ref || "")} · ${esc(a.department_name)} · ${esc(POS[a.position_type] || a.position_type)}${a.candidate_name ? " · " + esc(a.candidate_name) : ""}</div></div><span class="tag ${esc(a.status)}">${esc(STATUS[a.status] || a.status)}</span></div>
+    <div class="m">${esc(payText(a))} · ${esc(hoursText(a))}${a.fixed_term ? " · fixed term" : ""}</div>
+    <div class="m">${showWho ? "Requested by " + esc(a.requested_by_name) + ", " : "Requested "}${esc(fmtDT(a.requested_at))}${a.decided_at ? " · " + (a.status === "declined" ? "declined" : "decided") + " by " + esc(a.decided_by_name) : ""}</div></a>`;
+}
+async function viewList(scope){
+  const heading = scope === "mine" ? "My requests" : scope === "approve" ? "To approve" : "All requests";
+  $("#views").innerHTML = `<div class="pagehead"><h2>${heading}</h2></div><div class="loading">Loading...</div>`;
+  const status = scope === "approve" ? "pending" : S.status;
+  let r;
+  try { r = await call("atr.list", { scope: scope === "mine" ? "mine" : "all", status }); } catch(e){ $("#views").innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+  S.list = r.requests;
+  if (scope === "approve") { S.pending = r.requests.length; setBadge(); }
+  const chips = scope === "approve" ? "" : `<div class="filters noprint">${[["","All"],["pending","Waiting"],["approved","Approved"],["declined","Declined"],["withdrawn","Withdrawn"]].map(([k,l]) => `<button class="opt" data-status="${k}" aria-pressed="${S.status === k}">${l}</button>`).join("")}</div>`;
+  const empty = scope === "mine" ? "You have not raised any Authority to Recruit requests yet." : scope === "approve" ? "Nothing is waiting for your approval." : "No requests match.";
+  $("#views").innerHTML = `<div class="pagehead"><h2>${heading}</h2>${scope === "all" && r.requests.length ? '<button class="btn small ghost spacer" data-act="csv">Download CSV</button>' : ""}${scope === "mine" ? '<button class="btn spacer" data-act="newreq">Raise an ATR</button>' : ""}</div>${chips}
+    ${r.requests.length ? r.requests.map(a => card(a, scope !== "mine")).join("") : `<div class="card empty">${empty}</div>`}`;
+}
+function csv(){
+  const head = ["Ref","Status","Job title","Department","Position","Possible employee","Pay","Hours","Fixed term","Requested by","Requested","Decided by","Decided"];
+  const q = v => '"' + String(v ?? "").replace(/"/g, '""') + '"';
+  const rows = (S.list || []).map(a => [a.ref, STATUS[a.status], a.job_title, a.department_name, POS[a.position_type], a.candidate_name || "", payText(a), hoursText(a), a.fixed_term ? "Yes" : "No", a.requested_by_name, fmtDT(a.requested_at), a.decided_by_name || "", a.decided_at ? fmtDT(a.decided_at) : ""]);
+  const blob = new Blob(["﻿" + [head].concat(rows).map(r => r.map(q).join(",")).join("\r\n")], { type:"text/csv" });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "ATR requests.csv"; document.body.appendChild(a); a.click(); a.remove();
+}
+
+/* ------------------------------------------------------------- one request, laid out like the paper form */
+async function openJob(id){
+  S.openId = id; $("#views").innerHTML = `<div class="loading">Loading...</div>`;
+  try { S.detail = await call("atr.get", { id }); } catch(e){ $("#views").innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+  renderJob();
+}
+function renderJob(){
+  const D = S.detail, a = D.atr, me = S.me;
+  const rl = (REASON[a.position_type] || REASON.new)[0];
+  const rows = [
+    ["Name of Possible Employee", a.candidate_name || "Not known yet"], ["Department", a.department_name], ["Job Title", a.job_title], ["Rate of Pay", payText(a)],
+    ["Replacement / New Position", POS[a.position_type] || a.position_type], [rl.replace("?",""), a.reason], ["Zero / Contracted Hours?", a.hours_type === "zero" ? "Zero hours" : "Contracted"],
+    ["No. of hours", a.hours_type === "contracted" ? Number(a.hours) + " a week" : "Not applicable"], ["If Fixed Term Contract, how long are they to be employed for", a.fixed_term ? (a.fixed_term_length || "Yes") : "Not a fixed term contract"],
+  ];
+  const decided = a.status === "approved" || a.status === "declined";
+  const sig2 = decided ? `<div class="who2">${esc(a.decided_by_name)}</div><div class="hint">${a.status === "approved" ? "Approved" : "Declined"} ${esc(fmtDay(a.decided_at))}</div>${a.decision_note ? `<div style="margin-top:6px;font-size:14px">${esc(a.decision_note)}</div>` : ""}`
+    : a.status === "withdrawn" ? `<div class="waiting">Withdrawn by the manager</div>` : `<div class="waiting">Waiting for the General Manager</div>`;
+  const onb = a.status === "approved" ? `<div class="notice good noprint"><b>Approved and added to Onboarding.</b> ${esc(a.requested_by_name)} ${a.onboarding_emailed_at ? "was emailed to complete onboarding for the new starter." : "has not been emailed yet."}${D.starter ? ` Onboarding record: ${esc(D.starter.name_tbc ? "New starter (name to add)" : (D.starter.first_name + " " + D.starter.last_name).trim())}.` : ""}</div>` : "";
+  const warn = S.warning ? `<div class="notice bad noprint">${esc(S.warning)}</div>` : "";
+  const acts = [];
+  if (D.can_decide) acts.push(`<div class="card noprint"><h3>Your decision</h3><div class="field"><label for="f_note">Note (needed if you decline)</label><textarea id="f_note" placeholder="Optional when approving"></textarea></div><div class="opts"><button class="btn" data-act="approve">Approve and add to Onboarding</button><button class="btn danger" data-act="decline">Decline</button></div><p class="hint" style="margin:10px 0 0">Approving puts the person into Onboarding with every detail from this request and emails ${esc(a.requested_by_name)} to complete it.</p></div>`);
+  const btns = [`<button class="btn ghost" data-act="print">Print</button>`];
+  if (D.can_edit) btns.push(`<button class="btn ghost" data-act="edit">Change</button><button class="btn danger" data-act="withdraw">Withdraw</button>`);
+  if (a.status === "declined" && a.requested_by_email === me.email) btns.push(`<button class="btn" data-act="again">Raise again with changes</button>`);
+  if (a.status === "approved" && (me.approver || me.admin || a.requested_by_email === me.email)) btns.push(`<button class="btn ghost" data-act="resend">Email the onboarding reminder again</button>`);
+  $("#views").innerHTML = `<button class="back noprint" data-act="back">&larr; Back</button>
+    <div class="pagehead"><h2>${esc(a.ref)} · ${esc(a.job_title)}</h2><span class="tag ${esc(a.status)}">${esc(STATUS[a.status] || a.status)}</span></div>${onb}${warn}
+    <div class="paper"><h3>Authority to Recruit Request</h3><div class="lead">Please ensure that this form is completed for all new/replacement staff and all re-employed staff.</div>
+      <dl>${rows.map(([k,v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("")}</dl>
+      <div class="sigs"><div class="sigbox"><div class="lbl">Signed by Head of Department</div><div class="who2">${esc(a.requested_by_name)}</div><div class="hint">Signed ${esc(fmtDay(a.requested_at))}</div></div>
+      <div class="sigbox"><div class="lbl">Signed by General Manager</div>${sig2}</div></div></div>
+    <div class="opts noprint" style="margin:14px 0">${btns.join("")}</div>${acts.join("")}
+    <div class="card noprint"><h3>History</h3><div class="tl">${(D.events || []).map(e => `<div class="ev"><div class="h">${esc(fmtDT(e.at))} · ${esc(e.who)}</div>${esc(e.what)}</div>`).join("") || '<div class="muted">Nothing yet.</div>'}</div></div>`;
+}
+async function act(a){
+  const D = S.detail; if (!D || S.busy) return;
+  const id = D.atr.id;
+  S.busy = true;
+  try {
+    if (a === "print") { window.print(); return; }
+    if (a === "back") { S.warning = ""; return goView(S.view === "request" ? "mine" : S.view); }
+    if (a === "edit") { S.draft = fromAtr(D.atr); S.editId = id; S.view = "request"; markTab(); return viewRequest(id); }
+    if (a === "again") { S.draft = fromAtr(D.atr); S.editId = null; goView("request"); return; }
+    if (a === "withdraw") { if (!confirmed("withdraw")) return; await call("atr.withdraw", { id }); toast("Withdrawn."); S.list = null; return openJob(id); }
+    if (a === "resend") { await call("atr.resend", { id }); toast("Email sent to " + D.atr.requested_by_name + "."); return openJob(id); }
+    if (a === "approve" || a === "decline") {
+      const note = ($("#f_note") || {}).value || "";
+      if (a === "decline" && !note.trim()) { toast("Please say why you are declining it.", true); $("#f_note").focus(); return; }
+      if (!confirmed(a)) return;
+      const r = await call("atr.decide", { id, decision:a, note });
+      S.warning = r.warning || "";
+      toast(a === "approve" ? (r.emailed === false ? "Approved and added to Onboarding, but the email did not go: " + (r.email_error || "") : "Approved. Added to Onboarding and " + D.atr.requested_by_name + " has been emailed.") : (r.emailed === false ? "Declined, but the email did not go." : "Declined. The manager has been emailed."), r.emailed === false);
+      S.list = null; S.pending = Math.max(0, S.pending - 1); setBadge(); return openJob(id);
+    }
+  } catch(e){ toast(e.message, true); }
+  finally { S.busy = false; }
+}
+const _asked = {};
+function confirmed(key){
+  // no browser dialogs in the app: the first press asks, a second press within 6 seconds does it
+  if (_asked[key] && Date.now() - _asked[key] < 6000) { delete _asked[key]; return true; }
+  _asked[key] = Date.now();
+  toast({ withdraw:"Press Withdraw again to withdraw this request.", approve:"Press Approve again to confirm.", decline:"Press Decline again to confirm." }[key]);
+  return false;
+}
+
+/* ------------------------------------------------------------- settings */
+async function viewSettings(){
+  $("#views").innerHTML = `<div class="pagehead"><h2>Settings</h2></div><div class="loading">Loading...</div>`;
+  let r; try { r = await call("settings.get"); } catch(e){ $("#views").innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+  const st = r.settings;
+  $("#views").innerHTML = `<div class="pagehead"><h2>Settings</h2></div>
+    <div class="card"><div class="field"><label for="s_app">Who can approve or decline an ATR</label><textarea id="s_app">${esc((st.approver_emails || []).join("\n"))}</textarea><div class="hint">One email address per line, the one they sign in to the Staff Portal with. They are emailed whenever a request comes in, and they need the Authority to Recruit tile ticked in Settings &gt; Users.</div></div>
+      <div class="field"><label for="s_copy">Also tell these people when an ATR is approved</label><textarea id="s_copy" placeholder="Optional">${esc((st.copy_emails || []).join("\n"))}</textarea><div class="hint">For example accounts, so payroll knows a new starter is coming. One email address per line.</div></div>
+      <div class="ferr" id="serr"></div><button class="btn" data-act="savesettings">Save</button></div>
+    <div class="card"><h3>How it works</h3><ol style="margin:0;padding-left:20px"><li>The Head of Department raises an ATR <b>before</b> advertising the job.</li><li>The approver is emailed and approves or declines it here.</li><li>On approval the person is put into Onboarding with every detail from the ATR (job, department, pay, hours, permanent or fixed term, the reason), and the Head of Department is emailed to complete onboarding.</li><li>The job, pay and hours are then fixed in Onboarding; only an administrator can change them or add someone without an ATR.</li></ol></div>`;
+}
+
+/* ------------------------------------------------------------- shell */
+function tabsFor(){
+  const t = [["request","Raise an ATR"],["mine","My requests"]];
+  if (S.me.approver) t.push(["approve","To approve"]);
+  if (S.me.can_see_all) t.push(["all","All requests"]);
+  if (S.me.admin) t.push(["settings","Settings"]);
+  return t;
+}
+function markTab(){ $$(".tabbtn").forEach(b => b.setAttribute("aria-current", b.dataset.view === S.view ? "page" : "false")); }
+function setBadge(){ const b = $('.tabbtn[data-view="approve"]'); if (!b) return; b.innerHTML = 'To approve' + (S.pending > 0 ? `<span class="tabn">${S.pending}</span>` : ""); }
+function goView(v, openId){
+  S.view = v; markTab(); window.scrollTo(0, 0);
+  if (openId) return openJob(openId);
+  if (v === "request") { S.draft = S.draft || blank(); return viewRequest(null); }
+  if (v === "settings") return viewSettings();
+  return viewList(v);
+}
+function openGate(msg){ $("#gate").hidden = false; $("#app").hidden = true; if (msg) $("#gerr").textContent = msg; }
+$("#signout").addEventListener("click", () => { try { sessionStorage.removeItem("bhb_staff_email"); } catch(e){} openGate(); });
+document.addEventListener("click", async e => {
+  const open = e.target.closest("[data-open]"); if (open) { e.preventDefault(); S.warning = ""; return openJob(open.dataset.open); }
+  const st = e.target.closest("[data-status]"); if (st) { S.status = st.dataset.status; return viewList(S.view); }
+  const b = e.target.closest("[data-act]"); if (!b || b.closest("#rform")) return;
+  const a = b.dataset.act;
+  if (a === "newreq") { S.draft = blank(); return goView("request"); }
+  if (a === "csv") return csv();
+  if (a === "savesettings") {
+    b.disabled = true; $("#serr").textContent = "";
+    try { await call("settings.save", { approver_emails: $("#s_app").value, copy_emails: $("#s_copy").value }); toast("Saved."); const bs = await call("bootstrap"); S.me = bs.me; }
+    catch(err){ $("#serr").textContent = err.message; toast(err.message, true); }
+    b.disabled = false; return;
+  }
+  act(a);
+});
+async function boot(){
+  $("#app").hidden = false; $("#views").innerHTML = `<div class="loading">Loading...</div>`;
+  let d;
+  try { d = await call("bootstrap"); } catch(e){ $("#views").innerHTML = `<div class="empty">${esc(e.message)}<br><br><span class="muted">Open this from the Staff Portal so it knows who you are.</span></div>`; return; }
+  S.me = d.me; S.deps = d.departments || []; S.pending = d.pending || 0; $("#whoname").textContent = S.me.name;
+  $("#tabs").innerHTML = tabsFor().map(([k,l]) => `<button class="tabbtn" role="tab" data-view="${k}">${l}</button>`).join("");
+  $$(".tabbtn").forEach(b => b.addEventListener("click", () => { S.draft = b.dataset.view === "request" ? blank() : S.draft; goView(b.dataset.view); }));
+  setBadge();
+  goView(S.me.approver && S.pending > 0 ? "approve" : "request");
+}
+(function(){ if (staffEmail()) { $("#gate").hidden = true; boot(); } else openGate(); })();
+</script>
+</body>
+</html>
