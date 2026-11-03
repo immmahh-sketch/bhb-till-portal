@@ -140,6 +140,17 @@ tbody tr:hover{background:var(--sage-10)}
 .pastrm--sure{background:var(--alert); color:#fff}
 .pastrm--sure:hover{background:var(--alert); color:#fff}
 .pastrm--back:hover{background:var(--sage-10,#EDEFED); color:var(--sage,#4D604F)}
+.chasenote{margin-top:6px;font-size:.8125rem;line-height:1.4;color:var(--sage);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.chasenote .when{color:var(--sage-70)}
+.chasebtn{margin-top:4px;font-size:.75rem}
+tr.chasepanel td{background:var(--bone);padding:14px 16px;border-top:0}
+.cn-form{display:grid;grid-template-columns:minmax(120px,170px) 1fr auto;gap:8px;align-items:start;margin-bottom:12px}
+.cn-form textarea{min-height:56px}
+.cn-item{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-top:1px solid var(--mist);font-size:.875rem}
+.cn-item:first-child{border-top:0}
+.cn-item .cn-body{flex:1;min-width:0;white-space:pre-wrap;overflow-wrap:anywhere}
+.cn-item .cn-meta{display:block;color:var(--sage-70);font-size:.75rem;margin-top:2px}
+@media (max-width:640px){.cn-form{grid-template-columns:1fr}}
 .pastdism{margin:-6px 0 8px; font-size:13px}
 .linkish{background:none; border:0; padding:0; color:var(--blue,#34546F); text-decoration:underline; cursor:pointer; font:inherit}
 .notice--ok{background:var(--sage-10);border-color:var(--celadon)}
@@ -2960,6 +2971,81 @@ function exportInstalments(){
       }));
 }
 
+/* Chase notes and payment notes. The newest shows under the couple's name; "Notes" opens the whole log under the row. */
+function noteWhen(iso){
+  var d = new Date(iso); if (isNaN(d)) return "";
+  return new Intl.DateTimeFormat("en-GB", { day:"numeric", month:"short", hour:"2-digit", minute:"2-digit", timeZone:"Europe/London" }).format(d);
+}
+function noteKindLabel(k){ return k === "payment" ? "Payment note" : "Chase"; }
+function chaseNoteCell(r){
+  var n = r.last_note, open = S.chase_open === r.id;
+  return (n ? '<div class="chasenote"><span class="pill ' + (n.kind === "payment" ? 'pill--ok' : 'pill--due') + '">' + esc(noteKindLabel(n.kind)) + '</span> ' +
+      '<span class="when">' + esc(noteWhen(n.at)) + (n.by ? ', ' + esc(n.by) : '') + ':</span> ' + esc(n.body) + '</div>' : '') +
+    '<div><button type="button" class="linkish chasebtn" onclick="toggleChaseNotes(\'' + esc(r.id) + '\')">' +
+      (open ? 'Hide notes' : (r.note_count ? 'Notes (' + r.note_count + ')' : 'Add a note')) + '</button></div>';
+}
+function chaseNotePanel(r){
+  var list = S.chase_notes && S.chase_notes[r.id];
+  var kind = S.chase_kind || "chase";
+  var h = '<tr class="chasepanel"><td colspan="6">' +
+    '<div class="cn-form">' +
+      '<select aria-label="Type of note" onchange="S.chase_kind=this.value">' +
+        '<option value="chase"' + (kind === "chase" ? ' selected' : '') + '>Chase</option>' +
+        '<option value="payment"' + (kind === "payment" ? ' selected' : '') + '>Payment note</option></select>' +
+      '<textarea id="cn-text" aria-label="Note" maxlength="1000" placeholder="e.g. Rang, no answer, left a message. Or: paying 2,000 pounds by bank transfer on Friday." oninput="S.chase_draft=this.value">' + esc(S.chase_draft || "") + '</textarea>' +
+      '<button type="button" class="btn btn--sm" id="cn-save" onclick="addChaseNote(\'' + esc(r.id) + '\')">Save note</button></div>';
+  if (!list) h += '<p class="muted" style="margin:0">Loading the notes...</p>';
+  else if (!list.length) h += '<p class="muted" style="margin:0">No notes on this couple yet.</p>';
+  else h += list.map(function(n){
+    var mine = n.by_email && n.by_email === String(staffEmail() || "").toLowerCase();
+    return '<div class="cn-item"><span class="pill ' + (n.kind === "payment" ? 'pill--ok' : 'pill--due') + '">' + esc(noteKindLabel(n.kind)) + '</span>' +
+      '<div class="cn-body">' + esc(n.body) + '<span class="cn-meta">' + esc(noteWhen(n.created_at)) + (n.by_name ? ', ' + esc(n.by_name) : '') + '</span></div>' +
+      (mine ? '<button type="button" class="pastrm" style="min-width:0;padding:4px 10px" data-note="' + esc(n.id) + '" data-id="' + esc(r.id) + '" onclick="deleteChaseNote(this)">Delete</button>' : '') + '</div>';
+  }).join('');
+  return h + '</td></tr>';
+}
+function chaseRow(id){ return (S.outstanding || []).filter(function(r){ return r.id === id; })[0]; }
+function setChaseNotes(id, notes){
+  S.chase_notes = S.chase_notes || {}; S.chase_notes[id] = notes;
+  var row = chaseRow(id);
+  if (row) { row.note_count = notes.length; row.last_note = notes[0] ? { kind: notes[0].kind, body: notes[0].body, by: notes[0].by_name || "", at: notes[0].created_at } : null; }
+}
+async function toggleChaseNotes(id){
+  if (S.chase_open === id) { S.chase_open = null; $("views").innerHTML = viewOutstanding(); return; }
+  S.chase_open = id; S.chase_draft = ""; S.chase_kind = "chase";
+  $("views").innerHTML = viewOutstanding();
+  try {
+    var d = await call("chasenote.list", { id: id });
+    setChaseNotes(id, d.notes || []);
+    if (S.chase_open === id) $("views").innerHTML = viewOutstanding();
+  } catch (e) { showErr(e.message); }
+}
+async function addChaseNote(id){
+  var ta = document.getElementById("cn-text"), btn = document.getElementById("cn-save");
+  var body = ta ? ta.value.trim() : "";
+  if (!body) { if (ta) ta.focus(); return; }
+  btn.disabled = true; btn.textContent = "Saving...";
+  try {
+    var d = await call("chasenote.add", { id: id, kind: S.chase_kind || "chase", body: body });
+    setChaseNotes(id, d.notes || []); S.chase_draft = "";
+    $("views").innerHTML = viewOutstanding();
+    noteTop("Note saved.");
+  } catch (e) { btn.disabled = false; btn.textContent = "Save note"; showErr(e.message); }
+}
+async function deleteChaseNote(btn){
+  if (btn.dataset.sure !== "1") {
+    btn.dataset.sure = "1"; btn.textContent = "Sure?"; btn.classList.add("pastrm--sure");
+    setTimeout(function(){ if (btn.isConnected) { btn.dataset.sure = ""; btn.textContent = "Delete"; btn.classList.remove("pastrm--sure"); } }, 4000);
+    return;
+  }
+  btn.disabled = true; btn.textContent = "Deleting...";
+  try {
+    var d = await call("chasenote.delete", { note_id: btn.dataset.note });
+    setChaseNotes(btn.dataset.id, d.notes || []);
+    $("views").innerHTML = viewOutstanding();
+  } catch (e) { btn.disabled = false; btn.textContent = "Delete"; showErr(e.message); }
+}
+
 function chaseTable(heading, rows, showShortfall, emptyMsg){
   var h = '<div class="card"><div class="split" style="margin-bottom:12px"><h2>' + esc(heading) + '</h2>' +
     '<span class="label num">' + rows.length + '</span></div>';
@@ -2993,7 +3079,7 @@ function chaseTable(heading, rows, showShortfall, emptyMsg){
         ) + '">' + esc(r.primary_email) + '</a>' +
         (r.mobile ? '<br>' + esc(r.mobile) : '') +
         (r.last_login_at ? '' : '<br><span class="pill pill--prov">Never logged in</span>') +
-      '</span></td>' +
+      '</span>' + chaseNoteCell(r) + '</td>' +
       '<td class="num">' + esc(ukDate(r.wedding_date)) + '<br>' +
       '<span class="muted" style="font-size:.8125rem">' +
         (r.daysToGo >= 0 ? r.daysToGo + " days to go" : Math.abs(r.daysToGo) + " days ago") + '</span></td>' +
@@ -3005,7 +3091,8 @@ function chaseTable(heading, rows, showShortfall, emptyMsg){
       '</td>' +
       '<td class="money num"><strong style="' + (showShortfall ? 'color:var(--alert)' : '') + '">' +
         money(showShortfall ? r.shortfall : r.outstanding) + '</strong></td>' +
-      '<td class="money"><button class="btn btn--sm" onclick="open_(\'' + r.id + '\')">Open</button></td></tr>';
+      '<td class="money"><button class="btn btn--sm" onclick="open_(\'' + r.id + '\')">Open</button></td></tr>' +
+      (S.chase_open === r.id ? chaseNotePanel(r) : '');
   });
   return h + '</tbody></table></div>';
 }
@@ -3016,11 +3103,12 @@ function exportChase(){
     .map(function(r){
       return [r.salutation, r.event_id, r.wedding_date, r.daysToGo, r.stage,
               r.total, r.paid, r.dueNow, r.shortfall, r.outstanding,
-              r.primary_email, r.mobile || "", r.last_login_at ? "Yes" : "No"];
+              r.primary_email, r.mobile || "", r.last_login_at ? "Yes" : "No",
+              r.last_note ? noteWhen(r.last_note.at) + (r.last_note.by ? ", " + r.last_note.by : "") + ": " + r.last_note.body : ""];
     });
   csvRaw("payments-to-chase",
     ["Couple","Reference","Wedding date","Days to go","Stage","Total","Paid",
-     "Due by now","Behind by","Outstanding","Email","Mobile","Has logged in"], rows);
+     "Due by now","Behind by","Outstanding","Email","Mobile","Has logged in","Latest note"], rows);
 }
 
 function daysToGo(iso){
