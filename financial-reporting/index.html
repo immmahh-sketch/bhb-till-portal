@@ -1816,7 +1816,7 @@ function viewReconciliation(){
 
     <div class="card">
       <h3 style="margin-bottom:10px;font-size:18px">A. Rezlynx revenue</h3>
-      <p class="muted" style="margin:0 0 12px;font-size:13px">Read automatically from the processed End of Day report for this date (pushed by <strong>Update Forecast Portal</strong>). Nothing to upload day to day.</p>
+      <p class="muted" style="margin:0 0 12px;font-size:13px">Read automatically from the End of Day report for this date, as uploaded on the <strong>Imports</strong> tab of the Forecast app. Nothing to upload here day to day.</p>
       <div id="rc_rezImported"><div class="loading">Loading…</div></div>
       <details style="margin-top:14px">
         <summary class="muted" style="font-size:13px;cursor:pointer">Upload a full Period End export instead (only needed for the EPOS cash / card / voucher split)</summary>
@@ -2105,9 +2105,9 @@ async function loadReconciliationDay(date){
 // (gross, with the EPOS split). Say which one it is - they're different
 // bases and the variance checks read differently against each.
 function rezImportedHtml(rez){
-  if (!rez) return `<p class="muted" style="font-size:13px;margin:0">No End of Day report has been pushed for this date yet - press <strong>Update Forecast Portal</strong> in the forecast workbook once that day's report has been processed.</p>`;
+  if (!rez) return `<p class="muted" style="font-size:13px;margin:0">No End of Day report has been uploaded for this date yet - add it on the <strong>Imports</strong> tab of the Forecast app.</p>`;
   const raw = rez.raw_parse_json || {};
-  const isEod = raw.source === "eod_combined";
+  const isEod = raw.source === "eod_combined" || raw.source === "forecast_import";
   const row = (label, val) => `<tr><td>${label}</td><td class="num">${val}</td></tr>`;
   // GRATUITY arrives as a department row in the file but isn't revenue -
   // the report itself totals it separately, so show it separately below.
@@ -2120,7 +2120,7 @@ function rezImportedHtml(rez){
   return `
     <p class="muted" style="font-size:12px;margin:0 0 8px">
       ${isEod
-        ? `Imported from End of Day report <strong>${esc(rez.source_filename||"")}</strong> · nett (ex VAT) · revenue only`
+        ? `From the End of Day report <strong>${esc(rez.source_filename||"")}</strong>${raw.source === "forecast_import" ? " uploaded on the Forecast app's Imports tab" : " (older push from the workbook)"} · nett (ex VAT) · revenue only`
         : `Imported from Period End upload <strong>${esc(rez.source_filename||"")}</strong> · gross · includes EPOS split`}
     </p>
     <div class="tablewrap"><table class="grid"><tbody>
