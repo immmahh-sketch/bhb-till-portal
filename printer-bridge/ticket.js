@@ -425,7 +425,8 @@ function buildLunchTicket(job) {
   bold(true); size(0x01);
   push(p.requested_time ? "TIME REQUESTED\n" : "TIME\n");
   size(0x11);
-  push(p.requested_time ? clock12(p.requested_time) + "\n" : "ANY TIME\n");
+  if (p.requested_time === "asap") big("AS SOON AS POSSIBLE", 16);
+  else push(p.requested_time ? clock12(p.requested_time) + "\n" : "ANY TIME\n");
   size(0x01);
   if (!p.requested_time) push("11:30am - 12:30pm\n");
   size(0); bold(false); push(rule());

@@ -91,6 +91,22 @@ textarea{min-height:90px; resize:vertical}
 .dish input[type=text]{flex:1; min-width:0; padding:8px 10px; border:1px solid var(--mist); border-radius:8px; font-size:15px}
 .row2{display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end}
 .row2 .field{flex:1; min-width:220px; margin:0}
+.big{display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:12px; margin-bottom:14px}
+.make{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); padding:14px 18px; border-left:5px solid var(--sage)}
+.make .k{font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70)}
+.make .n{font-family:var(--display); font-size:34px; line-height:1; color:var(--sage)}
+.make .w{font-size:16px; margin-top:4px; overflow-wrap:anywhere}
+.chips{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px}
+.chip{background:var(--white); border-radius:999px; box-shadow:var(--shadow); padding:6px 14px; font-size:13px}
+.chip b{font-family:var(--display); font-size:17px; color:var(--sage)}
+.ord{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); padding:12px 16px; margin-bottom:8px; display:grid; grid-template-columns:170px 1fr auto; gap:6px 16px; align-items:start}
+.ord .who2{font-family:var(--display); font-size:20px; color:var(--sage); line-height:1.15}
+.ord .t{font-size:12px; color:var(--sage-70)}
+.ord .what b{font-size:11px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); font-weight:600; margin-right:6px}
+.ord .msg{margin-top:4px; padding:6px 10px; background:var(--attention-bg); border-radius:6px; font-size:14px}
+.badge{display:inline-block; border-radius:999px; padding:3px 10px; font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; white-space:nowrap; background:var(--sage-10); color:var(--sage)}
+.badge.wait{background:var(--attention-bg); color:#6d5320} .badge.done{background:var(--good-bg); color:var(--good)} .badge.test{background:var(--alert-bg); color:var(--alert)}
+@media (max-width:640px){ .ord{grid-template-columns:1fr} }
 .muted{color:var(--sage-70)} .empty{padding:40px 20px; text-align:center; color:var(--sage-70)} .loading{padding:60px; text-align:center; color:var(--sage-70)}
 .toast{position:fixed; left:50%; bottom:26px; transform:translate(-50%,20px); background:var(--ink); color:var(--white); padding:12px 20px; border-radius:8px; z-index:200; opacity:0; transition:.2s; pointer-events:none; font-size:14px; max-width:90vw}
 .toast.on{opacity:1; transform:translate(-50%,0)} .toast.bad{background:var(--alert)}
@@ -114,6 +130,8 @@ const CFG = { SUPABASE_URL:"https://safcrtrfdzsnftghibot.supabase.co", SUPABASE_
 const S = { me:null, view:"order", dishes:[], days:[], today:"", order:null, pick:"", test:false, filter:"" };
 const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
 const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const minusMins = (t, m) => { const [h, mi] = t.split(":").map(Number), x = h * 60 + mi - m; return String(Math.floor(x / 60)).padStart(2, "0") + ":" + String(x % 60).padStart(2, "0"); };
+const timeLabel = t => !t ? "Any time, 11:30am to 12:30pm" : t === "asap" ? "As soon as possible" : clock12(t);
 const clock12 = t => { const [h, m] = String(t).split(":").map(Number); return (h > 12 ? h - 12 : h) + ":" + String(m).padStart(2, "0") + (h >= 12 ? "pm" : "am"); };
 const longDay = d => new Date(d + "T12:00:00Z").toLocaleDateString("en-GB", { timeZone:"UTC", weekday:"long", day:"numeric", month:"long" });
 function toast(msg, bad){ const t=$("#toast"); t.textContent=msg; t.className="toast on"+(bad?" bad":""); clearTimeout(toast._t); toast._t=setTimeout(()=>{t.className="toast";}, bad?5200:2600); }
@@ -137,9 +155,9 @@ async function viewOrder(){
     body = `<div class="notice good"><b>Your lunch is ordered</b>The kitchen has your order for today.</div>
       <div class="card"><div class="sum">
         <div><div class="k">${o.choice === "soup" ? "Soup" : o.choice === "sandwich" ? "Sandwich" : "Main dish"}</div><div class="v">${esc(o.item)}</div></div>
-        <div><div class="k">Time</div><div class="v">${o.requested_time ? esc(clock12(o.requested_time)) : "Any time, 11:30am to 12:30pm"}</div></div>
+        <div><div class="k">Time</div><div class="v">${esc(timeLabel(o.requested_time))}</div></div>
         ${o.message ? `<div><div class="k">Message to the kitchen</div><div class="v">${esc(o.message)}</div></div>` : ""}
-      </div><p class="muted" style="margin:14px 0 0;font-size:13px">To change or cancel your order, please speak to the kitchen.</p></div>`;
+      </div>${o.requested_time && o.requested_time !== "asap" && !o.print_queued_at ? `<p style="margin:14px 0 0;font-size:14px">Your order is saved. It goes to the kitchen at <b>${esc(clock12(minusMins(o.requested_time, d.lead || 15)))}</b>, ${d.lead || 15} minutes before your time.</p>` : ""}<p class="muted" style="margin:14px 0 0;font-size:13px">To change or cancel your order, please speak to the kitchen.</p></div>`;
   } else if (d.state === "closed") {
     body = `<div class="notice warn"><b>Lunch orders are closed</b>${esc(d.message)}</div>`;
   } else if (d.state === "not_eligible") {
@@ -157,7 +175,7 @@ async function viewOrder(){
     body = `${d.shift ? `<p class="muted" style="margin:0 0 12px">Your shift today: ${esc(d.shift)}</p>` : ""}
       <div class="card"><h3>What would you like?</h3>${opts.join("")}</div>
       <div class="card">
-        <div class="field"><label class="l" for="rt">Request a time</label><select id="rt"><option value="">Any time, 11:30am to 12:30pm</option>${d.times.map(t => `<option value="${esc(t)}">${esc(clock12(t))}</option>`).join("")}</select></div>
+        <div class="field"><label class="l" for="rt">Request a time</label><div class="muted" style="font-size:13px;margin-bottom:6px">Pick a time more than 15 minutes away and your order is saved, then sent to the kitchen 15 minutes before it.</div><select id="rt"><option value="">Any time, 11:30am to 12:30pm</option><option value="asap">As soon as possible</option>${d.times.map(t => `<option value="${esc(t)}">${esc(clock12(t))}</option>`).join("")}</select></div>
         <div class="field" style="margin-bottom:0"><label class="l" for="msg">Message to the kitchen</label><textarea id="msg" maxlength="300" placeholder="Allergies, no butter, anything the kitchen should know"></textarea></div>
       </div>
       ${testBox}
@@ -288,12 +306,41 @@ async function removeDish(dish){
   } catch(e){ toast(e.message, true); }
 }
 
+/* ------------------------------------------------------------- Chef's tab */
+const slotName = k => k === "any" ? "Any time" : k === "asap" ? "As soon as possible" : clock12(k);
+const slotRank = k => k === "asap" ? "00" : k === "any" ? "01" : k;
+const kindName = c => c === "soup" ? "Soup" : c === "sandwich" ? "Sandwich" : "Main dish";
+async function viewChefs(date){
+  const v = $("#views");
+  const keep = date || (v.querySelector("#cday") ? v.querySelector("#cday").value : "");
+  if (!$("#cday")) v.innerHTML = `<div class="loading">Loading…</div>`;
+  let d; try { d = await call("chefs.day", { date: keep || undefined }); } catch(e){ v.innerHTML = `<div class="notice bad">${esc(e.message)}</div>`; return; }
+  const isToday = d.date === d.today;
+  const order = d.orders.slice().sort((a, b) => {
+    const ka = slotRank(a.requested_time || "any"), kb = slotRank(b.requested_time || "any");
+    return ka < kb ? -1 : ka > kb ? 1 : String(a.created_at).localeCompare(String(b.created_at));
+  });
+  const make = d.totals.map(t => `<div class="make"><div class="k">${kindName(t.choice)}</div><div class="n">${t.count}</div><div class="w">${esc(t.item)}</div></div>`).join("");
+  const chips = Object.keys(d.slots).sort((a, b) => slotRank(a) < slotRank(b) ? -1 : 1).map(k => `<span class="chip"><b>${d.slots[k]}</b> ${esc(slotName(k))}</span>`).join("");
+  const state = o => o.is_test ? `<span class="badge test">Test</span> ` : "";
+  const prn = o => o.print === "waiting" ? `<span class="badge wait">Prints at ${esc(clock12(o.prints_at))}</span>` : o.print === "printed" ? `<span class="badge done">Printed</span>` : `<span class="badge">Sent to printer</span>`;
+  v.innerHTML = `<div class="pagehead"><h2>Chef's</h2><span class="hint">${esc(longDay(d.date))}${isToday ? " · today" : ""} · updates every 30 seconds</span></div>
+    <div class="row2" style="margin-bottom:16px"><div class="field"><label class="l" for="cday">Day</label><input type="date" id="cday" value="${esc(d.date)}" style="width:100%;padding:10px 12px;border:1px solid var(--mist);border-radius:8px;font-size:16px;background:var(--white)"></div><button class="btn ghost" id="cnow">Refresh</button></div>
+    ${d.total ? `<h3 style="color:var(--sage);font-size:20px;margin:0 0 8px">How much to make · ${d.total} order${d.total === 1 ? "" : "s"}</h3><div class="big">${make}</div><div class="chips">${chips}</div>` : `<div class="notice warn"><b>No orders yet</b>Nothing has been ordered for ${esc(longDay(d.date))}.</div>`}
+    ${order.length ? `<h3 style="color:var(--sage);font-size:20px;margin:18px 0 8px">The orders</h3>` + order.map(o => `<div class="ord"><div><div class="who2">${esc(o.person_name)}</div><div class="t">${esc(timeLabel(o.requested_time))}</div></div>
+      <div class="what"><b>${kindName(o.choice)}</b>${esc(o.item)}${o.message ? `<div class="msg">${esc(o.message)}</div>` : ""}</div><div>${state(o)}${prn(o)}</div></div>`).join("") : ""}`;
+  $("#cday").addEventListener("change", e => viewChefs(e.target.value));
+  $("#cnow").addEventListener("click", () => viewChefs());
+  clearInterval(S.chefTimer);
+  S.chefTimer = setInterval(() => { if (S.view === "chefs" && !document.hidden) viewChefs(); }, 30000);
+}
+
 /* ------------------------------------------------------------- shell */
-const TABS = [["order", "Order lunch", m => m.canOrder], ["menu", "Weekly Menu", m => m.canSetMenu], ["upload", "Menu Upload", m => m.canSetMenu]];
+const TABS = [["order", "Order lunch", m => m.canOrder], ["chefs", "Chef's", m => m.canChefs], ["menu", "Weekly Menu", m => m.canSetMenu], ["upload", "Menu Upload", m => m.canSetMenu]];
 function goView(v){
   S.view = v;
   $$(".tabbtn").forEach(b => b.setAttribute("aria-current", b.dataset.view === v ? "page" : "false"));
-  if (v === "menu") viewMenu(); else if (v === "upload") viewUpload(); else viewOrder();
+  clearInterval(S.chefTimer); if (v === "menu") viewMenu(); else if (v === "upload") viewUpload(); else if (v === "chefs") viewChefs(); else viewOrder();
   window.scrollTo(0, 0);
 }
 function openGate(msg){ $("#gate").hidden = false; $("#app").hidden = true; if (msg) $("#gerr").textContent = msg; }
