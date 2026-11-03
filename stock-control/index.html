@@ -85,6 +85,7 @@ details.sec{background:#fff; border-radius:var(--radius); box-shadow:var(--shado
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="parsers.js?v=20261012"></script>
+<script src="shelf.js?v=20261019"></script>
 <script>
 const CFG = { SUPABASE_URL:"https://safcrtrfdzsnftghibot.supabase.co", SUPABASE_KEY:"sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU" };
 const TABS = [["wastage", "Wastage"], ["rooms", "Rooms"], ["weddings", "Weddings / Events"], ["showrounds", "Showrounds / meetings"], ["admin", "Stocktake - Admin"], ["stocktake", "Stocktake"], ["report", "Stock report"], ["gp", "GP calculator"]];
@@ -212,7 +213,7 @@ function renderCount(keepFocus){
   }
   $("#views").innerHTML = `<div class="pagehead"><h2>Stocktake</h2><span class="small muted">${esc(S.period ? S.period.name : "")}</span></div>
     <p class="lead">Pick an area, find a product and enter what is there. A count saves as soon as you leave the box. Typing in the box replaces the count for that area. Found more of it on another shelf? Press <b>+</b> and add it to what is already counted.</p>
-    <div class="card"><div class="row-actions" style="margin:0 0 12px">${S.areas.map(x => `<button class="chip" data-act="area" data-id="${x.id}" aria-pressed="${x.id === S.area}">${esc(x.name)}</button>`).join("")}</div>
+    <div class="card"><div class="row-actions" style="margin:0 0 12px">${S.areas.map(x => `<button class="chip" data-act="area" data-id="${x.id}" aria-pressed="${x.id === S.area}">${esc(x.name)}</button>`).join("")}${S.me && S.me.edit ? `<button class="btn small" data-act="shelf" style="margin-left:auto">Count from photos</button>` : ""}</div>
       <div class="field" style="margin:0"><input class="in" id="c_q" type="search" placeholder="Start typing a product to find it…" value="${esc(S.q)}" aria-label="Find a product"></div>
       <label class="chk" style="margin-top:10px"><input type="checkbox" id="c_all"${S.all ? " checked" : ""}> Also show products that are not set up for ${esc(a ? a.name : "this area")}</label>
       <p class="tiny muted" style="margin:8px 0 0">${a ? esc(a.name) : ""}: ${done} of ${inArea.length} counted${q ? `, ${shown.length} match your search` : ""}.</p></div>
@@ -668,6 +669,7 @@ document.addEventListener("click", async e => {
     if (a === "area") { S.area = b.dataset.id; return renderCount(); }
     if (a === "cases") { const k = b.dataset.key; if (S.casesMode.has(k)) S.casesMode.delete(k); else S.casesMode.add(k); return renderCount(); }
     if (a === "plus") { S.plusKey = S.plusKey === b.dataset.key ? null : b.dataset.key; renderCount(); const first = document.querySelector(`.addbox [data-add]`); if (first) first.focus(); return; }
+    if (a === "shelf") return Shelf.open();
     if (a === "pluscancel") { S.plusKey = null; return renderCount(); }
     if (a === "plusgo") {
       const key = b.dataset.key, [area, product] = key.split("|"), box = b.closest(".addbox");
