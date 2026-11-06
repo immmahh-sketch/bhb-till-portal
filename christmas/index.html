@@ -1395,7 +1395,7 @@ function renderWeb(){
   const live = o => o.status === "pending" && new Date(o.hold_until).getTime() + 120000 > Date.now();
   const chip = k => `<button class="btn small${f === k ? "" : " ghost"}" data-wf="${k}">${{ paid:"Paid", pending:"Waiting to pay", expired:"Not paid", all:"Everything" }[k]} (${d.orders.filter(o => !o.is_test && (k === "all" || o.status === k)).length})</button>`;
   const stat = e => { const s = WEB_STATE[e.state] || ["", e.state]; return `<span class="pill ${s[0]}">${s[1]}</span>`; };
-  const places = e => e.kind === "day" ? `<span class="muted small">Decided by the Diary</span>` : e.capacity == null ? `${e.sold} sold<div class="small bad-text" style="color:var(--berry)"><b>No capacity set</b></div>` : `${e.sold} sold${e.held ? " (+" + e.held + " held)" : ""} of ${e.capacity}<div class="small muted">${e.remaining} left</div>`;
+  const places = e => e.kind === "day" ? `<span class="muted small">Decided by the Diary</span>` : e.capacity == null ? `${e.sold} sold<div class="small muted">No limit</div>` : `${e.sold} sold${e.held ? " (+" + e.held + " held)" : ""} of ${e.capacity}<div class="small muted">${e.remaining} left</div>`;
   const who = o => `<b>${esc(o.name)}</b><div class="small"><a href="tel:${esc(String(o.phone).replace(/\s+/g, ""))}">${esc(o.phone)}</a><br><a href="mailto:${esc(o.email)}">${esc(o.email)}</a></div>`;
   const what = o => o.time_hm ? `${esc(wlParty({ adults:o.adults, children:o.children, under3:o.infants }))}<div class="small muted">${esc(wlTime(o.time_hm))}, ${esc(o.area_label || "")}${o.access ? "<br><b>Accessibility needs</b>" : ""}</div>` : `${o.adults + o.children} ticket${o.adults + o.children === 1 ? "" : "s"}`;
   const stCell = o => o.status === "paid" ? `<span class="pill ok">Paid</span><div class="small muted">${esc(wlWhen(o.paid_at))}<br>Ref ${esc(o.booking_ref || "")}</div>` : live(o) ? `<span class="pill warn">Paying now</span><div class="small muted">Held until ${esc(wlWhen(o.hold_until))}</div>` : o.status === "failed" ? `<span class="pill bad">Failed</span>` : `<span class="pill bad">Not paid</span><div class="small muted">Hold ran out</div>`;
@@ -1416,7 +1416,6 @@ function renderWeb(){
   $$("[data-wopen]").forEach(b => b.onclick = async () => {
     const e = d.events.find(x => x.date_id === b.dataset.wopen), on = b.dataset.on === "1";
     if (on && e.kind === "day" && !confirm("Open Christmas Day for booking?\n\nGuests will be able to choose an arrival time from what the Diary has free for their party, and pay in full. Each booking takes a table and counts against the arrival limits.")) return;
-    if (on && e.kind !== "day" && e.capacity == null && !confirm(e.title + " has no number of places set, so the page will not stop at a limit. Open it anyway?")) return;
     if (!on && !confirm("Stop " + e.title + " taking bookings on the website? Bookings already made stay.")) return;
     b.disabled = true;
     try { await px("admin.web_set", { date_id:e.date_id, open:on }); toast(e.title + (on ? " is open." : " is closed.")); viewWeb(); } catch(x){ toast(x.message, true); b.disabled = false; }
