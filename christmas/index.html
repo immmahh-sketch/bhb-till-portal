@@ -781,6 +781,7 @@ async function showFull(id, ctx){
       ${row("Dietary (whole party)", esc(a.dietary))}${row("Other notes", esc(a.notes))}${ev.show_under3 ? row("Under 3s", `${a.under3} (${a.high_chairs} high chair${a.high_chairs === 1 ? "" : "s"})`) : ""}
       ${row("Linked with", f.linked.map(l => `${esc(l.name)} (${esc(l.ref)}, ${l.guests})`).join(", "))}
     </table>
+    ${canEdit() && !a.cancelled_at ? gcxHtml(f) : ""}
     ${a.cancelled_at ? `<div class="flags" style="margin:10px 0"><b>Cancelled</b> ${esc(fmtDT(a.cancelled_at))}${a.cancelled_by ? " by " + esc(a.cancelled_by) : ""}. The deposit is kept, and this booking is out of the diary and the guest counts. ${a.cancel_note ? esc(a.cancel_note) : ""} ${canEdit() ? `<button type="button" class="btn small ghost" id="cxUndo">Undo the cancellation</button>` : ""}</div>` : (canEdit() ? `<div style="margin:10px 0"><button type="button" class="btn small ghost" id="cxOpen">Cancel this booking (keep the deposit)</button><div id="cxBox" style="display:none;margin-top:8px"><textarea id="cxNote" maxlength="300" placeholder="Note, e.g. cancelled by phone, deposit retained" style="width:100%;min-height:54px"></textarea><div style="margin-top:6px;display:flex;gap:8px"><button type="button" class="btn small" id="cxGo">Cancel the booking and keep the deposit</button><button type="button" class="btn small ghost" id="cxNo">Not now</button></div></div></div>` : "")}
     ${dg ? diaryBlockHtml(dg, id) : ""}
     ${payHtml(f)}
@@ -804,6 +805,7 @@ async function showFull(id, ctx){
   const cxu = $("#cxUndo"); if (cxu) cxu.onclick = async () => { if (!confirm("Undo the cancellation? The booking goes back into the counts and the diary.")) return; try { await px("admin.cancel_set", { booking_id:id, cancelled:false }); await again("Cancellation undone."); } catch(e){ toast(e.message, true); } };
   const gco = $("#gcOpen"); if (gco) { gco.onclick = () => { $("#gcBox").style.display = ""; gco.style.display = "none"; $("#gcA").value = b.adults; if ($("#gcC")) $("#gcC").value = b.children; };
     $("#gcSave").onclick = async () => { const a = Number($("#gcA").value) || 0, c = $("#gcC") ? Number($("#gcC").value) || 0 : 0; if (a + c !== b.adults + b.children) { toast("The total has to stay at " + (b.adults + b.children) + " guests.", true); return; } $("#gcSave").disabled = true; try { await px("admin.guests_set", { booking_id:id, adults:a, children:c }); await again("Guests changed."); } catch(e){ toast(e.message, true); $("#gcSave").disabled = false; } }; }
+  gcxWire(f, id, again);
   const emo = $("#emOpen"); if (emo) { emo.onclick = () => { $("#emBox").style.display = ""; emo.style.display = "none"; $("#emIn").value = b.email || ""; $("#emIn").focus(); };
     $("#emSave").onclick = async () => { const v = $("#emIn").value.trim(); if (!v) { toast("Type the email address first.", true); return; } $("#emSave").disabled = true; try { await px("admin.email_set", { booking_id:id, email:v }); await again("Email saved."); } catch(e){ toast(e.message, true); $("#emSave").disabled = false; } }; }
   const cadd = $("#bcAdd"); if (cadd) cadd.onclick = async () => { const t = $("#bcText").value.trim(); if (!t) { toast("Write a comment first.", true); return; } cadd.disabled = true; try { await px("admin.comment_add", { booking_id:id, comment:t }); await again("Comment added."); } catch(e){ toast(e.message, true); cadd.disabled = false; } };
@@ -817,6 +819,46 @@ async function showFull(id, ctx){
     } catch(e){ toast(e.message, true); rs.disabled = false; rs.textContent = a.invite_sent_at ? "Resend pre-order form" : "Send pre-order form"; }
   };
   $("#fbCopy").onclick = () => { (navigator.clipboard ? navigator.clipboard.writeText(f.form_link) : Promise.reject()).then(() => toast("Link copied."), () => window.prompt("Copy this link", f.form_link)); };
+}
+/* some of the party cancel and the deposit is kept: the app holds the number from then on, not TicketSource */
+function gcxHtml(f){
+  const b = f.booking, gc = b.guest_change, base = b.base_guests || { adults:b.adults, children:b.children }, day = f.event.key === "day";
+  const oa = gc ? gc.orig_adults : base.adults, oc = gc ? gc.orig_children : base.children;
+  if (oa + oc < 2) return "";
+  const word = (n, one, many) => n + " " + (n === 1 ? one : many);
+  const first = word(oa, "adult", "adults") + (oc ? " and " + word(oc, "child", "children") : "");
+  const now = word(base.adults, "adult", "adults") + (base.children ? " and " + word(base.children, "child", "children") : "");
+  return `<div style="margin:10px 0">${gc ? `<div class="flags" style="margin-bottom:6px"><b>Some guests cancelled.</b> Booked for ${first}, now ${now}. Deposit kept: ${money(gc.kept)}, which is not counted towards the others' payment. These numbers are the ones used, whatever TicketSource says.</div>` : ""}
+    <button type="button" class="btn small ghost" id="gxOpen">${gc ? "Change the cancelled guests" : "Some guests have cancelled (keep their deposit)"}</button>
+    <div id="gxBox" style="display:none;margin-top:8px"><div class="small muted" style="margin-bottom:6px">Enter how many are coming now. The rest are taken off the booking, the guest list and the diary, and their deposit stays with us.</div>
+      <label class="small">Adults coming <input id="gxA" type="number" min="0" max="${oa}" style="width:60px;display:inline-block"> of ${oa}</label>
+      ${day && oc ? `<label class="small" style="margin-left:10px">Children coming <input id="gxC" type="number" min="0" max="${oc}" style="width:60px;display:inline-block"> of ${oc}</label>` : ""}
+      <label class="small" style="margin-left:10px">Deposit kept &pound; <input id="gxK" type="number" min="0" step="0.01" style="width:90px;display:inline-block"></label>
+      <textarea id="gxNote" maxlength="300" placeholder="Note, e.g. one guest ill, cancelled by phone" style="width:100%;min-height:46px;margin-top:6px"></textarea>
+      <div style="margin-top:6px;display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn small" id="gxSave">Save</button>${gc ? `<button type="button" class="btn small ghost" id="gxBack">Put everyone back</button>` : ""}<button type="button" class="btn small ghost" id="gxNo">Not now</button></div></div></div>`;
+}
+function gcxWire(f, id, again){
+  const open = $("#gxOpen"); if (!open) return;
+  const b = f.booking, gc = b.guest_change, base = b.base_guests || { adults:b.adults, children:b.children };
+  const oa = gc ? gc.orig_adults : base.adults, oc = gc ? gc.orig_children : base.children;
+  const per = b.ts_tickets > 0 ? Math.round(b.ts_gross / b.ts_tickets * 100) / 100 : 0;
+  let touched = false;
+  const numA = () => Math.max(0, Math.round(Number($("#gxA").value) || 0)), numC = () => $("#gxC") ? Math.max(0, Math.round(Number($("#gxC").value) || 0)) : 0;
+  const recalc = () => { if (touched) return; const n = Math.max(0, oa - numA()) + Math.max(0, oc - numC()); $("#gxK").value = n > 0 ? (n * per).toFixed(2) : "0.00"; };
+  open.onclick = () => { $("#gxBox").style.display = ""; open.style.display = "none"; $("#gxA").value = base.adults; if ($("#gxC")) $("#gxC").value = base.children; $("#gxK").value = gc ? Number(gc.kept).toFixed(2) : "0.00"; touched = !!gc; if (!gc) recalc(); };
+  $("#gxA").oninput = recalc; if ($("#gxC")) $("#gxC").oninput = recalc; $("#gxK").oninput = () => { touched = true; };
+  $("#gxNo").onclick = () => { $("#gxBox").style.display = "none"; open.style.display = ""; };
+  const send = async (a, c, kept, okMsg, btn) => { btn.disabled = true; try { await px("admin.guests_cancel", { booking_id:id, adults:a, children:c, kept, note:$("#gxNote").value }); await again(okMsg); } catch(e){ toast(e.message, true); btn.disabled = false; } };
+  $("#gxSave").onclick = () => {
+    const a = numA(), c = numC(), kept = Number($("#gxK").value) || 0;
+    if (a > oa || c > oc) { toast("That is more than were booked.", true); return; }
+    if (a + c < 1) { toast("At least one guest has to stay. To cancel the whole booking use 'Cancel this booking'.", true); return; }
+    if (a === oa && c === oc) { toast("Nobody is cancelled. Use 'Put everyone back' if you want to undo it.", true); return; }
+    if (kept < 0 || kept > b.ts_gross + 0.005) { toast("The deposit kept can't be more than the " + money(b.ts_gross) + " TicketSource took.", true); return; }
+    if (!confirm((oa - a) + (oc - c) + " guest" + ((oa - a) + (oc - c) === 1 ? "" : "s") + " cancelled: " + a + " adult" + (a === 1 ? "" : "s") + (f.event.key === "day" ? " and " + c + " child" + (c === 1 ? "" : "ren") : "") + " stay, and " + money(kept) + " of the deposit is kept. Save?")) return;
+    send(a, c, kept, "Guests updated. Deposit kept: " + money(kept) + ".", $("#gxSave"));
+  };
+  const back = $("#gxBack"); if (back) back.onclick = () => { if (!confirm("Put everyone back as first booked (" + oa + " adults" + (oc ? " and " + oc + " children" : "") + ") and stop keeping the deposit?")) return; send(oa, oc, 0, "Everyone put back.", back); };
 }
 function openFullInPreorders(id){ closeModal(); S.pre.pendingFull = id; S.pre.id = S.dg ? S.dg.show.date_id : S.pre.id; goView("preorders"); }
 
