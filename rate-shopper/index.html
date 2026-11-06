@@ -254,7 +254,7 @@ const MODES = { xotelo:"Free: Tripadvisor price comparison (Xotelo)", area:"Paid
 /* ------------------------------------------------------------- the maths: average, rank and gap for the chosen basis */
 function calc(d){
   const op = d.own ? d.own.price : null;
-  const cp = d.comps.filter(c => c.price != null).map(c => c.price);
+  const cp = d.comps.filter(c => c.price != null && c.in_avg !== false).map(c => c.price);
   const avg = cp.length ? Math.round(cp.reduce((a, b) => a + b, 0) / cp.length * 100) / 100 : null;
   const out = { op, avg, n: cp.length, rank: null, of: null, diff: null, pct: null };
   if (op != null) {
@@ -351,7 +351,7 @@ function renderDay(){
   const priced = d.list.filter(x => x.price != null).sort((a, b) => a.price - b.price || (a.kind === "own" ? -1 : 1));
   const unpriced = d.list.filter(x => x.price == null);
   const us = priced.find(x => x.kind === "own");
-  const cp = priced.filter(x => x.kind === "competitor");
+  const cp = priced.filter(x => x.kind === "competitor" && x.in_avg !== false);
   const avg = cp.length ? Math.round(cp.reduce((a, x) => a + x.price, 0) / cp.length * 100) / 100 : null;
   const usAll = d.list.find(x => x.kind === "own");
   let verdict = "";
@@ -501,12 +501,13 @@ function renderComps(){
   if (o) h += `<div class="card"><div class="comp"><div class="info"><h4>${esc(o.name)} <span class="tag">Us</span></h4><div class="small muted">${o.xotelo_key ? "Our Booking.com price is fetched too, so there is a like-for-like comparison." : "Add our Tripadvisor link to also fetch our Booking.com price."}</div>${keyBox(o, edit)}</div></div>${calBlock(o, edit)}</div>`;
   for (const p of comps()) {
     const cands = S.cands[p.id];
-    h += `<div class="card"><div class="comp"><div class="info"><h4>${esc(p.name)}${p.active ? "" : ` <span class="tiny muted">(paused)</span>`}</h4>
+    h += `<div class="card"><div class="comp"><div class="info"><h4>${esc(p.name)}${p.active ? "" : ` <span class="tiny muted">(paused)</span>`}${p.in_average === false ? ` <span class="tiny muted">(not in the average)</span>` : ""}</h4>
       <div class="small muted">${p.xotelo_key ? "Tripadvisor page linked." : "No Tripadvisor link yet, so no prices can be fetched."}</div>
       ${p.notes ? `<div class="small" style="margin-top:4px">${esc(p.notes)}</div>` : ""}
       ${keyBox(p, edit)}</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         ${free ? "" : `<button class="btn small ghost" type="button" data-act="find" data-id="${p.id}" ${edit && S.serp && !S.findBusy ? "" : "disabled"}>${S.findBusy === p.id ? "Searching..." : "Find on Google Hotels"}</button>`}
+        <button class="btn small ghost" type="button" data-act="inavg" data-id="${p.id}" title="Still priced and shown, but left out of the competitor average the model and the tabs compare us against" ${edit ? "" : "disabled"}>${p.in_average === false ? "Count in average" : "Leave out of average"}</button>
         <button class="btn small ghost" type="button" data-act="toggle" data-id="${p.id}" ${edit ? "" : "disabled"}>${p.active ? "Pause" : "Resume"}</button>
         <button class="btn small danger" type="button" data-act="remove" data-id="${p.id}" ${edit ? "" : "disabled"}>Remove</button></div></div>
       ${calBlock(p, edit)}
@@ -620,6 +621,7 @@ document.addEventListener("click", async e => {
       const p = S.props.find(x => x.id === id), c = S.cands[id][+b.dataset.i];
       await saveProp(p, { google_token: c.token, google_name: c.name }); delete S.cands[id]; renderComps(); toast("Saved");
     }
+    else if (act === "inavg") { const p = S.props.find(x => x.id === id); await saveProp(p, { in_average: p.in_average === false }); S.days = {}; renderComps(); toast(p.in_average === false ? "Now counted in the average" : "Left out of the average"); }
     else if (act === "toggle") { const p = S.props.find(x => x.id === id); await saveProp(p, { active: !p.active }); S.days = {}; renderComps(); toast(p.active ? "Resumed" : "Paused"); }
     else if (act === "remove") {
       if (b.dataset.sure !== "1") { b.dataset.sure = "1"; b.textContent = "Tap again to remove"; setTimeout(() => { if (b.isConnected) { b.dataset.sure = ""; b.textContent = "Remove"; } }, 4000); return; }
