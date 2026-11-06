@@ -158,7 +158,7 @@ const CFG = { URL:"https://safcrtrfdzsnftghibot.supabase.co", KEY:"sb_publishabl
 const S = { dg:null, dgId:"", pre:{ events:null, id:"", data:null }, me:null, people:[], view:"", ts:null, tsTimer:null, day:null, plan:null, planFilter:"open", corp:null, decor:null, decorArea:"" };
 const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
 const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
-const TABS = [["events","Christmas events"],["dining","Festive dining"],["day","Christmas Day"],["preorders","Pre-orders"],["diary","Diary"],["marquee","Marquee plan"],["waiting","Waiting list"],["corporate","Corporate events"],["decorations","To Order"],["actions","Action plan"]];
+const TABS = [["events","Christmas events"],["dining","Festive dining"],["day","Christmas Day"],["preorders","Pre-orders"],["diary","Diary"],["marquee","Marquee plan"],["waiting","Waiting list"],["website","Website bookings"],["corporate","Corporate events"],["decorations","To Order"],["actions","Action plan"]];
 const staffEmail = () => { try { return sessionStorage.getItem("bhb_staff_email") || ""; } catch(e){ return ""; } };
 const money = n => { n = Number(n) || 0; return "£" + n.toLocaleString("en-GB", { minimumFractionDigits: Math.abs(n % 1) > 0.004 ? 2 : 0, maximumFractionDigits: 2 }); };
 const londonToday = () => new Intl.DateTimeFormat("en-CA", { timeZone:"Europe/London", year:"numeric", month:"2-digit", day:"2-digit" }).format(new Date());
@@ -1379,6 +1379,55 @@ async function wlOffer(id){
 }
 
 
+/* ============================ WEBSITE BOOKINGS ============================
+   The booking page on the website (app.blackhorsebeamish.co.uk/book/, shown on the website in a frame). Guests pick an event, pay in full on SumUp, and the booking lands here and in every TicketSource screen as a 'web-' booking.
+   This tab switches each event on or off, sets how many places it has, and lists the bookings. Christmas Day is switched off until the team opens it. */
+S.web = S.web || { data:null, filter:"paid" };
+const WEB_STATE = { open:["ok", "Open"], closed:["warn", "Closed"], soldout:["bad", "Sold out"], over:["", "Ended"] };
+async function viewWeb(){
+  $("#views").innerHTML = `<div class="empty">Loading…</div>`;
+  try { S.web.data = await px("admin.web_list"); } catch(e){ $("#views").innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+  if (S.view === "website") renderWeb();
+}
+function renderWeb(){
+  const d = S.web.data, edit = canEdit(), f = S.web.filter, evName = id => { const e = d.events.find(x => x.date_id === id); return e ? e.title : ""; };
+  const orders = d.orders.filter(o => !o.is_test && (f === "all" || o.status === f));
+  const live = o => o.status === "pending" && new Date(o.hold_until).getTime() + 120000 > Date.now();
+  const chip = k => `<button class="btn small${f === k ? "" : " ghost"}" data-wf="${k}">${{ paid:"Paid", pending:"Waiting to pay", expired:"Not paid", all:"Everything" }[k]} (${d.orders.filter(o => !o.is_test && (k === "all" || o.status === k)).length})</button>`;
+  const stat = e => { const s = WEB_STATE[e.state] || ["", e.state]; return `<span class="pill ${s[0]}">${s[1]}</span>`; };
+  const places = e => e.kind === "day" ? `<span class="muted small">Decided by the Diary</span>` : e.capacity == null ? `${e.sold} sold<div class="small bad-text" style="color:var(--berry)"><b>No capacity set</b></div>` : `${e.sold} sold${e.held ? " (+" + e.held + " held)" : ""} of ${e.capacity}<div class="small muted">${e.remaining} left</div>`;
+  const who = o => `<b>${esc(o.name)}</b><div class="small"><a href="tel:${esc(String(o.phone).replace(/\s+/g, ""))}">${esc(o.phone)}</a><br><a href="mailto:${esc(o.email)}">${esc(o.email)}</a></div>`;
+  const what = o => o.time_hm ? `${esc(wlParty({ adults:o.adults, children:o.children, under3:o.infants }))}<div class="small muted">${esc(wlTime(o.time_hm))}, ${esc(o.area_label || "")}${o.access ? "<br><b>Accessibility needs</b>" : ""}</div>` : `${o.adults + o.children} ticket${o.adults + o.children === 1 ? "" : "s"}`;
+  const stCell = o => o.status === "paid" ? `<span class="pill ok">Paid</span><div class="small muted">${esc(wlWhen(o.paid_at))}<br>Ref ${esc(o.booking_ref || "")}</div>` : live(o) ? `<span class="pill warn">Paying now</span><div class="small muted">Held until ${esc(wlWhen(o.hold_until))}</div>` : o.status === "failed" ? `<span class="pill bad">Failed</span>` : `<span class="pill bad">Not paid</span><div class="small muted">Hold ran out</div>`;
+  $("#views").innerHTML = `<div class="pagehead"><h2>Website bookings</h2><span class="hint">Guests choose an event on the website, pay in full, and the booking appears here, in Ticket sales and in the pre-orders like any other.</span><span class="spacer"></span><button class="btn small ghost" data-wcopy>Copy the booking page link</button></div>
+    <div class="card" style="padding:0;overflow:hidden"><div style="overflow-x:auto"><table class="t"><thead><tr><th>Event</th><th>On the page</th><th>Places</th><th>Price</th><th></th></tr></thead><tbody>${d.events.map(e => `<tr>
+      <td><b>${esc(e.title)}</b><div class="small muted">${esc(e.tagline || "")}</div></td>
+      <td>${stat(e)}${!e.open && e.closed_message ? `<div class="small muted" style="max-width:260px">${esc(e.closed_message)}</div>` : ""}</td>
+      <td class="small">${places(e)}</td>
+      <td class="small">${esc(money(e.price_adult))}${e.price_child != null ? " / " + esc(money(e.price_child)) : ""}</td>
+      <td style="white-space:nowrap">${edit && e.state !== "over" ? `<button class="btn small${e.open ? " ghost" : ""}" data-wopen="${e.date_id}" data-on="${e.open ? "0" : "1"}">${e.open ? "Close it" : "Open it"}</button>${e.kind !== "day" ? ` <button class="btn small ghost" data-wcap="${e.date_id}">Set places</button>` : ""}` : ""}</td></tr>`).join("")}</tbody></table></div></div>
+    <h3 style="margin:22px 0 8px">Bookings</h3>
+    <div class="row" style="margin:0 0 10px;gap:6px;flex-wrap:wrap">${["paid", "pending", "expired", "all"].map(chip).join("")}</div>
+    <div class="card" style="padding:0;overflow:hidden">${orders.length ? `<div style="overflow-x:auto"><table class="t"><thead><tr><th>Booked</th><th>Guest</th><th>Event</th><th>Party</th><th>Amount</th><th>Status</th></tr></thead><tbody>${orders.map(o => `<tr>
+      <td class="small">${esc(wlWhen(o.created_at))}</td><td>${who(o)}${o.notes ? `<div class="small muted" style="margin-top:4px">${esc(o.notes)}</div>` : ""}</td><td>${esc(evName(o.date_id))}</td><td>${what(o)}</td><td>${esc(money(o.amount))}</td><td>${stCell(o)}</td></tr>`).join("")}</tbody></table></div>` : `<div class="empty">Nothing here yet.</div>`}</div>
+    <p class="small muted" style="margin-top:10px">A paid booking is written into TicketSource's list as a website booking (reference starts with a letter and has 6 characters, like the others) and gets its pre-order email straight away. Christmas Day also holds the table the guest chose in the Diary (their time is fixed, like a booking placed by hand), and an unpaid table is released after ${d.hold_minutes} minutes. Every paid booking is emailed to the GM and events@. Payments are checked every five minutes.</p>`;
+  $$("[data-wf]").forEach(b => b.onclick = () => { S.web.filter = b.dataset.wf; renderWeb(); });
+  const c = $("[data-wcopy]"); if (c) c.onclick = () => { const u = d.page_url; (navigator.clipboard ? navigator.clipboard.writeText(u) : Promise.reject()).then(() => toast("Link copied: " + u), () => prompt("Copy this link", u)); };
+  $$("[data-wopen]").forEach(b => b.onclick = async () => {
+    const e = d.events.find(x => x.date_id === b.dataset.wopen), on = b.dataset.on === "1";
+    if (on && e.kind === "day" && !confirm("Open Christmas Day for booking?\n\nGuests will be able to choose an arrival time from what the Diary has free for their party, and pay in full. Each booking takes a table and counts against the arrival limits.")) return;
+    if (on && e.kind !== "day" && e.capacity == null && !confirm(e.title + " has no number of places set, so the page will not stop at a limit. Open it anyway?")) return;
+    if (!on && !confirm("Stop " + e.title + " taking bookings on the website? Bookings already made stay.")) return;
+    b.disabled = true;
+    try { await px("admin.web_set", { date_id:e.date_id, open:on }); toast(e.title + (on ? " is open." : " is closed.")); viewWeb(); } catch(x){ toast(x.message, true); b.disabled = false; }
+  });
+  $$("[data-wcap]").forEach(b => b.onclick = async () => {
+    const e = d.events.find(x => x.date_id === b.dataset.wcap), v = prompt("How many places in total for " + e.title + " (" + e.sold + " already sold)? Leave empty for no limit.", e.capacity == null ? "" : e.capacity); if (v === null) return;
+    try { await px("admin.web_set", { date_id:e.date_id, capacity: v.trim() === "" ? null : Number(v) }); toast("Saved."); viewWeb(); } catch(x){ toast(x.message, true); }
+  });
+}
+
+
 /* ============================ MARQUEE PLAN ============================
    The Marquee bookings from the Diary set out on the real furniture, in the real room (34.4 m x 14.75 m, two teams: the room is split down the middle). The engine is marqueeplan.js; the layout is kept by xmas-api (admin.mq_get / admin.mq_save).
    Bookings always come live from the Diary; the plan remembers where tables stand and which booking sits at which table. */
@@ -1542,7 +1591,7 @@ function mqPrint(){
   $("#planGo").onclick = () => window.print(); $("#planX").onclick = () => ov.remove();
 }
 
-const VIEWS = { events: viewEvents, dining: viewDining, day: viewDay, preorders: viewPreorders, diary: viewDiary, marquee: viewMarquee, waiting: viewWaiting, corporate: viewCorporate, decorations: viewDecor, actions: viewActions };
+const VIEWS = { events: viewEvents, dining: viewDining, day: viewDay, preorders: viewPreorders, diary: viewDiary, marquee: viewMarquee, waiting: viewWaiting, website: viewWeb, corporate: viewCorporate, decorations: viewDecor, actions: viewActions };
 /* ---- live: the Pre-orders and Diary pages ask every 5 seconds whether anything changed (a tiny fingerprint, not the data) and reload only when it did.
    They wait while a pop-up is open, a field is being typed in or a booking is being dragged, and keep the scroll position. */
 const PULSE = { key:"", sig:null, busy:false };
