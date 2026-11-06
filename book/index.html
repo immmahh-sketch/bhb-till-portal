@@ -54,7 +54,7 @@ main{max-width:720px;margin:0 auto;padding:22px 14px 90px}
 label.f{display:block;font-weight:600;margin:18px 0 6px}
 .req{color:var(--alert);margin-left:3px}
 .hint{font-size:14px;color:var(--muted);margin:-2px 0 6px}
-input[type=text],input[type=email],input[type=tel],select,textarea{width:100%;font:inherit;padding:12px 13px;border:1px solid var(--celadon);border-radius:9px;background:var(--white);color:var(--ink)}
+input[type=text],input[type=email],input[type=tel],input[type=number],select,textarea{width:100%;font:inherit;padding:12px 13px;border:1px solid var(--celadon);border-radius:9px;background:var(--white);color:var(--ink)}
 textarea{min-height:80px;resize:vertical}
 select:disabled{background:#F1F1EC;color:var(--muted)}
 input:focus,select:focus,textarea:focus{outline:2px solid var(--berry);outline-offset:1px}
@@ -164,7 +164,8 @@ function formCard(e){
         '<div><label for="children" style="font-size:14px">Children (under 12)</label><select id="children">' + nums(0, e.max, 0) + '</select></div>' +
         '<div><label for="infants" style="font-size:14px">Under 3s eating (' + gbp(e.prices.infant) + ' each)</label><select id="infants">' + nums(0, 10, 0) + '</select></div></div>' +
       '<p class="hint" style="margin-top:6px">Under 3s who are not having their own meal are free: you do not need to count them. For a party of more than ' + e.max + ', please phone us on ' + esc(ph(I)) + '.</p>'
-    : '<label class="f" for="adults">How many tickets?</label><select id="adults">' + nums(1, e.max, 2) + '</select>';
+    : '<label class="f" for="adults">How many tickets?</label><select id="adults">' + nums(1, Math.min(e.max, 20), 2) + (e.max > 20 ? '<option value="more">21 or more</option>' : "") + '</select>' +
+      (e.max > 20 ? '<div id="moreWrap" hidden><label class="f" for="adultsMore" style="margin-top:12px">Type the total number of tickets you need<span class="req">*</span></label><p class="hint">Between 21 and ' + e.max + '. For a bigger group than that, please phone us on ' + esc(ph(I)) + '.</p><input type="number" id="adultsMore" min="21" max="' + e.max + '" step="1" inputmode="numeric" placeholder="21"></div>' : "");
   const when = day
     ? '<label class="f">Does anyone in your party have accessibility needs?<span class="req">*</span></label><p class="hint">For example someone who uses a wheelchair or walking aid, or who finds steps difficult. One of our rooms has steps, so this decides which tables we show you.</p>' +
       '<label class="opt"><input type="radio" name="access" value="no"><span>No</span></label><label class="opt"><input type="radio" name="access" value="yes"><span>Yes</span></label>' +
@@ -182,7 +183,7 @@ function formCard(e){
     '<div id="msg"></div><p style="margin:18px 0 0"><button type="submit" class="btn" id="go">Pay and book</button></p></form>';
 }
 function val(id){ const el = $("#" + id); return el ? (el.value || "").trim() : ""; }
-function counts(){ return { adults: Number(val("adults")) || 0, children: EV.kind === "day" ? Number(val("children")) || 0 : 0, infants: EV.kind === "day" ? Number(val("infants")) || 0 : 0 }; }
+function counts(){ return { adults: val("adults") === "more" ? Math.floor(Number(val("adultsMore"))) || 0 : Number(val("adults")) || 0, children: EV.kind === "day" ? Number(val("children")) || 0 : 0, infants: EV.kind === "day" ? Number(val("infants")) || 0 : 0 }; }
 function total(){ const c = counts(), p = EV.prices; return c.adults * p.adult + c.children * (p.child || 0) + c.infants * (p.infant || 0); }
 function paintTotal(){ const t = $("#total"); if (t) t.textContent = gbp(total()); const g = $("#go"); if (g) g.textContent = "Pay " + gbp(total()) + " and book"; }
 function accessNow(){ const r = document.querySelector('input[name="access"]:checked'); return r ? r.value === "yes" : null; }
@@ -219,9 +220,11 @@ function pickEvent(id){
   if (EV.state === "open") {
     const f = $("#form");
     f.addEventListener("submit", submit);
+    f.addEventListener("input", e => { if (e.target.id === "adultsMore") paintTotal(); });
     f.addEventListener("change", e => {
       if (e.target.name === "access") document.querySelectorAll('input[name="access"]').forEach(r => r.closest(".opt").classList.toggle("on", r.checked));
-      if (["adults", "children", "infants"].includes(e.target.id)) { paintTotal(); if (e.target.id !== "infants") loadTimes(); }
+      if (e.target.id === "adults") { const w = $("#moreWrap"); if (w) { w.hidden = e.target.value !== "more"; if (!w.hidden) $("#adultsMore").focus(); tellHeight(); } }
+      if (["adults", "children", "infants", "adultsMore"].includes(e.target.id)) { paintTotal(); if (e.target.id !== "infants") loadTimes(); }
       if (e.target.name === "access") loadTimes();
       if (e.target.id === "slot") slotChanged();
     });
@@ -238,6 +241,10 @@ async function submit(ev){
   if (EV.kind === "day") {
     if (accessNow() === null) { msg.innerHTML = '<div class="err">Please tell us whether anyone in your party has accessibility needs.</div>'; return; }
     if (!val("slot")) { msg.innerHTML = '<div class="err">Please choose your arrival time.</div>'; $("#slot").scrollIntoView({ behavior:"smooth", block:"center" }); return; }
+  }
+  if (val("adults") === "more") {
+    const n = counts().adults;
+    if (n < 21 || n > EV.max) { msg.innerHTML = '<div class="err">Please type a number of tickets between 21 and ' + EV.max + '.</div>'; $("#adultsMore").scrollIntoView({ behavior:"smooth", block:"center" }); return; }
   }
   if (!$("#consent").checked) { msg.innerHTML = '<div class="err">Please tick the box to say we may use your details to look after your booking.</div>'; return; }
   const btn = $("#go"); BUSY = true; btn.disabled = true; btn.textContent = "One moment...";
