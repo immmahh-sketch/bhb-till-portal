@@ -27,14 +27,15 @@ using System.Runtime.InteropServices;
 public class BhbAwake { [DllImport("kernel32.dll")] public static extern uint SetThreadExecutionState(uint f); }
 "@
 
-$VERSION = "2026-11-07e"
+$VERSION = "2026-11-07f"
 $SUPABASE = "https://safcrtrfdzsnftghibot.supabase.co"
 $KEY = "sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU"
 
 $logDir = Join-Path $here "logs"; New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 $logFile = Join-Path $logDir "carvery.log"
 if ((Test-Path $logFile) -and ((Get-Item $logFile).Length -gt 2MB)) { Move-Item $logFile "$logFile.old" -Force }
-function Log($m) { try { Add-Content -Path $logFile -Value ("[{0}] {1}" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"), $m) } catch {}; if ($Test -or $Once -or [Environment]::UserInteractive) { Write-Host $m } }
+$script:lastError = ""; $script:lastErrorAt = $null; $script:lastPrintedAt = $null; $script:startedAt = (Get-Date).ToUniversalTime()
+function Log($m) { if ("$m" -match "^(FAILED|printer not ready|check failed|update check failed|start-up release failed)") { $script:lastError = "$m"; $script:lastErrorAt = (Get-Date).ToUniversalTime() }; if ("$m" -like "printed *") { $script:lastPrintedAt = (Get-Date).ToUniversalTime() }; try { Add-Content -Path $logFile -Value ("[{0}] {1}" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"), $m) } catch {}; if ($Test -or $Once -or [Environment]::UserInteractive) { Write-Host $m } }
 
 $cfg = Get-Content (Join-Path $here "config.json") -Raw | ConvertFrom-Json
 $mode = if ($cfg.mode) { "$($cfg.mode)".ToLower() } else { "raw" }
@@ -467,7 +468,24 @@ if ($Test) {
 
 $updateUrl = "https://app.blackhorsebeamish.co.uk/till-print-3k9x7q/src/carvery-till.ps1"
 $startupVbs = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\Startup\BHB Carvery Printer.vbs"
-$script:lastUpdateCheck = (Get-Date).AddMinutes(-25); $script:lastBeat = Get-Date
+$script:lastUpdateCheck = (Get-Date).AddMinutes(-25); $script:lastBeat = Get-Date; $script:lastReport = (Get-Date).AddMinutes(-5)
+function Report-Status {
+  # Tells the order system how this till's printer program is getting on (once a minute on a service day, every 5 minutes otherwise), so a printer that is off or failing can be seen from the portal.
+  $every = if (Is-ServiceTime) { 1 } else { 5 }
+  if (((Get-Date) - $script:lastReport).TotalMinutes -lt $every) { return }
+  $script:lastReport = Get-Date
+  try {
+    $row = [ordered]@{
+      id = "$env:COMPUTERNAME/$env:USERNAME"; host = "$env:COMPUTERNAME"; role = $role; version = $VERSION; checks = ($checks -join ","); mode = $mode
+      port = $(if ($mode -eq "com") { "$($cfg.port)" } else { "$($cfg.printer)" })
+      ready = (-not [bool]$script:notReadyNote); ready_note = "$script:notReadyNote"
+      last_error = "$script:lastError"; last_error_at = $(if ($script:lastErrorAt) { $script:lastErrorAt.ToString("o") } else { $null })
+      last_printed_at = $(if ($script:lastPrintedAt) { $script:lastPrintedAt.ToString("o") } else { $null })
+      started_at = $script:startedAt.ToString("o"); updated_at = (Get-Date).ToUniversalTime().ToString("o")
+    }
+    Rest "till_printer_status?on_conflict=id" "POST" $row "resolution=merge-duplicates,return=minimal" | Out-Null
+  } catch { }
+}
 function Check-Update {
   # Picks up a corrected program from the portal by itself, so the tills never need re-installing for a fix. Only a file that parses and carries this program's marker is used.
   $script:lastUpdateCheck = Get-Date
@@ -490,6 +508,7 @@ while ($true) {
   [void][BhbAwake]::SetThreadExecutionState(0x80000001)      # do not let this till go to sleep while the program is running
   try { Work-Queue } catch { Log "check failed: $($_.Exception.Message)" }
   if ($Once) { break }
+  Report-Status
   if (((Get-Date) - $script:lastBeat).TotalMinutes -ge 10) { Log "still running (version $VERSION), $(if ($script:notReadyNote) { 'printer NOT ready: ' + $script:notReadyNote } else { 'printer ok' })"; $script:lastBeat = Get-Date }
   if (((Get-Date) - $script:lastUpdateCheck).TotalMinutes -ge 30) { Check-Update }
   Start-Sleep -Seconds $(if (Is-ServiceTime) { 5 } else { 60 })      # quiet when nothing can arrive (outside a carvery Sunday / shop hours), so it costs the order system next to nothing
