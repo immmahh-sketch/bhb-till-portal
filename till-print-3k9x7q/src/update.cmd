@@ -6,7 +6,7 @@ if not exist "%DIR%\config.json" (
   pause
   exit /b 1
 )
-powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Get-CimInstance Win32_Process -Filter \"Name='powershell.exe'\" | Where-Object { $_.CommandLine -like '*carvery-till.ps1*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Get-CimInstance Win32_Process -Filter \"Name='powershell.exe'\" | Where-Object { $_.CommandLine -like '*carvery-till.ps1*' -and $_.ProcessId -ne $PID } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }"
 copy /y "%~dp0carvery-till.ps1" "%DIR%\carvery-till.ps1" >nul
 wscript.exe "%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\BHB Carvery Printer.vbs"
 echo.

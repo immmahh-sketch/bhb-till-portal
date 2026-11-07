@@ -16,7 +16,7 @@ Add-Type -AssemblyName System.Drawing
 function Say($m, $c = "White") { Write-Host $m -ForegroundColor $c }
 function Ask($q) { if ($Unattended) { return "" }; return (Read-Host $q).Trim() }
 function Stop-Old {
-  Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" -ErrorAction SilentlyContinue | Where-Object { $_.CommandLine -like "*carvery-till.ps1*" } | ForEach-Object { try { Stop-Process -Id $_.ProcessId -Force } catch {} }
+  Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" -ErrorAction SilentlyContinue | Where-Object { $_.CommandLine -like "*carvery-till.ps1*" -and $_.ProcessId -ne $PID } | ForEach-Object { try { Stop-Process -Id $_.ProcessId -Force } catch {} }
 }
 $script:StatusCheck = $false
 function Write-Config($mode, $printer, $port, $checks) {
