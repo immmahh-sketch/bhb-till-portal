@@ -51,6 +51,10 @@ const LOGO = (() => {
 const KIND = {
   kitchen: { heading: "KITCHEN", tag: null, category: "food", prices: false, logo: false, signoff: false, vat: false, allergyAlways: false },
   "bar-check": { heading: "BAR", tag: null, category: "all", prices: false, logo: false, signoff: false, vat: false, allergyAlways: false },
+  // Carvery (Sunday, from 8 Nov 2026): three checks per order, each with its own heading. Drinks only on the bar check, food only on the kitchen and pass checks (see printCarveryTickets in kitchen-printer.js).
+  "carvery-bar": { heading: "BAR", tag: null, category: "drinks", prices: false, logo: false, signoff: false, vat: false, allergyAlways: false },
+  "carvery-kitchen": { heading: "KITCHEN", tag: null, category: "food", prices: false, logo: false, signoff: false, vat: false, allergyAlways: false },
+  "carvery-pass": { heading: "PASS", tag: null, category: "food", prices: false, logo: false, signoff: false, vat: false, allergyAlways: false },
   "staff-copy": { heading: null, tag: "ROOM SERVICE COPY", category: "all", prices: true, logo: true, signoff: true, vat: false, allergyAlways: true },
   "guest-copy": { heading: null, tag: "GUEST COPY", category: "all", prices: true, logo: true, signoff: false, vat: true, allergyAlways: false },
 };
@@ -111,6 +115,7 @@ function buildTicket(job, opts = {}) {
   );
   const isOutside = p.channel === "outside";
   const isStaffFood = p.channel === "staff_food";
+  const isCarvery = p.channel === "carvery";
   // Camper vans: the guest's vehicle registration travels in room_number, and
   // the order is carried out to the vehicle in takeaway packaging - the ticket
   // has to make both impossible to miss, whichever strip of paper is torn off.
@@ -165,7 +170,7 @@ function buildTicket(job, opts = {}) {
     chunks.push(escBytes([0x1d, 0x21, 0x00])); // back to normal size
   }
   chunks.push(escBytes([0x1d, 0x21, 0x11])); // double height + width
-  push(`${isStaffFood ? "STAFF FOOD" : isCamper ? "CAMPER VAN" : isOutside ? "OUTSIDE" : "ROOM SERVICE"}\n`);
+  push(`${isStaffFood ? "STAFF FOOD" : isCamper ? "CAMPER VAN" : isCarvery ? "CARVERY" : isOutside ? "OUTSIDE" : "ROOM SERVICE"}\n`);
   chunks.push(escBytes([0x1d, 0x21, 0x00])); // back to normal size
   if (isCamper) {
     // Registration in triple size (10 chars/line); double if it's longer than that.
@@ -177,7 +182,7 @@ function buildTicket(job, opts = {}) {
     chunks.push(escBytes([0x1d, 0x21, 0x00]));
   } else {
     if (big) chunks.push(escBytes([0x1d, 0x21, 0x11])); // the room or table number in double size too (27 Oct 2026: bigger text for the chefs)
-    push(isStaffFood ? "COLLECTING AT 12:30PM\n" : `${isOutside ? "Table " : "Room "}${p.room_number ?? "-"}\n`);
+    push(isStaffFood ? "COLLECTING AT 12:30PM\n" : `${isOutside || isCarvery ? "Table " : "Room "}${p.room_number ?? "-"}\n`);
     if (big) chunks.push(escBytes([0x1d, 0x21, 0x00]));
   }
   chunks.push(escBytes([0x1b, 0x45, 0x00])); // bold off
