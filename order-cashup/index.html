@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script src="/shared/auth.js"></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Order Cash Up — Black Horse Beamish</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --sage:#4D604F; --sage-70:#7B887C; --sage-10:#EDEFED; --sage-dark:#3F2F28;
+  --bone:#F8F8F8; --celadon:#CCCDB4; --mist:#E7E7E7; --white:#fff; --ink:#262626; --olive:#CCCDB4; --brown:#3F2F28;
+  --attention:#B08D57; --attention-bg:#F7F0E4; --alert:#8C4A3F; --alert-bg:#F6EAE8; --good:#4F6B4F; --good-bg:#EDF2ED;
+  --display:"Orpheus Pro","Cormorant Garamond",Georgia,serif; --body:Raleway,"Helvetica Neue",Arial,sans-serif;
+  --track-label:.18em; --radius:10px; --shadow:0 1px 2px rgba(38,38,38,.06),0 8px 24px rgba(38,38,38,.07); --maxw:960px;
+}
+*{box-sizing:border-box} html,body{margin:0;padding:0}
+body{font-family:var(--body); color:var(--ink); background:var(--bone); font-size:15px; line-height:1.5; -webkit-text-size-adjust:100%}
+h1,h2,h3{font-family:var(--display); font-weight:600; margin:0; letter-spacing:.01em}
+button,input,textarea,select{font:inherit; color:inherit}
+.shell{max-width:var(--maxw); margin:0 auto; padding:0 20px 64px}
+#gate{position:fixed; inset:0; background:var(--sage); z-index:100; display:flex; align-items:center; justify-content:center; padding:24px}
+#gate[hidden]{display:none}
+.gatecard{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); width:100%; max-width:380px; padding:32px 28px; text-align:center}
+.gatecard h1{font-size:26px; color:var(--sage); line-height:1.15}
+.gatecard .sub{font-size:11px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); margin:6px 0 22px}
+.gateerr{color:var(--alert); font-size:13px; min-height:18px; margin-top:8px}
+header.top{background:var(--sage); color:var(--white)}
+.topin{max-width:var(--maxw); margin:0 auto; padding:14px 20px; display:flex; align-items:center; gap:18px; flex-wrap:wrap}
+.brand{font-family:var(--display); font-size:21px; line-height:1.1}
+.brand small{display:block; font-family:var(--body); font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; opacity:.75}
+.who{margin-left:auto; display:flex; align-items:center; gap:10px; font-size:12px; opacity:.9}
+.who button{background:transparent; border:1px solid rgba(255,255,255,.4); color:var(--white); border-radius:6px; padding:5px 10px; cursor:pointer; font-size:11px; letter-spacing:.06em; text-transform:uppercase}
+nav.tabs{background:var(--sage-dark)}
+.tabsin{max-width:var(--maxw); margin:0 auto; padding:0 20px; display:flex; gap:2px; overflow-x:auto}
+.tabbtn{background:transparent; border:0; cursor:pointer; color:rgba(255,255,255,.72); padding:12px 16px; font-size:12px; font-weight:600; white-space:nowrap; letter-spacing:var(--track-label); text-transform:uppercase; border-bottom:3px solid transparent}
+.tabbtn[aria-current="page"]{color:var(--white); border-bottom-color:var(--olive)}
+.pagehead{display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; margin:24px 0 16px}
+.pagehead h2{font-size:26px; color:var(--sage)}
+.pagehead .hint{font-size:13px; color:var(--sage-70)}
+.btn{border:1px solid var(--sage); background:var(--sage); color:var(--white); border-radius:8px; padding:9px 16px; cursor:pointer; font-size:12px; font-weight:600; letter-spacing:var(--track-label); text-transform:uppercase; min-height:44px}
+.btn.ghost{background:var(--white); color:var(--sage)} .btn.ghost:hover{background:var(--sage-10)}
+.btn.small{min-height:36px; padding:6px 12px; font-size:11px}
+.btn.danger{background:var(--white); border-color:var(--alert); color:var(--alert)}
+.btn:disabled{opacity:.5; cursor:default}
+.card{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); padding:18px 20px; margin-bottom:14px}
+.card h3{font-size:22px; color:var(--sage); margin-bottom:12px}
+.notice{border-radius:var(--radius); padding:14px 18px; margin-bottom:14px; font-size:15px}
+.notice.bad{background:var(--alert-bg); color:var(--alert); border:1px solid #E5C9C4}
+.notice.warn{background:var(--attention-bg); color:#6d5320; border:1px solid #E8D9BC}
+.notice.good{background:var(--good-bg); color:var(--good); border:1px solid #CFE0CF}
+.notice b{display:block; font-family:var(--display); font-size:20px; margin-bottom:2px}
+.big{display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px; margin-bottom:14px}
+.make{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); padding:14px 18px; border-left:5px solid var(--sage)}
+.make.pay{border-left-color:var(--attention); background:var(--attention-bg)}
+.make .k{font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70)}
+.make .n{font-family:var(--display); font-size:38px; line-height:1.05; color:var(--sage)}
+.make.pay .n{color:#6d5320}
+.make .w{font-size:13px; margin-top:2px; color:var(--sage-70)}
+table.t{width:100%; border-collapse:collapse; font-size:15px}
+table.t th{font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); font-weight:600; text-align:left; padding:6px 8px; border-bottom:1px solid var(--mist)}
+table.t td{padding:9px 8px; border-bottom:1px solid var(--mist); vertical-align:middle}
+table.t .n{text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums}
+table.t tr:last-child td{border-bottom:0}
+table.t .q{font-family:var(--display); font-size:26px; color:var(--sage); text-align:right; width:70px; line-height:1}
+table.t .sm{font-size:12px; color:var(--sage-70)}
+tr.rung td{opacity:.4} tr.rung td.nm span.x{text-decoration:line-through}
+.sec{font-size:11px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage); font-weight:700; background:var(--sage-10); padding:7px 10px; border-radius:6px; margin:16px 0 4px}
+.recon{max-width:420px; margin-left:auto}
+.recon .r{display:flex; justify-content:space-between; padding:5px 0; font-variant-numeric:tabular-nums}
+.recon .r.tot{border-top:2px solid var(--sage); margin-top:6px; padding-top:9px; font-weight:700; font-size:19px; color:var(--sage)}
+.chk{width:22px; height:22px; accent-color:var(--sage)}
+.row{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
+.chip{display:inline-block; border-radius:999px; padding:2px 10px; font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; background:var(--sage-10); color:var(--sage); white-space:nowrap}
+.chip.comp{background:var(--attention-bg); color:#6d5320} .chip.bad{background:var(--alert-bg); color:var(--alert)}
+details.card>summary{cursor:pointer; font-family:var(--display); font-size:20px; color:var(--sage); list-style:none}
+details.card>summary::-webkit-details-marker{display:none}
+.field label.l{display:block; font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); margin-bottom:4px}
+.field input[type=text]{width:100%; padding:11px 12px; border:1px solid var(--mist); border-radius:8px; font-size:16px; background:var(--white)}
+.muted{color:var(--sage-70)} .empty{padding:40px 20px; text-align:center; color:var(--sage-70)} .loading{padding:60px; text-align:center; color:var(--sage-70)}
+.toast{position:fixed; left:50%; bottom:26px; transform:translate(-50%,20px); background:var(--ink); color:var(--white); padding:12px 20px; border-radius:8px; z-index:200; opacity:0; transition:.2s; pointer-events:none; font-size:14px; max-width:90vw}
+.toast.on{opacity:1; transform:translate(-50%,0)} .toast.bad{background:var(--alert)}
+@media (max-width:640px){ .shell{padding:0 12px 48px} .topin,.tabsin{padding-left:12px;padding-right:12px} .pagehead h2{font-size:22px} .btn{width:100%} .btn.small{width:auto} .make .n{font-size:32px} table.t{font-size:14px} .recon{max-width:none} }
+@media print{ header.top,nav.tabs,.noprint,#toast{display:none!important} body{background:#fff} .card,.make{box-shadow:none; border:1px solid #ccc} .shell{padding:0} }
+</style>
+</head>
+<body>
+<div id="gate"><div class="gatecard"><h1>Order Cash Up</h1><div class="sub">Black Horse Beamish</div>
+  <p style="margin:0 0 16px;font-size:14px;color:var(--sage-70)">This opens from the Staff Portal, which knows who you are and what you can see.</p>
+  <div class="gateerr" id="gerr"></div></div></div>
+<div id="app" hidden>
+  <header class="top"><div class="topin"><div class="brand">Order Cash Up<small>Black Horse Beamish</small></div>
+    <div class="who"><span id="whoname"></span><button id="signout">Sign out</button></div></div></header>
+  <nav class="tabs"><div class="tabsin" role="tablist" id="tabs"></div></nav>
+  <div class="shell"><div id="views"></div></div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+const CFG = { SUPABASE_URL:"https://safcrtrfdzsnftghibot.supabase.co", SUPABASE_KEY:"sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU" };
+const S = { me:null, view:"cashup", excluded:new Set(), rung:new Set(), data:null, asking:false };
+const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
+const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const gbp = n => "£" + (Math.round(Number(n || 0) * 100) / 100).toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const when = iso => iso ? new Date(iso).toLocaleString("en-GB", { timeZone:"Europe/London", weekday:"short", day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" }) : "";
+const dayOf = iso => new Date(iso).toLocaleDateString("en-GB", { timeZone:"Europe/London", weekday:"long", day:"numeric", month:"long" });
+function toast(msg, bad){ const t=$("#toast"); t.textContent=msg; t.className="toast on"+(bad?" bad":""); clearTimeout(toast._t); toast._t=setTimeout(()=>{t.className="toast";}, bad?5200:2600); }
+function staffEmail(){ try { return sessionStorage.getItem("bhb_staff_email") || ""; } catch(e){ return ""; } }
+async function call(action, payload){
+  const r = await fetch(CFG.SUPABASE_URL + "/functions/v1/ordercashup-api", { method:"POST", headers:{ "Content-Type":"application/json", Authorization:"Bearer "+CFG.SUPABASE_KEY, apikey:CFG.SUPABASE_KEY }, body: JSON.stringify({ action, staff_email: staffEmail(), ...(payload || {}) }) });
+  let d = {}; try { d = await r.json(); } catch(e){}
+  if (!r.ok || d.error) throw new Error(d.error || `Request failed (${r.status})`);
+  return d;
+}
+const SECTIONS = ["Carvery meals", "Food", "Drinks"];
+
+/* The merged list, the money and the orders: used for what is outstanding now and for a past cash up. */
+function summaryHtml(s, opts){
+  opts = opts || {};
+  const t = s.totals, byS = {};
+  s.items.forEach((i, idx) => { (byS[i.section] = byS[i.section] || []).push([i, idx]); });
+  const rows = sec => (byS[sec] || []).map(([i, idx]) => `<tr data-i="${idx}" class="${S.rung.has(sec + "|" + i.name) && !opts.readonly ? "rung" : ""}">
+      ${opts.readonly ? "" : `<td style="width:34px"><input type="checkbox" class="chk rungbox" data-k="${esc(sec + "|" + i.name)}" ${S.rung.has(sec + "|" + i.name) ? "checked" : ""} aria-label="Rung through"></td>`}
+      <td class="nm"><span class="x">${esc(i.name)}</span>${Object.keys(i.mods || {}).length ? `<div class="sm">${Object.keys(i.mods).map(m => esc(m) + " x" + i.mods[m]).join(" · ")}</div>` : ""}</td>
+      <td class="q">${i.qty}</td><td class="n muted">${gbp(i.each)}</td><td class="n">${gbp(i.value)}</td></tr>`).join("");
+  const list = SECTIONS.filter(sec => byS[sec]).map(sec => `<div class="sec">${esc(sec)}</div><table class="t"><tbody>${rows(sec)}</tbody></table>`).join("");
+  const chan = s.channels.length ? `<table class="t"><thead><tr><th>Where from</th><th class="n">Orders</th><th class="n">Items</th><th class="n">Charges</th><th class="n">Discounts</th><th class="n">SumUp</th></tr></thead><tbody>${s.channels.map(c => `<tr><td>${esc(c.label)}</td><td class="n">${c.orders}</td><td class="n">${gbp(c.items)}</td><td class="n">${gbp(c.charges)}</td><td class="n">${c.discounts ? "−" + gbp(c.discounts) : "–"}</td><td class="n"><b>${gbp(c.payment)}</b></td></tr>`).join("")}</tbody></table>` : "";
+  const recon = `<div class="recon"><div class="r"><span>Items (ring these through)</span><span>${gbp(t.items)}</span></div>
+      ${t.tray ? `<div class="r"><span>Tray charge (room service)</span><span>${gbp(t.tray)}</span></div>` : ""}
+      ${t.service ? `<div class="r"><span>Service charge (outside, campervans)</span><span>${gbp(t.service)}</span></div>` : ""}
+      ${t.discounts ? `<div class="r"><span>Discounts and offers</span><span>−${gbp(t.discounts)}</span></div>` : ""}
+      ${t.refunds ? `<div class="r"><span>Refunds</span><span>−${gbp(t.refunds)}</span></div>` : ""}
+      <div class="r tot"><span>Payment to SumUp</span><span>${gbp(t.payment)}</span></div></div>`;
+  const comps = (s.comp_items || []).length ? `<div class="card"><h3>Complimentary orders <span class="chip comp">No payment taken</span></h3>
+      <p class="muted" style="margin:0 0 8px">${t.comp_orders} order${t.comp_orders === 1 ? "" : "s"} charged to no one (for example Bob's House). Ring these as complimentary or house items, not to SumUp.</p>
+      <table class="t"><tbody>${s.comp_items.map(i => `<tr><td>${esc(i.name)}</td><td class="q">${i.qty}</td><td class="n">${gbp(i.value)}</td></tr>`).join("")}</tbody></table></div>` : "";
+  return { list, chan, recon, comps };
+}
+
+function csvOf(s, label){
+  const q = v => '"' + String(v ?? "").replace(/"/g, '""') + '"';
+  const out = [["Section", "Item", "Quantity", "Each", "Value"].map(q).join(",")];
+  s.items.forEach(i => out.push([i.section, i.name, i.qty, i.each.toFixed(2), i.value.toFixed(2)].map(q).join(",")));
+  out.push("", ["", "Items total", "", "", s.totals.items.toFixed(2)].map(q).join(","));
+  if (s.totals.tray) out.push(["", "Tray charge", "", "", s.totals.tray.toFixed(2)].map(q).join(","));
+  if (s.totals.service) out.push(["", "Service charge", "", "", s.totals.service.toFixed(2)].map(q).join(","));
+  if (s.totals.discounts) out.push(["", "Discounts", "", "", "-" + s.totals.discounts.toFixed(2)].map(q).join(","));
+  out.push(["", "Payment to SumUp", "", "", s.totals.payment.toFixed(2)].map(q).join(","));
+  return "﻿" + out.join("\r\n");
+}
+function textOf(s, label){
+  const lines = [`Order cash up ${label || ""}`.trim(), ""];
+  SECTIONS.forEach(sec => { const it = s.items.filter(i => i.section === sec); if (!it.length) return; lines.push(sec.toUpperCase()); it.forEach(i => lines.push(`${i.qty} x ${i.name}`)); lines.push(""); });
+  lines.push(`Payment to SumUp: ${gbp(s.totals.payment)}`);
+  return lines.join("\n");
+}
+function download(name, text){ const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text], { type:"text/csv" })); a.download = name; document.body.appendChild(a); a.click(); a.remove(); }
+function copyText(t){ (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => toast("Copied"), () => { window.prompt("Copy this", t); }); }
+
+/* ------------------------------------------------------------- Cash up */
+async function viewCashup(){
+  const v = $("#views"); if (!S.data) v.innerHTML = `<div class="loading">Loading…</div>`;
+  let d; try { d = await call("outstanding", { exclude: [...S.excluded] }); } catch(e){ v.innerHTML = `<div class="notice bad">${esc(e.message)}</div>`; return; }
+  S.data = d;
+  const t = d.totals, all = d.all_orders || [];
+  const head = `<div class="pagehead"><h2>Cash up</h2><span class="hint">Paid orders from the app that have not been rung through the till yet</span></div>`;
+  if (!all.length) { v.innerHTML = head + `<div class="notice good"><b>Nothing to cash up</b>Every paid order has already been rung through. New ones appear here as they are paid.</div>`; return; }
+  const old = d.oldest && new Date(d.oldest).toLocaleDateString("en-GB", { timeZone:"Europe/London" }) !== new Date().toLocaleDateString("en-GB", { timeZone:"Europe/London" });
+  const sm = summaryHtml(d);
+  const orderRows = d.orders.map(o => `<tr><td style="width:34px"><input type="checkbox" class="chk incl" data-id="${esc(o.id)}" checked aria-label="Include"></td>
+      <td><span class="chip">${esc(o.channel_label)}</span>${o.comp ? ` <span class="chip comp">Comp</span>` : ""}${o.ok ? "" : ` <span class="chip bad">Check total</span>`}</td><td>#${esc(o.order_no)}</td><td>${esc(o.where || "")}${o.name ? ` <span class="muted">${esc(o.name)}</span>` : ""}</td><td class="muted">${esc(when(o.paid_at))}</td><td class="n">${o.comp ? "–" : gbp(o.total)}</td></tr>`).join("");
+  const exRows = S.excluded.size ? `<p class="muted" style="margin:0 0 8px">${S.excluded.size} order${S.excluded.size === 1 ? " is" : "s are"} left out of this cash up and stay outstanding. <a href="#" id="inclAll">Put them all back</a></p>` : "";
+  v.innerHTML = head +
+    (old ? `<div class="notice warn"><b>Includes older orders</b>The oldest outstanding order was paid on ${esc(dayOf(d.oldest))}. They are all in this cash up.</div>` : "") +
+    (t.mismatches ? `<div class="notice bad"><b>Some totals do not add up</b>${t.mismatches} order${t.mismatches === 1 ? "" : "s"} where the items, charges and discounts do not match what was taken. They are marked "Check total" below.</div>` : "") +
+    `<div class="big"><div class="make pay"><div class="k">Payment to SumUp</div><div class="n">${gbp(t.payment)}</div><div class="w">Use the SumUp payment type on the till for this amount</div></div>
+      <div class="make"><div class="k">Items to ring through</div><div class="n">${t.item_count}</div><div class="w">${t.paid_orders} paid order${t.paid_orders === 1 ? "" : "s"}</div></div></div>` +
+    (t.paid_orders ? `<div class="card"><h3>Where it came from</h3>${sm.chan}</div>
+    <div class="card"><h3>Ring these through</h3><p class="muted" style="margin:0 0 4px">Every item from every order added together. Tick each one as you ring it.</p>${sm.list}
+      <div style="margin-top:16px">${sm.recon}</div>
+      <div class="row noprint" style="margin-top:16px"><button class="btn ghost small" id="copy">Copy the list</button><button class="btn ghost small" id="csv">Download CSV</button><button class="btn ghost small" id="print">Print</button></div></div>` : `<div class="notice warn"><b>No paid orders selected</b>There is nothing to ring through or send to SumUp.</div>`) +
+    sm.comps +
+    `<details class="card noprint"><summary>${d.orders.length} of ${all.length} outstanding order${all.length === 1 ? "" : "s"} in this cash up</summary><div style="margin-top:10px">${exRows}<p class="muted" style="margin:0 0 8px;font-size:13px">Untick an order to leave it out (it stays outstanding for next time).</p><div style="overflow-x:auto"><table class="t"><tbody>${orderRows}</tbody></table></div></div></details>` +
+    (t.paid_orders || t.comp_orders ? `<div class="card noprint" id="markcard"><h3>All rung through?</h3>
+      <div id="markask" ${S.asking ? "hidden" : ""}><button class="btn" id="mark">I have rung it all through</button></div>
+      <div id="markbox" ${S.asking ? "" : "hidden"}><p style="margin:0 0 10px">This marks <b>${t.paid_orders + t.comp_orders} order${t.paid_orders + t.comp_orders === 1 ? "" : "s"}</b> as rung through, with <b>${gbp(t.payment)}</b> taken as SumUp. They will not appear in the next cash up.</p>
+        <div class="field" style="margin-bottom:12px"><label class="l" for="note">Note (optional)</label><input type="text" id="note" maxlength="300" placeholder="For example: short by two pints, Calli rang the rest"></div>
+        <div class="row"><button class="btn" id="confirm">Yes, mark them as cashed up</button><button class="btn ghost" id="cancel">Not yet</button></div></div></div>` : "");
+  $$(".incl").forEach(b => b.addEventListener("change", () => { if (b.checked) S.excluded.delete(b.dataset.id); else S.excluded.add(b.dataset.id); S.asking = false; viewCashup(); }));
+  const ia = $("#inclAll"); if (ia) ia.addEventListener("click", e => { e.preventDefault(); S.excluded.clear(); viewCashup(); });
+  $$(".rungbox").forEach(b => b.addEventListener("change", () => { if (b.checked) S.rung.add(b.dataset.k); else S.rung.delete(b.dataset.k); b.closest("tr").classList.toggle("rung", b.checked); }));
+  const cp = $("#copy"); if (cp) cp.addEventListener("click", () => copyText(textOf(d, new Date().toLocaleDateString("en-GB"))));
+  const cs = $("#csv"); if (cs) cs.addEventListener("click", () => download("order-cash-up-" + new Date().toISOString().slice(0, 10) + ".csv", csvOf(d)));
+  const pr = $("#print"); if (pr) pr.addEventListener("click", () => window.print());
+  const mk = $("#mark"); if (mk) mk.addEventListener("click", () => { S.asking = true; $("#markask").hidden = true; $("#markbox").hidden = false; });
+  const cn = $("#cancel"); if (cn) cn.addEventListener("click", () => { S.asking = false; $("#markask").hidden = false; $("#markbox").hidden = true; });
+  const cf = $("#confirm"); if (cf) cf.addEventListener("click", async () => {
+    cf.disabled = true;
+    try {
+      const ids = d.orders.map(o => o.id);
+      await call("cashup.mark", { ids, note: $("#note").value });
+      S.excluded.clear(); S.rung.clear(); S.asking = false; S.data = null;
+      toast("Cashed up. The next cash up starts empty."); viewCashup();
+    } catch(e){ toast(e.message, true); cf.disabled = false; }
+  });
+}
+
+/* ------------------------------------------------------------- History */
+async function viewHistory(){
+  const v = $("#views"); v.innerHTML = `<div class="loading">Loading…</div>`;
+  let d; try { d = await call("history"); } catch(e){ v.innerHTML = `<div class="notice bad">${esc(e.message)}</div>`; return; }
+  v.innerHTML = `<div class="pagehead"><h2>Past cash ups</h2><span class="hint">The last 60</span></div>` + (d.cashups.length
+    ? `<div class="card"><div style="overflow-x:auto"><table class="t"><thead><tr><th>When</th><th>By</th><th class="n">Orders</th><th class="n">Items</th><th class="n">SumUp</th><th></th></tr></thead><tbody>${d.cashups.map(c => `<tr><td>${esc(when(c.created_at))}${c.note ? `<div class="sm muted">${esc(c.note)}</div>` : ""}</td><td>${esc(c.created_by_name || "")}</td><td class="n">${c.order_count}</td><td class="n">${gbp(c.items_total)}</td><td class="n"><b>${gbp(c.payment_total)}</b></td><td class="n"><button class="btn ghost small" data-open="${esc(c.id)}">Open</button></td></tr>`).join("")}</tbody></table></div></div>`
+    : `<div class="empty">No cash ups yet.</div>`);
+  $$("[data-open]").forEach(b => b.addEventListener("click", () => viewPast(b.dataset.open)));
+}
+async function viewPast(id){
+  const v = $("#views"); v.innerHTML = `<div class="loading">Loading…</div>`;
+  let d; try { d = await call("cashup.get", { id }); } catch(e){ v.innerHTML = `<div class="notice bad">${esc(e.message)}</div>`; return; }
+  const c = d.cashup, s = c.snapshot, sm = summaryHtml(s, { readonly:true });
+  v.innerHTML = `<div class="pagehead"><h2>Cash up</h2><span class="hint">${esc(when(c.created_at))} · ${esc(c.created_by_name || "")}</span></div>
+    <div class="row noprint" style="margin-bottom:12px"><button class="btn ghost small" id="back">← All cash ups</button><button class="btn ghost small" id="copy">Copy the list</button><button class="btn ghost small" id="csv">Download CSV</button><button class="btn ghost small" id="print">Print</button>${S.me.admin ? `<button class="btn danger small" id="undo">Undo this cash up</button>` : ""}</div>
+    ${c.note ? `<div class="notice warn"><b>Note</b>${esc(c.note)}</div>` : ""}
+    <div class="big"><div class="make pay"><div class="k">Payment to SumUp</div><div class="n">${gbp(s.totals.payment)}</div></div><div class="make"><div class="k">Items rung through</div><div class="n">${s.totals.item_count}</div><div class="w">${c.order_count} order${c.order_count === 1 ? "" : "s"}</div></div></div>
+    <div class="card"><h3>Where it came from</h3>${sm.chan}</div><div class="card"><h3>What was rung through</h3>${sm.list}<div style="margin-top:16px">${sm.recon}</div></div>${sm.comps}`;
+  $("#back").addEventListener("click", viewHistory);
+  $("#copy").addEventListener("click", () => copyText(textOf(s, when(c.created_at))));
+  $("#csv").addEventListener("click", () => download("order-cash-up-" + String(c.created_at).slice(0, 10) + ".csv", csvOf(s)));
+  $("#print").addEventListener("click", () => window.print());
+  const u = $("#undo"); if (u) u.addEventListener("click", async () => {
+    if (!confirm("Undo this cash up? Its orders go back to outstanding and this record is deleted.")) return;
+    try { await call("cashup.undo", { id }); toast("Undone. The orders are outstanding again."); viewHistory(); } catch(e){ toast(e.message, true); }
+  });
+}
+
+/* ------------------------------------------------------------- shell */
+const TABS = [["cashup", "Cash up"], ["history", "Past cash ups"]];
+function goView(v){
+  S.view = v;
+  $$(".tabbtn").forEach(b => b.setAttribute("aria-current", b.dataset.view === v ? "page" : "false"));
+  if (v === "history") viewHistory(); else { S.data = null; viewCashup(); }
+  window.scrollTo(0, 0);
+}
+function openGate(msg){ $("#gate").hidden = false; $("#app").hidden = true; if (msg) $("#gerr").textContent = msg; }
+$("#signout").addEventListener("click", () => { try { sessionStorage.removeItem("bhb_staff_email"); } catch(e){} openGate(); });
+async function boot(){
+  $("#app").hidden = false; $("#views").innerHTML = `<div class="loading">Loading…</div>`;
+  let d;
+  try { d = await call("bootstrap"); } catch(e){ $("#views").innerHTML = `<div class="empty">${esc(e.message)}<br><br><span class="muted">Open this from the Staff Portal so it knows who you are.</span></div>`; return; }
+  S.me = d.me; $("#whoname").textContent = S.me.name;
+  $("#tabs").innerHTML = TABS.map(t => `<button class="tabbtn" data-view="${t[0]}">${t[1]}</button>`).join("");
+  $$(".tabbtn").forEach(b => b.addEventListener("click", () => goView(b.dataset.view)));
+  goView("cashup");
+  setInterval(() => { if (S.view === "cashup" && !document.hidden && !S.asking) viewCashup(); }, 60000);      // new orders appear by themselves
+}
+(function(){ if (staffEmail()) { $("#gate").hidden = true; boot(); } else openGate(); })();
+</script>
+</body>
+</html>
