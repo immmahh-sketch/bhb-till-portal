@@ -53,14 +53,16 @@ if (-not $Unattended) {
 if (-not $Printer -and $Mode -ne "com") { throw "No printer chosen." }
 
 # ---- which checks
-$names = @{ "1" = "bar"; "2" = "kitchen"; "3" = "pass" }
+$names = @{ "1" = "bar"; "2" = "kitchen"; "3" = "pass"; "4" = "guest"; "5" = "botanicals" }
 if (-not $Unattended) {
   Say ""
-  Say "Which checks should this till print?" "Yellow"
-  Say "  1.  Bar      (drinks)"
-  Say "  2.  Kitchen  (food)"
-  Say "  3.  Pass     (food)"
-  Say "Type the numbers, with commas between them. For example 1 for a bar till, 2,3 for a till that prints both the kitchen and pass checks." "Gray"
+  Say "Which should this till print?" "Yellow"
+  Say "  1.  Bar check          (carvery drinks)"
+  Say "  2.  Kitchen check      (carvery food)"
+  Say "  3.  Pass check         (carvery food)"
+  Say "  4.  Guest copy         (carvery: the full VAT receipt for the customer, with prices)"
+  Say "  5.  Botanicals receipts (the Black Horse Botanicals shop: choose ONLY this on the Botanicals till)"
+  Say "Type the numbers, with commas between them. For example 1 for a bar till, 2,3 for a till that prints both the kitchen and pass checks, 5 for Botanicals." "Gray"
   do {
     $t = Ask "Checks for this till"
     $Checks = @($t -split '[,\s]+' | Where-Object { $names.ContainsKey($_) } | ForEach-Object { $names[$_] } | Select-Object -Unique)
@@ -96,7 +98,7 @@ function Try-Com {
     Write-Config "com" "" $pc $Checks
     [void](Ask "Press Enter to print a test on $pc")
     $code = Test-Print
-    $a = Ask "Did a TEST check come out of the receipt printer? (Y or N)"
+    $a = Ask "Did a TEST check or receipt come out of the receipt printer? (Y or N)"
     if ($a -match '^[Yy]') { $script:Mode = "com"; $script:Port = $pc; $script:Printer = ""; return $true }
     if ($code -ne 0) { Say "($pc could not be opened. If the till's own software is using it, that is why.)" "Gray" }
   }
@@ -104,7 +106,7 @@ function Try-Com {
 }
 if (-not $Unattended) {
   Say ""
-  Say "Now a TEST check will print. Look at the receipt printer." "Yellow"
+  Say "Now a TEST will print. Look at the receipt printer." "Yellow"
   $worked = $false
   if ($Mode -eq "com") { $worked = Try-Com }
   else {
@@ -112,7 +114,7 @@ if (-not $Unattended) {
       Write-Config $try $Printer $Port $Checks
       [void](Ask "Press Enter to print a test ($try method)")
       $code = Test-Print
-      $a = Ask "Did a TEST check come out, with big clear writing? (Y or N)"
+      $a = Ask "Did a TEST check or receipt come out, with clear writing? (Y or N)"
       if ($a -match '^[Yy]') { $Mode = $try; $worked = $true; break }
     }
     if (-not $worked) { Say ""; Say "That printer may not be set up in Windows. Trying the serial (COM) ports instead." "Yellow"; $worked = Try-Com }
@@ -132,6 +134,6 @@ if (-not $NoStartup) {
   Start-Process -FilePath "wscript.exe" -ArgumentList "`"$vbs`""
   Say ""
   Say "Done. The carvery printer is running (hidden) and will start itself whenever this user signs in." "Green"
-  Say "It prints $($Checks -join ' + ') checks for paid carvery orders. Nothing else to do on this till." "Green"
+  Say "It prints: $($Checks -join ', '). Nothing else to do on this till." "Green"
 }
 if (-not $Unattended) { Say ""; [void](Read-Host "Press Enter to close this window") }

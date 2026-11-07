@@ -14,6 +14,8 @@
 // order (see hasFood there). The job is still marked "printed" either way
 // so it doesn't sit pending and trip the watchdog.
 //
+// (Botanicals receipts used to print here too; since 7 Nov 2026 the Botanicals till prints its own, on its serial printer: see till-print-3k9x7q in the portal.)
+//
 // The bar printer is on the network (see PRINTER_IP below). If it is ever off or unreachable, jobs sit "pending"
 // and the check-print-jobs watchdog alerts if they go stale for too long.
 //
@@ -81,7 +83,7 @@ async function pollOnce() {
   busy = true;
   try {
     const jobs = await rest(
-      "print_jobs?destination=in.(bar,botanicals)&status=eq.pending&order=created_at.asc&select=*"
+      "print_jobs?destination=eq.bar&status=eq.pending&order=created_at.asc&select=*"
     );
     for (const job of jobs) {
       const isBot = job.destination === "botanicals";
@@ -126,11 +128,11 @@ console.log(`Bar printer bridge running — woken by live updates (checking ever
 // whenever live updates aren't working (old Node, network blip), as it always used to.
 // A job left "printing" can only mean this program stopped mid-print (it is the only thing that prints "bar" jobs), so on
 // start-up put them back to pending and they print again, rather than sitting there for ever with nothing to retry them.
-rest("print_jobs?destination=in.(bar,botanicals)&status=eq.printing", { method: "PATCH", body: JSON.stringify({ status: "pending" }) })
+rest("print_jobs?destination=eq.bar&status=eq.printing", { method: "PATCH", body: JSON.stringify({ status: "pending" }) })
   .then(() => console.log("start-up: released any jobs left half-printed"))
   .catch((e) => console.error("start-up release failed:", e.message));
 let live = false, timer = null;
 function schedule() { clearTimeout(timer); timer = setTimeout(tick, live ? SAFETY_MS : POLL_MS); }
 function tick() { pollOnce().catch((e) => console.error("poll error:", e.message)).finally(schedule); }
-wake.watch({ name: "bar", changes: [{ table: "print_jobs", filter: "destination=eq.bar" }, { table: "print_jobs", filter: "destination=eq.botanicals" }], onChange: () => pollOnce().catch((e) => console.error("poll error:", e.message)), onStatus: (v) => { live = v; schedule(); } });
+wake.watch({ name: "bar", changes: [{ table: "print_jobs", filter: "destination=eq.bar" }], onChange: () => pollOnce().catch((e) => console.error("poll error:", e.message)), onStatus: (v) => { live = v; schedule(); } });
 tick();

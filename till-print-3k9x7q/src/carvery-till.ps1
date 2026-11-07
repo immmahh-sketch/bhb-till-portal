@@ -7,7 +7,8 @@
 #   mode raw  sends receipt-printer (ESC/POS) commands straight to the Windows printer. Crisp, quick, cuts the paper. The first thing to try.
 #   mode gdi  draws the check as a picture and prints it through the printer's Windows driver. Works with a normal driver when raw does not.
 #   mode com  sends the same commands down a serial (COM) port, for a printer that has no Windows printer set up.
-#   checks    any of bar (drinks only), kitchen (food only), pass (food only)
+#   checks    any of bar (drinks only), kitchen (food only), pass (food only), guest (the full guest copy / VAT receipt of the whole carvery order, with prices),
+#             botanicals (the Black Horse Botanicals shop receipts; these are not carvery orders)
 # Switches:  -Test  prints one test check for each of this till's checks and exits     -Once  one look at the queue, then exit
 # A printer of "PREVIEW:<folder>" writes each check into that folder instead of printing (a .png for gdi, a .bin for raw/com) - for testing.
 
@@ -28,8 +29,8 @@ function Log($m) { try { Add-Content -Path $logFile -Value ("[{0}] {1}" -f (Get-
 
 $cfg = Get-Content (Join-Path $here "config.json") -Raw | ConvertFrom-Json
 $mode = if ($cfg.mode) { "$($cfg.mode)".ToLower() } else { "raw" }
-$checks = @($cfg.checks | ForEach-Object { "$_".ToLower() } | Where-Object { $_ -in @("bar", "kitchen", "pass") })
-if (-not $checks.Count) { Log "config.json lists no checks (bar, kitchen, pass): nothing to do"; exit 1 }
+$checks = @($cfg.checks | ForEach-Object { "$_".ToLower() } | Where-Object { $_ -in @("bar", "kitchen", "pass", "guest", "botanicals") })
+if (-not $checks.Count) { Log "config.json lists no checks (bar, kitchen, pass, guest, botanicals): nothing to do"; exit 1 }
 
 # Only one copy per till.
 if (-not $Test -and -not $Once) {
@@ -85,6 +86,7 @@ function Clean([string]$s) {
   $sb = New-Object Text.StringBuilder
   foreach ($c in $s.Normalize([Text.NormalizationForm]::FormD).ToCharArray()) {      # accents are dropped (e-acute becomes e); anything else the printer cannot print becomes ?
     $i = [int]$c
+    if ($i -eq 35) { continue }      # # prints as a pound sign on this printer, so it is never sent from order text; money is written as {P}
     if ($i -eq 10 -or ($i -ge 32 -and $i -le 126)) { [void]$sb.Append($c) }
     elseif ([Globalization.CharUnicodeInfo]::GetUnicodeCategory($c) -ne [Globalization.UnicodeCategory]::NonSpacingMark) { [void]$sb.Append("?") }
   }
@@ -101,8 +103,96 @@ function Wrap([string]$text, [int]$width) {
 }
 function Head-Of($copy) { switch ($copy) { "bar" { "BAR" } "kitchen" { "KITCHEN" } "pass" { "PASS" } default { "$copy".ToUpper() } } }
 
+# ------------------------------------------------------------ the receipts with prices (the guest copy of a carvery order, and the Botanicals shop receipts)
+# Each is described as a list of lines { t = text; b = bold; c = centred; z = 0 normal, 1 bold, 2 double size }, which is then drawn either as printer commands or as a picture.
+# Money is written {P}12.50 : on the printer {P} becomes the pound sign.
+$VAT_RATE = 0.20      # as on the pub's other guest receipts
+$VAT_NO = "GB113205865"
+function GbpS([double]$n) { $a = [Math]::Round([Math]::Abs($n), 2).ToString("0.00", [Globalization.CultureInfo]::InvariantCulture); if ($n -lt -0.004) { return "-{P}" + $a } else { return "{P}" + $a } }
+function PRows([string]$label, [double]$n, [int]$labW = 32) {
+  $a = GbpS $n; $disp = $a.Length - 2
+  $ls = @(Wrap $label $labW); if (-not $ls.Count) { $ls = @("") }
+  $res = @(); for ($i = 0; $i -lt $ls.Count - 1; $i++) { $res += $ls[$i] }
+  $last = $ls[$ls.Count - 1]
+  if ($last.Length + 1 + $disp -gt $LINE) { $res += $last; $res += ((" " * ($LINE - $disp)) + $a) } else { $res += ($last + (" " * ($LINE - $last.Length - $disp)) + $a) }
+  return $res
+}
+function RuleL { return @{ t = ("-" * $LINE) } }
+function When-Of($job, $iso) { try { return ([datetime]::Parse($(if ($iso) { $iso } else { $job.created_at }))).ToLocalTime().ToString("dd/MM/yyyy HH:mm") } catch { return "" } }
+function Order-Total($p) { if ($p.subtotal -ne $null -and [double]$p.subtotal -gt 0) { return [double]$p.subtotal }; $t = 0.0; foreach ($l in @($p.lines)) { $t += [double]$l.unit_price * [double]$l.qty }; return $t }
+
+function Guest-Lines($job) {
+  $p = $job.payload; $o = @()
+  if ($p.is_test -eq $true) { $o += @{ t = "*** TEST ***"; b = $true; c = $true; z = 2 }; $o += @{ t = "DO NOT MAKE - TEST ORDER"; b = $true; c = $true }; $o += (RuleL) }
+  $o += @{ t = "Black Horse Beamish"; b = $true; c = $true; z = 1 }; $o += @{ t = "GUEST COPY"; b = $true; c = $true; z = 2 }; $o += @{ t = ("CARVERY - Table " + $p.room_number); b = $true; c = $true; z = 1 }
+  $o += (RuleL)
+  $o += @{ t = ("Order No. " + $p.order_no) }; $o += @{ t = (When-Of $job $null) }
+  if ($p.guest_name) { foreach ($w in (Wrap ("" + $p.guest_name) $LINE)) { $o += @{ t = $w } } }
+  $o += (RuleL)
+  foreach ($l in @($p.lines)) { foreach ($r in (PRows ("" + $l.qty + " x " + $l.name) ([double]$l.unit_price * [double]$l.qty))) { $o += @{ t = $r } } }
+  $total = Order-Total $p; $net = $total / (1 + $VAT_RATE)
+  $o += (RuleL)
+  foreach ($r in (PRows "Subtotal (net)" $net)) { $o += @{ t = $r } }
+  foreach ($r in (PRows ("VAT @ " + [int]($VAT_RATE * 100) + "%") ($total - $net))) { $o += @{ t = $r } }
+  $o += (RuleL)
+  foreach ($r in (PRows "Total charged" $total)) { $o += @{ t = $r; b = $true } }
+  $o += @{ t = "Payment: Paid online" }
+  $o += (RuleL)
+  $o += @{ t = "Black Horse Beamish Ltd"; c = $true }; $o += @{ t = ("VAT reg. " + $VAT_NO); c = $true }; $o += @{ t = "Red Row, Beamish, DH9 0RW"; c = $true }; $o += @{ t = "Thank you for dining with us"; c = $true }
+  if ($p.is_test -eq $true) { $o += (RuleL); $o += @{ t = "*** TEST ***"; b = $true; c = $true; z = 2 }; $o += @{ t = "DO NOT MAKE - TEST ORDER"; b = $true; c = $true } }
+  return $o
+}
+
+function Botanicals-Lines($job) {
+  $p = $job.payload; $o = @()
+  $refund = ($p.is_refund -eq $true); $sign = if ($refund) { -1 } else { 1 }
+  if ($p.test -eq $true) { $o += @{ t = "*** TEST RECEIPT ***"; b = $true; c = $true }; $o += (RuleL) }
+  $name = if ($p.business_name) { "$($p.business_name)" } else { "Black Horse Botanicals" }
+  foreach ($w in (Wrap $name.ToUpper() $LINE)) { $o += @{ t = $w; b = $true; c = $true; z = 1 } }
+  foreach ($a in @($p.address_lines | Select-Object -First 6)) { foreach ($w in (Wrap ("" + $a) $LINE)) { $o += @{ t = $w; c = $true } } }
+  $o += (RuleL)
+  $o += @{ t = ("Receipt No. " + $(if ($p.receipt_no) { "$($p.receipt_no)" } else { "-" })) }; $o += @{ t = (When-Of $job $p.ts) }
+  if ($p.team_member) { $o += @{ t = ("Served by " + $p.team_member) } }
+  if ($refund) { $o += @{ t = "REFUND"; b = $true } }
+  $o += (RuleL)
+  $n = 0
+  foreach ($l in @($p.lines)) {
+    $n++; $qty = [Math]::Abs([double]$l.qty); $each = [double]$l.unit_price
+    $v = $sign * [Math]::Abs($(if ($l.line_total -ne $null) { [double]$l.line_total } else { $qty * $each }))
+    foreach ($r in (PRows ("" + $qty + " x " + $l.name) $v ($LINE - 9))) { $o += @{ t = $r } }
+  }
+  if (-not $n) { $o += @{ t = "(no items)" } }
+  $o += (RuleL)
+  foreach ($r in (PRows $(if ($refund) { "Total refunded" } else { "Total" }) ($sign * [Math]::Abs([double]$p.total)))) { $o += @{ t = $r; b = $true } }
+  if ($p.payment_method -eq "cash") {
+    $o += @{ t = $(if ($refund) { "Refunded in cash" } else { "Paid in cash" }) }
+    if (-not $refund -and $p.cash_given -ne $null) { foreach ($r in (PRows "Cash given" ([double]$p.cash_given))) { $o += @{ t = $r } }; foreach ($r in (PRows "Change" ([double]$p.change))) { $o += @{ t = $r } } }
+  } else { $o += @{ t = $(if ($refund) { "Refunded to card" } else { "Paid by card" }) } }
+  if ($p.footer) { $o += (RuleL); foreach ($w in (Wrap ("" + $p.footer) $LINE)) { $o += @{ t = $w; c = $true } } }
+  return $o
+}
+function Receipt-Lines($job) { if ("$($job.payload.copy)".ToLower() -eq "guest") { return @(Guest-Lines $job) } else { return @(Botanicals-Lines $job) } }
+$RECEIPTS = @("guest", "botanicals")
+
+function Lines-To-EscPos($lines) {
+  $ms = New-Object IO.MemoryStream
+  $put = { param([byte[]]$b) $ms.Write($b, 0, $b.Length) }
+  & $put ([byte[]](0x1b, 0x40)); & $put ([byte[]](0x1b, 0x52, 0x03))      # reset, then the UK character set so {P} prints as a pound sign
+  foreach ($l in $lines) {
+    $z = if ($l.z) { [int]$l.z } else { 0 }
+    & $put ([byte[]](0x1b, 0x61, $(if ($l.c) { 1 } else { 0 })))
+    & $put ([byte[]](0x1b, 0x45, $(if ($l.b -or $z -ge 1) { 1 } else { 0 })))
+    & $put ([byte[]](0x1d, 0x21, $(if ($z -eq 2) { 0x11 } else { 0x00 })))
+    $t = ((Clean ("" + $l.t)).Replace("{P}", "#")) + "`n"
+    & $put ([Text.Encoding]::ASCII.GetBytes($t))
+  }
+  & $put ([byte[]](0x1b, 0x45, 0x00, 0x1d, 0x21, 0x00, 0x1b, 0x61, 0x00)); & $put ([byte[]](0x0a, 0x0a, 0x0a, 0x0a)); & $put ([byte[]](0x1d, 0x56, 0x42, 0x00))      # feed + partial cut
+  return $ms.ToArray()
+}
+
 function Build-EscPos($job) {
   $p = $job.payload; $copy = "$($p.copy)".ToLower()
+  if ($copy -in $RECEIPTS) { return (Lines-To-EscPos (Receipt-Lines $job)) }
   $ms = New-Object IO.MemoryStream
   $raw = { param([byte[]]$b) $ms.Write($b, 0, $b.Length) }
   $text = { param([string]$s) $b = [Text.Encoding]::ASCII.GetBytes((Clean $s)); $ms.Write($b, 0, $b.Length) }
@@ -148,9 +238,28 @@ function Put($g, [float]$w, [string]$text, [float]$size, [bool]$bold, [bool]$cen
 }
 function Rule($g, [float]$w) { $script:y += 3; $g.DrawLine((New-Object Drawing.Pen([Drawing.Color]::Black, 2)), 0, $script:y, $w, $script:y); $script:y += 6 }
 
+function Draw-Lines($g, [float]$w, $lines) {
+  $script:y = 4.0
+  $face = "Consolas"; if (-not ((New-Object Drawing.FontFamily("Consolas")).Name -eq "Consolas")) { $face = "Courier New" }
+  $tf = [Drawing.StringFormat]::GenericTypographic
+  $pt = 12.0; while ($pt -gt 6 -and $g.MeasureString(("0" * $LINE), (New-Object Drawing.Font($face, $pt, [Drawing.FontStyle]::Regular, [Drawing.GraphicsUnit]::Point)), 2000, $tf).Width -gt ($w - 8)) { $pt -= 0.5 }      # biggest type that fits 32 columns across
+  foreach ($l in $lines) {
+    $z = if ($l.z) { [int]$l.z } else { 0 }
+    $style = if ($l.b -or $z -ge 1) { [Drawing.FontStyle]::Bold } else { [Drawing.FontStyle]::Regular }
+    $font = New-Object Drawing.Font($face, $(if ($z -eq 2) { $pt * 2 } else { $pt }), $style, [Drawing.GraphicsUnit]::Point)
+    $fmt = New-Object Drawing.StringFormat([Drawing.StringFormat]::GenericTypographic); if ($l.c) { $fmt.Alignment = [Drawing.StringAlignment]::Center }
+    $t = (Clean ("" + $l.t)).Replace("{P}", [string][char]0xA3)
+    $h = $g.MeasureString("Xg", $font, 2000, $fmt).Height
+    $g.DrawString($t, $font, [Drawing.Brushes]::Black, (New-Object Drawing.RectangleF(0, $script:y, $w, ($h + 2))), $fmt)
+    $script:y += $h; $font.Dispose()
+  }
+  $script:y += 40
+}
+
 function Draw-Check($g, [float]$w, $job) {
   $p = $job.payload
   $copy = "$($p.copy)".ToLower()
+  if ($copy -in $RECEIPTS) { Draw-Lines $g $w (Receipt-Lines $job); return }
   $script:y = 4.0
   $isTest = ($p.is_test -eq $true)
   if ($isTest) { Put $g $w "*** TEST ***" 18 $true $true; Put $g $w "DO NOT MAKE - TEST ORDER" 10 $true $true; Rule $g $w }
@@ -225,13 +334,23 @@ function Print-Job($job) {
 }
 
 # ------------------------------------------------------------ the queue
-function Is-ServiceTime { $n = Get-Date; return ($n.DayOfWeek -eq [DayOfWeek]::Sunday -and $n.Hour -ge 11 -and $n.Hour -lt 17) }
+function Is-ServiceTime {      # when new checks can arrive: a carvery Sunday, or the Botanicals shop's opening day
+  $n = Get-Date
+  if (($checks -contains "bar" -or $checks -contains "kitchen" -or $checks -contains "pass" -or $checks -contains "guest") -and $n.DayOfWeek -eq [DayOfWeek]::Sunday -and $n.Hour -ge 11 -and $n.Hour -lt 17) { return $true }
+  if ($checks -contains "botanicals" -and $n.Hour -ge 8 -and $n.Hour -lt 19) { return $true }
+  return $false
+}
+function Queue-Url($copy, $status) {
+  if ($copy -eq "botanicals") { return "print_jobs?destination=eq.botanicals&status=eq.$status&order=created_at.asc&limit=50&select=*" }
+  return "print_jobs?destination=eq.carvery&$copyFilter=eq.$copy&status=eq.$status&order=created_at.asc&limit=50&select=*"
+}
 
 function Work-Queue {
   foreach ($copy in $checks) {
-    $jobs = @(Rest "print_jobs?destination=eq.carvery&$copyFilter=eq.$copy&status=eq.pending&order=created_at.asc&limit=50&select=*")
+    $jobs = @(Rest (Queue-Url $copy "pending"))
     foreach ($job in $jobs) {
-      $label = "$copy check, order $($job.payload.order_no), table $($job.payload.room_number)"
+      if ($copy -eq "botanicals") { $job.payload | Add-Member -NotePropertyName copy -NotePropertyValue "botanicals" -Force }
+      $label = if ($copy -eq "botanicals") { "Botanicals receipt $($job.payload.receipt_no)" } else { "$copy check, order $($job.payload.order_no), table $($job.payload.room_number)" }
       try {
         $claimed = @(Rest "print_jobs?id=eq.$($job.id)&status=eq.pending" "PATCH" @{ status = "printing" } "return=representation")
         if (-not $claimed.Count) { continue }      # another till or a retry already has it
@@ -250,17 +369,26 @@ function Work-Queue {
 if ($Test) {
   $bad = 0
   foreach ($copy in $checks) {
-    $lines = if ($copy -eq "bar") { @(@{ qty = 2; name = "Pint of Lager" }, @{ qty = 1; name = "Large Glass of Merlot" }) } else { @(@{ qty = 2; name = "Soup of the Day" }, @{ qty = 1; name = "Sticky Toffee Pudding" }) }
-    $job = [pscustomobject]@{ created_at = (Get-Date).ToUniversalTime().ToString("o"); payload = [pscustomobject]@{ copy = $copy; order_no = 999; room_number = "12"; guest_name = "Test Guest"; is_test = $true; notes = "Test check from the installer"; allergy_notes = ""; lines = $lines } }
-    try { Print-Job $job; Log "test $copy check sent ($mode, '$($cfg.printer)$($cfg.port)')" } catch { Log "test $copy check FAILED: $($_.Exception.Message)"; $bad++ }
+    $now = (Get-Date).ToUniversalTime().ToString("o")
+    if ($copy -eq "guest") {
+      $gl = @([pscustomobject]@{ qty = 2; name = "Sunday Carvery (Standard)"; unit_price = 16.95 }, [pscustomobject]@{ qty = 1; name = "Soup of the Day (V) (VGA)"; unit_price = 8.00 }, [pscustomobject]@{ qty = 2; name = "Pint of Lager"; unit_price = 6.50 })
+      $job = [pscustomobject]@{ created_at = $now; payload = [pscustomobject]@{ copy = "guest"; order_no = 999; room_number = "12"; guest_name = "Test Guest"; is_test = $true; subtotal = 54.90; lines = $gl } }
+    } elseif ($copy -eq "botanicals") {
+      $bl = @([pscustomobject]@{ name = "Dried Flower Bouquet"; qty = 1; unit_price = 25.00; line_total = 25.00 }, [pscustomobject]@{ name = "Candle"; qty = 2; unit_price = 7.50; line_total = 15.00 })
+      $job = [pscustomobject]@{ created_at = $now; payload = [pscustomobject]@{ copy = "botanicals"; test = $true; business_name = "Black Horse Botanicals"; address_lines = @("Red Row", "Beamish", "DH9 0RW"); receipt_no = "TEST1"; ts = $now; team_member = "Test"; lines = $bl; total = 40.00; payment_method = "card"; footer = "Thank you for shopping with us" } }
+    } else {
+      $lines = if ($copy -eq "bar") { @(@{ qty = 2; name = "Pint of Lager" }, @{ qty = 1; name = "Large Glass of Merlot" }) } else { @(@{ qty = 2; name = "Soup of the Day" }, @{ qty = 1; name = "Sticky Toffee Pudding" }) }
+      $job = [pscustomobject]@{ created_at = $now; payload = [pscustomobject]@{ copy = $copy; order_no = 999; room_number = "12"; guest_name = "Test Guest"; is_test = $true; notes = "Test check from the installer"; allergy_notes = ""; lines = $lines } }
+    }
+    try { Print-Job $job; Log "test $copy sent ($mode, '$($cfg.printer)$($cfg.port)')" } catch { Log "test $copy FAILED: $($_.Exception.Message)"; $bad++ }
   }
   exit $bad
 }
 
-Log "carvery printer started: checks $($checks -join ', '), mode $mode, '$($cfg.printer)$($cfg.port)'"
-foreach ($copy in $checks) { try { Rest "print_jobs?destination=eq.carvery&$copyFilter=eq.$copy&status=eq.printing" "PATCH" @{ status = "pending" } | Out-Null } catch { Log "start-up release failed: $($_.Exception.Message)" } }
+Log "printer program started: $($checks -join ', '), mode $mode, '$($cfg.printer)$($cfg.port)'"
+foreach ($copy in $checks) { try { Rest ((Queue-Url $copy "printing") -replace "&order=.*$", "") "PATCH" @{ status = "pending" } | Out-Null } catch { Log "start-up release failed: $($_.Exception.Message)" } }
 while ($true) {
   try { Work-Queue } catch { Log "check failed: $($_.Exception.Message)" }
   if ($Once) { break }
-  Start-Sleep -Seconds $(if (Is-ServiceTime) { 5 } else { 60 })      # quiet outside a carvery Sunday, so it costs the order system next to nothing
+  Start-Sleep -Seconds $(if (Is-ServiceTime) { 5 } else { 60 })      # quiet when nothing can arrive (outside a carvery Sunday / shop hours), so it costs the order system next to nothing
 }
