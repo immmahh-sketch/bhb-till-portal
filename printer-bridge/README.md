@@ -75,13 +75,3 @@ whoever manages the network to give it a static/reserved IP to avoid this).
 Copy the new files over the old ones in the bridge folder, then end the two `node.exe` processes in Task Manager
 (Details tab). The supervisor (`start-bridge.ps1`) starts them again within about 15 seconds, running the new code.
 Check `logskitchen.out.log` for `[wake] live updates ON`.
-
-## Carvery checks
-
-`kitchen-printer.js` also prints carvery orders (print jobs with destination `carvery`): drinks only = bar check; food only = kitchen + pass checks;
-food and drinks = all three. The bar check shows only drinks; kitchen and pass show only food. Carvery meals themselves are never printed (collected at the carvery).
-
-Copy `carvery-printers.example.txt` to `carvery-printers.txt` and put the printer address in: one IP and all three checks print there, or
-`bar=`, `kitchen=`, `pass=` lines for separate printers. It is read on every order, so no restart is needed for a change.
-`node print-carvery-test.js` prints a TEST order's three checks (`--text` shows them on screen only). A check that fails stays queued; a retry only
-prints the copies that had not come out yet.

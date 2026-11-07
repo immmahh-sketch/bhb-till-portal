@@ -185,62 +185,6 @@ async function printLunchTickets() {
   }
 }
 
-// Carvery orders (Sundays, from 8 Nov 2026): destination "carvery", one print job per paid order holding only the starters, desserts and drinks (the carvery meals are collected at the carvery and never printed).
-//   drinks only      -> 1 check  (bar)
-//   food only        -> 2 checks (kitchen, pass)
-//   food and drinks  -> 3 checks (bar, kitchen, pass)
-// The bar check shows only drinks; the kitchen and pass checks show only food.
-// Where they print comes from carvery-printers.txt in this folder, read afresh on every check so a change needs no restart: either one IP address on its own line (all
-// the checks print there), or bar=, kitchen= and pass= lines, one IP each (a missing one falls back to a plain IP line if there is one). With no file the jobs just wait.
-function carveryPrinters() {
-  try {
-    const out = {}; let all = null;
-    for (const raw of require("fs").readFileSync(require("path").join(__dirname, "carvery-printers.txt"), "utf8").split(/\r?\n/)) {
-      const t = raw.replace(/#.*/, "").trim(); if (!t) continue;
-      const m = t.match(/^(bar|kitchen|pass)\s*[=:]\s*(\d{1,3}(?:\.\d{1,3}){3})$/i);
-      if (m) out[m[1].toLowerCase()] = m[2]; else if (/^\d{1,3}(\.\d{1,3}){3}$/.test(t)) all = t;
-    }
-    return { bar: out.bar || all, kitchen: out.kitchen || all, pass: out.pass || all };
-  } catch (e) { return { bar: null, kitchen: null, pass: null }; }
-}
-let carveryWarned = false;
-async function printCarveryTickets() {
-  const where = carveryPrinters();
-  const jobs = await rest("print_jobs?destination=eq.carvery&status=eq.pending&order=created_at.asc&limit=100&select=*");
-  if (!jobs.length) return;
-  if (!where.bar && !where.kitchen && !where.pass) {
-    if (!carveryWarned) { console.error(`[${new Date().toLocaleTimeString()}] ${jobs.length} carvery order(s) waiting: carvery-printers.txt is missing or has no IP address in it`); carveryWarned = true; }
-    return;
-  }
-  carveryWarned = false;
-  for (const job of jobs) {
-    const label = `carvery order #${job.payload?.order_no ?? "?"} table ${job.payload?.room_number ?? "?"}`;
-    try {
-      const claimed = await rest(`print_jobs?id=eq.${job.id}&status=eq.pending`, { method: "PATCH", headers: { Prefer: "return=representation" }, body: JSON.stringify({ status: "printing" }) });
-      if (!Array.isArray(claimed) || claimed.length === 0) continue;
-      await withTestFlag(job);
-      const payload = job.payload || {};
-      const done = Array.isArray(payload.printed) ? payload.printed.slice() : [];      // copies already out, if an earlier try stopped half way: they are not printed twice
-      const wanted = [];
-      if ((payload.lines || []).some((l) => l.category !== "food")) wanted.push(["bar", "carvery-bar"]);
-      if (hasFood(payload)) wanted.push(["kitchen", "carvery-kitchen"], ["pass", "carvery-pass"]);
-      for (const [copy, kind] of wanted) {
-        if (done.includes(copy)) continue;
-        if (!where[copy]) throw new Error(`no printer set for the ${copy} check in carvery-printers.txt`);
-        await printToDevice(buildTicket(job, { kind }), where[copy], PRINTER_PORT);
-        done.push(copy);
-        await rest(`print_jobs?id=eq.${job.id}`, { method: "PATCH", body: JSON.stringify({ payload: { ...payload, printed: done } }) });
-      }
-      await rest(`print_jobs?id=eq.${job.id}`, { method: "PATCH", body: JSON.stringify({ status: "printed", printed_at: new Date().toISOString() }) });
-      console.log(`[${new Date().toLocaleTimeString()}] printed ${label} (${done.join(" + ") || "nothing to print"})`);
-    } catch (e) {
-      console.error(`[${new Date().toLocaleTimeString()}] FAILED to print ${label}: ${e.message}`);
-      await rest(`print_jobs?id=eq.${job.id}&status=eq.printing`, { method: "PATCH", body: JSON.stringify({ status: "pending" }) }).catch(() => {});
-      return;      // a printer is probably off or out of paper: stop here, try again next time, keep the order
-    }
-  }
-}
-
 async function printRequestedReceipts() {
   const orders = await rest(
     `roomservice_orders?select=*&receipt_requested_at=gte.${encodeURIComponent(new Date(Date.now() - 2 * 86400000).toISOString())}&order=receipt_requested_at.asc`
@@ -279,7 +223,6 @@ async function pollOnce() {
     await printAutoTickets();
     await printXmasTickets();
     await printLunchTickets();
-    await printCarveryTickets();
     await printRequestedReceipts();
   } finally {
     busy = false;
@@ -292,11 +235,11 @@ console.log(`Kitchen printer bridge running — woken by live updates (checking 
 // whenever live updates aren't working (old Node, network blip), as it always used to.
 // A job left "printing" can only mean this program stopped mid-print (it is the only thing that prints "kitchen" jobs), so on
 // start-up put them back to pending and they print again, rather than sitting there for ever with nothing to retry them.
-rest("print_jobs?destination=in.(kitchen,xmas-kitchen,staff-lunch,carvery)&status=eq.printing", { method: "PATCH", body: JSON.stringify({ status: "pending" }) })
+rest("print_jobs?destination=in.(kitchen,xmas-kitchen,staff-lunch)&status=eq.printing", { method: "PATCH", body: JSON.stringify({ status: "pending" }) })
   .then(() => console.log("start-up: released any jobs left half-printed"))
   .catch((e) => console.error("start-up release failed:", e.message));
 let live = false, timer = null;
 function schedule() { clearTimeout(timer); timer = setTimeout(tick, live ? SAFETY_MS : POLL_MS); }
 function tick() { pollOnce().catch((e) => console.error("poll error:", e.message)).finally(schedule); }
-wake.watch({ name: "kitchen", changes: [{ table: "print_jobs", filter: "destination=eq.kitchen" }, { table: "print_jobs", filter: "destination=eq.xmas-kitchen" }, { table: "print_jobs", filter: "destination=eq.staff-lunch" }, { table: "print_jobs", filter: "destination=eq.carvery" }, { table: "roomservice_orders" }], onChange: () => pollOnce().catch((e) => console.error("poll error:", e.message)), onStatus: (v) => { live = v; schedule(); } });
+wake.watch({ name: "kitchen", changes: [{ table: "print_jobs", filter: "destination=eq.kitchen" }, { table: "print_jobs", filter: "destination=eq.xmas-kitchen" }, { table: "print_jobs", filter: "destination=eq.staff-lunch" }, { table: "roomservice_orders" }], onChange: () => pollOnce().catch((e) => console.error("poll error:", e.message)), onStatus: (v) => { live = v; schedule(); } });
 tick();
