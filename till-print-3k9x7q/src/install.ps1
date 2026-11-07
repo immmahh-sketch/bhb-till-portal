@@ -3,7 +3,7 @@
 # prints a test check, and sets itself to start whenever this user signs in.
 # For testing: -Unattended -Mode raw|gdi|com -Printer "name" -Port COM1 -Checks bar,kitchen -Dir <folder> -NoStartup
 
-param([switch]$Unattended, [string]$Mode = "raw", [string]$Printer = "", [string]$Port = "", [string[]]$Checks = @(), [string]$Dir = "", [switch]$NoStartup)
+param([switch]$Unattended, [string]$Role = "main", [string]$Mode = "raw", [string]$Printer = "", [string]$Port = "", [string[]]$Checks = @(), [string]$Dir = "", [switch]$NoStartup)
 
 $ErrorActionPreference = "Stop"
 $Checks = @($Checks | ForEach-Object { "$_" -split "," } | ForEach-Object { $_.Trim().ToLower() } | Where-Object { $_ })
@@ -18,8 +18,9 @@ function Ask($q) { if ($Unattended) { return "" }; return (Read-Host $q).Trim() 
 function Stop-Old {
   Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" -ErrorAction SilentlyContinue | Where-Object { $_.CommandLine -like "*carvery-till.ps1*" } | ForEach-Object { try { Stop-Process -Id $_.ProcessId -Force } catch {} }
 }
+$script:StatusCheck = $false
 function Write-Config($mode, $printer, $port, $checks) {
-  $o = [ordered]@{ mode = $mode; printer = $printer; port = $port; baud = 9600; checks = @($checks) }
+  $o = [ordered]@{ role = $Role; backupDelaySeconds = 45; statusCheck = $script:StatusCheck; mode = $mode; printer = $printer; port = $port; baud = 9600; checks = @($checks) }
   Set-Content -Path (Join-Path $Dir "config.json") -Value ($o | ConvertTo-Json) -Encoding ASCII
 }
 function Test-Print {
@@ -70,6 +71,18 @@ if (-not $Unattended) {
   } until ($Checks.Count)
 }
 if (-not $Checks.Count) { throw "No checks chosen." }
+
+# ---- main or backup
+if (-not $Unattended) {
+  Say ""
+  Say "Is this printer the MAIN one for these, or the BACKUP?" "Yellow"
+  Say "  M.  Main    prints them as soon as they arrive"
+  Say "  B.  Backup  prints a check ONLY if the main printer has not printed it within 45 seconds"
+  Say "              (no power, lost connection, paper being changed, cover open, till switched off)." "Gray"
+  do { $r = Ask "Type M or B"; $okr = ($r -match '^[MmBb]$'); if (-not $okr) { Say "Please type M or B." "Red" } } until ($okr)
+  $Role = if ($r -match '^[Bb]$') { "backup" } else { "main" }
+}
+$Role = $Role.ToLower()
 
 # ---- copy the program in
 Stop-Old
@@ -123,7 +136,17 @@ if (-not $Unattended) {
     Say ""
     Say "The test check did not print by any method. The program is installed but will not be able to print yet." "Red"
     Say "Tell Paul which printer you chose and what happened (and send the file $Dir\logs\carvery.log)." "Red"
-  } else { Write-Config $Mode $Printer $Port $Checks }
+  } else {
+    if ($Mode -eq "com") {
+      # Can the printer tell us how it is? If so, it is checked before every print: switched off, cover open and paper out are all caught, and the backup takes over.
+      Write-Config $Mode $Printer $Port $Checks
+      Say ""
+      $sp = Start-Process -FilePath "powershell.exe" -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$(Join-Path $Dir 'carvery-till.ps1')`" -Status" -Wait -PassThru -WindowStyle Hidden
+      if ($sp.ExitCode -eq 0) { $script:StatusCheck = $true; Say "The printer reports its own status, so a switched-off printer, open cover or empty paper roll will be noticed." "Green" }
+      else { Say "This printer does not report its status. A switched-off printer will NOT be noticed on its own (a backup only helps if the whole till is off or offline)." "Yellow" }
+    }
+    Write-Config $Mode $Printer $Port $Checks
+  }
 }
 
 # ---- start it now, and every time this user signs in
@@ -134,6 +157,6 @@ if (-not $NoStartup) {
   Start-Process -FilePath "wscript.exe" -ArgumentList "`"$vbs`""
   Say ""
   Say "Done. The carvery printer is running (hidden) and will start itself whenever this user signs in." "Green"
-  Say "It prints: $($Checks -join ', '). Nothing else to do on this till." "Green"
+  Say "It is the $($Role.ToUpper()) printer for: $($Checks -join ', '). Nothing else to do on this till." "Green"
 }
 if (-not $Unattended) { Say ""; [void](Read-Host "Press Enter to close this window") }

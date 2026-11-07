@@ -9,10 +9,13 @@
 #   mode com  sends the same commands down a serial (COM) port, for a printer that has no Windows printer set up.
 #   checks    any of bar (drinks only), kitchen (food only), pass (food only), guest (the full guest copy / VAT receipt of the whole carvery order, with prices),
 #             botanicals (the Black Horse Botanicals shop receipts; these are not carvery orders)
-# Switches:  -Test  prints one test check for each of this till's checks and exits     -Once  one look at the queue, then exit
+#   role      "main" (the default) prints its checks as they arrive. "backup" only prints a check the main printer has not printed within backupDelaySeconds (default 45):
+#             nobody has printed it (no power, lost connection, out of paper, cover open, till off). Backup prints say BACKUP PRINT at the top.
+#   statusCheck  true: before printing, ask a serial (COM) printer how it is (it must answer: switched off, offline, cover open and paper out are all caught); a printer that is not ready does not take the job.
+# Switches:  -Test  prints one test check for each of this till's checks and exits     -Once  one look at the queue, then exit     -Status  asks a COM printer for its status and exits
 # A printer of "PREVIEW:<folder>" writes each check into that folder instead of printing (a .png for gdi, a .bin for raw/com) - for testing.
 
-param([switch]$Test, [switch]$Once)
+param([switch]$Test, [switch]$Once, [switch]$Status)
 
 $ErrorActionPreference = "Continue"
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -31,6 +34,9 @@ $cfg = Get-Content (Join-Path $here "config.json") -Raw | ConvertFrom-Json
 $mode = if ($cfg.mode) { "$($cfg.mode)".ToLower() } else { "raw" }
 $checks = @($cfg.checks | ForEach-Object { "$_".ToLower() } | Where-Object { $_ -in @("bar", "kitchen", "pass", "guest", "botanicals") })
 if (-not $checks.Count) { Log "config.json lists no checks (bar, kitchen, pass, guest, botanicals): nothing to do"; exit 1 }
+$role = if ($cfg.role) { "$($cfg.role)".ToLower() } else { "main" }
+$backupDelay = if ($cfg.backupDelaySeconds) { [int]$cfg.backupDelaySeconds } else { 45 }
+$statusCheck = ($cfg.statusCheck -eq $true)
 
 # Only one copy per till.
 if (-not $Test -and -not $Once) {
@@ -121,8 +127,9 @@ function RuleL { return @{ t = ("-" * $LINE) } }
 function When-Of($job, $iso) { try { return ([datetime]::Parse($(if ($iso) { $iso } else { $job.created_at }))).ToLocalTime().ToString("dd/MM/yyyy HH:mm") } catch { return "" } }
 function Order-Total($p) { if ($p.subtotal -ne $null -and [double]$p.subtotal -gt 0) { return [double]$p.subtotal }; $t = 0.0; foreach ($l in @($p.lines)) { $t += [double]$l.unit_price * [double]$l.qty }; return $t }
 
+function Backup-Lines($p) { if ($p.backup -eq $true) { return @(@{ t = "*** BACKUP PRINT ***"; b = $true; c = $true; z = 1 }, @{ t = "main printer did not print this"; c = $true }, (RuleL)) } else { return @() } }
 function Guest-Lines($job) {
-  $p = $job.payload; $o = @()
+  $p = $job.payload; $o = @(Backup-Lines $p)
   if ($p.is_test -eq $true) { $o += @{ t = "*** TEST ***"; b = $true; c = $true; z = 2 }; $o += @{ t = "DO NOT MAKE - TEST ORDER"; b = $true; c = $true }; $o += (RuleL) }
   $o += @{ t = "Black Horse Beamish"; b = $true; c = $true; z = 1 }; $o += @{ t = "GUEST COPY"; b = $true; c = $true; z = 2 }; $o += @{ t = ("CARVERY - Table " + $p.room_number); b = $true; c = $true; z = 1 }
   $o += (RuleL)
@@ -144,7 +151,7 @@ function Guest-Lines($job) {
 }
 
 function Botanicals-Lines($job) {
-  $p = $job.payload; $o = @()
+  $p = $job.payload; $o = @(Backup-Lines $p)
   $refund = ($p.is_refund -eq $true); $sign = if ($refund) { -1 } else { 1 }
   if ($p.test -eq $true) { $o += @{ t = "*** TEST RECEIPT ***"; b = $true; c = $true }; $o += (RuleL) }
   $name = if ($p.business_name) { "$($p.business_name)" } else { "Black Horse Botanicals" }
@@ -204,6 +211,7 @@ function Build-EscPos($job) {
   $big = { param($lines) & $size 0x01; & $bold $true; foreach ($l in $lines) { & $text "$l`n" }; & $size 0x00; & $bold $false }
 
   & $raw ([byte[]](0x1b, 0x40)); & $align 1
+  if ($p.backup -eq $true) { & $bold $true; & $size 0x01; & $text "*** BACKUP PRINT ***`n"; & $size 0x00; & $bold $false; & $text "main printer did not print this`n"; & $rule }
   $isTest = ($p.is_test -eq $true)
   if ($isTest) { & $banner }
   & $bold $true; & $size 0x11; & $text ((Head-Of $copy) + "`n"); & $text "CARVERY`n"; & $size 0x22; & $text ("Table " + $p.room_number + "`n"); & $size 0x00; & $bold $false
@@ -261,6 +269,7 @@ function Draw-Check($g, [float]$w, $job) {
   $copy = "$($p.copy)".ToLower()
   if ($copy -in $RECEIPTS) { Draw-Lines $g $w (Receipt-Lines $job); return }
   $script:y = 4.0
+  if ($p.backup -eq $true) { Put $g $w "*** BACKUP PRINT ***" 12 $true $true; Put $g $w "main printer did not print this" 9 $false $true; Rule $g $w }
   $isTest = ($p.is_test -eq $true)
   if ($isTest) { Put $g $w "*** TEST ***" 18 $true $true; Put $g $w "DO NOT MAKE - TEST ORDER" 10 $true $true; Rule $g $w }
   Put $g $w (Head-Of $copy) 28 $true $true
@@ -285,9 +294,45 @@ function Printer-Offline($name) {
   try {
     $q = "Name='" + ($name -replace "\\", "\\\\" -replace "'", "\'") + "'"
     $pr = Get-WmiObject -Class Win32_Printer -Filter $q -ErrorAction Stop
-    if ($pr -and ($pr.WorkOffline -or $pr.PrinterStatus -eq 7)) { return $true }
+    if ($pr -and ($pr.WorkOffline -or $pr.PrinterStatus -eq 7 -or @(4, 7, 8, 9) -contains [int]$pr.DetectedErrorState)) { return $true }      # offline, no paper, cover open, jammed
   } catch {}
   return $false
+}
+
+# Asks a serial printer how it is, the standard receipt-printer way (real-time status, DLE EOT n). Returns @{ replied; why } - why is $null when all is well.
+function Query-ComStatus {
+  $baud = if ($cfg.baud) { [int]$cfg.baud } else { 9600 }
+  $sp = New-Object IO.Ports.SerialPort("$($cfg.port)", $baud, [IO.Ports.Parity]::None, 8, [IO.Ports.StopBits]::One)
+  $sp.ReadTimeout = 900; $sp.WriteTimeout = 3000; $sp.DtrEnable = $true; $sp.RtsEnable = $true
+  try { $sp.Open() } catch { return @{ replied = $false; why = "the COM port cannot be opened (the till's own software may have it)" } }
+  $res = @{}
+  try {
+    foreach ($q in 1, 2, 4) {
+      $sp.DiscardInBuffer()
+      $sp.Write([byte[]](0x10, 0x04, $q), 0, 3)
+      try { $res[$q] = $sp.ReadByte() } catch { return @{ replied = $false; why = "no reply from the printer (switched off or unplugged)" } }
+    }
+  } finally { if ($sp.IsOpen) { $sp.Close() }; $sp.Dispose() }
+  $why = $null
+  if ($res[1] -band 0x08) { $why = "the printer is offline" }
+  elseif ($res[2] -band 0x04) { $why = "the printer cover is open" }
+  elseif ($res[2] -band 0x40) { $why = "the printer has an error" }
+  elseif ($res[4] -band 0x60) { $why = "the printer is out of paper" }
+  return @{ replied = $true; why = $why; bytes = ("{0:X2} {1:X2} {2:X2}" -f $res[1], $res[2], $res[4]) }
+}
+$script:notReadyNote = ""
+function Printer-Ready {
+  $name = "$($cfg.printer)"
+  if ($name -like "PREVIEW:*") { return $true }
+  $why = $null
+  if ($mode -eq "com") { if ($statusCheck) { $why = (Query-ComStatus).why } }
+  elseif (Printer-Offline $name) { $why = "the printer '$name' is switched off, unplugged or has an error (paper out, cover open, jam)" }
+  if ($why) {
+    if ($script:notReadyNote -ne $why) { Log "printer not ready: $why. Not printing; the checks wait (a backup printer takes them after $backupDelay seconds)."; $script:notReadyNote = $why }
+    return $false
+  }
+  if ($script:notReadyNote) { Log "printer ready again"; $script:notReadyNote = "" }
+  return $true
 }
 
 function Print-Job($job) {
@@ -347,9 +392,18 @@ function Queue-Url($copy, $status) {
 
 function Work-Queue {
   foreach ($copy in $checks) {
-    $jobs = @(Rest (Queue-Url $copy "pending"))
+    $extra = ""
+    if ($role -eq "backup") {
+      # A job the main printer left alone for too long is this printer's. One stuck "printing" (the main till stopped half way) is released first.
+      $stuck = (Get-Date).ToUniversalTime().AddSeconds(-120).ToString("yyyy-MM-ddTHH:mm:ssZ")
+      try { Rest (((Queue-Url $copy "printing") -replace "&order=.*$", "") + "&created_at=lt.$stuck") "PATCH" @{ status = "pending" } | Out-Null } catch {}
+      $extra = "&created_at=lt." + (Get-Date).ToUniversalTime().AddSeconds(-$backupDelay).ToString("yyyy-MM-ddTHH:mm:ssZ")
+    }
+    $jobs = @(Rest ((Queue-Url $copy "pending") + $extra))
+    if ($jobs.Count -and -not (Printer-Ready)) { return }      # this printer cannot print just now: leave the checks for the other one
     foreach ($job in $jobs) {
       if ($copy -eq "botanicals") { $job.payload | Add-Member -NotePropertyName copy -NotePropertyValue "botanicals" -Force }
+      if ($role -eq "backup") { $job.payload | Add-Member -NotePropertyName backup -NotePropertyValue $true -Force }
       $label = if ($copy -eq "botanicals") { "Botanicals receipt $($job.payload.receipt_no)" } else { "$copy check, order $($job.payload.order_no), table $($job.payload.room_number)" }
       try {
         $claimed = @(Rest "print_jobs?id=eq.$($job.id)&status=eq.pending" "PATCH" @{ status = "printing" } "return=representation")
@@ -366,6 +420,12 @@ function Work-Queue {
   }
 }
 
+if ($Status) {
+  if ($mode -ne "com") { Log "status check only applies to a COM printer (this one is $mode)"; exit 0 }
+  $r = Query-ComStatus
+  if ($r.replied) { Log "printer answered (status bytes $($r.bytes)); $(if ($r.why) { $r.why } else { 'all is well' })"; exit 0 }
+  Log "no answer: $($r.why)"; exit 2
+}
 if ($Test) {
   $bad = 0
   foreach ($copy in $checks) {
@@ -385,8 +445,8 @@ if ($Test) {
   exit $bad
 }
 
-Log "printer program started: $($checks -join ', '), mode $mode, '$($cfg.printer)$($cfg.port)'"
-foreach ($copy in $checks) { try { Rest ((Queue-Url $copy "printing") -replace "&order=.*$", "") "PATCH" @{ status = "pending" } | Out-Null } catch { Log "start-up release failed: $($_.Exception.Message)" } }
+Log "printer program started ($role): $($checks -join ', '), mode $mode, '$($cfg.printer)$($cfg.port)'"
+if ($role -ne "backup") { foreach ($copy in $checks) { try { Rest ((Queue-Url $copy "printing") -replace "&order=.*$", "") "PATCH" @{ status = "pending" } | Out-Null } catch { Log "start-up release failed: $($_.Exception.Message)" } } }      # (a backup never touches the main printer's jobs)
 while ($true) {
   try { Work-Queue } catch { Log "check failed: $($_.Exception.Message)" }
   if ($Once) { break }
