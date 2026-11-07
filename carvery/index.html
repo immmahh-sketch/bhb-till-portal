@@ -67,6 +67,9 @@
   .item .nm + .opt, .item .dsc + .opt{margin-top:11px}
   .opt .ol{flex:1;font-weight:600;font-size:15px}
   .opt .op{font-weight:800;font-size:15px;min-width:54px;text-align:right}
+  .mods{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 2px}
+  .mods button{border:1.5px solid var(--olive);background:#fff;border-radius:16px;padding:6px 12px;font:inherit;font-size:13.5px;color:var(--ink)}
+  .mods button.on{background:var(--ink);border-color:var(--ink);color:#fff}
   .stepper{display:flex;align-items:center;flex:0 0 auto}
   .stepper button{width:38px;height:38px;border-radius:50%;border:1.5px solid var(--ink);background:#fff;font-size:21px;font-weight:700;line-height:1;display:flex;align-items:center;justify-content:center;color:var(--ink);padding:0}
   .stepper button.add{background:var(--ink);color:#fff}
@@ -264,7 +267,7 @@ var SUPA = "https://safcrtrfdzsnftghibot.supabase.co", KEY = "sb_publishable_RGa
 var $ = function(id){ return document.getElementById(id); };
 var P = new URLSearchParams(location.search);
 var TEST = P.get("test") === "1";
-var S = { table: "", name: "", email: "", verified: false, optIn: false, menu: [], open: true, why: "", cart: {}, tab: "Starters", lastOrder: null, testPass: "" };
+var S = { table: "", name: "", email: "", verified: false, optIn: false, menu: [], open: true, why: "", cart: {}, tab: "Starters", lastOrder: null, testPass: "", mods: {} };
 if (TEST) document.body.classList.add("test");
 
 function fn(name, body){
@@ -300,13 +303,15 @@ function setQty(id, v, n){ n = Math.max(0, Math.min(20, n)); if (n) S.cart[kk(id
 function itemById(id){ return S.menu.filter(function(i){ return i.id === id; })[0]; }
 function cartLines(){
   var out = [];
-  Object.keys(S.cart).forEach(function(k){ var p = k.split("|"), it = itemById(p[0]); if (!it) return; var o = optionsOf(it).filter(function(x){ return x.label === p[1]; })[0]; if (!o) return; out.push({ item: it, variant: p[1], price: o.price, qty: S.cart[k], section: sectionOf(it) }); });
+  Object.keys(S.cart).forEach(function(k){ var p = k.split("|"), it = itemById(p[0]); if (!it) return; var o = optionsOf(it).filter(function(x){ return x.label === p[1]; })[0]; if (!o) return; var mods = p[2] ? p[2].split("+") : []; out.push({ item: it, variant: p[1], mods: mods, price: o.price, qty: S.cart[k], section: sectionOf(it) }); });
   out.sort(function(a, b){ return TABS.indexOf(a.section) - TABS.indexOf(b.section) || a.item.sort_order - b.item.sort_order; });
   return out;
 }
 function cartTotal(){ return cartLines().reduce(function(t, l){ return t + l.price * l.qty; }, 0); }
 function cartCount(){ return cartLines().reduce(function(t, l){ return t + l.qty; }, 0); }
-function lineName(l){ return l.variant ? l.item.name + " (" + l.variant + ")" : l.item.name; }
+function lineName(l){ var n = l.variant ? l.item.name + " (" + l.variant + ")" : l.item.name; return l.mods && l.mods.length ? n + " - " + l.mods.join(", ") : n; }
+function modsOf(it){ return Array.isArray(it.modifiers) ? it.modifiers : []; }
+function modKey(it){ return (S.mods[it.id] || []).filter(function(m){ return modsOf(it).indexOf(m) >= 0; }).sort().join("+"); }
 
 /* ---------- welcome ---------- */
 function showWelcome(){
@@ -407,9 +412,10 @@ function stepper(id, v){
   return '<div class="stepper">' + (n ? '<button type="button" data-m="' + id + '|' + esc(v) + '" aria-label="Remove one">&minus;</button><span class="qty">' + n + '</span>' : '') + '<button type="button" class="add" data-p="' + id + '|' + esc(v) + '" aria-label="Add one">+</button></div>';
 }
 function itemHtml(it){
-  var opts = optionsOf(it), multi = opts.length > 1 || opts[0].label !== "";
+  var opts = optionsOf(it), multi = opts.length > 1 || opts[0].label !== "", mk = modsOf(it).length ? "|" + modKey(it) : "";
   var head = '<div class="nm">' + esc(it.name) + '</div>' + (it.description && it.menu_section !== "Main Courses" ? '<div class="dsc">' + esc(it.description) + '</div>' : "");
-  return '<div class="item">' + head + opts.map(function(o){ return '<div class="opt"><div class="ol">' + (multi ? esc(o.label) : "") + '</div><div class="op">' + gbp(o.price) + '</div>' + stepper(it.id, o.label) + '</div>'; }).join("") + '</div>';
+  return '<div class="item">' + head + opts.map(function(o){ return '<div class="opt"><div class="ol">' + (multi ? esc(o.label) : "") + '</div><div class="op">' + gbp(o.price) + '</div>' + stepper(it.id, o.label + mk) + '</div>'; }).join("") +
+    (modsOf(it).length ? '<div class="mods">' + modsOf(it).map(function(m){ return '<button type="button" data-mod="' + it.id + '|' + esc(m) + '" class="' + ((S.mods[it.id] || []).indexOf(m) >= 0 ? "on" : "") + '">' + esc(m) + '</button>'; }).join("") + '</div>' : "") + '</div>';
 }
 function renderMenu(){
   var counts = {}; cartLines().forEach(function(l){ counts[l.section] = (counts[l.section] || 0) + l.qty; });
@@ -420,9 +426,11 @@ function renderMenu(){
     h += '<div class="grp">Sunday Carvery</div>';
     h += items.map(function(it){ var p = optionsOf(it); return '<div class="item"><div class="nm">Choice of meats</div><div class="dsc">Topside of Beef &middot; Traditional Roast Turkey &middot; Honey Mustard Glazed Gammon &middot; Rosemary Leg of Lamb<br>Served with your choice of trimmings</div>' + p.map(function(o){ return '<div class="opt"><div class="ol">' + esc(o.label) + '</div><div class="op">' + gbp(o.price) + '</div>' + stepper(it.id, o.label) + '</div>'; }).join("") + '</div>'; }).join("");
   } else if (S.tab === "Drinks"){
-    var groups = [["Bottles and Draft", "Draught"], ["Soft drinks", "Softs"]];
-    groups.forEach(function(g){ var gi = items.filter(function(i){ return i.drink_group === g[0]; }); if (gi.length) h += '<div class="grp">' + g[1] + '</div>' + gi.map(itemHtml).join(""); });
-    h += '<p class="foot">Full drinks selection available at the bar</p>';
+    var names = { "Bottles and Draft": "Beer & cider", "Soft drinks": "Soft drinks", "Hot beverages": "Hot drinks", "Spirits and cocktails": "Cocktails", "Wine": "Wine & fizz", "Pitchers": "Sharing pitchers", "Arrival shots": "Shots" };
+    var seen = [];
+    items.forEach(function(i){ var g = i.drink_group || "Other"; if (seen.indexOf(g) < 0) seen.push(g); });
+    seen.forEach(function(g){ var gi = items.filter(function(i){ return (i.drink_group || "Other") === g; }); h += '<div class="grp">' + esc(names[g] || g) + '</div>' + gi.map(itemHtml).join(""); });
+    h += '<p class="foot">Something not on the list? Just ask at the bar.</p>';
   } else {
     h += '<div class="grp">' + S.tab + '</div>' + items.map(itemHtml).join("");
   }
@@ -431,7 +439,12 @@ function renderMenu(){
   var sc = document.querySelector("#s-menu .scroll"); sc.scrollTop = sc.scrollTop;
 }
 document.addEventListener("click", function(e){
-  var t = e.target.closest ? e.target.closest("[data-tab],[data-p],[data-m],[data-bp],[data-bm]") : null; if (!t) return;
+  var t = e.target.closest ? e.target.closest("[data-tab],[data-p],[data-m],[data-bp],[data-bm],[data-mod]") : null; if (!t) return;
+  if (t.dataset.mod){
+    var mi = t.dataset.mod.indexOf("|"), mid = t.dataset.mod.slice(0, mi), mlab = t.dataset.mod.slice(mi + 1), cur = S.mods[mid] || [], at = cur.indexOf(mlab);
+    if (at >= 0) cur.splice(at, 1); else cur.push(mlab);
+    S.mods[mid] = cur; var msc = document.querySelector("#s-menu .scroll"), mtop = msc.scrollTop; renderMenu(); msc.scrollTop = mtop; return;
+  }
   if (t.dataset.tab){ S.tab = t.dataset.tab; var y = 0; renderMenu(); document.querySelector("#s-menu .scroll").scrollTop = y; return; }
   var key = t.dataset.p || t.dataset.m || t.dataset.bp || t.dataset.bm, i = key.indexOf("|"), id = key.slice(0, i), v = key.slice(i + 1);
   setQty(id, v, qtyOf(id, v) + ((t.dataset.p || t.dataset.bp) ? 1 : -1));
@@ -445,8 +458,9 @@ function renderBasket(){
   $("basketWho").textContent = S.name; $("basketTable").textContent = "Table " + S.table;
   var lines = cartLines(), h = "", cur = "";
   lines.forEach(function(l){
+    var vk = l.variant + (modsOf(l.item).length ? "|" + (l.mods || []).join("+") : "");
     if (l.section !== cur){ cur = l.section; h += '<div class="grp" style="margin-top:' + (h ? 16 : 0) + 'px">' + cur + '</div>'; }
-    h += '<div class="bl"><div class="t">' + esc(lineName(l)) + '</div><div class="p">' + gbp(l.price * l.qty) + '</div><div class="stepper"><button type="button" data-bm="' + l.item.id + '|' + esc(l.variant) + '">&minus;</button><span class="qty">' + l.qty + '</span><button type="button" class="add" data-bp="' + l.item.id + '|' + esc(l.variant) + '">+</button></div></div>';
+    h += '<div class="bl"><div class="t">' + esc(lineName(l)) + '</div><div class="p">' + gbp(l.price * l.qty) + '</div><div class="stepper"><button type="button" data-bm="' + l.item.id + '|' + esc(vk) + '">&minus;</button><span class="qty">' + l.qty + '</span><button type="button" class="add" data-bp="' + l.item.id + '|' + esc(vk) + '">+</button></div></div>';
   });
   h += '<div class="tot"><span>Total</span><span>' + gbp(cartTotal()) + '</span></div><p class="nocharge">No tray charge or service charge.</p>';
   var hasCarvery = lines.some(function(l){ return l.section === "Carvery"; });
@@ -459,7 +473,7 @@ function renderBasket(){
   $("basketErr").textContent = "";
 }
 function doOrder(test){
-  var lines = cartLines().map(function(l){ return { item_id: l.item.id, variant: l.variant || null, qty: l.qty }; });
+  var lines = cartLines().map(function(l){ return { item_id: l.item.id, variant: l.variant || null, mods: l.mods && l.mods.length ? l.mods : undefined, qty: l.qty }; });
   return api("place", { table: S.table, name: S.name, email: S.email, receipt: $("receiptIn").checked, allergy: $("allergyIn").value.trim(), lines: lines, test: test || undefined, test_pass: test ? S.testPass : undefined });
 }
 $("payBtn").onclick = function(){
