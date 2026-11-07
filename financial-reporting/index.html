@@ -169,6 +169,8 @@ table.grid td.num{text-align:right; font-variant-numeric:tabular-nums}
 /* the Cash Up history has twelve columns: a wider frame on a big screen, tighter cells and two-line headings so the whole row is in view */
 body.widepage{--maxw:1800px} body.widepage #kiosk{max-width:var(--maxw)}
 .cuTabs{display:flex; gap:6px; margin:0 0 12px; border-bottom:1px solid var(--line,#ddd)} .cuTabs button{background:none; border:0; border-bottom:3px solid transparent; padding:10px 14px; font:inherit; font-weight:600; color:var(--sage-70,#7B887C); cursor:pointer} .cuTabs button.on{color:var(--sage,#4D604F); border-bottom-color:var(--sage,#4D604F)} .cuTabs button.need{color:var(--alert,#8C4A3F)}
+.aoBig{display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:12px; margin:0 0 12px} .aoBig>div{background:#fff; border-radius:10px; padding:12px 16px; border-left:5px solid var(--sage,#4D604F); box-shadow:0 1px 2px rgba(38,38,38,.06)} .aoBig>div.pay{border-left-color:#B08D57; background:#F7F0E4} .aoBig .k{font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--sage-70,#7B887C)} .aoBig .v{font-size:30px; line-height:1.1; color:var(--sage,#4D604F)} .aoBig .w{font-size:12px; color:var(--sage-70,#7B887C)}
+.aoSec{font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--sage,#4D604F); font-weight:700; background:#EDEFED; padding:6px 10px; border-radius:6px; margin:14px 0 2px} .aoQ{font-size:22px; font-weight:700; text-align:right; width:60px; color:var(--sage,#4D604F)} tr.aoRung td{opacity:.4} tr.aoRung td.aoNm span{text-decoration:line-through} .aoChk{width:22px; height:22px; accent-color:var(--sage,#4D604F)}
 .hoNote{background:#F7F0E4; color:#6d5320; border-radius:8px; padding:10px 14px; margin:0 0 12px; font-size:14px} .hoNote.ok{background:#EDF2ED; color:#2F5B31} .hoNote button{margin-left:8px}
 .noteBtn{position:relative; border:1px solid var(--mist); background:var(--white); border-radius:8px; width:36px; height:32px; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; color:var(--sage-70); padding:0}
 .noteBtn:hover{background:var(--sage-10); color:var(--sage)} .noteBtn.has{color:var(--sage); border-color:var(--celadon)}
@@ -838,9 +840,11 @@ function viewCashUpEntry(){
       <button onclick="goView('cashup-history')">History</button>
     </div>`}
     <div class="pagehead"><h2>Cash Up</h2><div class="hint">Count the till's cash and enter what the till expects. The day's cards are checked once, after the last till.</div></div>
-    <div class="cuTabs" role="tablist"><button type="button" class="on" id="cuTabForm" data-cutab="form">Cash up</button><button type="button" id="cuTabHo" data-cutab="handover">Write a hand over</button></div>
+    <div class="cuTabs" role="tablist"><button type="button" class="on" id="cuTabForm" data-cutab="form">Cash up</button><button type="button" id="cuTabHo" data-cutab="handover">Write a hand over</button><button type="button" id="cuTabApp" data-cutab="apporders" hidden>App orders</button></div>
     <div id="hoNote" class="hoNote" hidden></div>
+    <div id="aoNote" class="hoNote" hidden></div>
     <div id="hoPane" hidden></div>
+    <div id="aoPane" hidden></div>
     <div id="cuForm">
     <div class="card">
       <div class="row">
@@ -956,9 +960,9 @@ function wireCashUpEntry(){
   const t = S.tills.find(x => x.key === $("#cu_till").value); CU.standard = t ? Number(t.float_amount) || 0 : 0;
   $("#cuForm").addEventListener("input", cuRecalc);
   const reload = () => { cuLoadContext(); cuLoadStock(); };
-  $("#cu_till").addEventListener("change", reload); $("#cu_date").addEventListener("change", () => { reload(); hoCheck(); HO.loaded = ""; });
+  $("#cu_till").addEventListener("change", reload); $("#cu_date").addEventListener("change", () => { reload(); hoCheck(); HO.loaded = ""; AO.rung.clear(); AO.asking = false; aoCheck(); });
   $$("[data-cutab]").forEach(b => b.addEventListener("click", () => cuTab(b.dataset.cutab)));
-  hoCheck();
+  hoCheck(); aoCheck();
   $("#cu_save").addEventListener("click", saveCashUp);
   cuRecalc(); reload();
 }
@@ -991,14 +995,69 @@ function hoPaint(){
   else note.hidden = true;
 }
 function cuTab(which){
-  const form = $("#cuForm"), pane = $("#hoPane"); if (!form || !pane) return;
+  const form = $("#cuForm"), pane = $("#hoPane"), aoPane = $("#aoPane"); if (!form || !pane) return;
   $$("[data-cutab]").forEach(b => b.classList.toggle("on", b.dataset.cutab === which));
-  form.hidden = which === "handover"; pane.hidden = which !== "handover";
+  form.hidden = which === "handover" || which === "apporders"; pane.hidden = which !== "handover"; if (aoPane) aoPane.hidden = which !== "apporders";
+  if (which === "apporders") { aoRender(); aoPane && aoPane.scrollIntoView && aoPane.scrollIntoView({ behavior:"smooth", block:"start" }); return; }
   if (which === "handover") {
     const date = ($("#cu_date") || {}).value || todayIso();
     if (HO.loaded !== date) { HO.loaded = date; pane.innerHTML = `<iframe title="Write a hand over" src="/handover/?embed=1&date=${encodeURIComponent(date)}" style="width:100%; height:78vh; min-height:560px; border:0; border-radius:10px; background:#fff"></iframe>`; }
     pane.scrollIntoView && pane.scrollIntoView({ behavior:"smooth", block:"start" });
   }
+}
+/* Orders that came through the apps (room service, carvery, outside ordering, campervans) have to be rung through the till and confirmed here before the day can be signed off.
+   The tab only shows if the apps took anything for the day. */
+const AO = { state:null, rung:new Set(), asking:false };
+async function aoCheck(){
+  const el = $("#cu_date"); if (!el) return null;
+  try { AO.state = await call("apporders.pending", { business_date: el.value }); } catch(e){ AO.state = null; }
+  aoPaint(); return AO.state;
+}
+function aoPaint(){
+  const st = AO.state, tab = $("#cuTabApp"), note = $("#aoNote"); if (!tab || !note) return;
+  const need = !!(st && st.outstanding_count > 0), n = st ? st.outstanding_count : 0;
+  tab.hidden = !(st && st.has_any); tab.classList.toggle("need", need);
+  tab.textContent = "App orders" + (need ? " (to confirm)" : st && st.has_any ? " \u2713" : "");
+  if (need) { note.className = "hoNote"; note.hidden = false; note.innerHTML = `${n} order${n === 1 ? "" : "s"} from the apps (room service, carvery, outside ordering, campervans) still need ringing through the till. You need to confirm ${n === 1 ? "it" : "them"} before you can finish the cash up. <button type="button" class="btn small" id="aoOpen">Open the list</button>`; const b = $("#aoOpen"); if (b) b.onclick = () => cuTab("apporders"); }
+  else if (st && st.has_any) { note.className = "hoNote ok"; note.hidden = false; note.innerHTML = "The orders from the apps have been confirmed as rung through."; }
+  else note.hidden = true;
+  const pane = $("#aoPane"); if (pane && !pane.hidden) aoRender();
+}
+function aoAlert(st){
+  const n = st ? st.outstanding_count : 0;
+  pcModal(`<h3 style="margin:0 0 8px">App orders to confirm first</h3><p style="margin:0 0 14px">${n} order${n === 1 ? "" : "s"} from the apps (room service, carvery, outside ordering, campervans) still need ringing through the till. The cash up cannot be finished until you have rung ${n === 1 ? "it" : "them"} through and confirmed ${n === 1 ? "it" : "them"}. The list opens next, here in the cash up.</p><div style="text-align:right"><button type="button" class="btn" id="aoOk">Show me the list</button></div>`);
+  const b = $("#aoOk"); if (b) b.onclick = () => { pcClose(); cuTab("apporders"); };
+}
+function aoRender(){
+  const pane = $("#aoPane"), st = AO.state; if (!pane) return;
+  if (!st) { pane.innerHTML = `<div class="card"><p class="hint">Could not load the app orders. Press the tab again to retry.</p></div>`; return; }
+  const when = iso => iso ? new Date(iso).toLocaleTimeString("en-GB", { timeZone:"Europe/London", hour:"2-digit", minute:"2-digit" }) : "";
+  const done = (st.confirmed || []).map(c => `<div class="hoNote ok" style="margin-bottom:10px">Confirmed as rung through by <b>${esc(c.created_by_name || "")}</b> at ${esc(when(c.created_at))}: ${c.order_count} order${c.order_count === 1 ? "" : "s"}, ${money(c.payment_total)} to SumUp.</div>`).join("");
+  if (!st.outstanding_count) { pane.innerHTML = done + `<div class="card"><p style="margin:0">Everything from the apps for this day has been rung through and confirmed.</p></div>`; return; }
+  const m = st.summary, t = m.totals, byS = {};
+  m.items.forEach(i => { (byS[i.section] = byS[i.section] || []).push(i); });
+  const list = ["Carvery meals", "Food", "Drinks"].filter(sec => byS[sec]).map(sec => `<div class="aoSec">${esc(sec)}</div><table class="cuTable"><tbody>${byS[sec].map(i => { const k = sec + "|" + i.name, on = AO.rung.has(k); return `<tr class="${on ? "aoRung" : ""}"><td style="width:34px"><input type="checkbox" class="aoChk" data-k="${esc(k)}" ${on ? "checked" : ""} aria-label="Rung through"></td><td class="aoNm"><span>${esc(i.name)}</span>${Object.keys(i.mods || {}).length ? `<div class="hint">${Object.keys(i.mods).map(x => esc(x) + " x" + i.mods[x]).join(" · ")}</div>` : ""}</td><td class="aoQ">${i.qty}</td><td class="n hint">${money(i.each)}</td><td class="n">${money(i.value)}</td></tr>`; }).join("")}</tbody></table>`).join("");
+  const chan = m.channels.length ? `<table class="cuTable"><thead><tr><th>Where from</th><th class="n">Orders</th><th class="n">Items</th><th class="n">Charges</th><th class="n">Discounts</th><th class="n">SumUp</th></tr></thead><tbody>${m.channels.map(c => `<tr><td>${esc(c.label)}</td><td class="n">${c.orders}</td><td class="n">${money(c.items)}</td><td class="n">${money(c.charges)}</td><td class="n">${c.discounts ? "-" + money(c.discounts) : "-"}</td><td class="n"><b>${money(c.payment)}</b></td></tr>`).join("")}</tbody></table>` : "";
+  const recon = `<div class="cuLines" style="max-width:420px; margin-left:auto"><div><span>Items to ring through</span><b>${money(t.items)}</b></div>${t.tray ? `<div><span>Tray charge (room service)</span><b>${money(t.tray)}</b></div>` : ""}${t.service ? `<div><span>Service charge (outside, campervans)</span><b>${money(t.service)}</b></div>` : ""}${t.discounts ? `<div><span>Discounts and offers</span><b>-${money(t.discounts)}</b></div>` : ""}${t.refunds ? `<div><span>Refunds</span><b>-${money(t.refunds)}</b></div>` : ""}<div class="tot big"><span>Payment to SumUp</span><b>${money(t.payment)}</b></div></div>`;
+  const comps = (m.comp_items || []).length ? `<div class="card"><h3 style="margin-bottom:4px;font-size:18px">Complimentary orders</h3><div class="hint" style="margin-bottom:8px">${t.comp_orders} order${t.comp_orders === 1 ? "" : "s"} with no payment taken (for example Bob's House). Ring these as complimentary or house items, not to SumUp.</div><table class="cuTable"><tbody>${m.comp_items.map(i => `<tr><td>${esc(i.name)}</td><td class="aoQ">${i.qty}</td><td class="n">${money(i.value)}</td></tr>`).join("")}</tbody></table></div>` : "";
+  const old = st.oldest && st.oldest.slice(0, 10) < ($("#cu_date") || {}).value ? `<div class="hoNote">Some of these are from earlier days that were never confirmed (the oldest was paid on ${esc(new Date(st.oldest).toLocaleDateString("en-GB", { timeZone:"Europe/London", weekday:"long", day:"numeric", month:"long" }))}). They are all in this list.</div>` : "";
+  pane.innerHTML = done + old + `<div class="aoBig"><div class="pay"><div class="k">Payment to SumUp</div><div class="v">${money(t.payment)}</div><div class="w">Use the SumUp payment type on the till for this amount</div></div><div><div class="k">Items to ring through</div><div class="v">${t.item_count}</div><div class="w">${t.paid_orders} paid order${t.paid_orders === 1 ? "" : "s"}${t.comp_orders ? ` and ${t.comp_orders} complimentary` : ""}</div></div></div>
+    ${t.mismatches ? `<div class="hoNote" style="background:#F6EAE8;color:#8C4A3F">${t.mismatches} order${t.mismatches === 1 ? "" : "s"} where the items, charges and discounts do not add up to what was taken. Check ${t.mismatches === 1 ? "it" : "them"} before ringing through.</div>` : ""}
+    ${t.paid_orders ? `<div class="card"><h3 style="margin-bottom:4px;font-size:18px">Where it came from</h3>${chan}</div><div class="card"><h3 style="margin-bottom:4px;font-size:18px">Ring these through the till</h3><div class="hint" style="margin-bottom:4px">Every item from every order added together. Tick each one as you ring it.</div>${list}<div style="margin-top:14px">${recon}</div></div>` : ""}
+    ${comps}
+    <div class="card"><h3 style="margin-bottom:8px;font-size:18px">Rung it all through?</h3>
+      <div id="aoAsk" ${AO.asking ? "hidden" : ""}><button type="button" class="btn" id="aoMark">I have rung all of these through the till</button></div>
+      <div id="aoBox" ${AO.asking ? "" : "hidden"}><p style="margin:0 0 10px">This confirms <b>${st.outstanding_count} order${st.outstanding_count === 1 ? "" : "s"}</b> as rung through, with <b>${money(t.payment)}</b> to SumUp. You can then finish the cash up.</p><div class="field" style="margin-bottom:10px"><label>Note (optional)</label><input type="text" id="aoNoteIn" maxlength="300" placeholder="For example: two pints voided, rung the rest"></div><div style="display:flex; gap:10px; flex-wrap:wrap"><button type="button" class="btn" id="aoConfirm">Yes, they are all rung through</button><button type="button" class="btn ghost" id="aoCancel">Not yet</button></div></div></div>`;
+  pane.querySelectorAll(".aoChk").forEach(b => b.addEventListener("change", () => { if (b.checked) AO.rung.add(b.dataset.k); else AO.rung.delete(b.dataset.k); b.closest("tr").classList.toggle("aoRung", b.checked); }));
+  const mk = $("#aoMark"); if (mk) mk.onclick = () => { AO.asking = true; $("#aoAsk").hidden = true; $("#aoBox").hidden = false; };
+  const cn = $("#aoCancel"); if (cn) cn.onclick = () => { AO.asking = false; $("#aoAsk").hidden = false; $("#aoBox").hidden = true; };
+  const cf = $("#aoConfirm"); if (cf) cf.onclick = async () => {
+    cf.disabled = true;
+    try {
+      await call("apporders.confirm", { business_date: $("#cu_date").value, till_key: $("#cu_till").value, ids: st.ids, note: $("#aoNoteIn").value });
+      AO.asking = false; AO.rung.clear(); toast("Confirmed. You can finish the cash up now."); await aoCheck(); cuTab("form");
+    } catch(e) { toast(e.message, true); cf.disabled = false; if (e.code === "apporders_changed") await aoCheck(); }
+  };
 }
 function hoAlert(st){
   pcModal(`<h3 style="margin:0 0 8px">Hand over needed first</h3><p style="margin:0 0 14px">The cash up cannot be finished until the hand over for <b>${esc((st && st.date_text) || "today")}</b> has been written. It opens next, here in the cash up, so you do not need to leave.</p><div style="text-align:right"><button type="button" class="btn" id="hoOk">Write the hand over</button></div>`);
@@ -1012,6 +1071,7 @@ async function saveCashUp(){
   const btn = $("#cu_save");
   if (denomsBad("cu")) return;
   { const st = await hoCheck(); if (st && st.required && !st.done) { hoAlert(st); return; } }
+  { const ao = await aoCheck(); if (ao && ao.outstanding_count > 0) { aoAlert(ao); return; } }
   if (CU.pending > 0) { toast("Confirm the stock lines first.", true); return; }
   const { values } = readDenoms("cu");
   const expCash = r2(numv("cu_exp_cash")), expCard = r2(numv("cu_exp_card")), vouch = r2(numv("cu_vouchers")), room = r2(numv("cu_room"));
@@ -1041,7 +1101,7 @@ async function saveCashUp(){
     const out = await call("cashup.save", payload);
     toast(`Saved. Difference ${money(out.cashup.variance)}. Cash to bank ${money(out.cashup.cash_banking)}.`);
     cuAfterSave(out);
-  } catch(e) { if (e.code === "handover_required") { await hoCheck(); hoAlert(HO.state || { date_text: "" }); } else { toast(e.message, true); if (e.message && /stock/i.test(e.message)) cuLoadStock(); } }
+  } catch(e) { if (e.code === "handover_required") { await hoCheck(); hoAlert(HO.state || { date_text: "" }); } else if (e.code === "apporders_required") { await aoCheck(); aoAlert(AO.state); } else { toast(e.message, true); if (e.message && /stock/i.test(e.message)) cuLoadStock(); } }
   finally { btn.disabled = false; btn.textContent = "Save & archive"; cuRecalc(); }
 }
 
