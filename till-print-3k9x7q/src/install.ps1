@@ -41,12 +41,14 @@ if (-not $Unattended) {
   for ($i = 0; $i -lt $all.Count; $i++) { Say ("  {0}.  {1}{2}" -f ($i + 1), $all[$i], $(if ($all[$i] -eq $def) { "   (the till's usual printer)" } else { "" })) }
   Say ""
   Say "Pick the receipt printer next to this till. The Partner RP-700 may show as Partner, RP-700, POS or Receipt." "Gray"
+  Say "If it is NOT in the list (many tills print to it through a serial COM port instead), type C." "Gray"
   do {
-    $n = Ask "Type the number of the printer"
-    $ok = ($n -match '^\d+$') -and [int]$n -ge 1 -and [int]$n -le $all.Count
-    if (-not $ok) { Say "Please type one of the numbers above." "Red" }
+    $n = Ask "Type the number of the printer, or C"
+    $useCom = ($n -match '^[Cc]$')
+    $ok = $useCom -or (($n -match '^\d+$') -and [int]$n -ge 1 -and [int]$n -le $all.Count)
+    if (-not $ok) { Say "Please type one of the numbers above, or C." "Red" }
   } until ($ok)
-  $Printer = $all[[int]$n - 1]
+  if ($useCom) { $Mode = "com" } else { $Printer = $all[[int]$n - 1] }
 }
 if (-not $Printer -and $Mode -ne "com") { throw "No printer chosen." }
 
@@ -85,28 +87,35 @@ try {
 } catch { Say "Could not reach the order system from this till: $($_.Exception.Message)" "Red"; Say "Check the till is online, then run this installer again." "Red" }
 
 # ---- test print, trying each way of printing until one comes out
+function Try-Com {
+  # The printer is on a serial (COM) port. Try each port on this till in turn until a check comes out.
+  if (-not $ports.Count) { Say "This till shows no COM ports, so the printer cannot be reached that way." "Red"; return $false }
+  Say ""
+  Say "COM ports on this till: $($ports -join ', ')" "Yellow"
+  foreach ($pc in $ports) {
+    Write-Config "com" "" $pc $Checks
+    [void](Ask "Press Enter to print a test on $pc")
+    $code = Test-Print
+    $a = Ask "Did a TEST check come out of the receipt printer? (Y or N)"
+    if ($a -match '^[Yy]') { $script:Mode = "com"; $script:Port = $pc; $script:Printer = ""; return $true }
+    if ($code -ne 0) { Say "($pc could not be opened. If the till's own software is using it, that is why.)" "Gray" }
+  }
+  return $false
+}
 if (-not $Unattended) {
   Say ""
   Say "Now a TEST check will print. Look at the receipt printer." "Yellow"
   $worked = $false
-  foreach ($try in @("raw", "gdi")) {
-    Write-Config $try $Printer $Port $Checks
-    [void](Ask "Press Enter to print a test ($try method)")
-    $code = Test-Print
-    $a = Ask "Did a TEST check come out, with big clear writing? (Y or N)"
-    if ($a -match '^[Yy]') { $Mode = $try; $worked = $true; break }
-  }
-  if (-not $worked -and $ports.Count) {
-    Say ""
-    Say "That printer may not be set up in Windows. Serial (COM) ports on this till: $($ports -join ', ')" "Yellow"
-    $pc = Ask "Type the COM port the printer is plugged into (for example COM1), or press Enter to give up"
-    if ($pc -match '^(?i)COM\d+$') {
-      Write-Config "com" "" $pc.ToUpper() $Checks
-      [void](Ask "Press Enter to print a test (serial method)")
+  if ($Mode -eq "com") { $worked = Try-Com }
+  else {
+    foreach ($try in @("raw", "gdi")) {
+      Write-Config $try $Printer $Port $Checks
+      [void](Ask "Press Enter to print a test ($try method)")
       $code = Test-Print
-      $a = Ask "Did a TEST check come out? (Y or N)"
-      if ($a -match '^[Yy]') { $Mode = "com"; $Port = $pc.ToUpper(); $Printer = ""; $worked = $true }
+      $a = Ask "Did a TEST check come out, with big clear writing? (Y or N)"
+      if ($a -match '^[Yy]') { $Mode = $try; $worked = $true; break }
     }
+    if (-not $worked) { Say ""; Say "That printer may not be set up in Windows. Trying the serial (COM) ports instead." "Yellow"; $worked = Try-Com }
   }
   if (-not $worked) {
     Say ""

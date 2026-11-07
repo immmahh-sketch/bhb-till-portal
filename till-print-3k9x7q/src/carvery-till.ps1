@@ -198,9 +198,13 @@ function Print-Job($job) {
     return
   }
   if ($mode -eq "com") {
-    $sp = New-Object IO.Ports.SerialPort("$($cfg.port)", $(if ($cfg.baud) { [int]$cfg.baud } else { 9600 }), [IO.Ports.Parity]::None, 8, [IO.Ports.StopBits]::One)
-    $sp.WriteTimeout = 8000
-    try { $sp.Open(); $b = Build-EscPos $job; $sp.Write($b, 0, $b.Length); $sp.BaseStream.Flush(); Start-Sleep -Milliseconds 600 } finally { if ($sp.IsOpen) { $sp.Close() }; $sp.Dispose() }
+    $baud = if ($cfg.baud) { [int]$cfg.baud } else { 9600 }
+    $sp = New-Object IO.Ports.SerialPort("$($cfg.port)", $baud, [IO.Ports.Parity]::None, 8, [IO.Ports.StopBits]::One)
+    $sp.WriteTimeout = 8000; $sp.DtrEnable = $true; $sp.RtsEnable = $true
+    try {
+      $sp.Open(); $b = Build-EscPos $job; $sp.Write($b, 0, $b.Length); $sp.BaseStream.Flush()
+      Start-Sleep -Milliseconds ([int]($b.Length * 10 / $baud * 1000) + 1500)      # let it all go down the cable before the port is closed
+    } finally { if ($sp.IsOpen) { $sp.Close() }; $sp.Dispose() }
     return
   }
   if (Printer-Offline $name) { throw "the printer '$name' is switched off or unplugged" }
