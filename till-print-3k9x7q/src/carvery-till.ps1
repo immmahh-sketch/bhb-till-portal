@@ -27,7 +27,7 @@ using System.Runtime.InteropServices;
 public class BhbAwake { [DllImport("kernel32.dll")] public static extern uint SetThreadExecutionState(uint f); }
 "@
 
-$VERSION = "2026-11-07d"
+$VERSION = "2026-11-07e"
 $SUPABASE = "https://safcrtrfdzsnftghibot.supabase.co"
 $KEY = "sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU"
 
@@ -418,7 +418,8 @@ function Work-Queue {
       try { Rest (((Queue-Url $copy "printing") -replace "&order=.*$", "") + "&created_at=lt.$stuck") "PATCH" @{ status = "pending" } | Out-Null } catch {}
       $extra = "&created_at=lt." + (Get-Date).ToUniversalTime().AddSeconds(-$backupDelay).ToString("yyyy-MM-ddTHH:mm:ssZ")
     }
-    $jobs = Rows (Rest ((Queue-Url $copy "pending") + $extra))
+    $recent = "&created_at=gt." + (Get-Date).ToUniversalTime().AddHours(-6).ToString("yyyy-MM-ddTHH:mm:ssZ")      # nothing older than 6 hours: an old backlog must never flood the printer when a till comes back
+    $jobs = Rows (Rest ((Queue-Url $copy "pending") + $extra + $recent))
     if ($jobs.Count -and -not (Printer-Ready)) { return }      # this printer cannot print just now: leave the checks for the other one
     foreach ($job in $jobs) {
       if ($copy -eq "botanicals") { $job.payload | Add-Member -NotePropertyName copy -NotePropertyValue "botanicals" -Force }
