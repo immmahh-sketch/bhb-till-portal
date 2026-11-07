@@ -1,4 +1,4 @@
-# Black Horse Beamish - carvery checks on a till's printer.
+# Black Horse Beamish - carvery checks on a till's printer.   (BHB-TILL-PRINT-PROGRAM)
 # Runs hidden on a till (no admin needed). It asks the order system, every few seconds on a carvery Sunday, whether there is a check for this till to print,
 # and prints it on the printer chosen at install time.
 #
@@ -21,7 +21,13 @@ $ErrorActionPreference = "Continue"
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 } catch {}
 Add-Type -AssemblyName System.Drawing
+Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+public class BhbAwake { [DllImport("kernel32.dll")] public static extern uint SetThreadExecutionState(uint f); }
+"@
 
+$VERSION = "2026-11-07d"
 $SUPABASE = "https://safcrtrfdzsnftghibot.supabase.co"
 $KEY = "sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU"
 
@@ -50,6 +56,15 @@ function Rest($path, $method = "GET", $body = $null, $prefer = $null) {
   $req = @{ Uri = "$SUPABASE/rest/v1/$path"; Method = $method; Headers = $h; TimeoutSec = 20; ContentType = "application/json; charset=utf-8" }
   if ($body -ne $null) { $req["Body"] = [Text.Encoding]::UTF8.GetBytes(($body | ConvertTo-Json -Depth 8 -Compress)) }
   return Invoke-RestMethod @req
+}
+# Some versions of Windows PowerShell hand back a whole JSON list as ONE object (an empty list, or a list of two jobs, looked like a single blank job). This always gives the real rows.
+function Rows($r) {
+  $o = New-Object System.Collections.ArrayList
+  foreach ($x in @($r)) {
+    if ($x -is [array]) { foreach ($y in $x) { if ($y -ne $null) { [void]$o.Add($y) } } }
+    elseif ($x -ne $null) { [void]$o.Add($x) }
+  }
+  return , @($o.ToArray())
 }
 $copyFilter = "payload-%3E%3Ecopy"      # payload->>copy
 
@@ -299,12 +314,16 @@ function Printer-Offline($name) {
   return $false
 }
 
+function Open-Com($sp) {
+  for ($i = 0; $i -lt 8; $i++) { try { $sp.Open(); return } catch { Start-Sleep -Milliseconds 500 } }
+  $sp.Open()      # one last time, and let it throw if it still cannot
+}
 # Asks a serial printer how it is, the standard receipt-printer way (real-time status, DLE EOT n). Returns @{ replied; why } - why is $null when all is well.
 function Query-ComStatus {
   $baud = if ($cfg.baud) { [int]$cfg.baud } else { 9600 }
   $sp = New-Object IO.Ports.SerialPort("$($cfg.port)", $baud, [IO.Ports.Parity]::None, 8, [IO.Ports.StopBits]::One)
   $sp.ReadTimeout = 900; $sp.WriteTimeout = 3000; $sp.DtrEnable = $true; $sp.RtsEnable = $true
-  try { $sp.Open() } catch { return @{ replied = $false; why = "the COM port cannot be opened (the till's own software may have it)" } }
+  try { Open-Com $sp } catch { return @{ replied = $false; why = "the COM port cannot be opened (the till's own software may have it)" } }
   $res = @{}
   try {
     foreach ($q in 1, 2, 4) {
@@ -356,7 +375,7 @@ function Print-Job($job) {
     $sp = New-Object IO.Ports.SerialPort("$($cfg.port)", $baud, [IO.Ports.Parity]::None, 8, [IO.Ports.StopBits]::One)
     $sp.WriteTimeout = 8000; $sp.DtrEnable = $true; $sp.RtsEnable = $true
     try {
-      $sp.Open(); $b = Build-EscPos $job; $sp.Write($b, 0, $b.Length); $sp.BaseStream.Flush()
+      Open-Com $sp; $b = Build-EscPos $job; $sp.Write($b, 0, $b.Length); $sp.BaseStream.Flush()
       Start-Sleep -Milliseconds ([int]($b.Length * 10 / $baud * 1000) + 1500)      # let it all go down the cable before the port is closed
     } finally { if ($sp.IsOpen) { $sp.Close() }; $sp.Dispose() }
     return
@@ -399,14 +418,14 @@ function Work-Queue {
       try { Rest (((Queue-Url $copy "printing") -replace "&order=.*$", "") + "&created_at=lt.$stuck") "PATCH" @{ status = "pending" } | Out-Null } catch {}
       $extra = "&created_at=lt." + (Get-Date).ToUniversalTime().AddSeconds(-$backupDelay).ToString("yyyy-MM-ddTHH:mm:ssZ")
     }
-    $jobs = @(Rest ((Queue-Url $copy "pending") + $extra))
+    $jobs = Rows (Rest ((Queue-Url $copy "pending") + $extra))
     if ($jobs.Count -and -not (Printer-Ready)) { return }      # this printer cannot print just now: leave the checks for the other one
     foreach ($job in $jobs) {
       if ($copy -eq "botanicals") { $job.payload | Add-Member -NotePropertyName copy -NotePropertyValue "botanicals" -Force }
       if ($role -eq "backup") { $job.payload | Add-Member -NotePropertyName backup -NotePropertyValue $true -Force }
       $label = if ($copy -eq "botanicals") { "Botanicals receipt $($job.payload.receipt_no)" } else { "$copy check, order $($job.payload.order_no), table $($job.payload.room_number)" }
       try {
-        $claimed = @(Rest "print_jobs?id=eq.$($job.id)&status=eq.pending" "PATCH" @{ status = "printing" } "return=representation")
+        $claimed = Rows (Rest "print_jobs?id=eq.$($job.id)&status=eq.pending" "PATCH" @{ status = "printing" } "return=representation")
         if (-not $claimed.Count) { continue }      # another till or a retry already has it
         Print-Job $job
         Rest "print_jobs?id=eq.$($job.id)" "PATCH" @{ status = "printed"; printed_at = (Get-Date).ToUniversalTime().ToString("o") } | Out-Null
@@ -445,10 +464,32 @@ if ($Test) {
   exit $bad
 }
 
-Log "printer program started ($role): $($checks -join ', '), mode $mode, '$($cfg.printer)$($cfg.port)'"
+$updateUrl = "https://app.blackhorsebeamish.co.uk/till-print-3k9x7q/src/carvery-till.ps1"
+$startupVbs = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\Startup\BHB Carvery Printer.vbs"
+$script:lastUpdateCheck = (Get-Date).AddMinutes(-25); $script:lastBeat = Get-Date
+function Check-Update {
+  # Picks up a corrected program from the portal by itself, so the tills never need re-installing for a fix. Only a file that parses and carries this program's marker is used.
+  $script:lastUpdateCheck = Get-Date
+  try {
+    $new = (Invoke-WebRequest -Uri ($updateUrl + "?t=" + [Guid]::NewGuid().ToString("N")) -UseBasicParsing -TimeoutSec 30).Content
+    if ($new -isnot [string]) { $new = [Text.Encoding]::UTF8.GetString($new) }
+    $old = Get-Content $PSCommandPath -Raw
+    if (($new -replace "\r\n", "`n").Trim() -eq ($old -replace "\r\n", "`n").Trim()) { return }
+    if ($new -notmatch "BHB-TILL-PRINT-PROGRAM") { Log "update ignored: not this program"; return }
+    [void][scriptblock]::Create($new)
+    [IO.File]::WriteAllText($PSCommandPath, ($new -replace "\r\n", "`n" -replace "`n", "`r`n"), (New-Object Text.UTF8Encoding($false)))
+    Log "program updated from the portal; restarting"
+    if (Test-Path $startupVbs) { Start-Process -FilePath "cmd.exe" -ArgumentList "/c ping -n 5 127.0.0.1 >nul & wscript.exe `"$startupVbs`"" -WindowStyle Hidden }
+    exit 0
+  } catch { Log "update check failed: $($_.Exception.Message)" }
+}
+Log "printer program started ($role, version $VERSION): $($checks -join ', '), mode $mode, '$($cfg.printer)$($cfg.port)'"
 if ($role -ne "backup") { foreach ($copy in $checks) { try { Rest ((Queue-Url $copy "printing") -replace "&order=.*$", "") "PATCH" @{ status = "pending" } | Out-Null } catch { Log "start-up release failed: $($_.Exception.Message)" } } }      # (a backup never touches the main printer's jobs)
 while ($true) {
+  [void][BhbAwake]::SetThreadExecutionState(0x80000001)      # do not let this till go to sleep while the program is running
   try { Work-Queue } catch { Log "check failed: $($_.Exception.Message)" }
   if ($Once) { break }
+  if (((Get-Date) - $script:lastBeat).TotalMinutes -ge 10) { Log "still running (version $VERSION), $(if ($script:notReadyNote) { 'printer NOT ready: ' + $script:notReadyNote } else { 'printer ok' })"; $script:lastBeat = Get-Date }
+  if (((Get-Date) - $script:lastUpdateCheck).TotalMinutes -ge 30) { Check-Update }
   Start-Sleep -Seconds $(if (Is-ServiceTime) { 5 } else { 60 })      # quiet when nothing can arrive (outside a carvery Sunday / shop hours), so it costs the order system next to nothing
 }
