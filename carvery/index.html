@@ -149,6 +149,19 @@
       <div style="height:14px"></div>
       <button class="btn" id="startBtn" type="button">Start your order</button>
     </div>
+    <div class="card" id="findCard">
+      <h2 class="serif" style="font-size:21px">Already ordered?</h2>
+      <p class="lead" style="margin-bottom:10px">Lost your carvery screen? Enter the email address you used and we will find your order. Nothing is emailed.</p>
+      <button class="btn ghost" type="button" id="findOpen">Retrieve an order</button>
+      <div id="findBox" style="display:none">
+        <div id="findTableRow" style="display:none"><label class="f" for="findTable">Your table number</label><input type="text" id="findTable" maxlength="8" autocomplete="off"></div>
+        <label class="f" for="findEmail">The email address you used</label><input type="email" id="findEmail" maxlength="120" autocomplete="email" inputmode="email">
+        <div class="err" id="findErr"></div>
+        <div style="height:10px"></div>
+        <button class="btn" type="button" id="findGo">Find my order</button>
+        <div id="findList" style="margin-top:12px"></div>
+      </div>
+    </div>
     <div class="card">
       <h2 class="serif" style="font-size:21px">How it works</h2>
       <ol class="how">
@@ -320,6 +333,35 @@ $("startBtn").onclick = function(){
   S.name = n; ls("bhb_carvery_name", n);
   if (!S.open && !TEST){ closedScreen(); return; }
   if (S.verified && S.email) enterMenu(); else openEmail();
+};
+
+/* ---------- retrieve an order: table + the email used, nothing is emailed ---------- */
+$("findOpen").onclick = function(){
+  var open = $("findBox").style.display === "none";
+  $("findBox").style.display = open ? "" : "none";
+  $("findTableRow").style.display = S.table ? "none" : "";
+  if (open){ if (S.email && !$("findEmail").value) $("findEmail").value = S.email; setTimeout(function(){ ($("findEmail").value ? $("findGo") : $("findEmail")).focus(); }, 40); }
+};
+$("findGo").onclick = function(){
+  var err = $("findErr"), list = $("findList"); err.textContent = ""; list.innerHTML = "";
+  var t = S.table || ($("findTable").value || "").trim().toUpperCase().replace(/[^A-Z0-9 \-]/g, "");
+  var e = ($("findEmail").value || "").trim().toLowerCase();
+  if (!t){ err.textContent = "Please enter your table number."; return; }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)){ err.textContent = "Please enter the email address you used."; return; }
+  var btn = $("findGo"); btn.disabled = true; btn.textContent = "Looking...";
+  api("find", { table: t, email: e, test: TEST || undefined }).then(function(r){
+    btn.disabled = false; btn.textContent = "Find my order";
+    var orders = r.orders || [];
+    function take(o){ S.lastOrder = { id: o.id, at: Date.now(), table: t, no: o.order_no }; ls("bhb_carvery_order", JSON.stringify(S.lastOrder)); openOrder(o.id); }
+    if (orders.length === 1) return take(orders[0]);
+    list.innerHTML = '<p class="lead" style="margin-bottom:8px">We found more than one. Which is yours?</p>';
+    orders.forEach(function(o){
+      var b = document.createElement("button"); b.type = "button"; b.className = "btn ghost"; b.style.marginBottom = "8px";
+      var when = o.paid_at ? new Date(o.paid_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : "";
+      b.textContent = "Order " + o.order_no + (when ? " at " + when : "") + (o.redeemed ? " (redeemed)" : "");
+      b.onclick = function(){ take(o); }; list.appendChild(b);
+    });
+  }).catch(function(x){ btn.disabled = false; btn.textContent = "Find my order"; err.textContent = x.message; });
 };
 
 /* ---------- email check ---------- */
