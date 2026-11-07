@@ -1851,19 +1851,21 @@ async function tkExtrasLoad(dateId, bookingId, b){
   } catch (e) { box = $("tkx"); if (box) box.innerHTML = '<div class="err" style="margin:12px 0 0">' + esc(e.message) + '</div>'; }
 }
 function tkExtrasHtml(d, b, extra){
-  var ts = Number(b.gross) || 0, total = ts + extra, due = tkDue(Object.assign({}, b, { extra_paid:extra }));
+  var isDisc = function(x){ return /^\s*discount/i.test(x.note || ""); };
+  var disc = (d.payments || []).filter(function(x){ return !x.voided_at && isDisc(x); }).reduce(function(t, x){ return t + Number(x.amount); }, 0);
+  var ts = Number(b.gross) || 0, total = ts + extra - disc, due = tkDue(Object.assign({}, b, { extra_paid:extra }));
   var dep = Object.keys(b.categories || {}).some(function(k){ return /deposit/i.test(k) && Number(b.categories[k]); });
   var h = '<h4>Payments</h4><dl><dt>Total price</dt><dd>' + (b.total_price == null ? '<span class="muted">not known for this mix of tickets</span>' : esc(money(b.total_price)) +
       (dep ? ' <span class="muted">(deposit tickets counted at double what was paid)</span>' : '')) + '</dd>' +
-    '<dt>Paid via TicketSource</dt><dd>' + esc(money(ts)) + '</dd><dt>Additional payments</dt><dd>' + esc(money(extra)) +
-    '</dd><dt><b>Total paid</b></dt><dd><b>' + esc(money(total)) + '</b></dd><dt><b>Remaining</b></dt><dd>' + tkDueHtml(Object.assign({}, b, { extra_paid:extra }), false) + '</dd></dl>' +
-    '<h4>Additional payments made</h4>';
+    '<dt>Paid via TicketSource</dt><dd>' + esc(money(ts)) + '</dd><dt>Additional payments</dt><dd>' + esc(money(extra - disc)) +
+    '</dd>' + (disc > 0.004 ? '<dt>Discount</dt><dd>' + esc(money(disc)) + '</dd>' : '') + '<dt><b>Total paid</b></dt><dd><b>' + esc(money(total)) + '</b></dd><dt><b>Remaining</b></dt><dd>' + tkDueHtml(Object.assign({}, b, { extra_paid:extra }), false) + '</dd></dl>' +
+    '<h4>Additional payments and discounts</h4>';
   if ((d.payments || []).length) {
     h += '<div style="overflow-x:auto;margin-top:8px"><table><thead><tr><th>Added</th><th>By</th><th>Note</th><th class="money">Amount</th><th></th></tr></thead><tbody>' +
       d.payments.map(function(x){
         var v = !!x.voided_at;
         return '<tr' + (v ? ' style="opacity:.5;text-decoration:line-through"' : '') + '><td>' + esc(tkWhenShort(x.created_at)) + '</td><td>' + esc(x.by_name || "") + '</td><td>' + esc(x.note || "") +
-          '</td><td class="money">' + esc(money(x.amount)) + '</td><td>' + (v ? '<span class="muted" style="text-decoration:none">removed</span>' : '<a href="#" onclick="tkPayVoid(event,\'' + esc(x.id) + '\')">Remove</a>') + '</td></tr>';
+          '</td><td class="money">' + (isDisc(x) ? '<span class="muted">discount </span>' : '') + esc(money(x.amount)) + '</td><td>' + (v ? '<span class="muted" style="text-decoration:none">removed</span>' : '<a href="#" onclick="tkPayVoid(event,\'' + esc(x.id) + '\')">Remove</a>') + '</td></tr>';
       }).join("") + '</tbody></table></div>';
   }
   h += '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:10px">' +
