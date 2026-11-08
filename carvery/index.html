@@ -67,6 +67,9 @@
   .item .nm + .opt, .item .dsc + .opt{margin-top:11px}
   .opt .ol{flex:1;font-weight:600;font-size:15px}
   .opt .op{font-weight:800;font-size:15px;min-width:54px;text-align:right}
+  .subtabs{display:flex;gap:8px;overflow-x:auto;margin:2px 0 14px;padding-bottom:4px;-webkit-overflow-scrolling:touch}
+  .subtabs button{flex:0 0 auto;border:1.5px solid var(--olive);background:#fff;border-radius:18px;padding:8px 15px;font:inherit;font-size:14px;font-weight:600;color:var(--ink);white-space:nowrap}
+  .subtabs button.on{background:var(--ink);border-color:var(--ink);color:#fff}
   .mods{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 2px}
   .mods button{border:1.5px solid var(--olive);background:#fff;border-radius:16px;padding:6px 12px;font:inherit;font-size:13.5px;color:var(--ink)}
   .mods button.on{background:var(--ink);border-color:var(--ink);color:#fff}
@@ -267,7 +270,7 @@ var SUPA = "https://safcrtrfdzsnftghibot.supabase.co", KEY = "sb_publishable_RGa
 var $ = function(id){ return document.getElementById(id); };
 var P = new URLSearchParams(location.search);
 var TEST = P.get("test") === "1";
-var S = { table: "", name: "", email: "", verified: false, optIn: false, menu: [], open: true, why: "", cart: {}, tab: "Starters", lastOrder: null, testPass: "", mods: {} };
+var S = { table: "", name: "", email: "", verified: false, optIn: false, menu: [], open: true, why: "", cart: {}, tab: "Starters", lastOrder: null, testPass: "", mods: {}, dtab: "" };
 if (TEST) document.body.classList.add("test");
 
 function fn(name, body){
@@ -429,7 +432,10 @@ function renderMenu(){
     var names = { "Bottles and Draft": "Beer & cider", "Soft drinks": "Soft drinks", "Hot beverages": "Hot drinks", "Spirits and cocktails": "Cocktails", "Wine": "Wine & fizz", "Pitchers": "Sharing pitchers", "Arrival shots": "Shots" };
     var seen = [];
     items.forEach(function(i){ var g = i.drink_group || "Other"; if (seen.indexOf(g) < 0) seen.push(g); });
-    seen.forEach(function(g){ var gi = items.filter(function(i){ return (i.drink_group || "Other") === g; }); h += '<div class="grp">' + esc(names[g] || g) + '</div>' + gi.map(itemHtml).join(""); });
+    if (seen.indexOf(S.dtab) < 0) S.dtab = seen[0] || "";                       // one drinks category at a time: Beer & cider, Soft drinks, Hot drinks, Cocktails, Wine & fizz
+    var inCart = {}; cartLines().forEach(function(l){ if (l.section === "Drinks") inCart[l.item.drink_group || "Other"] = (inCart[l.item.drink_group || "Other"] || 0) + l.qty; });
+    h += '<div class="subtabs">' + seen.map(function(g){ return '<button type="button" data-dtab="' + esc(g) + '" class="' + (g === S.dtab ? "on" : "") + '">' + esc(names[g] || g) + (inCart[g] ? ' (' + inCart[g] + ')' : "") + '</button>'; }).join("") + '</div>';
+    h += '<div class="grp">' + esc(names[S.dtab] || S.dtab) + '</div>' + items.filter(function(i){ return (i.drink_group || "Other") === S.dtab; }).map(itemHtml).join("");
     h += '<p class="foot">Something not on the list? Just ask at the bar.</p>';
   } else {
     h += '<div class="grp">' + S.tab + '</div>' + items.map(itemHtml).join("");
@@ -439,7 +445,8 @@ function renderMenu(){
   var sc = document.querySelector("#s-menu .scroll"); sc.scrollTop = sc.scrollTop;
 }
 document.addEventListener("click", function(e){
-  var t = e.target.closest ? e.target.closest("[data-tab],[data-p],[data-m],[data-bp],[data-bm],[data-mod]") : null; if (!t) return;
+  var t = e.target.closest ? e.target.closest("[data-tab],[data-p],[data-m],[data-bp],[data-bm],[data-mod],[data-dtab]") : null; if (!t) return;
+  if (t.dataset.dtab){ S.dtab = t.dataset.dtab; renderMenu(); document.querySelector("#s-menu .scroll").scrollTop = 0; return; }
   if (t.dataset.mod){
     var mi = t.dataset.mod.indexOf("|"), mid = t.dataset.mod.slice(0, mi), mlab = t.dataset.mod.slice(mi + 1), cur = S.mods[mid] || [], at = cur.indexOf(mlab);
     if (at >= 0) cur.splice(at, 1); else cur.push(mlab);
