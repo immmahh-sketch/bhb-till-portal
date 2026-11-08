@@ -806,7 +806,28 @@ async function showFull(id, ctx){
     $("#cxGo").onclick = async () => { if (!confirm("Cancel this booking and keep the deposit? It leaves the diary and the guest counts.")) return; $("#cxGo").disabled = true; try { await px("admin.cancel_set", { booking_id:id, cancelled:true, note:$("#cxNote").value }); closeModal(); toast("Cancelled, deposit kept. Out of the diary."); if (S.view === "preorders") loadPre(); if (S.view === "diary") { S.dg = await px("admin.diary", { date_id:S.dgId }); renderDiary(); } } catch(e){ toast(e.message, true); $("#cxGo").disabled = false; } }; }
   const cxu = $("#cxUndo"); if (cxu) cxu.onclick = async () => { if (!confirm("Undo the cancellation? The booking goes back into the counts and the diary.")) return; try { await px("admin.cancel_set", { booking_id:id, cancelled:false }); await again("Cancellation undone."); } catch(e){ toast(e.message, true); } };
   const gco = $("#gcOpen"); if (gco) { gco.onclick = () => { $("#gcBox").style.display = ""; gco.style.display = "none"; $("#gcA").value = b.adults; if ($("#gcC")) $("#gcC").value = b.children; };
-    $("#gcSave").onclick = async () => { const a = Number($("#gcA").value) || 0, c = $("#gcC") ? Number($("#gcC").value) || 0 : 0; if (a + c !== b.adults + b.children) { toast("The total has to stay at " + (b.adults + b.children) + " guests.", true); return; } $("#gcSave").disabled = true; try { await px("admin.guests_set", { booking_id:id, adults:a, children:c }); await again("Guests changed."); } catch(e){ toast(e.message, true); $("#gcSave").disabled = false; } }; }
+    $("#gcSave").onclick = async () => {
+      const a = Math.max(0, Math.round(Number($("#gcA").value) || 0)), c = $("#gcC") ? Math.max(0, Math.round(Number($("#gcC").value) || 0)) : 0, cur = b.adults + b.children;
+      if (a + c < cur) { toast("The numbers can't be reduced here. Use 'Cancel guests' below so their deposit is kept.", true); return; }
+      if (a + c === cur) { if (a === b.adults) { toast("Nothing has changed.", true); return; } $("#gcSave").disabled = true; try { await px("admin.guests_set", { booking_id:id, adults:a, children:c }); await again("Guests changed."); } catch(e){ toast(e.message, true); $("#gcSave").disabled = false; } return; }
+      if (a < b.adults || c < b.children) { toast("To add people, raise the numbers without lowering the other box.", true); return; }
+      const addA = a - b.adults, addC = c - b.children, dep = depositStillOk(), perA = dep ? DAY_ADULT / 2 : DAY_ADULT, perC = dep ? DAY_CHILD / 2 : DAY_CHILD, owe = addA * DAY_ADULT + addC * DAY_CHILD, min = addA * perA + addC * perC;
+      const who = (addA ? addA + " adult" + (addA === 1 ? "" : "s") : "") + (addA && addC ? " and " : "") + (addC ? addC + " child" + (addC === 1 ? "" : "ren") : "");
+      if (!confirm("Add " + who + " to this booking? The total goes up by " + money(owe) + ". " + (dep ? "Until 25 November a deposit of " + money(min) + " is the minimum to pay now." : "The deposit date (25 November) has passed, so " + money(min) + " has to be paid in full now.") + " They are added at once; you will be asked to take the payment next.")) return;
+      $("#gcSave").disabled = true;
+      try {
+        const r = await px("admin.guests_add", { booking_id:id, adults:a, children:c });
+        await again("Added " + who + ". New total " + money(r.pay.due) + ", paid " + money(r.pay.paid) + ", " + (r.pay.balance >= 0.005 ? money(r.pay.balance) + " to pay." : "nothing to pay."));
+        const amt = $("#bpAmt");
+        if (amt) {
+          const note = document.createElement("div"); note.className = "flags"; note.style.margin = "8px 0";
+          note.innerHTML = r.minimum > 0.005 ? "<b>Payment needed for the extra " + esc(who) + ".</b> " + (r.deposit_ok ? "The minimum is the deposit, " + money(r.minimum) + " (up to 25 November; after that the full price). " : "The full price is due now: ") + "Take it with <b>Take payment now</b>, or record it with <b>Payment already taken</b>." : "<b>The deposit for the extra " + esc(who) + " is already covered</b> by what has been paid. The rest of the balance (" + money(r.pay.balance) + ") can be paid later.";
+          const host = amt.closest("div") || amt.parentNode; host.parentNode.insertBefore(note, host);
+          if (r.minimum > 0.005) amt.value = r.minimum.toFixed(2);
+          try { note.scrollIntoView({ block:"center" }); } catch(e){}
+        }
+      } catch(e){ toast(e.message, true); $("#gcSave").disabled = false; }
+    }; }
   gcxWire(f, id, again);
   const emo = $("#emOpen"); if (emo) { emo.onclick = () => { $("#emBox").style.display = ""; emo.style.display = "none"; $("#emIn").value = b.email || ""; $("#emIn").focus(); };
     $("#emSave").onclick = async () => { const v = $("#emIn").value.trim(); if (!v) { toast("Type the email address first.", true); return; } $("#emSave").disabled = true; try { await px("admin.email_set", { booking_id:id, email:v }); await again("Email saved."); } catch(e){ toast(e.message, true); $("#emSave").disabled = false; } }; }
@@ -823,6 +844,8 @@ async function showFull(id, ctx){
   $("#fbCopy").onclick = () => { (navigator.clipboard ? navigator.clipboard.writeText(f.form_link) : Promise.reject()).then(() => toast("Link copied."), () => window.prompt("Copy this link", f.form_link)); };
 }
 /* some of the party cancel and the deposit is kept: the app holds the number from then on, not TicketSource */
+const DAY_ADULT = 119, DAY_CHILD = 59;
+const depositStillOk = () => new Date().toLocaleDateString("en-CA", { timeZone:"Europe/London" }) <= "2026-11-25";      // a deposit is enough to add people, or to keep for cancelled ones, up to and including 25 November
 function gcxHtml(f){
   const b = f.booking, gc = b.guest_change, base = b.base_guests || { adults:b.adults, children:b.children }, day = f.event.key === "day";
   const oa = gc ? gc.orig_adults : base.adults, oc = gc ? gc.orig_children : base.children;
@@ -832,8 +855,8 @@ function gcxHtml(f){
   const first = word(oa, w1, wN) + (oc ? " and " + word(oc, "child", "children") : "");
   const now = word(base.adults, w1, wN) + (base.children ? " and " + word(base.children, "child", "children") : "");
   return `<div style="margin:10px 0">${gc ? `<div class="flags" style="margin-bottom:6px"><b>Some guests cancelled.</b> Booked for ${first}, now ${now}. Deposit kept: ${money(gc.kept)}, which is not counted towards the others' payment. These numbers are the ones used, whatever TicketSource says.</div>` : ""}
-    <button type="button" class="btn small ghost" id="gxOpen">${gc ? "Change the cancelled guests" : "Some guests have cancelled (keep their deposit)"}</button>
-    <div id="gxBox" style="display:none;margin-top:8px"><div class="small muted" style="margin-bottom:6px">Enter how many are coming now. The rest are taken off the booking, the guest list and the diary, and their deposit stays with us.</div>
+    <button type="button" class="btn small ghost" id="gxOpen">${gc ? "Change the cancelled guests" : "Cancel guests"}</button>
+    <div id="gxBox" style="display:none;margin-top:8px"><div class="small muted" style="margin-bottom:6px">Enter how many are coming now. The rest are taken off the booking, the guest list and the diary. ${day ? (depositStillOk() ? "Up to 25 November we keep their deposit (half the ticket price each); after that we keep the full ticket price." : "The deposit date (25 November) has passed, so the full ticket price of each cancelled guest is kept.") : "Their deposit stays with us."} You can change the amount below.</div>
       <label class="small">${day ? "Adults" : "Guests"} coming <input id="gxA" type="number" min="0" max="${oa}" style="width:60px;display:inline-block"> of ${oa}</label>
       ${day && oc ? `<label class="small" style="margin-left:10px">Children coming <input id="gxC" type="number" min="0" max="${oc}" style="width:60px;display:inline-block"> of ${oc}</label>` : ""}
       <label class="small" style="margin-left:10px">Deposit kept &pound; <input id="gxK" type="number" min="0" step="0.01" style="width:90px;display:inline-block"></label>
@@ -847,7 +870,12 @@ function gcxWire(f, id, again){
   const per = b.ts_tickets > 0 ? Math.round(b.ts_gross / b.ts_tickets * 100) / 100 : 0;
   let touched = false;
   const numA = () => Math.max(0, Math.round(Number($("#gxA").value) || 0)), numC = () => $("#gxC") ? Math.max(0, Math.round(Number($("#gxC").value) || 0)) : 0;
-  const recalc = () => { if (touched) return; const n = Math.max(0, oa - numA()) + Math.max(0, oc - numC()); $("#gxK").value = n > 0 ? (n * per).toFixed(2) : "0.00"; };
+  const dayKey = f.event.key === "day", dep = depositStillOk();
+  const recalc = () => {
+    if (touched) return; const ca = Math.max(0, oa - numA()), cc = Math.max(0, oc - numC());
+    const v = dayKey ? ca * (dep ? DAY_ADULT / 2 : DAY_ADULT) + cc * (dep ? DAY_CHILD / 2 : DAY_CHILD) : (ca + cc) * per;
+    $("#gxK").value = (ca + cc) > 0 ? Math.min(v, b.ts_gross).toFixed(2) : "0.00";
+  };
   open.onclick = () => { $("#gxBox").style.display = ""; open.style.display = "none"; $("#gxA").value = base.adults; if ($("#gxC")) $("#gxC").value = base.children; $("#gxK").value = gc ? Number(gc.kept).toFixed(2) : "0.00"; touched = !!gc; if (!gc) recalc(); };
   $("#gxA").oninput = recalc; if ($("#gxC")) $("#gxC").oninput = recalc; $("#gxK").oninput = () => { touched = true; };
   $("#gxNo").onclick = () => { $("#gxBox").style.display = "none"; open.style.display = ""; };
