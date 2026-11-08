@@ -827,6 +827,88 @@ async function loadDashboard(){
   }
 }
 
+/* ============================================================ Drafts
+   Every figure typed on a count form (cash up, float, safe) is kept: in this browser at once, and on the server a couple of seconds later (and at least every 30 seconds), so
+   leaving the app mid count loses nothing, on this device or another. Opening a till that has already been counted puts the saved count back in the form to change.
+   The signature can't be kept: sign again before saving. */
+const DR = { seq:0, suppress:false, dirty:{}, saved:{}, wired:false, timers:{} };
+const DR_SKIP = /^(cu|fl|sf)_(date|till|session|save)$/;
+const drSlot = kind => { const el = $(`#${kind}_${kind === "sf" ? "session" : "till"}`); return el ? el.value : ""; };
+const drDate = kind => { const el = $(`#${kind}_date`); return el ? el.value : ""; };
+const drLocalKey = kind => `bhb_fin_draft|${staffEmail()}|${kind}|${drDate(kind)}|${drSlot(kind)}`;
+const drFields = kind => $$(`input[id^="${kind}_"],select[id^="${kind}_"],textarea[id^="${kind}_"]`).filter(el => !DR_SKIP.test(el.id) && el.type !== "file" && el.type !== "button" && el.type !== "submit");
+function drCollect(kind){ const v = {}; drFields(kind).forEach(el => { v[el.id] = el.type === "checkbox" ? el.checked : el.value; }); return { v, t: Date.now() }; }
+function drBlank(kind){ return drFields(kind).every(el => el.tagName === "SELECT" || (el.type === "checkbox" ? el.checked === el.defaultChecked : String(el.value) === String(el.defaultValue))); }
+function drApply(v){ Object.keys(v || {}).forEach(id => { const el = $("#" + id); if (!el) return; if (el.type === "checkbox") el.checked = !!v[id]; else el.value = v[id]; }); }
+function drRecalc(kind){ try { updateDenomTotal(kind); } catch(e){} if (kind === "cu") { try { cuRecalc(); } catch(e){} } }
+function drPush(kind){
+  clearTimeout(DR.timers[kind]); if (!DR.dirty[kind]) return; DR.dirty[kind] = false;
+  const date = drDate(kind), slot = drSlot(kind); if (!date || !slot) return;
+  if (drBlank(kind)) { call("draft.clear", { kind, business_date: date, slot }).catch(() => {}); return; }
+  call("draft.save", { kind, business_date: date, slot, data: drCollect(kind) }).catch(() => { DR.dirty[kind] = true; });
+}
+function drTouch(kind){
+  if (DR.suppress) return;
+  const date = drDate(kind), slot = drSlot(kind); if (!date || !slot) return;
+  try { if (drBlank(kind)) localStorage.removeItem(drLocalKey(kind)); else localStorage.setItem(drLocalKey(kind), JSON.stringify(drCollect(kind))); } catch(e){}
+  DR.dirty[kind] = true; clearTimeout(DR.timers[kind]); DR.timers[kind] = setTimeout(() => drPush(kind), 2500);
+}
+function drWire(){
+  if (DR.wired) return; DR.wired = true;
+  const onEdit = e => { const id = (e.target && e.target.id) || ""; const m = /^(cu|fl|sf)_/.exec(id); if (m && !DR_SKIP.test(id)) drTouch(m[1]); };
+  document.addEventListener("input", onEdit); document.addEventListener("change", onEdit);
+  setInterval(() => { ["cu", "fl", "sf"].forEach(k => { if (DR.dirty[k]) drPush(k); }); }, 30000);                                      // and at least every 30 seconds
+  document.addEventListener("visibilitychange", () => { if (document.hidden) ["cu", "fl", "sf"].forEach(k => { if (DR.dirty[k]) drPush(k); }); });   // leaving the app / locking the tablet
+}
+function drClear(kind){
+  const date = drDate(kind), slot = drSlot(kind); DR.dirty[kind] = false; clearTimeout(DR.timers[kind]);
+  try { localStorage.removeItem(drLocalKey(kind)); } catch(e){}
+  if (date && slot) call("draft.clear", { kind, business_date: date, slot }).catch(() => {});
+}
+function drNote(kind, html, again){
+  const old = $(`#drNote_${kind}`); if (old) old.remove();
+  const anchor = $(`#${kind}_date`) && $(`#${kind}_date`).closest(".card"); if (!anchor) return;
+  const d = document.createElement("div"); d.id = `drNote_${kind}`; d.className = "hoNote ok"; d.innerHTML = html + (again ? ` <button type="button" class="btn small ghost" id="drAgain_${kind}">Start again</button>` : "");
+  anchor.parentNode.insertBefore(d, anchor);
+  const b = $(`#drAgain_${kind}`); if (b) b.onclick = () => {
+    DR.suppress = true;
+    drFields(kind).forEach(el => { if (el.tagName === "SELECT") return; if (el.type === "checkbox") el.checked = el.defaultChecked; else el.value = el.defaultValue; });
+    DR.suppress = false; drRecalc(kind); drClear(kind); d.remove();
+  };
+}
+const drTime = ms => new Date(ms).toLocaleTimeString("en-GB", { timeZone:"Europe/London", hour:"2-digit", minute:"2-digit" });
+function drApplySaved(kind, row){
+  const set = (id, val) => { const el = $("#" + id); if (el && val !== null && val !== undefined) el.value = String(val); };
+  DENOMS.forEach(d => set(`${kind}_${d.key}`, row[d.key] === null || row[d.key] === undefined ? null : Math.round(Number(row[d.key]) * d.value * 100) / 100));      // the boxes hold pounds, the saved count is a number of notes or coins
+  if (kind === "cu") { set("cu_petty", row.petty_cash_receipts); set("cu_exp_cash", row.expected_cash); set("cu_exp_card", row.expected_card); set("cu_vouchers", row.vouchers_total); set("cu_room", row.room_charge_total); set("cu_notes", row.notes || ""); set("cu_staff", row.staff_name); }
+  else if (kind === "fl") { set("fl_notes", row.notes || ""); set("fl_staff", row.counted_by); }
+  else if (kind === "sf") { set("sf_notes", row.notes || ""); set("sf_adj", row.manual_adjustment); set("sf_staff", row.counted_by); }
+}
+/* After the form is drawn (and whenever the day, till or session changes): put back what was typed and not saved, or else the count already saved for that day and till. */
+async function drPrepare(kind){
+  drWire();
+  const date = drDate(kind), slot = drSlot(kind); if (!date || !slot) return;
+  const my = ++DR.seq; let saved = null, local = null, remote = null;
+  try { local = JSON.parse(localStorage.getItem(drLocalKey(kind)) || "null"); } catch(e){}
+  if (kind !== "sf") { try { const r = await call(kind === "cu" ? "cashup.latest" : "float.latest", { business_date: date, till_key: slot }); saved = r.row; } catch(e){} }
+  try { const r = await call("draft.get", { kind, business_date: date, slot }); remote = r.draft; } catch(e){}
+  if (my !== DR.seq || drDate(kind) !== date || drSlot(kind) !== slot) return;           // they moved to another day or till while this loaded
+  const cands = [local && local.v ? { v: local.v, t: local.t } : null, remote && remote.data && remote.data.v ? { v: remote.data.v, t: Date.parse(remote.updated_at) } : null].filter(Boolean).sort((a, b) => b.t - a.t);
+  const draft = cands[0] || null, savedAt = saved ? Date.parse(saved.created_at) : 0;
+  if (!drBlank(kind) && !DR.suppress && !draft && !saved) return;                         // they have already started typing a fresh count
+  DR.suppress = true;
+  try {
+    if (draft && draft.t > savedAt) {
+      drApply(draft.v);
+      drNote(kind, `Your unsaved ${kind === "cu" ? "cash up" : kind === "fl" ? "float count" : "safe count"} from ${esc(drTime(draft.t))} has been put back.${saved ? ` The count saved at ${esc(drTime(savedAt))} is replaced when you save.` : ""}`, true);
+    } else if (saved) {
+      drApplySaved(kind, saved);
+      drNote(kind, `You are changing the ${kind === "cu" ? "cash up" : kind === "fl" ? "float count" : "safe count"} saved at <b>${esc(drTime(savedAt))}</b>${saved.staff_name || saved.counted_by ? " by " + esc(saved.staff_name || saved.counted_by) : ""}. Change what is wrong and save again: the new count replaces it. You can change it until the day is confirmed.`, false);
+    }
+  } finally { DR.suppress = false; }
+  drRecalc(kind);
+}
+
 /* ============================================================ Cash Up */
 const CU = { opening:null, standard:0, counted:false, stock:[], pending:0, ready:false };
 const numv = id => { const v = Number(($(`#${id}`) || {}).value); return isFinite(v) ? v : 0; };
@@ -959,7 +1041,7 @@ function wireCashUpEntry(){
   CU.opening = null; CU.counted = false; CU.pending = 0; CU.linked = null;
   const t = S.tills.find(x => x.key === $("#cu_till").value); CU.standard = t ? Number(t.float_amount) || 0 : 0;
   $("#cuForm").addEventListener("input", cuRecalc);
-  const reload = () => { cuLoadContext(); cuLoadStock(); };
+  const reload = () => { cuLoadContext(); cuLoadStock(); drPrepare("cu"); };
   $("#cu_till").addEventListener("change", reload); $("#cu_date").addEventListener("change", () => { reload(); hoCheck(); HO.loaded = ""; AO.rung.clear(); AO.asking = false; aoCheck(); });
   $$("[data-cutab]").forEach(b => b.addEventListener("click", () => cuTab(b.dataset.cutab)));
   hoCheck(); aoCheck();
@@ -1100,6 +1182,7 @@ async function saveCashUp(){
   try {
     const out = await call("cashup.save", payload);
     toast(`Saved. Difference ${money(out.cashup.variance)}. Cash to bank ${money(out.cashup.cash_banking)}.`);
+    drClear("cu");
     cuAfterSave(out);
   } catch(e) { if (e.code === "handover_required") { await hoCheck(); hoAlert(HO.state || { date_text: "" }); } else if (e.code === "apporders_required") { await aoCheck(); aoAlert(AO.state); } else { toast(e.message, true); if (e.message && /stock/i.test(e.message)) cuLoadStock(); } }
   finally { btn.disabled = false; btn.textContent = "Save & archive"; cuRecalc(); }
@@ -1380,7 +1463,7 @@ function viewSafeEntry(){
     </div>
     <button class="btn" id="sf_save">Save count</button>`;
 }
-function wireSafeEntry(){ $("#sf_save").addEventListener("click", saveSafeCount); }
+function wireSafeEntry(){ $("#sf_save").addEventListener("click", saveSafeCount); ["sf_date", "sf_session"].forEach(id => { const el = $("#" + id); if (el) el.addEventListener("change", () => drPrepare("sf")); }); drPrepare("sf"); }
 async function saveSafeCount(){
   const btn = $("#sf_save");
   if (denomsBad("sf")) return;
@@ -1395,6 +1478,7 @@ async function saveSafeCount(){
   try {
     const out = await call("safe.save", payload);
     toast(`Saved — variance ${money(out.safe_count.variance)}.`);
+    drClear("sf");
     afterSave("safe", "safe-history");
   } catch(e) { toast(e.message, true); }
   finally { btn.disabled = false; btn.textContent = "Save count"; }
@@ -1461,7 +1545,7 @@ function viewFloatEntry(){
     <div class="card"><div class="field"><label>Notes (optional)</label><textarea id="fl_notes" rows="2"></textarea></div></div>
     <button class="btn" id="fl_save">Save count</button>`;
 }
-function wireFloatEntry(){ $("#fl_save").addEventListener("click", saveFloatCount); }
+function wireFloatEntry(){ $("#fl_save").addEventListener("click", saveFloatCount); ["fl_date", "fl_till"].forEach(id => { const el = $("#" + id); if (el) el.addEventListener("change", () => drPrepare("fl")); }); drPrepare("fl"); }
 async function saveFloatCount(){
   const btn = $("#fl_save");
   if (denomsBad("fl")) return;
@@ -1479,6 +1563,7 @@ async function saveFloatCount(){
   try {
     const out = await call("float.save", payload);
     toast(`Saved — variance ${money(out.float_count.variance)}.`);
+    drClear("fl");
     if (VIEW === "floatstills") ftBack(); else afterSave("float", "float-history");
   } catch(e) { toast(e.message, true); }
   finally { btn.disabled = false; btn.textContent = "Save count"; }
@@ -2311,11 +2396,13 @@ function renderFloatsTills(){
   const lock = w.open
     ? `<div class="ftlock open">Floats are open${w.in_window ? ` until ${esc(w.end)}` : ""}${w.unlocked && w.unlock ? ` - unlocked by ${esc(w.unlock.unlocked_by_name)} at ${when}` : ""}.${isAdmin && w.unlocked ? ` <button class="btn ghost small" onclick="ftUnlock(true)">Lock again</button>` : ""}</div>`
     : `<div class="ftlock">Floats are counted between ${esc(w.start)} and ${esc(w.end)} - it's ${esc(w.now)}. ${isAdmin ? `<button class="btn small" onclick="ftUnlock(false)">Unlock today</button>` : "Ask the GM to unlock today if a float still needs counting."}</div>`;
+  const confirmedDay = !!(st.day && st.day.cards) && !isAdmin;       // the day's cards are in: the day is confirmed, no more changes
   const tillBtn = (t, kind) => {
     const done = kind === "float" ? floatDone.has(t.key) : cuDone.has(t.key);
+    if (confirmedDay && done) return `<button class="fttill done locked" disabled><span>${esc(t.label)}</span><span class="st">${kind === "float" ? "Counted" : "Cashed up"} \u2713 confirmed</span></button>`;
     const ready = kind === "float" ? canFloat : (floatDone.has(t.key) || isAdmin);
     const label = done ? (kind === "float" ? "Counted ✓" : "Cashed up ✓") : (ready ? (kind === "float" ? "Count float" : "Cash up") : (kind === "float" ? "Locked" : "Float first"));
-    return `<button class="fttill${done ? " done" : ""}${!ready && !done ? " locked" : ""}" ${!ready && !done ? "disabled" : ""} onclick="ftOpen('${kind}','${esc(t.key)}')"><span>${esc(t.label)}</span><span class="st">${label}</span></button>`;
+    return `<button class="fttill${done ? " done" : ""}${!ready && !done ? " locked" : ""}" ${!ready && !done ? "disabled" : ""} onclick="ftOpen('${kind}','${esc(t.key)}')"><span>${esc(t.label)}</span><span class="st">${label}${done ? " (tap to change)" : ""}</span></button>`;
   };
   box.innerHTML = lock + `<div class="ftstrip">
       <div class="ftcol"><h3>1. Morning floats</h3>${S.tills.map(t => tillBtn(t, "float")).join("")}</div>
@@ -2323,7 +2410,7 @@ function renderFloatsTills(){
     </div>
     ${(() => { const d = st.day; if (!d || !d.all_day_cards) return ""; const ready = d.complete || isAdmin; return `<div class="ftstrip" style="margin-top:14px"><div class="ftcol"><h3>3. Cards from Worldpay</h3>
       <button class="fttill${d.cards ? " done" : ""}${!ready && !d.cards ? " locked" : ""}" ${!ready && !d.cards ? "disabled" : ""} onclick="ftOpen('cards','day')"><span>The day's cards</span><span class="st">${d.cards ? "Entered ✓ " + money(d.cards.total) : (ready ? "Enter cards" : "After every till")}</span></button></div></div>`; })()}
-    <p class="muted" style="font-size:12px">Every count is recorded with your name (${esc(w.me.name)}) and your signature. Count again to correct one - the latest count is the one that stands.</p>`;
+    <p class="muted" style="font-size:12px">Every count is recorded with your name (${esc(w.me.name)}) and your signature. Tap a finished till to change its count: the form opens with the saved figures and the latest count is the one that stands. Counts can be changed until the day is confirmed (when the day's cards are entered).${confirmedDay ? " <b>Today is confirmed, so the counts are closed.</b>" : ""}</p>`;
 }
 function ftPrepForm(prefix, tillKey){
   const hide = el => { const f = el && el.closest(".field"); if (f) f.style.display = "none"; };
