@@ -7279,8 +7279,46 @@ function sbxBoot(token){
   start();
 }
 
+/* ---------- service notice ----------
+   Shown once each time the app opens, on top of whatever comes first (login,
+   install steps or the dashboard). It is its own element, not showModal(), so
+   nothing else in the app can close it by accident. Set SERVICE_NOTICE to
+   false when Guestline are back and it never appears again. */
+var SERVICE_NOTICE = true;
+
+function serviceNotice(){
+  if (!SERVICE_NOTICE || $("svcNotice")) return;
+  var body = '<h2>We&rsquo;re aware of a problem</h2>' +
+    '<p style="margin:0 0 14px">We are aware that one of our partners is having connectivity ' +
+    'issues, which is affecting the use of this app. They are actively investigating and hope to ' +
+    'resolve it soon.</p>' +
+    '<p style="margin:0 0 18px">We apologise for any inconvenience.</p>' +
+    '<button class="btn btn--primary" onclick="closeServiceNotice()">OK</button>';
+  var m = document.createElement("div");
+  m.id = "svcNotice";
+  m.setAttribute("role", "alertdialog");
+  m.setAttribute("aria-modal", "true");
+  if (isFramed()) {
+    /* Inside the website's frame a fixed overlay can sit off-screen, so it
+       goes in the flow at the top of the page instead. */
+    m.className = "panel";
+    m.style.margin = "12px 12px 0";
+  } else {
+    m.className = "modal";
+    m.style.zIndex = "60";
+  }
+  m.innerHTML = '<div class="inner">' + body + '</div>';
+  document.body.insertBefore(m, document.body.firstChild);
+}
+function closeServiceNotice(){
+  var m = $("svcNotice");
+  if (m) m.remove();
+}
+
 /* ---------- start ---------- */
 (function(){
+  serviceNotice();
+
   /* A test view comes first and never looks at the couple's own login. */
   var viewas = sbxTokenFromUrl();
   if (viewas) { sbxBoot(viewas); return; }
