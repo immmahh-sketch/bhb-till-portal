@@ -304,15 +304,18 @@ var kk = function(id, v){ return id + "|" + (v || ""); };
 function qtyOf(id, v){ return S.cart[kk(id, v)] || 0; }
 function setQty(id, v, n){ n = Math.max(0, Math.min(20, n)); if (n) S.cart[kk(id, v)] = n; else delete S.cart[kk(id, v)]; saveCart(); }
 function itemById(id){ return S.menu.filter(function(i){ return i.id === id; })[0]; }
+/* a chip written "Fever-Tree Tonic (£2.50)" is a mixer that adds its price (one per drink); the name without the price is what is shown on the order and the checks */
+function modPrice(m){ var x = /\(£(\d+(?:\.\d{1,2})?)\)$/.exec(m); return x ? Number(x[1]) : 0; }
+function modLabel(m){ return String(m).replace(/ \(£\d+(?:\.\d{1,2})?\)$/, ""); }
 function cartLines(){
   var out = [];
-  Object.keys(S.cart).forEach(function(k){ var p = k.split("|"), it = itemById(p[0]); if (!it) return; var o = optionsOf(it).filter(function(x){ return x.label === p[1]; })[0]; if (!o) return; var mods = p[2] ? p[2].split("+") : []; out.push({ item: it, variant: p[1], mods: mods, price: o.price, qty: S.cart[k], section: sectionOf(it) }); });
+  Object.keys(S.cart).forEach(function(k){ var p = k.split("|"), it = itemById(p[0]); if (!it) return; var o = optionsOf(it).filter(function(x){ return x.label === p[1]; })[0]; if (!o) return; var mods = p[2] ? p[2].split("+") : []; out.push({ item: it, variant: p[1], mods: mods, price: o.price + mods.reduce(function(t, m){ return t + modPrice(m); }, 0), qty: S.cart[k], section: sectionOf(it) }); });
   out.sort(function(a, b){ return TABS.indexOf(a.section) - TABS.indexOf(b.section) || a.item.sort_order - b.item.sort_order; });
   return out;
 }
 function cartTotal(){ return cartLines().reduce(function(t, l){ return t + l.price * l.qty; }, 0); }
 function cartCount(){ return cartLines().reduce(function(t, l){ return t + l.qty; }, 0); }
-function lineName(l){ var n = l.variant ? l.item.name + " (" + l.variant + ")" : l.item.name; return l.mods && l.mods.length ? n + " - " + l.mods.join(", ") : n; }
+function lineName(l){ var n = l.variant ? l.item.name + " (" + l.variant + ")" : l.item.name; return l.mods && l.mods.length ? n + " - " + l.mods.map(modLabel).join(", ") : n; }
 function modsOf(it){ return Array.isArray(it.modifiers) ? it.modifiers : []; }
 function modKey(it){ return (S.mods[it.id] || []).filter(function(m){ return modsOf(it).indexOf(m) >= 0; }).sort().join("+"); }
 
@@ -429,7 +432,7 @@ function renderMenu(){
     h += '<div class="grp">Sunday Carvery</div>';
     h += items.map(function(it){ var p = optionsOf(it); return '<div class="item"><div class="nm">Choice of meats</div><div class="dsc">Topside of Beef &middot; Traditional Roast Turkey &middot; Honey Mustard Glazed Gammon &middot; Rosemary Leg of Lamb<br>Served with your choice of trimmings</div>' + p.map(function(o){ return '<div class="opt"><div class="ol">' + esc(o.label) + '</div><div class="op">' + gbp(o.price) + '</div>' + stepper(it.id, o.label) + '</div>'; }).join("") + '</div>'; }).join("");
   } else if (S.tab === "Drinks"){
-    var names = { "Bottles and Draft": "Beer & cider", "Soft drinks": "Soft drinks", "Hot beverages": "Hot drinks", "Spirits and cocktails": "Cocktails", "Wine": "Wine & fizz", "Pitchers": "Sharing pitchers", "Arrival shots": "Shots" };
+    var names = { "Bottles and Draft": "Beer & cider", "Soft drinks": "Soft drinks", "Hot beverages": "Hot drinks", "Spirits and cocktails": "Spirits & cocktails", "Wine": "Wine & fizz", "Pitchers": "Sharing pitchers", "Arrival shots": "Shots" };
     var seen = [];
     items.forEach(function(i){ var g = i.drink_group || "Other"; if (seen.indexOf(g) < 0) seen.push(g); });
     if (seen.indexOf(S.dtab) < 0) S.dtab = seen[0] || "";                       // one drinks category at a time: Beer & cider, Soft drinks, Hot drinks, Cocktails, Wine & fizz
@@ -453,7 +456,7 @@ document.addEventListener("click", function(e){
   if (t.dataset.dtab){ S.dtab = t.dataset.dtab; renderMenu(); document.querySelector("#s-menu .scroll").scrollTop = 0; return; }
   if (t.dataset.mod){
     var mi = t.dataset.mod.indexOf("|"), mid = t.dataset.mod.slice(0, mi), mlab = t.dataset.mod.slice(mi + 1), cur = S.mods[mid] || [], at = cur.indexOf(mlab);
-    if (at >= 0) cur.splice(at, 1); else cur.push(mlab);
+    if (at >= 0) cur.splice(at, 1); else { if (modPrice(mlab)) cur = cur.filter(function(c){ return !modPrice(c); }); cur.push(mlab); }      // one mixer at a time
     S.mods[mid] = cur; var msc = document.querySelector("#s-menu .scroll"), mtop = msc.scrollTop; renderMenu(); msc.scrollTop = mtop; return;
   }
   if (t.dataset.tab){ S.tab = t.dataset.tab; var y = 0; renderMenu(); document.querySelector("#s-menu .scroll").scrollTop = y; return; }
