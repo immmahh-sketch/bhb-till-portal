@@ -1284,15 +1284,21 @@ async function start(){
   $("login").classList.add("hide");
   $("app").classList.remove("hide");
   $("views").innerHTML = '<div class="empty"><span class="spin"></span></div>';
+  clearTimeout(loadWatch);
+  loadWatch = setTimeout(function(){ serviceNotice("slow"); }, LOAD_PATIENCE_MS);
   try {
     S.data = await api("dashboard");
+    clearTimeout(loadWatch);
+    closeServiceNotice();            // it loaded after all
     clearError();
     buildMenu();
     render();
     unreadStart();
     maybeNudgeMeeting();
   } catch (e) {
+    clearTimeout(loadWatch);
     if (e.code === "AUTH") return;
+    if (e.code === "GUESTLINE") serviceNotice("failed");
     $("views").innerHTML = '<div class="card"><h2>We can\'t load your wedding</h2>' +
       '<p>' + esc(e.message) + '</p>' +
       '<p class="muted">If this keeps happening, please call us on 01207 232 569 or WhatsApp 07455 850424.</p>' +
@@ -7280,14 +7286,19 @@ function sbxBoot(token){
 }
 
 /* ---------- service notice ----------
-   Shown once each time the app opens, on top of whatever comes first (login,
-   install steps or the dashboard). It is its own element, not showModal(), so
-   nothing else in the app can close it by accident. Set SERVICE_NOTICE to
-   false when Guestline are back and it never appears again. */
-var SERVICE_NOTICE = true;
+   Shown only when the dashboard has not loaded within 30 seconds (or the
+   server says it cannot load it), so when everything is working nobody sees
+   it. It is its own element, not showModal(), so nothing else in the app can
+   close it by accident, and it closes itself if the page then loads.
+   Showing it also tells the server, which emails the GM at most once every
+   2 hours. */
+var LOAD_PATIENCE_MS = 30000;
+var loadWatch = null;
 
-function serviceNotice(){
-  if (!SERVICE_NOTICE || $("svcNotice")) return;
+function serviceNotice(reason){
+  if (S.sandbox) return;           // staff looking in on a couple's view never trigger it
+  reportOutage(reason);
+  if ($("svcNotice")) return;
   var body = '<h2>We&rsquo;re aware of a problem</h2>' +
     '<p style="margin:0 0 14px">We are aware that one of our partners is having connectivity ' +
     'issues, which is affecting the use of this app. They are actively investigating and hope to ' +
@@ -7314,11 +7325,18 @@ function closeServiceNotice(){
   var m = $("svcNotice");
   if (m) m.remove();
 }
+/* Fire and forget: the email is the server's business, and a failure here must
+   never get in the couple's way. Straight to callFn so a dead session does
+   not sign them out over it. */
+function reportOutage(reason){
+  try {
+    if (!S.token) return;
+    callFn("wedding-api", { token: S.token, action: "outage.report", payload: { reason: reason || "slow" } }).catch(function(){});
+  } catch (e) {}
+}
 
 /* ---------- start ---------- */
 (function(){
-  serviceNotice();
-
   /* A test view comes first and never looks at the couple's own login. */
   var viewas = sbxTokenFromUrl();
   if (viewas) { sbxBoot(viewas); return; }
