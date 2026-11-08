@@ -27,7 +27,7 @@ using System.Runtime.InteropServices;
 public class BhbAwake { [DllImport("kernel32.dll")] public static extern uint SetThreadExecutionState(uint f); }
 "@
 
-$VERSION = "2026-11-07f"
+$VERSION = "2026-11-08a"
 $SUPABASE = "https://safcrtrfdzsnftghibot.supabase.co"
 $KEY = "sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU"
 
@@ -144,6 +144,15 @@ function When-Of($job, $iso) { try { return ([datetime]::Parse($(if ($iso) { $is
 function Order-Total($p) { if ($p.subtotal -ne $null -and [double]$p.subtotal -gt 0) { return [double]$p.subtotal }; $t = 0.0; foreach ($l in @($p.lines)) { $t += [double]$l.unit_price * [double]$l.qty }; return $t }
 
 function Backup-Lines($p) { if ($p.backup -eq $true) { return @(@{ t = "*** BACKUP PRINT ***"; b = $true; c = $true; z = 1 }, @{ t = "main printer did not print this"; c = $true }, (RuleL)) } else { return @() } }
+# Food checks (kitchen, pass): starters first, then anything else, then desserts, with a line between the groups so a starter and a dessert ordered together are easy to tell apart.
+# Each result has .l (the line) and .gap ($true when a dashed line goes above it).
+function Check-Lines($lines) {
+  $rows = @(); $i = 0
+  foreach ($l in @($lines)) { $s = "$($l.station)"; $r = 1; if ($s -eq "starters") { $r = 0 } elseif ($s -eq "desserts") { $r = 2 }; $rows += [pscustomobject]@{ r = $r; i = $i; l = $l; gap = $false }; $i++ }
+  $rows = @($rows | Sort-Object r, i)
+  for ($k = 1; $k -lt $rows.Count; $k++) { if ($rows[$k].r -ne $rows[$k - 1].r) { $rows[$k].gap = $true } }
+  return $rows
+}
 function Guest-Lines($job) {
   $p = $job.payload; $o = @(Backup-Lines $p)
   if ($p.is_test -eq $true) { $o += @{ t = "*** TEST ***"; b = $true; c = $true; z = 2 }; $o += @{ t = "DO NOT MAKE - TEST ORDER"; b = $true; c = $true }; $o += (RuleL) }
@@ -237,7 +246,7 @@ function Build-EscPos($job) {
   if ($p.guest_name) { & $big (Wrap ("" + $p.guest_name) $LINE) }
   & $rule
   & $bold $true; & $text ($(if ($copy -eq "bar") { "DRINKS" } else { "FOOD" }) + "`n"); & $bold $false
-  $items = @(); foreach ($l in @($p.lines)) { $items += (Wrap ("" + $l.qty + " x " + $l.name) $LINE) }
+  $items = @(); foreach ($x in @(Check-Lines $p.lines)) { if ($x.gap) { $items += ("-" * $LINE) }; $items += (Wrap ("" + $x.l.qty + " x " + $x.l.name) $LINE) }
   if (-not $items.Count) { $items = @("(no lines)") }
   & $big $items
   if ($p.notes) { & $rule; & $big (Wrap ("Note: " + $p.notes) $LINE) }
@@ -297,7 +306,7 @@ function Draw-Check($g, [float]$w, $job) {
   if ($p.guest_name) { Put $g $w ("" + $p.guest_name) 14 $true $false }
   Rule $g $w
   Put $g $w $(if ($copy -eq "bar") { "DRINKS" } else { "FOOD" }) 10 $true $false
-  foreach ($l in @($p.lines)) { Put $g $w ("" + $l.qty + " x " + $l.name) 16 $true $false }
+  foreach ($x in @(Check-Lines $p.lines)) { if ($x.gap) { Rule $g $w }; Put $g $w ("" + $x.l.qty + " x " + $x.l.name) 16 $true $false }
   if (-not @($p.lines).Count) { Put $g $w "(no lines)" 12 $false $false }
   if ($p.notes) { Rule $g $w; Put $g $w ("Note: " + $p.notes) 14 $true $false }
   if ($p.allergy_notes) { Rule $g $w; Put $g $w "ALLERGY / DIETARY" 10 $true $false; Put $g $w ("" + $p.allergy_notes) 14 $true $false }
