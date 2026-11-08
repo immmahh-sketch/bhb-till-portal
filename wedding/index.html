@@ -1203,6 +1203,7 @@ function milestoneDate(m, weddingDate, createdAt){
 
 /** Payment schedule rows, with each checked against what's actually been paid. */
 function schedule(){
+  if (S.data.degraded) return [];      // no live bill, so no instalments to judge
   var b = S.data.balance, wd = S.data.wedding.wedding_date, today = todayIso();
   return MILESTONES.filter(function(m){ return m.pct; }).map(function(m){
     var due = milestoneDate(m, wd, S.data.wedding.created_at);
@@ -1526,7 +1527,9 @@ function viewHome(){
   h += gmWelcomeCard();
 
   /* Balance. A fully paid wedding gets a sentence, not a row of zeroes. */
-  if (b.fullyPaid) {
+  if (d.degraded) {
+    h += degradedNotice();
+  } else if (b.fullyPaid) {
     h += '<div class="notice notice--ok" style="margin-bottom:16px">' +
       '<strong>That\'s everything paid.</strong> Nothing more to sort — we\'ll see you on ' +
       esc(ukDateShort(w.wedding_date)) + '.</div>';
@@ -1548,7 +1551,7 @@ function viewHome(){
 
   /* Any app payments the venue hasn't posted to their system yet. Saying so
      plainly is what stops a couple thinking their money vanished. */
-  if (b.appPaid > 0) {
+  if (!d.degraded && b.appPaid > 0) {
     h += '<div class="notice notice--ok" style="margin-bottom:16px">' +
       money(b.appPaid) + ' paid in this app is included above and is being applied to your account by our events team.</div>';
   }
@@ -1992,9 +1995,19 @@ function viewDetails(){
 }
 
 /* ============================ AMOUNTS TO PAY ============================ */
+/* Shown instead of any money figure while the booking system is not answering. */
+function degradedNotice(){
+  return '<div class="notice notice--due" style="margin-bottom:16px">' +
+    '<strong>Your balance and payments can\'t be shown right now.</strong> ' +
+    'The booking system we read them from isn\'t answering at the moment. Your day, guest list, chat and everything else you\'ve added are all here as normal. ' +
+    'Nothing has changed on your booking. To pay, or to check your balance, please ring us on 01207 232 569 or WhatsApp 07455 850424. ' +
+    '<a href="#" onclick="start();return false"><strong>Try again</strong></a></div>';
+}
+
 function viewPay(){
   var d = S.data, b = d.balance, bill = d.bill;
   var h = '<h1 style="margin-bottom:18px">Your payments</h1>';
+  if (d.degraded) return h + degradedNotice();
 
   if (b.fullyPaid) {
     h += '<div class="notice notice--ok" style="margin-bottom:16px">' +
