@@ -435,7 +435,11 @@ function renderMenu(){
     if (seen.indexOf(S.dtab) < 0) S.dtab = seen[0] || "";                       // one drinks category at a time: Beer & cider, Soft drinks, Hot drinks, Cocktails, Wine & fizz
     var inCart = {}; cartLines().forEach(function(l){ if (l.section === "Drinks") inCart[l.item.drink_group || "Other"] = (inCart[l.item.drink_group || "Other"] || 0) + l.qty; });
     h += '<div class="subtabs">' + seen.map(function(g){ return '<button type="button" data-dtab="' + esc(g) + '" class="' + (g === S.dtab ? "on" : "") + '">' + esc(names[g] || g) + (inCart[g] ? ' (' + inCart[g] + ')' : "") + '</button>'; }).join("") + '</div>';
-    h += '<div class="grp">' + esc(names[S.dtab] || S.dtab) + '</div>' + items.filter(function(i){ return (i.drink_group || "Other") === S.dtab; }).map(itemHtml).join("");
+    var tabItems = items.filter(function(i){ return (i.drink_group || "Other") === S.dtab; });
+    if (tabItems.some(function(i){ return i.sub_group; })){                       // sections inside a tab: Draught / Packaged beers / Packaged cider, White / Red / Rosé / Sparkling
+      var lastSub = null;
+      tabItems.forEach(function(i){ if (i.sub_group !== lastSub){ lastSub = i.sub_group; h += '<div class="grp">' + esc(i.sub_group || "Other") + '</div>'; } h += itemHtml(i); });
+    } else h += '<div class="grp">' + esc(names[S.dtab] || S.dtab) + '</div>' + tabItems.map(itemHtml).join("");
     h += '<p class="foot">Something not on the list? Just ask at the bar.</p>';
   } else {
     h += '<div class="grp">' + S.tab + '</div>' + items.map(itemHtml).join("");
