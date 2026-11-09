@@ -7341,6 +7341,20 @@ function reportOutage(reason){
   var viewas = sbxTokenFromUrl();
   if (viewas) { sbxBoot(viewas); return; }
 
+  /* A coordinator's "Open the app" link from the admin page carries the wedding's reference and date after a # (so they never reach a server):
+     #staff=BHBADMIN-EVNT002805&date=26082028. It signs in as THAT wedding. Without this the app resumed whatever login the browser last held, which
+     was often a different couple's. The details are taken out of the address straight away. */
+  var staffLink = /^#staff=([A-Za-z0-9-]+)&date=(\d{8})$/.exec(location.hash || "");
+  if (staffLink) {
+    try { history.replaceState(null, "", location.pathname + location.search); localStorage.removeItem(CFG.SESSION_KEY); } catch(e){}
+    S.token = null;
+    showLogin();
+    $("eventId").value = staffLink[1].toUpperCase();
+    $("weddingDate").value = staffLink[2];
+    $("loginForm").dispatchEvent(new Event("submit", { cancelable: true }));
+    return;
+  }
+
   try { S.token = localStorage.getItem(CFG.SESSION_KEY); } catch(e){}
 
   /* The gate comes first, before the saved session is honoured.
