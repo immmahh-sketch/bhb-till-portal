@@ -42,4 +42,14 @@
     } catch (e) {}
   };
   window.addEventListener("load", function () { setTimeout(warn, 2500); });
+
+  /* The portal signs people out after a while without use. It can see its own page and any same-origin tile, but a tile that is not same-origin cannot be seen into,
+     so every tile also tells the portal (parent window) when someone is using it. Carries no data; the portal only counts it. */
+  try {
+    if (window.parent !== window) {
+      var lastPing = 0;
+      var ping = function () { var n = Date.now(); if (n - lastPing < 5000) return; lastPing = n; try { window.parent.postMessage({ bhb: "activity" }, "*"); } catch (e) {} };
+      ["pointerdown", "keydown", "touchstart", "wheel", "scroll", "mousemove"].forEach(function (ev) { document.addEventListener(ev, ping, true); });
+    }
+  } catch (e) {}
 })();

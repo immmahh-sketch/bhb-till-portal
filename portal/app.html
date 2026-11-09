@@ -440,6 +440,41 @@ table.grid td{padding:10px 12px; border-top:1px solid var(--mist); vertical-alig
       <button id="rsBtn">Set new password</button>
       <div class="gateerr" id="rsErr"></div>
     </div>
+
+    <div id="gChange" hidden>
+      <div class="sub" style="margin-bottom:10px">Time for a new password</div>
+      <div class="gatemsg" id="gcMsg" style="color:var(--ink);margin:0 0 10px"></div>
+      <input id="gcPw" type="password" placeholder="New password" autocomplete="new-password">
+      <input id="gcPw2" type="password" placeholder="Confirm new password" autocomplete="new-password">
+      <button id="gcBtn">Save and continue</button>
+      <span class="gateback" id="gcBack">Back to sign in</span>
+      <div class="gateerr" id="gcErr"></div>
+    </div>
+
+    <div id="gPasskey" hidden>
+      <div class="sub" style="margin-bottom:10px">Confirm it's you</div>
+      <div class="gatemsg" style="color:var(--ink);margin:0 0 12px">Use your fingerprint, face, Windows Hello or screen lock to finish signing in.</div>
+      <button id="gpkBtn">Use passkey</button>
+      <div class="gatelink" id="gpkEmail">Use an emailed code instead</div>
+      <span class="gateback" id="gpkBack">Back to sign in</span>
+      <div class="gateerr" id="gpkErr"></div>
+    </div>
+
+    <div id="gEnrol" hidden>
+      <div class="sub" style="margin-bottom:10px">Set up your passkey</div>
+      <div class="gatemsg" style="color:var(--ink);margin:0 0 12px" id="geText"></div>
+      <div id="geSendRow"><button id="geSend">Email me a code</button></div>
+      <div id="geCodeRow" hidden>
+        <input id="geCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6-digit code">
+        <button id="geVerify">Check code</button>
+        <div class="gatelink" id="geAgain">Send another code</div>
+      </div>
+      <div id="geRegRow" hidden><button id="geReg">Set up passkey on this device</button></div>
+      <div id="geSkipRow" hidden><button id="geSkip" style="background:#fff;color:var(--sage);border:1px solid var(--sage)">Continue with the emailed code this time</button></div>
+      <span class="gateback" id="geBack">Back to sign in</span>
+      <div class="gateerr" id="geErr"></div>
+      <div class="gatemsg" id="geMsg"></div>
+    </div>
   </div>
 </div>
 
@@ -587,7 +622,7 @@ table.grid td{padding:10px 12px; border-top:1px solid var(--mist); vertical-alig
   <div class="nhead"><span>Switch Portal</span><button class="x" id="navClose">&times;</button></div>
   <div class="nsearch"><input id="navSearch" type="search" placeholder="Search portals" aria-label="Search portals" autocomplete="off" enterkeyhint="go"><button class="sx" id="navSearchX" type="button" aria-label="Clear the search">&times;</button></div>
   <div class="nlist" id="navList"></div>
-  <div class="nfoot"><button id="navSignout">Sign out</button></div>
+  <div class="nfoot"><button id="navSecurity" style="margin-bottom:8px;background:#fff;color:var(--sage);border:1px solid var(--sage)">Security &amp; passkeys</button><button id="navSignout">Sign out</button></div>
 </div>
 
 <div id="veil"></div>
@@ -601,6 +636,14 @@ table.grid td{padding:10px 12px; border-top:1px solid var(--mist); vertical-alig
 </aside>
 
 <div class="toast" id="toast"></div>
+
+<div class="welcome-veil" id="secPop" role="dialog" aria-modal="true" aria-labelledby="secTitle" hidden>
+  <div class="welcome-card">
+    <div class="welcome-top"><div class="eyebrow">Your account</div><h2 id="secTitle">Security</h2></div>
+    <div class="welcome-body" id="secBody"></div>
+    <div class="welcome-foot"><button type="button" id="secClose">Close</button></div>
+  </div>
+</div>
 
 
 <div class="welcome-veil" id="welcome" role="dialog" aria-modal="true" aria-labelledby="welcomeTitle" hidden>
@@ -645,7 +688,11 @@ async function api(action, params){
   });
   let d = {};
   try { d = await r.json(); } catch(e){}
-  if(!r.ok) throw new Error(d.error || `Request failed (${r.status})`);
+  if(!r.ok){
+    // the server has ended this session (idle too long, or signed out elsewhere): go back to the sign-in screen and say so
+    if(r.status === 401 && S.token && action !== "login" && /Session expired/i.test(d.error || "")) setTimeout(() => sessionEnded("Your session has ended. Please sign in again."), 0);
+    throw new Error(d.error || `Request failed (${r.status})`);
+  }
   if(d.error) throw new Error(d.error);
   return d;
 }
@@ -655,27 +702,182 @@ function gateMode(mode){
   $("#gLogin").hidden  = mode !== "login";
   $("#gForgot").hidden = mode !== "forgot";
   $("#gReset").hidden  = mode !== "reset";
+  $("#gChange").hidden  = mode !== "change";
+  $("#gPasskey").hidden = mode !== "passkey";
+  $("#gEnrol").hidden   = mode !== "enrol";
 }
 function openGate(msg){
   $("#gate").style.display = "flex";
   $("#app").hidden = true;
   if(msg) $("#gerr").textContent = msg;
 }
+/* The sign-in has two steps. Step 1 is the password. If the server says the rules apply to this person it answers with step 2 instead of a session:
+   "passkey" (face / fingerprint / Windows Hello / screen lock on a device they registered), "enrol" (no passkey yet: an emailed code, then register one)
+   or "change_password" (theirs is more than 90 days old). A session only ever comes from the last step. */
+const SEC = { cid:"", opts:null, regOpts:null, email:"", password:"", hint:"" };
+const pkOK = () => !!(window.PublicKeyCredential && navigator.credentials && navigator.credentials.create && navigator.credentials.get);
+const b64d = s => { s = String(s).replace(/-/g, "+").replace(/_/g, "/"); s += "=".repeat((4 - s.length % 4) % 4); const bin = atob(s), a = new Uint8Array(bin.length); for(let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i); return a.buffer; };
+const b64e = buf => { const a = new Uint8Array(buf); let s = ""; for(let i = 0; i < a.length; i++) s += String.fromCharCode(a[i]); return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); };
+async function createPasskey(o){
+  const c = await navigator.credentials.create({ publicKey: Object.assign({}, o, { challenge: b64d(o.challenge), user: Object.assign({}, o.user, { id: b64d(o.user.id) }), excludeCredentials: (o.excludeCredentials || []).map(x => Object.assign({}, x, { id: b64d(x.id) })) }) });
+  return { id: c.id, rawId: b64e(c.rawId), type: c.type, authenticatorAttachment: c.authenticatorAttachment || undefined, clientExtensionResults: c.getClientExtensionResults ? c.getClientExtensionResults() : {},
+    response: { clientDataJSON: b64e(c.response.clientDataJSON), attestationObject: b64e(c.response.attestationObject), transports: c.response.getTransports ? c.response.getTransports() : [] } };
+}
+async function getPasskey(o){
+  const c = await navigator.credentials.get({ publicKey: Object.assign({}, o, { challenge: b64d(o.challenge), allowCredentials: (o.allowCredentials || []).map(x => Object.assign({}, x, { id: b64d(x.id) })) }) });
+  return { id: c.id, rawId: b64e(c.rawId), type: c.type, authenticatorAttachment: c.authenticatorAttachment || undefined, clientExtensionResults: c.getClientExtensionResults ? c.getClientExtensionResults() : {},
+    response: { clientDataJSON: b64e(c.response.clientDataJSON), authenticatorData: b64e(c.response.authenticatorData), signature: b64e(c.response.signature), userHandle: c.response.userHandle ? b64e(c.response.userHandle) : undefined } };
+}
+function deviceLabel(){ const p = devicePlatform(), ua = navigator.userAgent || ""; return p === "ios" ? (/iPad/.test(ua) ? "iPad" : "iPhone") : p === "android" ? "Android phone" : (/Windows/.test(ua) ? "Windows PC" : /Mac/.test(ua) ? "Mac" : "Computer"); }
+function pkErr(e){ return e && (e.name === "NotAllowedError" || e.name === "AbortError") ? "That was cancelled or timed out. Tap the button to try again." : (e && e.message) || "That did not work."; }
+
+function finishSignIn(d){
+  S.token = d.token; S.user = d.user; S.portals = d.portals || []; S.groups = d.groups || []; S.serverLayout = d.layout; S.welcome = !!d.welcome; S.welcomeMsg = d.welcome_msg || null;
+  try{ localStorage.setItem(LS_TOKEN, S.token); }catch(e){}
+  SEC.password = ""; SEC.cid = ""; SEC.opts = null; SEC.regOpts = null;
+  S.secOn = d.idle_minutes !== undefined;                 // the server knows about passkeys; an older server does not send this
+  startIdle(d.idle_minutes);
+  enterApp();
+}
+function handleLoginReply(d){
+  if(d.token){ finishSignIn(d); return; }
+  if(d.step === "change_password"){ $("#gcMsg").textContent = d.reason || "Please choose a new password."; $("#gcErr").textContent = ""; $("#gcPw").value = ""; $("#gcPw2").value = ""; gateMode("change"); return; }
+  SEC.cid = d.challenge_id; SEC.hint = d.email_hint || ""; SEC.opts = d.options || null;
+  if(d.step === "passkey"){ $("#gpkErr").textContent = ""; gateMode("passkey"); runPasskey(); return; }
+  if(d.step === "enrol"){ startEmailFlow(false); return; }
+  throw new Error("The portal did not understand the sign-in reply. Please refresh the page.");
+}
 async function trySignIn(email, password){
   $("#gerr").textContent = "";
   $("#gerr").style.color = "";
   if(!email || !password){ $("#gerr").textContent = "Enter your email and password."; return; }
   try{
-    const d = await api("login", { email, password });
-    S.token = d.token; S.user = d.user; S.portals = d.portals || []; S.groups = d.groups || []; S.serverLayout = d.layout; S.welcome = !!d.welcome; S.welcomeMsg = d.welcome_msg || null;
-    localStorage.setItem(LS_TOKEN, S.token);
-    enterApp();
+    const d = await api("login", { email, password, client_v: 2 });
+    SEC.email = email; SEC.password = password;
+    handleLoginReply(d);
   }catch(e){
     $("#gerr").textContent = e.message;
   }
 }
 $("#gbtn").addEventListener("click", ()=> trySignIn($("#gemail").value.trim(), $("#gpw").value));
 $("#gpw").addEventListener("keydown", e=>{ if(e.key==="Enter") trySignIn($("#gemail").value.trim(), $("#gpw").value); });
+
+/* ----- step 2: passkey */
+async function runPasskey(){
+  $("#gpkErr").textContent = "";
+  if(!pkOK() || !SEC.opts){ startEmailFlow(true); return; }
+  $("#gpkBtn").disabled = true;
+  try{
+    const resp = await getPasskey(SEC.opts);
+    finishSignIn(await api("second_passkey_verify", { challenge_id: SEC.cid, response: resp }));
+  }catch(e){ $("#gpkErr").textContent = pkErr(e); }
+  finally{ $("#gpkBtn").disabled = false; }
+}
+$("#gpkBtn").addEventListener("click", runPasskey);
+$("#gpkEmail").addEventListener("click", ()=> startEmailFlow(false));
+const backToSignIn = ()=>{ SEC.cid = ""; SEC.opts = null; SEC.regOpts = null; $("#gpw").value = ""; gateMode("login"); };
+$("#gpkBack").addEventListener("click", backToSignIn);
+$("#geBack").addEventListener("click", backToSignIn);
+$("#gcBack").addEventListener("click", backToSignIn);
+
+/* ----- step 2, other route: emailed code, then register a passkey on this device */
+function enrolPhase(p){
+  $("#geSendRow").hidden = p !== "send"; $("#geCodeRow").hidden = p !== "code"; $("#geRegRow").hidden = p !== "register"; $("#geSkipRow").hidden = p !== "nopk";
+}
+function startEmailFlow(noSupport){
+  $("#geErr").textContent = ""; $("#geMsg").textContent = ""; $("#geCode").value = "";
+  $("#geText").textContent = (noSupport ? "This device can't use passkeys, so we'll check your email instead. " : "") +
+    `To keep the portal safe, every sign-in now needs a passkey: your fingerprint, face or screen lock on this phone or computer. We'll email a 6-digit code to ${SEC.hint} to set one up.`;
+  enrolPhase("send"); gateMode("enrol");
+}
+async function sendEnrolCode(){
+  $("#geErr").textContent = ""; $("#geMsg").textContent = ""; $("#geSend").disabled = true; $("#geAgain").style.pointerEvents = "none";
+  try{ const d = await api("second_send_code", { challenge_id: SEC.cid }); $("#geMsg").textContent = `Code sent to ${d.sent_to}. It works for 10 minutes.`; enrolPhase("code"); $("#geCode").focus(); }
+  catch(e){ $("#geErr").textContent = e.message; }
+  finally{ $("#geSend").disabled = false; $("#geAgain").style.pointerEvents = ""; }
+}
+$("#geSend").addEventListener("click", sendEnrolCode);
+$("#geAgain").addEventListener("click", sendEnrolCode);
+async function checkEnrolCode(){
+  const code = $("#geCode").value.trim(); $("#geErr").textContent = "";
+  if(code.replace(/\D/g, "").length !== 6){ $("#geErr").textContent = "Enter the 6-digit code from the email."; return; }
+  $("#geVerify").disabled = true;
+  try{
+    const d = await api("second_verify_code", { challenge_id: SEC.cid, code });
+    SEC.regOpts = d.options; $("#geMsg").textContent = "";
+    if(pkOK()){ $("#geText").textContent = "Code accepted. Now set up your passkey on this device. It will ask for your fingerprint, face or screen lock."; enrolPhase("register"); }
+    else { $("#geText").textContent = "Code accepted. This device can't make passkeys, so you can carry on with the emailed code this time."; enrolPhase("nopk"); }
+  }catch(e){ $("#geErr").textContent = e.message; }
+  finally{ $("#geVerify").disabled = false; }
+}
+$("#geVerify").addEventListener("click", checkEnrolCode);
+$("#geCode").addEventListener("keydown", e=>{ if(e.key === "Enter") checkEnrolCode(); });
+$("#geReg").addEventListener("click", async ()=>{
+  $("#geErr").textContent = ""; $("#geReg").disabled = true;
+  try{
+    const resp = await createPasskey(SEC.regOpts);
+    finishSignIn(await api("second_register_verify", { challenge_id: SEC.cid, response: resp, label: deviceLabel() }));
+  }catch(e){
+    $("#geErr").textContent = pkErr(e);
+    if(e && e.name && e.name !== "NotAllowedError" && e.name !== "AbortError") enrolPhase("nopk");     // something this device cannot do: offer the emailed-code route
+  }
+  finally{ $("#geReg").disabled = false; }
+});
+$("#geSkip").addEventListener("click", async ()=>{
+  $("#geErr").textContent = "";
+  try{ finishSignIn(await api("second_finish_without_passkey", { challenge_id: SEC.cid })); }catch(e){ $("#geErr").textContent = e.message; }
+});
+
+/* ----- the password is out of date: choose a new one, then on to step 2 */
+async function submitExpired(){
+  const pw = $("#gcPw").value, pw2 = $("#gcPw2").value; $("#gcErr").textContent = "";
+  if(pw.length < 8){ $("#gcErr").textContent = "Password needs to be at least 8 characters."; return; }
+  if(pw !== pw2){ $("#gcErr").textContent = "Passwords don't match."; return; }
+  $("#gcBtn").disabled = true;
+  try{ const d = await api("change_expired_password", { email: SEC.email, password: SEC.password, new_password: pw }); SEC.password = pw; handleLoginReply(d); }
+  catch(e){ $("#gcErr").textContent = e.message; }
+  finally{ $("#gcBtn").disabled = false; }
+}
+$("#gcBtn").addEventListener("click", submitExpired);
+$("#gcPw2").addEventListener("keydown", e=>{ if(e.key === "Enter") submitExpired(); });
+
+/* ----- signed out after a while without use. The page counts real use (touches, keys, scrolling, here or inside the open tile) and tells the server it
+         is still being used about once a minute; the server ends the session by itself a little after that stops. */
+const IDLE = { min: 0, last: 0, sent: 0, t: null };
+function startIdle(min){
+  clearInterval(IDLE.t); IDLE.min = Number(min) || 0; if(!IDLE.min) return;
+  IDLE.last = IDLE.sent = Date.now(); IDLE.t = setInterval(idleCheck, 10000);
+}
+function activity(){
+  if(!IDLE.min || !S.token) return;
+  const n = Date.now(); IDLE.last = n;
+  if(n - IDLE.sent > 60000){ IDLE.sent = n; api("touch").catch(()=>{}); }
+}
+function idleCheck(){
+  if(!IDLE.min || !S.token) return;
+  if(Date.now() - IDLE.last >= IDLE.min * 60000) sessionEnded(`You were signed out because the portal had not been used for ${IDLE.min} minutes.`);
+}
+const ACT_EVENTS = ["pointerdown", "keydown", "touchstart", "wheel", "scroll", "mousemove"];
+function watchActivity(doc){ try{ ACT_EVENTS.forEach(ev => doc.addEventListener(ev, activity, true)); }catch(e){} }
+watchActivity(document);
+document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) idleCheck(); });
+window.addEventListener("message", e => { try{ if(e.data && e.data.bhb === "activity" && e.source === $("#vframe").contentWindow) activity(); }catch(_){} });
+
+/* Ends this sign-in on this device without touching push subscriptions (a phone left in a pocket should still get its notifications). */
+function sessionEnded(msg){
+  if(!S.token) return;
+  const tok = S.token;
+  fetch(FN, { method:"POST", headers:{ "apikey":ANON, "Content-Type":"application/json" }, body: JSON.stringify({ action:"logout", token:tok }) }).catch(()=>{});
+  clearInterval(S.badgeT); S.badges = {}; S.badgeTotal = 0; try{ setIconBadge(0); }catch(e){}
+  stopIdle();
+  try{ localStorage.removeItem(LS_TOKEN); }catch(e){}
+  S.token = ""; S.user = null; S.portals = []; S.groups = []; S.layout = null; S.editing = false; S.serverLayout = undefined;
+  $("#secPop").hidden = true;
+  closeViewer();
+  $("#gpw").value = ""; gateMode("login");
+  openGate(msg);
+}
+function stopIdle(){ clearInterval(IDLE.t); IDLE.min = 0; }
 
 /* ------------------------------------------------------- forgot pw */
 $("#gForgotLink").addEventListener("click", ()=>{
@@ -730,12 +932,60 @@ function signOut(){
   const tok = S.token, raw = a => fetch(FN, { method:"POST", headers:{ "apikey":ANON, "Content-Type":"application/json" }, body: JSON.stringify(Object.assign({ token:tok }, a)) }).catch(()=>{});
   (async () => { try{ if (pushSupported()) { const sub = await pushSub(); if (sub) await raw({ action:"push_unsubscribe", endpoint:sub.endpoint }); } }catch(e){} await raw({ action:"logout" }); })();
   clearInterval(S.badgeT); S.badges = {}; S.badgeTotal = 0; setIconBadge(0);
+  stopIdle();
   try{ localStorage.removeItem(LS_TOKEN); }catch(e){}
   S.token = ""; S.user = null; S.portals = []; S.groups = []; S.layout = null; S.editing = false; S.serverLayout = undefined;
+  $("#secPop").hidden = true;
   closeViewer();
+  gateMode("login"); $("#gpw").value = "";
   openGate();
 }
 $("#navSignout").addEventListener("click", signOut);
+
+
+/* ---------------------------------------------------------- my security */
+async function openSecurity(){
+  $("#navveil").classList.remove("on"); $("#navmenu").classList.remove("on");
+  $("#secPop").hidden = false; $("#secBody").innerHTML = "<p>Loading…</p>";
+  let list = [];
+  try{ list = (await api("passkey_list")).passkeys || []; }catch(e){ $("#secBody").innerHTML = `<p>${esc(e.message)}</p>`; return; }
+  const when = t => t ? new Date(t).toLocaleDateString("en-GB") : "never";
+  $("#secBody").innerHTML = `
+    <h3 style="font-size:16px;margin:0 0 6px">Passkeys</h3>
+    <p style="font-size:13px;color:var(--sage-70);margin:0 0 10px">A passkey is your fingerprint, face or screen lock on a phone or computer. You use it after your password every time you sign in.</p>
+    ${list.length ? list.map(k => `<div style="display:flex;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--mist)"><div style="flex:1"><b>${esc(k.label || "Passkey")}</b><div style="font-size:12px;color:var(--sage-70)">Added ${when(k.created_at)} · last used ${when(k.last_used_at)}</div></div><button class="btn ghost secRm" data-id="${k.id}" style="padding:5px 10px;font-size:12px">Remove</button></div>`).join("") : `<p style="font-size:13px">No passkeys yet.</p>`}
+    <div style="margin:10px 0 18px">${pkOK() ? `<button class="btn" id="secAdd">Add a passkey on this device</button>` : `<span style="font-size:13px;color:var(--sage-70)">This device can't make passkeys.</span>`}</div>
+    <h3 style="font-size:16px;margin:0 0 6px">Change password</h3>
+    <input id="secCur" type="password" placeholder="Current password" autocomplete="current-password" style="width:100%;margin:4px 0;padding:10px;border:1px solid var(--mist);border-radius:8px">
+    <input id="secNew" type="password" placeholder="New password (at least 8 characters)" autocomplete="new-password" style="width:100%;margin:4px 0;padding:10px;border:1px solid var(--mist);border-radius:8px">
+    <input id="secNew2" type="password" placeholder="Confirm new password" autocomplete="new-password" style="width:100%;margin:4px 0;padding:10px;border:1px solid var(--mist);border-radius:8px">
+    <div style="margin:8px 0 14px"><button class="btn" id="secPw">Change password</button></div>
+    <div class="gateerr" id="secErr"></div>
+    <p style="font-size:12px;color:var(--sage-70);margin:6px 0 14px">For safety the portal signs you out after ${IDLE.min || 20} minutes without use, and asks for a new password every 90 days.</p>`;
+  $$("#secBody .secRm").forEach(b => b.addEventListener("click", async ()=>{
+    b.disabled = true; try{ await api("passkey_remove", { id: b.dataset.id }); toast("Passkey removed."); openSecurity(); }catch(e){ toast(e.message, true); b.disabled = false; }
+  }));
+  const add = $("#secAdd"); if(add) add.addEventListener("click", async ()=>{
+    $("#secErr").textContent = ""; add.disabled = true;
+    try{
+      const o = await api("passkey_add_options");
+      const resp = await createPasskey(o.options);
+      await api("passkey_add_verify", { challenge_id: o.challenge_id, response: resp, label: deviceLabel() });
+      toast("Passkey added."); openSecurity();
+    }catch(e){ $("#secErr").textContent = pkErr(e); add.disabled = false; }
+  });
+  $("#secPw").addEventListener("click", async ()=>{
+    const cur = $("#secCur").value, n1 = $("#secNew").value, n2 = $("#secNew2").value; $("#secErr").textContent = "";
+    if(n1.length < 8){ $("#secErr").textContent = "Password needs to be at least 8 characters."; return; }
+    if(n1 !== n2){ $("#secErr").textContent = "Passwords don't match."; return; }
+    $("#secPw").disabled = true;
+    try{ await api("change_password", { current: cur, new_password: n1 }); toast("Password changed."); $("#secCur").value = $("#secNew").value = $("#secNew2").value = ""; }
+    catch(e){ $("#secErr").textContent = e.message; }
+    finally{ $("#secPw").disabled = false; }
+  });
+}
+$("#navSecurity").addEventListener("click", openSecurity);
+$("#secClose").addEventListener("click", ()=>{ $("#secPop").hidden = true; });
 
 /* -------------------------------------------------------------- app */
 /* ------------------------------------------------- first-login welcome */
@@ -838,6 +1088,7 @@ function enterApp(){
   $("#gate").style.display = "none";
   $("#app").hidden = false;
   $("#whoName").textContent = S.user.name;
+  $("#navSecurity").style.display = S.secOn ? "" : "none";
   loadLayout(S.serverLayout);
   renderTiles();
   renderNav();
@@ -1606,6 +1857,7 @@ $("#vframe").addEventListener("load", function(){
   // password - wedding-admin's bonus tracker uses it to tell the GM's
   // account apart from everyone else's for edit access.
   try { this.contentWindow.sessionStorage.setItem("bhb_staff_email", S.user.email || ""); this.contentWindow.sessionStorage.setItem("bhb_staff_token", S.token || ""); } catch(e){}
+  try { watchActivity(this.contentWindow.document); } catch(e){}
   // The app's own script has already run by the time this load event
   // fires, so it booted before it could see who's signed in. One reload
   // after the first injection fixes that for every same-origin app - the
@@ -1650,7 +1902,7 @@ const plFor = u => (S.pl && S.pl.by_email && S.pl.by_email[String(u.email).toLow
 function renderUsersTable(){
   try{
     $("#usersTable").innerHTML = `
-      <thead><tr><th>Name</th><th>Email</th><th>Job title (Planday)</th><th>Role</th><th>Profile</th><th>Portals</th><th>Last login</th><th></th></tr></thead>
+      <thead><tr><th>Name</th><th>Email</th><th>Job title (Planday)</th><th>Role</th><th>Profile</th><th>Portals</th><th>Passkeys</th><th>Last login</th><th></th></tr></thead>
       <tbody>
         ${S.users.map(u => { const pl = plFor(u); return `
           <tr data-id="${u.id}" style="cursor:pointer">
@@ -1660,6 +1912,7 @@ function renderUsersTable(){
             <td>${u.role==="admin" ? '<span class="pill admin">Admin</span>' : '<span class="pill">Staff</span>'}</td>
             <td class="muted">${esc(profileLabel(u.profile_key))}</td>
             <td>${u.apps.length} of ${S.apps.length}</td>
+            <td>${u.passkeys === undefined ? '<span class="muted">—</span>' : u.passkeys ? `${u.passkeys} <button class="btn ghost pkreset" data-id="${u.id}" style="padding:3px 8px;font-size:11px;margin-left:4px" title="Remove ${esc(u.display_name)}'s passkeys (lost or new phone). Their next sign-in sets a new one up by emailed code.">Reset</button>` : '<span class="muted">None</span>'}</td>
             <td>${u.last_login_at ? new Date(u.last_login_at).toLocaleDateString('en-GB') : '<span class="muted">Never</span>'}</td>
             <td style="white-space:nowrap">${u.active ? '' : '<span class="pill off">Inactive</span> '}${u.active ? `<button class="btn ghost reinvite" data-id="${u.id}" style="padding:5px 10px;font-size:11px" title="Send ${esc(u.display_name)} a fresh set-your-password email">${u.last_login_at ? "Reset link" : "Re-invite"}</button>` : ''}</td>
           </tr>`; }).join("")}
@@ -1671,6 +1924,14 @@ function renderUsersTable(){
       try { await api("reinvite_user", { id: b.dataset.id }); toast("Email sent."); }
       catch(e){ toast(e.message, true); }
       finally { b.disabled = false; }
+    }));
+    $$("#usersTable .pkreset").forEach(b => b.addEventListener("click", async ev => {
+      ev.stopPropagation();
+      const u = S.users.find(x => x.id === b.dataset.id);
+      if(!confirm(`Remove all of ${u ? u.display_name : "this person"}'s passkeys? Their next sign-in will ask for an emailed code and set up a new one.`)) return;
+      b.disabled = true;
+      try { await api("reset_passkeys", { id: b.dataset.id }); toast("Passkeys removed."); loadUsers(); }
+      catch(e){ toast(e.message, true); b.disabled = false; }
     }));
     renderProfiles();
   }catch(e){
@@ -2546,7 +2807,7 @@ function renderInstallScreen(){
     }
   }
 
-  h += `<p style="margin-top:4px">Once it's added, close this tab and open <strong>BHB Staff</strong> from your home screen — it remembers you, so you won't need to sign in every time.</p>
+  h += `<p style="margin-top:4px">Once it's added, close this tab and open <strong>BHB Staff</strong> from your home screen — it opens straight to the portal. For safety it signs you out after a few minutes without use.</p>
     <button onclick="recheckStandalone()">I've added it — check again</button>
     <div id="installStuck"></div>`;
 
@@ -2592,6 +2853,8 @@ function proceedPastInstallGate(){
     S.token = saved;
     api("me").then(d=>{
       S.user = d.user; S.portals = d.portals || []; S.groups = d.groups || []; S.serverLayout = d.layout; S.welcome = !!d.welcome; S.welcomeMsg = d.welcome_msg || null;
+      S.secOn = d.idle_minutes !== undefined;
+      startIdle(d.idle_minutes);
       enterApp();
     }).catch(()=>{
       try{ localStorage.removeItem(LS_TOKEN); }catch(e){}
