@@ -209,6 +209,7 @@ table.tk tr.det td{background:var(--bone)}
     <button class="tabbtn" data-view="analytics">Analytics</button>
     <button class="tabbtn" data-view="adspend">Ad spend</button>
     <button class="tabbtn" data-view="enquiries">Enquiries</button>
+    <button class="tabbtn" data-view="emaildb" id="tab_emaildb" hidden>Email database</button>
     <button class="tabbtn" data-view="mailshots">Mail shots</button>
     <button class="tabbtn" data-view="postcode">Postcode offer</button>
     <button class="tabbtn" data-view="call">Marketing Call</button>
@@ -224,6 +225,7 @@ table.tk tr.det td{background:var(--bone)}
 <script src="mailshots.js?v=1"></script>
 <script src="adspend.js?v=3"></script>
 <script src="enquiries.js?v=2"></script>
+<script src="emaildb.js?v=2"></script>
 <script>
 const CFG = { SUPABASE_URL:"https://safcrtrfdzsnftghibot.supabase.co", SUPABASE_KEY:"sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU" };
 const STATUSES = [["outstanding","Outstanding"],["in_progress","In Progress"],["completed","Completed"],["parked","Parked"]];
@@ -785,6 +787,15 @@ function viewEnquiries(){
 }
 function enquiriesStop(){ if (enquiriesHandle) { enquiriesHandle.unmount(); enquiriesHandle = null; } }
 
+/* ============================================================ email database (administrators, Calvin and Jack only: the "emaildb" tab) */
+const edbCall = (action, payload) => post("email-db-api", { action, staff_email: staffEmail(), ...(payload || {}) });
+let emaildbHandle = null;
+function viewEmaildb(){
+  $("#views").innerHTML = `<div id="emaildbmount"></div>`;
+  emaildbHandle = Emaildb.mount($("#emaildbmount"), { call: edbCall, toast });
+}
+function emaildbStop(){ if (emaildbHandle) { emaildbHandle.unmount(); emaildbHandle = null; } }
+
 /* ============================================================ mail shots (Brevo, read only) */
 const brevoCall = (action, payload) => post("brevo-api", { action, staff_email: staffEmail(), ...(payload || {}) });
 let mailshotsHandle = null;
@@ -928,9 +939,9 @@ async function refreshBadges(){
 }
 function markTab(){ $$(".tabbtn").forEach(b => b.setAttribute("aria-current", b.dataset.view === S.view ? "page" : "false")); }
 function goView(v){
-  chatStop(); tkStop(); fsStop(); socialStop(); analyticsStop(); mailshotsStop(); adspendStop(); enquiriesStop();
+  chatStop(); tkStop(); fsStop(); socialStop(); analyticsStop(); mailshotsStop(); adspendStop(); enquiriesStop(); emaildbStop();
   S.view = v; markTab(); closeModal();
-  if (v === "plan") viewPlan(); else if (v === "mine") viewMine(); else if (v === "tickets") viewTickets(); else if (v === "files") viewFiles(); else if (v === "call") viewCall(); else if (v === "postcode") viewPostcode(); else if (v === "mailshots") viewMailshots(); else if (v === "social") viewSocial(); else if (v === "analytics") viewAnalytics(); else if (v === "adspend") viewAdspend(); else if (v === "enquiries") viewEnquiries(); else viewChat();
+  if (v === "plan") viewPlan(); else if (v === "mine") viewMine(); else if (v === "tickets") viewTickets(); else if (v === "files") viewFiles(); else if (v === "call") viewCall(); else if (v === "postcode") viewPostcode(); else if (v === "mailshots") viewMailshots(); else if (v === "social") viewSocial(); else if (v === "analytics") viewAnalytics(); else if (v === "adspend") viewAdspend(); else if (v === "enquiries") viewEnquiries(); else if (v === "emaildb") viewEmaildb(); else viewChat();
   window.scrollTo(0, 0);
 }
 function openGate(msg){ $("#gate").hidden = false; $("#app").hidden = true; if (msg) $("#gerr").textContent = msg; }
@@ -942,6 +953,7 @@ async function boot(){
   S.me = d.me; S.people = d.people || []; $("#whoname").textContent = S.me.name;
   setBadge("#b_mine", d.myOpen); setBadge("#b_chat", d.chatTagged);
   $$(".tabbtn").forEach(b => b.addEventListener("click", () => goView(b.dataset.view)));
+  edbCall("access").then(r => { if (r && r.ok) $("#tab_emaildb").hidden = false; }).catch(() => {});        // the tab only appears for the few people allowed it
   goView("plan");
   startAutoRefresh();
 }
