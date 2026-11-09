@@ -944,8 +944,9 @@ function renderOutside(){
 function renderOutCashup(){
   const rows = (ST.rsOrders||[]).filter(o=>(o.channel==="outside" || o.channel==="camper") && o.status==="paid" && !o.is_test && !o.is_comp);
   const itemMap = {};
-  let itemsTotal = 0, chargeTotal = 0;
+  let itemsTotal = 0, chargeTotal = 0, deliveryTotal = 0, deliveryCount = 0;
   for(const o of rows){
+    if(o.channel==="camper"){ deliveryTotal += Number(o.tray_charge||0); deliveryCount++; }
     chargeTotal += Number(o.tray_charge||0);
     for(const l of (o.lines||[])){
       const row = itemMap[l.name] || (itemMap[l.name] = {name:l.name, qty:0, total:0});
@@ -970,9 +971,14 @@ function renderOutCashup(){
     tr.innerHTML = `<td class="l">${esc(it.name)}</td><td>${it.qty}</td><td>£${it.total.toFixed(2)}</td>`;
     b.appendChild(tr);
   }
-  if(chargeTotal>0){
+  if(chargeTotal-deliveryTotal>0){
     const tr = document.createElement("tr");
-    tr.innerHTML = `<td class="l"><i>Service charge (10%)</i></td><td>${rows.length}</td><td>£${chargeTotal.toFixed(2)}</td>`;
+    tr.innerHTML = `<td class="l"><i>Service charge (10%)</i></td><td>${rows.length-deliveryCount}</td><td>£${(chargeTotal-deliveryTotal).toFixed(2)}</td>`;
+    b.appendChild(tr);
+  }
+  if(deliveryTotal>0){
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td class="l"><i>Camper delivery charge</i></td><td>${deliveryCount}</td><td>£${deliveryTotal.toFixed(2)}</td>`;
     b.appendChild(tr);
   }
   const total = document.createElement("tr");

@@ -237,7 +237,7 @@
   <div class="big script">Welcome</div>
   <div class="msg" id="welcomeMsg">Order delicious food and drinks straight to your room.</div>
   <div id="camperWelcomeNote" style="display:none;margin:4px auto 18px;max-width:330px;padding:14px 16px;border:1px solid rgba(255,255,255,.45);border-radius:3px;font-size:14.5px;line-height:1.5;text-align:center">
-    <b>We'll bring your order to your camper van</b>, packed in takeaway packaging. Just enter your vehicle registration when you order.
+    <b>We'll bring your order to your camper van</b>, packed in takeaway packaging. Just enter your vehicle registration when you order. A £5.00 delivery charge applies.
   </div>
   <div id="idBox" style="display:none;width:100%;max-width:330px;margin:4px auto 10px;text-align:left">
     <label id="idNameLbl" for="idName" style="display:block;font-size:12px;letter-spacing:1px;text-transform:uppercase;margin:0 0 6px;opacity:.9">Your name</label>
@@ -473,6 +473,7 @@ var SECTIONS = ["Small Plates & Starters","Main Courses","From the Grill","Steak
 var DRINK_GROUPS = ["Hot beverages","Soft drinks","Wine","Bottles and Draft","Spirits and cocktails"];
 var SUNDAY_GROUPS = ["Small Plates","Mains","Sides","Desserts","Sundaes"];
 var TRAY_CHARGE = 5.00;
+var DELIVERY_CHARGE = 5.00; // camper vans: a flat delivery charge instead of the 10% outside-table service charge
 var SERVICE_CHARGE_PCT = 0.10;
 var S = { menu: [], cart: {}, currentSection: null, currentDrinkGroup: null, currentWineType: null, currentSundayGroup: null, testMode: false, isComp: false, channel: "room_service", lockedRoom: null, lastOrder: null, lastOrderKind: null, discount: null /* itemId -> {item, qty} */, guestEmail: null, guestEmailVerified: false, guestMarketingOptin: false };
 // Europe/London, matching isRoomServiceAvailableNow's day check - Sunday
@@ -521,7 +522,8 @@ function preorderDiscount(lines){
 }
 function extraCharge(itemsTotal){
   if(!itemsTotal || isStaffFood() || isPreorder()) return 0; // staff food: no tray/service charge, collection not delivery
-  return (isOutside() || isCamper()) ? Math.round((itemsTotal*SERVICE_CHARGE_PCT + Number.EPSILON)*100)/100 : TRAY_CHARGE;
+  if(isCamper()) return DELIVERY_CHARGE;
+  return isOutside() ? Math.round((itemsTotal*SERVICE_CHARGE_PCT + Number.EPSILON)*100)/100 : TRAY_CHARGE;
 }
 // Staff Food only orders 06:00-11:00 (Europe/London), collection 12:30 -
 // hard client-side gate; sumup-create-checkout enforces the same window
@@ -553,7 +555,7 @@ function applyChannelCopy(){
     $("welcomeMsg").textContent = "Order delicious food and drinks and we'll bring them to your camper.";
     $("catHeading").textContent = "Order To Your Camper";
     $("catSub").textContent = "Choose a category to get started";
-    $("chargeLabel").textContent = "Service charge (10%)";
+    $("chargeLabel").textContent = "Delivery charge";
     $("nameLbl").textContent = "Your name";
     $("roomLbl").textContent = "Camper van registration";
     $("closedHeading").textContent = "Camper van service is currently unavailable";
