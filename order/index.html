@@ -810,7 +810,7 @@ function buildItemEl(m){
     rowHtml =
       '<div class="info"><div class="nm">'+esc(m.name)+'</div>'+
       dsc+
-      (S.isComp ? '' : '<div class="pr">£'+money(m.price)+'</div>')+
+      (S.isComp ? '' : '<div class="pr">'+(comboHasSupplements(m) ? 'From ' : '')+'£'+money(m.price)+'</div>')+
       (qtyForCombo>0 ? '<div class="picked">'+qtyForCombo+' in your order</div>' : '')+
       dishBtnHtml(m)+
       '</div>'+
@@ -943,6 +943,8 @@ function closeVariantModal(){ $("variantModal").style.display = "none"; _variant
 // combo_groups options are either a plain string (a free choice, no price
 // change) or {label, price} (an upgrade that adds price to the item's base
 // price, e.g. a Fruit Shoot costing 50p more than Cordial).
+// an item whose choices can add to the price (a premium beer, a dearer wine, a larger size) is listed "From £" the starting price, like an item with sizes
+function comboHasSupplements(item){ return (item.combo_groups || []).some(function(g){ return (g.options || []).some(function(o){ return typeof o === "object" && Number(o.price) > 0; }); }); }
 function comboOptLabel(opt){ return typeof opt === "object" ? opt.label : opt; }
 function comboOptPrice(opt){ return typeof opt === "object" ? (Number(opt.price) || 0) : 0; }
 // A group with "pick": N (the drinks packages) is mix and match: the guest sets how many of each option (_comboCounts[gi][label]), they must add up to
