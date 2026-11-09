@@ -202,22 +202,10 @@
   <button class="back" onclick="tryStaffUnlock()" style="margin-top:8px;background:#fff;color:var(--ink);border:0;padding:13px 28px;border-radius:2px;font-weight:600;letter-spacing:1px;text-transform:uppercase;font-size:13px">Unlock</button>
 </section>
 
-<!-- ===================== GUEST EMAIL VERIFICATION (room service / outside only) ===================== -->
+<!-- ===================== GUEST EMAIL VERIFICATION (room service / outside / camper) =====================
+     The name and email are asked for on the first screen (#welcome); this screen is only the 6-digit code step. -->
 <section id="emailGate" class="screen" style="align-items:center;justify-content:center;text-align:center;padding:30px;background:var(--ink);color:#fff">
-  <div id="emailGateStep1" style="width:100%;max-width:320px">
-    <div class="welcome-tag" style="font-size:12px;letter-spacing:3px;text-transform:uppercase;color:#ffffff90;margin-bottom:10px">Before we start</div>
-    <div class="big script" style="font-family:'Playfair Display',serif;font-style:normal;font-size:34px;font-weight:600;line-height:1.15">Your email</div>
-    <div class="msg" style="color:#ffffffb0;font-size:15px;font-style:normal;margin:10px 0 22px">We'll use this to confirm your order and, if you'd like, send you a receipt.</div>
-    <input id="emailGateInput" type="email" placeholder="you@example.com" autocomplete="email"
-      style="width:100%;box-sizing:border-box;padding:13px;border:1px solid #ffffff40;border-radius:2px;background:transparent;color:#fff;font-size:15px;text-align:center;font-family:inherit">
-    <label style="display:flex;align-items:flex-start;gap:8px;font-size:12.5px;color:#ffffffb0;margin:16px 0 4px;cursor:pointer;text-align:left">
-      <input type="checkbox" id="emailGateMarketingOptin" style="margin-top:2px">
-      <span>Sign me up for special offers, discount codes and updates from the venue</span>
-    </label>
-    <div id="emailGateErr" style="color:#ff9a9a;font-size:13px;min-height:20px;margin-top:8px"></div>
-    <button class="back" id="emailGateContinueBtn" onclick="submitEmailGate()" style="margin-top:8px;background:#fff;color:var(--ink);border:0;padding:13px 28px;border-radius:2px;font-weight:600;letter-spacing:1px;text-transform:uppercase;font-size:13px;width:100%">Continue</button>
-  </div>
-  <div id="emailGateStep2" style="width:100%;max-width:320px;display:none">
+  <div id="emailGateStep2" style="width:100%;max-width:320px">
     <div class="welcome-tag" style="font-size:12px;letter-spacing:3px;text-transform:uppercase;color:#ffffff90;margin-bottom:10px">Check your email</div>
     <div class="big script" style="font-family:'Playfair Display',serif;font-style:normal;font-size:34px;font-weight:600;line-height:1.15">Enter the code</div>
     <div class="msg" id="emailGateCodeMsg" style="color:#ffffffb0;font-size:15px;font-style:normal;margin:10px 0 22px">We've sent a 6-digit code to your email.</div>
@@ -226,7 +214,7 @@
     <div id="emailGateCodeErr" style="color:#ff9a9a;font-size:13px;min-height:20px;margin-top:8px"></div>
     <button class="back" onclick="submitEmailGateCode()" style="margin-top:8px;background:#fff;color:var(--ink);border:0;padding:13px 28px;border-radius:2px;font-weight:600;letter-spacing:1px;text-transform:uppercase;font-size:13px;width:100%">Verify</button>
     <button id="emailGateSkipBtn" onclick="skipEmailGate()" style="display:none;margin-top:10px;background:none;border:0;color:#ffffffb0;font-size:13px;text-decoration:underline;width:100%;padding:6px;font-family:inherit">Continue without verifying</button>
-    <button onclick="backToEmailGateStep1()" style="margin-top:2px;background:none;border:0;color:#ffffffb0;font-size:13px;text-decoration:underline;width:100%;padding:6px;font-family:inherit">Use a different email</button>
+    <button onclick="backToIdentity()" style="margin-top:2px;background:none;border:0;color:#ffffffb0;font-size:13px;text-decoration:underline;width:100%;padding:6px;font-family:inherit">Use a different email</button>
   </div>
 </section>
 
@@ -242,11 +230,29 @@
   <div id="idBox" style="display:none;width:100%;max-width:330px;margin:4px auto 10px;text-align:left">
     <label id="idNameLbl" for="idName" style="display:block;font-size:12px;letter-spacing:1px;text-transform:uppercase;margin:0 0 6px;opacity:.9">Your name</label>
     <input id="idName" type="text" maxlength="60" autocomplete="name" placeholder="e.g. Sarah Jones" style="width:100%;box-sizing:border-box;padding:13px;border:1px solid #ffffff60;border-radius:2px;background:transparent;color:#fff;font-size:17px;font-family:inherit;margin-bottom:14px">
-    <label id="idRoomLbl" for="idRoom" style="display:block;font-size:12px;letter-spacing:1px;text-transform:uppercase;margin:0 0 6px;opacity:.9">Table number</label>
-    <input id="idRoom" type="text" maxlength="12" autocomplete="off" inputmode="numeric" placeholder="e.g. 12" style="width:100%;box-sizing:border-box;padding:13px;border:1px solid #ffffff60;border-radius:2px;background:transparent;color:#fff;font-size:17px;font-family:inherit;margin-bottom:14px">
-    <div id="idErr" style="color:#ff9a9a;font-size:13px;min-height:20px"></div>
+    <label for="idEmail" style="display:block;font-size:12px;letter-spacing:1px;text-transform:uppercase;margin:0 0 6px;opacity:.9">Your email address</label>
+    <input id="idEmail" type="email" maxlength="120" autocomplete="email" placeholder="you@example.com" style="width:100%;box-sizing:border-box;padding:13px;border:1px solid #ffffff60;border-radius:2px;background:transparent;color:#fff;font-size:17px;font-family:inherit;margin-bottom:6px">
+    <div style="font-size:12.5px;color:#ffffffb0;line-height:1.4;margin-bottom:10px">We'll email you a 6-digit code to confirm it, and use it to send your receipt if you'd like one.</div>
+    <label style="display:flex;align-items:flex-start;gap:8px;font-size:12.5px;color:#ffffffb0;margin:4px 0 0;cursor:pointer;text-align:left">
+      <input type="checkbox" id="idMarketingOptin" style="margin-top:2px">
+      <span>Sign me up for special offers, discount codes and updates from the venue</span>
+    </label>
+    <div id="idErr" style="color:#ff9a9a;font-size:13px;min-height:20px;margin-top:8px"></div>
   </div>
-  <button class="back" onclick="startOrder()">Start your order</button>
+  <button class="back" id="startBtn" onclick="startOrder()">Start your order</button>
+</section>
+
+<!-- ===================== LOCATION (room number / table number / vehicle registration) ===================== -->
+<section id="placeGate" class="screen" style="align-items:center;justify-content:center;text-align:center;padding:30px;background:var(--ink);color:#fff;overflow-y:auto">
+  <div style="width:100%;max-width:320px">
+    <div class="welcome-tag" id="placeTag" style="font-size:12px;letter-spacing:3px;text-transform:uppercase;color:#ffffff90;margin-bottom:10px">Where are you?</div>
+    <div class="big script" id="placeHeading" style="font-family:'Playfair Display',serif;font-style:normal;font-size:34px;font-weight:600;line-height:1.15">Your table</div>
+    <div class="msg" id="placeMsg" style="color:#ffffffb0;font-size:15px;font-style:normal;margin:10px 0 22px">Tell us where to bring your order.</div>
+    <input id="placeInput" type="text" maxlength="12" autocomplete="off" inputmode="numeric" placeholder="e.g. 12"
+      style="width:100%;box-sizing:border-box;padding:13px;border:1px solid #ffffff40;border-radius:2px;background:transparent;color:#fff;font-size:20px;text-align:center;font-family:inherit">
+    <div id="placeErr" style="color:#ff9a9a;font-size:13px;min-height:20px;margin-top:8px"></div>
+    <button class="back" onclick="submitPlace()" style="margin-top:8px;background:#fff;color:var(--ink);border:0;padding:13px 28px;border-radius:2px;font-weight:600;letter-spacing:1px;text-transform:uppercase;font-size:13px;width:100%">Continue to the menu</button>
+  </div>
 </section>
 
 <!-- ===================== CATEGORIES ===================== -->
@@ -321,9 +327,15 @@
       <div class="subtotrow total"><span>Total</span><span>£<span id="subtotal">0.00</span></span></div>
     </div>
     <div id="camperBasketNote" style="display:none;margin:0 0 16px;padding:12px 14px;background:var(--sage-light);border-radius:3px;font-size:14px;line-height:1.5;color:var(--ink)">
-      <b>Delivered to your camper van.</b> We'll bring your order out to your camper in takeaway packaging. Please check your vehicle registration below so we can find you.
+      <b>Delivered to your camper van.</b> We'll bring your order out to your camper in takeaway packaging. We have your vehicle registration below so we can find you.
     </div>
-    <div id="idConfirmNote" style="display:none;margin:0 0 14px;font-size:14px;line-height:1.5;color:var(--ink)"><b>Please check these details are right</b> before you order, so we can bring everything to the right place.</div>
+    <div id="idSummary" style="display:none;margin:0 0 16px;padding:12px 14px;background:#fff;border:1px solid var(--line);border-radius:3px;font-size:14px;line-height:1.55;color:var(--ink)">
+      <div style="font-size:11.5px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:4px">This order is for</div>
+      <div id="idSummaryName" style="font-weight:600"></div>
+      <div id="idSummaryEmail" style="color:var(--muted);word-break:break-all"></div>
+      <div id="idSummaryPlace"></div>
+      <button id="idSummaryChange" type="button" onclick="changePlace()" style="display:none;margin-top:6px;background:none;border:0;padding:0;color:var(--ink);font-size:12.5px;text-decoration:underline;font-family:inherit">Change</button>
+    </div>
     <div class="fld" id="nameFld"><label id="nameLbl">Name the room is booked under</label><input id="gName" placeholder="e.g. Sarah Jones" autocomplete="name"></div>
     <div class="fld" id="roomFld"><label id="roomLbl">Room number</label><input id="gRoom" placeholder="e.g. 12" inputmode="numeric" autocomplete="off"></div>
     <div class="fld" id="roomLockedFld" style="display:none"><label id="roomLockedLbl">Room</label><div class="lockedval" id="roomLockedVal"></div></div>
@@ -469,7 +481,29 @@ var CFG = {
   SUPABASE_URL: "https://safcrtrfdzsnftghibot.supabase.co",
   SUPABASE_KEY: "sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU"
 };
-var SECTIONS = ["Small Plates & Starters","Main Courses","From the Grill","Steak Night","Sides","Desserts","Sunday Lunch","Kids Food","Drinks"];
+// Winter Menu v10 sections first (Lunch Menu to Desserts), in printed order. Small Plates & Starters / Main Courses / From the Grill are the old names: the
+// Staff Food menu still uses them, and a section with nothing switched on is simply not shown.
+var SECTIONS = ["Lunch Menu","While You Wait","Starters","Pub Classics","Winter Warmers","Grill","Steak Night","Sides","Desserts","Small Plates & Starters","Main Courses","From the Grill","Sunday Lunch","Kids Food","Drinks"];
+// a line of the printed menu's own wording above a section's dishes
+var SECTION_NOTES = {
+  "Lunch Menu": "Served 12pm–5pm, Monday to Saturday",
+  "While You Wait": "Perfect alongside a drink while you browse the menu.",
+  "Starters": "Seasonal dishes and familiar favourites.",
+  "Pub Classics": "Our familiar favourites, with a little Red Row Estate character where the harvest allows.",
+  "Winter Warmers": "Comforting seasonal dishes",
+  "Grill": "All steaks cooked to order"
+};
+var HERB_FOOTNOTE = "* Red Row Organics herbs and Red Row Estate produce are used when in season and available.";
+// The Lunch Menu is served 12pm-5pm (Sundays already hide every food section except Sunday Lunch). Bob sees it all day.
+var LUNCH_FROM_MIN = 12*60, LUNCH_TO_MIN = 17*60;
+function isLunchHoursNow(){
+  try{
+    var parts = new Intl.DateTimeFormat("en-GB", { timeZone:"Europe/London", hour:"2-digit", minute:"2-digit", hour12:false }).formatToParts(new Date());
+    var h = parseInt(parts.find(function(p){return p.type==="hour";}).value, 10) % 24;
+    var m = parseInt(parts.find(function(p){return p.type==="minute";}).value, 10);
+    return h*60+m >= LUNCH_FROM_MIN && h*60+m < LUNCH_TO_MIN;
+  }catch(e){ return true; }
+}
 var DRINK_GROUPS = ["Hot beverages","Soft drinks","Wine","Bottles and Draft","Spirits and cocktails"];
 var SUNDAY_GROUPS = ["Small Plates","Mains","Sides","Desserts","Sundaes"];
 var TRAY_CHARGE = 5.00;
@@ -607,7 +641,7 @@ function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g, function(c){ ret
 function money(n){ return (Math.round((n+Number.EPSILON)*100)/100).toFixed(2); }
 function toast(m){ var t=$("toast"); t.textContent=m; t.classList.add("show"); clearTimeout(toast._t); toast._t=setTimeout(function(){t.classList.remove("show");},2400); }
 function show(name){
-  ["staffGate","emailGate","welcome","categories","drinksub","winetype","menu","basket","status","closed"].forEach(function(n){ $(n).classList.toggle("on", n===name); });
+  ["staffGate","emailGate","placeGate","welcome","categories","drinksub","winetype","menu","basket","status","closed"].forEach(function(n){ $(n).classList.toggle("on", n===name); });
   if(name==="basket") renderBasket();
   renderBasketBar();
 }
@@ -656,6 +690,8 @@ function renderCategories(){
     // Steak Night only shows on Fridays - it doesn't hide From the Grill or
     // anything else, it's just an extra section that appears one day a week.
     if(sec==="Steak Night" && !friday) return;
+    // The Lunch Menu is a 12-5 menu.
+    if(sec==="Lunch Menu" && !S.isComp && !isLunchHoursNow()) return;
     var items = S.menu.filter(function(m){ return m.menu_section===sec; });
     if(!items.length) return;
     var el = document.createElement("div"); el.className="cattile";
@@ -793,10 +829,18 @@ var DISH_PHOTOS = {
   "12oz Flat Iron Steak": "assets/dishes/flat-iron-steak.jpg",
   "Passionfruit Cheesecake": "assets/dishes/passionfruit-cheesecake.jpg",
   "Sticky Toffee Pudding": "assets/dishes/sticky-toffee-pudding.jpg",
-  "Strawberry Bread & Butter Pudding": "assets/dishes/strawberry-bread-butter-pudding.jpg"
+  "Strawberry Bread & Butter Pudding": "assets/dishes/strawberry-bread-butter-pudding.jpg",
+  // Winter Menu v10: dishes that carry over under their new name keep their pictures
+  "Grilled Cheese & Roasted Ham": "assets/dishes/grilled-cheese-ham.jpg",
+  "Turkey Club": "assets/dishes/club-sandwich.jpg",
+  "Small Fish & Chips": "assets/dishes/fish-and-chips.jpg",
+  "340g Flat Iron Steak": "assets/dishes/flat-iron-steak.jpg"
 };
+// To add a picture to a dish: put its web address or path (e.g. assets/dishes/tempura-broccoli.jpg) in the menu item's image_url, or add the
+// dish name and file to DISH_PHOTOS above. Dishes with neither have no "See the dish" button.
+function dishPhotoSrc(m){ return (m.image_url && String(m.image_url).trim()) || DISH_PHOTOS[m.name] || ""; }
 function dishBtnHtml(m){
-  return DISH_PHOTOS[m.name] ? '<button class="dish-btn" type="button">See the dish</button>' : "";
+  return dishPhotoSrc(m) ? '<button class="dish-btn" type="button">See the dish</button>' : "";
 }
 function buildItemEl(m){
   var hasVariants = Array.isArray(m.variants) && m.variants.length>0;
@@ -873,7 +917,7 @@ function buildItemEl(m){
   return el;
 }
 function dishPhotoHtml(m){
-  var src = DISH_PHOTOS[m.name];
+  var src = dishPhotoSrc(m);
   if(!src) return "";
   return '<div class="dish-photo"><img src="'+src+'" alt="'+esc(m.name)+'" loading="lazy"></div>';
 }
@@ -920,7 +964,24 @@ function renderMenu(){
       bottles.forEach(function(m){ box.appendChild(buildItemEl(m)); });
     }
   } else {
-    items.forEach(function(m){ box.appendChild(buildItemEl(m)); });
+    var lastSub = null;
+    items.forEach(function(m){
+      if(m.sub_group && m.sub_group !== lastSub){
+        var sh = document.createElement("div"); sh.className = "grouplabel"; sh.textContent = m.sub_group;
+        box.appendChild(sh);
+      }
+      lastSub = m.sub_group || null;
+      box.appendChild(buildItemEl(m));
+    });
+    if(!S.isComp && items.some(function(m){ return /\*/.test(m.description || ""); })){
+      var fn = document.createElement("div"); fn.className = "fine"; fn.style.margin = "6px 4px 0"; fn.textContent = HERB_FOOTNOTE;
+      box.appendChild(fn);
+    }
+  }
+  var note = SECTION_NOTES[S.currentSection];
+  if(note && !S.isComp && S.currentSection !== "Drinks"){
+    var ne = document.createElement("div"); ne.className = "fine"; ne.style.cssText = "margin:0 4px 12px;font-size:13px"; ne.textContent = note;
+    box.insertBefore(ne, box.firstChild);
   }
 }
 var _variantItem = null;
@@ -1059,8 +1120,10 @@ function addComboToCart(){
   }
   saveCart();
   toast("Added " + _comboItem.name);
+  var steak = _comboItem.needs_cooking_pref ? _comboItem : null;
   closeComboModal();
   renderMenu(); renderBasketBar();
+  if(steak) openSidesModal(steak);   // size and cooking are chosen in the picker; then 2 sides and a sauce, as for every steak
 }
 
 var COOKING_OPTIONS = ["Rare","Medium rare","Medium","Medium well","Well done"];
@@ -1264,6 +1327,7 @@ function renderSideBanner(){
 }
 function renderBasket(){
   renderSideBanner();
+  renderIdSummary();
   var box = $("lines"); box.innerHTML = "";
   var lines = cartLines();
   if(!lines.length){ box.innerHTML = '<div class="empty">Your order is empty.</div>'; }
@@ -1696,21 +1760,15 @@ async function checkStaffFoodAvailability(){
 }
 
 /* ---------------- welcome ---------------- */
+// Room service, outside tables and camper vans share one front door: name and email first (the email confirmed with a 6-digit code), then where to
+// bring the order (room number / table number / vehicle registration), then straight into the menu. Bob (?comp=1), Staff Food and the drinks
+// pre-order skip all of it. A ?room= link already says which room, so that one skips the location step too.
+function usesIdentityFlow(){ return !S.isComp && !isStaffFood() && !isPreorder(); }
 function startOrder(){
-  // Outside tables and camper vans: who you are and where to bring it come first, before anything can be added to an order. They are copied
-  // to the summary screen, where the guest checks them again before paying.
-  if(!S.isComp && (isOutside() || isCamper())){
-    var idName = $("idName").value.trim(), idRoom = isCamper() ? normaliseReg($("idRoom").value) : $("idRoom").value.trim();
-    var idErr = $("idErr"); idErr.textContent = "";
-    if(!idName){ idErr.textContent = "Please enter your name."; $("idName").focus(); return; }
-    if(isCamper() ? !isPlausibleReg(idRoom) : !idRoom){ idErr.textContent = isCamper() ? "Please enter your camper van's registration so we can find you." : "Please enter your table number."; $("idRoom").focus(); return; }
-    $("gName").value = idName; $("gRoom").value = idRoom;
-    try{ sessionStorage.setItem("rs_name", idName); sessionStorage.setItem(roomStorageKey(), idRoom); }catch(e){}
-  }
+  if(usesIdentityFlow()){ submitIdentity(); return; }
   // Bob's link bypasses the open/closed gate entirely - staff placing a
   // comp order shouldn't be blocked by normal service hours. Staff Food has
-  // its own password gate already and no email field at all. Neither channel
-  // gets the guest email-verification step below.
+  // its own password gate already and no email field at all.
   if(S.isComp){ show("categories"); loadMenu(); checkBusyNotice(); return; }
   if(isStaffFood()){
     show("categories");
@@ -1725,8 +1783,6 @@ function startOrder(){
     $("gName").value = $("gName").value || S.preorder.ctx.name || "";
     show("categories"); loadMenu(); return;
   }
-  if(needsEmailGate()){ openEmailGate(); return; }
-  enterOrdering();
 }
 function enterOrdering(){
   show("categories");
@@ -1737,16 +1793,11 @@ function enterOrdering(){
   });
 }
 
-/* ---------------- guest email verification (room service / outside only) ---------------- */
-// Verified guests skip straight through on their next visit (see
-// loadPersistedGuestEmail); everyone else sees this once per device, before
-// the categories screen. request-email-code / verify-email-code do the
-// actual work - this is just the UI around them.
+/* ---------------- guest email verification (room service / outside / camper) ---------------- */
+// Step 1 is the welcome screen (name + email); this is the code step. A guest whose email was already confirmed on this device (see
+// loadPersistedGuestEmail) skips the code. request-email-code / verify-email-code do the actual work - this is just the UI around them.
 var EMAIL_CODE_SKIP_AFTER = 2; // failed attempts before "continue without verifying" appears
 var _emailGateAttempts = 0;
-function needsEmailGate(){
-  return !S.isComp && !isStaffFood() && !isPreorder() && !(S.guestEmail && S.guestEmailVerified);
-}
 function loadPersistedGuestEmail(){
   try{
     var raw = localStorage.getItem("bhb_guest_email_v1");
@@ -1766,36 +1817,31 @@ function persistGuestEmail(){
     }));
   }catch(e){}
 }
-function openEmailGate(){
-  $("emailGateStep1").style.display = "";
-  $("emailGateStep2").style.display = "none";
-  $("emailGateInput").value = S.guestEmail || "";
-  $("emailGateMarketingOptin").checked = !!S.guestMarketingOptin;
-  $("emailGateErr").textContent = "";
-  $("emailGateContinueBtn").disabled = false;
-  $("emailGateContinueBtn").textContent = "Continue";
-  show("emailGate");
-  setTimeout(function(){ $("emailGateInput").focus(); }, 30);
-}
-async function submitEmailGate(){
-  var email = $("emailGateInput").value.trim().toLowerCase();
-  $("emailGateErr").textContent = "";
-  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ $("emailGateErr").textContent = "Please enter a valid email address."; return; }
-  var btn = $("emailGateContinueBtn"); btn.disabled = true; btn.textContent = "Please wait…";
+async function submitIdentity(){
+  var name = $("idName").value.trim(), email = $("idEmail").value.trim().toLowerCase(), err = $("idErr");
+  err.textContent = "";
+  if(!name){ err.textContent = "Please enter your name."; $("idName").focus(); return; }
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ err.textContent = "Please enter a valid email address."; $("idEmail").focus(); return; }
+  var optin = $("idMarketingOptin").checked;
+  $("gName").value = name;
+  try{ sessionStorage.setItem("rs_name", name); }catch(e){}
+  if(S.guestEmailVerified && S.guestEmail === email){ S.guestMarketingOptin = optin; persistGuestEmail(); afterIdentity(); return; }   // confirmed on this device already
+  var btn = $("startBtn"); btn.disabled = true; var oldTxt = btn.textContent; btn.textContent = "Please wait…";
   try{
     var res = await fetch(CFG.SUPABASE_URL + "/functions/v1/request-email-code", {
       method: "POST",
       headers: { "Content-Type":"application/json", Authorization:"Bearer "+CFG.SUPABASE_KEY, apikey: CFG.SUPABASE_KEY },
-      body: JSON.stringify({ email: email, marketing_opt_in: $("emailGateMarketingOptin").checked })
+      body: JSON.stringify({ email: email, marketing_opt_in: optin })
     });
     var data = await res.json().catch(function(){ return {}; });
     if(!res.ok) throw new Error(data.error || ("HTTP " + res.status));
     S.guestEmail = email;
-    S.guestMarketingOptin = $("emailGateMarketingOptin").checked;
+    S.guestEmailVerified = false;
+    S.guestMarketingOptin = optin;
     if(data.known && data.verified){
       S.guestEmailVerified = true;
       persistGuestEmail();
-      enterOrdering();
+      afterIdentity();
       return;
     }
     _emailGateAttempts = 0;
@@ -1803,20 +1849,18 @@ async function submitEmailGate(){
     $("emailGateCodeInput").value = "";
     $("emailGateCodeErr").textContent = "";
     $("emailGateSkipBtn").style.display = "none";
-    $("emailGateStep1").style.display = "none";
-    $("emailGateStep2").style.display = "";
+    show("emailGate");
     setTimeout(function(){ $("emailGateCodeInput").focus(); }, 30);
   }catch(e){
-    $("emailGateErr").textContent = e.message || "Couldn't send a code — please try again or ask a member of staff.";
+    err.textContent = e.message || "Couldn't send a code — please try again or ask a member of staff.";
   }finally{
-    btn.disabled = false; btn.textContent = "Continue";
+    btn.disabled = false; btn.textContent = oldTxt;
   }
 }
-function backToEmailGateStep1(){
-  $("emailGateStep2").style.display = "none";
-  $("emailGateStep1").style.display = "";
-  $("emailGateErr").textContent = "";
-  setTimeout(function(){ $("emailGateInput").focus(); }, 30);
+function backToIdentity(){
+  $("idErr").textContent = "";
+  show("welcome");
+  setTimeout(function(){ $("idEmail").focus(); }, 30);
 }
 async function submitEmailGateCode(){
   var code = $("emailGateCodeInput").value.trim();
@@ -1838,7 +1882,7 @@ async function submitEmailGateCode(){
     if(data.verified){
       S.guestEmailVerified = true;
       persistGuestEmail();
-      enterOrdering();
+      afterIdentity();
       return;
     }
     _emailGateAttempts++;
@@ -1850,7 +1894,60 @@ async function submitEmailGateCode(){
 }
 function skipEmailGate(){
   S.guestEmailVerified = false; // remembered for prefill, but not verified - not persisted
+  afterIdentity();
+}
+
+/* ---------------- where to bring the order ---------------- */
+var _placeFromBasket = false;
+function afterIdentity(){
+  if(S.lockedRoom){ enterOrdering(); return; }   // a ?room= link already says which room
+  openPlaceGate();
+}
+function openPlaceGate(){
+  var inp = $("placeInput");
+  if(isCamper()){
+    $("placeHeading").textContent = "Your camper van";
+    $("placeMsg").textContent = "Enter your vehicle registration so we can find you.";
+    inp.placeholder = "e.g. AB12 CDE"; inp.setAttribute("inputmode", "text"); inp.setAttribute("autocapitalize", "characters"); inp.style.textTransform = "uppercase";
+  } else if(isOutside()){
+    $("placeHeading").textContent = "Your table";
+    $("placeMsg").textContent = "Enter the number on your table.";
+    inp.placeholder = "e.g. 12"; inp.setAttribute("inputmode", "numeric"); inp.style.textTransform = "";
+  } else {
+    $("placeHeading").textContent = "Your room";
+    $("placeMsg").textContent = "Enter your room number.";
+    inp.placeholder = "e.g. 12"; inp.setAttribute("inputmode", "numeric"); inp.style.textTransform = "";
+  }
+  inp.value = $("gRoom").value;
+  $("placeErr").textContent = "";
+  show("placeGate");
+  setTimeout(function(){ inp.focus(); }, 30);
+}
+function submitPlace(){
+  var v = isCamper() ? normaliseReg($("placeInput").value) : $("placeInput").value.trim();
+  var err = $("placeErr"); err.textContent = "";
+  if(isCamper() ? !isPlausibleReg(v) : !v){
+    err.textContent = isCamper() ? "Please enter your camper van's registration so we can find you." : (isOutside() ? "Please enter your table number." : "Please enter your room number.");
+    $("placeInput").focus(); return;
+  }
+  $("gRoom").value = v;
+  try{ sessionStorage.setItem(roomStorageKey(), v); }catch(e){}
+  if(_placeFromBasket){ _placeFromBasket = false; show("basket"); return; }
   enterOrdering();
+}
+function changePlace(){ _placeFromBasket = true; openPlaceGate(); }
+$("placeInput").addEventListener("keydown", function(e){ if(e.key === "Enter") submitPlace(); });
+$("idEmail").addEventListener("keydown", function(e){ if(e.key === "Enter") submitIdentity(); });
+// the basket no longer asks for any of this - it just shows what the order is going to
+function renderIdSummary(){
+  var box = $("idSummary");
+  if(!usesIdentityFlow()){ box.style.display = "none"; return; }
+  var place = S.lockedRoom || $("gRoom").value.trim();
+  $("idSummaryName").textContent = $("gName").value.trim();
+  $("idSummaryEmail").textContent = S.guestEmail || "";
+  $("idSummaryPlace").textContent = place ? ((isCamper() ? "Camper van " : isOutside() ? "Table " : "Room ") + place) : "";
+  $("idSummaryChange").style.display = S.lockedRoom ? "none" : "";
+  box.style.display = "";
 }
 
 /* ---------------- busy notice ---------------- */
@@ -1930,14 +2027,16 @@ async function initPreorder(token){
   }
   restoreSessionFields();
   if(preorderTok){ initPreorder(preorderTok); }
-  if(!S.isComp && !isStaffLink && (S.channel === "outside" || S.channel === "camper")){
-    $("idBox").style.display = ""; $("idConfirmNote").style.display = "";
-    if(S.channel === "camper"){
-      $("idRoomLbl").textContent = "Vehicle registration";
-      var idr = $("idRoom"); idr.placeholder = "e.g. AB12 CDE"; idr.setAttribute("inputmode", "text"); idr.setAttribute("autocapitalize", "characters"); idr.style.textTransform = "uppercase";
-    }
+  if(usesIdentityFlow()){
+    // first screen: name + email. The basket's own name / room fields are not shown (renderIdSummary prints what was given instead).
+    $("idBox").style.display = "";
+    $("startBtn").textContent = "Continue";
+    $("idNameLbl").textContent = $("nameLbl").textContent;
     $("idName").value = $("gName").value;
-    $("idRoom").value = suggestedTable || $("gRoom").value;
+    $("idEmail").value = S.guestEmail || "";
+    $("idMarketingOptin").checked = !!S.guestMarketingOptin;
+    $("nameFld").style.display = "none"; $("roomFld").style.display = "none"; $("roomLockedFld").style.display = "none";
+    if(suggestedTable) $("gRoom").value = suggestedTable;   // a table number in the link is only a suggestion, confirmed on the location screen
   }
   if(S.isComp){ $("payVerb").textContent = "Place order"; $("nameFld").style.display = "none"; }
   if(isStaffLink){
