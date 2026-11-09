@@ -456,6 +456,7 @@ table.grid td{padding:10px 12px; border-top:1px solid var(--mist); vertical-alig
       <div class="gatemsg" style="color:var(--ink);margin:0 0 12px">Use your fingerprint, face, Windows Hello or screen lock to finish signing in.</div>
       <button id="gpkBtn">Use passkey</button>
       <div class="gatelink" id="gpkEmail">Use an emailed code instead</div>
+      <a class="gateback" id="gpkDirect" href="https://app.blackhorsebeamish.co.uk/portal/app.html" target="_blank" rel="noopener" hidden>Open the portal in its own window</a>
       <span class="gateback" id="gpkBack">Back to sign in</span>
       <div class="gateerr" id="gpkErr"></div>
     </div>
@@ -470,6 +471,7 @@ table.grid td{padding:10px 12px; border-top:1px solid var(--mist); vertical-alig
         <div class="gatelink" id="geAgain">Send another code</div>
       </div>
       <div id="geRegRow" hidden><button id="geReg">Set up passkey on this device</button></div>
+      <a class="gateback" id="geDirect" href="https://app.blackhorsebeamish.co.uk/portal/app.html" target="_blank" rel="noopener" hidden>Open the portal in its own window</a>
       <div id="geSkipRow" hidden><button id="geSkip" style="background:#fff;color:var(--sage);border:1px solid var(--sage)">Continue with the emailed code this time</button></div>
       <span class="gateback" id="geBack">Back to sign in</span>
       <div class="gateerr" id="geErr"></div>
@@ -715,6 +717,8 @@ function openGate(msg){
    "passkey" (face / fingerprint / Windows Hello / screen lock on a device they registered), "enrol" (no passkey yet: an emailed code, then register one)
    or "change_password" (theirs is more than 90 days old). A session only ever comes from the last step. */
 const SEC = { cid:"", opts:null, regOpts:null, email:"", password:"", hint:"" };
+const framed = (() => { try{ return window.self !== window.top; }catch(e){ return true; } })();       // inside another website's page (e.g. an embed)
+const DIRECT_URL = "https://app.blackhorsebeamish.co.uk/portal/app.html";
 const pkOK = () => !!(window.PublicKeyCredential && navigator.credentials && navigator.credentials.create && navigator.credentials.get);
 const b64d = s => { s = String(s).replace(/-/g, "+").replace(/_/g, "/"); s += "=".repeat((4 - s.length % 4) % 4); const bin = atob(s), a = new Uint8Array(bin.length); for(let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i); return a.buffer; };
 const b64e = buf => { const a = new Uint8Array(buf); let s = ""; for(let i = 0; i < a.length; i++) s += String.fromCharCode(a[i]); return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); };
@@ -729,8 +733,13 @@ async function getPasskey(o){
     response: { clientDataJSON: b64e(c.response.clientDataJSON), authenticatorData: b64e(c.response.authenticatorData), signature: b64e(c.response.signature), userHandle: c.response.userHandle ? b64e(c.response.userHandle) : undefined } };
 }
 function deviceLabel(){ const p = devicePlatform(), ua = navigator.userAgent || ""; return p === "ios" ? (/iPad/.test(ua) ? "iPad" : "iPhone") : p === "android" ? "Android phone" : (/Windows/.test(ua) ? "Windows PC" : /Mac/.test(ua) ? "Mac" : "Computer"); }
-function pkErr(e){ return e && (e.name === "NotAllowedError" || e.name === "AbortError") ? "That was cancelled or timed out. Tap the button to try again." : (e && e.message) || "That did not work."; }
+function pkErr(e){
+  const n = e && e.name ? ` (${e.name})` : "";
+  if(framed) return "Passkeys can't be used while the portal is shown inside another website's page. Open the portal in its own window with the link below, then try again." + n;
+  return e && (e.name === "NotAllowedError" || e.name === "AbortError") ? "The browser refused or you cancelled the passkey prompt. If no fingerprint, face or PIN prompt appeared, check this device has Windows Hello / a screen lock set up, then tap the button to try again." + n : ((e && e.message) || "That did not work.") + n;
+}
 
+if(framed){ $("#gpkDirect").hidden = false; $("#geDirect").hidden = false; }
 function finishSignIn(d){
   S.token = d.token; S.user = d.user; S.portals = d.portals || []; S.groups = d.groups || []; S.serverLayout = d.layout; S.welcome = !!d.welcome; S.welcomeMsg = d.welcome_msg || null;
   try{ localStorage.setItem(LS_TOKEN, S.token); }catch(e){}
