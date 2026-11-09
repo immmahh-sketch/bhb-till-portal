@@ -441,6 +441,13 @@ table.grid td{padding:10px 12px; border-top:1px solid var(--mist); vertical-alig
       <div class="gateerr" id="rsErr"></div>
     </div>
 
+    <div id="gMoved" hidden>
+      <div class="sub" style="margin-bottom:12px">We've moved</div>
+      <div class="gatemsg" style="color:var(--ink);margin:0 0 14px;font-size:15px;line-height:1.5">The Staff Portal is no longer on this website. Please use this address instead and save it to your phone or computer:</div>
+      <div style="font-weight:700;color:var(--sage);word-break:break-all;margin:0 0 14px">app.blackhorsebeamish.co.uk</div>
+      <a class="gatelink" href="https://app.blackhorsebeamish.co.uk/portal/app.html" target="_blank" rel="noopener" style="display:block;text-decoration:none"><button type="button" style="width:100%">Open the Staff Portal</button></a>
+    </div>
+
     <div id="gChange" hidden>
       <div class="sub" style="margin-bottom:10px">Time for a new password</div>
       <div class="gatemsg" id="gcMsg" style="color:var(--ink);margin:0 0 10px"></div>
@@ -705,6 +712,7 @@ function gateMode(mode){
   $("#gForgot").hidden = mode !== "forgot";
   $("#gReset").hidden  = mode !== "reset";
   $("#gChange").hidden  = mode !== "change";
+  $("#gMoved").hidden   = mode !== "moved";
   $("#gPasskey").hidden = mode !== "passkey";
   $("#gEnrol").hidden   = mode !== "enrol";
 }
@@ -2884,6 +2892,12 @@ function continueInBrowser(){
 }
 
 (function init(){
+  // Shown inside another website's page (the old blackhorsebeamish.co.uk/staff-portal embed): no sign-in here, only where to go instead.
+  if (framed) {
+    $("#app").hidden = true; $("#install").hidden = true;
+    $("#gate").style.display = "flex"; gateMode("moved");
+    return;
+  }
   if (mustInstall()) {
     // Not just visually covered - actually unreachable. A fixed overlay on
     // top of a still-focusable login form is still a login form a keyboard
