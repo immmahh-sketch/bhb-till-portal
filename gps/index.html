@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script src="/shared/auth.js"></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GPs — Black Horse Beamish</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;500;600;700&family=Cormorant+Garamond:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --sage:#4D604F; --sage-70:#7B887C; --sage-10:#EDEFED; --sage-dark:#3F2F28; --bone:#F8F8F8; --olive:#CCCDB4; --mist:#E7E7E7; --white:#fff; --ink:#262626;
+  --attention:#B08D57; --attention-bg:#F7F0E4; --alert:#8C4A3F; --alert-bg:#F6EAE8; --good:#4F6B4F; --good-bg:#EDF2ED;
+  --display:"Orpheus Pro","Cormorant Garamond",Georgia,serif; --body:Raleway,"Helvetica Neue",Arial,sans-serif;
+  --track-label:.18em; --radius:10px; --shadow:0 1px 2px rgba(38,38,38,.06),0 8px 24px rgba(38,38,38,.07); --maxw:1180px;
+}
+*{box-sizing:border-box} html,body{margin:0;padding:0}
+body{font-family:var(--body); color:var(--ink); background:var(--bone); font-size:15px; line-height:1.5; -webkit-text-size-adjust:100%}
+h1,h2,h3{font-family:var(--display); font-weight:600; margin:0; letter-spacing:.01em}
+button,input,select{font:inherit; color:inherit}
+.shell{max-width:var(--maxw); margin:0 auto; padding:0 20px 64px}
+#gate{position:fixed; inset:0; background:var(--sage); z-index:100; display:flex; align-items:center; justify-content:center; padding:24px}
+#gate[hidden]{display:none}
+.gatecard{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); width:100%; max-width:380px; padding:32px 28px; text-align:center}
+.gatecard h1{font-size:26px; color:var(--sage); line-height:1.15}
+.gatecard .sub{font-size:11px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); margin:6px 0 22px}
+header.top{background:var(--sage); color:var(--white)}
+.topin{max-width:var(--maxw); margin:0 auto; padding:14px 20px; display:flex; align-items:center; gap:18px; flex-wrap:wrap}
+.brand{font-family:var(--display); font-size:21px; line-height:1.1}
+.brand small{display:block; font-family:var(--body); font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; opacity:.75}
+.who{margin-left:auto; font-size:12px; opacity:.9}
+nav.tabs{background:var(--sage-dark)}
+.tabsin{max-width:var(--maxw); margin:0 auto; padding:0 20px; display:flex; gap:2px; overflow-x:auto}
+.tabbtn{background:transparent; border:0; cursor:pointer; color:rgba(255,255,255,.72); padding:12px 16px; font-size:12px; font-weight:600; white-space:nowrap; letter-spacing:var(--track-label); text-transform:uppercase; border-bottom:3px solid transparent}
+.tabbtn[aria-current="page"]{color:var(--white); border-bottom-color:var(--olive)}
+.pagehead{display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; margin:24px 0 14px}
+.pagehead h2{font-size:26px; color:var(--sage)} .pagehead .hint{font-size:13px; color:var(--sage-70)} .spacer{margin-left:auto}
+.btn{border:1px solid var(--sage); background:var(--sage); color:var(--white); border-radius:8px; padding:9px 16px; cursor:pointer; font-size:12px; font-weight:600; letter-spacing:var(--track-label); text-transform:uppercase}
+.btn.ghost{background:var(--white); color:var(--sage)} .btn.ghost:hover{background:var(--sage-10)}
+.btn.small{min-height:34px; padding:6px 12px; font-size:11px}
+.seg{display:inline-flex; border:1px solid var(--sage); border-radius:8px; overflow:hidden; background:var(--white)}
+.seg button{border:0; background:var(--white); color:var(--sage); padding:8px 16px; font-size:12px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; cursor:pointer; border-right:1px solid var(--olive)}
+.seg button:last-child{border-right:0} .seg button[aria-pressed="true"]{background:var(--sage); color:var(--white)}
+.card{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); padding:16px 18px; margin-bottom:14px}
+.filters{display:flex; gap:14px 20px; flex-wrap:wrap; align-items:flex-end}
+.f label{display:block; font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); margin-bottom:4px}
+.f input[type=date]{padding:8px 10px; border:1px solid var(--mist); border-radius:8px; font-size:15px; background:var(--white)}
+.chips{display:flex; gap:6px; flex-wrap:wrap; margin-top:12px}
+.chip{border:1px solid var(--olive); background:var(--white); color:var(--sage); border-radius:999px; padding:5px 12px; font-size:12px; cursor:pointer}
+.chip:hover{background:var(--sage-10)}
+.kpis{display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:12px; margin-bottom:14px}
+.kpi{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); padding:14px 16px}
+.kpi .l{font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70)}
+.kpi .v{font-family:var(--display); font-size:34px; color:var(--sage); line-height:1.15; font-variant-numeric:tabular-nums} .kpi .s{font-size:12px; color:var(--sage-70)}
+.kpi.hi{background:var(--sage)} .kpi.hi .l,.kpi.hi .s{color:var(--olive)} .kpi.hi .v{color:var(--white)}
+table.t{width:100%; border-collapse:collapse; font-size:14px; font-variant-numeric:tabular-nums}
+.t th,.t td{padding:9px 8px; border-bottom:1px solid var(--mist); text-align:right; vertical-align:middle}
+.t th:first-child,.t td:first-child{text-align:left}
+.t th{font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); font-weight:600}
+.t tr.row{cursor:pointer} .t tr.row:hover td{background:var(--sage-10)}
+.t tr.tot td{font-weight:700; border-top:2px solid var(--sage); border-bottom:0}
+.t td.muted,.muted{color:var(--sage-70)}
+.pct{font-weight:700} .pct.good{color:var(--good)} .pct.bad{color:var(--alert)} .pct.none{color:var(--sage-70); font-weight:400}
+.tag{display:inline-block; border-radius:999px; padding:2px 9px; font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; background:var(--attention-bg); color:#6d5320; margin-left:6px; white-space:nowrap}
+.drill td{background:var(--bone); text-align:left !important; padding:10px 14px}
+.drill table{width:100%; font-size:13px} .drill td{border:0}
+.note{font-size:12.5px; color:var(--sage-70); line-height:1.5}
+.empty,.loading{padding:40px 20px; text-align:center; color:var(--sage-70)}
+.tablewrap{overflow-x:auto}
+.toast{position:fixed; left:50%; bottom:26px; transform:translate(-50%,20px); background:var(--ink); color:var(--white); padding:12px 20px; border-radius:8px; z-index:200; opacity:0; transition:.2s; pointer-events:none; font-size:14px; max-width:90vw}
+.toast.on{opacity:1; transform:translate(-50%,0)} .toast.bad{background:var(--alert)}
+@media (max-width:640px){ .shell{padding:0 12px 48px} .topin,.tabsin{padding-left:12px;padding-right:12px} .kpi .v{font-size:28px} .t{font-size:13px} .t th,.t td{padding:8px 5px} .btn{width:100%} .btn.small{width:auto} }
+</style>
+</head>
+<body>
+<div id="gate"><div class="gatecard"><h1>GPs</h1><div class="sub">Black Horse Beamish</div>
+  <p style="margin:0 0 16px;font-size:14px;color:var(--sage-70)">This opens from the Staff Portal, which knows who you are.</p>
+  <a href="https://app.blackhorsebeamish.co.uk/portal/app.html" style="display:block;padding:12px;border-radius:8px;background:var(--sage);color:#fff;text-decoration:none;font-weight:600;letter-spacing:var(--track-label);text-transform:uppercase;font-size:12px">Open the Staff Portal</a></div></div>
+<div id="app" hidden>
+  <header class="top"><div class="topin"><div class="brand">GPs<small>Black Horse Beamish</small></div><div class="who"><span id="whoname"></span></div></div></header>
+  <nav class="tabs"><div class="tabsin" role="tablist">
+    <button class="tabbtn" data-cat="food" id="tabFood" hidden>Food</button>
+    <button class="tabbtn" data-cat="drink" id="tabDrink" hidden>Drink</button>
+  </div></nav>
+  <div class="shell"><div id="views"></div></div>
+</div>
+<div class="toast" id="toast"></div>
+<script src="/shared/insights.js"></script>
+<script>
+const CFG = { SUPABASE_URL:"https://safcrtrfdzsnftghibot.supabase.co", SUPABASE_KEY:"sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU" };
+const S = { me:null, cat:"food", group:"week", from:"", to:"", today:"", splitFrom:"2026-09-01", days:null, groups:[], loading:false };
+const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
+const esc = Viz.esc;
+const NAME = { food:"Food", drink:"Drink" };
+
+/* ---------- small helpers ---------- */
+function toast(msg, bad){ const t=$("#toast"); t.textContent=msg; t.className="toast on"+(bad?" bad":""); clearTimeout(toast._t); toast._t=setTimeout(()=>{t.className="toast";}, bad?5200:2600); }
+function staffEmail(){ try { return sessionStorage.getItem("bhb_staff_email") || ""; } catch(e){ return ""; } }
+async function call(action, payload){
+  const r = await fetch(CFG.SUPABASE_URL + "/functions/v1/gps-api", { method:"POST", headers:{ "Content-Type":"application/json", Authorization:"Bearer "+CFG.SUPABASE_KEY, apikey:CFG.SUPABASE_KEY }, body: JSON.stringify({ action, staff_email: staffEmail(), ...(payload||{}) }) });
+  let d = {}; try { d = await r.json(); } catch(e){}
+  if (!r.ok || d.error) throw new Error(d.error || `Request failed (${r.status})`);
+  return d;
+}
+const gbp = n => n == null ? "–" : (n < 0 ? "−" : "") + "£" + Math.abs(n).toLocaleString("en-GB", { minimumFractionDigits:2, maximumFractionDigits:2 });
+const gbp0 = n => n == null ? "–" : (n < 0 ? "−" : "") + "£" + Math.abs(Math.round(n)).toLocaleString("en-GB");
+const pct1 = n => n == null ? "–" : (Math.round(n * 10) / 10).toFixed(1) + "%";
+const ymd = d => d.toISOString().slice(0, 10);
+const fromYmd = s => new Date(s + "T12:00:00Z");
+const addDays = (s, n) => { const d = fromYmd(s); d.setUTCDate(d.getUTCDate() + n); return ymd(d); };
+const monday = s => { const d = fromYmd(s); const wd = (d.getUTCDay() + 6) % 7; d.setUTCDate(d.getUTCDate() - wd); return ymd(d); };
+const monthStart = s => s.slice(0, 8) + "01";
+const monthEnd = s => { const d = fromYmd(monthStart(s)); d.setUTCMonth(d.getUTCMonth() + 1); d.setUTCDate(0); return ymd(d); };
+const dShort = s => fromYmd(s).toLocaleDateString("en-GB", { timeZone:"UTC", day:"numeric", month:"short" });
+const dLong = s => fromYmd(s).toLocaleDateString("en-GB", { timeZone:"UTC", day:"numeric", month:"short", year:"numeric" });
+const dDay = s => fromYmd(s).toLocaleDateString("en-GB", { timeZone:"UTC", weekday:"short", day:"numeric", month:"short" });
+const mLong = s => fromYmd(s).toLocaleDateString("en-GB", { timeZone:"UTC", month:"long", year:"numeric" });
+
+/* ---------- ranges ---------- */
+function preset(name){
+  const t = S.today, mon = monday(t);
+  switch (name) {
+    case "7":      return [addDays(t, -6), t];
+    case "week":   return [mon, t];
+    case "lweek":  return [addDays(mon, -7), addDays(mon, -1)];
+    case "month":  return [monthStart(t), t];
+    case "lmonth": { const lm = addDays(monthStart(t), -1); return [monthStart(lm), lm]; }
+    case "4w":     return [addDays(mon, -21), t];
+    case "8w":     return [addDays(mon, -49), t];
+    case "3m":     { const d = fromYmd(monthStart(t)); d.setUTCMonth(d.getUTCMonth() - 2); return [ymd(d), t]; }
+    case "year":   return [t.slice(0, 4) + "-01-01", t];
+  }
+  return [addDays(t, -13), t];
+}
+const PRESETS = [["7","Last 7 days"],["week","This week"],["lweek","Last week"],["month","This month"],["lmonth","Last month"],["4w","Last 4 weeks"],["8w","Last 8 weeks"],["3m","Last 3 months"],["year","This year"]];
+
+/* ---------- the sums ---------- */
+// A day counts toward GP only when its revenue is final and split into food and drink; purchases delivered on days that do not count are left out so a half-finished day cannot distort the %.
+function dayCounts(d){ return d.final && d.split && d[S.cat + "_rev"] != null; }
+function groupKey(d){
+  if (S.group === "day") return d.date;
+  if (S.group === "week") return monday(d.date);
+  if (S.group === "month") return monthStart(d.date);
+  return "all";
+}
+function buildGroups(){
+  const map = new Map(), c = S.cat;
+  for (const d of S.days) {
+    const k = groupKey(d);
+    let g = map.get(k);
+    if (!g) { g = { key:k, from:d.date, to:d.date, rev:0, buy:0, counted:0, uncounted:0, pos:0, dropped:0 }; map.set(k, g); }
+    g.to = d.date;
+    if (dayCounts(d)) { g.rev += d[c + "_rev"]; g.buy += d[c + "_buy"]; g.counted++; g.pos += d[c + "_pos"]; }
+    else { g.uncounted++; g.dropped += d[c + "_buy"]; }
+  }
+  const out = [...map.values()].map(g => {
+    g.rev = Math.round(g.rev * 100) / 100; g.buy = Math.round(g.buy * 100) / 100;
+    g.gp = g.counted ? Math.round((g.rev - g.buy) * 100) / 100 : null;
+    g.pct = g.counted && g.rev > 0 ? (g.rev - g.buy) / g.rev * 100 : null;
+    return g;
+  });
+  return out;
+}
+function label(g){
+  if (S.group === "day") return dDay(g.key);
+  if (S.group === "week") return "Week of " + dShort(g.key) + (g.to >= addDays(g.key, 6) ? " to " + dShort(addDays(g.key, 6)) : " (so far)");
+  if (S.group === "month") return mLong(g.key);
+  return dLong(S.from) + " to " + dLong(S.to);
+}
+function groupRange(g){
+  if (S.group === "week") return [g.key < S.from ? S.from : g.key, addDays(g.key, 6) > S.to ? S.to : addDays(g.key, 6)];
+  if (S.group === "month") return [g.key < S.from ? S.from : g.key, monthEnd(g.key) > S.to ? S.to : monthEnd(g.key)];
+  if (S.group === "day") return [g.key, g.key];
+  return [S.from, S.to];
+}
+function pctClass(p){ return p == null ? "none" : p < 0 ? "bad" : ""; }
+
+/* ---------- drawing ---------- */
+function chart(groups){
+  const pts = groups.filter(g => g.pct != null);
+  if (pts.length < 2) return "";
+  const W = 1000, H = 190, padL = 44, padR = 10, padT = 12, padB = 26;
+  const vals = pts.map(g => g.pct), lo = Math.min(0, Math.floor(Math.min(...vals) / 10) * 10), hi = Math.max(100, Math.ceil(Math.max(...vals) / 10) * 10);
+  const y = v => padT + (hi - v) / (hi - lo) * (H - padT - padB);
+  const bw = (W - padL - padR) / groups.length, gap = Math.min(10, bw * 0.25);
+  const all = groups.filter(g => g.pct != null), avg = all.reduce((t, g) => t + g.rev, 0) ? (all.reduce((t, g) => t + (g.rev - g.buy), 0) / all.reduce((t, g) => t + g.rev, 0) * 100) : null;
+  let s = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="GP percentage for each ${S.group}" style="display:block">`;
+  [lo, (lo + hi) / 2, hi].forEach(v => { s += `<line x1="${padL}" x2="${W - padR}" y1="${y(v)}" y2="${y(v)}" stroke="#E7E7E7"/><text x="${padL - 6}" y="${y(v) + 4}" font-size="11" text-anchor="end" fill="#7B887C">${Math.round(v)}%</text>`; });
+  groups.forEach((g, i) => {
+    const x = padL + i * bw + gap / 2, w = Math.max(2, bw - gap);
+    if (g.pct == null) return;
+    const top = y(Math.max(g.pct, 0)), base = y(0), h = Math.max(1, Math.abs(base - y(g.pct)));
+    s += `<rect x="${x}" y="${g.pct >= 0 ? top : base}" width="${w}" height="${h}" rx="2" fill="${g.pct < 0 ? "#8C4A3F" : "#4D604F"}"><title>${esc(label(g))}: ${pct1(g.pct)}</title></rect>`;
+    if (groups.length <= 16) s += `<text x="${x + w / 2}" y="${H - 8}" font-size="10" text-anchor="middle" fill="#7B887C">${esc(S.group === "month" ? fromYmd(g.key).toLocaleDateString("en-GB",{timeZone:"UTC",month:"short"}) : S.group === "week" ? dShort(g.key) : dShort(g.key))}</text>`;
+  });
+  if (avg != null) s += `<line x1="${padL}" x2="${W - padR}" y1="${y(avg)}" y2="${y(avg)}" stroke="#3F2F28" stroke-dasharray="5 4"/><text x="${W - padR}" y="${y(avg) - 4}" font-size="11" text-anchor="end" fill="#3F2F28">average ${pct1(avg)}</text>`;
+  return s + `</svg>`;
+}
+
+function render(){
+  const v = $("#views"), c = S.cat;
+  let h = `<div class="pagehead"><h2>${NAME[c]} gross profit</h2><span class="hint">Revenue from the End of Day figures, purchases from the PO Tracker (before VAT).</span><span class="spacer"></span><div class="seg" role="group" aria-label="Group by">${[["day","Day"],["week","Week"],["month","Month"],["period","Period"]].map(([k,t]) => `<button data-g="${k}" aria-pressed="${S.group===k}">${t}</button>`).join("")}</div></div>`;
+  h += `<div class="card"><div class="filters"><div class="f"><label for="fFrom">From</label><input type="date" id="fFrom" value="${S.from}"></div><div class="f"><label for="fTo">To</label><input type="date" id="fTo" value="${S.to}"></div><button class="btn small" id="fGo">Show</button><span class="spacer"></span><button class="btn ghost small" id="fCsv">Download CSV</button></div><div class="chips">${PRESETS.map(([k,t]) => `<button class="chip" data-p="${k}">${t}</button>`).join("")}</div></div>`;
+  if (S.loading) { v.innerHTML = h + `<div class="loading">Loading…</div>`; bind(); return; }
+  if (!S.days) { v.innerHTML = h; bind(); return; }
+  const g = S.groups = buildGroups();
+  const totRev = g.reduce((t, x) => t + x.rev, 0), totBuy = g.reduce((t, x) => t + x.buy, 0), counted = g.reduce((t, x) => t + x.counted, 0);
+  const totGp = totRev - totBuy, totPct = counted && totRev > 0 ? totGp / totRev * 100 : null;
+  const dropped = g.reduce((t, x) => t + x.dropped, 0), uncounted = g.reduce((t, x) => t + x.uncounted, 0);
+  h += `<div class="kpis"><div class="kpi"><div class="l">${NAME[c]} revenue</div><div class="v">${gbp0(totRev)}</div><div class="s">${counted} day${counted === 1 ? "" : "s"} counted</div></div><div class="kpi"><div class="l">${NAME[c]} purchases</div><div class="v">${gbp0(totBuy)}</div><div class="s">delivered, before VAT</div></div><div class="kpi"><div class="l">Gross profit</div><div class="v">${gbp0(totGp)}</div><div class="s">revenue less purchases</div></div><div class="kpi hi"><div class="l">GP %</div><div class="v">${pct1(totPct)}</div><div class="s">for the whole period shown</div></div></div>`;
+  if (!counted) h += `<div class="card"><div class="empty">No finished ${c} revenue in this period yet.${S.from < S.splitFrom ? `<br><span class="note">Food and drink revenue were recorded together before ${dLong(S.splitFrom)}, so there is no split before then.</span>` : ""}</div></div>`;
+  else {
+    const ch = chart(g); if (ch) h += `<div class="card"><h3 style="font-size:19px;color:var(--sage);margin-bottom:8px">GP % by ${S.group === "period" ? "period" : S.group}</h3>${ch}</div>`;
+    h += `<div class="card tablewrap"><table class="t"><thead><tr><th>${S.group === "day" ? "Day" : S.group === "week" ? "Week" : S.group === "month" ? "Month" : "Period"}</th><th>Revenue</th><th>Purchases</th><th>Gross profit</th><th>GP %</th></tr></thead><tbody>`;
+    g.slice().reverse().forEach((x, i) => {
+      const idx = g.indexOf(x), none = x.counted && x.buy === 0;
+      h += `<tr class="row" data-i="${idx}" title="Click to see the purchase orders behind ${x.buy ? "this figure" : "this row"}"><td>${esc(label(x))}${none ? `<span class="tag">no deliveries</span>` : ""}${x.counted === 0 ? `<span class="tag">not final</span>` : ""}</td><td>${x.counted ? gbp(x.rev) : "–"}</td><td>${x.counted ? gbp(x.buy) : "–"}</td><td>${x.counted ? gbp(x.gp) : "–"}</td><td class="pct ${pctClass(x.pct)}">${pct1(x.pct)}</td></tr>`;
+    });
+    if (g.length > 1) h += `<tr class="tot"><td>Total</td><td>${gbp(totRev)}</td><td>${gbp(totBuy)}</td><td>${gbp(totGp)}</td><td class="pct">${pct1(totPct)}</td></tr>`;
+    h += `</tbody></table></div>`;
+  }
+  h += `<p class="note">GP % = (revenue − purchases) ÷ revenue. Purchases count on the day a delivery was confirmed in the PO Tracker, so a single day can look very high (no delivery) or very low (a big delivery); weeks and months are steadier.${uncounted ? ` ${uncounted} day${uncounted === 1 ? " is" : "s are"} left out because the revenue is not final or not split into food and drink${dropped ? ` (${gbp(dropped)} of ${c} deliveries fall on those days)` : ""}.` : ""} Food and drink revenue were recorded together before ${dLong(S.splitFrom)}.</p>`;
+  v.innerHTML = h; bind();
+}
+
+function bind(){
+  $$("[data-g]").forEach(b => b.onclick = () => { S.group = b.dataset.g; render(); });
+  $$("[data-p]").forEach(b => b.onclick = () => { [S.from, S.to] = preset(b.dataset.p); load(); });
+  const go = $("#fGo"); if (go) go.onclick = () => { const f = $("#fFrom").value, t = $("#fTo").value; if (!f || !t || f > t) { toast("Choose a start date on or before the end date.", true); return; } S.from = f; S.to = t; load(); };
+  const csv = $("#fCsv"); if (csv) csv.onclick = downloadCsv;
+  $$("tr.row").forEach(r => r.onclick = () => drill(r));
+}
+
+async function drill(tr){
+  const next = tr.nextElementSibling; if (next && next.classList.contains("drill")) { next.remove(); return; }
+  $$("tr.drill").forEach(x => x.remove());
+  const g = S.groups[Number(tr.dataset.i)], [from, to] = groupRange(g);
+  const row = document.createElement("tr"); row.className = "drill"; row.innerHTML = `<td colspan="5" class="muted">Loading…</td>`; tr.after(row);
+  try {
+    const d = await call("purchases", { from, to, category: S.cat });
+    const counted = new Set(S.days.filter(dayCounts).map(x => x.date));
+    row.innerHTML = `<td colspan="5">${d.rows.length ? `<table><thead><tr><th style="text-align:left">Delivered</th><th style="text-align:left">PO</th><th style="text-align:left">Supplier</th><th style="text-align:right">Before VAT</th></tr></thead><tbody>${d.rows.map(r => `<tr><td>${esc(dDay(r.day))}${counted.has(r.day) ? "" : ` <span class="tag">not counted</span>`}</td><td>${esc(r.po_number)}</td><td>${esc(r.supplier || "")}</td><td style="text-align:right">${gbp(Number(r.net_amount))}</td></tr>`).join("")}</tbody></table>` : `<span class="muted">No ${S.cat} deliveries recorded for this ${S.group === "period" ? "period" : S.group}.</span>`}</td>`;
+  } catch(e){ row.innerHTML = `<td colspan="5" class="muted">${esc(e.message)}</td>`; }
+}
+
+function downloadCsv(){
+  if (!S.groups.length) { toast("Nothing to download yet.", true); return; }
+  const rows = [[NAME[S.cat] + " " + S.group, "From", "To", "Revenue", "Purchases", "Gross profit", "GP %", "Days counted"]];
+  S.groups.forEach(g => { const [f, t] = groupRange(g); rows.push([label(g), f, t, g.counted ? g.rev : "", g.counted ? g.buy : "", g.gp == null ? "" : g.gp, g.pct == null ? "" : Math.round(g.pct * 10) / 10, g.counted]); });
+  Viz.csv(rows, `gps-${S.cat}-${S.group}-${S.from}-to-${S.to}.csv`);
+}
+
+/* ---------- load ---------- */
+async function load(){
+  S.loading = true; render();
+  try { const d = await call("data", { from:S.from, to:S.to }); S.days = d.days; S.splitFrom = d.split_from || S.splitFrom; }
+  catch(e){ S.days = null; S.loading = false; $("#views").innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+  S.loading = false; render();
+}
+function goCat(c){
+  S.cat = c; $$(".tabbtn").forEach(b => b.setAttribute("aria-current", b.dataset.cat === c ? "page" : "false"));
+  render();
+}
+async function boot(){
+  $("#app").hidden = false; $("#views").innerHTML = `<div class="loading">Loading…</div>`;
+  let d;
+  try { d = await call("bootstrap"); } catch(e){ $("#views").innerHTML = `<div class="empty">${esc(e.message)}<br><br><span class="muted">Open this from the Staff Portal so it knows who you are.</span></div>`; return; }
+  S.me = d.me; S.today = d.today; S.splitFrom = d.split_from || S.splitFrom; $("#whoname").textContent = d.me.email;
+  if (d.me.cats.includes("food")) $("#tabFood").hidden = false; if (d.me.cats.includes("drink")) $("#tabDrink").hidden = false;
+  $$(".tabbtn").forEach(b => b.addEventListener("click", () => goCat(b.dataset.cat)));
+  S.cat = d.me.cats[0]; [S.from, S.to] = preset("8w");
+  $$(".tabbtn").forEach(b => b.setAttribute("aria-current", b.dataset.cat === S.cat ? "page" : "false"));
+  load();
+}
+(function(){ if (staffEmail()) { $("#gate").hidden = true; boot(); } else { $("#gate").hidden = false; } })();
+</script>
+</body>
+</html>
