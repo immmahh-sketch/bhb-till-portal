@@ -222,10 +222,21 @@ function render(){
     h += `</tbody></table></div>`;
   }
   h += `<p class="note">GP % = (revenue − purchases) ÷ revenue. Purchases count on the day a delivery was confirmed in the PO Tracker, so a single day can look very high (no delivery) or very low (a big delivery); weeks and months are steadier.${uncounted ? ` ${uncounted} day${uncounted === 1 ? " is" : "s are"} left out because the revenue is not final or not split into food and drink${dropped ? ` (${gbp(dropped)} of ${c} deliveries fall on those days)` : ""}.` : ""} Food and drink revenue were recorded together before ${dLong(S.splitFrom)}.</p>`;
+  if (S.me && S.me.admin) h += `<div class="card"><h3 style="font-size:19px;color:var(--sage);margin-bottom:6px">Is everything going through the PO Tracker?</h3><p class="note" style="margin:0 0 10px">GP % is only as good as the purchases recorded. This compares what the PO Tracker recorded as delivered with the ${S.cat === "food" ? "Food" : "Beverage"} Purchases in the P&L, month by month. A low percentage means orders were not raised, or their delivery was not confirmed.</p><button class="btn ghost small" id="covGo">Check against the P&amp;L</button><div id="covOut"></div></div>`;
   v.innerHTML = h; bind();
 }
 
+async function coverage(){
+  const out = $("#covOut"), c = S.cat; out.innerHTML = `<p class="note">Checking…</p>`;
+  try {
+    const d = await call("coverage", { from:S.from, to:S.to });
+    const rows = d.rows.map(r => ({ m:r.month, got:r[c + "_captured"], pl:r[c + "_pl"] }));
+    out.innerHTML = `<div class="tablewrap"><table class="t" style="margin-top:10px"><thead><tr><th>Month</th><th>Recorded in the PO Tracker</th><th>In the P&amp;L</th><th>Recorded</th></tr></thead><tbody>${rows.map(r => { const p = r.pl ? r.got / r.pl * 100 : null; return `<tr><td>${esc(mLong(r.m + "-01"))}</td><td>${gbp(r.got)}</td><td>${r.pl == null ? "–" : gbp(r.pl)}</td><td class="pct ${p == null ? "none" : p < 80 ? "bad" : ""}">${p == null ? "no P&amp;L yet" : pct1(p)}</td></tr>`; }).join("")}</tbody></table></div><p class="note">Both are before VAT. The P&amp;L is by invoice month and the tracker by delivery day, so a month can differ a little; much below 100% means orders are missing.</p>`;
+  } catch(e){ out.innerHTML = `<p class="note">${esc(e.message)}</p>`; }
+}
+
 function bind(){
+  const cg = $("#covGo"); if (cg) cg.onclick = coverage;
   $$("[data-g]").forEach(b => b.onclick = () => { S.group = b.dataset.g; render(); });
   $$("[data-p]").forEach(b => b.onclick = () => { [S.from, S.to] = preset(b.dataset.p); load(); });
   const go = $("#fGo"); if (go) go.onclick = () => { const f = $("#fFrom").value, t = $("#fTo").value; if (!f || !t || f > t) { toast("Choose a start date on or before the end date.", true); return; } S.from = f; S.to = t; load(); };
