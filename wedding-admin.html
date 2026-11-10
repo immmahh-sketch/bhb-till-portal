@@ -144,6 +144,13 @@ tbody tr:hover{background:var(--sage-10)}
 .chasenote .when{color:var(--sage-70)}
 .chasebtn{margin-top:4px;font-size:.75rem}
 tr.chasepanel td{background:var(--bone);padding:14px 16px;border-top:0}
+.cn-snz{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 12px;padding:10px 12px;background:var(--white);border:1px solid var(--mist);border-radius:8px}
+.cn-snz label{font-size:.75rem;color:var(--sage-70);letter-spacing:.04em;text-transform:uppercase}
+.cn-snz input[type=date]{padding:6px 8px;border:1px solid var(--mist);border-radius:6px;font:inherit}
+.cn-snz input.why{flex:1;min-width:160px;padding:6px 8px;border:1px solid var(--mist);border-radius:6px;font:inherit}
+tr.snzhead td{background:var(--sage-10);color:var(--sage);font-size:.75rem;letter-spacing:.08em;text-transform:uppercase;font-weight:600;padding:8px 12px}
+tr.snoozed > td{opacity:.62} tr.snoozed:hover > td{opacity:1}
+.pill--snz{background:var(--sage-10);color:var(--sage)}
 .cn-form{display:grid;grid-template-columns:minmax(120px,170px) 1fr auto;gap:8px;align-items:start;margin-bottom:12px}
 .cn-form textarea{min-height:56px}
 .cn-item{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-top:1px solid var(--mist);font-size:.875rem}
@@ -2674,8 +2681,10 @@ function viewOutstanding(){
 
   /* Behind schedule first — that's the chase list. Then everyone else who
      still owes, so the full picture is there without two reports. */
-  var behind = live.filter(function(r){ return r.behind; })
-                   .sort(function(a,b){ return b.shortfall - a.shortfall; });
+  var behindAll = live.filter(function(r){ return r.behind; });
+  var behindNow = behindAll.filter(function(r){ return !isSnoozed(r); }).sort(function(a,b){ return b.shortfall - a.shortfall; });
+  var behindLater = behindAll.filter(isSnoozed).sort(function(a,b){ return a.chase_snooze_until < b.chase_snooze_until ? -1 : 1; });
+  var behind = behindNow.concat(behindLater);      /* couples whose chase has been pushed back sit below everyone still to chase */
   var owing = live.filter(function(r){ return !r.behind && r.outstanding > 0.005 && !r.past; })
                   .sort(function(a,b){ return a.daysToGo - b.daysToGo; });
   var pastDue = live.filter(function(r){ return r.past && r.outstanding > 0.005 && !r.past_dismissed_at; });
@@ -2683,7 +2692,7 @@ function viewOutstanding(){
   var dismissedTotal = dismissed.reduce(function(a, r){ return a + r.outstanding; }, 0);
   var clear = live.filter(function(r){ return r.outstanding <= 0.005; });
 
-  var chaseTotal = behind.reduce(function(s,r){ return s + r.shortfall; }, 0);
+  var chaseTotal = behindNow.reduce(function(s,r){ return s + r.shortfall; }, 0);
   var owedTotal = live.reduce(function(s,r){ return s + r.outstanding; }, 0) - dismissedTotal;
 
   var h = '<div class="split" style="margin-bottom:6px"><h1>Outstanding payments</h1>' +
@@ -2696,7 +2705,7 @@ function viewOutstanding(){
   h += '<div class="stat" style="margin-bottom:18px">' +
     '<div><span class="label">To chase now</span><div class="v" style="color:' +
       (chaseTotal > 0 ? "var(--alert)" : "inherit") + '">' + money(chaseTotal) + '</div></div>' +
-    '<div><span class="label">Couples behind</span><div class="v">' + behind.length + '</div></div>' +
+    '<div><span class="label">Couples behind</span><div class="v">' + behind.length + '</div>' + (behindLater.length ? '<span class="muted" style="font-size:.8125rem">' + behindLater.length + ' pushed back</span>' : '') + '</div>' +
     '<div><span class="label">Total still owed</span><div class="v">' + money(owedTotal) + '</div></div>' +
     '<div><span class="label">Fully paid</span><div class="v">' + clear.length + '</div></div>' +
   '</div>';
@@ -2983,13 +2992,16 @@ function chaseNoteCell(r){
   var n = r.last_note, open = S.chase_open === r.id;
   return (n ? '<div class="chasenote"><span class="pill ' + (n.kind === "payment" ? 'pill--ok' : 'pill--due') + '">' + esc(noteKindLabel(n.kind)) + '</span> ' +
       '<span class="when">' + esc(noteWhen(n.at)) + (n.by ? ', ' + esc(n.by) : '') + ':</span> ' + esc(n.body) + '</div>' : '') +
+    (isSnoozed(r) ? '<div style="margin-top:6px"><span class="pill pill--snz">Chase on ' + esc(ukDate(r.chase_snooze_until)) + '</span>' + (r.chase_snooze_by ? ' <span class="muted" style="font-size:.75rem">pushed back by ' + esc(r.chase_snooze_by) + '</span>' : '') + '</div>' : '') +
     '<div><button type="button" class="linkish chasebtn" onclick="toggleChaseNotes(\'' + esc(r.id) + '\')">' +
-      (open ? 'Hide notes' : (r.note_count ? 'Notes (' + r.note_count + ')' : 'Add a note')) + '</button></div>';
+      (open ? 'Hide notes' : (r.note_count ? 'Notes (' + r.note_count + ')' : 'Add a note')) + '</button>' +
+      (r.behind ? ' &nbsp;<button type="button" class="linkish chasebtn" onclick="toggleChaseNotes(\'' + esc(r.id) + '\', true)">' + (isSnoozed(r) ? 'Change the date' : 'Push back the next chase') + '</button>' : '') + '</div>';
 }
 function chaseNotePanel(r){
   var list = S.chase_notes && S.chase_notes[r.id];
   var kind = S.chase_kind || "chase";
   var h = '<tr class="chasepanel"><td colspan="6">' +
+    (r.behind ? snoozeForm(r) : '') +
     '<div class="cn-form">' +
       '<select aria-label="Type of note" onchange="S.chase_kind=this.value">' +
         '<option value="chase"' + (kind === "chase" ? ' selected' : '') + '>Chase</option>' +
@@ -3012,8 +3024,42 @@ function setChaseNotes(id, notes){
   var row = chaseRow(id);
   if (row) { row.note_count = notes.length; row.last_note = notes[0] ? { kind: notes[0].kind, body: notes[0].body, by: notes[0].by_name || "", at: notes[0].created_at } : null; }
 }
-async function toggleChaseNotes(id){
-  if (S.chase_open === id) { S.chase_open = null; $("views").innerHTML = viewOutstanding(); return; }
+/* Push back the next chase: the couple drops to the bottom of Behind the payment schedule until that date, and is left out of "To chase now". */
+function isSnoozed(r){ return !!(r && r.chase_snooze_until && daysToGo(r.chase_snooze_until) > 0); }
+function isoPlus(days, months){
+  var t = new Intl.DateTimeFormat("en-CA",{timeZone:"Europe/London"}).format(new Date()).split("-");
+  var d = new Date(Date.UTC(+t[0], +t[1] - 1 + (months || 0), +t[2] + (days || 0)));
+  return d.toISOString().slice(0, 10);
+}
+function snoozeForm(r){
+  var on = isSnoozed(r), id = esc(r.id);
+  return '<div class="cn-snz"><strong style="font-size:.875rem">' + (on ? 'Chase pushed back to ' + esc(ukDate(r.chase_snooze_until)) : 'Push back the next chase') + '</strong>' +
+    '<button type="button" class="btn btn--sm" onclick="pickSnooze(' + "'" + id + "'" + ', ' + "'" + isoPlus(7) + "'" + ')">1 week</button>' +
+    '<button type="button" class="btn btn--sm" onclick="pickSnooze(' + "'" + id + "'" + ', ' + "'" + isoPlus(14) + "'" + ')">2 weeks</button>' +
+    '<button type="button" class="btn btn--sm" onclick="pickSnooze(' + "'" + id + "'" + ', ' + "'" + isoPlus(0, 1) + "'" + ')">1 month</button>' +
+    '<button type="button" class="btn btn--sm" onclick="pickSnooze(' + "'" + id + "'" + ', ' + "'" + isoPlus(0, 2) + "'" + ')">2 months</button>' +
+    '<label for="snz-date">or a date</label><input type="date" id="snz-date" min="' + isoPlus(1) + '" value="' + (on ? esc(r.chase_snooze_until) : '') + '">' +
+    '<input class="why" id="snz-why" maxlength="300" placeholder="Why, e.g. agreed they can pay in January (saved as a payment note)">' +
+    '<button type="button" class="btn btn--sm" onclick="saveSnooze(' + "'" + id + "'" + ')">' + (on ? 'Change' : 'Push back') + '</button>' +
+    (on ? '<button type="button" class="btn btn--sm btn--ghost" onclick="saveSnooze(' + "'" + id + "'" + ', true)">Chase now</button>' : '') + '</div>';
+}
+function pickSnooze(id, iso){ var d = document.getElementById("snz-date"); if (d) d.value = iso; saveSnooze(id); }
+async function saveSnooze(id, clear){
+  var d = document.getElementById("snz-date"), why = document.getElementById("snz-why");
+  var until = clear ? null : (d ? d.value : "");
+  if (!clear && !until) { if (d) d.focus(); return; }
+  try {
+    var res = await call("chase.snooze", { id: id, until: until, reason: why ? why.value.trim() : "" });
+    var row = chaseRow(id);
+    if (row) { row.chase_snooze_until = res.until || null; row.chase_snooze_by = res.by || ""; }
+    setChaseNotes(id, res.notes || []);
+    S.chase_open = null;
+    $("views").innerHTML = viewOutstanding();
+    noteTop(clear ? "Back on the chase list." : "Pushed back to " + ukDate(until) + ".");
+  } catch (e) { showErr(e.message); }
+}
+async function toggleChaseNotes(id, snooze){
+  if (S.chase_open === id && !snooze) { S.chase_open = null; $("views").innerHTML = viewOutstanding(); return; }
   S.chase_open = id; S.chase_draft = ""; S.chase_kind = "chase";
   $("views").innerHTML = viewOutstanding();
   try {
@@ -3058,8 +3104,10 @@ function chaseTable(heading, rows, showShortfall, emptyMsg){
   h += '<table><thead><tr><th>Couple</th><th>Wedding</th><th>Stage</th>' +
     '<th class="money">Paid</th><th class="money">' +
     (showShortfall ? "Behind by" : "Outstanding") + '</th><th></th></tr></thead><tbody>';
+  var snzDone = false;
   rows.forEach(function(r){
-    h += '<tr><td><strong>' + esc(r.salutation) + '</strong><br>' +
+    if (isSnoozed(r) && !snzDone) { snzDone = true; h += '<tr class="snzhead"><td colspan="6">Chase pushed back (' + rows.filter(isSnoozed).length + ')</td></tr>'; }
+    h += '<tr' + (isSnoozed(r) ? ' class="snoozed"' : '') + '><td><strong>' + esc(r.salutation) + '</strong><br>' +
       '<span class="muted" style="font-size:.8125rem">' +
         '<a href="mailto:' + esc(r.primary_email) + '?subject=' +
         encodeURIComponent("Your wedding balance — " + r.salutation) + '&body=' +
@@ -3101,16 +3149,17 @@ function chaseTable(heading, rows, showShortfall, emptyMsg){
 
 function exportChase(){
   var rows = (S.outstanding||[]).filter(function(r){ return r.behind; })
-    .sort(function(a,b){ return b.shortfall - a.shortfall; })
+    .sort(function(a,b){ return (isSnoozed(a) - isSnoozed(b)) || (b.shortfall - a.shortfall); })
     .map(function(r){
       return [r.salutation, r.event_id, r.wedding_date, r.daysToGo, r.stage,
               r.total, r.paid, r.dueNow, r.shortfall, r.outstanding,
               r.primary_email, r.mobile || "", r.last_login_at ? "Yes" : "No",
-              r.last_note ? noteWhen(r.last_note.at) + (r.last_note.by ? ", " + r.last_note.by : "") + ": " + r.last_note.body : ""];
+              r.last_note ? noteWhen(r.last_note.at) + (r.last_note.by ? ", " + r.last_note.by : "") + ": " + r.last_note.body : "",
+              isSnoozed(r) ? ukDate(r.chase_snooze_until) : ""];
     });
   csvRaw("payments-to-chase",
     ["Couple","Reference","Wedding date","Days to go","Stage","Total","Paid",
-     "Due by now","Behind by","Outstanding","Email","Mobile","Has logged in","Latest note"], rows);
+     "Due by now","Behind by","Outstanding","Email","Mobile","Has logged in","Latest note","Chase pushed back to"], rows);
 }
 
 function daysToGo(iso){
