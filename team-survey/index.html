@@ -243,7 +243,7 @@ async function viewResults(roundId){
       <p>${fmtDay(sel.opens_on)} to ${fmtDay(sel.closes_on)}</p>
       ${sel.status !== "scheduled" ? `${Viz.bars([{ label:`${sel.completions} of ${r.eligible} people have completed it`, value:pct, note:pct+"%" }], { max:100, lo:50, hi:75, fmt:()=>"" })}` : ""}</div>`;
   if (sel.status !== "scheduled") {
-    if (r.not_completed) html += `<div class="card"><h3>Not yet completed (${r.not_completed.length})</h3><p class="muted">Shown because ${r.settings.reveal_after} or more people have completed it. This only tells you who to remind. It cannot tell you anything about anyone's answers.</p>${r.not_completed.length ? `<ul class="list">${r.not_completed.map(u => `<li>${esc(u.name)}</li>`).join("")}</ul><p style="margin-top:10px"><button class="btn ghost small" id="cpNames">Copy the names</button></p>` : `<p>Everyone has completed it.</p>`}</div>`;
+    if (r.not_completed) html += `<div class="card"><h3>Not yet completed (${r.not_completed.length})</h3><p class="muted">Shown because ${r.settings.reveal_after} or more people have completed it. This only tells you who to remind. It cannot tell you anything about anyone's answers.</p>${r.not_completed.length ? `<ul class="list">${r.not_completed.map(u => `<li>${esc(u.name)}</li>`).join("")}</ul><p style="margin-top:10px"><button class="btn ghost small" id="cpNames">Copy the names</button>${sel.status === "open" ? ` <button class="btn small" id="remindBtn">Email a reminder</button>` : ""}</p><p id="remindMsg" class="muted" style="margin-top:8px" hidden></p>` : `<p>Everyone has completed it.</p>`}</div>`;
     else html += `<div class="card"><p class="muted" style="margin:0">The list of who has not completed the survey is shown once ${r.settings.reveal_after} people have completed it (${sel.completions} so far), so that it can never point to any one person's answers.</p></div>`;
   }
   if (r.answers_hidden) html += `<div class="card"><h3>Answers are hidden for now</h3><p>${esc(r.answers_hidden)}</p></div>`;
@@ -252,7 +252,23 @@ async function viewResults(roundId){
   v.innerHTML = html;
   $("#rsel").onchange = e => viewResults(e.target.value);
   if ($("#cpNames")) $("#cpNames").onclick = () => { const t = r.not_completed.map(u => u.name).join("\n"); (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => toast("Names copied."), () => toast("Could not copy.", true)); };
+  if ($("#remindBtn")) $("#remindBtn").onclick = remindFlow;
   if (r.stats) bindResults(r);
+}
+/* Reminder email to everyone who has not completed the open round. Two steps: count first, then send only after a second tap. Records nothing, so anonymity is unchanged. */
+async function remindFlow(){
+  const btn = $("#remindBtn"), msg = $("#remindMsg"); btn.disabled = true; msg.hidden = true;
+  let d; try { d = await call("remind", {}); } catch(e){ btn.disabled = false; msg.textContent = e.message; msg.hidden = false; return; }
+  btn.disabled = false;
+  if (!d.would_send) { msg.textContent = "There is nobody to remind."; msg.hidden = false; return; }
+  msg.innerHTML = `This will email <b>${d.would_send}</b> ${d.would_send === 1 ? "person" : "people"} who have not completed the survey yet, telling them it closes on ${esc(fmtDay(d.closes_on))}. Anyone who has completed it will not get one. <span style="display:block;margin-top:8px"><button class="btn small" id="remindGo">Send ${d.would_send} ${d.would_send === 1 ? "email" : "emails"}</button> <button class="btn ghost small" id="remindNo">Cancel</button></span>`;
+  msg.hidden = false;
+  $("#remindNo").onclick = () => { msg.hidden = true; };
+  $("#remindGo").onclick = async () => {
+    const go = $("#remindGo"); go.disabled = true; go.textContent = "Sending…";
+    try { const s = await call("remind", { confirm: true }); msg.textContent = s.failed ? `Sent ${s.sent}, but ${s.failed} could not be sent.` : `Sent ${s.sent} ${s.sent === 1 ? "reminder" : "reminders"}.`; toast("Reminders sent."); }
+    catch(e){ msg.textContent = e.message; }
+  };
 }
 function resultsBody(r){
   const st = r.stats, qs = r.questions || [], scaleQs = qs.filter(q => q.kind === "scale");
