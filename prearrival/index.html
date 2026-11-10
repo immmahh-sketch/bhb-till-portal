@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script src="/shared/auth.js"></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pre-arrival calls — Black Horse Beamish</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;500;600;700&family=Cormorant+Garamond:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --sage:#4D604F; --sage-70:#7B887C; --sage-10:#EDEFED; --sage-dark:#3F2F28; --bone:#F8F8F8; --olive:#CCCDB4; --mist:#E7E7E7; --white:#fff; --ink:#262626;
+  --attention:#B08D57; --attention-bg:#F7F0E4; --alert:#8C4A3F; --alert-bg:#F6EAE8; --good:#4F6B4F; --good-bg:#EDF2ED;
+  --display:"Orpheus Pro","Cormorant Garamond",Georgia,serif; --body:Raleway,"Helvetica Neue",Arial,sans-serif;
+  --track-label:.18em; --radius:10px; --shadow:0 1px 2px rgba(38,38,38,.06),0 8px 24px rgba(38,38,38,.07); --maxw:1180px;
+}
+*{box-sizing:border-box} html,body{margin:0;padding:0}
+body{font-family:var(--body); color:var(--ink); background:var(--bone); font-size:15px; line-height:1.5; -webkit-text-size-adjust:100%}
+h1,h2,h3{font-family:var(--display); font-weight:600; margin:0; letter-spacing:.01em}
+button,input,select,textarea{font:inherit; color:inherit}
+.shell{max-width:var(--maxw); margin:0 auto; padding:0 20px 64px}
+#gate{position:fixed; inset:0; background:var(--sage); z-index:100; display:flex; align-items:center; justify-content:center; padding:24px}
+#gate[hidden]{display:none}
+.gatecard{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); width:100%; max-width:380px; padding:32px 28px; text-align:center}
+.gatecard h1{font-size:26px; color:var(--sage); line-height:1.15}
+.gatecard .sub{font-size:11px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); margin:6px 0 22px}
+header.top{background:var(--sage); color:var(--white)}
+.topin{max-width:var(--maxw); margin:0 auto; padding:14px 20px; display:flex; align-items:center; gap:18px; flex-wrap:wrap}
+.brand{font-family:var(--display); font-size:21px; line-height:1.1}
+.brand small{display:block; font-family:var(--body); font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; opacity:.75}
+.who{margin-left:auto; font-size:12px; opacity:.9}
+nav.tabs{background:var(--sage-dark)}
+.tabsin{max-width:var(--maxw); margin:0 auto; padding:0 20px; display:flex; gap:2px; overflow-x:auto}
+.tabbtn{background:transparent; border:0; cursor:pointer; color:rgba(255,255,255,.72); padding:12px 16px; font-size:12px; font-weight:600; white-space:nowrap; letter-spacing:var(--track-label); text-transform:uppercase; border-bottom:3px solid transparent}
+.tabbtn[aria-current="page"]{color:var(--white); border-bottom-color:var(--olive)}
+.pagehead{display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; margin:24px 0 14px}
+.pagehead h2{font-size:26px; color:var(--sage)} .pagehead .hint{font-size:13px; color:var(--sage-70)} .spacer{margin-left:auto}
+.btn{border:1px solid var(--sage); background:var(--sage); color:var(--white); border-radius:8px; padding:9px 16px; cursor:pointer; font-size:12px; font-weight:600; letter-spacing:var(--track-label); text-transform:uppercase}
+.btn.ghost{background:var(--white); color:var(--sage)} .btn.ghost:hover{background:var(--sage-10)} .btn.small{min-height:34px; padding:6px 12px; font-size:11px} .btn:disabled{opacity:.5; cursor:default}
+.card{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); padding:16px 18px; margin-bottom:14px}
+.kpis{display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px; margin-bottom:14px}
+.kpi{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); padding:12px 14px}
+.kpi .l{font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70)} .kpi .v{font-family:var(--display); font-size:30px; color:var(--sage); line-height:1.15}
+.kpi.hi{background:var(--sage)} .kpi.hi .l{color:var(--olive)} .kpi.hi .v{color:var(--white)}
+.bar{display:flex; gap:10px 14px; flex-wrap:wrap; align-items:center; margin-bottom:12px}
+.bar select,.bar input[type=search]{padding:8px 10px; border:1px solid var(--mist); border-radius:8px; background:var(--white); font-size:14px}
+.chips{display:flex; gap:6px; flex-wrap:wrap}
+.chip{border:1px solid var(--olive); background:var(--white); color:var(--sage); border-radius:999px; padding:5px 12px; font-size:12.5px; cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--sage); color:var(--white); border-color:var(--sage)}
+.day{position:sticky; top:0; z-index:5; background:var(--bone); padding:14px 2px 8px; font-family:var(--display); font-size:21px; color:var(--sage); border-bottom:2px solid var(--olive); margin-bottom:10px}
+.day small{font-family:var(--body); font-size:12px; color:var(--sage-70); margin-left:8px; letter-spacing:.04em}
+.bk{display:grid; grid-template-columns:minmax(220px,1.1fr) minmax(250px,1.4fr) minmax(170px,.8fr); gap:14px 22px; align-items:start; background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); padding:14px 16px; margin-bottom:10px; border-left:5px solid var(--mist)}
+.bk.spoken{border-left-color:var(--good); background:#FBFDFB} .bk.no_answer{border-left-color:var(--attention); background:#FFFCF6}
+.bk .nm{font-weight:700; font-size:16px} .bk .meta{font-size:13px; color:var(--sage-70); margin-top:2px}
+.bk .contact{margin-top:8px; font-size:14px} .bk .contact a{color:var(--sage); text-decoration:none; font-weight:600} .bk .contact a:hover{text-decoration:underline}
+.tag{display:inline-block; border-radius:999px; padding:2px 9px; font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; background:var(--sage-10); color:var(--sage); margin-left:6px; white-space:nowrap}
+.tag.warn{background:var(--attention-bg); color:#6d5320} .tag.note{background:var(--alert-bg); color:var(--alert)}
+.work{display:grid; grid-template-columns:minmax(150px,200px) 1fr; gap:8px}
+.work select,.work textarea,.work input[type=text]{width:100%; padding:8px 10px; border:1px solid var(--mist); border-radius:8px; background:var(--white); font-size:14px}
+.work textarea{min-height:40px; resize:vertical}
+.tablerow{grid-column:1/-1; display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-size:14px}
+.tablerow input[type=checkbox]{width:20px; height:20px; margin:0}
+.tablerow input[type=text]{width:110px}
+.saved{font-size:11.5px; color:var(--good); min-height:14px}
+.mail{display:flex; flex-direction:column; gap:6px; align-items:flex-start}
+.mail .sent{font-size:12px; color:var(--good); font-weight:600}
+.linkbtn{background:none; border:0; padding:0; color:var(--sage); cursor:pointer; font-size:13px; font-weight:600; text-decoration:underline}
+.empty,.loading{padding:40px 20px; text-align:center; color:var(--sage-70)}
+.note{font-size:12.5px; color:var(--sage-70); line-height:1.5}
+.field{margin-bottom:14px} .field label{display:block; font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); margin-bottom:4px}
+.field input,.field textarea,.field select{width:100%; padding:10px 12px; border:1px solid var(--mist); border-radius:8px; font-size:15px; background:var(--white)}
+.field textarea{min-height:90px; line-height:1.5}
+.rbg{position:fixed; inset:0; background:rgba(38,38,38,.55); z-index:150; display:flex; align-items:flex-start; justify-content:center; padding:20px; overflow:auto}
+.rbox{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); width:100%; max-width:760px; padding:22px 24px}
+.rbox h3{font-size:24px; color:var(--sage); margin-bottom:12px}
+.acts{display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap; margin-top:14px}
+.toast{position:fixed; left:50%; bottom:26px; transform:translate(-50%,20px); background:var(--ink); color:var(--white); padding:12px 20px; border-radius:8px; z-index:200; opacity:0; transition:.2s; pointer-events:none; font-size:14px; max-width:90vw}
+.toast.on{opacity:1; transform:translate(-50%,0)} .toast.bad{background:var(--alert)}
+@media (max-width:860px){ .bk{grid-template-columns:1fr} .work{grid-template-columns:1fr} }
+@media (max-width:640px){ .shell{padding:0 12px 48px} .topin,.tabsin{padding-left:12px;padding-right:12px} .btn{width:auto} }
+</style>
+</head>
+<body>
+<div id="gate"><div class="gatecard"><h1>Pre-arrival calls</h1><div class="sub">Black Horse Beamish</div>
+  <p style="margin:0 0 16px;font-size:14px;color:var(--sage-70)">This opens from the Staff Portal, which knows who you are.</p>
+  <a href="https://app.blackhorsebeamish.co.uk/portal/app.html" style="display:block;padding:12px;border-radius:8px;background:var(--sage);color:#fff;text-decoration:none;font-weight:600;letter-spacing:var(--track-label);text-transform:uppercase;font-size:12px">Open the Staff Portal</a></div></div>
+<div id="app" hidden>
+  <header class="top"><div class="topin"><div class="brand">Pre-arrival calls<small>Black Horse Beamish</small></div><div class="who"><span id="whoname"></span></div></div></header>
+  <nav class="tabs"><div class="tabsin" role="tablist">
+    <button class="tabbtn" data-view="calls" id="tabCalls" hidden>Calls</button>
+    <button class="tabbtn" data-view="update" id="tabUpdate" hidden>Update from Rezlynx</button>
+    <button class="tabbtn" data-view="settings" id="tabSettings" hidden>Email wording</button>
+  </div></nav>
+  <div class="shell"><div id="views"></div></div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+const CFG = { SUPABASE_URL:"https://safcrtrfdzsnftghibot.supabase.co", SUPABASE_KEY:"sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU" };
+const S = { me:null, view:"calls", data:null, day:"", status:"todo", q:"", saving:{} };
+const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
+const esc = v => String(v == null ? "" : v).replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+function toast(msg, bad){ const t=$("#toast"); t.textContent=msg; t.className="toast on"+(bad?" bad":""); clearTimeout(toast._t); toast._t=setTimeout(()=>{t.className="toast";}, bad?5200:2600); }
+function staffEmail(){ try { return sessionStorage.getItem("bhb_staff_email") || ""; } catch(e){ return ""; } }
+async function call(action, payload){
+  const r = await fetch(CFG.SUPABASE_URL + "/functions/v1/prearrival-api", { method:"POST", headers:{ "Content-Type":"application/json", Authorization:"Bearer "+CFG.SUPABASE_KEY, apikey:CFG.SUPABASE_KEY }, body: JSON.stringify({ action, staff_email: staffEmail(), ...(payload||{}) }) });
+  let d = {}; try { d = await r.json(); } catch(e){}
+  if (!r.ok || d.error) throw new Error(d.error || `Request failed (${r.status})`);
+  return d;
+}
+const fmtDay = d => new Date(d + "T12:00:00Z").toLocaleDateString("en-GB", { timeZone:"UTC", weekday:"short", day:"numeric", month:"short" });
+const fmtLong = d => new Date(d + "T12:00:00Z").toLocaleDateString("en-GB", { timeZone:"UTC", weekday:"long", day:"numeric", month:"long" });
+const fmtWhen = iso => { try { return new Date(iso).toLocaleString("en-GB", { timeZone:"Europe/London", day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" }); } catch(e){ return ""; } };
+const dayLabel = (d, today) => d === today ? "Today" : d === addDays(today, 1) ? "Tomorrow" : fmtDay(d);
+const addDays = (s, n) => { const d = new Date(s + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+const telHref = p => "tel:" + String(p).replace(/[^\d+]/g, "");
+const prettyPhone = p => { const d = String(p).replace(/[^\d+]/g, ""); if (/^0\d{10}$/.test(d)) return d.replace(/^(\d{5})(\d{3})(\d{3})$/, "$1 $2 $3"); return d; };
+
+/* ================================================================ Calls */
+async function viewCalls(){
+  const v = $("#views"); if (!S.data) v.innerHTML = `<div class="loading">Loading the guests…</div>`;
+  try { S.data = await call("list"); } catch(e){ v.innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+  if (S.view !== "calls") return;
+  paintCalls();
+}
+function filtered(){
+  const d = S.data, q = S.q.trim().toLowerCase();
+  return d.bookings.filter(b => (!S.day || b.arrival === S.day)
+    && (S.status === "all" || (S.status === "todo" ? !b.outcome : S.status === "spoken" ? b.outcome === "spoken" : b.outcome === "no_answer"))
+    && (!q || [b.guest_name, b.room_no, b.email, b.phone, b.book_ref, b.room_name].join(" ").toLowerCase().includes(q)));
+}
+function paintCalls(){
+  const d = S.data, v = $("#views"), all = d.bookings, today = d.today;
+  const spoken = all.filter(b => b.outcome === "spoken").length, noans = all.filter(b => b.outcome === "no_answer").length, emailed = all.filter(b => b.email_sent_at).length, tables = all.filter(b => b.table_booked).length;
+  const days = [...new Set(all.map(b => b.arrival))];
+  const stale = d.last_import_at ? Math.round((Date.now() - new Date(d.last_import_at).getTime()) / 36e5) : null;
+  let h = `<div class="pagehead"><h2>Pre-arrival calls</h2><span class="hint">Guests arriving in the next ${d.days} days. Work down the list: ring, note what happened, tick the restaurant table, and send a welcome email.</span></div>
+  <div class="kpis"><div class="kpi hi"><div class="l">Arriving</div><div class="v">${all.length}</div></div><div class="kpi"><div class="l">Still to call</div><div class="v">${all.length - spoken - noans}</div></div><div class="kpi"><div class="l">Spoken to</div><div class="v">${spoken}</div></div><div class="kpi"><div class="l">No answer</div><div class="v">${noans}</div></div><div class="kpi"><div class="l">Table booked</div><div class="v">${tables}</div></div><div class="kpi"><div class="l">Emailed</div><div class="v">${emailed}</div></div></div>`;
+  if (!d.last_import_at) h += `<div class="card"><b>No guests yet.</b> <span class="note">Open the <b>Update from Rezlynx</b> tab and add today's two reports.</span></div>`;
+  else if (stale > 30) h += `<div class="card" style="border-left:4px solid var(--attention)"><b>The list is ${Math.round(stale / 24)} day${Math.round(stale / 24) === 1 ? "" : "s"} old.</b> <span class="note">Last updated ${esc(fmtWhen(d.last_import_at))}${d.last_import_by ? " by " + esc(d.last_import_by) : ""}. Add fresh reports in <b>Update from Rezlynx</b> so new bookings and cancellations are picked up.</span></div>`;
+  h += `<div class="bar"><div class="chips" role="group" aria-label="Day"><button class="chip" data-day="" aria-pressed="${S.day === ""}">All days</button>${days.map(x => `<button class="chip" data-day="${x}" aria-pressed="${S.day === x}">${esc(dayLabel(x, today))}</button>`).join("")}</div>
+    <select id="stSel" aria-label="Show"><option value="todo" ${S.status === "todo" ? "selected" : ""}>Still to call</option><option value="all" ${S.status === "all" ? "selected" : ""}>Everyone</option><option value="no_answer" ${S.status === "no_answer" ? "selected" : ""}>Called, no answer</option><option value="spoken" ${S.status === "spoken" ? "selected" : ""}>Called, spoken to</option></select>
+    <input type="search" id="qBox" placeholder="Find a guest or room" value="${esc(S.q)}" autocomplete="off"><span class="spacer"></span><button class="btn ghost small" id="refresh">Refresh</button></div><div id="list"></div>`;
+  v.innerHTML = h;
+  $$("[data-day]").forEach(b => b.onclick = () => { S.day = b.dataset.day; paintCalls(); });
+  $("#stSel").onchange = e => { S.status = e.target.value; paintCalls(); };
+  $("#qBox").oninput = e => { S.q = e.target.value; clearTimeout(paintCalls._t); paintCalls._t = setTimeout(() => { const pos = S.q.length; paintCalls(); const b = $("#qBox"); b.focus(); b.setSelectionRange(pos, pos); }, 250); };
+  $("#refresh").onclick = () => viewCalls();
+  paintList();
+}
+function paintList(){
+  const d = S.data, rows = filtered(), today = d.today, out = $("#list");
+  if (!rows.length) { out.innerHTML = `<div class="empty">${d.bookings.length ? "Nobody matches that. Try another day or choose Everyone." : "No guests are arriving in this period."}</div>`; return; }
+  const byDay = new Map(); rows.forEach(b => { if (!byDay.has(b.arrival)) byDay.set(b.arrival, []); byDay.get(b.arrival).push(b); });
+  out.innerHTML = [...byDay].map(([day, list]) => `<div class="day">${esc(dayLabel(day, today))} <small>${esc(fmtLong(day))} · ${list.length} arrival${list.length === 1 ? "" : "s"}</small></div>${list.map(bookingHtml).join("")}`).join("");
+  bindList();
+}
+function bookingHtml(b){
+  const ref = esc(b.book_ref), party = [b.adults ? b.adults + " adult" + (b.adults === 1 ? "" : "s") : "", b.children ? b.children + " child" + (b.children === 1 ? "" : "ren") : ""].filter(Boolean).join(", ");
+  const phone = b.phone ? `<a href="${esc(telHref(b.phone))}">${esc(prettyPhone(b.phone))}</a> <button class="linkbtn" data-phone="${ref}" style="font-weight:500;font-size:12px">change</button>` : `<span class="note">No number on the report</span> <button class="linkbtn" data-phone="${ref}">Add one</button>`;
+  const mail = b.email ? `<a href="mailto:${esc(b.email)}">${esc(b.email)}</a>${b.relay ? ` <span class="tag warn" title="A booking-site relay address: replies may not always reach the guest">Booking site</span>` : ""}` : `<span class="note">No email address</span>`;
+  return `<div class="bk ${esc(b.outcome)}" data-ref="${ref}">
+    <div><div class="nm">${esc(b.guest_name || "Guest")}${b.notes ? ` <span class="tag note" title="${esc(b.notes)}">Note on booking</span>` : ""}</div>
+      <div class="meta">Room ${esc(b.room_no || "?")} · ${esc(b.room_name)} · ${b.nights} night${b.nights === 1 ? "" : "s"}${party ? " · " + esc(party) : ""}${b.package ? ` <span class="tag">${esc(b.package.replace(/_/g, " "))}</span>` : ""}</div>
+      <div class="contact">${phone}<br>${mail}</div></div>
+    <div class="work">
+      <select data-f="outcome" aria-label="Call outcome"><option value="">Not called yet</option><option value="no_answer" ${b.outcome === "no_answer" ? "selected" : ""}>Called, no answer</option><option value="spoken" ${b.outcome === "spoken" ? "selected" : ""}>Called, spoken to</option></select>
+      <textarea data-f="comments" placeholder="Comments: what they said, requests, who they are travelling with…" maxlength="1000">${esc(b.comments)}</textarea>
+      <div class="tablerow"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" data-f="table_booked" ${b.table_booked ? "checked" : ""}> Table booked in the restaurant</label>${b.table_booked ? `<input type="text" data-f="table_time" placeholder="Day and time" value="${esc(b.table_time)}" maxlength="40">` : ""}<span class="saved" data-saved></span>
+      ${b.called_at ? `<span class="note">Called ${esc(fmtWhen(b.called_at))}${b.called_by ? " by " + esc(b.called_by) : ""}</span>` : ""}</div></div>
+    <div class="mail"><button class="btn small" data-mail="${ref}" ${b.email ? "" : "disabled"}>${b.email_sent_at ? "Email again" : "Email the guest"}</button>
+      ${b.email_sent_at ? `<span class="sent">Emailed ${esc(fmtWhen(b.email_sent_at))}${b.email_sent_by ? " by " + esc(b.email_sent_by) : ""}</span>` : (b.email ? `<span class="note">A warm personal welcome, from you.</span>` : `<span class="note">Add an email in Rezlynx to send one.</span>`)}</div></div>`;
+}
+function updateKpis(){
+  const all = S.data.bookings, v = $$(".kpi .v"); if (v.length < 6) return;
+  const spoken = all.filter(b => b.outcome === "spoken").length, noans = all.filter(b => b.outcome === "no_answer").length;
+  [all.length, all.length - spoken - noans, spoken, noans, all.filter(b => b.table_booked).length, all.filter(b => b.email_sent_at).length].forEach((n, i) => { v[i].textContent = n; });
+}
+function rowOf(el){ return el.closest(".bk"); }
+function bookingOf(ref){ return S.data.bookings.find(x => x.book_ref === ref); }
+async function saveField(row, patch){
+  const ref = row.dataset.ref, b = bookingOf(ref), tag = row.querySelector("[data-saved]");
+  Object.assign(b, patch); if (tag) tag.textContent = "Saving…";
+  try { await call("call.save", { book_ref:ref, ...patch }); updateKpis(); if (tag) { tag.textContent = "Saved"; setTimeout(() => { if (tag.textContent === "Saved") tag.textContent = ""; }, 1800); } }
+  catch(e){ toast(e.message, true); if (tag) tag.textContent = ""; }
+}
+function bindList(){
+  $$("#list .bk").forEach(row => {
+    const ref = row.dataset.ref;
+    row.querySelector('[data-f="outcome"]').onchange = e => {
+      row.classList.remove("spoken", "no_answer"); if (e.target.value) row.classList.add(e.target.value);
+      saveField(row, { outcome:e.target.value }).then(() => { if (S.status !== "all") { /* keep the row in place until the next refresh so the person is not jumped around while writing */ } });
+    };
+    const ta = row.querySelector('[data-f="comments"]'); let tm; ta.oninput = () => { clearTimeout(tm); tm = setTimeout(() => saveField(row, { comments:ta.value }), 700); }; ta.onblur = () => { clearTimeout(tm); if (ta.value !== (bookingOf(ref).comments || "")) saveField(row, { comments:ta.value }); };
+    row.querySelector('[data-f="table_booked"]').onchange = async e => { await saveField(row, { table_booked:e.target.checked }); const b = bookingOf(ref); if (!e.target.checked) b.table_time = ""; row.outerHTML = bookingHtml(b); bindList(); };
+    const tt = row.querySelector('[data-f="table_time"]'); if (tt) tt.onchange = () => saveField(row, { table_time:tt.value });
+  });
+  $$("[data-phone]").forEach(b => b.onclick = async () => {
+    const x = bookingOf(b.dataset.phone), v = prompt("Phone number for " + (x.guest_name || "this guest"), x.phone || ""); if (v === null) return;
+    try { const r = await call("phone.save", { book_ref:x.book_ref, phone:v }); x.phone = r.phone || x.phone_from_report; paintList(); toast("Number saved."); } catch(e){ toast(e.message, true); }
+  });
+  $$("[data-mail]").forEach(b => b.onclick = () => openMail(b.dataset.mail));
+}
+
+/* ---------------------------------------------------------------- the welcome email */
+async function openMail(ref){
+  const b = bookingOf(ref); if (!b) return;
+  const bg = document.createElement("div"); bg.className = "rbg";
+  bg.innerHTML = `<div class="rbox"><h3>Welcome email to ${esc(b.guest_name || "the guest")}</h3><div class="loading" id="mLoad">Writing it…</div><div id="mBody" hidden></div></div>`;
+  document.body.appendChild(bg);
+  let p; try { p = await call("email.preview", { book_ref:ref }); } catch(e){ bg.remove(); toast(e.message, true); return; }
+  const box = bg.querySelector("#mBody"); bg.querySelector("#mLoad").hidden = true; box.hidden = false;
+  box.innerHTML = `${p.already ? `<div class="card" style="border-left:4px solid var(--attention);padding:10px 14px"><b>Already emailed</b> <span class="note">${esc(fmtWhen(p.already.at))}${p.already.by ? " by " + esc(p.already.by) : ""}. Sending again will send it a second time.</span></div>` : ""}
+    ${p.relay ? `<div class="card" style="border-left:4px solid var(--attention);padding:10px 14px"><span class="note">This is a booking-site address (it forwards to the guest, and replies may not always reach them).</span></div>` : ""}
+    <div class="field"><label>To</label><input id="mTo" value="${esc(p.to)}"></div>
+    <div class="field"><label>Subject</label><input id="mSubj" value="${esc(p.subject)}"></div>
+    <div class="field" style="display:flex;gap:14px;align-items:center;flex-wrap:wrap"><label style="margin:0;display:flex;gap:8px;align-items:center;text-transform:none;letter-spacing:0;font-size:14px;color:var(--ink);cursor:pointer"><input type="checkbox" id="mTable" style="width:20px;height:20px" ${b.table_booked ? "checked" : ""}> They have a restaurant table</label><input id="mTime" placeholder="Day and time, e.g. Saturday 7:30pm" value="${esc(b.table_time)}" style="max-width:260px;${b.table_booked ? "" : "display:none"}" maxlength="40"></div>
+    <div class="field"><label>Message (change anything you like)</label><textarea id="mBodyTxt" style="min-height:340px">${esc(p.body)}</textarea></div>
+    <div class="note">It is sent from stay@ in the name of "${esc(p.sender_name)} at Black Horse Beamish". Replies come back to you, and you get a copy.</div>
+    <div class="acts"><button class="btn ghost" id="mPrev">Preview how it looks</button><button class="btn ghost" id="mCancel">Cancel</button><button class="btn" id="mSend">${p.already ? "Send again" : "Send the email"}</button></div>
+    <iframe id="mFrame" style="display:none;width:100%;height:560px;border:1px solid var(--mist);border-radius:8px;margin-top:14px;background:#fff" sandbox></iframe>`;
+  let line = p.table_line;
+  const retable = async () => {                                   // swap just the restaurant paragraph when the tick or the time changes; the rest of what they typed stays
+    const on = bg.querySelector("#mTable").checked, time = bg.querySelector("#mTime").value;
+    bg.querySelector("#mTime").style.display = on ? "" : "none";
+    try { const q = await call("email.preview", { book_ref:ref, table_booked:on, table_time:time }); const ta = bg.querySelector("#mBodyTxt");
+      if (line && ta.value.includes(line)) ta.value = ta.value.replace(line, q.table_line); else ta.value = ta.value.trimEnd() + "\n\n" + q.table_line; line = q.table_line; } catch(e){ toast(e.message, true); }
+    try { await call("call.save", { book_ref:ref, table_booked:on, table_time:time }); b.table_booked = on; b.table_time = time; } catch(e){}
+  };
+  bg.querySelector("#mTable").onchange = retable; bg.querySelector("#mTime").onchange = retable;
+  bg.querySelector("#mCancel").onclick = () => { bg.remove(); paintList(); }; bg.addEventListener("click", e => { if (e.target === bg) { bg.remove(); paintList(); } });
+  bg.querySelector("#mPrev").onclick = async () => { try { const r = await call("email.render", { body:bg.querySelector("#mBodyTxt").value }); const f = bg.querySelector("#mFrame"); f.style.display = "block"; f.srcdoc = r.html; f.scrollIntoView({ behavior:"smooth", block:"nearest" }); } catch(e){ toast(e.message, true); } };
+  bg.querySelector("#mSend").onclick = async () => {
+    const btn = bg.querySelector("#mSend"); btn.disabled = true; btn.textContent = "Sending…";
+    try { const r = await call("email.send", { book_ref:ref, to:bg.querySelector("#mTo").value, subject:bg.querySelector("#mSubj").value, body:bg.querySelector("#mBodyTxt").value, sender_name:p.sender_name });
+      b.email_sent_at = r.at; b.email_sent_by = r.by; b.email_to = r.to; bg.remove(); paintList(); updateKpis(); toast("Sent to " + r.to + ". A copy has gone to you."); }
+    catch(e){ btn.disabled = false; btn.textContent = p.already ? "Send again" : "Send the email"; toast(e.message, true); }
+  };
+}
+
+/* ================================================================ Update from Rezlynx */
+function loadScript(src){ return new Promise((res, rej) => { if (window.XLSX) return res(); const s = document.createElement("script"); s.src = src; s.onload = res; s.onerror = () => rej(new Error("Could not load the spreadsheet reader. Check the connection.")); document.head.appendChild(s); }); }
+const MON = { jan:1, feb:2, mar:3, apr:4, may:5, jun:6, jul:7, aug:8, sep:9, oct:10, nov:11, dec:12 };
+function isoDay(v){ const m = /^(\d{1,2})\/([A-Za-z]{3})[a-z]*\/(\d{4})/.exec(String(v || "").trim()); if (m && MON[m[2].toLowerCase()]) return `${m[3]}-${String(MON[m[2].toLowerCase()]).padStart(2, "0")}-${m[1].padStart(2, "0")}`; const n = /^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(String(v || "")); return n ? `${n[3]}-${n[2].padStart(2, "0")}-${n[1].padStart(2, "0")}` : ""; }
+function parseReservations(rows){
+  const out = []; let cur = null; const keys = { "Guest:":"guest", "Room Type:":"room_type", "Room Id:":"room_no", "Arrival:":"arrival", "Departure:":"departure", "Package:":"package", "Status:":"status", "Adults:":"adults", "Children:":"children" };
+  rows.forEach(r => {
+    const f = r.map(c => c == null ? "" : String(c).trim()).filter(Boolean); if (!f.length) return;
+    if (f[0] === "BookRef:") { cur = { ref: f[1] || "" }; out.push(cur); return; }
+    if (!cur) return;
+    if (f[0] === "Public Notes:" && f[1]) { cur.notes = f.slice(1).join(" "); return; }
+    f.forEach((x, i) => { const k = keys[x]; if (k && !(k in cur) && f[i + 1] != null && !/:$/.test(f[i + 1])) cur[k] = f[i + 1]; });
+  });
+  return out.map(b => ({ ref:b.ref, guest:b.guest || "", room_type:b.room_type || "", room_no:b.room_no || "", package:b.package || "", arrival:isoDay(b.arrival), departure:isoDay(b.departure), status:b.status || "", adults:b.adults || "", children:b.children || "", notes:b.notes || "" })).filter(b => b.ref);
+}
+function parseCsv(text){
+  const rows = []; let row = [], cur = "", q = false;
+  for (let i = 0; i < text.length; i++) { const c = text[i];
+    if (q) { if (c === '"') { if (text[i + 1] === '"') { cur += '"'; i++; } else q = false; } else cur += c; }
+    else if (c === '"') q = true; else if (c === ",") { row.push(cur); cur = ""; } else if (c === "\n") { row.push(cur); rows.push(row); row = []; cur = ""; } else if (c !== "\r") cur += c; }
+  if (cur || row.length) { row.push(cur); rows.push(row); } return rows.filter(r => r.some(x => String(x).trim()));
+}
+function parseContacts(text){
+  const rows = parseCsv(text.replace(/^﻿/, "")); if (rows.length < 2) return [];
+  const h = rows[0].map(x => String(x).trim().toLowerCase()), at = (...names) => h.findIndex(x => names.includes(x));
+  const iRef = at("bookref", "book ref", "booking ref"), iF = at("forename", "first name"), iL = at("surname", "last name"), iE = at("email", "e-mail"), iT = at("tel no", "telephone", "tel", "phone"), iM = at("mobile no", "mobile");
+  if (iRef < 0) throw new Error("That does not look like the Sales and Marketing query (no BookRef column).");
+  return rows.slice(1).map(r => ({ ref:r[iRef] || "", first:iF >= 0 ? r[iF] : "", last:iL >= 0 ? r[iL] : "", email:iE >= 0 ? r[iE] : "", tel:iT >= 0 ? r[iT] : "", mobile:iM >= 0 ? r[iM] : "" })).filter(c => c.ref);
+}
+function viewUpdate(msg){
+  const d = S.data, last = S.me && S.me.last_import_at;
+  $("#views").innerHTML = `<div class="pagehead"><h2>Update from Rezlynx</h2><span class="hint">Once a day, before the calls start.</span></div>
+  <div class="card">${msg ? `<div style="background:var(--good-bg);border-radius:8px;padding:10px 14px;margin-bottom:14px">${msg}</div>` : ""}
+    <p class="note" style="margin-top:0">From Rezlynx, the <b>Reservations report</b> (.xls: arrivals still to come) and the <b>Sales and Marketing query</b> (.csv with BookRef, Forename, Surname, Tel No, Mobile No, Email). They are matched on the booking reference. Guests who have dropped off the report (cancelled or changed) come off the list. Calls, comments and emails already recorded are kept.</p>
+    <div class="field" style="max-width:520px"><label>Reservations report (.xls)</label><input type="file" id="fx" accept=".xls,.xlsx"></div>
+    <div class="field" style="max-width:520px"><label>Sales and Marketing query (.csv)</label><input type="file" id="fc" accept=".csv"></div>
+    <button class="btn" id="goImp">Update the list</button> ${last ? `<span class="note" style="margin-left:10px">Last updated ${esc(fmtWhen(last))}${S.me.last_import_by ? " by " + esc(S.me.last_import_by) : ""}</span>` : ""}</div>`;
+  $("#goImp").onclick = async () => {
+    const x = $("#fx").files[0], c = $("#fc").files[0]; if (!x || !c) { toast("Choose both files first.", true); return; }
+    const b = $("#goImp"); b.disabled = true; b.textContent = "Reading…";
+    try {
+      await loadScript("https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js");
+      const wb = XLSX.read(await x.arrayBuffer(), { type:"array" }), sheet = wb.Sheets[wb.SheetNames[0]];
+      const bookings = parseReservations(XLSX.utils.sheet_to_json(sheet, { header:1, raw:false, defval:"" }));
+      if (!bookings.length) throw new Error("No bookings were found in the Reservations report. Is it the right file?");
+      const contacts = parseContacts(await c.text());
+      const r = await call("import", { bookings, contacts });
+      S.me.last_import_at = new Date().toISOString(); S.me.last_import_by = S.me.name; S.data = null;
+      viewUpdate(`Read ${r.read} bookings: <b>${r.kept}</b> confirmed room stays arriving in the next two months (${r.added} new)${r.gone ? `; <b>${r.gone}</b> no longer on the report and taken off` : ""}. ${r.no_phone} have no phone number and ${r.no_email} no email${r.relay ? `; ${r.relay} use a booking-site address` : ""}.`);
+    } catch(e){ toast(e.message, true); b.disabled = false; b.textContent = "Update the list"; }
+  };
+}
+
+/* ================================================================ Email wording */
+async function viewSettings(){
+  const v = $("#views"); v.innerHTML = `<div class="loading">Loading…</div>`;
+  let d; try { d = await call("settings.get"); } catch(e){ v.innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+  const s = d.settings;
+  v.innerHTML = `<div class="pagehead"><h2>Email wording</h2><span class="hint">The starting point for every welcome email. The receptionist can still change it for each guest before sending.</span></div>
+  <div class="card"><div class="field" style="max-width:320px"><label>Hotel phone number (in the email)</label><input id="sPhone" value="${esc(s.hotel_phone)}" maxlength="30"></div>
+    <div class="field" style="max-width:200px"><label>Days ahead to list</label><input id="sDays" type="number" min="1" max="30" value="${s.days_ahead}"></div>
+    <div class="field"><label>Subject</label><input id="sSubj" value="${esc(s.subject)}" maxlength="200"></div>
+    <div class="field"><label>Message</label><textarea id="sBody" style="min-height:380px">${esc(s.body)}</textarea></div>
+    <div class="field"><label>Restaurant line when they HAVE a table</label><textarea id="sYes">${esc(s.table_yes_line)}</textarea></div>
+    <div class="field"><label>Restaurant line when they do NOT have a table</label><textarea id="sNo">${esc(s.table_no_line)}</textarea></div>
+    <p class="note">These fill in for each guest: <b>{first_name}</b> <b>{sender_name}</b> <b>{arrival_day}</b> <b>{room_type}</b> <b>{nights}</b> <b>{hotel_phone}</b> <b>{table_line}</b> (the restaurant line above) and <b>{table_time}</b> (inside the restaurant line).</p>
+    <button class="btn" id="sSave">Save the wording</button></div>`;
+  $("#sSave").onclick = async () => { const b = $("#sSave"); b.disabled = true; try { await call("settings.save", { hotel_phone:$("#sPhone").value, days_ahead:Number($("#sDays").value), subject:$("#sSubj").value, body:$("#sBody").value, table_yes_line:$("#sYes").value, table_no_line:$("#sNo").value }); S.data = null; toast("Saved."); } catch(e){ toast(e.message, true); } b.disabled = false; };
+}
+
+/* ================================================================ boot */
+function goView(v){
+  S.view = v; $$(".tabbtn").forEach(b => b.setAttribute("aria-current", b.dataset.view === v ? "page" : "false")); window.scrollTo(0, 0);
+  if (v === "calls") viewCalls(); else if (v === "update") viewUpdate(); else viewSettings();
+}
+async function boot(){
+  $("#app").hidden = false; $("#views").innerHTML = `<div class="loading">Loading…</div>`;
+  let d; try { d = await call("bootstrap"); } catch(e){ $("#views").innerHTML = `<div class="empty">${esc(e.message)}<br><br><span class="note">Open this from the Staff Portal so it knows who you are.</span></div>`; return; }
+  S.me = { ...d.me, last_import_at:d.last_import_at, last_import_by:d.last_import_by }; $("#whoname").textContent = d.me.name;
+  const t = d.me.tabs; $("#tabCalls").hidden = !t.includes("calls"); $("#tabUpdate").hidden = !t.includes("update"); $("#tabSettings").hidden = !t.includes("settings");
+  $$(".tabbtn").forEach(b => b.addEventListener("click", () => goView(b.dataset.view)));
+  goView(t.includes("calls") ? "calls" : t.includes("update") ? "update" : "settings");
+}
+(function(){ if (staffEmail()) { $("#gate").hidden = true; boot(); } else { $("#gate").hidden = false; } })();
+</script>
+</body>
+</html>
