@@ -179,7 +179,7 @@ function rvPaint(){
   const bar = `<div class="pagehead"><h2>Rota review</h2><span class="hint">The rota from Planday next to what the house needs each day</span></div>
     <div class="rv-bar"><div class="f"><label for="rv_preset">Show</label><select id="rv_preset">${RV_PRESETS.map(([k, l]) => `<option value="${k}"${k === RV.preset ? " selected" : ""}>${esc(rvPresetLabel(k, l))}</option>`).join("")}</select></div>
       ${D ? `<div class="f"><label for="rv_dept">Department</label><select id="rv_dept"><option value="all"${RV.dept === "all" ? " selected" : ""}>All departments</option>${depts.map(n => `<option value="${esc(n)}"${RV.dept === n ? " selected" : ""}>${esc(deptLabel(n))}</option>`).join("")}</select></div>` : ""}
-      <div class="f"><label>&nbsp;</label><button class="btn small ghost" id="rv_fold">${["need", "rota", "cost", "check", "flags", "day"].every(k => RV.shut[k]) ? "Open all sections" : "Fold all sections"}</button></div>
+      <div class="f"><label>&nbsp;</label><button class="btn small ghost" id="rv_fold">${["need", "usual", "rota", "cost", "check", "flags", "day"].every(k => RV.shut[k]) ? "Open all sections" : "Fold all sections"}</button></div>
       <div class="f"><label>&nbsp;</label><button class="btn small" id="rv_refresh"${RV.busy ? " disabled" : ""}>${RV.busy ? "Loading…" : "Refresh from Planday"}</button></div></div>`;
   if (RV.err) { v.innerHTML = bar + `<div class="card empty">${esc(RV.err)}</div>`; return wire(); }
   if (!D) { v.innerHTML = bar + `<div class="loading">Loading…</div>`; return wire(); }
@@ -203,6 +203,12 @@ function rvPaint(){
   h += row("Afternoon teas", d => ({ v: nz(d.afternoon_tea) ? n0(d.afternoon_tea) : "" }));
   if (!RV.shut.need) h += `<tr><td>Events</td>${days.map(d => `<td class="ev${d.finished ? " past" : ""}">${d.events.length ? d.events.map(e => `${esc(e.name.length > 24 ? e.name.slice(0, 23) + "…" : e.name)}${nz(e.guests) ? ` <small style="display:inline">(${e.guests}${nz(e.evening_guests) && e.evening_guests !== e.guests ? "/" + e.evening_guests : ""})</small>` : ""}`).join("<br>") : `<span class="muted">–</span>`}</td>`).join("")}</tr>`;
   h += row("Total covers the rota serves", d => ({ v: n0(d.covers), cls:"rvb" }));
+  {
+    const U = D.usual_all || {}, per = (k, dp) => nz(U[k]) ? `<br><small>30-day average ${n1(U[k])}${dp || ""} a day</small>` : "";
+    const uRow = (label, key, dp) => row(label + per(key, dp), d => ({ v: nz(d.usual && d.usual[key]) ? n1(d.usual[key]) : "", sub: d.usual && d.usual.n ? "avg of " + d.usual.n + " " + fmt(d.date, { weekday:"short" }) : "" }));
+    h += sec("What usually happens: the last 30 days, same weekday (what was actually reported)", "usual");
+    h += uRow("Rooms sold", "rooms"); h += uRow("Breakfasts", "breakfast"); h += uRow("Lunch covers", "lunch"); h += uRow("Dinner covers", "dinner"); h += uRow("Total covers", "covers");
+  }
   h += sec(one ? "The rota: " + deptLabel(one) + " (hours rostered, or worked for days already finished)" : "The rota (hours rostered, or worked for days already finished)", "rota");
   (one ? [one] : D.departments).forEach(name => {
     h += row(esc(deptLabel(name)), d => { const p = d.departments.find(x => x.name === name); const open = p && p.open ? `</small><span class="open">${p.open} open</span><small>` : ""; return p ? { v: p.hours > 0 ? hrs(p.hours) : "", sub: p.heads ? (p.heads === 1 ? "1 person" : p.heads + " people") + open : open } : { v:"" }; });
@@ -266,7 +272,7 @@ function wire(){
   const dp = $("#rv_dept"); if (dp) dp.onchange = () => { RV.dept = dp.value; rvPaint(); const x = $("#rv_dept"); if (x) x.focus(); };
   const dp2 = $("#rv_dept2"); if (dp2) dp2.onchange = () => { RV.dept = dp2.value; rvPaint(); const x = $("#rv_dept2"); if (x) x.focus(); };
   const r = $("#rv_refresh"); if (r) r.onclick = () => viewReview(true);
-  const fo = $("#rv_fold"); if (fo) fo.onclick = () => { const all = ["need", "rota", "cost", "check", "flags", "day"], allShut = all.every(k => RV.shut[k]); all.forEach(k => { RV.shut[k] = !allShut; }); rvPaint(); };
+  const fo = $("#rv_fold"); if (fo) fo.onclick = () => { const all = ["need", "usual", "rota", "cost", "check", "flags", "day"], allShut = all.every(k => RV.shut[k]); all.forEach(k => { RV.shut[k] = !allShut; }); rvPaint(); };
   $$("[data-rvsec]").forEach(el => { const go = () => { const k = el.dataset.rvsec; RV.shut[k] = !RV.shut[k]; const y = window.scrollY; rvPaint(); window.scrollTo(0, y); }; el.onclick = go; el.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } }; });
   $$("[data-rvday]").forEach(th => th.onclick = () => { RV.sel = th.dataset.rvday; rvPaint(); const dd = document.getElementById("rv_day"); if (dd) dd.scrollIntoView({ behavior:"smooth", block:"nearest" }); });
 }
