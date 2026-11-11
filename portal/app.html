@@ -328,6 +328,26 @@ table.grid th{
   font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; font-weight:700;
 }
 table.grid td{padding:10px 12px; border-top:1px solid var(--mist); vertical-align:top}
+.amx-tools{display:flex; gap:14px 18px; flex-wrap:wrap; align-items:flex-end} .amx-tools .field{margin:0; min-width:180px} .amx-inact{display:flex; align-items:center; gap:8px; font-size:13px; padding-bottom:10px}
+.amx-wrap{overflow:auto; max-height:72vh; border:1px solid var(--mist); border-radius:10px; background:var(--white); margin-top:14px}
+table.amx{border-collapse:separate; border-spacing:0; font-size:13px; min-width:100%}
+.amx th,.amx td{border-bottom:1px solid var(--mist); border-right:1px solid var(--mist); padding:0; text-align:center; background:var(--white)}
+.amx thead th{position:sticky; z-index:2; background:var(--sage-10); color:var(--sage-dark); font-weight:600}
+.amx thead tr.g th{top:0; height:30px; font-size:11px; letter-spacing:.08em; text-transform:uppercase; padding:0 8px; white-space:nowrap; text-align:left}
+.amx thead tr.l th{top:30px; height:150px; min-width:42px; vertical-align:bottom; padding:6px 0}
+.amx thead tr.l th span{display:inline-block; writing-mode:vertical-rl; transform:rotate(180deg); white-space:nowrap; max-height:136px; overflow:hidden; text-overflow:ellipsis; font-size:12px}
+.amx .nm{position:sticky; left:0; z-index:3; text-align:left; min-width:210px; max-width:210px; padding:6px 10px; background:var(--white); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.amx thead .nm{background:var(--sage-10); z-index:4}
+.amx tbody tr:hover td,.amx tbody tr:hover .nm{background:#F4F6F3}
+.amx td label{display:flex; align-items:center; justify-content:center; height:38px; cursor:pointer; flex-direction:column; gap:1px}
+.amx td input{width:18px; height:18px; margin:0; cursor:pointer} .amx td input:disabled{cursor:not-allowed; opacity:.45}
+.amx td.chg{background:var(--attention-bg)} .amx td .mxp{font-size:9.5px; color:var(--attention); font-weight:700; line-height:1}
+.amx .nm small{display:block; color:var(--sage-70); font-size:11px; overflow:hidden; text-overflow:ellipsis}
+.amx tr.off .nm{opacity:.55}
+.amx-bar{position:sticky; bottom:12px; margin-top:12px; background:var(--sage-dark); color:var(--white); border-radius:10px; padding:12px 16px; display:flex; align-items:center; gap:12px; flex-wrap:wrap; box-shadow:var(--shadow)}
+.amx-bar .grow{flex:1; min-width:180px} .amx-bar .err{color:#F3C9C1; font-size:12.5px; width:100%}
+body.hkmode .fav,body.hkmode #favTabs,body.hkmode .lbtn,body.hkmode #tileSearchBar{display:none !important}
+body.hkmode #app{padding-bottom:40px}
 .pill{display:inline-block; padding:3px 9px; border-radius:999px; font-size:11px; font-weight:600; background:var(--sage-10); color:var(--sage)}
 .pill.admin{background:var(--attention-bg); color:var(--attention)}
 .pill.off{background:var(--mist); color:var(--sage-70)}
@@ -449,6 +469,15 @@ table.grid td{padding:10px 12px; border-top:1px solid var(--mist); vertical-alig
       <a class="gatelink" href="https://app.blackhorsebeamish.co.uk/portal/app.html" target="_blank" rel="noopener" style="display:block;text-decoration:none"><button type="button" style="width:100%">Open the Staff Portal</button></a>
     </div>
 
+    <div id="gChoose" hidden>
+      <div class="sub" style="margin-bottom:10px">What do you need today?</div>
+      <div class="gatemsg" id="gchMsg" style="color:var(--ink);margin:0 0 12px"></div>
+      <button id="gchHk">Housekeeping</button>
+      <div class="gatemsg" id="gchHkNote" style="margin:6px 0 16px;font-size:12px;color:var(--sage-70)"></div>
+      <button id="gchAll" style="background:#fff;color:var(--sage);border:1px solid var(--sage)">The rest of the portal</button>
+      <div class="gatemsg" id="gchAllNote" style="margin:6px 0 0;font-size:12px;color:var(--sage-70)"></div>
+    </div>
+
     <div id="gChange" hidden>
       <div class="sub" style="margin-bottom:10px">Time for a new password</div>
       <div class="gatemsg" id="gcMsg" style="color:var(--ink);margin:0 0 10px"></div>
@@ -518,6 +547,7 @@ table.grid td{padding:10px 12px; border-top:1px solid var(--mist); vertical-alig
         <button class="btn" id="tabUsers">Users &amp; profiles</button>
         <button class="btn ghost" id="tabPo">PO Tracker</button>
         <button class="btn ghost" id="tabView">View as</button>
+        <button class="btn ghost" id="tabMatrix">Access matrix</button>
         <button class="btn ghost" id="tabWelcome">Welcome message</button>
         <button class="btn ghost" id="tabTiles">Tiles</button>
         <button class="btn ghost" id="tabLog">Changes log</button>
@@ -576,6 +606,21 @@ table.grid td{padding:10px 12px; border-top:1px solid var(--mist); vertical-alig
           <div class="field" style="margin:0; max-width:420px"><label>Person</label><select id="vaPerson"></select></div>
         </div>
         <div id="vaOut"></div>
+      </div>
+      <div id="setMatrix" style="display:none">
+        <div class="pagehead"><h2>Settings — Access matrix</h2></div>
+        <p class="hint" style="margin:-8px 0 12px">Everyone against every portal in one grid. Tick a box to give someone a portal (or a tab inside one), untick to take it away. Nothing is saved until you press <b>Save changes</b>. The PO Tracker column is read only here because it needs a PO role: set that on the person's own screen.</p>
+        <div class="card" style="padding:14px">
+          <div class="amx-tools">
+            <div class="field"><label>Show</label><select id="mxMode"><option value="tiles">Portals (tiles)</option><option value="tabs">Tabs inside one portal</option></select></div>
+            <div class="field" id="mxAppWrap" style="display:none"><label>Portal</label><select id="mxApp"></select></div>
+            <div class="field" id="mxGroupWrap"><label>Group</label><select id="mxGroup"></select></div>
+            <div class="field"><label>Find a person</label><input id="mxFind" type="search" placeholder="Name or email" autocomplete="off"></div>
+            <label class="amx-inact"><input type="checkbox" id="mxInactive"> Include switched-off accounts</label>
+          </div>
+        </div>
+        <div id="mxOut"></div>
+        <div class="amx-bar" id="mxBar" style="display:none"></div>
       </div>
       <div id="setPo" style="display:none">
         <div class="pagehead"><h2>Settings — PO Tracker</h2></div>
@@ -656,6 +701,7 @@ table.grid td{padding:10px 12px; border-top:1px solid var(--mist); vertical-alig
 </div>
 
 
+<div id="hkbar" hidden style="position:fixed;left:0;right:0;bottom:0;z-index:60;background:var(--sage-dark,#3F2F28);color:#fff;font-size:12.5px;padding:8px 14px;text-align:center"></div>
 <div class="welcome-veil" id="welcome" role="dialog" aria-modal="true" aria-labelledby="welcomeTitle" hidden>
   <div class="welcome-card" id="welcomeCard"></div>
 </div>
@@ -713,6 +759,7 @@ function gateMode(mode){
   $("#gForgot").hidden = mode !== "forgot";
   $("#gReset").hidden  = mode !== "reset";
   $("#gChange").hidden  = mode !== "change";
+  $("#gChoose").hidden  = mode !== "choose";
   $("#gMoved").hidden   = mode !== "moved";
   $("#gPasskey").hidden = mode !== "passkey";
   $("#gEnrol").hidden   = mode !== "enrol";
@@ -749,7 +796,33 @@ function pkErr(e){
 }
 
 if(framed){ $("#gpkDirect").hidden = false; $("#geDirect").hidden = false; }
-function finishSignIn(d){
+/* ----- housekeeping team: after signing in they choose housekeeping only (stays signed in until 5pm, no idle sign-out) or the rest of the portal (the normal rules) ----- */
+const hkTime = iso => new Date(iso).toLocaleTimeString("en-US", { timeZone:"Europe/London", hour:"numeric", minute:"2-digit", hour12:true }).replace(":00", "").replace(" ", "").toLowerCase();
+function rawCall(token, a){ return fetch(FN, { method:"POST", headers:{ "apikey":ANON, "Content-Type":"application/json" }, body: JSON.stringify(Object.assign({ token }, a)) }).catch(()=>{}); }
+function showChoose(d){
+  const first = String((d.user && d.user.name) || "").split(" ")[0] || "there";
+  $("#gchMsg").textContent = `Hello ${first}. Choose how you want to use the portal.`;
+  $("#gchHkNote").textContent = `You stay signed in on the housekeeping boards until ${hkTime(d.hk.until)} today, with no more sign-ins. Nothing else in the portal opens.`;
+  $("#gchAllNote").textContent = `Everything you can use, but you are signed out after ${d.idle_minutes || 20} minutes without using it.`;
+  $("#gchHk").onclick = () => {
+    rawCall(d.token, { action:"logout" });                                  // the full sign-in is not needed
+    S.token = d.hk.token; S.user = Object.assign({}, d.user, { role:"staff" }); S.portals = d.hk.portals || []; S.groups = d.groups || []; S.serverLayout = null; S.welcome = false; S.welcomeMsg = null;
+    S.hk = { until:d.hk.until };
+    try{ localStorage.setItem(LS_TOKEN, S.token); }catch(e){}
+    SEC.password = ""; SEC.cid = ""; SEC.opts = null; SEC.regOpts = null;
+    S.secOn = true; startIdle(0); enterApp();
+  };
+  $("#gchAll").onclick = () => { rawCall(d.hk.token, { action:"logout" }); const x = Object.assign({}, d); delete x.hk; completeSignIn(x); };
+  gateMode("choose");
+}
+function startHkTimer(){
+  clearInterval(S.hkT); if(!S.hk) return;
+  const chk = () => { if(S.hk && Date.now() >= new Date(S.hk.until).getTime()) sessionEnded(`Your housekeeping sign-in ended at ${hkTime(S.hk.until)}. Sign in again when you are next working.`); };
+  S.hkT = setInterval(chk, 30000); document.addEventListener("visibilitychange", () => { if(!document.hidden) chk(); });
+}
+function finishSignIn(d){ if(d.hk) showChoose(d); else completeSignIn(d); }     /* every way of finishing a sign-in comes here: housekeeping people are asked what they need first */
+function completeSignIn(d){
+  S.hk = null;
   S.token = d.token; S.user = d.user; S.portals = d.portals || []; S.groups = d.groups || []; S.serverLayout = d.layout; S.welcome = !!d.welcome; S.welcomeMsg = d.welcome_msg || null;
   try{ localStorage.setItem(LS_TOKEN, S.token); }catch(e){}
   SEC.password = ""; SEC.cid = ""; SEC.opts = null; SEC.regOpts = null;
@@ -887,7 +960,7 @@ function sessionEnded(msg){
   const tok = S.token;
   fetch(FN, { method:"POST", headers:{ "apikey":ANON, "Content-Type":"application/json" }, body: JSON.stringify({ action:"logout", token:tok }) }).catch(()=>{});
   clearInterval(S.badgeT); S.badges = {}; S.badgeTotal = 0; try{ setIconBadge(0); }catch(e){}
-  stopIdle();
+  stopIdle(); clearInterval(S.hkT); S.hk = null; document.body.classList.remove("hkmode");
   try{ localStorage.removeItem(LS_TOKEN); }catch(e){}
   S.token = ""; S.user = null; S.portals = []; S.groups = []; S.layout = null; S.editing = false; S.serverLayout = undefined;
   $("#secPop").hidden = true;
@@ -950,7 +1023,7 @@ function signOut(){
   const tok = S.token, raw = a => fetch(FN, { method:"POST", headers:{ "apikey":ANON, "Content-Type":"application/json" }, body: JSON.stringify(Object.assign({ token:tok }, a)) }).catch(()=>{});
   (async () => { try{ if (pushSupported()) { const sub = await pushSub(); if (sub) await raw({ action:"push_unsubscribe", endpoint:sub.endpoint }); } }catch(e){} await raw({ action:"logout" }); })();
   clearInterval(S.badgeT); S.badges = {}; S.badgeTotal = 0; setIconBadge(0);
-  stopIdle();
+  stopIdle(); clearInterval(S.hkT); S.hk = null; document.body.classList.remove("hkmode");
   try{ localStorage.removeItem(LS_TOKEN); }catch(e){}
   S.token = ""; S.user = null; S.portals = []; S.groups = []; S.layout = null; S.editing = false; S.serverLayout = undefined;
   $("#secPop").hidden = true;
@@ -1106,12 +1179,16 @@ function enterApp(){
   $("#gate").style.display = "none";
   $("#app").hidden = false;
   $("#whoName").textContent = S.user.name;
-  $("#navSecurity").style.display = S.secOn ? "" : "none";
+  $("#navSecurity").style.display = S.secOn && !S.hk ? "" : "none";
+  document.body.classList.toggle("hkmode", !!S.hk);
+  const hb = $("#hkbar"); if (hb) { hb.hidden = !S.hk; if (S.hk) hb.textContent = `Housekeeping sign-in: stays signed in until ${hkTime(S.hk.until)}. Nothing else in the portal opens with it.`; }
+  startHkTimer();
   loadLayout(S.serverLayout);
   renderTiles();
   renderNav();
   if (S.user.role !== "admin") $("#page-settings").remove();
   else plCheck(true);
+  if (S.hk) return;                      // a housekeeping-only sign-in has no notices, badges or notifications
   try{ maybeWelcome(); }catch(e){ console.error(e); }
   try{ loadNoticePopups(); }catch(e){ console.error(e); }
   try{ startBadges(); }catch(e){ console.error(e); }
@@ -2047,22 +2124,25 @@ const POS = { data:null };
 const fmtGBP = v => v === null || v === undefined || v === "" ? "—" : "£" + Number(v).toLocaleString("en-GB", { minimumFractionDigits:0, maximumFractionDigits:2 });
 
 function setSettingsTab(which){
-  const po = which === "po", view = which === "view", wel = which === "welcome", tl = which === "tiles", lg = which === "log";
-  const other = po || view || wel || tl || lg;
+  const po = which === "po", view = which === "view", wel = which === "welcome", tl = which === "tiles", lg = which === "log", mx = which === "matrix";
+  const other = po || view || wel || tl || lg || mx;
   $("#setPo").style.display = po ? "" : "none";
   $("#setView").style.display = view ? "" : "none";
+  $("#setMatrix").style.display = mx ? "" : "none";
   $("#setWelcome").style.display = wel ? "" : "none";
   $("#setTiles").style.display = tl ? "" : "none";
   $("#setLog").style.display = lg ? "" : "none";
   $("#setUsers").style.display = other ? "none" : "";
   $("#tabPo").className = "btn" + (po ? "" : " ghost");
   $("#tabView").className = "btn" + (view ? "" : " ghost");
+  $("#tabMatrix").className = "btn" + (mx ? "" : " ghost");
   $("#tabWelcome").className = "btn" + (wel ? "" : " ghost");
   $("#tabTiles").className = "btn" + (tl ? "" : " ghost");
   $("#tabLog").className = "btn" + (lg ? "" : " ghost");
   $("#tabUsers").className = "btn" + (other ? " ghost" : "");
   if (po) loadPoSettings();
   if (view) loadViewAs();
+  if (mx) loadMatrix();
   if (wel) loadWelcomeEditor();
   if (tl) loadTilesEditor();
   if (lg) loadAuditLog(true);
@@ -2108,6 +2188,7 @@ $("#logCsv").addEventListener("click", auditCsv);
 $("#tabUsers").addEventListener("click", ()=> setSettingsTab("users"));
 $("#tabPo").addEventListener("click", ()=> setSettingsTab("po"));
 $("#tabView").addEventListener("click", ()=> setSettingsTab("view"));
+$("#tabMatrix").addEventListener("click", ()=> setSettingsTab("matrix"));
 $("#tabWelcome").addEventListener("click", ()=> setSettingsTab("welcome"));
 $("#tabTiles").addEventListener("click", ()=> setSettingsTab("tiles"));
 $("#tabLog").addEventListener("click", ()=> setSettingsTab("log"));
@@ -2208,6 +2289,128 @@ $("#wmReset").addEventListener("click", () => {
     catch(e){ c.textContent = e.message; }
   };
 });
+
+/* ---- Access matrix: everyone against every portal (or the tabs of one), ticked and saved in one go ---- */
+const MX = { mode:"tiles", app:"", group:"", q:"", inactive:false, pending:new Map(), saving:false, errors:[] };
+const mxTabsOf = key => (S.tabCatalogue || []).filter(t => t.app_key === key);
+const mxNorm = apps => JSON.stringify((apps || []).map(g => ({ k:g.key, e:g.can_edit !== false, t:Array.isArray(g.tabs) ? g.tabs.slice().sort() : null })).sort((a, b) => a.k < b.k ? -1 : 1));
+const mxApps = u => MX.pending.has(u.id) ? MX.pending.get(u.id) : (u.apps || []);
+const mxClone = u => JSON.parse(JSON.stringify(mxApps(u)));
+// The exact tabs a grant gives. A tile with no tab rows on file gives every tab, except the three powerful opt-in tabs (see OPT_IN).
+function mxEff(appKey, g){
+  const all = mxTabsOf(appKey).map(t => t.tab_key);
+  if (!all.length) return null;
+  return Array.isArray(g.tabs) ? g.tabs : all.filter(k => !isOptIn(appKey, k));
+}
+function mxStage(u, list){
+  if (mxNorm(list) === mxNorm(u.apps)) MX.pending.delete(u.id); else MX.pending.set(u.id, list);
+}
+function mxSetTile(u, appKey, on){
+  const list = mxClone(u).filter(g => g.key !== appKey);
+  if (on) { const tabs = mxTabsOf(appKey).map(t => t.tab_key).filter(k => !isOptIn(appKey, k)); list.push({ key:appKey, can_edit:true, tabs: mxTabsOf(appKey).length ? tabs : null }); }
+  mxStage(u, list);
+}
+function mxSetTab(u, appKey, tabKey, on){
+  const list = mxClone(u); let g = list.find(x => x.key === appKey);
+  if (!g) { if (!on) return; list.push({ key:appKey, can_edit:true, tabs:[tabKey] }); }
+  else {
+    let t = (mxEff(appKey, g) || []).slice();
+    t = on ? (t.includes(tabKey) ? t : t.concat(tabKey)) : t.filter(k => k !== tabKey);
+    if (!t.length) list.splice(list.indexOf(g), 1); else g.tabs = t;       // nothing ticked = the portal is taken away, as in the person's own screen
+  }
+  mxStage(u, list);
+}
+function mxSetEdit(u, appKey, on){
+  const list = mxClone(u), g = list.find(x => x.key === appKey); if (!g) return;
+  g.can_edit = on; mxStage(u, list);
+}
+async function loadMatrix(){
+  if (!S.users || !S.apps) { $("#mxOut").innerHTML = `<div class="card" style="padding:20px">Loading…</div>`; await loadUsers(); }
+  if (!S.users) return;
+  const live = S.apps.filter(a => a.active !== false);
+  const groups = groupTiles(live).map(g => g[0]);
+  $("#mxGroup").innerHTML = `<option value="">All groups</option>` + groups.map(g => `<option value="${esc(g)}" ${MX.group === g ? "selected" : ""}>${esc(g)}</option>`).join("");
+  const withTabs = live.filter(a => mxTabsOf(a.key).length).sort((a, b) => String(a.label).localeCompare(String(b.label)));
+  if (!withTabs.some(a => a.key === MX.app)) MX.app = withTabs[0] ? withTabs[0].key : "";
+  $("#mxApp").innerHTML = withTabs.map(a => `<option value="${esc(a.key)}" ${a.key === MX.app ? "selected" : ""}>${esc(a.label)}</option>`).join("");
+  $("#mxMode").value = MX.mode;
+  renderMatrix();
+}
+function renderMatrix(){
+  const out = $("#mxOut"); if (!out || !S.users) return;
+  const keepL = out.querySelector(".amx-wrap") ? out.querySelector(".amx-wrap").scrollLeft : 0, keepT = out.querySelector(".amx-wrap") ? out.querySelector(".amx-wrap").scrollTop : 0;
+  $("#mxAppWrap").style.display = MX.mode === "tabs" ? "" : "none";
+  $("#mxGroupWrap").style.display = MX.mode === "tiles" ? "" : "none";
+  const q = MX.q.trim().toLowerCase();
+  const people = S.users.filter(u => (MX.inactive || u.active) && (!q || String(u.display_name).toLowerCase().includes(q) || String(u.email).toLowerCase().includes(q)))
+    .slice().sort((a, b) => (Number(b.active) - Number(a.active)) || String(a.display_name).localeCompare(String(b.display_name)));
+  const live = S.apps.filter(a => a.active !== false);
+  let cols = [];                                  // {head, group, key, tab?, edit?, locked?}
+  if (MX.mode === "tiles") {
+    groupTiles(live.filter(a => !MX.group || (tileGroupOf(a) === MX.group))).forEach(([g, list]) => list.forEach(a => cols.push({ group:g, head:a.label, app:a.key, locked:a.key === "po-tracker" })));
+  } else {
+    const a = live.find(x => x.key === MX.app);
+    if (a) { mxTabsOf(a.key).forEach(t => cols.push({ group:a.label, head:t.label, app:a.key, tab:t.tab_key })); if (mxTabsOf(a.key).some(t => t.editable)) cols.push({ group:a.label, head:"Can edit (untick = view only)", app:a.key, edit:true }); }
+  }
+  if (!cols.length || !people.length) { out.innerHTML = `<div class="card" style="padding:20px; margin-top:14px; color:var(--sage-70)">${!people.length ? "Nobody matches." : "No portals to show."}</div>`; renderMxBar(); return; }
+  const groupRuns = []; cols.forEach(c => { const last = groupRuns[groupRuns.length - 1]; if (last && last.g === c.group) last.n++; else groupRuns.push({ g:c.group, n:1 }); });
+  const head = `<thead><tr class="g"><th class="nm" rowspan="2" style="vertical-align:bottom">Person (${people.length})</th>${groupRuns.map(r => `<th colspan="${r.n}">${esc(r.g)}</th>`).join("")}</tr><tr class="l">${cols.map(c => `<th title="${esc(c.head)}"><span>${esc(c.head)}</span></th>`).join("")}</tr></thead>`;
+  const body = people.map(u => {
+    const apps = mxApps(u), orig = u.apps || [];
+    return `<tr class="${u.active ? "" : "off"}"><td class="nm" title="${esc(u.email)}"><b>${esc(u.display_name)}</b>${u.role === "admin" ? ' <span class="pill admin">Admin</span>' : ""}${u.active ? "" : ' <span class="pill off">Off</span>'}<small>${esc(u.profile_key ? profileLabel(u.profile_key) : u.email)}</small></td>${cols.map(c => {
+      const g = apps.find(x => x.key === c.app), og = orig.find(x => x.key === c.app);
+      let on = false, was = false, note = "";
+      if (c.tab) { on = !!g && (mxEff(c.app, g) || []).includes(c.tab); was = !!og && (mxEff(c.app, og) || []).includes(c.tab); }
+      else if (c.edit) { on = !!g && g.can_edit !== false; was = !!og && og.can_edit !== false; }
+      else {
+        on = !!g; was = !!og;
+        const all = mxTabsOf(c.app).filter(t => !isOptIn(c.app, t.tab_key)).length, tot = mxTabsOf(c.app).length;
+        if (g && tot) { const eff = mxEff(c.app, g) || []; if (eff.length < tot && !(OPT_IN[c.app] && eff.length >= all && !eff.includes(OPT_IN[c.app]))) note = `<span class="mxp">${eff.length}/${tot}</span>`; }
+      }
+      const dis = c.locked || ((c.tab || c.edit) ? !g && c.edit : false);
+      return `<td class="${on !== was ? "chg" : ""}"><label title="${esc(u.display_name)} · ${esc(c.head)}${c.locked ? " (set on the person's own screen)" : ""}"><input type="checkbox" data-u="${esc(u.id)}" data-a="${esc(c.app)}" ${c.tab ? `data-t="${esc(c.tab)}"` : ""} ${c.edit ? 'data-e="1"' : ""} ${on ? "checked" : ""} ${dis ? "disabled" : ""}>${note}</label></td>`;
+    }).join("")}</tr>`;
+  }).join("");
+  out.innerHTML = `<div class="amx-wrap"><table class="amx">${head}<tbody>${body}</tbody></table></div>`;
+  const w = out.querySelector(".amx-wrap"); w.scrollLeft = keepL; w.scrollTop = keepT;
+  w.addEventListener("change", ev => {
+    const i = ev.target; if (!i.matches || !i.matches("input[data-u]")) return;
+    const u = S.users.find(x => String(x.id) === i.dataset.u); if (!u) return;
+    if (i.dataset.t) mxSetTab(u, i.dataset.a, i.dataset.t, i.checked);
+    else if (i.dataset.e) mxSetEdit(u, i.dataset.a, i.checked);
+    else mxSetTile(u, i.dataset.a, i.checked);
+    renderMatrix();
+  });
+  renderMxBar();
+}
+function renderMxBar(){
+  const bar = $("#mxBar"); if (!bar) return;
+  const n = MX.pending.size;
+  if (!n && !MX.errors.length) { bar.style.display = "none"; return; }
+  bar.style.display = "flex";
+  bar.innerHTML = `<div class="grow">${n ? `<b>${n}</b> ${n === 1 ? "person has" : "people have"} unsaved changes (shaded boxes).` : "Nothing waiting."}</div>${n ? `<button class="btn small" id="mxSave" ${MX.saving ? "disabled" : ""}>${MX.saving ? "Saving…" : "Save changes"}</button><button class="btn small ghost" id="mxDiscard" ${MX.saving ? "disabled" : ""}>Discard</button>` : ""}${MX.errors.length ? `<div class="err">${MX.errors.map(esc).join("<br>")}</div>` : ""}`;
+  const sv = $("#mxSave"); if (sv) sv.onclick = saveMatrix;
+  const di = $("#mxDiscard"); if (di) di.onclick = () => { MX.pending.clear(); MX.errors = []; renderMatrix(); };
+}
+async function saveMatrix(){
+  if (MX.saving || !MX.pending.size) return;
+  MX.saving = true; MX.errors = []; renderMxBar();
+  let ok = 0;
+  for (const [id, apps] of [...MX.pending]) {
+    const u = S.users.find(x => String(x.id) === String(id));
+    try { await api("update_user", { id, apps }); MX.pending.delete(id); ok++; }
+    catch(e){ MX.errors.push(`${u ? u.display_name : id}: ${e.message}`); }
+  }
+  MX.saving = false;
+  try { await loadUsers(); } catch(e){}
+  if (!MX.errors.length) toast(ok === 1 ? "Saved for 1 person." : `Saved for ${ok} people.`); else toast(`${ok} saved, ${MX.errors.length} not.`, true);
+  renderMatrix();
+}
+$("#mxMode").addEventListener("change", e => { MX.mode = e.target.value; renderMatrix(); });
+$("#mxApp").addEventListener("change", e => { MX.app = e.target.value; renderMatrix(); });
+$("#mxGroup").addEventListener("change", e => { MX.group = e.target.value; renderMatrix(); });
+$("#mxFind").addEventListener("input", e => { MX.q = e.target.value; clearTimeout(renderMatrix._t); renderMatrix._t = setTimeout(renderMatrix, 150); });
+$("#mxInactive").addEventListener("change", e => { MX.inactive = e.target.checked; renderMatrix(); });
 
 /* ---- View as: the portal as one person sees it, worked out from their grants ---- */
 async function loadViewAs(){
@@ -2872,6 +3075,7 @@ function proceedPastInstallGate(){
     api("me").then(d=>{
       S.user = d.user; S.portals = d.portals || []; S.groups = d.groups || []; S.serverLayout = d.layout; S.welcome = !!d.welcome; S.welcomeMsg = d.welcome_msg || null;
       S.secOn = d.idle_minutes !== undefined;
+      S.hk = d.hk ? { until:d.hk.until } : null;
       startIdle(d.idle_minutes);
       enterApp();
     }).catch(()=>{
