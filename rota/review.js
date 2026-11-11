@@ -2,7 +2,7 @@
    dinner covers, afternoon teas, events) next to the Planday rota by department, with the hours per cover / per room worked out and the days
    that look heavy or light marked. Uses the page's own S, call(), esc(), $, today(), addDays(), fmt() and toast(). */
 "use strict";
-const RV = { preset:"next7", dept:"all", data:null, sel:"", busy:false, err:"" };
+const RV = { preset:"next7", dept:"all", data:null, sel:"", busy:false, err:"", shut:{} };
 try { const p = localStorage.getItem("rota_review_preset"); if (p) RV.preset = p; } catch(e){}
 const RV_PRESETS = [["next7", "Next 7 days"], ["next14", "Next 14 days"], ["last7", "Last 7 days"], ["thisweek", "This week"], ["nextweek", "Next week"], ["lastweek", "Last week"]];
 function rvRange(preset){
@@ -179,6 +179,7 @@ function rvPaint(){
   const bar = `<div class="pagehead"><h2>Rota review</h2><span class="hint">The rota from Planday next to what the house needs each day</span></div>
     <div class="rv-bar"><div class="f"><label for="rv_preset">Show</label><select id="rv_preset">${RV_PRESETS.map(([k, l]) => `<option value="${k}"${k === RV.preset ? " selected" : ""}>${esc(rvPresetLabel(k, l))}</option>`).join("")}</select></div>
       ${D ? `<div class="f"><label for="rv_dept">Department</label><select id="rv_dept"><option value="all"${RV.dept === "all" ? " selected" : ""}>All departments</option>${depts.map(n => `<option value="${esc(n)}"${RV.dept === n ? " selected" : ""}>${esc(deptLabel(n))}</option>`).join("")}</select></div>` : ""}
+      <div class="f"><label>&nbsp;</label><button class="btn small ghost" id="rv_fold">${["need", "rota", "cost", "check", "flags", "day"].every(k => RV.shut[k]) ? "Open all sections" : "Fold all sections"}</button></div>
       <div class="f"><label>&nbsp;</label><button class="btn small" id="rv_refresh"${RV.busy ? " disabled" : ""}>${RV.busy ? "Loading…" : "Refresh from Planday"}</button></div></div>`;
   if (RV.err) { v.innerHTML = bar + `<div class="card empty">${esc(RV.err)}</div>`; return wire(); }
   if (!D) { v.innerHTML = bar + `<div class="loading">Loading…</div>`; return wire(); }
@@ -186,11 +187,12 @@ function rvPaint(){
   const one = RV.dept !== "all" ? RV.dept : null;
   const oneBucket = one ? ((days.map(d => d.departments.find(x => x.name === one)).find(Boolean) || {}).bucket || bucketOf(one)) : null;
   const head = days.map(d => `<th data-rvday="${esc(d.date)}" class="${d.date === t ? "today" : ""}${d.date === RV.sel ? " sel" : ""}${d.finished ? " past" : ""}" title="Show the full rota for this day">${esc(fmt(d.date, { weekday:"short" }))}<small>${esc(fmt(d.date, { day:"numeric", month:"short" }))}</small></th>`).join("");
-  const row = (label, f, cls) => `<tr><td>${label}</td>${days.map((d, i) => { const c = f(d, i) || {}; return `<td class="${c.cls || ""}${d.finished ? " past" : ""}${c.v === undefined || c.v === "" ? " rve" : ""}${cls ? " " + cls : ""}">${c.v === undefined || c.v === "" ? "–" : c.v}${c.sub ? `<small>${c.sub}</small>` : ""}</td>`; }).join("")}</tr>`;
-  const sec = x => `<tr class="sec"><td colspan="${days.length + 1}">${esc(x)}</td></tr>`;
+  let cur = "";
+  const row = (label, f, cls) => RV.shut[cur] ? "" : `<tr><td>${label}</td>${days.map((d, i) => { const c = f(d, i) || {}; return `<td class="${c.cls || ""}${d.finished ? " past" : ""}${c.v === undefined || c.v === "" ? " rve" : ""}${cls ? " " + cls : ""}">${c.v === undefined || c.v === "" ? "–" : c.v}${c.sub ? `<small>${c.sub}</small>` : ""}</td>`; }).join("")}</tr>`;
+  const sec = (x, key) => { cur = key; const shut = !!RV.shut[key]; return `<tr class="sec" data-rvsec="${key}" role="button" tabindex="0" aria-expanded="${!shut}" title="${shut ? "Open" : "Fold"} this section"><td colspan="${days.length + 1}"><span class="chv${shut ? " shut" : ""}" aria-hidden="true"></span>${esc(x)}</td></tr>`; };
   const covCell = (o, d) => ({ v: n0(o.plan), cls:"rvb", sub: d.finished || d.reported ? (nz(o.actual) ? "served" : "") : (nz(o.booked) ? o.booked + " booked" : "") + (nz(o.forecast) ? (nz(o.booked) ? " · " : "") + "fc " + Math.round(o.forecast) : "") });
   let h = `<div class="rv-wrap"><table class="rv" style="min-width:${(window.innerWidth < 640 ? 118 : 170) + days.length * 92}px"><thead><tr><th></th>${head}</tr></thead><tbody>`;
-  h += sec("What the house needs");
+  h += sec("What the house needs", "need");
   h += row("Rooms sold that night", d => ({ v: n0(d.rooms.sold), cls:"rvb", sub: nz(d.rooms.sold) && d.rooms.capacity ? Math.round(d.rooms.sold / d.rooms.capacity * 100) + "% full" : "" }));
   h += row("Rooms sold the night before", d => ({ v: n0(d.rooms.prev) }));
   h += row("Rooms forecast", d => ({ v: n0(d.rooms.forecast) }));
@@ -199,15 +201,15 @@ function rvPaint(){
   h += row("Lunch covers", d => covCell(d.lunch, d));
   h += row("Dinner covers", d => covCell(d.dinner, d));
   h += row("Afternoon teas", d => ({ v: nz(d.afternoon_tea) ? n0(d.afternoon_tea) : "" }));
-  h += `<tr><td>Events</td>${days.map(d => `<td class="ev${d.finished ? " past" : ""}">${d.events.length ? d.events.map(e => `${esc(e.name.length > 24 ? e.name.slice(0, 23) + "…" : e.name)}${nz(e.guests) ? ` <small style="display:inline">(${e.guests}${nz(e.evening_guests) && e.evening_guests !== e.guests ? "/" + e.evening_guests : ""})</small>` : ""}`).join("<br>") : `<span class="muted">–</span>`}</td>`).join("")}</tr>`;
+  if (!RV.shut.need) h += `<tr><td>Events</td>${days.map(d => `<td class="ev${d.finished ? " past" : ""}">${d.events.length ? d.events.map(e => `${esc(e.name.length > 24 ? e.name.slice(0, 23) + "…" : e.name)}${nz(e.guests) ? ` <small style="display:inline">(${e.guests}${nz(e.evening_guests) && e.evening_guests !== e.guests ? "/" + e.evening_guests : ""})</small>` : ""}`).join("<br>") : `<span class="muted">–</span>`}</td>`).join("")}</tr>`;
   h += row("Total covers the rota serves", d => ({ v: n0(d.covers), cls:"rvb" }));
-  h += sec(one ? "The rota: " + deptLabel(one) + " (hours rostered, or worked for days already finished)" : "The rota (hours rostered, or worked for days already finished)");
+  h += sec(one ? "The rota: " + deptLabel(one) + " (hours rostered, or worked for days already finished)" : "The rota (hours rostered, or worked for days already finished)", "rota");
   (one ? [one] : D.departments).forEach(name => {
     h += row(esc(deptLabel(name)), d => { const p = d.departments.find(x => x.name === name); const open = p && p.open ? `</small><span class="open">${p.open} open</span><small>` : ""; return p ? { v: p.hours > 0 ? hrs(p.hours) : "", sub: p.heads ? (p.heads === 1 ? "1 person" : p.heads + " people") + open : open } : { v:"" }; });
   });
   if (!one) h += row("All departments", d => ({ v: hrs(d.hours_total), cls:"rvb", sub: d.heads_total ? d.heads_total + " people" : "" }));
   if (D.has_cost) {
-    h += sec(one ? "Cost: " + deptLabel(one) + " (wages with holiday pay and on-costs)" : "Cost by department (wages with holiday pay and on-costs)");
+    h += sec(one ? "Cost: " + deptLabel(one) + " (wages with holiday pay and on-costs)" : "Cost by department (wages with holiday pay and on-costs)", "cost");
     (one ? [one] : D.departments).forEach(name => {
       h += row(esc(deptLabel(name)), d => { const p = d.departments.find(x => x.name === name); return p && nz(p.cost) && p.cost > 0 ? { v: gbp(p.cost), sub: nz(d.cost) ? (d.cost.kind === "worked" ? "worked" : "rostered") : "" } : { v:"" }; });
     });
@@ -215,7 +217,7 @@ function rvPaint(){
   }
   const metrics = RV_METRICS.filter(m => !one || m.bucket === oneBucket);
   if (metrics.length) {
-    h += sec("Is the rota about right? Compared with the usual for the days shown");
+    h += sec("Is the rota about right? Compared with the usual for the days shown", "check");
     metrics.forEach(m => { h += row(esc(m.label), (d, i) => { const r = M[m.key].rows[i]; if (r.none) return { v:"No rota", cls:"light" }; return r.v === null ? { v:"" } : { v: n1(r.v), cls: r.flag }; }); });
   }
   h += `</tbody></table><div class="rv-legend"><span><i style="background:var(--attention-bg);border:1px solid var(--attention)"></i>Heavy: more than 30% above the usual hours for the demand</span><span><i style="background:var(--alert-bg);border:1px solid var(--alert)"></i>Light: more than 30% below, or covers with nobody rostered</span>${D.has_cost ? `<span>Cost: pay for finished days, the rostered cost (drafts included) for today and ahead, with the 12.07% holiday accrual and 15% NI estimate added. Only you see this.</span>` : ""}<span>fc = forecast. Covers served = breakfasts + lunches + dinners (booked or forecast, whichever is larger; what was served once the day is done). Click a day to see its full rota.</span></div></div>`;
@@ -228,8 +230,9 @@ function rvPaint(){
     flags.push({ tg:r.flag, d, text: `${m.short}: ${n1(r.v)} ${m.unit}, against ${n1(M[m.key].med)} usual (${n1(r.b.hours)} hours for ${n0(m.per(d))} ${m.key === "hk" ? "rooms" : "covers"}). ${r.flag === "heavy" ? "Check the rota is not too heavy." : "Check the rota is not too thin."}` });
   }));
   flags.sort((a, b) => a.d.date.localeCompare(b.d.date));
-  const fl = flags.length ? `<div class="rv-flags"><h3>Worth a look</h3><ul>${flags.map(f => `<li><span class="tg ${f.tg}">${f.tg === "heavy" ? "Heavy" : "Light"}</span><span><b>${esc(rvDay(f.d.date))}.</b> ${esc(f.text)}</span></li>`).join("")}</ul></div>`
-    : `<div class="rv-flags"><h3>Worth a look</h3><p class="muted" style="margin:0">Nothing stands out: every day is within 30% of the usual hours for its demand.</p></div>`;
+  const flHead = `<h3 class="rv-fold" data-rvsec="flags" role="button" tabindex="0" aria-expanded="${!RV.shut.flags}"><span class="chv${RV.shut.flags ? " shut" : ""}" aria-hidden="true"></span>Worth a look${RV.shut.flags && flags.length ? ` <small class="muted">(${flags.length})</small>` : ""}</h3>`;
+  const fl = flags.length ? `<div class="rv-flags">${flHead}${RV.shut.flags ? "" : `<ul>${flags.map(f => `<li><span class="tg ${f.tg}">${f.tg === "heavy" ? "Heavy" : "Light"}</span><span><b>${esc(rvDay(f.d.date))}.</b> ${esc(f.text)}</span></li>`).join("")}</ul>`}</div>`
+    : `<div class="rv-flags">${flHead}${RV.shut.flags ? "" : `<p class="muted" style="margin:0">Nothing stands out: every day is within 30% of the usual hours for its demand.</p>`}</div>`;
   const drafts = D.drafts ? `<p class="rv-note">${D.drafts} ${D.drafts === 1 ? "shift is" : "shifts are"} still a draft in Planday; ${D.drafts === 1 ? "it is" : "they are"} counted here as part of the rota (dashed on the day charts).</p>` : "";
   v.innerHTML = bar + drafts + fl + h + rvDetail(D.days.find(d => d.date === RV.sel)) + `<p class="rv-note">Figures: rooms and covers from the forecast and booking reports${D.forecast_updated ? " (updated " + esc(new Date(D.forecast_updated).toLocaleString("en-GB", { timeZone:"Europe/London", day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" })) + ")" : ""}, rooms on the books from the booking engine, rota and hours from Planday.</p>`;
   wire();
@@ -248,17 +251,20 @@ function rvDetail(d){
   const open = d.departments.reduce((t, p) => t + p.open, 0);
   const hasDraft = shown.some(p => p.people.some(x => x.draft));
   const off = (d.off || []).map(o => esc(o.name) + (o.job ? ` (${esc(o.job)})` : "")).join(", ");
-  return `<section class="rv-day" id="rv_day"><h3>${esc(fmt(d.date, { weekday:"long", day:"numeric", month:"long" }))}${d.finished ? ` <small class="muted" style="font-size:13px">finished: hours are what was worked</small>` : ""}</h3>
-    <div class="rv-chips">${chips}${ev}</div>
+  const shutDay = !!RV.shut.day;
+  return `<section class="rv-day" id="rv_day"><h3 class="rv-fold" data-rvsec="day" role="button" tabindex="0" aria-expanded="${!shutDay}"><span class="chv${shutDay ? " shut" : ""}" aria-hidden="true"></span>${esc(fmt(d.date, { weekday:"long", day:"numeric", month:"long" }))}${d.finished ? ` <small class="muted" style="font-size:13px">finished: hours are what was worked</small>` : ""}</h3>
+    ${shutDay ? "" : `<div class="rv-chips">${chips}${ev}</div>
     ${shown.length ? rvTimeline(shown) : `<p class="muted">${RV.dept === "all" ? "Nobody is rostered this day." : "Nobody from " + esc(deptLabel(RV.dept)) + " is rostered this day."}</p>`}
     ${hasDraft ? `<p class="rv-note" style="margin:8px 0 0"><b>Dashed</b> shifts are not published in Planday yet.</p>` : ""}
     ${RV.dept === "all" && none.length && on.length ? `<p class="rv-note" style="margin:8px 0 0">Nobody on: ${none.map(esc).join(", ")}.</p>` : ""}
     ${open ? `<p class="rv-note" style="margin:8px 0 0">${open} open ${open === 1 ? "shift has" : "shifts have"} nobody assigned.</p>` : ""}
-    ${Array.isArray(d.off) ? `<div class="rv-off"><b>Off</b>${off || '<span class="muted">nobody booked off</span>'}</div>` : ""}</section>`;
+    ${Array.isArray(d.off) ? `<div class="rv-off"><b>Off</b>${off || '<span class="muted">nobody booked off</span>'}</div>` : ""}`}</section>`;
 }
 function wire(){
   const p = $("#rv_preset"); if (p) p.onchange = () => { RV.preset = p.value; try { localStorage.setItem("rota_review_preset", RV.preset); } catch(e){} RV.data = null; RV.sel = ""; viewReview(); };
   const dp = $("#rv_dept"); if (dp) dp.onchange = () => { RV.dept = dp.value; rvPaint(); const x = $("#rv_dept"); if (x) x.focus(); };
   const r = $("#rv_refresh"); if (r) r.onclick = () => viewReview(true);
+  const fo = $("#rv_fold"); if (fo) fo.onclick = () => { const all = ["need", "rota", "cost", "check", "flags", "day"], allShut = all.every(k => RV.shut[k]); all.forEach(k => { RV.shut[k] = !allShut; }); rvPaint(); };
+  $$("[data-rvsec]").forEach(el => { const go = () => { const k = el.dataset.rvsec; RV.shut[k] = !RV.shut[k]; const y = window.scrollY; rvPaint(); window.scrollTo(0, y); }; el.onclick = go; el.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } }; });
   $$("[data-rvday]").forEach(th => th.onclick = () => { RV.sel = th.dataset.rvday; rvPaint(); const dd = document.getElementById("rv_day"); if (dd) dd.scrollIntoView({ behavior:"smooth", block:"nearest" }); });
 }
