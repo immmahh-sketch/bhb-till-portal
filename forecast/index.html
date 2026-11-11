@@ -765,11 +765,23 @@ async function importPrearrival(res, mail, out){
     out.push(`Pre-arrival calls: <b>${r.kept}</b> guests arriving in the next two months (${r.added} new${r.gone ? `, ${r.gone} taken off` : ""}); ${r.no_phone} have no phone number.`);
   } catch (e) { out.push(`<span class="muted">Pre-arrival calls were not updated: ${esc(e.message)}</span>`); }
 }
+/* ...and the Guest Feedback and Upsells "Arrivals" list (who is emailed an upgrade offer). */
+async function importUpsellArrivals(res, mail, out){
+  try {
+    const bookings = res.stay.map(b => ({ ref:b.full_ref || b.ref, guest:b.guest, room_type:b.room_type, package:b.package, arrival:b.arrival, departure:b.departure, status:b.status, adults:b.adults, children:b.children, total:b.total }));
+    const emails = mail.stay.map(c => ({ ref:c.ref, email:c.email, forename:c.forename, surname:c.surname }));
+    const r = await fetch(CFG.URL.replace("/forecast-api", "/upsell-api"), { method:"POST", headers:{ "Content-Type":"application/json", Authorization:"Bearer " + CFG.KEY, apikey:CFG.KEY }, body: JSON.stringify({ action:"arrivals.import", staff_email: staffEmail(), bookings, emails }) });
+    let d = {}; try { d = await r.json(); } catch (e) {}
+    if (!r.ok || d.error) throw new Error(d.error || `Request failed (${r.status})`);
+    out.push(`Upsell arrivals: <b>${d.kept}</b> confirmed room stays still to come (${d.added} new${d.gone ? `, ${d.gone} taken off` : ""}); ${d.no_email} have no email address.`);
+  } catch (e) { out.push(`<span class="muted">Upsell arrivals were not updated: ${esc(e.message)}</span>`); }
+}
 async function importStays(out){
   const res = S.imp.files.find(f => !f.error && f.kind === "stay_res"), mail = S.imp.files.find(f => !f.error && f.kind === "stay_mail");
   if (!res && !mail) return false;
   if (!res || !mail) { out.push(`<span class="err">${esc((res || mail).name)}: the guest feedback emails need both the Reservations report and the Sales and Marketing query. Add the other one as well.</span>`); return true; }
   await importPrearrival(res, mail, out);
+  await importUpsellArrivals(res, mail, out);
   try {
     const r = await callFeedback("stays.import", { departures:res.stay, emails:mail.stay });
     if (!r.checked_out) { out.push(`<span class="err">${esc(res.name)}: there are no <b>Checked Out</b> bookings in this Reservations report, so nothing was added to the guest feedback list. In Rezlynx, run the Reservations report for the departure date (yesterday) with Checked Out ticked in the statuses, then upload it again with the Sales and Marketing query.</span>`); S.imp.files = S.imp.files.filter(x => x.id !== res.id && x.id !== mail.id); return true; }
