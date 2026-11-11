@@ -8,6 +8,7 @@
 <meta name="robots" content="noindex,nofollow">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="timeline.css">
 <link href="https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -160,6 +161,7 @@ textarea{min-height:84px; resize:vertical}
     <div class="who"><span id="whoname"></span><button id="signout">Sign out</button></div></div></header>
   <nav class="tabs"><div class="tabsin" role="tablist">
     <button class="tabbtn" data-view="actions" id="tab_actions">Actions</button>
+    <button class="tabbtn" data-view="timeline" id="tab_timeline">Project Timeline</button>
     <button class="tabbtn" data-view="settings" id="tab_settings">Settings</button>
   </div></nav>
   <div class="shell"><div id="views"></div></div>
@@ -522,6 +524,7 @@ function markTab(){ $$(".tabbtn").forEach(b => b.setAttribute("aria-current", b.
 async function goView(v){
   S.view = v; markTab(); window.scrollTo(0, 0);
   if (v === "settings") return viewSettings();
+  if (v === "timeline") return viewTimeline();
   $("#views").innerHTML = `<div class="loading">Loading…</div>`;
   try { await loadActions(); } catch(e){ $("#views").innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
   renderActions();
@@ -539,5 +542,6 @@ async function boot(){
 }
 (function(){ if (staffEmail()) { $("#gate").hidden = true; boot(); } else openGate(); })();
 </script>
+<script src="timeline.js"></script>
 </body>
 </html>
