@@ -300,14 +300,18 @@ function render(){
 }
 
 function extras(w){
-  if (!w.dress_code && !w.extra_info) return "";
+  if (!w.menu_text && !w.dress_code && !w.extra_info) return "";
   var h = '<div class="card">';
+  if (w.menu_text) {
+    h += '<span class="label">On the menu</span>' +
+      '<p style="margin:4px 0 0;white-space:pre-wrap">' + esc(w.menu_text) + '</p>';
+  }
   if (w.dress_code) {
-    h += '<span class="label">Dress code</span>' +
+    h += '<span class="label"' + (w.menu_text ? ' style="display:block;margin-top:18px"' : '') + '>Dress code</span>' +
       '<p style="margin:4px 0 0">' + esc(w.dress_code) + '</p>';
   }
   if (w.extra_info) {
-    h += '<span class="label" style="display:block;margin-top:' + (w.dress_code ? "18px" : "0") + '">Anything else</span>' +
+    h += '<span class="label" style="display:block;margin-top:' + ((w.dress_code || w.menu_text) ? "18px" : "0") + '">Anything else</span>' +
       '<p style="margin:4px 0 0;white-space:pre-wrap">' + esc(w.extra_info) + '</p>';
   }
   return h + '</div>';

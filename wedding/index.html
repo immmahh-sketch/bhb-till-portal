@@ -3315,6 +3315,9 @@ function editInviteWording(){
     'Your names and the date come from your booking. These bits are yours to write.</p>' +
     '<div class="field"><span class="label">A note to your guests</span>' +
       '<textarea id="iv_msg" placeholder="We can\'t wait to celebrate with you…">' + esc(w.invite_message||"") + '</textarea></div>' +
+    '<div class="field"><span class="label">On the menu</span>' +
+      '<textarea id="iv_menu" placeholder="Standard BBQ: burgers, sausages and chicken wings, with jerk rice, leaf salad, potato salad and BBQ beans">' + esc(w.invite_menu||"") + '</textarea>' +
+      '<span class="muted" style="display:block;font-size:.8125rem;margin-top:4px">What your guests will be eating. It goes in the invitation and on the reply page.</span></div>' +
     '<div class="row"><div class="field"><span class="label">Dress code</span>' +
       '<input id="iv_dress" placeholder="Lounge suits" value="' + esc(w.invite_dress_code||"") + '"></div>' +
       '<div class="field"><span class="label">Reply by</span>' +
@@ -3345,6 +3348,7 @@ async function saveInviteWording(thenPreview){
       invite_dress_code: $("iv_dress").value.trim(),
       invite_rsvp_by: $("iv_by").value || null,
       invite_extra_info: $("iv_extra").value.trim(),
+      invite_menu: $("iv_menu").value.trim(),
       invite_website: $("iv_web").value.trim(),
       invite_style: chosen ? chosen.value : "invitation"
     };
@@ -6902,7 +6906,7 @@ async function sbxApi(action, p){
       if ("invite_style" in p && ["invitation","rsvp"].indexOf(String(p.invite_style)) < 0) {
         throw sbxErr("unknown invitation style", 400);
       }
-      var fields = ["invite_message","invite_dress_code","invite_rsvp_by","invite_extra_info","invite_website","invite_day_time","invite_evening_time","invite_style"];
+      var fields = ["invite_message","invite_menu","invite_dress_code","invite_rsvp_by","invite_extra_info","invite_website","invite_day_time","invite_evening_time","invite_style"];
       var any = false;
       fields.forEach(function(f){ if (f in p) { D3.over[f] = p[f] === "" ? null : p[f]; any = true; } });
       if (!any) throw sbxErr("nothing to save", 400);
@@ -7154,10 +7158,10 @@ function sbxPatchPreview(res){
   var D = SBX.d.dashboard;
   if (!D || !res || typeof res.html !== "string") return res;
   var o = D.over, base = D.base.wedding || {}, missed = false;
-  ["invite_message","invite_dress_code","invite_rsvp_by","invite_extra_info","invite_website","invite_day_time","invite_evening_time","invite_style"].forEach(function(f){
+  ["invite_message","invite_menu","invite_dress_code","invite_rsvp_by","invite_extra_info","invite_website","invite_day_time","invite_evening_time","invite_style"].forEach(function(f){
     if (!(f in o) || String(o[f] == null ? "" : o[f]) === String(base[f] == null ? "" : base[f])) return;
     var was = base[f], now = o[f];
-    if (f === "invite_message" || f === "invite_dress_code" || f === "invite_extra_info") {
+    if (f === "invite_message" || f === "invite_menu" || f === "invite_dress_code" || f === "invite_extra_info") {
       if (was && now && res.html.indexOf(esc(was)) > -1) { res.html = res.html.split(esc(was)).join(esc(now)); return; }
     }
     missed = true;
