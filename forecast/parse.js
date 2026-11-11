@@ -139,26 +139,27 @@ function occupancy(rows) {
 
 // ---- Guest feedback (post-stay email): two Rezlynx reports that are read here and handed to the Guest Feedback app's Stays list.
 //   Reservations report (xls): one block per booking, "BookRef: | BK027380/1 | Ref:" then "Label: | value" pairs.
-//   Sales and Marketing query (csv): BookRef, No. of Stays, Forename, Surname, Email.
+//   Sales and Marketing query (csv): BookRef, No. of Stays, Forename, Surname, Tel No, Mobile No, Email.
 const MON = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
 function isoDay(t) { const m = /^(\d{1,2})\/([A-Za-z]{3})[a-z]*\/(\d{4})/.exec(String(t || "").trim()); if (!m || !MON[m[2].toLowerCase()]) return ""; return m[3] + "-" + pad(MON[m[2].toLowerCase()]) + "-" + pad(+m[1]); }
 function reservations(rows) {
-  const out = []; let cur = null; const keys = { "Guest:": "guest", "Room Id:": "room_id", "Room Type:": "room_type", "Arrival:": "arrival", "Departure:": "departure", "Package:": "package", "Status:": "status" };
+  const out = []; let cur = null; const keys = { "Guest:": "guest", "Room Id:": "room_id", "Room Type:": "room_type", "Arrival:": "arrival", "Departure:": "departure", "Package:": "package", "Status:": "status", "Adults:": "adults", "Children:": "children" };
   for (const r of rows) {
     const f = r.map((c) => (c == null ? "" : String(c).trim())).filter(Boolean); if (!f.length) continue;
-    if (f[0] === "BookRef:") { cur = { ref: (f[1] || "").split("/")[0] }; out.push(cur); continue; }
+    if (f[0] === "BookRef:") { cur = { ref: (f[1] || "").split("/")[0], full: f[1] || "" }; out.push(cur); continue; }
     if (!cur) continue;
+    if (f[0] === "Public Notes:" && f[1]) { cur.notes = f.slice(1).join(" "); continue; }
     f.forEach((x, i) => { const k = keys[x]; if (k && !(k in cur) && f[i + 1] != null && !/:$/.test(f[i + 1])) cur[k] = f[i + 1]; });
   }
-  const departures = out.map((b) => ({ ref: b.ref, guest: b.guest || "", room_id: b.room_id || "", room_type: b.room_type || "", package: b.package || "", arrival: isoDay(b.arrival), departure: isoDay(b.departure), status: b.status || "" })).filter((b) => b.ref);
+  const departures = out.map((b) => ({ ref: b.ref, full_ref: b.full || b.ref, adults: b.adults || "", children: b.children || "", notes: b.notes || "", guest: b.guest || "", room_id: b.room_id || "", room_type: b.room_type || "", package: b.package || "", arrival: isoDay(b.arrival), departure: isoDay(b.departure), status: b.status || "" })).filter((b) => b.ref);
   if (!departures.length) return { error: "No bookings were found in that Reservations report." };
   const out2 = departures.filter((d) => /^checked out$/i.test(d.status));
   const dates = out2.map((d) => d.departure).filter(Boolean).sort();
   return { kind: "stay_res", label: "Rezlynx Reservations report (for the guest feedback emails)", days: [], from: dates[0] || null, to: dates[dates.length - 1] || null, stay: departures, notes: [`${departures.length} bookings, ${out2.length} checked out. Added to the Guest Feedback > Stays list together with the Sales and Marketing query.`] };
 }
 function stayEmails(rows) {
-  const h = rows[0].map((x) => String(x).trim().toLowerCase()), ix = (n) => h.indexOf(n), iRef = ix("bookref"), iE = ix("email"), iF = ix("forename"), iS = ix("surname"), iN = h.findIndex((x) => /stays/.test(x));
-  const emails = rows.slice(1).map((r) => ({ ref: String(r[iRef] || "").trim(), email: String(r[iE] || "").trim(), forename: iF >= 0 ? String(r[iF] || "").trim() : "", surname: iS >= 0 ? String(r[iS] || "").trim() : "", stays: iN >= 0 ? String(r[iN] || "").trim() : "" })).filter((x) => x.ref);
+  const h = rows[0].map((x) => String(x).trim().toLowerCase()), ix = (n) => h.indexOf(n), iRef = ix("bookref"), iE = ix("email"), iF = ix("forename"), iS = ix("surname"), iN = h.findIndex((x) => /stays/.test(x)), iT = h.findIndex((x) => x === "tel no" || x === "telephone" || x === "tel" || x === "phone"), iM = h.findIndex((x) => x === "mobile no" || x === "mobile");
+  const emails = rows.slice(1).map((r) => ({ tel: iT >= 0 ? String(r[iT] || "").trim() : "", mobile: iM >= 0 ? String(r[iM] || "").trim() : "", ref: String(r[iRef] || "").trim(), email: String(r[iE] || "").trim(), forename: iF >= 0 ? String(r[iF] || "").trim() : "", surname: iS >= 0 ? String(r[iS] || "").trim() : "", stays: iN >= 0 ? String(r[iN] || "").trim() : "" })).filter((x) => x.ref);
   return { kind: "stay_mail", label: "Rezlynx Sales and Marketing query (guest emails, for the guest feedback emails)", days: [], from: null, to: null, stay: emails, notes: [`${emails.length} bookings with email details. Added to the Guest Feedback > Stays list together with the Reservations report.`] };
 }
 
