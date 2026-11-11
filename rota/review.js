@@ -25,6 +25,7 @@ const rvPresetLabel = (k, l) => { const r = rvRange(k); return l + " (" + rvSpan
 const nz = v => v !== null && v !== undefined;
 const n0 = v => nz(v) ? String(Math.round(v)) : "";
 const n1 = v => nz(v) ? String(Math.round(v * 10) / 10) : "";
+const gbp = v => nz(v) ? "£" + Math.round(v).toLocaleString("en-GB") : "";
 const hrs = v => nz(v) ? (Math.round(v * 10) / 10) + "h" : "";
 const bucketHours = (day, bucket, nameRe) => {
   const ds = day.departments.filter(d => d.bucket === bucket || (!d.bucket && nameRe && nameRe.test(d.name)));
@@ -205,12 +206,19 @@ function rvPaint(){
     h += row(esc(deptLabel(name)), d => { const p = d.departments.find(x => x.name === name); const open = p && p.open ? `</small><span class="open">${p.open} open</span><small>` : ""; return p ? { v: p.hours > 0 ? hrs(p.hours) : "", sub: p.heads ? (p.heads === 1 ? "1 person" : p.heads + " people") + open : open } : { v:"" }; });
   });
   if (!one) h += row("All departments", d => ({ v: hrs(d.hours_total), cls:"rvb", sub: d.heads_total ? d.heads_total + " people" : "" }));
+  if (D.has_cost) {
+    h += sec(one ? "Cost: " + deptLabel(one) + " (wages with holiday pay and on-costs)" : "Cost by department (wages with holiday pay and on-costs)");
+    (one ? [one] : D.departments).forEach(name => {
+      h += row(esc(deptLabel(name)), d => { const p = d.departments.find(x => x.name === name); return p && nz(p.cost) && p.cost > 0 ? { v: gbp(p.cost), sub: nz(d.cost) ? (d.cost.kind === "worked" ? "worked" : "rostered") : "" } : { v:"" }; });
+    });
+    if (!one) h += row("All departments", d => ({ v: nz(d.cost) ? gbp(d.cost.total) : "", cls:"rvb", sub: nz(d.cost) ? (d.cost.kind === "worked" ? "worked" : "rostered") : "" }));
+  }
   const metrics = RV_METRICS.filter(m => !one || m.bucket === oneBucket);
   if (metrics.length) {
     h += sec("Is the rota about right? Compared with the usual for the days shown");
     metrics.forEach(m => { h += row(esc(m.label), (d, i) => { const r = M[m.key].rows[i]; if (r.none) return { v:"No rota", cls:"light" }; return r.v === null ? { v:"" } : { v: n1(r.v), cls: r.flag }; }); });
   }
-  h += `</tbody></table><div class="rv-legend"><span><i style="background:var(--attention-bg);border:1px solid var(--attention)"></i>Heavy: more than 30% above the usual hours for the demand</span><span><i style="background:var(--alert-bg);border:1px solid var(--alert)"></i>Light: more than 30% below, or covers with nobody rostered</span><span>fc = forecast. Covers served = breakfasts + lunches + dinners (booked or forecast, whichever is larger; what was served once the day is done). Click a day to see its full rota.</span></div></div>`;
+  h += `</tbody></table><div class="rv-legend"><span><i style="background:var(--attention-bg);border:1px solid var(--attention)"></i>Heavy: more than 30% above the usual hours for the demand</span><span><i style="background:var(--alert-bg);border:1px solid var(--alert)"></i>Light: more than 30% below, or covers with nobody rostered</span>${D.has_cost ? `<span>Cost: pay for finished days, the rostered cost (drafts included) for today and ahead, with the 12.07% holiday accrual and 15% NI estimate added. Only you see this.</span>` : ""}<span>fc = forecast. Covers served = breakfasts + lunches + dinners (booked or forecast, whichever is larger; what was served once the day is done). Click a day to see its full rota.</span></div></div>`;
 
   // the days that stand out, in plain words
   const flags = [];
