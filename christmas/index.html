@@ -667,6 +667,13 @@ async function preCsv(d, btn){
 /* ====================================================================== full booking (used by the Pre-orders list and the Diary) */
 
 /* ---- payments taken outside TicketSource, and comments: the same records as the Ticket sales screen in the Weddings and events app ---- */
+/* what the booking screen shows as total / paid / remaining, so a receipt carries the same figures */
+function payFigures(f){
+  const isDisc = x => /^\s*discount/i.test(x.note || ""), live = (f.pay_history || []).filter(x => !x.voided_at);
+  const disc = live.filter(isDisc).reduce((t, x) => t + Number(x.amount), 0), extra = live.reduce((t, x) => t + Number(x.amount), 0) - disc, ts = Number(f.booking.paid) || 0, total = f.pay ? f.pay.due : null;
+  return { total: total == null ? null : total, paid: Math.round((ts + extra) * 100) / 100, balance: total == null ? null : Math.round((total - ts - extra - disc) * 100) / 100 };
+}
+const ukDay = iso => new Intl.DateTimeFormat("en-CA", { timeZone:"Europe/London", year:"numeric", month:"2-digit", day:"2-digit" }).format(new Date(iso));
 function payHtml(f){
   const isDisc = x => /^\s*discount/i.test(x.note || "");
   const live = (f.pay_history || []).filter(x => !x.voided_at), disc = live.filter(isDisc).reduce((t, x) => t + Number(x.amount), 0), extra = live.reduce((t, x) => t + Number(x.amount), 0) - disc, edit = canEdit();
@@ -680,7 +687,7 @@ function payHtml(f){
     <tr><td class="small" style="padding:3px 12px 3px 0"><b>Total paid</b></td><td class="small"><b>${money(ts + extra)}</b></td></tr>
     <tr><td class="small" style="padding:3px 12px 3px 0"><b>Remaining</b></td><td class="small">${bal == null ? `<span class="muted">-</span>` : bal > 0.004 ? `<b>${money(bal)}</b>` : bal < -0.004 ? `Overpaid by ${money(-bal)}` : `<span style="color:var(--good)">Paid in full</span>`}</td></tr></table>
     <p class="small" style="margin:10px 0 4px"><b>Additional payments and discounts</b></p>
-    ${(f.pay_history || []).length ? `<div style="overflow-x:auto"><table class="t"><thead><tr><th>Added</th><th>By</th><th>Note</th><th class="n">Amount</th><th></th></tr></thead><tbody>${f.pay_history.map(x => `<tr${x.voided_at ? ` style="opacity:.5;text-decoration:line-through"` : ""}><td class="small">${esc(fmtDT(x.created_at))}</td><td class="small">${esc(x.by_name || "")}</td><td class="small">${esc(x.note || "")}</td><td class="n small">${isDisc(x) ? `<span class="muted">discount </span>` : ""}${money(x.amount)}</td><td class="small">${x.voided_at ? `<span class="muted" style="text-decoration:none">removed</span>` : edit ? `<a href="#" data-pvoid="${esc(x.id)}">Remove</a>` : ""}</td></tr>`).join("")}</tbody></table></div>` : `<p class="small muted" style="margin:0">None yet.</p>`}
+    ${(f.pay_history || []).length ? `<div style="overflow-x:auto"><table class="t"><thead><tr><th>Added</th><th>By</th><th>Note</th><th class="n">Amount</th><th></th></tr></thead><tbody>${f.pay_history.map(x => `<tr${x.voided_at ? ` style="opacity:.5;text-decoration:line-through"` : ""}><td class="small">${esc(fmtDT(x.created_at))}</td><td class="small">${esc(x.by_name || "")}</td><td class="small">${esc(x.note || "")}${x.receipt_sent_at && !x.voided_at ? `<div class="tiny muted" style="text-decoration:none">Receipt emailed to ${esc(x.receipt_to || "")}, ${esc(fmtDT(x.receipt_sent_at))}</div>` : ""}</td><td class="n small">${isDisc(x) ? `<span class="muted">discount </span>` : ""}${money(x.amount)}</td><td class="small">${x.voided_at ? `<span class="muted" style="text-decoration:none">removed</span>` : edit ? `${isDisc(x) ? "" : `<a href="#" data-prec="${esc(x.id)}" title="Email the guest a receipt for this payment">${x.receipt_sent_at ? "Resend receipt" : "Email receipt"}</a> &middot; `}<a href="#" data-pvoid="${esc(x.id)}">Remove</a>` : ""}</td></tr>`).join("")}</tbody></table></div>` : `<p class="small muted" style="margin:0">None yet.</p>`}
     ${edit ? `<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:8px"><label style="flex:0 0 130px"><span class="muted tiny">Amount (£)</span><input id="bpAmt" type="number" min="0" step="0.01" placeholder="${bal != null && bal > 0.004 ? bal.toFixed(2) : "0.00"}"></label><label style="flex:1 1 180px"><span class="muted tiny">Note (optional)</span><input id="bpNote" type="text" maxlength="300" placeholder="e.g. balance by bank transfer"></label><button class="btn small" id="bpAdd" title="Record a payment that has already been taken (cash, bank transfer, card machine)">Payment already taken</button><button class="btn small ghost" id="bpNow" title="Open a SumUp payment page for this amount">Take payment now</button></div><div id="bpOut"></div>` : `<p class="tiny muted" style="margin:6px 0 0">You can look but not change: ask for edit rights on Christmas to add a payment.</p>`}`;
 }
 /* ---- add additional people: choose how many and how much, then pay on a SumUp page; they join the booking once the payment is confirmed ---- */
@@ -800,6 +807,15 @@ async function showFull(id, ctx){
   const again = async (msg) => { try { await showFull(id, ctx); if (msg) toast(msg); if (S.view === "preorders") loadPre(); if (S.view === "diary") { S.dg = await px("admin.diary", { date_id:S.dgId }); } } catch(e){ toast(e.message, true); } };
   const padd = $("#bpAdd"); if (padd) padd.onclick = async () => { const amt = Number($("#bpAmt").value); if (!(amt > 0)) { toast("Enter the amount paid, as a number above zero.", true); return; } padd.disabled = true; try { await px("admin.pay_add", { booking_id:id, amount:amt, note:$("#bpNote").value }); await again("Payment added."); } catch(e){ toast(e.message, true); padd.disabled = false; } };
   $$("[data-pvoid]").forEach(a => a.onclick = async (e) => { e.preventDefault(); if (!confirm("Remove this payment? It stays on the record, struck through.")) return; try { await px("admin.pay_void", { payment_id:a.dataset.pvoid }); await again("Payment removed."); } catch(err){ toast(err.message, true); } });
+  $$("[data-prec]").forEach(a => a.onclick = async (e) => {
+    e.preventDefault();
+    const x = (f.pay_history || []).find(h => h.id === a.dataset.prec); if (!x) return;
+    const to = prompt("Email the receipt for " + money(x.amount) + " to:", x.receipt_to || b.email || ""); if (to === null) return;
+    const on = prompt("Date the payment was received (YYYY-MM-DD), as it will appear on the receipt:", x.receipt_paid_on || ukDay(x.created_at)); if (on === null) return;
+    a.textContent = "Sending...";
+    try { const r = await px("admin.pay_receipt", { payment_id:x.id, to:to.trim(), paid_on:on.trim(), figures:payFigures(f) }); await again("Receipt emailed to " + r.sent_to + "."); }
+    catch(err){ a.textContent = x.receipt_sent_at ? "Resend receipt" : "Email receipt"; toast(err.message, true); }
+  });
   addPeopleWire(f, id, again);
   const cxo = $("#cxOpen"); if (cxo) { cxo.onclick = () => { $("#cxBox").style.display = ""; cxo.style.display = "none"; };
     $("#cxNo").onclick = () => { $("#cxBox").style.display = "none"; cxo.style.display = ""; };

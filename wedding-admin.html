@@ -1861,6 +1861,7 @@ function tkExtrasHtml(d, b, extra){
   var isDisc = function(x){ return /^\s*discount/i.test(x.note || ""); };
   var disc = (d.payments || []).filter(function(x){ return !x.voided_at && isDisc(x); }).reduce(function(t, x){ return t + Number(x.amount); }, 0);
   var ts = Number(b.gross) || 0, total = ts + extra - disc, due = tkDue(Object.assign({}, b, { extra_paid:extra }));
+  window.tkRcpt = { payments: d.payments || [], email: b.customer_email || '', fig: { total: b.total_price == null ? null : Number(b.total_price), paid: Math.round(total * 100) / 100, balance: due } };
   var dep = Object.keys(b.categories || {}).some(function(k){ return /deposit/i.test(k) && Number(b.categories[k]); });
   var h = '<h4>Payments</h4><dl><dt>Total price</dt><dd>' + (b.total_price == null ? '<span class="muted">not known for this mix of tickets</span>' : esc(money(b.total_price)) +
       (dep ? ' <span class="muted">(deposit tickets counted at double what was paid)</span>' : '')) + '</dd>' +
@@ -1872,7 +1873,8 @@ function tkExtrasHtml(d, b, extra){
       d.payments.map(function(x){
         var v = !!x.voided_at;
         return '<tr' + (v ? ' style="opacity:.5;text-decoration:line-through"' : '') + '><td>' + esc(tkWhenShort(x.created_at)) + '</td><td>' + esc(x.by_name || "") + '</td><td>' + esc(x.note || "") +
-          '</td><td class="money">' + (isDisc(x) ? '<span class="muted">discount </span>' : '') + esc(money(x.amount)) + '</td><td>' + (v ? '<span class="muted" style="text-decoration:none">removed</span>' : '<a href="#" onclick="tkPayVoid(event,\'' + esc(x.id) + '\')">Remove</a>') + '</td></tr>';
+          (x.receipt_sent_at && !v ? '<div class="muted" style="font-size:.8125rem;text-decoration:none">Receipt emailed to ' + esc(x.receipt_to || '') + ', ' + esc(tkWhenShort(x.receipt_sent_at)) + '</div>' : '') +
+          '</td><td class="money">' + (isDisc(x) ? '<span class="muted">discount </span>' : '') + esc(money(x.amount)) + '</td><td>' + (v ? '<span class="muted" style="text-decoration:none">removed</span>' : (isDisc(x) ? '' : '<a href="#" onclick="tkPayReceipt(event,\'' + esc(x.id) + '\')">' + (x.receipt_sent_at ? 'Resend receipt' : 'Email receipt') + '</a> &middot; ') + '<a href="#" onclick="tkPayVoid(event,\'' + esc(x.id) + '\')">Remove</a>') + '</td></tr>';
       }).join("") + '</tbody></table></div>';
   }
   h += '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:10px">' +
@@ -1904,6 +1906,16 @@ function tkPayAdd(btn){
   var a = $("tkpAmt").value;
   if (!(Number(a) > 0)) { alert("Enter the amount paid, as a number above zero."); return; }
   tkExtraAction(btn, "tickets.payment.add", { amount:Number(a), note:$("tkpNote").value });
+}
+/* email the guest a receipt for one payment taken outside TicketSource */
+function tkPayReceipt(ev, id){
+  ev.preventDefault();
+  var r = window.tkRcpt || {}, x = (r.payments || []).filter(function(p){ return p.id === id; })[0]; if (!x) return;
+  var day = new Intl.DateTimeFormat("en-CA", { timeZone:"Europe/London", year:"numeric", month:"2-digit", day:"2-digit" }).format(new Date(x.created_at));
+  var to = prompt("Email the receipt for " + money(x.amount) + " to:", x.receipt_to || r.email || ""); if (to === null) return;
+  var on = prompt("Date the payment was received (YYYY-MM-DD), as it will appear on the receipt:", x.receipt_paid_on || day); if (on === null) return;
+  var link = ev.target; if (link) link.textContent = "Sending...";
+  tkExtraAction(null, "tickets.payment.receipt", { payment_id:id, to:to.trim(), paid_on:on.trim(), figures:r.fig || {} });
 }
 function tkPayVoid(ev, id){
   ev.preventDefault();
