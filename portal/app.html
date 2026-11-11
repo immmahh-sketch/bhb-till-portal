@@ -935,21 +935,53 @@ $("#gcPw2").addEventListener("keydown", e=>{ if(e.key === "Enter") submitExpired
 /* ----- signed out after a while without use. The page counts real use (touches, keys, scrolling, here or inside the open tile) and tells the server it
          is still being used about once a minute; the server ends the session by itself a little after that stops. */
 const IDLE = { min: 0, last: 0, sent: 0, t: null };
+/* Sign-out is only ever for a portal nobody has touched for the whole idle window. Anything a person does counts, in the portal or in the open tile (and in any
+   same-origin frame inside it): clicks, typing, scrolling, moving, touching, dragging, pasting. Each use tells the server (a "touch", at most once a minute, retried
+   within seconds if it did not get through, and repeated by the timer while the person is still at it), so the server's session never runs out under someone who is busy.
+   Two minutes before the end a notice says so, and any click on it keeps the session. */
 function startIdle(min){
-  clearInterval(IDLE.t); IDLE.min = Number(min) || 0; if(!IDLE.min) return;
+  clearInterval(IDLE.t); IDLE.min = Number(min) || 0; hideIdleWarn(); if(!IDLE.min) return;
   IDLE.last = IDLE.sent = Date.now(); IDLE.t = setInterval(idleCheck, 10000);
+}
+function sendTouch(){
+  IDLE.sent = Date.now();
+  api("touch").catch(()=>{ IDLE.sent = Date.now() - 50000; });          // did not get through: try again in about ten seconds
 }
 function activity(){
   if(!IDLE.min || !S.token) return;
   const n = Date.now(); IDLE.last = n;
-  if(n - IDLE.sent > 60000){ IDLE.sent = n; api("touch").catch(()=>{}); }
+  if(IDLE.warn) hideIdleWarn();
+  if(n - IDLE.sent > 60000) sendTouch();
+}
+function hideIdleWarn(){ if(IDLE.warn){ IDLE.warn.remove(); IDLE.warn = null; } }
+function showIdleWarn(secs){
+  if(!IDLE.warn){
+    const d = document.createElement("div");
+    d.id = "idleWarn"; d.setAttribute("role", "alert");
+    d.style.cssText = "position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:2147483000;background:#3F2F28;color:#fff;border-radius:12px;padding:12px 16px;box-shadow:0 8px 30px rgba(0,0,0,.3);font:14px/1.4 Raleway,Arial,sans-serif;display:flex;gap:14px;align-items:center;max-width:calc(100vw - 24px)";
+    d.innerHTML = '<span>You will be signed out in <b id="idleSecs"></b> because the portal has not been used.</span><button type="button" style="font:inherit;font-weight:700;padding:9px 14px;border-radius:8px;border:0;background:#CCCDB4;color:#3F2F28;cursor:pointer;white-space:nowrap">Stay signed in</button>';
+    d.querySelector("button").addEventListener("click", () => { activity(); sendTouch(); });
+    document.body.appendChild(d); IDLE.warn = d;
+  }
+  const m = Math.floor(secs / 60), s = String(secs % 60).padStart(2, "0");
+  const el = document.getElementById("idleSecs"); if(el) el.textContent = `${m}:${s}`;
 }
 function idleCheck(){
   if(!IDLE.min || !S.token) return;
-  if(Date.now() - IDLE.last >= IDLE.min * 60000) sessionEnded(`You were signed out because the portal had not been used for ${IDLE.min} minutes.`);
+  const n = Date.now(), limit = IDLE.min * 60000, idleFor = n - IDLE.last;
+  watchFrames(document, 0);                                             // a tile may have opened a frame of its own since
+  if(idleFor >= limit){ sessionEnded(`You were signed out because the portal had not been used for ${IDLE.min} minutes.`); return; }
+  if(idleFor < 60000 && n - IDLE.sent > 60000) sendTouch();             // still at it: keep the server's session going even if the last touch was lost
+  if(limit - idleFor <= 120000) showIdleWarn(Math.max(1, Math.ceil((limit - idleFor) / 1000))); else hideIdleWarn();
 }
-const ACT_EVENTS = ["pointerdown", "keydown", "touchstart", "wheel", "scroll", "mousemove"];
-function watchActivity(doc){ try{ ACT_EVENTS.forEach(ev => doc.addEventListener(ev, activity, true)); }catch(e){} }
+const ACT_EVENTS = ["pointerdown", "pointermove", "keydown", "keyup", "touchstart", "touchmove", "wheel", "scroll", "mousemove", "click", "input", "focusin", "dragover", "drop", "paste"];
+const WATCHED = new WeakSet();
+function watchActivity(doc){
+  try{ if(!doc || WATCHED.has(doc)) return; WATCHED.add(doc); ACT_EVENTS.forEach(ev => doc.addEventListener(ev, activity, { capture:true, passive:true })); }catch(e){}
+}
+function watchFrames(doc, depth){
+  try{ if(depth > 3) return; doc.querySelectorAll("iframe").forEach(f => { try{ const d = f.contentDocument; if(d){ watchActivity(d); watchFrames(d, depth + 1); } }catch(e){} }); }catch(e){}
+}
 watchActivity(document);
 document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) idleCheck(); });
 window.addEventListener("message", e => { try{ if(e.data && e.data.bhb === "activity" && e.source === $("#vframe").contentWindow) activity(); }catch(_){} });
@@ -968,7 +1000,7 @@ function sessionEnded(msg){
   $("#gpw").value = ""; gateMode("login");
   openGate(msg);
 }
-function stopIdle(){ clearInterval(IDLE.t); IDLE.min = 0; }
+function stopIdle(){ clearInterval(IDLE.t); IDLE.min = 0; hideIdleWarn(); }
 
 /* ------------------------------------------------------- forgot pw */
 $("#gForgotLink").addEventListener("click", ()=>{

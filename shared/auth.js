@@ -49,7 +49,7 @@
     if (window.parent !== window) {
       var lastPing = 0;
       var ping = function () { var n = Date.now(); if (n - lastPing < 5000) return; lastPing = n; try { window.parent.postMessage({ bhb: "activity" }, "*"); } catch (e) {} };
-      ["pointerdown", "keydown", "touchstart", "wheel", "scroll", "mousemove"].forEach(function (ev) { document.addEventListener(ev, ping, true); });
+      ["pointerdown", "pointermove", "keydown", "keyup", "touchstart", "touchmove", "wheel", "scroll", "mousemove", "click", "input", "focusin", "dragover", "drop", "paste"].forEach(function (ev) { document.addEventListener(ev, ping, { capture: true, passive: true }); });
     }
   } catch (e) {}
 })();
