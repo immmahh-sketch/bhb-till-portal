@@ -254,6 +254,7 @@ function rvDetail(d){
   const shutDay = !!RV.shut.day;
   return `<section class="rv-day" id="rv_day"><h3 class="rv-fold" data-rvsec="day" role="button" tabindex="0" aria-expanded="${!shutDay}"><span class="chv${shutDay ? " shut" : ""}" aria-hidden="true"></span>${esc(fmt(d.date, { weekday:"long", day:"numeric", month:"long" }))}${d.finished ? ` <small class="muted" style="font-size:13px">finished: hours are what was worked</small>` : ""}</h3>
     ${shutDay ? "" : `<div class="rv-chips">${chips}${ev}</div>
+    <div class="rv-tool"><label for="rv_dept2">Show</label><select id="rv_dept2"><option value="all"${RV.dept === "all" ? " selected" : ""}>All departments (${on.reduce((t, p) => t + p.heads, 0)})</option>${d.departments.map(p => `<option value="${esc(p.name)}"${RV.dept === p.name ? " selected" : ""}>${esc(deptLabel(p.name))} (${p.heads})</option>`).join("")}</select></div>
     ${shown.length ? rvTimeline(shown) : `<p class="muted">${RV.dept === "all" ? "Nobody is rostered this day." : "Nobody from " + esc(deptLabel(RV.dept)) + " is rostered this day."}</p>`}
     ${hasDraft ? `<p class="rv-note" style="margin:8px 0 0"><b>Dashed</b> shifts are not published in Planday yet.</p>` : ""}
     ${RV.dept === "all" && none.length && on.length ? `<p class="rv-note" style="margin:8px 0 0">Nobody on: ${none.map(esc).join(", ")}.</p>` : ""}
@@ -263,6 +264,7 @@ function rvDetail(d){
 function wire(){
   const p = $("#rv_preset"); if (p) p.onchange = () => { RV.preset = p.value; try { localStorage.setItem("rota_review_preset", RV.preset); } catch(e){} RV.data = null; RV.sel = ""; viewReview(); };
   const dp = $("#rv_dept"); if (dp) dp.onchange = () => { RV.dept = dp.value; rvPaint(); const x = $("#rv_dept"); if (x) x.focus(); };
+  const dp2 = $("#rv_dept2"); if (dp2) dp2.onchange = () => { RV.dept = dp2.value; rvPaint(); const x = $("#rv_dept2"); if (x) x.focus(); };
   const r = $("#rv_refresh"); if (r) r.onclick = () => viewReview(true);
   const fo = $("#rv_fold"); if (fo) fo.onclick = () => { const all = ["need", "rota", "cost", "check", "flags", "day"], allShut = all.every(k => RV.shut[k]); all.forEach(k => { RV.shut[k] = !allShut; }); rvPaint(); };
   $$("[data-rvsec]").forEach(el => { const go = () => { const k = el.dataset.rvsec; RV.shut[k] = !RV.shut[k]; const y = window.scrollY; rvPaint(); window.scrollTo(0, y); }; el.onclick = go; el.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } }; });
