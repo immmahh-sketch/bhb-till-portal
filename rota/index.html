@@ -8,6 +8,7 @@
 <meta name="robots" content="noindex,nofollow">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="review.css">
 <link href="https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -146,13 +147,14 @@ nav.tabs.gone{display:none}
     <button class="tabbtn" data-view="week" id="tab_week">Next 7 days</button>
     <button class="tabbtn" data-view="mine" id="tab_mine">My shifts</button>
     <button class="tabbtn" data-view="off" id="tab_off">Who's off</button>
+    <button class="tabbtn" data-view="review" id="tab_review">Rota Review</button>
   </div></nav>
   <div class="shell"><div id="views"></div></div>
 </div>
 <div class="toast" id="toast"></div>
 <script>
 const CFG = { SUPABASE_URL:"https://safcrtrfdzsnftghibot.supabase.co", SUPABASE_KEY:"sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU" };
-const TAB_ORDER = ["week","mine","off"];
+const TAB_ORDER = ["week","mine","off","review"];
 const REFRESH_MS = 5 * 60 * 1000;
 // S.me: { name, email, admin }. cache is keyed "from|to" -> { d, at }.
 const S = { me:null, tabs:null, view:"week", weekFrom:"", dept:"", cache:{}, err:"", busy:false, seq:0, configured:true, ready:false };
@@ -340,6 +342,8 @@ document.addEventListener("click", e => {
 function markTab(){ $$(".tabbtn").forEach(b => b.setAttribute("aria-current", b.dataset.view === S.view ? "page" : "false")); }
 function goView(v){
   S.view = v; S.err = ""; S.dept = ""; markTab(); window.scrollTo(0, 0);
+  const shell = document.querySelector(".shell"); if (shell) shell.classList.toggle("wide", v === "review");
+  if (v === "review") return viewReview();
   if (v === "week") S.weekFrom = today();
   render();
   const e = entry();
@@ -348,7 +352,7 @@ function goView(v){
 function openGate(msg){ $("#gate").hidden = false; $("#app").hidden = true; if (msg) $("#gerr").textContent = msg; }
 $("#signout").addEventListener("click", ()=>{ try { sessionStorage.removeItem("bhb_staff_email"); } catch(e){} openGate(); });
 function autoRefresh(){
-  if (document.hidden || !S.ready || !S.configured || S.busy) return;
+  if (document.hidden || !S.ready || !S.configured || S.busy || S.view === "review") return;
   const e = entry();
   if (!e || Date.now() - e.at >= REFRESH_MS - 1000) load(false);
 }
@@ -365,7 +369,8 @@ async function boot(){
     $("#views").innerHTML = `<div class="card empty" style="margin-top:24px"><h3 style="margin-bottom:6px">Planday isn't connected yet</h3>Come back once it's been set up.</div>`;
     return;
   }
-  const allowed = TAB_ORDER.filter(k => !S.tabs || S.tabs.includes(k));
+  // Rota Review is for managers: it needs an explicit tab row (or an admin), whatever the person otherwise sees
+  const allowed = TAB_ORDER.filter(k => k === "review" ? (S.me.admin || (S.tabs && S.tabs.includes("review"))) : (!S.tabs || S.tabs.includes(k)));
   TAB_ORDER.forEach(k => { if (!allowed.includes(k)) { const b = $("#tab_" + k); if (b) b.remove(); } });
   $$(".tabbtn").forEach(b => b.addEventListener("click", () => goView(b.dataset.view)));
   if (!allowed.length) { $("#tabnav").classList.add("gone"); $("#views").innerHTML = `<div class="card empty" style="margin-top:24px">You don't have access to any part of the rota yet. Ask the GM.</div>`; return; }
@@ -373,5 +378,6 @@ async function boot(){
 }
 (function(){ if (staffEmail()) { $("#gate").hidden = true; boot(); } else openGate(); })();
 </script>
+<script src="review.js"></script>
 </body>
 </html>
