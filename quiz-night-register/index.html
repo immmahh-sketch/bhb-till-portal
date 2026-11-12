@@ -45,6 +45,10 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--sage);outline-of
 .spin{display:inline-block;width:22px;height:22px;border:3px solid var(--celadon);border-top-color:var(--sage);border-radius:50%;animation:sp 1s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}
 body.embed header.top,body.embed footer{display:none}
+.ehead{display:none;text-align:center;padding:6px 0 18px}
+body.embed .ehead{display:block}
+.ehead h1{font-size:44px;line-height:1.1}
+.ehead div{font-family:var(--display);font-size:22px;color:var(--sage-mid);margin-top:4px}
 body.embed main{padding-top:4px;padding-bottom:20px}
 footer{max-width:640px;margin:0 auto;padding:0 16px 36px;font-size:14px;color:var(--sage-mid);text-align:center}
 footer a{color:var(--sage)}
@@ -52,7 +56,7 @@ footer a{color:var(--sage)}
 </head>
 <body>
 <header class="top"><a href="https://www.blackhorsebeamish.co.uk" target="_blank" rel="noopener" style="display:block"><img class="logo" src="../app/logo-light.png" alt="Black Horse Beamish"></a><h1>Quiz Night</h1><div class="when" id="when"></div></header>
-<main id="app"><div class="card" style="text-align:center"><span class="spin"></span></div></main>
+<main><div class="ehead"><h1>Quiz Night</h1><div id="ewhen"></div></div><div id="app"><div class="card" style="text-align:center"><span class="spin"></span></div></div></main>
 <footer>Need a hand? Phone 01207 232 569 or email <a href="mailto:events@blackhorsebeamish.co.uk">events@blackhorsebeamish.co.uk</a>.<br>Black Horse Beamish, Red Row, Beamish, DH9 0RW</footer>
 <script>
 const API = "https://safcrtrfdzsnftghibot.supabase.co/functions/v1/quiznight-api";
@@ -83,7 +87,7 @@ function facts(n){
 function render(){
   const n = I.night;
   if (!n) { $("#app").innerHTML = '<div class="card"><h2>No quiz night just now</h2><p>The next one has not been announced yet. Keep an eye on our socials, or phone us on ' + esc(I.phone) + '.</p></div>'; return; }
-  $("#when").textContent = longDay(n.date);
+  $("#when").textContent = longDay(n.date); $("#ewhen").textContent = longDay(n.date);
   if (!n.open || n.full) {
     $("#app").innerHTML = facts(n) + '<div class="card"><h2>' + (n.full ? "We are full" : "Sign-ups are closed") + '</h2><p style="margin:0">' + (n.full ? "Every place for this quiz is taken. " : "") + 'Phone us on ' + esc(I.phone) + ' and we will see what we can do.</p></div>';
     return;
