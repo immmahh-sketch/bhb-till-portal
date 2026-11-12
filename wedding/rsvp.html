@@ -253,7 +253,7 @@ function render(){
   }
 
   /* The reply */
-  h += '<div class="card">' +
+  h += '<div class="card" id="reply">' +
     '<h2 class="center" style="margin-bottom:16px">Can you join us?</h2>' +
     '<div id="err" class="err hide"></div>' +
     '<div class="choice">' +
@@ -271,11 +271,14 @@ function render(){
       h += '<div style="margin-top:26px">' + menuBlock("starter","To start") +
            menuBlock("main","Main course") + menuBlock("dessert","Pudding") + '</div>';
     }
-    h += (d.menu.length ? '' :
+    /* "Still settling their menu" is only true when there is nothing to show: no dishes to
+       choose from and no menu the couple has written out. */
+    var hasMenu = d.menu.length > 0 || !!w.menu_text;
+    h += (hasMenu ? '' :
         '<p class="muted center" style="margin:22px 0 4px;font-size:.9375rem">' +
         'The couple are still settling their menu. In the meantime, do tell us ' +
         'anything the kitchen needs to know.</p>') +
-      '<div class="field" style="margin-top:' + (d.menu.length ? '22px' : '10px') + '">' +
+      '<div class="field" style="margin-top:' + (hasMenu ? '22px' : '10px') + '">' +
         '<span class="label">Any allergies we should know about?</span>' +
         '<input id="allergies" placeholder="Nuts, shellfish…" value="' + esc(g.allergies||"") + '">' +
         '<p class="muted" style="font-size:.8125rem;margin:6px 0 0">' +
@@ -334,9 +337,29 @@ function menuBlock(course, heading){
     }).join("") + '</div></div>';
 }
 
-function pick(v){ S.attending = v; render(); window.scrollTo({top:document.body.scrollHeight,behavior:"smooth"}); }
+/* After Yes or No the reply card changes shape. Bring it into view with the next step (dishes,
+   allergies, the send button) under the two buttons. This used to scroll to the very bottom of
+   the page, which on a phone landed on the footer and looked like a blank screen. If the whole
+   card fits on the screen it is moved just far enough to show all of it; if it is taller, its
+   top goes near the top of the screen. */
+function showReply(){
+  var el = $("reply"); if (!el) return;
+  window.requestAnimationFrame(function(){
+    var r = el.getBoundingClientRect(), vh = window.innerHeight || document.documentElement.clientHeight, by = 0;
+    if (r.height + 24 > vh) by = r.top - 12;
+    else if (r.top < 12) by = r.top - 12;
+    else if (r.bottom > vh - 12) by = r.bottom - (vh - 12);
+    if (Math.abs(by) < 2) return;
+    var y = Math.max(0, (window.pageYOffset || document.documentElement.scrollTop || 0) + by);
+    var calm = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (!calm && "scrollBehavior" in document.documentElement.style) window.scrollTo({ top:y, behavior:"smooth" });
+    else window.scrollTo(0, y);
+  });
+}
+
+function pick(v){ S.attending = v; render(); showReply(); }
 function choose(course, label){ S.choices[course] = label; render(); }
-function change(){ S.attending = S.data.guest.rsvp === "attending"; render(); }
+function change(){ S.attending = S.data.guest.rsvp === "attending"; render(); showReply(); }
 
 async function submit(){
   var btn = $("send"), err = $("err");
