@@ -163,7 +163,7 @@ const RULES = [
 ];
 const rulesCard = open => `<details class="card rules" ${open ? "open" : ""}><summary>How staff lunch works</summary><ul>${RULES.map(r => `<li>${r}</li>`).join("")}</ul></details>`;
 const kindWord = c => c === "soup" ? "Soup" : c === "sandwich" ? "Sandwich" : "Main dish";
-const timeOptions = (d, today, times) => `<option value="">Any time, 11:30am to 12:30pm</option>${d === today ? `<option value="asap">As soon as possible</option>` : ""}${times.map(t => `<option value="${esc(t)}">${esc(clock12(t))}</option>`).join("")}`;
+const timeOptions = (d, today, times) => `<option value="">Any time, 11:30am to 12:30pm</option>${times.map(t => `<option value="${esc(t)}">${esc(clock12(t))}</option>`).join("")}`;
 function choiceBlock(name, m, sandId){
   const opts = [];
   if (m.main) opts.push(`<label class="choice" data-c="main"><input type="radio" name="${name}" value="main"><div><div class="k">Main dish</div><div class="v">${esc(m.main)}</div></div></label>`);
@@ -184,7 +184,7 @@ async function viewOrder(){
   const v = $("#views"); v.innerHTML = `<div class="loading">Loading…</div>`;
   let d; try { d = await call("order.status", { test: S.test }); } catch(e){ v.innerHTML = `<div class="notice bad">${esc(e.message)}</div>`; return; }
   const head = `<div class="pagehead"><h2>Order lunch</h2><span class="hint">${esc(longDay(d.today))} · ${esc(clock12(d.time))} · orders for a day close at ${esc(clock12(d.cutoff))}</span></div>`;
-  const testBox = S.me.admin ? `<label class="testbox"><input type="checkbox" id="testmode" ${S.test ? "checked" : ""}> Test order for today (any time, no rota check, prints with a TEST banner)</label>` : "";
+  const testBox = S.me.canTest ? `<label class="testbox"><input type="checkbox" id="testmode" ${S.test ? "checked" : ""}> Test order for today (any time, no rota check, prints with a TEST banner)</label>` : "";
   let body = "";
   if (d.state === "unchecked") {
     body = `<div class="notice warn"><b>Couldn't check the rota</b>${esc(d.message)}</div><button class="btn ghost" id="retry">Try again</button>`;
@@ -252,7 +252,7 @@ async function viewLate(){
   const v = $("#views"); if (!$("#lateform") && !$("#latelog")) v.innerHTML = `<div class="loading">Loading…</div>`;
   let d, lg; try { [d, lg] = await Promise.all([call("late.status"), call("late.log")]); } catch(e){ v.innerHTML = `<div class="notice bad">${esc(e.message)}</div>`; return; }
   const open = d.window || S.lateTest;
-  const testBox = S.me.admin ? `<label class="testbox"><input type="checkbox" id="latetest" ${S.lateTest ? "checked" : ""}> Practice run (any time, prints with a TEST banner, not counted or logged)</label>` : "";
+  const testBox = S.me.canTest ? `<label class="testbox"><input type="checkbox" id="latetest" ${S.lateTest ? "checked" : ""}> Practice run (any time, prints with a TEST banner, not counted or logged)</label>` : "";
   const m = d.menu, has = !!(m.main || m.soup || m.sandwiches);
   const times = d.times.filter(t => S.lateTest || t >= d.time);
   let form = "";
