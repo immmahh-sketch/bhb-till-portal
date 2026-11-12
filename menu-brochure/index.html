@@ -7,10 +7,6 @@
 <title>The Winter Menu | The Black Horse Beamish</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@500;600&display=swap" rel="stylesheet">
-<script>
-// phones (narrow or short screens) get the scrolling version: the landscape pages are too small to read there. ?flip=1 forces the flip-book.
-(function(){var q=location.search,mq=matchMedia("(max-width:700px), (max-height:520px)");function go(){if(!/[?&]flip=1/.test(q)&&mq.matches)location.replace("m.html"+q);}go();mq.addEventListener("change",go);})();
-</script>
 <style>
 :root{--green:#4D604F;--olive:#CCCDB4;--bar:84px}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -33,10 +29,32 @@ main{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;
 .bar .arrow:disabled{opacity:.3;cursor:default}
 .bar .arrow:focus-visible,.bar a:focus-visible{outline:2px solid var(--olive);outline-offset:3px}
 .bar a:focus-visible{outline:2px solid var(--olive);outline-offset:3px}
-.rot{display:none;position:absolute;left:0;right:0;bottom:calc(var(--bar) + 2px);text-align:center;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--olive)}
 @media(max-width:600px){.bar{gap:10px}.bar a{min-width:0;flex:1;padding:14px 10px;font-size:10px;letter-spacing:.18em}.hint{font-size:9px;letter-spacing:.16em;padding:8px 14px}}
-@media(max-width:600px) and (orientation:portrait){.rot{display:block}}
-@media(max-height:420px){:root{--bar:64px}.bar a{padding:11px 20px}}
+/* phone held upright: no page, just a prompt to turn it (the stage stays laid out, hidden, so the book sizes itself correctly when the phone turns) */
+.turn{display:none;text-align:center;padding:0 30px}
+.turn svg{width:78px;height:78px;margin:0 auto 26px;display:block;animation:turn 3.2s ease-in-out infinite}
+.turn b{display:block;font:600 13px/1.6 "Raleway",sans-serif;letter-spacing:.3em;text-transform:uppercase}
+.turn span{display:block;margin-top:12px;font:500 11px/1.7 "Raleway",sans-serif;letter-spacing:.16em;text-transform:uppercase;color:var(--olive)}
+@keyframes turn{0%,18%{transform:rotate(0)}50%,82%{transform:rotate(-90deg)}100%{transform:rotate(0)}}
+@media(max-width:700px) and (orientation:portrait){
+  .stage{position:absolute;left:0;top:0;visibility:hidden;pointer-events:none}
+  .turn{display:block}
+  .bar .arrow{display:none}
+  .bar{gap:10px}.bar a{min-width:0;flex:1;padding:15px 10px;font-size:10.5px;letter-spacing:.16em}
+}
+/* phone turned sideways (or any short window): the page takes the whole height; the buttons sit in the side margins */
+@media(max-height:520px) and (orientation:landscape){
+  :root{--bar:0px}
+  main{padding:6px}
+  .bar{position:fixed;inset:0;height:auto;padding:0;pointer-events:none}
+  .bar>*{pointer-events:auto;position:absolute}
+  .bar .arrow{top:50%;margin-top:-24px;width:44px;height:44px;background:rgba(0,0,0,.55)}
+  .bar #prev{left:max(10px,env(safe-area-inset-left))}.bar #next{right:max(10px,env(safe-area-inset-right))}
+  .bar a{min-width:0;bottom:10px;padding:11px 14px;font-size:9px;letter-spacing:.16em;background:rgba(0,0,0,.55)}
+  .bar a.primary{background:var(--green);right:max(10px,env(safe-area-inset-right))}
+  .bar a:not(.primary){left:max(10px,env(safe-area-inset-left))}
+  .hint{font-size:9px;padding:7px 14px;bottom:3%}
+}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 </style>
 </head>
@@ -47,8 +65,8 @@ main{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;
     <div class="loading" id="loading">Opening the menu</div>
     <div class="hint" id="hint">Click or drag a page corner to turn</div>
   </div>
+  <div class="turn" role="status"><svg viewBox="0 0 64 64" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="19" y="6" width="26" height="52" rx="5"/><path d="M28 52h8"/></svg><b>Turn your phone sideways</b><span>The menu opens in landscape</span></div>
 </main>
-<p class="rot">Turn your phone sideways for a larger page</p>
 <nav class="bar" aria-label="Menu">
   <button id="prev" class="arrow" type="button" aria-label="Previous page"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
   <a href="https://www.blackhorsebeamish.co.uk/" target="_top">Homepage</a>
@@ -95,6 +113,7 @@ flip.on("init", () => { $("loading").remove(); setTimeout(() => $("hint").classL
 flip.on("flip", () => { $("hint").classList.add("off"); upd(); });
 $("prev").onclick = () => flip.flipPrev();
 $("next").onclick = () => flip.flipNext();
+matchMedia("(orientation:portrait)").addEventListener("change", () => setTimeout(() => flip.update(), 300));
 addEventListener("keydown", e => { if (e.key === "ArrowRight") flip.flipNext(); if (e.key === "ArrowLeft") flip.flipPrev(); });
 </script>
 </body>
