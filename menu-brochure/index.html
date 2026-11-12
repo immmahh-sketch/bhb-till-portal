@@ -7,6 +7,10 @@
 <title>The Winter Menu | The Black Horse Beamish</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@500;600&display=swap" rel="stylesheet">
+<script>
+// phones (narrow or short screens) get the scrolling version: the landscape pages are too small to read there. ?flip=1 forces the flip-book.
+(function(){var q=location.search,mq=matchMedia("(max-width:700px), (max-height:520px)");function go(){if(!/[?&]flip=1/.test(q)&&mq.matches)location.replace("m.html"+q);}go();mq.addEventListener("change",go);})();
+</script>
 <style>
 :root{--green:#4D604F;--olive:#CCCDB4;--bar:84px}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -24,6 +28,10 @@ main{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;
 .bar a:hover{background:rgba(255,255,255,.14);border-color:#fff}
 .bar a.primary{background:var(--green);border-color:var(--green)}
 .bar a.primary:hover{background:#5d735f;border-color:#5d735f}
+.bar .arrow{appearance:none;flex:none;width:48px;height:48px;border-radius:50%;border:1px solid rgba(255,255,255,.55);background:transparent;color:#fff;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:background .2s,border-color .2s}
+.bar .arrow:hover:not(:disabled){background:rgba(255,255,255,.14);border-color:#fff}
+.bar .arrow:disabled{opacity:.3;cursor:default}
+.bar .arrow:focus-visible,.bar a:focus-visible{outline:2px solid var(--olive);outline-offset:3px}
 .bar a:focus-visible{outline:2px solid var(--olive);outline-offset:3px}
 .rot{display:none;position:absolute;left:0;right:0;bottom:calc(var(--bar) + 2px);text-align:center;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--olive)}
 @media(max-width:600px){.bar{gap:10px}.bar a{min-width:0;flex:1;padding:14px 10px;font-size:10px;letter-spacing:.18em}.hint{font-size:9px;letter-spacing:.16em;padding:8px 14px}}
@@ -41,9 +49,11 @@ main{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;
   </div>
 </main>
 <p class="rot">Turn your phone sideways for a larger page</p>
-<nav class="bar" aria-label="Site">
+<nav class="bar" aria-label="Menu">
+  <button id="prev" class="arrow" type="button" aria-label="Previous page"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
   <a href="https://www.blackhorsebeamish.co.uk/" target="_top">Homepage</a>
   <a class="primary" href="https://www.blackhorsebeamish.co.uk/booking" target="_top">Book a table</a>
+  <button id="next" class="arrow" type="button" aria-label="Next page"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
 </nav>
 <ol class="sr" id="alts"></ol>
 <noscript><p style="text-align:center;padding:20px"><a style="color:#fff" href="Black-Horse-Beamish-Winter-Menu-2026.pdf">Open the menu as a PDF</a></p></noscript>
@@ -80,8 +90,11 @@ const flip = new St.PageFlip($("book"), {
   flippingTime: Math.min(+Q.get("ft") || 850, 8000), showPageCorners: true, mobileScrollSupport: false, swipeDistance: 24, autoSize: true
 });
 flip.loadFromImages(PAGES.map((_, i) => url(i)));
-flip.on("init", () => { $("loading").remove(); setTimeout(() => $("hint").classList.add("off"), 6000); });
-flip.on("flip", () => $("hint").classList.add("off"));
+const upd = () => { const i = flip.getCurrentPageIndex(); $("prev").disabled = i <= 0; $("next").disabled = i >= flip.getPageCount() - 1; };
+flip.on("init", () => { $("loading").remove(); setTimeout(() => $("hint").classList.add("off"), 6000); upd(); });
+flip.on("flip", () => { $("hint").classList.add("off"); upd(); });
+$("prev").onclick = () => flip.flipPrev();
+$("next").onclick = () => flip.flipNext();
 addEventListener("keydown", e => { if (e.key === "ArrowRight") flip.flipNext(); if (e.key === "ArrowLeft") flip.flipPrev(); });
 </script>
 </body>
