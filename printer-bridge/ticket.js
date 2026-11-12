@@ -413,6 +413,7 @@ function buildLunchTicket(job) {
   chunks.push(escBytes([0x1b, 0x52, 0x03])); // UK character set
   const testBanner = () => { align(1); bold(true); size(0x11); push("*** TEST ***\n"); size(0x01); push("DO NOT MAKE - TEST ORDER\n"); size(0); bold(false); push(rule()); };
   if (p.is_test) testBanner();
+  if (p.late) { align(1); bold(true); size(0x11); push("LATE ORDER\n"); size(0x01); push(plain("Put through by " + (p.ordered_by || "a manager"), 40) + "\n"); size(0); bold(false); push(rule()); }
   align(1); bold(true);
   size(0x11); push("STAFF LUNCH\n");
   size(0); bold(false);

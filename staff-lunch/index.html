@@ -64,6 +64,15 @@ textarea{min-height:90px; resize:vertical}
 .choice .v{font-family:var(--display); font-size:22px; color:var(--sage); line-height:1.2}
 .choice .extra{margin-top:8px}
 .choice .extra input{width:100%; padding:10px 12px; border:1px solid var(--mist); border-radius:8px; font-size:16px; background:var(--white)}
+.split{display:flex; justify-content:space-between; align-items:center; gap:10px 14px; flex-wrap:wrap}
+.sect{font-family:var(--display); font-size:21px; color:var(--sage); margin:22px 0 10px; font-weight:600}
+.rules{padding:0} .rules summary{cursor:pointer; padding:14px 20px; font-family:var(--display); font-size:19px; color:var(--sage); font-weight:600}
+.rules ul{margin:0; padding:0 20px 16px 38px} .rules li{margin:0 0 8px; font-size:14.5px}
+.dayc .shift{font-size:13px}
+.tick{display:flex; gap:10px; align-items:flex-start; font-size:15px; margin:8px 0; cursor:pointer}
+.tick input{width:22px; height:22px; margin:1px 0 0; accent-color:var(--sage); flex:none}
+.stickybar{position:sticky; bottom:0; padding:12px 0 14px; background:linear-gradient(to top, var(--bone) 70%, rgba(248,248,248,0))}
+.badge.late{background:var(--alert-bg); color:var(--alert)}
 .testbox{display:flex; align-items:center; gap:8px; font-size:13px; color:var(--sage-70); margin:6px 0 14px}
 .sum{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-top:6px}
 .sum .k{font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70)}
@@ -127,7 +136,7 @@ textarea{min-height:90px; resize:vertical}
 <div class="toast" id="toast"></div>
 <script>
 const CFG = { SUPABASE_URL:"https://safcrtrfdzsnftghibot.supabase.co", SUPABASE_KEY:"sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU" };
-const S = { me:null, view:"order", dishes:[], days:[], today:"", order:null, pick:"", test:false, filter:"" };
+const S = { me:null, view:"order", dishes:[], days:[], today:"", order:null, pick:"", test:false, lateTest:false, lateDone:"", filter:"" };
 const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
 const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 const minusMins = (t, m) => { const [h, mi] = t.split(":").map(Number), x = h * 60 + mi - m; return String(Math.floor(x / 60)).padStart(2, "0") + ":" + String(x % 60).padStart(2, "0"); };
@@ -144,61 +153,151 @@ async function call(action, payload){
 }
 
 /* ------------------------------------------------------------- Order lunch */
+const RULES = [
+  "Order by <b>10:30am</b> on the day. You can order any time before then, so you can sort the days you are working in one go.",
+  "You must start your shift <b>no later than 12pm</b> and be on for <b>at least 6 hours</b>, so you can order and eat before you start. The app checks your shifts on Planday.",
+  "If you start later than 12, please have lunch before you come to work, if you need it.",
+  "If you start later than 12 and are on a shift of 6 hours or more, speak to the kitchen about a good time to have staff dinner, and what the options are that day.",
+  "Seeing the menu ahead lets you choose whether to eat staff lunch or bring something with you. It also lets the kitchen plan the meals and make the right amount, so less is wasted and less time goes on preparing food."
+];
+const rulesCard = open => `<details class="card rules" ${open ? "open" : ""}><summary>How staff lunch works</summary><ul>${RULES.map(r => `<li>${r}</li>`).join("")}</ul></details>`;
+const kindWord = c => c === "soup" ? "Soup" : c === "sandwich" ? "Sandwich" : "Main dish";
+const timeOptions = (d, today, times) => `<option value="">Any time, 11:30am to 12:30pm</option>${d === today ? `<option value="asap">As soon as possible</option>` : ""}${times.map(t => `<option value="${esc(t)}">${esc(clock12(t))}</option>`).join("")}`;
+function choiceBlock(name, m, sandId){
+  const opts = [];
+  if (m.main) opts.push(`<label class="choice" data-c="main"><input type="radio" name="${name}" value="main"><div><div class="k">Main dish</div><div class="v">${esc(m.main)}</div></div></label>`);
+  if (m.soup) opts.push(`<label class="choice" data-c="soup"><input type="radio" name="${name}" value="soup"><div><div class="k">Soup</div><div class="v">${esc(m.soup_name || "Soup of the day")}</div></div></label>`);
+  if (m.sandwiches) opts.push(`<label class="choice" data-c="sandwich"><input type="radio" name="${name}" value="sandwich"><div style="flex:1"><div class="k">Sandwiches</div><div class="v">What sandwich would you like?</div><div class="extra"><input type="text" class="sand" id="${sandId}" maxlength="150" placeholder="Type the sandwich you would like"></div></div></label>`);
+  return opts.join("");
+}
+/* clicking a choice ticks it, and tells the page something changed */
+function wireChoices(scope, onChange){
+  scope.querySelectorAll(".choice").forEach(c => c.addEventListener("click", e => {
+    const r = c.querySelector("input[type=radio]"); r.checked = true;
+    c.parentElement.querySelectorAll(".choice").forEach(x => x.classList.toggle("on", x === c));
+    if (c.dataset.c === "sandwich" && e.target.tagName !== "INPUT") { const s = c.querySelector(".sand"); if (s) s.focus(); }
+    if (onChange) onChange();
+  }));
+}
 async function viewOrder(){
   const v = $("#views"); v.innerHTML = `<div class="loading">Loading…</div>`;
   let d; try { d = await call("order.status", { test: S.test }); } catch(e){ v.innerHTML = `<div class="notice bad">${esc(e.message)}</div>`; return; }
-  const head = `<div class="pagehead"><h2>Order lunch</h2><span class="hint">${esc(longDay(d.today))} · ${esc(clock12(d.time))}</span></div>`;
-  const testBox = S.me.admin ? `<label class="testbox"><input type="checkbox" id="testmode" ${S.test ? "checked" : ""}> Test order (any time, no rota check, prints with a TEST banner)</label>` : "";
+  const head = `<div class="pagehead"><h2>Order lunch</h2><span class="hint">${esc(longDay(d.today))} · ${esc(clock12(d.time))} · orders for a day close at ${esc(clock12(d.cutoff))}</span></div>`;
+  const testBox = S.me.admin ? `<label class="testbox"><input type="checkbox" id="testmode" ${S.test ? "checked" : ""}> Test order for today (any time, no rota check, prints with a TEST banner)</label>` : "";
   let body = "";
-  if (d.state === "ordered") {
-    const o = d.order;
-    body = `<div class="notice good"><b>Your lunch is ordered</b>The kitchen has your order for today.</div>
-      <div class="card"><div class="sum">
-        <div><div class="k">${o.choice === "soup" ? "Soup" : o.choice === "sandwich" ? "Sandwich" : "Main dish"}</div><div class="v">${esc(o.item)}</div></div>
-        <div><div class="k">Time</div><div class="v">${esc(timeLabel(o.requested_time))}</div></div>
-        ${o.message ? `<div><div class="k">Message to the kitchen</div><div class="v">${esc(o.message)}</div></div>` : ""}
-      </div>${o.requested_time && o.requested_time !== "asap" && !o.print_queued_at ? `<p style="margin:14px 0 0;font-size:14px">Your order is saved. It goes to the kitchen at <b>${esc(clock12(minusMins(o.requested_time, d.lead || 15)))}</b>, ${d.lead || 15} minutes before your time.</p>` : ""}<p class="muted" style="margin:14px 0 0;font-size:13px">To change or cancel your order, please speak to the kitchen.</p></div>`;
-  } else if (d.state === "closed") {
-    body = `<div class="notice warn"><b>Lunch orders are closed</b>${esc(d.message)}</div>`;
-  } else if (d.state === "not_eligible") {
-    body = `<div class="notice bad"><b>You can't order lunch today</b>${esc(d.message)}</div>`;
-  } else if (d.state === "unchecked") {
+  if (d.state === "unchecked") {
     body = `<div class="notice warn"><b>Couldn't check the rota</b>${esc(d.message)}</div><button class="btn ghost" id="retry">Try again</button>`;
-  } else if (d.state === "no_menu") {
-    body = `<div class="notice warn"><b>No menu yet</b>${esc(d.message)}</div>`;
   } else {
-    const m = d.menu;
-    const opts = [];
-    if (m.main) opts.push(`<label class="choice" data-c="main"><input type="radio" name="c" value="main"><div><div class="k">Main dish</div><div class="v">${esc(m.main)}</div></div></label>`);
-    if (m.soup) opts.push(`<label class="choice" data-c="soup"><input type="radio" name="c" value="soup"><div><div class="k">Soup</div><div class="v">${esc(m.soup_name || "Soup of the day")}</div></div></label>`);
-    if (m.sandwiches) opts.push(`<label class="choice" data-c="sandwich"><input type="radio" name="c" value="sandwich"><div style="flex:1"><div class="k">Sandwiches</div><div class="v">What sandwich would you like?</div><div class="extra"><input type="text" id="sand" maxlength="150" placeholder="Type the sandwich you would like"></div></div></label>`);
-    body = `${d.shift ? `<p class="muted" style="margin:0 0 12px">Your shift today: ${esc(d.shift)}</p>` : ""}
-      <div class="card"><h3>What would you like?</h3>${opts.join("")}</div>
-      <div class="card">
-        <div class="field"><label class="l" for="rt">Request a time</label><div class="muted" style="font-size:13px;margin-bottom:6px">Pick a time more than 15 minutes away and your order is saved, then sent to the kitchen 15 minutes before it.</div><select id="rt"><option value="">Any time, 11:30am to 12:30pm</option><option value="asap">As soon as possible</option>${d.times.map(t => `<option value="${esc(t)}">${esc(clock12(t))}</option>`).join("")}</select></div>
-        <div class="field" style="margin-bottom:0"><label class="l" for="msg">Message to the kitchen</label><textarea id="msg" maxlength="300" placeholder="Allergies, no butter, anything the kitchen should know"></textarea></div>
-      </div>
-      ${testBox}
-      <button class="btn" id="place">Place my order</button>`;
+    const by = s => d.days.filter(x => x.state === s);
+    const ordered = by("ordered"), can = by("can_order"), closedToday = by("closed"), nomenu = by("no_menu"), cant = by("not_eligible");
+    if (closedToday.length) body += `<div class="notice warn"><b>Today's orders have closed</b>Orders for a day close at ${esc(clock12(d.cutoff))} that morning. If you have missed it, please speak to a manager.</div>`;
+    if (ordered.length) {
+      body += `<h3 class="sect">Your lunches</h3>` + ordered.map(x => {
+        const o = x.order, held = !o.print_queued_at && o.print_due_local;
+        return `<div class="card"><div class="split"><h3 style="margin:0">${esc(longDay(x.date))}</h3>${x.can_cancel ? `<button class="btn danger small" data-cancel="${esc(x.date)}">Cancel</button>` : ""}</div>
+          <div class="sum" style="margin-top:12px">
+            <div><div class="k">${kindWord(o.choice)}</div><div class="v">${esc(o.item)}</div></div>
+            <div><div class="k">Time</div><div class="v">${esc(timeLabel(o.requested_time))}</div></div>
+            ${o.message ? `<div><div class="k">Message to the kitchen</div><div class="v">${esc(o.message)}</div></div>` : ""}
+          </div>
+          <p class="muted" style="margin:12px 0 0;font-size:13px">${o.is_late ? `Put through late by ${esc(o.ordered_by_name || "a manager")}. ` : ""}${held ? `Goes to the kitchen at <b>${esc(clock12(String(o.print_due_local).slice(11, 16)))}</b> on the day. ` : "Sent to the kitchen. "}${x.can_cancel ? `You can cancel until ${esc(clock12(d.cutoff))} that morning.` : "To change or cancel, please speak to the kitchen."}</p></div>`;
+      }).join("");
+    }
+    if (can.length) {
+      body += `<h3 class="sect">Order for the days you are working</h3><p class="muted" style="margin:-4px 0 12px;font-size:14px">Choose a lunch for each day you want one, then press the button at the bottom.</p>` + can.map(x => `
+        <div class="card dayc" data-date="${esc(x.date)}"><div class="split"><h3 style="margin:0">${esc(longDay(x.date))}${x.date === d.today ? ` <span class="badge">today</span>` : ""}</h3>${x.shift ? `<span class="muted shift">Your shift ${esc(x.shift)}</span>` : ""}</div>
+          <div style="margin-top:12px">${choiceBlock("c_" + x.date, x.menu, "sand_" + x.date)}</div>
+          <div class="row2" style="margin-top:6px"><div class="field"><label class="l" for="rt_${esc(x.date)}">Time</label><select id="rt_${esc(x.date)}" class="rt">${timeOptions(x.date, d.today, d.times)}</select></div>
+          <div class="field"><label class="l" for="msg_${esc(x.date)}">Message to the kitchen</label><input type="text" class="msg" id="msg_${esc(x.date)}" maxlength="300" placeholder="Allergies, no butter, anything the kitchen should know" style="width:100%;padding:11px 12px;border:1px solid var(--mist);border-radius:8px;font-size:16px"></div></div>
+        </div>`).join("") + `<div class="stickybar"><button class="btn" id="place" disabled>Choose a lunch to order</button></div>`;
+    } else if (!ordered.length) {
+      body += `<div class="notice warn"><b>Nothing to order just now</b>${d.test ? "There is no menu for today." : "There are no days in the next two weeks where you are on a qualifying shift and the kitchen has set a menu."}</div>`;
+    }
+    if (nomenu.length) body += `<p class="muted" style="font-size:14px">The kitchen has not set a menu yet for: ${nomenu.map(x => esc(dow(x.date).slice(0, 3) + " " + dm(x.date))).join(", ")}.</p>`;
+    if (cant.length && !d.test) body += `<details class="muted" style="font-size:14px;margin-bottom:14px"><summary style="cursor:pointer">Days you can't order for (${cant.length})</summary><p style="margin:8px 0 0">${cant.map(x => esc(dow(x.date).slice(0, 3) + " " + dm(x.date)) + (x.shift ? ` (shift ${esc(x.shift)})` : " (no shift)")).join(" · ")}<br>You can order on days when your shift starts by 12pm and lasts at least 6 hours.</p></details>`;
   }
-  v.innerHTML = head + (d.state === "can_order" ? "" : testBox) + body;
+  v.innerHTML = head + rulesCard(false) + testBox + body;
   const tb = $("#testmode"); if (tb) tb.addEventListener("change", () => { S.test = tb.checked; viewOrder(); });
   const rt = $("#retry"); if (rt) rt.addEventListener("click", viewOrder);
-  $$(".choice").forEach(c => c.addEventListener("click", () => {
-    const r = c.querySelector("input[type=radio]"); r.checked = true;
-    $$(".choice").forEach(x => x.classList.toggle("on", x === c));
-    if (c.dataset.c === "sandwich") { const s = $("#sand"); if (s && document.activeElement !== s) s.focus(); }
+  $$("[data-cancel]").forEach(b => b.addEventListener("click", async () => {
+    if (!confirm(`Cancel your lunch for ${longDay(b.dataset.cancel)}?`)) return;
+    b.disabled = true;
+    try { await call("order.cancel", { date: b.dataset.cancel }); toast("Lunch cancelled"); viewOrder(); } catch(e){ toast(e.message, true); b.disabled = false; }
   }));
   const place = $("#place");
+  if (place) {
+    const picked = () => $$(".dayc").filter(c => c.querySelector("input[type=radio]:checked"));
+    const refresh = () => { const n = picked().length; place.disabled = !n; place.textContent = n ? `Place ${n} order${n === 1 ? "" : "s"}` : "Choose a lunch to order"; };
+    $$(".dayc").forEach(c => wireChoices(c, refresh));
+    place.addEventListener("click", async () => {
+      const cards = picked();
+      for (const c of cards) { if (c.querySelector("input[type=radio]:checked").value === "sandwich" && !c.querySelector(".sand").value.trim()) return toast(`Type which sandwich you would like on ${longDay(c.dataset.date)}.`, true); }
+      place.disabled = true; place.textContent = "Ordering…";
+      let ok = 0; const failed = [];
+      for (const c of cards) {
+        try {
+          await call("order.place", { date: c.dataset.date, choice: c.querySelector("input[type=radio]:checked").value, sandwich: c.querySelector(".sand") ? c.querySelector(".sand").value : "", requested_time: c.querySelector(".rt").value, message: c.querySelector(".msg").value, test: S.test });
+          ok++;
+        } catch(e){ failed.push(`${dow(c.dataset.date)}: ${e.message}`); }
+      }
+      if (failed.length) toast((ok ? `${ok} ordered. ` : "") + failed.join(" "), true); else toast(ok === 1 ? "Lunch ordered" : `${ok} lunches ordered`);
+      viewOrder();
+    });
+  }
+}
+
+/* ------------------------------------------------------------- Late orders */
+async function viewLate(){
+  const v = $("#views"); if (!$("#lateform") && !$("#latelog")) v.innerHTML = `<div class="loading">Loading…</div>`;
+  let d, lg; try { [d, lg] = await Promise.all([call("late.status"), call("late.log")]); } catch(e){ v.innerHTML = `<div class="notice bad">${esc(e.message)}</div>`; return; }
+  const open = d.window || S.lateTest;
+  const testBox = S.me.admin ? `<label class="testbox"><input type="checkbox" id="latetest" ${S.lateTest ? "checked" : ""}> Practice run (any time, prints with a TEST banner, not counted or logged)</label>` : "";
+  const m = d.menu, has = !!(m.main || m.soup || m.sandwiches);
+  const times = d.times.filter(t => S.lateTest || t >= d.time);
+  let form = "";
+  if (!open) {
+    form = d.time <= d.cutoff
+      ? `<div class="notice good"><b>Orders are still open</b>Orders for today close at ${esc(clock12(d.cutoff))}, so please ask them to order through the app themselves. Late orders can be put through here from ${esc(clock12(d.cutoff))} until ${esc(clock12(d.closes))}.</div>`
+      : `<div class="notice warn"><b>Too late for today</b>Late orders can only be put through until ${esc(clock12(d.closes))}. Please speak to the kitchen.</div>`;
+  } else if (!has) {
+    form = `<div class="notice warn"><b>No menu for today</b>The kitchen has not set today's lunch menu.</div>`;
+  } else {
+    form = `<div class="card" id="lateform"><h3>Who is the order for?</h3>
+      <div class="field"><input type="text" id="lwho" list="lpeople" maxlength="80" placeholder="Start typing their name" autocomplete="off" style="width:100%;padding:11px 12px;border:1px solid var(--mist);border-radius:8px;font-size:16px">
+      <datalist id="lpeople">${d.people.map(p => `<option value="${esc(p)}">`).join("")}</datalist>
+      <div class="muted" style="font-size:13px;margin-top:6px">Pick them from the list, or type their name. Their Planday shift is checked when they can be found.</div></div>
+      ${choiceBlock("lc", m, "lsand")}
+      <div class="row2" style="margin-top:6px"><div class="field"><label class="l" for="lrt">Time</label><select id="lrt"><option value="">Any time, 11:30am to 12:30pm</option><option value="asap">As soon as possible</option>${times.map(t => `<option value="${esc(t)}">${esc(clock12(t))}</option>`).join("")}</select></div>
+      <div class="field"><label class="l" for="lmsg">Message to the kitchen</label><input type="text" id="lmsg" maxlength="300" placeholder="Allergies, no butter, anything the kitchen should know" style="width:100%;padding:11px 12px;border:1px solid var(--mist);border-radius:8px;font-size:16px"></div></div>
+      <label class="tick"><input type="checkbox" id="lc1"> I have checked with the kitchen that they can take a late order</label>
+      <label class="tick"><input type="checkbox" id="lc2"> I understand that late orders are logged and tracked, with my name against them</label>
+      <button class="btn" id="lplace" style="margin-top:8px">Put the order through</button></div>`;
+  }
+  const rows = lg.orders;
+  const by = Object.keys(lg.by).sort((a, b) => lg.by[b] - lg.by[a]).map(k => `${esc(k)} ${lg.by[k]}`).join(" · ");
+  const log = `<h3 class="sect" id="latelog">Late orders, last 30 days</h3>` + (rows.length
+    ? `<p class="muted" style="margin:-4px 0 10px;font-size:14px">${lg.total} late order${lg.total === 1 ? "" : "s"}: ${by}</p>` + rows.map(o => `<div class="ord"><div><div class="who2">${esc(o.person_name)}</div><div class="t">${esc(dm(o.order_date))} · ordered ${esc(new Date(o.created_at).toLocaleTimeString("en-GB", { timeZone: "Europe/London", hour: "2-digit", minute: "2-digit" }))}</div></div>
+      <div class="what"><b>${kindWord(o.choice)}</b>${esc(o.item)}<div class="t" style="margin-top:4px">Put through by ${esc(o.ordered_by_name || "?")} · ${esc(o.late_check || "")}</div></div><div></div></div>`).join("")
+    : `<div class="empty" style="padding:20px">No late orders yet. That is how we like it.</div>`);
+  v.innerHTML = `<div class="pagehead"><h2>Late orders</h2><span class="hint">${esc(longDay(d.today))} · ${esc(clock12(d.time))}</span></div>
+    <div class="card"><p style="margin:0">Orders close at <b>${esc(clock12(d.cutoff))}</b>. If someone has missed it, you can put their lunch through here until ${esc(clock12(d.closes))}, once you have checked with the kitchen. Please encourage them to use the app early, and to order ahead for the days they are working, so it doesn't happen again.</p></div>
+    ${testBox}${form}${log}`;
+  const lt = $("#latetest"); if (lt) lt.addEventListener("change", () => { S.lateTest = lt.checked; viewLate(); });
+  const f = $("#lateform"); if (f) wireChoices(f);
+  const place = $("#lplace");
   if (place) place.addEventListener("click", async () => {
-    const sel = $("input[name=c]:checked");
+    const sel = $("input[name=lc]:checked");
+    if (!$("#lwho").value.trim()) return toast("Who is the order for?", true);
     if (!sel) return toast("Choose the main dish, the soup or a sandwich.", true);
+    if (!$("#lc1").checked || !$("#lc2").checked) return toast("Please tick both boxes to confirm.", true);
     place.disabled = true;
     try {
-      await call("order.place", { choice: sel.value, sandwich: $("#sand") ? $("#sand").value : "", requested_time: $("#rt").value, message: $("#msg").value, test: S.test });
-      toast("Lunch ordered"); viewOrder();
+      const r = await call("late.place", { for_name: $("#lwho").value, choice: sel.value, sandwich: $("#lsand") ? $("#lsand").value : "", requested_time: $("#lrt").value, message: $("#lmsg").value, confirm_kitchen: true, confirm_logged: true, test: S.lateTest });
+      toast(`Lunch ordered for ${r.order.name}`);
+      S.lateDone = r.order.name; viewLate();
     } catch(e){ toast(e.message, true); place.disabled = false; }
   });
+  if (S.lateDone) { const n = S.lateDone; S.lateDone = ""; v.insertAdjacentHTML("afterbegin", `<div class="notice good"><b>Lunch ordered for ${esc(n)}</b>The ticket has gone to the kitchen. Please remind ${esc(n.split(" ")[0])} to order early next time, ideally ahead for the days they are working.</div>`); }
 }
 
 /* ------------------------------------------------------------- Weekly Menu */
@@ -322,13 +421,13 @@ async function viewChefs(date){
   });
   const make = d.totals.map(t => `<div class="make"><div class="k">${kindName(t.choice)}</div><div class="n">${t.count}</div><div class="w">${esc(t.item)}</div></div>`).join("");
   const chips = Object.keys(d.slots).sort((a, b) => slotRank(a) < slotRank(b) ? -1 : 1).map(k => `<span class="chip"><b>${d.slots[k]}</b> ${esc(slotName(k))}</span>`).join("");
-  const state = o => o.is_test ? `<span class="badge test">Test</span> ` : "";
+  const state = o => (o.is_test ? `<span class="badge test">Test</span> ` : "") + (o.is_late ? `<span class="badge late">Late</span> ` : "");
   const prn = o => o.print === "waiting" ? `<span class="badge wait">Prints at ${esc(clock12(o.prints_at))}</span>` : o.print === "printed" ? `<span class="badge done">Printed</span>` : `<span class="badge">Sent to printer</span>`;
   v.innerHTML = `<div class="pagehead"><h2>Chef's</h2><span class="hint">${esc(longDay(d.date))}${isToday ? " · today" : ""} · updates every 30 seconds</span></div>
     <div class="row2" style="margin-bottom:16px"><div class="field"><label class="l" for="cday">Day</label><input type="date" id="cday" value="${esc(d.date)}" style="width:100%;padding:10px 12px;border:1px solid var(--mist);border-radius:8px;font-size:16px;background:var(--white)"></div><button class="btn ghost" id="cnow">Refresh</button></div>
     ${d.total ? `<h3 style="color:var(--sage);font-size:20px;margin:0 0 8px">How much to make · ${d.total} order${d.total === 1 ? "" : "s"}</h3><div class="big">${make}</div><div class="chips">${chips}</div>` : `<div class="notice warn"><b>No orders yet</b>Nothing has been ordered for ${esc(longDay(d.date))}.</div>`}
     ${order.length ? `<h3 style="color:var(--sage);font-size:20px;margin:18px 0 8px">The orders</h3>` + order.map(o => `<div class="ord"><div><div class="who2">${esc(o.person_name)}</div><div class="t">${esc(timeLabel(o.requested_time))}</div></div>
-      <div class="what"><b>${kindName(o.choice)}</b>${esc(o.item)}${o.message ? `<div class="msg">${esc(o.message)}</div>` : ""}</div><div>${state(o)}${prn(o)}</div></div>`).join("") : ""}`;
+      <div class="what"><b>${kindName(o.choice)}</b>${esc(o.item)}${o.is_late ? `<div class="t" style="margin-top:4px">Late order, put through by ${esc(o.ordered_by_name || "a manager")}</div>` : ""}${o.message ? `<div class="msg">${esc(o.message)}</div>` : ""}</div><div>${state(o)}${prn(o)}</div></div>`).join("") : ""}`;
   $("#cday").addEventListener("change", e => viewChefs(e.target.value));
   $("#cnow").addEventListener("click", () => viewChefs());
   clearInterval(S.chefTimer);
@@ -336,11 +435,11 @@ async function viewChefs(date){
 }
 
 /* ------------------------------------------------------------- shell */
-const TABS = [["order", "Order lunch", m => m.canOrder], ["chefs", "Chef's", m => m.canChefs], ["menu", "Weekly Menu", m => m.canSetMenu], ["upload", "Menu Upload", m => m.canSetMenu]];
+const TABS = [["order", "Order lunch", m => m.canOrder], ["late", "Late orders", m => m.canLate], ["chefs", "Chef's", m => m.canChefs], ["menu", "Weekly Menu", m => m.canSetMenu], ["upload", "Menu Upload", m => m.canSetMenu]];
 function goView(v){
   S.view = v;
   $$(".tabbtn").forEach(b => b.setAttribute("aria-current", b.dataset.view === v ? "page" : "false"));
-  clearInterval(S.chefTimer); if (v === "menu") viewMenu(); else if (v === "upload") viewUpload(); else if (v === "chefs") viewChefs(); else viewOrder();
+  clearInterval(S.chefTimer); if (v === "menu") viewMenu(); else if (v === "upload") viewUpload(); else if (v === "chefs") viewChefs(); else if (v === "late") viewLate(); else viewOrder();
   window.scrollTo(0, 0);
 }
 function openGate(msg){ $("#gate").hidden = false; $("#app").hidden = true; if (msg) $("#gerr").textContent = msg; }
