@@ -155,9 +155,10 @@ async function call(action, payload){
 /* ------------------------------------------------------------- Order lunch */
 const RULES = [
   "Order by <b>10:30am</b> on the day. You can order any time before then, so you can sort the days you are working in one go.",
-  "You must start your shift <b>no later than 12pm</b> and be on for <b>at least 6 hours</b>, so you can order and eat before you start. The app checks your shifts on Planday.",
-  "If you start later than 12, please have lunch before you come to work, if you need it.",
-  "If you start later than 12 and are on a shift of 6 hours or more, speak to the kitchen about a good time to have staff dinner, and what the options are that day.",
+  "The app checks your shifts on Planday, so you can only order for the days you are working. Make sure any swapped shifts are reflected in your rota on Planday!",
+  "You must start your shift <b>no later than 12:30pm</b> and be on for <b>at least 6 hours</b>. Order and eat before you start your shift. If you start at or after 12pm, please order food to eat before your shift starts.",
+  "If you start later than 12:30, please have lunch before you come to work, if you need it.",
+  "If you start later than 12:30 and are on a shift of 6 hours or more, speak to the kitchen about a good time to have staff dinner, and what the options are that day.",
   "Seeing the menu ahead lets you choose whether to eat staff lunch or bring something with you. It also lets the kitchen plan the meals and make the right amount, so less is wasted and less time goes on preparing food."
 ];
 const rulesCard = open => `<details class="card rules" ${open ? "open" : ""}><summary>How staff lunch works</summary><ul>${RULES.map(r => `<li>${r}</li>`).join("")}</ul></details>`;
@@ -214,7 +215,7 @@ async function viewOrder(){
       body += `<div class="notice warn"><b>Nothing to order just now</b>${d.test ? "There is no menu for today." : "There are no days in the next two weeks where you are on a qualifying shift and the kitchen has set a menu."}</div>`;
     }
     if (nomenu.length) body += `<p class="muted" style="font-size:14px">The kitchen has not set a menu yet for: ${nomenu.map(x => esc(dow(x.date).slice(0, 3) + " " + dm(x.date))).join(", ")}.</p>`;
-    if (cant.length && !d.test) body += `<details class="muted" style="font-size:14px;margin-bottom:14px"><summary style="cursor:pointer">Days you can't order for (${cant.length})</summary><p style="margin:8px 0 0">${cant.map(x => esc(dow(x.date).slice(0, 3) + " " + dm(x.date)) + (x.shift ? ` (shift ${esc(x.shift)})` : " (no shift)")).join(" · ")}<br>You can order on days when your shift starts by 12pm and lasts at least 6 hours.</p></details>`;
+    if (cant.length && !d.test) body += `<details class="muted" style="font-size:14px;margin-bottom:14px"><summary style="cursor:pointer">Days you can't order for (${cant.length})</summary><p style="margin:8px 0 0">${cant.map(x => esc(dow(x.date).slice(0, 3) + " " + dm(x.date)) + (x.shift ? ` (shift ${esc(x.shift)})` : " (no shift)")).join(" · ")}<br>You can order on days when your shift starts by 12:30pm and lasts at least 6 hours.</p></details>`;
   }
   v.innerHTML = head + rulesCard(false) + testBox + body;
   const tb = $("#testmode"); if (tb) tb.addEventListener("change", () => { S.test = tb.checked; viewOrder(); });
