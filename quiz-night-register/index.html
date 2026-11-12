@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Quiz Night | Black Horse Beamish</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Raleway:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--sage:#4D604F;--sage-soft:#EDEFED;--sage-mid:#7B887C;--brown:#3F2F28;--bone:#F8F8F8;--celadon:#CCCDB4;--white:#fff;--ink:#262626;--gold:#B08D57;--gold-soft:#F7F0E4;
+ --alert:#8C4A3F;--alert-bg:#F6EAE8;--good:#4F6B4F;--good-bg:#EDF2ED;
+ --display:"Orpheus Pro","Cormorant Garamond",Georgia,serif;--body:Raleway,"Helvetica Neue",Arial,sans-serif;--radius:12px}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bone);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.55}
+h1,h2{font-family:var(--display);font-weight:600;margin:0;color:var(--sage);letter-spacing:.01em}
+header.top{background:var(--sage);color:var(--white);padding:22px 16px 26px;text-align:center}
+header.top img.logo{display:block;margin:0 auto 10px;height:46px;width:auto}
+header.top .brand{font-size:12px;letter-spacing:.3em;text-transform:uppercase;color:var(--celadon)}
+header.top h1{color:var(--white);font-size:40px;line-height:1.1;margin-top:6px}
+header.top .when{font-family:var(--display);font-size:22px;margin-top:4px;color:var(--celadon)}
+main{max-width:640px;margin:0 auto;padding:20px 16px 80px}
+.card{background:var(--white);border-radius:var(--radius);box-shadow:0 1px 2px rgba(38,38,38,.06),0 8px 24px rgba(38,38,38,.07);padding:22px 20px;margin:0 0 16px;min-width:0}
+.card h2{font-size:26px;margin-bottom:10px}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin:0}
+.facts div{min-width:0}
+.facts dt{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--sage-mid);margin:0 0 2px}
+.facts dd{margin:0;font-family:var(--display);font-size:22px;line-height:1.2;color:var(--sage)}
+.deal{background:var(--gold-soft);border-left:4px solid var(--gold);border-radius:10px;padding:13px 15px;margin:16px 0 0}
+label.f{display:block;font-weight:600;margin:16px 0 6px}
+.req{color:var(--alert);margin-left:3px}
+.hint{font-size:14px;color:var(--sage-mid);margin:-2px 0 6px}
+input[type=text],input[type=email],input[type=tel],select,textarea{width:100%;font:inherit;padding:12px 13px;border:1px solid var(--celadon);border-radius:9px;background:var(--white);color:var(--ink)}
+textarea{min-height:84px;resize:vertical}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--sage);outline-offset:1px}
+.chk{display:flex;gap:10px;align-items:flex-start;margin:18px 0 0}
+.chk input{width:22px;height:22px;margin:2px 0 0;accent-color:var(--sage);flex:0 0 auto}
+.btn{display:inline-block;background:var(--sage);color:var(--white);border:0;border-radius:9px;padding:14px 28px;font:inherit;font-weight:700;letter-spacing:.05em;cursor:pointer}
+.btn:disabled{opacity:.6;cursor:default}
+.err{background:var(--alert-bg);color:var(--alert);border-radius:10px;padding:12px 14px;margin:14px 0 0;font-weight:600}
+.ok{background:var(--good-bg);color:var(--good);border-left:4px solid var(--good);border-radius:10px;padding:12px 14px;margin:0 0 14px;font-weight:600}
+.bad label.f{color:var(--alert)} .bad input,.bad select{border-color:var(--alert)}
+.hp{position:absolute;left:-5000px;width:1px;height:1px;overflow:hidden}
+.spin{display:inline-block;width:22px;height:22px;border:3px solid var(--celadon);border-top-color:var(--sage);border-radius:50%;animation:sp 1s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+body.embed header.top,body.embed footer{display:none}
+body.embed main{padding-top:4px;padding-bottom:20px}
+footer{max-width:640px;margin:0 auto;padding:0 16px 36px;font-size:14px;color:var(--sage-mid);text-align:center}
+footer a{color:var(--sage)}
+</style>
+</head>
+<body>
+<header class="top"><a href="https://www.blackhorsebeamish.co.uk" target="_blank" rel="noopener" style="display:block"><img class="logo" src="../app/logo-light.png" alt="Black Horse Beamish"></a><h1>Quiz Night</h1><div class="when" id="when"></div></header>
+<main id="app"><div class="card" style="text-align:center"><span class="spin"></span></div></main>
+<footer>Need a hand? Phone 01207 232 569 or email <a href="mailto:events@blackhorsebeamish.co.uk">events@blackhorsebeamish.co.uk</a>.<br>Black Horse Beamish, Red Row, Beamish, DH9 0RW</footer>
+<script>
+const API = "https://safcrtrfdzsnftghibot.supabase.co/functions/v1/quiznight-api";
+const KEY = "sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU";
+const EMBED = new URLSearchParams(location.search).get("embed") === "1";      // shown inside the website: no header or footer, and it tells the page around it how tall it is
+if (EMBED) document.body.classList.add("embed");
+const tellHeight = () => { if (EMBED && parent !== window) parent.postMessage({ bhbHeight: document.documentElement.scrollHeight }, "*"); };
+if (EMBED && window.ResizeObserver) new ResizeObserver(tellHeight).observe(document.body);
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+const clock = t => { const [h, m] = String(t).split(":").map(Number); return (h > 12 ? h - 12 : h === 0 ? 12 : h) + (m ? ":" + String(m).padStart(2, "0") : "") + (h >= 12 ? "pm" : "am"); };
+const longDay = d => new Date(d + "T12:00:00Z").toLocaleDateString("en-GB", { timeZone:"UTC", weekday:"long", day:"numeric", month:"long" });
+let I = null;
+async function call(action, payload){
+  const r = await fetch(API, { method:"POST", headers:{ "Content-Type":"application/json", Authorization:"Bearer " + KEY, apikey:KEY }, body:JSON.stringify(Object.assign({ action }, payload || {})) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || "Something went wrong. Please try again.");
+  return j;
+}
+function facts(n){
+  return '<div class="card"><dl class="facts">' +
+    '<div><dt>Where</dt><dd>' + esc(n.venue) + '</dd></div>' +
+    '<div><dt>Arrive from</dt><dd>' + clock(n.arrive_from) + '</dd></div>' +
+    '<div><dt>Quiz starts</dt><dd>' + clock(n.starts_at) + '</dd></div>' +
+    '<div><dt>Cost</dt><dd>Free</dd></div></dl>' +
+    '<div class="deal"><b>20% off food, ' + clock(n.food_from) + ' to ' + clock(n.food_to) + '.</b> Come early, have a drink and try our new menu before the quiz.</div></div>';
+}
+function render(){
+  const n = I.night;
+  if (!n) { $("#app").innerHTML = '<div class="card"><h2>No quiz night just now</h2><p>The next one has not been announced yet. Keep an eye on our socials, or phone us on ' + esc(I.phone) + '.</p></div>'; return; }
+  $("#when").textContent = longDay(n.date);
+  if (!n.open || n.full) {
+    $("#app").innerHTML = facts(n) + '<div class="card"><h2>' + (n.full ? "We are full" : "Sign-ups are closed") + '</h2><p style="margin:0">' + (n.full ? "Every place for this quiz is taken. " : "") + 'Phone us on ' + esc(I.phone) + ' and we will see what we can do.</p></div>';
+    return;
+  }
+  const opts = Array.from({ length: n.max_team }, (_, i) => i + 1).map(k => '<option value="' + k + '"' + (k === 4 ? " selected" : "") + '>' + k + '</option>').join("");
+  $("#app").innerHTML = facts(n) +
+    '<form class="card" id="form" novalidate><h2>Register your team</h2>' +
+    '<p style="margin:0" class="hint">Free to enter. Tell us who is coming so we can save you a table.' + (n.places_left != null && n.places_left <= 12 ? ' <b>Only ' + n.places_left + ' places left.</b>' : '') + '</p>' +
+    '<div class="qrow"><label class="f" for="team">Team name<span class="req">*</span></label><input type="text" id="team" maxlength="60" autocomplete="off"></div>' +
+    '<div class="qrow"><label class="f" for="players">Number of players<span class="req">*</span></label><select id="players">' + opts + '</select></div>' +
+    '<div class="qrow"><label class="f" for="name">Your name<span class="req">*</span></label><input type="text" id="name" maxlength="80" autocomplete="name"></div>' +
+    '<div class="qrow"><label class="f" for="email">Email address<span class="req">*</span></label><input type="email" id="email" maxlength="120" autocomplete="email"></div>' +
+    '<div class="qrow"><label class="f" for="phone">Phone number<span class="req">*</span></label><input type="tel" id="phone" maxlength="30" autocomplete="tel" inputmode="tel"></div>' +
+    '<label class="chk"><input type="checkbox" id="eating"><span>We would like to come early for food (' + clock(n.food_from) + ' to ' + clock(n.food_to) + ').</span></label>' +
+    '<label class="f" for="notes">Anything we should know?</label><textarea id="notes" maxlength="500"></textarea>' +
+    '<div class="hp" aria-hidden="true"><label>Leave this empty <input type="text" id="website" tabindex="-1" autocomplete="off"></label></div>' +
+    '<label class="chk"><input type="checkbox" id="consent"><span>I am happy for Black Horse Beamish to contact me about this quiz.</span></label>' +
+    '<div id="msg"></div><p style="margin:20px 0 0"><button type="submit" class="btn" id="go">Register my team</button></p></form>';
+  $("#form").addEventListener("submit", submit);
+  tellHeight();
+}
+async function submit(ev){
+  ev.preventDefault();
+  const v = id => ($("#" + id).value || "").trim(), msg = $("#msg");
+  document.querySelectorAll(".qrow").forEach(r => r.classList.remove("bad")); msg.innerHTML = "";
+  let firstBad = null;
+  [["team", v("team")], ["name", v("name")], ["email", v("email")], ["phone", v("phone")]].forEach(([k, val]) => { if (!val) { const r = $("#" + k).closest(".qrow"); r.classList.add("bad"); if (!firstBad) firstBad = r; } });
+  if (firstBad) { msg.innerHTML = '<div class="err">Please fill in your team name, your name, email address and phone number.</div>'; firstBad.scrollIntoView({ behavior:"smooth", block:"center" }); return; }
+  if (!$("#consent").checked) { msg.innerHTML = '<div class="err">Please tick the box to say we may contact you about the quiz.</div>'; return; }
+  const btn = $("#go"); btn.disabled = true; btn.textContent = "Sending...";
+  try {
+    const r = await call("register", { night_id:I.night.id, team_name:v("team"), contact_name:v("name"), email:v("email"), phone:v("phone"), players:Number($("#players").value), eating:$("#eating").checked, notes:v("notes"), consent:true, website:v("website") });
+    window.scrollTo({ top:0, behavior:"smooth" }); if (EMBED && parent !== window) parent.postMessage({ bhbTop:true }, "*");
+    const n = I.night;
+    $("#app").innerHTML = '<div class="card"><h2>You are in</h2><div class="ok">Thank you, ' + esc(v("name").split(/\s+/)[0]) + '. ' + esc(r.team.team_name) + ' is registered' + (r.updated ? ' (your details are updated)' : '') + '. We have emailed you a confirmation.</div>' +
+      '<p style="margin:0 0 10px">See you on <b>' + esc(longDay(n.date)) + '</b> in ' + esc(n.venue) + '. Arrive from ' + clock(n.arrive_from) + ' for a ' + clock(n.starts_at) + ' start.</p>' +
+      '<p style="margin:0">Plans changed? Reply to the email or phone us on ' + esc(I.phone) + '.</p></div>';
+    tellHeight();
+  } catch (e) { msg.innerHTML = '<div class="err">' + esc(e.message) + '</div>'; btn.disabled = false; btn.textContent = "Register my team"; }
+}
+(async function(){
+  try { I = await call("info"); render(); }
+  catch (e) { $("#app").innerHTML = '<div class="card"><div class="err">' + esc(e.message) + '</div></div>'; }
+})();
+</script>
+</body>
+</html>

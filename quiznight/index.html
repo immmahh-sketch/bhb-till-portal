@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script src="/shared/auth.js"></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Quiznight — Black Horse Beamish</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;500;600;700&family=Cormorant+Garamond:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --sage:#4D604F; --sage-70:#7B887C; --sage-10:#EDEFED; --sage-dark:#3F2F28;
+  --bone:#F8F8F8; --celadon:#CCCDB4; --mist:#E7E7E7; --white:#fff; --ink:#262626; --brown:#3F2F28;
+  --attention:#B08D57; --attention-bg:#F7F0E4; --alert:#8C4A3F; --alert-bg:#F6EAE8; --good:#4F6B4F; --good-bg:#EDF2ED;
+  --display:"Orpheus Pro","Cormorant Garamond",Georgia,serif; --body:Raleway,"Helvetica Neue",Arial,sans-serif;
+  --track-label:.18em; --radius:10px; --shadow:0 1px 2px rgba(38,38,38,.06),0 8px 24px rgba(38,38,38,.07); --maxw:960px;
+}
+*{box-sizing:border-box} html,body{margin:0;padding:0}
+body{font-family:var(--body); color:var(--ink); background:var(--bone); font-size:15px; line-height:1.5; -webkit-text-size-adjust:100%}
+h1,h2,h3{font-family:var(--display); font-weight:600; margin:0; letter-spacing:.01em}
+button,input,textarea,select{font:inherit; color:inherit}
+.shell{max-width:var(--maxw); margin:0 auto; padding:0 20px 64px}
+#gate{position:fixed; inset:0; background:var(--sage); z-index:100; display:flex; align-items:center; justify-content:center; padding:24px}
+#gate[hidden]{display:none}
+.gatecard{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); width:100%; max-width:380px; padding:32px 28px; text-align:center}
+.gatecard h1{font-size:26px; color:var(--sage)}
+.gatecard .sub{font-size:11px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); margin:6px 0 22px}
+header.top{background:var(--sage); color:var(--white)}
+.topin{max-width:var(--maxw); margin:0 auto; padding:14px 20px; display:flex; align-items:center; gap:18px; flex-wrap:wrap}
+.brand{font-family:var(--display); font-size:21px; line-height:1.1}
+.brand small{display:block; font-family:var(--body); font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; opacity:.75}
+.who{margin-left:auto; display:flex; align-items:center; gap:10px; font-size:12px}
+.who button{background:transparent; border:1px solid rgba(255,255,255,.4); color:var(--white); border-radius:6px; padding:5px 10px; cursor:pointer; font-size:11px; letter-spacing:.06em; text-transform:uppercase}
+.pagehead{display:flex; align-items:flex-end; gap:12px 16px; flex-wrap:wrap; margin:22px 0 14px}
+.pagehead h2{font-size:26px; color:var(--sage)}
+.pagehead select{padding:9px 12px; border:1px solid var(--mist); border-radius:8px; background:var(--white); font-size:15px; max-width:100%}
+.btn{border:1px solid var(--sage); background:var(--sage); color:var(--white); border-radius:8px; padding:9px 16px; cursor:pointer; font-size:12px; font-weight:600; letter-spacing:.12em; text-transform:uppercase}
+.btn.ghost{background:var(--white); color:var(--sage)} .btn.ghost:hover{background:var(--sage-10)}
+.btn.small{padding:6px 12px; font-size:11px}
+.btn.danger{background:var(--white); border-color:var(--alert); color:var(--alert)}
+.btn:disabled{opacity:.5; cursor:default}
+.card{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); padding:16px 18px; margin-bottom:12px}
+.card h3{font-size:21px; color:var(--sage); margin-bottom:10px}
+.chips{display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px; margin-bottom:14px}
+.make{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); padding:12px 16px; border-left:5px solid var(--sage)}
+.make .k{font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70)}
+.make .n{font-family:var(--display); font-size:34px; line-height:1.05; color:var(--sage)}
+.make .n small{font-size:16px; color:var(--sage-70)}
+.make.warn{border-left-color:var(--alert)} .make.warn .n{color:var(--alert)}
+.bar{display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:12px}
+.bar input[type=text]{flex:1; min-width:160px; padding:10px 12px; border:1px solid var(--mist); border-radius:8px; background:var(--white)}
+.team{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); padding:14px 16px; margin-bottom:10px; border-left:5px solid var(--celadon); min-width:0}
+.team.arrived{border-left-color:var(--good)} .team.cancelled{opacity:.6; border-left-color:var(--alert)}
+.team .top2{display:flex; gap:8px 14px; flex-wrap:wrap; align-items:baseline; justify-content:space-between}
+.team .nm{font-family:var(--display); font-size:23px; color:var(--sage); line-height:1.15; overflow-wrap:anywhere; min-width:0}
+.team .pl{font-family:var(--display); font-size:23px; color:var(--sage); white-space:nowrap}
+.team .meta{font-size:13.5px; color:var(--sage-70); margin-top:3px; overflow-wrap:anywhere}
+.team .meta a{color:var(--sage)}
+.team .note{margin-top:8px; padding:6px 10px; background:var(--attention-bg); border-radius:6px; font-size:14px; overflow-wrap:anywhere}
+.team .acts{display:flex; gap:8px 10px; flex-wrap:wrap; align-items:center; margin-top:10px}
+.team .acts input[type=text]{padding:6px 10px; border:1px solid var(--mist); border-radius:8px; width:90px; font-size:14px}
+.team .acts input.pn{width:56px; text-align:center}
+.team .acts input.sn{width:min(260px,100%); flex:1}
+.badge{display:inline-block; border-radius:999px; padding:3px 10px; font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; white-space:nowrap; background:var(--sage-10); color:var(--sage)}
+.badge.eat{background:var(--attention-bg); color:#6d5320} .badge.in{background:var(--good-bg); color:var(--good)} .badge.out{background:var(--alert-bg); color:var(--alert)}
+.row2{display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end}
+.field{flex:1; min-width:140px; margin-bottom:10px} .field label{display:block; font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); margin-bottom:4px}
+.field input,.field select{width:100%; padding:10px 12px; border:1px solid var(--mist); border-radius:8px; background:var(--white); font-size:16px}
+.tick{display:flex; gap:10px; align-items:center; font-size:15px; margin:4px 0 10px} .tick input{width:20px; height:20px; accent-color:var(--sage)}
+details.card>summary{cursor:pointer; font-family:var(--display); font-size:19px; color:var(--sage); font-weight:600}
+.muted{color:var(--sage-70)} .empty{padding:40px 20px; text-align:center; color:var(--sage-70)} .loading{padding:60px; text-align:center; color:var(--sage-70)}
+.notice{border-radius:var(--radius); padding:14px 16px; margin-bottom:12px; font-size:15px}
+.notice.bad{background:var(--alert-bg); color:var(--alert)} .notice.warn{background:var(--attention-bg); color:#6d5320}
+.toast{position:fixed; left:50%; bottom:26px; transform:translate(-50%,20px); background:var(--ink); color:var(--white); padding:12px 20px; border-radius:8px; z-index:200; opacity:0; transition:.2s; pointer-events:none; font-size:14px; max-width:90vw}
+.toast.on{opacity:1; transform:translate(-50%,0)} .toast.bad{background:var(--alert)}
+@media (max-width:640px){ .shell{padding:0 12px 48px} .topin{padding-left:12px;padding-right:12px} .pagehead h2{font-size:22px} }
+@media print{ header.top,.bar,.acts,details.card,.pagehead select,#printbtn{display:none!important} body{background:#fff} .team{box-shadow:none;border:1px solid #bbb;break-inside:avoid} }
+</style>
+</head>
+<body>
+<div id="gate"><div class="gatecard"><h1>Quiznight</h1><div class="sub">Black Horse Beamish</div>
+  <p style="margin:0 0 16px;font-size:14px;color:var(--sage-70)">This opens from the Staff Portal, which knows who you are and what you can see.</p>
+  <a href="https://app.blackhorsebeamish.co.uk/portal/app.html" style="display:block;padding:12px;border-radius:8px;background:var(--sage);color:#fff;text-decoration:none;font-weight:600;letter-spacing:.12em;text-transform:uppercase;font-size:12px">Open the Staff Portal</a></div></div>
+<div id="app" hidden>
+  <header class="top"><div class="topin"><div class="brand">Quiznight<small>Black Horse Beamish</small></div>
+    <div class="who"><span id="whoname"></span><button id="signout">Sign out</button></div></div></header>
+  <div class="shell"><div id="views"></div></div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+const CFG = { SUPABASE_URL:"https://safcrtrfdzsnftghibot.supabase.co", SUPABASE_KEY:"sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU" };
+const REGISTER_URL = "https://www.blackhorsebeamish.co.uk/quiz-night";
+const S = { me:null, nights:[], night:null, teams:[], totals:null, filter:"", showCancelled:false, timer:null };
+const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
+const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const clock = t => { const [h, m] = String(t).split(":").map(Number); return (h > 12 ? h - 12 : h === 0 ? 12 : h) + (m ? ":" + String(m).padStart(2, "0") : "") + (h >= 12 ? "pm" : "am"); };
+const longDay = d => new Date(d + "T12:00:00Z").toLocaleDateString("en-GB", { timeZone:"UTC", weekday:"long", day:"numeric", month:"long" });
+function toast(msg, bad){ const t=$("#toast"); t.textContent=msg; t.className="toast on"+(bad?" bad":""); clearTimeout(toast._t); toast._t=setTimeout(()=>{t.className="toast";}, bad?5200:2400); }
+function staffEmail(){ try { return sessionStorage.getItem("bhb_staff_email") || ""; } catch(e){ return ""; } }
+async function call(action, payload){
+  const r = await fetch(CFG.SUPABASE_URL + "/functions/v1/quiznight-api", { method:"POST", headers:{ "Content-Type":"application/json", Authorization:"Bearer "+CFG.SUPABASE_KEY, apikey:CFG.SUPABASE_KEY }, body: JSON.stringify({ action, staff_email: staffEmail(), ...(payload || {}) }) });
+  let d = {}; try { d = await r.json(); } catch(e){}
+  if (!r.ok || d.error) throw new Error(d.error || `Request failed (${r.status})`);
+  return d;
+}
+
+async function loadTeams(keepScroll){
+  const d = await call("teams", { night_id:S.night.id });
+  S.night = d.night; S.teams = d.teams; S.totals = d.totals;
+  const i = S.nights.findIndex(n => n.id === d.night.id); if (i >= 0) S.nights[i] = d.night;
+  paint(keepScroll);
+}
+const stamp = t => new Date(t).toLocaleString("en-GB", { day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" });
+function teamCard(t){
+  const tel = t.phone ? `<a href="tel:${esc(t.phone.replace(/[^\d+]/g, ""))}">${esc(t.phone)}</a>` : "";
+  const mail = t.email ? `<a href="mailto:${esc(t.email)}">${esc(t.email)}</a>` : "";
+  return `<div class="team ${t.arrived ? "arrived" : ""} ${t.cancelled ? "cancelled" : ""}" data-id="${esc(t.id)}">
+    <div class="top2"><div class="nm">${esc(t.team_name)} ${t.cancelled ? `<span class="badge out">cancelled</span>` : t.arrived ? `<span class="badge in">arrived</span>` : ""} ${t.eating ? `<span class="badge eat">eating</span>` : ""} ${t.table_no ? `<span class="badge">table ${esc(t.table_no)}</span>` : ""}</div>
+      <div class="pl">${t.players} <small class="muted" style="font-size:14px;font-family:var(--body)">${t.players === 1 ? "player" : "players"}</small></div></div>
+    <div class="meta">${esc(t.contact_name)}${tel ? " · " + tel : ""}${mail ? " · " + mail : ""} · signed up ${esc(stamp(t.created_at))}</div>
+    ${t.notes ? `<div class="note"><b>Team said:</b> ${esc(t.notes)}</div>` : ""}
+    <div class="acts">${t.cancelled
+      ? `<button class="btn ghost small" data-act="restore">Put back on the list</button>`
+      : `<button class="btn ${t.arrived ? "ghost" : ""} small" data-act="arrive">${t.arrived ? "Not arrived" : "Mark arrived"}</button>
+         <input type="text" class="tbl" value="${esc(t.table_no)}" maxlength="20" placeholder="Table" aria-label="Table">
+         <input type="text" class="sn" value="${esc(t.staff_note)}" maxlength="500" placeholder="Our note (for the team here)" aria-label="Note">
+         <input type="text" class="pn" value="${t.players}" inputmode="numeric" maxlength="2" aria-label="Players" title="Players">
+         <button class="btn danger small" data-act="cancel">Cancel team</button>`}</div></div>`;
+}
+function paint(keep){
+  const n = S.night, t = S.totals, y = window.scrollY;
+  const full = n.max_players != null && t.players >= n.max_players;
+  const f = S.filter.trim().toLowerCase();
+  const list = S.teams.filter(x => (S.showCancelled || !x.cancelled) && !x.is_test && (!f || [x.team_name, x.contact_name, x.email, x.phone, x.table_no].join(" ").toLowerCase().includes(f)));
+  const cancelledN = S.teams.filter(x => x.cancelled).length;
+  $("#views").innerHTML = `
+    <div class="pagehead"><h2>Quiz night</h2>
+      <select id="nightsel" aria-label="Night">${S.nights.map(x => `<option value="${esc(x.id)}" ${x.id === n.id ? "selected" : ""}>${esc(longDay(x.night_date))}${x.open ? "" : " (closed)"}</option>`).join("")}</select>
+      <span class="muted" style="font-size:13px">${esc(n.venue)} · arrive from ${clock(n.arrive_from)} · quiz ${clock(n.starts_at)}</span></div>
+    <div class="chips">
+      <div class="make"><div class="k">Teams</div><div class="n">${t.teams}</div></div>
+      <div class="make ${full ? "warn" : ""}"><div class="k">Players</div><div class="n">${t.players}${n.max_players != null ? ` <small>of ${n.max_players}</small>` : ""}</div></div>
+      <div class="make"><div class="k">Eating early</div><div class="n">${t.eating}</div></div>
+      <div class="make"><div class="k">Teams arrived</div><div class="n">${t.arrived} <small>of ${t.teams}</small></div></div></div>
+    ${n.open ? "" : `<div class="notice warn">Sign-ups are closed for this night. The website form shows "Sign-ups are closed".</div>`}
+    ${full ? `<div class="notice warn">The night is full, so the website form says so. Raise the limit under Settings to take more.</div>` : ""}
+    <div class="bar"><input type="text" id="filter" placeholder="Find a team, name, phone or table" value="${esc(S.filter)}">
+      <button class="btn ghost small" id="csv">Download CSV</button><button class="btn ghost small" id="printbtn">Print list</button></div>
+    ${list.length ? list.map(teamCard).join("") : `<div class="empty">${S.teams.length ? "No teams match." : "No teams yet."}</div>`}
+    ${cancelledN ? `<p><label class="tick"><input type="checkbox" id="showc" ${S.showCancelled ? "checked" : ""}> Show ${cancelledN} cancelled ${cancelledN === 1 ? "team" : "teams"}</label></p>` : ""}
+    <details class="card"><summary>Add a team (phone or at the bar)</summary><div style="margin-top:12px">
+      <div class="row2"><div class="field"><label for="a_team">Team name</label><input id="a_team" type="text" maxlength="60"></div>
+        <div class="field" style="max-width:130px;min-width:100px"><label for="a_pl">Players</label><input id="a_pl" type="text" inputmode="numeric" value="4"></div></div>
+      <div class="row2"><div class="field"><label for="a_who">Contact name</label><input id="a_who" type="text" maxlength="80"></div>
+        <div class="field"><label for="a_tel">Phone</label><input id="a_tel" type="text" maxlength="30"></div></div>
+      <label class="tick"><input type="checkbox" id="a_eat"> Coming early to eat</label>
+      <button class="btn" id="a_go">Add team</button></div></details>
+    <details class="card"><summary>Settings and the sign-up link</summary><div style="margin-top:12px">
+      <label class="tick"><input type="checkbox" id="s_open" ${n.open ? "checked" : ""}> Taking sign-ups on the website</label>
+      <div class="row2"><div class="field"><label for="s_max">Limit on players (empty for none)</label><input id="s_max" type="text" inputmode="numeric" value="${n.max_players ?? ""}"></div>
+        <div class="field"><label for="s_team">Most players in a team</label><input id="s_team" type="text" inputmode="numeric" value="${n.max_team}"></div></div>
+      <button class="btn" id="s_go">Save settings</button>
+      <p class="muted" style="margin:14px 0 6px;font-size:13px">The website form closes by itself when the players reach the limit. Sign-up page for social posts:</p>
+      <p style="margin:0"><a href="${esc(REGISTER_URL)}" target="_blank" rel="noopener">${esc(REGISTER_URL)}</a></p>
+      <hr style="border:0;border-top:1px solid var(--mist);margin:16px 0">
+      <div class="row2"><div class="field"><label for="n_date">Set up another night</label><input id="n_date" type="date"></div><div class="field" style="flex:0"><button class="btn ghost" id="n_go">Add night</button></div></div></div></details>`;
+  wire();
+  if (keep) window.scrollTo(0, y);
+}
+function csv(){
+  const q = v => '"' + String(v ?? "").replace(/"/g, '""') + '"';
+  const rows = [["Team","Players","Contact","Phone","Email","Eating early","Arrived","Table","Team notes","Our notes","Status","Signed up"]]
+    .concat(S.teams.filter(x => !x.is_test).map(t => [t.team_name, t.players, t.contact_name, t.phone, t.email, t.eating ? "yes" : "", t.arrived ? "yes" : "", t.table_no, t.notes, t.staff_note, t.cancelled ? "cancelled" : "registered", t.created_at]));
+  const blob = new Blob(["﻿" + rows.map(r => r.map(q).join(",")).join("\r\n")], { type:"text/csv" });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `quiz-night-${S.night.night_date}.csv`; document.body.appendChild(a); a.click(); a.remove();
+}
+function wire(){
+  $("#nightsel").addEventListener("change", async e => { S.night = S.nights.find(x => x.id === e.target.value); S.filter = ""; try { await loadTeams(); } catch(err){ toast(err.message, true); } });
+  $("#filter").addEventListener("input", e => { S.filter = e.target.value; const pos = e.target.selectionStart; paint(true); const f = $("#filter"); f.focus(); f.setSelectionRange(pos, pos); });
+  $("#csv").addEventListener("click", csv); $("#printbtn").addEventListener("click", () => window.print());
+  const sc = $("#showc"); if (sc) sc.addEventListener("change", e => { S.showCancelled = e.target.checked; paint(true); });
+  const act = async (id, action, extra, okMsg) => { try { await call(action, { id, ...extra }); if (okMsg) toast(okMsg); await loadTeams(true); } catch(err){ toast(err.message, true); } };
+  $$(".team").forEach(card => {
+    const id = card.dataset.id, t = S.teams.find(x => x.id === id);
+    card.querySelectorAll("[data-act]").forEach(b => b.addEventListener("click", () => {
+      const a = b.dataset.act;
+      if (a === "arrive") act(id, "team.set", { arrived: !t.arrived });
+      else if (a === "restore") act(id, "team.restore", {}, "Back on the list");
+      else if (a === "cancel") { if (b.dataset.sure) act(id, "team.cancel", {}, "Team cancelled"); else { b.dataset.sure = "1"; b.textContent = "Tap again to cancel"; setTimeout(() => { if (b.isConnected) { delete b.dataset.sure; b.textContent = "Cancel team"; } }, 4000); } }
+    }));
+    const tb = card.querySelector(".tbl"); if (tb) tb.addEventListener("change", () => act(id, "team.set", { table_no: tb.value }, "Table saved"));
+    const pn = card.querySelector(".pn"); if (pn) pn.addEventListener("change", () => act(id, "team.set", { players: Number(pn.value) }, "Numbers changed"));
+    const sn = card.querySelector(".sn"); if (sn) sn.addEventListener("change", () => act(id, "team.set", { staff_note: sn.value }, "Note saved"));
+  });
+  $("#a_go").addEventListener("click", async () => {
+    try { await call("team.add", { night_id:S.night.id, team_name:$("#a_team").value, players:Number($("#a_pl").value), contact_name:$("#a_who").value, phone:$("#a_tel").value, eating:$("#a_eat").checked }); toast("Team added"); await loadTeams(); } catch(err){ toast(err.message, true); }
+  });
+  $("#s_go").addEventListener("click", async () => {
+    try { await call("night.set", { id:S.night.id, open:$("#s_open").checked, max_players:$("#s_max").value.trim() === "" ? null : Number($("#s_max").value), max_team:Number($("#s_team").value) }); toast("Settings saved"); await loadTeams(true); } catch(err){ toast(err.message, true); }
+  });
+  $("#n_go").addEventListener("click", async () => {
+    try { const r = await call("night.add", { date:$("#n_date").value }); const d = await call("bootstrap"); S.nights = d.nights; S.night = S.nights.find(x => x.id === r.night.id); toast("Night added"); await loadTeams(); } catch(err){ toast(err.message, true); }
+  });
+}
+function openGate(){ $("#gate").hidden = false; $("#app").hidden = true; }
+$("#signout").addEventListener("click", ()=>{ try { sessionStorage.removeItem("bhb_staff_email"); } catch(e){} openGate(); });
+async function boot(){
+  $("#app").hidden = false; $("#views").innerHTML = `<div class="loading">Loading…</div>`;
+  let d;
+  try { d = await call("bootstrap"); } catch(e){ $("#views").innerHTML = `<div class="empty">${esc(e.message)}<br><br><span class="muted">Open this from the Staff Portal so it knows who you are.</span></div>`; return; }
+  S.me = d.me; S.nights = d.nights; $("#whoname").textContent = S.me.name;
+  if (!S.nights.length) { $("#views").innerHTML = `<div class="empty">No quiz nights set up yet.</div>`; return; }
+  const upcoming = S.nights.filter(n => n.night_date >= d.today).sort((a, b) => a.night_date < b.night_date ? -1 : 1)[0];
+  S.night = upcoming || S.nights[0];
+  try { await loadTeams(); } catch(e){ $("#views").innerHTML = `<div class="notice bad">${esc(e.message)}</div>`; return; }
+  clearInterval(S.timer);
+  S.timer = setInterval(() => { const a = document.activeElement; if (!document.hidden && !(a && /INPUT|TEXTAREA|SELECT/.test(a.tagName))) loadTeams(true).catch(() => {}); }, 30000);
+}
+(function(){ if (staffEmail()) { $("#gate").hidden = true; boot(); } else openGate(); })();
+</script>
+</body>
+</html>
