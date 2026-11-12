@@ -136,7 +136,7 @@ textarea{min-height:90px; resize:vertical}
 <div class="toast" id="toast"></div>
 <script>
 const CFG = { SUPABASE_URL:"https://safcrtrfdzsnftghibot.supabase.co", SUPABASE_KEY:"sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU" };
-const S = { me:null, view:"order", dishes:[], days:[], today:"", order:null, pick:"", test:false, lateTest:false, lateDone:"", filter:"" };
+const S = { me:null, view:"order", dishes:[], days:[], today:"", order:null, pick:"", test:false, lateTest:false, lateDone:"", behalfDone:"", filter:"" };
 const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
 const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 const minusMins = (t, m) => { const [h, mi] = t.split(":").map(Number), x = h * 60 + mi - m; return String(Math.floor(x / 60)).padStart(2, "0") + ":" + String(x % 60).padStart(2, "0"); };
@@ -201,7 +201,7 @@ async function viewOrder(){
             <div><div class="k">Time</div><div class="v">${esc(timeLabel(o.requested_time))}</div></div>
             ${o.message ? `<div><div class="k">Message to the kitchen</div><div class="v">${esc(o.message)}</div></div>` : ""}
           </div>
-          <p class="muted" style="margin:12px 0 0;font-size:13px">${o.is_late ? `Put through late by ${esc(o.ordered_by_name || "a manager")}. ` : ""}${held ? `Goes to the kitchen at <b>${esc(clock12(String(o.print_due_local).slice(11, 16)))}</b> on the day. ` : "Sent to the kitchen. "}${x.can_cancel ? `You can cancel until ${esc(clock12(d.cutoff))} that morning.` : "To change or cancel, please speak to the kitchen."}</p></div>`;
+          <p class="muted" style="margin:12px 0 0;font-size:13px">${o.ordered_by_name ? `${o.is_late ? "Put through late by" : "Ordered for you by"} ${esc(o.ordered_by_name)}. ` : ""}${held ? `Goes to the kitchen at <b>${esc(clock12(String(o.print_due_local).slice(11, 16)))}</b> on the day. ` : "Sent to the kitchen. "}${x.can_cancel ? `You can cancel until ${esc(clock12(d.cutoff))} that morning.` : "To change or cancel, please speak to the kitchen."}</p></div>`;
       }).join("");
     }
     if (can.length) {
@@ -245,6 +245,70 @@ async function viewOrder(){
       viewOrder();
     });
   }
+}
+
+/* ------------------------------------------------------------- Order for someone else (the GM only) */
+async function viewBehalf(){
+  const v = $("#views"); v.innerHTML = `<div class="loading">Loading…</div>`;
+  let d; try { d = await call("behalf.status"); } catch(e){ v.innerHTML = `<div class="notice bad">${esc(e.message)}</div>`; return; }
+  const menuOf = {}; d.days.forEach(x => { menuOf[x.date] = x.menu; });
+  const late = day => day === d.today && d.time > d.cutoff;                       // today, after orders closed
+  let info = { known: false, days: d.days.map(x => ({ date: x.date, ok: null, shift: null })) };
+  v.innerHTML = `<div class="pagehead"><h2>Order for someone else</h2><span class="hint">${esc(longDay(d.today))} · ${esc(clock12(d.time))}</span></div>
+    ${S.behalfDone ? `<div class="notice good"><b>Lunch ordered for ${esc(S.behalfDone)}</b>It is in under their name, marked as put through by you.</div>` : ""}
+    <div class="card"><p style="margin:0">The order goes in under their name, and the kitchen and the person can see you put it through. No rota or ${esc(clock12(d.cutoff))} checks apply to you. One lunch a day each still applies.</p></div>
+    <div class="card" id="bform"><h3>Who is the order for?</h3>
+      <div class="field"><input type="text" id="bwho" list="bpeople" maxlength="80" placeholder="Start typing their name" autocomplete="off" style="width:100%;padding:11px 12px;border:1px solid var(--mist);border-radius:8px;font-size:16px">
+      <datalist id="bpeople">${d.people.map(p => `<option value="${esc(p)}">`).join("")}</datalist></div>
+      <div class="field"><label class="l" for="bday">Day</label><select id="bday"></select><div class="muted" id="bnote" style="font-size:13px;margin-top:6px"></div></div>
+      <div id="bchoices"></div>
+      <div class="row2" style="margin-top:6px"><div class="field"><label class="l" for="bt">Time</label><select id="bt"></select></div>
+      <div class="field"><label class="l" for="bmsg">Message to the kitchen</label><input type="text" id="bmsg" maxlength="300" placeholder="Allergies, no butter, anything the kitchen should know" style="width:100%;padding:11px 12px;border:1px solid var(--mist);border-radius:8px;font-size:16px"></div></div>
+      <button class="btn" id="bplace" style="margin-top:8px">Place the order</button></div>`;
+  S.behalfDone = "";
+  const sel = $("#bday");
+  const dayLabel = x => {
+    const rota = x.ok === true ? ` · rota OK${x.shift ? " " + x.shift : ""}` : x.ok === false ? " · not on a qualifying shift" : "";
+    return longDay(x.date) + (x.date === d.today ? " (today)" : "") + rota;
+  };
+  const fillDays = keep => {
+    sel.innerHTML = info.days.map(x => `<option value="${esc(x.date)}">${esc(dayLabel(x))}</option>`).join("");
+    const first = info.days.find(x => x.ok === true);
+    sel.value = keep && info.days.some(x => x.date === keep) ? keep : (first || info.days[0] || {}).date || "";
+    $("#bnote").textContent = !$("#bwho").value.trim() ? "Pick the person and this list shows which days their rota qualifies on. You can still choose any day with a menu."
+      : info.known ? "Days marked 'rota OK' match their Planday shifts. You can still choose any day with a menu." : "They were not found on Planday, so every day with a menu is listed.";
+    fillDay();
+  };
+  const fillDay = () => {
+    const day = sel.value, m = menuOf[day];
+    $("#bchoices").innerHTML = m ? choiceBlock("bc", m, "bsand") : `<div class="notice warn">There is no menu for that day.</div>`;
+    wireChoices($("#bchoices"));
+    const times = d.times.filter(t => !(late(day)) || t >= d.time);
+    $("#bt").innerHTML = `<option value="">Any time, 11:30am to 12:30pm</option>${late(day) ? `<option value="asap">As soon as possible</option>` : ""}${times.map(t => `<option value="${esc(t)}">${esc(clock12(t))}</option>`).join("")}`;
+  };
+  let seq = 0, lastName = "";
+  const lookup = async () => {
+    const name = $("#bwho").value.trim();
+    if (name === lastName) return;                                  // blur after change, or nothing new typed
+    lastName = name;
+    const mine = ++seq;
+    try { const r = await call("behalf.days", { for_name: name }); if (mine !== seq) return; info = r; } catch(e){ if (mine !== seq) return; info = { known: false, days: info.days.map(x => ({ date: x.date, ok: null, shift: null })) }; }
+    fillDays("");                                                   // a new person: start on the first day their rota qualifies
+  };
+  $("#bwho").addEventListener("change", lookup);
+  $("#bwho").addEventListener("blur", lookup);
+  sel.addEventListener("change", fillDay);
+  fillDays("");
+  $("#bplace").addEventListener("click", async () => {
+    const choice = $("input[name=bc]:checked"), name = $("#bwho").value.trim();
+    if (!name) return toast("Who is the order for?", true);
+    if (!choice) return toast("Choose the main dish, the soup or a sandwich.", true);
+    const btn = $("#bplace"); btn.disabled = true;
+    try {
+      const r = await call("behalf.place", { for_name: name, date: sel.value, choice: choice.value, sandwich: $("#bsand") ? $("#bsand").value : "", requested_time: $("#bt").value, message: $("#bmsg").value });
+      toast(`Lunch ordered for ${r.order.name}`); S.behalfDone = r.order.name; viewBehalf();
+    } catch(e){ toast(e.message, true); btn.disabled = false; }
+  });
 }
 
 /* ------------------------------------------------------------- Late orders */
@@ -428,7 +492,7 @@ async function viewChefs(date){
     <div class="row2" style="margin-bottom:16px"><div class="field"><label class="l" for="cday">Day</label><input type="date" id="cday" value="${esc(d.date)}" style="width:100%;padding:10px 12px;border:1px solid var(--mist);border-radius:8px;font-size:16px;background:var(--white)"></div><button class="btn ghost" id="cnow">Refresh</button></div>
     ${d.total ? `<h3 style="color:var(--sage);font-size:20px;margin:0 0 8px">How much to make · ${d.total} order${d.total === 1 ? "" : "s"}</h3><div class="big">${make}</div><div class="chips">${chips}</div>` : `<div class="notice warn"><b>No orders yet</b>Nothing has been ordered for ${esc(longDay(d.date))}.</div>`}
     ${order.length ? `<h3 style="color:var(--sage);font-size:20px;margin:18px 0 8px">The orders</h3>` + order.map(o => `<div class="ord"><div><div class="who2">${esc(o.person_name)}</div><div class="t">${esc(timeLabel(o.requested_time))}</div></div>
-      <div class="what"><b>${kindName(o.choice)}</b>${esc(o.item)}${o.is_late ? `<div class="t" style="margin-top:4px">Late order, put through by ${esc(o.ordered_by_name || "a manager")}</div>` : ""}${o.message ? `<div class="msg">${esc(o.message)}</div>` : ""}</div><div>${state(o)}${prn(o)}</div></div>`).join("") : ""}`;
+      <div class="what"><b>${kindName(o.choice)}</b>${esc(o.item)}${o.ordered_by_name ? `<div class="t" style="margin-top:4px">${o.is_late ? "Late order, put through" : "Ordered on their behalf"} by ${esc(o.ordered_by_name)}</div>` : ""}${o.message ? `<div class="msg">${esc(o.message)}</div>` : ""}</div><div>${state(o)}${prn(o)}</div></div>`).join("") : ""}`;
   $("#cday").addEventListener("change", e => viewChefs(e.target.value));
   $("#cnow").addEventListener("click", () => viewChefs());
   clearInterval(S.chefTimer);
@@ -436,11 +500,11 @@ async function viewChefs(date){
 }
 
 /* ------------------------------------------------------------- shell */
-const TABS = [["order", "Order lunch", m => m.canOrder], ["late", "Late orders", m => m.canLate], ["chefs", "Chef's", m => m.canChefs], ["menu", "Weekly Menu", m => m.canSetMenu], ["upload", "Menu Upload", m => m.canSetMenu]];
+const TABS = [["order", "Order lunch", m => m.canOrder], ["behalf", "Order for someone", m => m.canBehalf], ["late", "Late orders", m => m.canLate], ["chefs", "Chef's", m => m.canChefs], ["menu", "Weekly Menu", m => m.canSetMenu], ["upload", "Menu Upload", m => m.canSetMenu]];
 function goView(v){
   S.view = v;
   $$(".tabbtn").forEach(b => b.setAttribute("aria-current", b.dataset.view === v ? "page" : "false"));
-  clearInterval(S.chefTimer); if (v === "menu") viewMenu(); else if (v === "upload") viewUpload(); else if (v === "chefs") viewChefs(); else if (v === "late") viewLate(); else viewOrder();
+  clearInterval(S.chefTimer); if (v === "menu") viewMenu(); else if (v === "upload") viewUpload(); else if (v === "chefs") viewChefs(); else if (v === "late") viewLate(); else if (v === "behalf") viewBehalf(); else viewOrder();
   window.scrollTo(0, 0);
 }
 function openGate(msg){ $("#gate").hidden = false; $("#app").hidden = true; if (msg) $("#gerr").textContent = msg; }
