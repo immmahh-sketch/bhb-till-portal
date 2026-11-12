@@ -107,6 +107,14 @@ input,select,textarea{
 }
 input:focus,select:focus,textarea:focus{outline:none;border-color:var(--sage)}
 textarea{min-height:70px;resize:vertical}
+/* "Use booking details" / "Type myself": one switch per part of the invitation */
+.own{border-top:1px solid var(--mist);padding:12px 0 4px}
+.own .label{display:block;margin-bottom:8px}
+.own-sw{display:flex;flex-wrap:wrap;gap:6px 22px}
+.own-sw label{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.9375rem;padding:4px 0}
+.own-sw input{width:18px;height:18px;flex:0 0 18px;margin:0;accent-color:#4D604F}
+.own-hint{font-size:.8125rem;margin:6px 0 8px}
+.own-typed{margin:8px 0 6px}
 .field{margin-bottom:14px}
 .field .label{display:block;margin-bottom:5px}
 .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
@@ -3240,9 +3248,13 @@ async function previewInvite(guestId){
 /* The arrival times on the Invitations card save as soon as they are changed. */
 async function setInviteTime(field, value){
   try {
+    /* A time typed here is the couple's own; clearing it goes back to the booking. The same switch the wording pop-up shows. */
+    var key = field === "invite_day_time" ? "day_time" : "evening_time";
     var p = {}; p[field] = value || "";
+    p.invite_own = {}; p.invite_own[key] = !!value;
     await api("invite.settings", p);
     S.data.wedding[field] = value || null;
+    S.data.wedding.invite_own = Object.assign({}, S.data.wedding.invite_own, p.invite_own);
     clearError();
   } catch (e) { showError(e.message); render(); }
 }
@@ -3302,22 +3314,16 @@ function editInviteWording(){
         'dietary requirements.</span></span></label>' +
     '</div>' +
 
-    '<div class="field"><span class="label">When guests are invited to arrive</span>' +
-      '<div class="row"><div class="field"><span class="label" style="font-size:.75rem">Day guests</span>' +
-        '<input id="iv_dayt" type="time" value="' + esc(w.invite_day_time||"") + '">' +
-        '<span class="muted" id="iv_dayh" style="display:block;font-size:.8125rem;margin-top:4px">Blank uses the time in your booking.</span></div>' +
-      '<div class="field"><span class="label" style="font-size:.75rem">Evening guests</span>' +
-        '<input id="iv_evet" type="time" value="' + esc(w.invite_evening_time||"") + '">' +
-        '<span class="muted" id="iv_eveh" style="display:block;font-size:.8125rem;margin-top:4px">Blank uses the time in your booking.</span></div></div>' +
-      '<span class="muted" style="display:block;font-size:.8125rem">This is the time the invitation tells each guest to arrive. Check it against your booking and tell us if the day itself changes.</span></div>' +
+    /* Every part that is taken from the booking, each with its own switch. */
+    '<div class="field"><span class="label">From your booking</span>' +
+      '<p class="muted" style="margin:0 0 4px;font-size:.875rem">The invitation and the reply page take these from your booking. For each one, use what your booking says or type your own. Check them against your booking, and tell us if the day itself changes.</p>' +
+      OWN_PARTS.map(function(p){ return ownRow(p, w); }).join("") + '</div>' +
+    '<div id="ivErr" class="notice notice--late" style="display:none;margin:0 0 14px"></div>' +
 
     '<p class="muted" style="margin:0 0 16px;font-size:.875rem">' +
     'Your names and the date come from your booking. These bits are yours to write.</p>' +
     '<div class="field"><span class="label">A note to your guests</span>' +
       '<textarea id="iv_msg" placeholder="We can\'t wait to celebrate with you…">' + esc(w.invite_message||"") + '</textarea></div>' +
-    '<div class="field"><span class="label">On the menu</span>' +
-      '<textarea id="iv_menu" placeholder="Standard BBQ: burgers, sausages and chicken wings, with jerk rice, leaf salad, potato salad and BBQ beans">' + esc(w.invite_menu||"") + '</textarea>' +
-      '<span class="muted" style="display:block;font-size:.8125rem;margin-top:4px">What your guests will be eating. It goes in the invitation and on the reply page.</span></div>' +
     '<div class="row"><div class="field"><span class="label">Dress code</span>' +
       '<input id="iv_dress" placeholder="Lounge suits" value="' + esc(w.invite_dress_code||"") + '"></div>' +
       '<div class="field"><span class="label">Reply by</span>' +
@@ -3330,34 +3336,131 @@ function editInviteWording(){
     '<div style="display:flex;gap:8px"><button class="btn btn--primary" onclick="saveInviteWording()">Save</button>' +
     '<button class="btn" onclick="saveInviteWording(true)">Save &amp; preview</button></div>');
 
-  /* What the booking itself says, shown under each time as the starting point. */
-  callFn("send-guest-invite", { token:S.token, action:"preview", guest_id:null }).then(function(res){
-    var b = res && res.booked; if (!b) return;
-    if (b.day && $("iv_dayh")) $("iv_dayh").textContent = "Your booking says " + b.day + ". Blank uses that.";
-    if (b.evening && $("iv_eveh")) $("iv_eveh").textContent = "Your booking says " + b.evening + ". Blank uses that.";
-  }).catch(function(){});
+  /* What the booking itself says, shown under each part as the starting point. */
+  var show = function(b){ S.booked = b; OWN_PARTS.forEach(function(p){ ownHint(p.key); }); };
+  if (S.booked) show(S.booked);
+  else callFn("send-guest-invite", { token:S.token, action:"preview", guest_id:null }).then(function(res){
+    if (res && res.booked) show(res.booked); else OWN_PARTS.forEach(function(p){ ownHint(p.key, true); });
+  }).catch(function(){ OWN_PARTS.forEach(function(p){ ownHint(p.key, true); }); });
+}
+
+/* ---- "Use booking details" / "Type myself", one switch for each part taken from the booking ---- */
+var OWN_PARTS = [
+  { key:"day_time",     field:"invite_day_time",     kind:"time", id:"iv_dayt", label:"Arrival time, day guests" },
+  { key:"evening_time", field:"invite_evening_time", kind:"time", id:"iv_evet", label:"Arrival time, evening guests" },
+  { key:"day_room",     field:"invite_day_room",     kind:"room", id:"iv_dayr", label:"Room, day guests", ph:"Marquee" },
+  { key:"evening_room", field:"invite_evening_room", kind:"room", id:"iv_ever", label:"Room, evening guests", ph:"Marquee" },
+  { key:"menu",         field:"invite_menu",         kind:"menu", id:"iv_menu", label:"On the menu",
+    ph:"Standard BBQ: burgers, sausages and chicken wings, with jerk rice, leaf salad, potato salad and BBQ beans" }
+];
+function ownPart(key){ return OWN_PARTS.filter(function(p){ return p.key === key; })[0]; }
+
+/* Same rule the server uses: a choice already made wins; with none recorded, a typed value means "mine". */
+function ownIsOn(w, p){
+  var f = w.invite_own && w.invite_own[p.key];
+  if (typeof f === "boolean") return f;
+  return String(w[p.field] == null ? "" : w[p.field]).trim() !== "";
+}
+
+function ownRow(p, w){
+  var on = ownIsOn(w, p), val = w[p.field] || "", input;
+  if (p.kind === "time") {
+    input = '<input id="' + p.id + '" type="time" value="' + esc(val) + '">' +
+      '<span class="muted" style="display:block;font-size:.8125rem;margin-top:4px">Guests are told to arrive at this time.</span>';
+  } else if (p.kind === "room") {
+    input = '<input id="' + p.id + '" placeholder="' + esc(p.ph) + '" maxlength="80" value="' + esc(val) + '">' +
+      '<span class="muted" style="display:block;font-size:.8125rem;margin-top:4px">Just the name: we write &ldquo;in the&rdquo; for you. Leave it blank and guests are not told a room.</span>';
+  } else {
+    input = '<textarea id="' + p.id + '" placeholder="' + esc(p.ph) + '">' + esc(val) + '</textarea>' +
+      '<span class="muted" style="display:block;font-size:.8125rem;margin-top:4px">What your guests will be eating. It goes in the invitation and on the reply page, in place of any dishes to choose from.</span>';
+  }
+  return '<div class="own" id="ivo_' + p.key + '">' +
+    '<span class="label">' + esc(p.label) + '</span>' +
+    '<div class="own-sw">' +
+      '<label><input type="radio" name="ivo_' + p.key + '" value="booking"' + (on ? '' : ' checked') + ' onchange="ownChange(\'' + p.key + '\')"> Use booking details</label>' +
+      '<label><input type="radio" name="ivo_' + p.key + '" value="own"' + (on ? ' checked' : '') + ' onchange="ownChange(\'' + p.key + '\')"> Type myself</label>' +
+    '</div>' +
+    '<div class="muted own-hint" id="ivh_' + p.key + '" style="display:' + (on ? 'none' : 'block') + '">Checking your booking…</div>' +
+    '<div class="own-typed" id="ivt_' + p.key + '" style="display:' + (on ? 'block' : 'none') + '">' + input + '</div>' +
+  '</div>';
+}
+
+function ownChoice(key){
+  var r = document.querySelector('input[name="ivo_' + key + '"]:checked');
+  return !!r && r.value === "own";
+}
+
+/* What the booking says for this part, in words. */
+function ownHint(key, failed){
+  var el = $("ivh_" + key); if (!el) return;
+  var b = S.booked, p = ownPart(key);
+  if (failed || !b) { el.textContent = "We could not check your booking just now. This will use what it says."; return; }
+  var t;
+  if (p.kind === "time") {
+    var v = key === "day_time" ? b.day : b.evening;
+    t = v ? "Your booking says " + v + "." : "Your booking does not give a time yet, so guests are not told one.";
+  } else if (p.kind === "room") {
+    var rm = key === "day_room" ? b.day_room : b.evening_room;
+    t = rm ? "Your booking says the " + String(rm).replace(/^the\s+/i, "") + "." : "Your booking does not name a room, so guests are not told one.";
+  } else {
+    t = b.menu_choices > 0 ? "Guests pick from the " + b.menu_choices + " dishes in your menu, on their reply page."
+      : "You have no dishes for guests to choose from, so they are not shown a menu.";
+  }
+  el.textContent = t;
+}
+
+function ownChange(key){
+  var p = ownPart(key), on = ownChoice(key);
+  $("ivt_" + key).style.display = on ? "block" : "none";
+  $("ivh_" + key).style.display = on ? "none" : "block";
+  /* Starting from what the booking says saves retyping it. */
+  var el = $(p.id);
+  if (on && el && !el.value && S.booked) {
+    if (key === "day_time") el.value = S.booked.day || "";
+    else if (key === "evening_time") el.value = S.booked.evening || "";
+    else if (key === "day_room") el.value = S.booked.day_room || "";
+    else if (key === "evening_room") el.value = S.booked.evening_room || "";
+  }
 }
 
 async function saveInviteWording(thenPreview){
+  var bad = $("ivErr");
+  if (bad) bad.style.display = "none";
   try {
     var chosen = document.querySelector('input[name="ivstyle"]:checked');
     var payload = {
-      invite_day_time: $("iv_dayt").value || "",
-      invite_evening_time: $("iv_evet").value || "",
       invite_message: $("iv_msg").value.trim(),
       invite_dress_code: $("iv_dress").value.trim(),
       invite_rsvp_by: $("iv_by").value || null,
       invite_extra_info: $("iv_extra").value.trim(),
-      invite_menu: $("iv_menu").value.trim(),
       invite_website: $("iv_web").value.trim(),
       invite_style: chosen ? chosen.value : "invitation"
     };
+    var own = {};
+    for (var i = 0; i < OWN_PARTS.length; i++) {
+      var p = OWN_PARTS[i], on = ownChoice(p.key), v = $(p.id).value.trim();
+      /* A time or a menu has to be typed if it is going to be theirs. A room may be left blank: no room is named. */
+      if (on && !v && p.kind !== "room") {
+        var msg = (p.kind === "time" ? "Type a time for “" + p.label + "”" : "Type what you are serving") +
+          ", or choose Use booking details.";
+        if (bad) { bad.textContent = msg; bad.style.display = "block"; bad.scrollIntoView({ block:"center" }); }
+        else showError(msg);
+        return;
+      }
+      payload[p.field] = v;
+      own[p.key] = on;
+    }
+    payload.invite_own = own;
     await api("invite.settings", payload);
     if (payload.invite_website && !/^[a-z][a-z0-9+.-]*:/i.test(payload.invite_website)) payload.invite_website = "https://" + payload.invite_website;
     Object.keys(payload).forEach(function(k){ S.data.wedding[k] = payload[k] === "" ? null : payload[k]; });
+    S.data.wedding.invite_own = own;
     closeModal(); clearError(); render();
     if (thenPreview === true) previewInvite();
-  } catch (e) { showError(e.message); }
+  } catch (e) {
+    if (bad) { bad.textContent = e.message; bad.style.display = "block"; bad.scrollIntoView({ block:"center" }); }
+    else showError(e.message);
+  }
 }
 
 /* Sending is the one thing in this app that cannot be taken back. The times
@@ -6906,9 +7009,12 @@ async function sbxApi(action, p){
       if ("invite_style" in p && ["invitation","rsvp"].indexOf(String(p.invite_style)) < 0) {
         throw sbxErr("unknown invitation style", 400);
       }
-      var fields = ["invite_message","invite_menu","invite_dress_code","invite_rsvp_by","invite_extra_info","invite_website","invite_day_time","invite_evening_time","invite_style"];
+      var fields = ["invite_message","invite_menu","invite_dress_code","invite_rsvp_by","invite_extra_info","invite_website","invite_day_time","invite_evening_time","invite_day_room","invite_evening_room","invite_own","invite_style"];
       var any = false;
+      /* The switches are merged into what was already chosen, as the server does. */
+      var ownNow = Object.assign({}, (D3.base.wedding || {}).invite_own, D3.over.invite_own, p.invite_own);
       fields.forEach(function(f){ if (f in p) { D3.over[f] = p[f] === "" ? null : p[f]; any = true; } });
+      if ("invite_own" in p) D3.over.invite_own = ownNow;
       if (!any) throw sbxErr("nothing to save", 400);
       return { ok:true };
     }
@@ -7158,8 +7264,9 @@ function sbxPatchPreview(res){
   var D = SBX.d.dashboard;
   if (!D || !res || typeof res.html !== "string") return res;
   var o = D.over, base = D.base.wedding || {}, missed = false;
-  ["invite_message","invite_menu","invite_dress_code","invite_rsvp_by","invite_extra_info","invite_website","invite_day_time","invite_evening_time","invite_style"].forEach(function(f){
-    if (!(f in o) || String(o[f] == null ? "" : o[f]) === String(base[f] == null ? "" : base[f])) return;
+  ["invite_message","invite_menu","invite_dress_code","invite_rsvp_by","invite_extra_info","invite_website","invite_day_time","invite_evening_time","invite_day_room","invite_evening_room","invite_own","invite_style"].forEach(function(f){
+    var same = function(x){ return typeof x === "object" && x ? JSON.stringify(x) : String(x == null ? "" : x); };
+    if (!(f in o) || same(o[f]) === same(base[f])) return;
     var was = base[f], now = o[f];
     if (f === "invite_message" || f === "invite_menu" || f === "invite_dress_code" || f === "invite_extra_info") {
       if (was && now && res.html.indexOf(esc(was)) > -1) { res.html = res.html.split(esc(was)).join(esc(now)); return; }
