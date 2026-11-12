@@ -236,7 +236,7 @@ function render(){
       (g.rsvp === "attending"
         ? "<strong>You've told us you're coming.</strong> Lovely — we can't wait."
         : "<strong>You've let us know you can't make it.</strong> Thank you for saying.") +
-      '<br><a href="#" onclick="change();return false" style="font-size:.875rem">Need to change your answer?</a></div>';
+      (d.closed ? '' : '<br><a href="#" onclick="change();return false" style="font-size:.875rem">Need to change your answer?</a>') + '</div>';
 
     if (g.rsvp === "attending" && (g.main_choice || g.starter_choice || g.dessert_choice)) {
       h += '<div class="card"><span class="label">What you chose</span><ul style="margin:10px 0 0;padding-left:18px">' +
@@ -248,6 +248,15 @@ function render(){
         '</div>';
     }
     h += extras(w);
+    $("main").innerHTML = h;
+    return;
+  }
+
+  /* The couple stopped replies after their reply-by date, and it has passed. */
+  if (d.closed) {
+    h += '<div class="card center"><h2 style="margin-bottom:12px">Replies have closed</h2>' +
+      '<p class="muted" style="margin:0">Replies closed on ' + esc(ukDateShort(w.rsvp_by)) +
+      '. If you would still like to come, please get in touch with ' + esc(w.salutation) + '.</p></div>' + extras(w);
     $("main").innerHTML = h;
     return;
   }

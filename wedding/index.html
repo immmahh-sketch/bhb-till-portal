@@ -3328,6 +3328,10 @@ function editInviteWording(){
       '<input id="iv_dress" placeholder="Lounge suits" value="' + esc(w.invite_dress_code||"") + '"></div>' +
       '<div class="field"><span class="label">Reply by</span>' +
       '<input id="iv_by" type="date" value="' + esc(w.invite_rsvp_by||"") + '"></div></div>' +
+    '<div class="field"><label style="display:flex;gap:10px;align-items:flex-start;cursor:pointer">' +
+      '<input type="checkbox" id="iv_close"' + (w.invite_rsvp_close ? ' checked' : '') + ' style="width:18px;height:18px;flex:0 0 18px;margin:2px 0 0;accent-color:#4D604F">' +
+      '<span style="font-size:.9375rem;line-height:1.5">Stop replies after the reply-by date<br>' +
+      '<span class="muted" style="font-size:.8125rem">From the day after, guests cannot reply or change their answer from their link. You can still mark a reply yourself on the guest list.</span></span></label></div>' +
     '<div class="field"><span class="label">Anything else</span>' +
       '<textarea id="iv_extra" placeholder="Parking, taxis, gifts…">' + esc(w.invite_extra_info||"") + '</textarea></div>' +
     '<div class="field"><span class="label">Your wedding website <span style="text-transform:none;letter-spacing:0">(optional)</span></span>' +
@@ -3436,6 +3440,12 @@ async function saveInviteWording(thenPreview){
       invite_website: $("iv_web").value.trim(),
       invite_style: chosen ? chosen.value : "invitation"
     };
+    payload.invite_rsvp_close = !!$("iv_close").checked;
+    if (payload.invite_rsvp_close && !payload.invite_rsvp_by) {
+      var m0 = "Choose a reply-by date, or untick Stop replies after the reply-by date.";
+      if (bad) { bad.textContent = m0; bad.style.display = "block"; bad.scrollIntoView({ block:"center" }); } else showError(m0);
+      return;
+    }
     var own = {};
     for (var i = 0; i < OWN_PARTS.length; i++) {
       var p = OWN_PARTS[i], on = ownChoice(p.key), v = $(p.id).value.trim();
@@ -7009,7 +7019,7 @@ async function sbxApi(action, p){
       if ("invite_style" in p && ["invitation","rsvp"].indexOf(String(p.invite_style)) < 0) {
         throw sbxErr("unknown invitation style", 400);
       }
-      var fields = ["invite_message","invite_menu","invite_dress_code","invite_rsvp_by","invite_extra_info","invite_website","invite_day_time","invite_evening_time","invite_day_room","invite_evening_room","invite_own","invite_style"];
+      var fields = ["invite_message","invite_menu","invite_dress_code","invite_rsvp_by","invite_extra_info","invite_website","invite_day_time","invite_evening_time","invite_day_room","invite_evening_room","invite_own","invite_rsvp_close","invite_style"];
       var any = false;
       /* The switches are merged into what was already chosen, as the server does. */
       var ownNow = Object.assign({}, (D3.base.wedding || {}).invite_own, D3.over.invite_own, p.invite_own);
@@ -7264,7 +7274,7 @@ function sbxPatchPreview(res){
   var D = SBX.d.dashboard;
   if (!D || !res || typeof res.html !== "string") return res;
   var o = D.over, base = D.base.wedding || {}, missed = false;
-  ["invite_message","invite_menu","invite_dress_code","invite_rsvp_by","invite_extra_info","invite_website","invite_day_time","invite_evening_time","invite_day_room","invite_evening_room","invite_own","invite_style"].forEach(function(f){
+  ["invite_message","invite_menu","invite_dress_code","invite_rsvp_by","invite_extra_info","invite_website","invite_day_time","invite_evening_time","invite_day_room","invite_evening_room","invite_own","invite_rsvp_close","invite_style"].forEach(function(f){
     var same = function(x){ return typeof x === "object" && x ? JSON.stringify(x) : String(x == null ? "" : x); };
     if (!(f in o) || same(o[f]) === same(base[f])) return;
     var was = base[f], now = o[f];
