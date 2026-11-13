@@ -3481,10 +3481,16 @@ function sendInvites(guestId){
   var many = !guestId;
   var who;
   if (many) {
-    var n = (S.guests || []).filter(function(x){
+    var todo = (S.guests || []).filter(function(x){
       return x.email && !x.invite_sent_at;
-    }).length;
-    who = n + (n === 1 ? " guest who has" : " guests who have") + " not been invited yet";
+    });
+    var n = todo.length;
+    /* Guests who share an email address (and the same kind of invitation) get one email with a reply button each. */
+    var seen = {};
+    todo.forEach(function(x){ seen[String(x.email).trim().toLowerCase() + "|" + x.invited_to] = 1; });
+    var emails = Object.keys(seen).length;
+    who = n + (n === 1 ? " guest who has" : " guests who have") + " not been invited yet" +
+      (emails < n ? ' (' + emails + ' emails: guests who share an address get one email, with a reply button for each person)' : '');
   } else {
     var g = (S.guests || []).filter(function(x){ return x.id === guestId; })[0];
     who = g ? (g.first_name + " " + (g.surname || "")).trim() : "this guest";
