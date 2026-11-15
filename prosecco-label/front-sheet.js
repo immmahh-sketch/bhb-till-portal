@@ -155,7 +155,7 @@
       '<h2 style="margin:0 0 4px;font-size:24px">Weekly front sheet</h2><div id="fsRange" class="muted" style="margin:0 0 10px"></div>' +
       '<div id="fsStatus" style="margin:0 0 12px;line-height:1.45;font-weight:600"></div>' +
       '<div style="text-align:center;margin-bottom:14px"><img id="fsImg" alt="Preview of the front sheet" style="max-width:100%;max-height:58vh;border:1px solid #ddd;display:none"></div>' +
-      '<div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn" id="fsPrev">&larr; Week before</button><button class="btn" id="fsNext">Next week &rarr;</button><button class="btn btn--primary" id="fsPrint" hidden>Print this week</button><button class="btn" id="fsClose" style="margin-left:auto">Close</button></div></div>';
+      '<div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn" id="fsPrev">&larr; Week before</button><button class="btn" id="fsNext">Next week &rarr;</button><button class="btn btn--primary" id="fsPrint" style="display:none">Print this week</button><button class="btn" id="fsClose" style="margin-left:auto">Close</button></div></div>';
     document.body.appendChild(bg);
     var $ = function (id) { return bg.querySelector("#" + id); };
     function status(msg, tone) { var e = $("fsStatus"); e.textContent = msg; e.style.color = tone === "bad" ? "#A0302A" : tone === "ok" ? "#2F6B3A" : "inherit"; }
@@ -164,10 +164,10 @@
     bg.addEventListener("click", function (ev) { if (ev.target === bg) close(); });
 
     function addDaysYmd(ymd, n) { var d = parse(ymd); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
-    function setPrintButton() { var b = $("fsPrint"); b.hidden = !st.sheet; b.textContent = st.printedFrom === st.sheet.from ? "Print this one again" : "Print this week"; }
+    function setPrintButton() { var b = $("fsPrint"); b.style.display = st.sheet ? "" : "none"; b.textContent = st.printedFrom === st.sheet.from ? "Print again" : "Print this sheet"; }
 
     async function draw(from) {
-      status("Reading the week’s bookings…"); $("fsImg").style.display = "none";
+      status("Reading the week’s bookings…"); $("fsImg").style.display = "none"; $("fsPrint").style.display = "none";   // nothing to print while the week is being read
       var d = await L.api("frontsheet.data", from ? { from: from } : {});
       if (st.closed) return null;
       st.sheet = d.sheet; st.from = d.sheet.from; st.agentOnline = d.agent_online; st.printer = d.printer;
@@ -176,6 +176,7 @@
       $("fsImg").src = cv.toDataURL("image/png"); $("fsImg").style.display = "inline-block";
       $("fsRange").textContent = rangeText(d.sheet.from, d.sheet.to) + " · " + d.sheet.total_events + " booked" + (d.sheet.no_room ? " · " + d.sheet.no_room + " with no room set (fill it in on the events tracker)" : "");
       setPrintButton();
+      status(st.printedFrom === d.sheet.from ? "Printed already. Press Print again for another copy." : "Check the sheet. Change the week if you need to, then press Print.");
       return d;
     }
     async function send() {
@@ -208,8 +209,8 @@
     $("fsPrev").onclick = function () { st.job = null; draw(addDaysYmd(st.from, -7)).catch(function (e) { status(e.message, "bad"); }); };
     $("fsNext").onclick = function () { st.job = null; draw(addDaysYmd(st.from, 7)).catch(function (e) { status(e.message, "bad"); }); };
 
-    // straight away: draw this week and send it
-    draw(st.from).then(function (d) { if (d && !st.closed) return send(); }).catch(function (e) { status(e.message || "The front sheet could not be made.", "bad"); });
+    // draw this week and wait: nothing is sent until Print is pressed, so the week can be changed first
+    draw(st.from).catch(function (e) { status(e.message || "The front sheet could not be made.", "bad"); });
     return { close: close };
   }
 
