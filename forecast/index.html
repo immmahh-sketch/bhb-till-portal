@@ -4,7 +4,7 @@
 <script src="/shared/auth.js"></script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Forecast — Black Horse Beamish</title>
+<title>Forecast â€” Black Horse Beamish</title>
 <meta name="robots" content="noindex,nofollow">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -99,6 +99,16 @@ table.fg td.ov{color:var(--blue); font-weight:700; box-shadow:inset 3px 0 0 var(
 table.fg td.srcw{color:#3F2F28; box-shadow:inset 3px 0 0 var(--celadon)}
 table.fg td.pend{background:#fff3c4 !important; box-shadow:inset 3px 0 0 var(--attention)}
 table.fg td.neg{color:var(--alert)}
+table.fg thead th.flagd{background:var(--alert-bg); color:var(--alert); box-shadow:inset 0 3px 0 var(--alert)}
+table.fg thead th.flagd.today{box-shadow:inset 0 3px 0 var(--alert), inset 0 -3px 0 var(--sage)}
+.flagbar{margin:14px 0 4px}
+.flagbox{background:var(--alert-bg); border:1px solid #e3c9c4; border-left:5px solid var(--alert); border-radius:8px; padding:12px 16px; font-size:14px}
+.flagbox h4{margin:0 0 6px; font-family:var(--display); font-size:19px; color:var(--alert); font-weight:600}
+.flagbox .fl{margin:6px 0; line-height:1.45} .flagbox .fl b{color:var(--ink)}
+.flagbox details{margin-top:8px} .flagbox summary{cursor:pointer; font-weight:600; color:var(--alert)}
+.flagbox .fl.v{font-size:13px; margin:4px 0 4px 8px}
+.flagbox .fr{display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-top:10px; font-size:12px}
+
 table.fg tr.sec td{background:var(--sage); color:#fff; font-family:var(--display); font-size:16px; font-weight:600; text-align:left; padding:4px 10px; cursor:pointer; border-right:0}
 table.fg tr.sec td.ln{background:var(--sage); overflow:visible}
 table.fg tr.sec td.fill{padding:0}
@@ -172,13 +182,13 @@ table.xg td.hit{background:#fff0a8 !important} table.xg td.hitcur{background:#ff
     <button class="tabbtn" data-view="workbook">Workbook</button>
     <button class="tabbtn" data-view="parallel">Parallel run</button>
   </div></nav>
-  <div class="shell"><div id="views"></div></div>
+  <div class="shell"><div id="flagbar" class="flagbar"></div><div id="views"></div></div>
 </div>
 <div class="toast" id="toast"></div>
 <script type="module">
-import { LINES, computeMonth, monthDates, WD, SETUP_COLS, addDays } from "./engine.js?v=20261115a";
-import { parseFile } from "./parse.js?v=20261115a";
-import { buildWorkbook, fmtOf, SETUP_NAMES } from "./export.js?v=20261115a";
+import { LINES, computeMonth, monthDates, WD, SETUP_COLS, addDays } from "./engine.js?v=20261115b";
+import { parseFile } from "./parse.js?v=20261115b";
+import { buildWorkbook, fmtOf, SETUP_NAMES } from "./export.js?v=20261115b";
 
 const CFG = { URL:"https://safcrtrfdzsnftghibot.supabase.co/functions/v1/forecast-api", KEY:"sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU",
   SHEETJS:"https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js", EXCELJS:"https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js" };
@@ -235,8 +245,8 @@ const dayRow = day => S.data.days.find(x => x.day === day);
 
 /* ------------------------------------------------------------------ formatting */
 const FMTS = { n0:v => Math.round(v).toLocaleString("en-GB"), n1:v => (Math.round(v * 10) / 10).toLocaleString("en-GB", { minimumFractionDigits:1, maximumFractionDigits:1 }), n2:v => v.toLocaleString("en-GB", { minimumFractionDigits:2, maximumFractionDigits:2 }),
-  gbp:v => (v < 0 ? "-£" : "£") + Math.abs(Math.round(v)).toLocaleString("en-GB"), gbp2:v => (v < 0 ? "-£" : "£") + Math.abs(v).toLocaleString("en-GB", { minimumFractionDigits:2, maximumFractionDigits:2 }), pct:v => (v * 100).toFixed(1) + "%", text:v => String(v) };
-function show(l, v){ if (v === undefined || v === null || v === "") return ""; if (l.fmt === "text") return esc(v); if (!isNum(v)) return esc(v); if (v === 0 && !["rooms_bob","rooms_pickup"].includes(l.key) && ["gbp","gbp2","pct"].includes(fmtOf(l))) return "–"; return FMTS[fmtOf(l)](v); }
+  gbp:v => (v < 0 ? "-Â£" : "Â£") + Math.abs(Math.round(v)).toLocaleString("en-GB"), gbp2:v => (v < 0 ? "-Â£" : "Â£") + Math.abs(v).toLocaleString("en-GB", { minimumFractionDigits:2, maximumFractionDigits:2 }), pct:v => (v * 100).toFixed(1) + "%", text:v => String(v) };
+function show(l, v){ if (v === undefined || v === null || v === "") return ""; if (l.fmt === "text") return esc(v); if (!isNum(v)) return esc(v); if (v === 0 && !["rooms_bob","rooms_pickup"].includes(l.key) && ["gbp","gbp2","pct"].includes(fmtOf(l))) return "â€“"; return FMTS[fmtOf(l)](v); }
 const rawEdit = (l, v) => (v === undefined || v === null ? "" : (l.fmt === "pct" && isNum(v) ? String(Math.round(v * 1e6) / 1e4) : String(isNum(v) ? Math.round(v * 1e4) / 1e4 : v)));
 
 /* ------------------------------------------------------------------ month view */
@@ -249,7 +259,7 @@ const FN_KEYS = new Set(["fn_name", "fn_guests", "fn_food", "fn_prebev", "fn_hir
 function eventTip(day, shownName){
   const ev = (S.data.events || []).filter(e => e.date === day);
   if (!ev.length) return typeof shownName === "string" && shownName.length > 14 ? shownName : "";
-  return ev.map((e, i) => `${ev.length > 1 && i === 0 ? "Used in the forecast: " : ""}${e.name}\n${[e.type, e.guests ? e.guests + " guest" + (e.guests === 1 ? "" : "s") : "", e.status].filter(Boolean).join(" · ")}`).join("\n\n");
+  return ev.map((e, i) => `${ev.length > 1 && i === 0 ? "Used in the forecast: " : ""}${e.name}\n${[e.type, e.guests ? e.guests + " guest" + (e.guests === 1 ? "" : "s") : "", e.status].filter(Boolean).join(" Â· ")}`).join("\n\n");
 }
 function viewMonth(){
   const ym = S.ym, box = $("#views");
@@ -273,26 +283,26 @@ function viewMonth(){
   const pf = S.data.payFrom || {}, src = res.days.map(d => pf[d.date]).filter(Boolean); const mostly = ["planday","archive","rota"].map(k => [k, src.filter(x => x === k).length]).sort((a, b) => b[1] - a[1])[0];
   if (mostly && mostly[1]) chips.push(`<span class="tag">Wages from ${mostly[0] === "planday" ? "Planday (worked)" : mostly[0] === "rota" ? "the Planday rota" : "the Archive"}</span>`);
   const kpi = (k, v, sub, cls) => `<div class="kpi"><div class="k">${k}</div><div class="v">${v}</div>${sub ? `<div class="sub ${cls || ""}">${sub}</div>` : ""}</div>`;
-  const lockSub = lockSum ? (() => { const d = t.rev_total - lockSum; return `Locked ${FMTS.gbp(lockSum)} · ${d >= 0 ? "+" : ""}${FMTS.gbp(d)}`; })() : "";
+  const lockSub = lockSum ? (() => { const d = t.rev_total - lockSum; return `Locked ${FMTS.gbp(lockSum)} Â· ${d >= 0 ? "+" : ""}${FMTS.gbp(d)}`; })() : "";
   const kp = `<div class="kpis">
     ${kpi("Total revenue", FMTS.gbp(t.rev_total), lockSub, lockSum ? (t.rev_total >= lockSum ? "good" : "bad") : "")}
-    ${upd ? kpi("Since last update", updTotalText(res, upd), `Rooms on the books ${updBobText(res, upd)} · ${esc(fmtDT(upd.taken_at))}`, updDiffs(res, upd).reduce((a, x) => a + x.dRev, 0) < -0.5 ? "bad" : "good") : ""}
-    ${kpi("Rooms revenue", FMTS.gbp(t.rev_rooms), `${FMTS.n0(t.rooms_fc)} rooms · ARR ${FMTS.gbp2(t.arr_total)}`)}
+    ${upd ? kpi("Since last update", updTotalText(res, upd), `Rooms on the books ${updBobText(res, upd)} Â· ${esc(fmtDT(upd.taken_at))}`, updDiffs(res, upd).reduce((a, x) => a + x.dRev, 0) < -0.5 ? "bad" : "good") : ""}
+    ${kpi("Rooms revenue", FMTS.gbp(t.rev_rooms), `${FMTS.n0(t.rooms_fc)} rooms Â· ARR ${FMTS.gbp2(t.arr_total)}`)}
     ${kpi("Occupancy", FMTS.pct(t.occ), `${FMTS.n0(t.rooms_avail)} room nights`)}
     ${kpi("Food", FMTS.gbp(t.rev_food), `Beverage ${FMTS.gbp(t.rev_bev)}`)}
-    ${kpi("Wages", t.wages_total ? FMTS.gbp(t.wages_total) : "–", t.wages_total ? `Labour ${FMTS.pct(t.labour_pct)}` : "no rota or payroll yet")}
-    ${kpi("Revenue less wages", t.wages_total ? FMTS.gbp(t.pl_total) : "–", "")}
+    ${kpi("Wages", t.wages_total ? FMTS.gbp(t.wages_total) : "â€“", t.wages_total ? `Labour ${FMTS.pct(t.labour_pct)}` : "no rota or payroll yet")}
+    ${kpi("Revenue less wages", t.wages_total ? FMTS.gbp(t.pl_total) : "â€“", "")}
   </div>`;
   const keyOnly = lsGet("fc_keyonly", false);
   const weekKeys = Object.keys(res.weeks).sort();
-  const head = `<thead><tr><th class="ln">${esc(monthName(ym))}</th>${res.days.map(d => { const a = dayRow(d.date)?.actual; return `<th class="d${a ? " act" : ""}${d.date === today ? " today" : ""}" data-day="${d.date}" title="${a ? "Finished day (actual)" : "Forecast"}: click for options">${d.dow}<br>${+d.date.slice(8)}${a ? "<br>actual" : ""}</th>`; }).join("")}
+  const head = `<thead><tr><th class="ln">${esc(monthName(ym))}</th>${res.days.map(d => { const a = dayRow(d.date)?.actual, fg = flagDayTip(d.date); return `<th class="d${a ? " act" : ""}${d.date === today ? " today" : ""}${fg ? " flagd" : ""}" data-day="${d.date}" title="${esc((a ? "Finished day (actual)" : "Forecast") + ": click for options" + (fg ? "\n\n" + fg : ""))}">${d.dow}<br>${+d.date.slice(8)}${a ? "<br>actual" : ""}${fg ? "<br>âš " : ""}</th>`; }).join("")}
     ${weekKeys.map((k, i) => `<th class="agg${i === 0 ? " sep" : ""}">${k.replace("Week ", "Wk ")}</th>`).join("")}${S.showWeekdays ? ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map((k, i) => `<th class="agg${i === 0 ? " sep" : ""}">${k}</th>`).join("") : ""}<th class="agg sep">Total</th></tr></thead>`;
   let body = "";
   for (const g of groupsOf()) {
     const open = !S.collapsed[g.name], lines = g.lines.filter(l => !keyOnly || KEY_ONLY.has(l.key));
     if (!lines.length) continue;
     const nCols = res.days.length + weekKeys.length + (S.showWeekdays ? 7 : 0) + 2;
-    body += `<tr class="sec" data-grp="${esc(g.name)}"><td class="ln">${open ? "▾" : "▸"} ${esc(g.name)}</td><td class="fill" colspan="${nCols - 1}"></td></tr>`;
+    body += `<tr class="sec" data-grp="${esc(g.name)}"><td class="ln">${open ? "â–¾" : "â–¸"} ${esc(g.name)}</td><td class="fill" colspan="${nCols - 1}"></td></tr>`;
     if (!open) continue;
     for (const l of lines) {
       const edit = S.me.admin && !NO_EDIT.has(l.key);
@@ -336,7 +346,7 @@ function lockBlock(res, snap, weekKeys){
 }
 function monthBar(){
   const first = addMonths(todayYmd().slice(0, 7), -8), last = addMonths(todayYmd().slice(0, 7), 24);
-  return `<div class="mbar"><button class="arrow" data-mv="-1" aria-label="Previous month">‹</button><h2>${esc(monthName(S.ym))}</h2><button class="arrow" data-mv="1" aria-label="Next month">›</button>
+  return `<div class="mbar"><button class="arrow" data-mv="-1" aria-label="Previous month">â€¹</button><h2>${esc(monthName(S.ym))}</h2><button class="arrow" data-mv="1" aria-label="Next month">â€º</button>
     <button class="btn small ghost" data-mv="today">This month</button>
     <select id="mpick" aria-label="Go to month">${(S.data ? [...new Set([...S.data.months.map(m => m.month.slice(0, 7)), S.ym])].sort() : [S.ym]).map(m => `<option value="${m}" ${m === S.ym ? "selected" : ""}>${esc(monthName(m))}</option>`).join("")}</select></div>`;
 }
@@ -402,7 +412,7 @@ function startEdit(td){
       const raw = inp.value.trim();
       if (raw === "" && was) S.pending.set(day + "|" + key, null);
       else if (raw !== "") {
-        let v = l.fmt === "text" ? raw : Number(raw.replace(/[£,%\s]/g, ""));
+        let v = l.fmt === "text" ? raw : Number(raw.replace(/[Â£,%\s]/g, ""));
         if (l.fmt !== "text" && !isFinite(v)) { toast("That is not a number.", true); v = undefined; }
         else if (l.fmt === "pct") v = v / 100;
         if (v !== undefined && v !== cur) S.pending.set(day + "|" + key, v);
@@ -429,7 +439,7 @@ async function copyBobToPickup(){
   }
   if (!changes.length) { toast("Every open day's Pickup Average Rate already matches its BOB Average Rate."); return; }
   if (!b.dataset.sure) { b.dataset.sure = "1"; b.textContent = `Tap again: change ${changes.length} day${changes.length === 1 ? "" : "s"}`; b.className = "btn small gold"; setTimeout(() => { if (b.isConnected) { delete b.dataset.sure; b.textContent = "Copy BOB rate to Pick up rate"; b.className = "btn small ghost"; } }, 4500); return; }
-  b.disabled = true; b.textContent = "Copying…";
+  b.disabled = true; b.textContent = "Copyingâ€¦";
   try {
     await call("ov.save", { changes });
     for (const ch of changes) { let r = dayRow(ch.day); if (!r) S.data.days.push(r = { day:ch.day, ov:{}, ov_src:{}, actual:false }); r.ov[ch.key] = ch.value; r.ov_src[ch.key] = "typed"; }
@@ -438,7 +448,7 @@ async function copyBobToPickup(){
 }
 async function savePending(){
   const changes = [...S.pending].map(([k, v]) => { const [day, key] = k.split("|"); return { day, key, value:v }; });
-  const b = $("#svBtn"); if (b) { b.disabled = true; b.textContent = "Saving…"; }
+  const b = $("#svBtn"); if (b) { b.disabled = true; b.textContent = "Savingâ€¦"; }
   try {
     await call("ov.save", { changes });
     for (const c of changes) { let r = dayRow(c.day); if (!r) S.data.days.push(r = { day:c.day, ov:{}, ov_src:{}, actual:false }); if (c.value === null) { delete r.ov[c.key]; delete r.ov_src[c.key]; } else { r.ov[c.key] = c.value; r.ov_src[c.key] = "typed"; } }
@@ -517,7 +527,7 @@ async function viewSummary(){
   const rows = months.map(m => { const r = calc(m); return r ? { m, t:r.total } : null; }).filter(Boolean);
   const sum = k => rows.reduce((a, r) => a + (k === "hh" ? r.t.rev_hire + r.t.rev_other : r.t[k] || 0), 0);
   const tot = { rooms_fc:sum("rooms_fc"), rooms_avail:rows.reduce((a, r) => a + r.t.rooms_avail, 0), rev_rooms:sum("rev_rooms"), rev_food:sum("rev_food"), rev_bev:sum("rev_bev"), hh:sum("hh"), rev_total:sum("rev_total"), wages_total:sum("wages_total"), pl_total:sum("pl_total") };
-  const val = (r, k, f) => k === "hh" ? FMTS[f](r.t.rev_hire + r.t.rev_other) : (["wages_total","labour_pct","pl_total"].includes(k) && !r.t.wages_total ? "–" : FMTS[f](r.t[k]));
+  const val = (r, k, f) => k === "hh" ? FMTS[f](r.t.rev_hire + r.t.rev_other) : (["wages_total","labour_pct","pl_total"].includes(k) && !r.t.wages_total ? "â€“" : FMTS[f](r.t[k]));
   $("#views").innerHTML = `<div class="mbar"><h2 style="text-align:left">Summary</h2></div>
     <p class="muted" style="margin:0 0 12px">Every set-up month, as calculated now (finished days actual, the rest forecast). Budgets will be added when they are ready.</p>
     <div class="card scrollx"><table class="dt"><thead><tr><th>Month</th>${cols.map(c => `<th>${c[0]}</th>`).join("")}</tr></thead><tbody>
@@ -568,9 +578,10 @@ function viewSetup(){
       <div class="field" style="flex:1; min-width:220px; margin:0"><label>Note</label><input id="suNote" value="${esc(draft.note || "")}" ${S.me.admin ? "" : "disabled"}></div>
       ${S.me.admin ? `<button class="btn" id="suSave">Save set up</button>` : ""}</div></div>
     <div id="rcHost"></div>
+    ${flagSettingsCard()}
     ${S.me.admin && m && later.length ? `<div class="card"><h3>Copy this set up forward</h3><p class="muted" style="margin:0 0 8px">Replaces the set up of the months you tick with this one.</p>
       <div class="tbar" id="cpList">${later.map(x => `<label><input type="checkbox" value="${x}"> ${esc(monthName(x).slice(0, 3) + " " + x.slice(2, 4))}</label>`).join("")}</div><button class="btn small ghost" id="cpGo">Copy</button></div>` : ""}`;
-  bindMonthBar(); fillReality(ym);
+  bindMonthBar(); fillReality(ym); bindFlagSettings();
   const so = $("#suOld"); if (so) so.onclick = () => { lsSet("fc_setup_old", !showOld); viewSetup(); };
   $$("table.su input").forEach(i => i.oninput = () => { const w = i.dataset.w, c = i.dataset.c; (draft.wd[w] ||= {}); if (i.value.trim() === "") delete draft.wd[w][c]; else draft.wd[w][c] = Number(i.value); });
   const sv = $("#suSave"); if (sv) sv.onclick = async () => {
@@ -627,7 +638,7 @@ function rollingMetrics(a, s){
   ];
 }
 const gnum = (v, d = 1) => (Math.round(v * 10 ** d) / 10 ** d).toLocaleString("en-GB", { minimumFractionDigits:d, maximumFractionDigits:d });
-const showMetric = (m, v) => m.money ? "£" + gnum(v, 2).replace(/\.00$/, "") : gnum(v, m.dp);
+const showMetric = (m, v) => m.money ? "Â£" + gnum(v, 2).replace(/\.00$/, "") : gnum(v, m.dp);
 // The changes the last 30 days suggest for this month's set up. Needs at least 2 finished days of that weekday; a figure is only suggested when it is 5% or more out,
 // and is ticked by default when it is more than a fifth out (the same line as the shading).
 function recommendations(stats, setup){
@@ -650,7 +661,7 @@ function recommendations(stats, setup){
 }
 async function fillReality(ym){
   const host = $("#rcHost"); if (!host) return;
-  host.innerHTML = `<div class="card"><h3>Does the set up match what happened?</h3><p class="muted">Looking at the last 30 days…</p></div>`;
+  host.innerHTML = `<div class="card"><h3>Does the set up match what happened?</h3><p class="muted">Looking at the last 30 daysâ€¦</p></div>`;
   let stats; try { stats = await recentStats(); } catch (e) { host.innerHTML = `<div class="card"><h3>Does the set up match what happened?</h3><p class="muted">${esc(e.message)}</p></div>`; return; }
   if (S.ym !== ym || !$("#rcHost")) return;                      // moved to another month while it loaded
   const m0 = S.data.months.find(x => x.month.slice(0, 7) === ym); if (!m0) { host.innerHTML = ""; return; }
@@ -710,7 +721,7 @@ function viewImports(){
       ${st("bob","Rooms on the books and actuals")}${st("opentable","Booked covers (ResDiary)")}${st("mealplan","Meal plan")}${st("occ","Occupancy by room type")}${st("pay","Payroll (Archive)")}
       <tr><td>Rooms on the books, live</td><td colspan="3">${S.data.autoUsed ? `Guestline availability, ${S.data.autoUsed} nights (used when newer than the report)` : "no capture newer than the report"}</td></tr>
       <tr><td>Wages</td><td colspan="3" class="muted">Planday (worked), then the Archive, then the rota</td></tr></tbody></table></div></div>
-      <div class="card"><h3>History</h3><div id="logbox" class="scrollx"><div class="muted">Loading…</div></div></div></div>`;
+      <div class="card"><h3>History</h3><div id="logbox" class="scrollx"><div class="muted">Loadingâ€¦</div></div></div></div>`;
   renderFiles(); loadLog();
   const drop = $("#drop"); if (!drop) return;
   const pick = $("#pick"); $("#pickBtn").onclick = () => pick.click(); pick.onchange = () => addFiles(pick.files);
@@ -738,8 +749,8 @@ function renderFiles(){
   const box = $("#flist"); if (!box) return; const fs = S.imp.files;
   if (!fs.length && !S.imp.result) { box.innerHTML = ""; return; }
   const ok = fs.filter(f => !f.error);
-  box.innerHTML = fs.map(f => `<div class="fcard ${f.error ? "bad" : ""}"><div style="flex:1; min-width:240px"><div class="fn">${esc(f.name)}</div>${f.error ? `<div class="fd err">${esc(f.error)}</div>` : `<div class="fd"><b>${esc(f.label)}</b><br>${esc(f.from)}${f.to && f.to !== f.from ? " to " + esc(f.to) : ""} · ${esc(diffInfo(f))}${(f.notes || []).map(n => `<br>${esc(n)}`).join("")}</div>`}</div><button class="btn small ghost" data-rm="${f.id}">Remove</button></div>`).join("") +
-    (ok.length ? `<button class="btn" id="doImport" ${S.imp.busy ? "disabled" : ""}>${S.imp.busy ? "Importing…" : `Import ${ok.length} report${ok.length === 1 ? "" : "s"}`}</button> ` : "") + (fs.length ? `<button class="btn ghost" id="clrImport">Clear</button>` : "") +
+  box.innerHTML = fs.map(f => `<div class="fcard ${f.error ? "bad" : ""}"><div style="flex:1; min-width:240px"><div class="fn">${esc(f.name)}</div>${f.error ? `<div class="fd err">${esc(f.error)}</div>` : `<div class="fd"><b>${esc(f.label)}</b><br>${esc(f.from)}${f.to && f.to !== f.from ? " to " + esc(f.to) : ""} Â· ${esc(diffInfo(f))}${(f.notes || []).map(n => `<br>${esc(n)}`).join("")}</div>`}</div><button class="btn small ghost" data-rm="${f.id}">Remove</button></div>`).join("") +
+    (ok.length ? `<button class="btn" id="doImport" ${S.imp.busy ? "disabled" : ""}>${S.imp.busy ? "Importingâ€¦" : `Import ${ok.length} report${ok.length === 1 ? "" : "s"}`}</button> ` : "") + (fs.length ? `<button class="btn ghost" id="clrImport">Clear</button>` : "") +
     (S.imp.result ? `<div class="notice" style="margin-top:12px">${S.imp.result}</div>` : "");
   $$("[data-rm]").forEach(b => b.onclick = () => { S.imp.files = S.imp.files.filter(f => f.id !== b.dataset.rm); renderFiles(); });
   const go = $("#doImport"); if (go) go.onclick = runImport; const cl = $("#clrImport"); if (cl) cl.onclick = () => { S.imp.files = []; S.imp.result = null; renderFiles(); };
@@ -807,6 +818,7 @@ async function runImport(){
   }
   S.imp.busy = false; S.imp.result = out.join("<br>");
   try { await loadRange(S.ym); } catch (e) {}
+  loadFlags();
   toast(bad ? "Some reports did not import." : "Imported. The forecast has been recalculated.", bad); viewImports();
 }
 async function loadLog(){
@@ -828,7 +840,7 @@ async function makeWorkbook(ym){
   return new Uint8Array(buf);
 }
 async function viewWorkbook(){
-  $("#views").innerHTML = monthBar() + `<div id="wbpane"><div class="card"><div class="loading" style="padding:40px">Building the workbook…</div></div></div>`; bindMonthBar();
+  $("#views").innerHTML = monthBar() + `<div id="wbpane"><div class="card"><div class="loading" style="padding:40px">Building the workbookâ€¦</div></div></div>`; bindMonthBar();
   const key = S.ym + ":" + S.pending.size + ":" + (S.data.days.length) + ":" + JSON.stringify(S.data.days.filter(d => d.day.slice(0, 7) === S.ym).map(d => d.ov)).length;
   if (!S.wb || S.wb.key !== key || S.wb.ym !== S.ym) {
     const wbs = S.wb = { key, ym:S.ym, state:"loading", find:"", hits:[], hitSet:new Set(), hitIdx:-1, token:0 };
@@ -949,8 +961,8 @@ function rangeTable(from, to, mode){
     const status = !has ? `<span class="muted">no data</span>` : t.fin === t.days ? `<span class="tag good">actual</span>` : t.fin ? `<span class="tag warn">${t.fin} of ${t.days} actual</span>` : `<span class="tag">forecast</span>`;
     const sub = r.from === r.to ? "" : `<br><span class="muted" style="font-size:12px">${fmtD(r.from)} to ${fmtD(r.to)} &middot; ${t.days} days${t.gaps ? `, ${t.gaps} without figures` : ""}</span>`;
     return `<tr class="${total ? "tot" : ""}"><td><b>${esc(r.label)}</b>${sub}</td><td>${status}</td>
-      <td>${t.rooms ? FMTS.n0(t.rooms) : "–"}</td><td>${t.avail && t.rooms ? FMTS.pct(t.rooms / t.avail) : "–"}</td><td>${t.rooms ? FMTS.gbp2(t.rrev / t.rooms) : "–"}</td><td>${t.rrev ? FMTS.gbp(t.rrev) : "–"}</td><td>${t.fb ? FMTS.gbp(t.fb) : "–"}</td><td>${t.oth ? FMTS.gbp(t.oth) : "–"}</td><td><b>${t.tot ? FMTS.gbp(t.tot) : "–"}</b></td>
-      <td>${t.wages ? FMTS.gbp(t.wages) : "–"}</td><td>${t.wages && t.tot ? FMTS.pct(t.wages / t.tot) : "–"}</td><td>${t.wages ? FMTS.gbp(t.tot - t.wages) : "–"}</td></tr>`;
+      <td>${t.rooms ? FMTS.n0(t.rooms) : "â€“"}</td><td>${t.avail && t.rooms ? FMTS.pct(t.rooms / t.avail) : "â€“"}</td><td>${t.rooms ? FMTS.gbp2(t.rrev / t.rooms) : "â€“"}</td><td>${t.rrev ? FMTS.gbp(t.rrev) : "â€“"}</td><td>${t.fb ? FMTS.gbp(t.fb) : "â€“"}</td><td>${t.oth ? FMTS.gbp(t.oth) : "â€“"}</td><td><b>${t.tot ? FMTS.gbp(t.tot) : "â€“"}</b></td>
+      <td>${t.wages ? FMTS.gbp(t.wages) : "â€“"}</td><td>${t.wages && t.tot ? FMTS.pct(t.wages / t.tot) : "â€“"}</td><td>${t.wages ? FMTS.gbp(t.tot - t.wages) : "â€“"}</td></tr>`;
   };
   const rows = breakdown(from, to, mode);
   return `<div class="card scrollx"><table class="dt"><thead><tr><th></th><th>Figures</th><th>Rooms sold</th><th>Occupancy</th><th>ARR</th><th>Rooms</th><th>Food &amp; drink</th><th>Hire &amp; other</th><th>Total revenue</th><th>Wages</th><th>Labour %</th><th>Revenue less wages</th></tr></thead><tbody>
@@ -963,7 +975,7 @@ async function viewPeriods(){
   const { from, to } = S.prange;
   const days = Math.round((Date.parse(to) - Date.parse(from)) / 86400000) + 1;
   const mode = S.pview === "days" && days > 92 ? "weeks" : S.pview;
-  $("#views").innerHTML = `<div class="loading">Working it out…</div>`;
+  $("#views").innerHTML = `<div class="loading">Working it outâ€¦</div>`;
   try { await ensureHistory(from, to); } catch (e) { toast(e.message, true); }
   const seg = (k, l) => `<button data-pv="${k}" class="btn small ${mode === k ? "" : "ghost"}">${l}</button>`;
   const quick = (id, l) => `<button class="btn small ghost" data-q="${id}">${l}</button>`;
@@ -993,30 +1005,30 @@ async function loadParallel(){
   const ym = S.ym; const d = await call("shadow.get", { from:ym + "-01", to:eomOf(ym) }); PR.rows = d.rows; PR.log = d.log; PR.lastPush = d.last_push;
 }
 async function viewParallel(){
-  $("#views").innerHTML = monthBar() + `<div class="loading">Loading the comparison…</div>`; bindMonthBar();
+  $("#views").innerHTML = monthBar() + `<div class="loading">Loading the comparisonâ€¦</div>`; bindMonthBar();
   try { await loadParallel(); } catch (e) { $("#views").innerHTML = monthBar() + `<div class="card empty err">${esc(e.message)}</div>`; bindMonthBar(); return; }
   const rows = PR.rows, cmp = rows.filter(r => r.ok !== null), okN = cmp.filter(r => r.ok).length, wait = rows.filter(r => r.ok === null).length, bad = cmp.filter(r => !r.ok).length;
   const last = PR.log[0], shown = PR.only ? rows.filter(r => r.ok !== true) : rows;
-  const n = (v, f) => v === null || v === undefined ? "–" : f(Number(v));
-  const pair = (e, p, f, tol) => { if (e === null || p === null) return `<td class="muted">–</td>`; const diff = Number(e) - Number(p), off = Math.abs(diff) > tol; return `<td style="${off ? "background:var(--alert-bg); font-weight:700" : ""}" title="Here ${f(Number(e))}, workbook ${f(Number(p))}">${f(Number(e))}<br><span class="muted">${f(Number(p))}${off ? ` (${diff > 0 ? "+" : "-"}${f(Math.abs(diff))})` : ""}</span></td>`; };
+  const n = (v, f) => v === null || v === undefined ? "â€“" : f(Number(v));
+  const pair = (e, p, f, tol) => { if (e === null || p === null) return `<td class="muted">â€“</td>`; const diff = Number(e) - Number(p), off = Math.abs(diff) > tol; return `<td style="${off ? "background:var(--alert-bg); font-weight:700" : ""}" title="Here ${f(Number(e))}, workbook ${f(Number(p))}">${f(Number(e))}<br><span class="muted">${f(Number(p))}${off ? ` (${diff > 0 ? "+" : "-"}${f(Math.abs(diff))})` : ""}</span></td>`; };
   const tag = r => r.ok === true ? `<span class="tag good">agrees</span>` : r.ok === false ? `<span class="tag" style="background:var(--alert-bg); color:var(--alert)">differs</span>` : `<span class="tag warn">waiting</span>`;
   $("#views").innerHTML = monthBar() + `
     <div class="kpis">
       <div class="kpi"><div class="k">Days compared</div><div class="v">${cmp.length}</div><div class="sub">${esc(monthName(S.ym))}</div></div>
       <div class="kpi"><div class="k">Agree with the workbook</div><div class="v">${okN}</div><div class="sub ${bad ? "bad" : "good"}">${bad ? bad + " differ" : "none differ"}</div></div>
       <div class="kpi"><div class="k">Waiting for a push</div><div class="v">${wait}</div><div class="sub">newer data here, or not pushed yet</div></div>
-      <div class="kpi"><div class="k">Last workbook push</div><div class="v" style="font-size:20px">${esc(fmtDT(PR.lastPush) || "–")}</div><div class="sub">compared ${esc(last ? fmtDT(last.run_at) : "never")}</div></div>
+      <div class="kpi"><div class="k">Last workbook push</div><div class="v" style="font-size:20px">${esc(fmtDT(PR.lastPush) || "â€“")}</div><div class="sub">compared ${esc(last ? fmtDT(last.run_at) : "never")}</div></div>
     </div>
     <div class="card"><p style="margin:0 0 8px">This sets the figures this tile calculates beside what your workbook's push script put in the dashboard, day by day: rooms, rooms revenue, food, beverage and total. It runs by itself every morning and changes nothing anywhere else. Finished days use the actual figures on both sides, other days the forecast.</p>
       <p class="muted" style="margin:0 0 10px; font-size:13px"><b>Waiting</b> means the tile holds newer report data than the push had, so the two cannot be expected to agree yet: run your usual update and push, then press Compare. Here the live Guestline rooms are left out, so both sides use the same reports. The macros are safe to retire when every day, including a month end, agrees across a few runs in a row.</p>
-      <div class="tbar" style="margin:0"><button class="btn" id="prCmp" ${PR.busy ? "disabled" : ""}>${PR.busy ? "Comparing…" : "Compare now"}</button><label><input type="checkbox" id="prOnly" ${PR.only ? "checked" : ""}> Only days that differ or are waiting</label></div></div>
+      <div class="tbar" style="margin:0"><button class="btn" id="prCmp" ${PR.busy ? "disabled" : ""}>${PR.busy ? "Comparingâ€¦" : "Compare now"}</button><label><input type="checkbox" id="prOnly" ${PR.only ? "checked" : ""}> Only days that differ or are waiting</label></div></div>
     <div class="card scrollx"><table class="dt"><thead><tr><th>Day</th><th>Compared</th><th>Rooms</th><th>Rooms revenue</th><th>Food</th><th>Beverage</th><th>Total</th><th>Result</th></tr></thead><tbody>
-      ${shown.map(r => `<tr><td>${esc(new Date(r.day + "T00:00:00Z").toLocaleDateString("en-GB", { weekday:"short", day:"numeric", month:"short", timeZone:"UTC" }))}</td><td>${esc(r.basis || "–")}</td>${pair(r.e_rooms, r.p_rooms, v => FMTS.n0(v), 0.5)}${pair(r.e_rooms_rev, r.p_rooms_rev, v => FMTS.gbp2(v), 1)}${pair(r.e_food, r.p_food, v => FMTS.gbp2(v), 1)}${pair(r.e_bev, r.p_bev, v => FMTS.gbp2(v), 1)}${pair(r.e_total, r.p_total, v => FMTS.gbp2(v), 1)}<td style="white-space:normal; min-width:190px">${tag(r)}${r.note ? `<div class="muted" style="font-size:12px">${esc(r.note)}</div>` : ""}</td></tr>`).join("") || `<tr><td colspan="8" class="muted" style="text-align:center">${rows.length ? "Every day this month agrees." : "Nothing compared for this month yet."}</td></tr>`}
+      ${shown.map(r => `<tr><td>${esc(new Date(r.day + "T00:00:00Z").toLocaleDateString("en-GB", { weekday:"short", day:"numeric", month:"short", timeZone:"UTC" }))}</td><td>${esc(r.basis || "â€“")}</td>${pair(r.e_rooms, r.p_rooms, v => FMTS.n0(v), 0.5)}${pair(r.e_rooms_rev, r.p_rooms_rev, v => FMTS.gbp2(v), 1)}${pair(r.e_food, r.p_food, v => FMTS.gbp2(v), 1)}${pair(r.e_bev, r.p_bev, v => FMTS.gbp2(v), 1)}${pair(r.e_total, r.p_total, v => FMTS.gbp2(v), 1)}<td style="white-space:normal; min-width:190px">${tag(r)}${r.note ? `<div class="muted" style="font-size:12px">${esc(r.note)}</div>` : ""}</td></tr>`).join("") || `<tr><td colspan="8" class="muted" style="text-align:center">${rows.length ? "Every day this month agrees." : "Nothing compared for this month yet."}</td></tr>`}
     </tbody></table></div>
     <div class="card scrollx"><h3>Earlier comparisons</h3><table class="dt"><thead><tr><th>When</th><th>Days</th><th>Compared</th><th>Agreed</th><th>Waiting</th><th>Biggest difference</th></tr></thead><tbody>${PR.log.map(l => `<tr><td>${esc(fmtDT(l.run_at))}</td><td>${l.days}</td><td>${l.compared}</td><td>${l.within}</td><td>${l.waiting}</td><td>${Number(l.worst) ? FMTS.gbp2(Number(l.worst)) + " on " + esc(l.worst_day || "") : "none"}</td></tr>`).join("")}</tbody></table></div>`;
   bindMonthBar();
   $("#prOnly").onchange = e => { PR.only = e.target.checked; viewParallel(); };
-  $("#prCmp").onclick = async () => { PR.busy = true; $("#prCmp").disabled = true; $("#prCmp").textContent = "Comparing…"; try { const r = await call("shadow.run"); toast(`${r.within} of ${r.compared} agree, ${r.waiting} waiting.`); } catch (e) { toast(e.message, true); } PR.busy = false; viewParallel(); };
+  $("#prCmp").onclick = async () => { PR.busy = true; $("#prCmp").disabled = true; $("#prCmp").textContent = "Comparingâ€¦"; try { const r = await call("shadow.run"); toast(`${r.within} of ${r.compared} agree, ${r.waiting} waiting.`); } catch (e) { toast(e.message, true); } PR.busy = false; viewParallel(); };
 }
 
 /* ---- History: how each finished day really went, kept day by day, to look back by day, month and any 30 days. Totals are kept, so any run of days adds up correctly. ---- */
@@ -1033,8 +1045,8 @@ function histAgg(rows){
     food:dv(t.dFood, cov), bev:dv(t.dBev, cov), bf:dv(t.dBfRev, t.dBfast), rate:dv(t.rr, t.rrRooms), rev_day:dv(t.rev, t.n), revenue:t.n ? t.rev : null };
 }
 const HCOLS = [["n","Days",v => String(v)],["rooms_day","Rooms sold a day",v => gnum(v, 1)],["occ","Occupancy",v => gnum(v * 100, 0) + "%"],["gpr","Guests per room",v => gnum(v, 2)],["bpg","Breakfasts per guest",v => gnum(v, 2)],
-  ["lunch","Lunch covers a day",v => gnum(v, 0)],["dinner","Dinner covers a day",v => gnum(v, 0)],["food","Food per cover",v => "£" + gnum(v, 2)],["bev","Drinks per cover",v => "£" + gnum(v, 2)],
-  ["bf","Breakfast spend",v => "£" + gnum(v, 2)],["rate","Rate per room sold",v => "£" + gnum(v, 2)],["rev_day","Revenue a day",v => "£" + gnum(v, 0)],["revenue","Total revenue",v => "£" + gnum(v, 0)]];
+  ["lunch","Lunch covers a day",v => gnum(v, 0)],["dinner","Dinner covers a day",v => gnum(v, 0)],["food","Food per cover",v => "Â£" + gnum(v, 2)],["bev","Drinks per cover",v => "Â£" + gnum(v, 2)],
+  ["bf","Breakfast spend",v => "Â£" + gnum(v, 2)],["rate","Rate per room sold",v => "Â£" + gnum(v, 2)],["rev_day","Revenue a day",v => "Â£" + gnum(v, 0)],["revenue","Total revenue",v => "Â£" + gnum(v, 0)]];
 function histTable(items, firstHead, cmpLabel){
   S.histExport = [[firstHead].concat(HCOLS.map(c => c[1]))];
   const body = items.map(it => {
@@ -1053,7 +1065,7 @@ async function buildHistory(){
 }
 async function viewHistory(){
   const today = todayYmd(), hv = S.hv; if (!hv.end) hv.end = today;
-  $("#views").innerHTML = `<div class="loading">Loading the history…</div>`;
+  $("#views").innerHTML = `<div class="loading">Loading the historyâ€¦</div>`;
   let days; try { days = (await call("stats.load", { from:addMonths(today.slice(0, 7), -59) + "-01", to:today })).days; } catch (e) { $("#views").innerHTML = `<div class="card empty">${esc(e.message)}</div>`; return; }
   const byMonth = {}; for (const r of days) (byMonth[r.day.slice(0, 7)] ||= []).push(r);
   const admin = S.me.admin;
@@ -1089,14 +1101,63 @@ async function viewHistory(){
   const he = $("#hvEnd"); if (he) he.onchange = () => { if (he.value) { hv.end = he.value; again(); } };
   const bk = $("#hvBack"); if (bk) bk.onclick = () => { hv.ym = null; again(); };
   $$("#views tr[data-go]").forEach(r => r.onclick = () => { hv.ym = r.dataset.go; hv.mode = "months"; again(); });
-  const bb = $("#hvBuild"); if (bb) bb.onclick = async () => { bb.disabled = true; bb.textContent = "Saving, this takes a minute…"; try { const r = await buildHistory(); toast(`History saved: ${r.tile} finished days from the tile, and the old workbook months.`); again(); } catch (e) { toast(e.message, true); bb.disabled = false; } };
+  const bb = $("#hvBuild"); if (bb) bb.onclick = async () => { bb.disabled = true; bb.textContent = "Saving, this takes a minuteâ€¦"; try { const r = await buildHistory(); toast(`History saved: ${r.tile} finished days from the tile, and the old workbook months.`); again(); } catch (e) { toast(e.message, true); bb.disabled = false; } };
+}
+
+/* ------------------------------------------------------------------ flags */
+/* A function that may not have been checked in at Rezlynx (its money did not reach the day), and finished days that came in well away from the forecast. */
+async function loadFlags(){
+  try { S.flags = await call("flags.get"); } catch (e) { S.flags = null; }
+  S.flagDays = new Map();
+  for (const f of (S.flags?.function || [])) S.flagDays.set(f.day, { fn:f, vr:null });
+  for (const v of (S.flags?.variance || [])) { const e = S.flagDays.get(v.day) || { fn:null, vr:null }; e.vr = v; S.flagDays.set(v.day, e); }
+  renderFlagBar();
+}
+const dayShort = d => new Date(d + "T12:00:00Z").toLocaleDateString("en-GB", { weekday:"short", day:"numeric", month:"short", timeZone:"UTC" });
+const flagSig = f => JSON.stringify([(f?.function || []).map(x => [x.day, x.gap]), (f?.variance || []).map(x => [x.day, x.total_diff])]);
+function varText(v){ return v.items.map(i => `${esc(i.label)} ${i.key === "rooms" ? `${i.forecast} forecast, ${i.actual} sold` : `${FMTS.gbp(i.forecast)} forecast, ${FMTS.gbp(i.actual)} actual`}`).join("; "); }
+function flagDayTip(day){
+  const e = S.flagDays && S.flagDays.get(day); if (!e) return "";
+  const out = [];
+  if (e.fn) out.push(`Function money may not have been checked in: ${FMTS.gbp(e.fn.expected)} expected, ${FMTS.gbp(e.fn.posted)} posted.`);
+  if (e.vr) out.push("Away from the forecast: " + e.vr.items.map(i => `${i.label} ${i.key === "rooms" ? i.forecast + " forecast, " + i.actual + " sold" : FMTS.gbp(i.forecast) + " forecast, " + FMTS.gbp(i.actual) + " actual"}`).join("; "));
+  return out.join("\n");
+}
+function renderFlagBar(){
+  const box = $("#flagbar"); if (!box) return;
+  const f = S.flags, fn = f?.function || [], vr = f?.variance || [];
+  if (!fn.length && !vr.length) { box.innerHTML = ""; return; }
+  const hide = lsGet("fc_flaghide", null), sig = flagSig(f), today = todayYmd();
+  if (hide && hide.date === today && hide.sig === sig) { box.innerHTML = `<div class="muted" style="font-size:12px">${fn.length + vr.length} thing${fn.length + vr.length === 1 ? "" : "s"} flagged, hidden for today. <button class="linkbtn" id="flShow" style="font-size:12px">Show</button></div>`; $("#flShow").onclick = () => { lsSet("fc_flaghide", null); renderFlagBar(); }; return; }
+  const fnHtml = fn.map(x => `<div class="fl"><b>${esc(dayShort(x.day))}: the function may not have been checked in.</b> ${FMTS.gbp(x.expected)} was expected from ${x.events.length ? x.events.map(e => `${esc(e.name)} (${esc(e.status)})`).join("; ") : "the day's functions"}, and ${FMTS.gbp(x.posted)} reached the End of Day report. Check it in at Rezlynx; once it is checked in the event moves to that day and this goes by itself.<button class="linkbtn" data-fgo="${x.day.slice(0, 7)}" style="margin-left:8px; font-size:12px">Open ${esc(monthName(x.day.slice(0, 7)))}</button></div>`).join("");
+  const vrHtml = vr.length ? `<details ${fn.length ? "" : "open"}><summary>${vr.length} finished day${vr.length === 1 ? "" : "s"} came in well away from the forecast</summary>${vr.map(v => `<div class="fl v"><b>${esc(dayShort(v.day))}</b> Â· ${varText(v)}</div>`).join("")}</details>` : "";
+  box.innerHTML = `<div class="flagbox"><h4>Needs a look</h4>${fnHtml}${vrHtml}<div class="fr"><button class="btn small ghost" id="flHide">Hide until tomorrow</button>${S.me.admin ? `<button class="linkbtn" id="flSet" style="font-size:12px">Change how sensitive these are</button><button class="linkbtn" id="flMail" style="font-size:12px">Email me this list</button>` : ""}<span class="muted">Last ${esc(String(f.settings.days))} days Â· function gap over ${FMTS.gbp(f.settings.fn_gap)}</span></div></div>`;
+  $("#flHide").onclick = () => { lsSet("fc_flaghide", { date:today, sig }); renderFlagBar(); };
+  $$("[data-fgo]").forEach(b => b.onclick = () => goMonth(b.dataset.fgo));
+  const st = $("#flSet"); if (st) st.onclick = () => go("setup");
+  const ml = $("#flMail"); if (ml) ml.onclick = async () => { ml.disabled = true; try { const r = await call("flags.email", {}); toast(r.sent ? "Sent to your email." : "Nothing to send."); } catch (e) { toast(e.message, true); } ml.disabled = false; };
+}
+function flagSettingsCard(){
+  const t = S.flags?.settings; if (!t) return "";
+  const row = (k, label, unit) => `<div class="field" style="margin:0; min-width:150px"><label>${esc(label)}</label><input data-fs="${k}" value="${esc(t[k])}" inputmode="decimal" ${S.me.admin ? "" : "disabled"}>${unit ? `<span class="muted" style="font-size:11px">${unit}</span>` : ""}</div>`;
+  return `<div class="card"><h3>Flags</h3><p class="muted" style="margin:0 0 10px">The Month view and the banner flag a function whose money did not reach its day (it may not have been checked in at Rezlynx), and finished days that came in well away from the forecast. A day is flagged for a line when it is out by at least the pounds <i>and</i> the percentage given.</p>
+    <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-start">${row("days", "Look back", "days")}${row("fn_gap", "Function money not posted", "pounds")}${row("rooms_abs", "Rooms sold out by", "rooms")}${row("rooms_rev_abs", "Rooms revenue out by", "pounds")}${row("rooms_rev_pct", "â€¦and by", "per cent")}${row("food_abs", "Food out by", "pounds")}${row("food_pct", "â€¦and by", "per cent")}${row("bev_abs", "Beverage out by", "pounds")}${row("bev_pct", "â€¦and by", "per cent")}${row("total_abs", "Total revenue out by", "pounds")}${row("total_pct", "â€¦and by", "per cent")}</div>
+    <div style="display:flex; gap:14px; flex-wrap:wrap; margin-top:12px; align-items:flex-end"><div class="field" style="flex:1; min-width:240px; margin:0"><label>Email new flags to</label><input id="flTo" value="${esc((t.email_to || []).join(", "))}" ${S.me.admin ? "" : "disabled"}></div><label style="font-size:13px"><input type="checkbox" id="flOn" ${t.email_on ? "checked" : ""} ${S.me.admin ? "" : "disabled"}> Send the emails</label>${S.me.admin ? `<button class="btn" id="flSave">Save</button>` : ""}</div></div>`;
+}
+function bindFlagSettings(){
+  const sv = $("#flSave"); if (!sv) return;
+  sv.onclick = async () => {
+    const settings = { email_on: $("#flOn").checked, email_to: $("#flTo").value }; $$("[data-fs]").forEach(i => { settings[i.dataset.fs] = Number(i.value); });
+    sv.disabled = true;
+    try { await call("flags.save", { settings }); await loadFlags(); toast("Saved. The flags have been worked out again."); viewSetup(); } catch (e) { toast(e.message, true); sv.disabled = false; }
+  };
 }
 
 /* ------------------------------------------------------------------ shell */
 async function goMonth(ym){
   if (S.pending.size && !confirm("You have changes that are not saved. Leave them behind?")) return;
   S.pending.clear(); S.ym = ym; S.setupDraft = null; S.lockSnap = null; S.updSnap = null;
-  try { if (ym < S.range.from || ym > S.range.to) { $("#views").innerHTML = `<div class="loading">Loading…</div>`; await loadRange(ym); } } catch (e) { toast(e.message, true); }
+  try { if (ym < S.range.from || ym > S.range.to) { $("#views").innerHTML = `<div class="loading">Loadingâ€¦</div>`; await loadRange(ym); } } catch (e) { toast(e.message, true); }
   go(S.view);
 }
 async function go(v){
@@ -1115,13 +1176,13 @@ const render = () => go(S.view);
 function openGate(){ $("#gate").hidden = false; $("#app").hidden = true; }
 $("#signout").addEventListener("click", () => { try { sessionStorage.removeItem("bhb_staff_email"); } catch (e) {} openGate(); });
 async function boot(){
-  $("#app").hidden = false; $("#views").innerHTML = `<div class="loading">Loading the forecast…</div>`;
+  $("#app").hidden = false; $("#views").innerHTML = `<div class="loading">Loading the forecastâ€¦</div>`;
   try {
     const who = await call("whoami"); S.me = { name:who.name, admin:who.admin }; S.tabs = who.tabs; $("#whoname").textContent = who.name;
     $$(".tabbtn").forEach(b => { if (!S.tabs.includes(b.dataset.view)) b.remove(); });
     $$(".tabbtn").forEach(b => b.addEventListener("click", () => { if (S.pending.size && !confirm("You have changes that are not saved. Leave them behind?")) return; go(b.dataset.view); }));
     S.ym = todayYmd().slice(0, 7);
-    await loadRange(S.ym);
+    await loadRange(S.ym); loadFlags();
   } catch (e) { $("#views").innerHTML = `<div class="empty">${esc(e.message)}<br><br><span class="muted">Open this from the Staff Portal so it knows who you are.</span></div>`; return; }
   const first = $(".tabbtn"); go(first ? first.dataset.view : "month");
 }
