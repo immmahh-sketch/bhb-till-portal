@@ -176,9 +176,9 @@ table.xg td.hit{background:#fff0a8 !important} table.xg td.hitcur{background:#ff
 </div>
 <div class="toast" id="toast"></div>
 <script type="module">
-import { LINES, computeMonth, monthDates, WD, SETUP_COLS, addDays } from "./engine.js";
-import { parseFile } from "./parse.js";
-import { buildWorkbook, fmtOf, SETUP_NAMES } from "./export.js";
+import { LINES, computeMonth, monthDates, WD, SETUP_COLS, addDays } from "./engine.js?v=20261115a";
+import { parseFile } from "./parse.js?v=20261115a";
+import { buildWorkbook, fmtOf, SETUP_NAMES } from "./export.js?v=20261115a";
 
 const CFG = { URL:"https://safcrtrfdzsnftghibot.supabase.co/functions/v1/forecast-api", KEY:"sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU",
   SHEETJS:"https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js", EXCELJS:"https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js" };
@@ -798,7 +798,10 @@ async function runImport(){
     try {
       if (f.kind === "events") { const r = await call("import.events", { rows:f.days, filename:f.name }); out.push(`${esc(f.name)}: ${r.rows} events saved.`); }
       else if (f.kind === "eod") { const r = await call("import.eod", { days:f.days, filename:f.name }); out.push(`${esc(f.name)}: ${r.days} finished day${r.days === 1 ? "" : "s"} filled in${r.unmapped?.length ? `. <b>Codes with money that are not in the forecast:</b> ${esc(r.unmapped.join(", "))}` : ""}.`); }
-      else { const r = await call("import.feed", { kind:f.kind, rows:f.days, filename:f.name }); out.push(`${esc(f.name)}: ${r.rows} days saved.`); }
+      else {
+        const r = await call("import.feed", { kind:f.kind, rows:f.days, filename:f.name }); out.push(`${esc(f.name)}: ${r.rows} days saved.`);
+        if (f.teas && f.teas.from) { try { const t = await call("import.teas", { rows:f.teas.rows, range_from:f.teas.from, range_to:f.teas.to, report_taken_at:f.teas.taken, source_file:f.teas.file }); out.push(`Afternoon teas: ${t.afternoon_teas} on ${t.days} day${t.days === 1 ? "" : "s"}, for the This week tiles.`); } catch (e) { out.push(`<span class="muted">Afternoon teas were not updated: ${esc(e.message)}</span>`); } }
+      }
       S.imp.files = S.imp.files.filter(x => x.id !== f.id);
     } catch (e) { bad = true; out.push(`<span class="err">${esc(f.name)}: ${esc(e.message)}</span>`); }
   }

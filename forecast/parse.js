@@ -67,25 +67,45 @@ function events(rows) {
   }
   return { kind: "events", label: "Event Revenue Forecast (weddings and events)", days, ...range(days) };
 }
-function covers(rows) {
+// the time ResDiary produced a Booking Summary, from the name BookingSummaryReport_BlackHorseBeamish_yyyyMMddHHmmfff.csv (UK time), as an exact instant
+function londonIso(y, mo, d, hh, mm) {
+  const guess = Date.UTC(y, mo - 1, d, hh, mm);
+  const f = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", hour12: false, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+  const p = Object.fromEntries(f.formatToParts(new Date(guess)).map((x) => [x.type, x.value]));
+  const asUtc = Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour % 24, +p.minute);
+  return new Date(guess - (asUtc - guess)).toISOString();
+}
+function reportTime(name) {
+  const m = String(name || "").match(/_(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})\d{3}\.csv$/i);
+  return m ? londonIso(+m[1], +m[2], +m[3], +m[4], +m[5]) : new Date().toISOString();
+}
+function covers(rows, name) {
   const h = rows[0], cT = idx(h, "Grouping Type"), cV = idx(h, "Grouping Value"), cC = idx(h, "Total Covers");
   if (cT < 0 || cV < 0 || cC < 0) return { error: "The booking summary has no Grouping Type / Grouping Value / Total Covers columns." };
   const lu = new Map(), di = new Map(); let slot = -1, early = 0, sawTime = false;
+  const teas = new Map(), allDates = new Set(); let slotLabel = "", curDate = null;
   const slotHour = (s) => { s = String(s).trim(); const u = s.toUpperCase(), p = s.indexOf(":"); if (p < 1 || !/^\d+$/.test(s.slice(0, p))) return -1; let hh = +s.slice(0, p); if (u.includes("PM") && hh < 12) hh += 12; if (u.includes("AM") && hh === 12) hh = 0; return hh; };
   for (const r of rows.slice(1)) {
     const t = String(r[cT] || "").trim().toLowerCase();
-    if (t === "visit time") { slot = slotHour(r[cV]); sawTime = true; }
+    if (t === "visit time") { slot = slotHour(r[cV]); slotLabel = String(r[cV] || "").trim(); sawTime = true; curDate = null; }
     else if (t === "visit date") {
-      const day = toYmd(r[cV]); if (!day || slot < 0) continue;
+      const day = toYmd(r[cV]); curDate = day; if (day) allDates.add(day);
+      if (!day || slot < 0) continue;
       const v = num(r[cC]);
       if (slot >= 12 && slot < 18) { lu.set(day, (lu.get(day) || 0) + v); if (!di.has(day)) di.set(day, 0); }
       else if (slot >= 18) { di.set(day, (di.get(day) || 0) + v); if (!lu.has(day)) lu.set(day, 0); }
       else early++;
+    } else if (t === "promotion" && curDate && /afternoon\s*tea/i.test(String(r[cV] || ""))) {      // every cover under an "Afternoon Tea" or "Festive Afternoon Tea" promotion, by day and sitting
+      const n = Math.round(num(r[cC])); if (n <= 0) continue;
+      const e = teas.get(curDate) || { date: curDate, covers: 0, by_time: {} }; e.covers += n; if (slotLabel) e.by_time[slotLabel.slice(0, 5)] = (e.by_time[slotLabel.slice(0, 5)] || 0) + n; teas.set(curDate, e);
     }
   }
   if (!sawTime) return { error: "This booking summary has no 'Visit Time' (time slot) rows, so lunch and dinner covers cannot be told apart. Run the ResDiary Booking Summary grouped by Visit Time, then Visit Date." };
   const days = [...lu.keys()].sort().map((day) => ({ day, data: { lunch: lu.get(day) || 0, dinner: di.get(day) || 0 } }));
-  return { kind: "opentable", label: "ResDiary booking summary (lunch and dinner covers booked)", days, ...range(days), notes: early ? [`${early} early-slot rows (before 12:00) were left out.`] : [] };
+  const sorted = [...allDates].sort(), tl = [...teas.values()].sort((a, b) => a.date.localeCompare(b.date));
+  const notes = early ? [`${early} early-slot rows (before 12:00) were left out.`] : [];
+  if (tl.length) notes.push(`Afternoon teas: ${tl.reduce((t, x) => t + x.covers, 0)} covers on ${tl.length} days (for the This week tiles).`);
+  return { kind: "opentable", label: "ResDiary booking summary (lunch and dinner covers booked)", days, ...range(days), notes, teas: { rows: tl, from: sorted[0] || null, to: sorted[sorted.length - 1] || null, taken: reportTime(name), file: name } };
 }
 function mealPlan(aoa) {
   const days = [];
@@ -173,7 +193,7 @@ export async function parseFile(XLSX, name, buf) {
       const h = rows[0].map((x) => String(x).trim());
       if (h.includes("Date") && h.includes("Accomm") && h.includes("InStock")) return actualForecast(rows);
       if (h.includes("EventRef") && h.includes("Start")) return events(rows);
-      if (h.includes("Grouping Type")) return covers(rows);
+      if (h.includes("Grouping Type")) return covers(rows, name);
       if (h[0] === "RoomType") return occupancy(rows);
       if (h.includes("BookRef") && h.includes("Email")) return stayEmails(rows);
       return { error: "I do not recognise that report. It should be Actual & Forecast, Event Revenue Forecast, the ResDiary Booking Summary or the Occupancy Report." };

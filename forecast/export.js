@@ -1,8 +1,8 @@
 // Builds the Excel copy of a month: the Forecast sheet laid out like the monthly workbook (same rows, same columns: days E:AI, weeks AK:AP, weekdays AR:AX, month AZ),
 // Month Set up, a Summary of every month, the report data the month used (the workbook's feeder sheets), and a list of everything typed over.
 // Figures are the values calculated online; formulas are not written (yet). ExcelJS is loaded by the page.
-import { LINES, WD } from "./engine.js";
-import { rowMap, dayFormula, aggFormula, LABOUR_NAMES } from "./formulas.js";
+import { LINES, WD } from "./engine.js?v=20261115a";
+import { rowMap, dayFormula, aggFormula, LABOUR_NAMES } from "./formulas.js?v=20261115a";
 
 const FMT = { n0: "#,##0", n1: "#,##0.0", n2: "#,##0.00", gbp: "£#,##0;[Red]-£#,##0", gbp2: "£#,##0.00;[Red]-£#,##0.00", pct: "0.0%", text: "@" };
 export const TWO_DP = new Set(["arr", "arr_total", "revpar", "trevpar", "bfast_spend", "lunch_spend", "dinner_spend", "bev_lunch_spend", "bev_dinner_spend", "fn_spend", "rate_bob", "rate_pickup", "adr_comb", "py_arr", "covers_per_hour", "sleeper_ratio", "sd_dinner", "bfast_ratio"]);
