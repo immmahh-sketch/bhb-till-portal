@@ -99,6 +99,15 @@ table.fg td.ov{color:var(--blue); font-weight:700; box-shadow:inset 3px 0 0 var(
 table.fg td.srcw{color:#3F2F28; box-shadow:inset 3px 0 0 var(--celadon)}
 table.fg td.pend{background:#fff3c4 !important; box-shadow:inset 3px 0 0 var(--attention)}
 table.fg td.neg{color:var(--alert)}
+table.fg td.low{background:var(--alert-bg); color:var(--alert); font-weight:700; box-shadow:inset 0 0 0 1px #e3c9c4}
+table.fg td.vflag{background:#fbf1de; box-shadow:inset 0 0 0 1px #ecd9b0}
+table.fg thead th.lowd{color:var(--alert)}
+.mback{position:fixed; inset:0; background:rgba(38,38,38,.45); z-index:300; display:flex; align-items:center; justify-content:center; padding:20px}
+.mback[hidden]{display:none}
+.modal{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); max-width:560px; width:100%; max-height:86vh; overflow:auto; padding:20px 22px; border-top:5px solid var(--alert)}
+.modal h3{font-size:22px; color:var(--alert); margin-bottom:8px}
+.modal table{border-collapse:collapse; width:100%; margin:10px 0 14px; font-size:14px} .modal th{font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); text-align:right; padding:4px 8px} .modal td{padding:5px 8px; text-align:right; border-top:1px solid var(--mist)} .modal th:first-child,.modal td:first-child{text-align:left}
+.modal .mbtn{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
 table.fg thead th.flagd{background:var(--alert-bg); color:var(--alert); box-shadow:inset 0 3px 0 var(--alert)}
 table.fg thead th.flagd.today{box-shadow:inset 0 3px 0 var(--alert), inset 0 -3px 0 var(--sage)}
 .flagbar{margin:14px 0 4px}
@@ -186,9 +195,9 @@ table.xg td.hit{background:#fff0a8 !important} table.xg td.hitcur{background:#ff
 </div>
 <div class="toast" id="toast"></div>
 <script type="module">
-import { LINES, computeMonth, monthDates, WD, SETUP_COLS, addDays } from "./engine.js?v=20261115b";
-import { parseFile } from "./parse.js?v=20261115b";
-import { buildWorkbook, fmtOf, SETUP_NAMES } from "./export.js?v=20261115b";
+import { LINES, computeMonth, monthDates, WD, SETUP_COLS, addDays } from "./engine.js?v=20261115c";
+import { parseFile } from "./parse.js?v=20261115c";
+import { buildWorkbook, fmtOf, SETUP_NAMES } from "./export.js?v=20261115c";
 
 const CFG = { URL:"https://safcrtrfdzsnftghibot.supabase.co/functions/v1/forecast-api", KEY:"sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU",
   SHEETJS:"https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js", EXCELJS:"https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js" };
@@ -294,8 +303,9 @@ function viewMonth(){
     ${kpi("Revenue less wages", t.wages_total ? FMTS.gbp(t.pl_total) : "â€“", "")}
   </div>`;
   const keyOnly = lsGet("fc_keyonly", false);
+  const lowSet = lowRoomDays(res);
   const weekKeys = Object.keys(res.weeks).sort();
-  const head = `<thead><tr><th class="ln">${esc(monthName(ym))}</th>${res.days.map(d => { const a = dayRow(d.date)?.actual, fg = flagDayTip(d.date); return `<th class="d${a ? " act" : ""}${d.date === today ? " today" : ""}${fg ? " flagd" : ""}" data-day="${d.date}" title="${esc((a ? "Finished day (actual)" : "Forecast") + ": click for options" + (fg ? "\n\n" + fg : ""))}">${d.dow}<br>${+d.date.slice(8)}${a ? "<br>actual" : ""}${fg ? "<br>âš " : ""}</th>`; }).join("")}
+  const head = `<thead><tr><th class="ln">${esc(monthName(ym))}</th>${res.days.map(d => { const a = dayRow(d.date)?.actual, fg = flagDayTip(d.date); return `<th class="d${a ? " act" : ""}${d.date === today ? " today" : ""}${fg ? " flagd" : ""}${lowSet.has(d.date) ? " lowd" : ""}" data-day="${d.date}" title="${esc((a ? "Finished day (actual)" : "Forecast") + ": click for options" + (fg ? "\n\n" + fg : "") + (lowSet.has(d.date) ? "\n\nThe rooms forecast (" + lowSet.get(d.date).fc + ") is below the rooms already on the books (" + lowSet.get(d.date).bob + ")." : ""))}">${d.dow}<br>${+d.date.slice(8)}${a ? "<br>actual" : ""}${fg ? "<br>âš " : ""}</th>`; }).join("")}
     ${weekKeys.map((k, i) => `<th class="agg${i === 0 ? " sep" : ""}">${k.replace("Week ", "Wk ")}</th>`).join("")}${S.showWeekdays ? ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map((k, i) => `<th class="agg${i === 0 ? " sep" : ""}">${k}</th>`).join("") : ""}<th class="agg sep">Total</th></tr></thead>`;
   let body = "";
   for (const g of groupsOf()) {
@@ -311,7 +321,7 @@ function viewMonth(){
         const s = srcOf(d.date, l.key), v = d[l.key], neg = isNum(v) && v < 0 && l.fmt !== "text";
         const note = s ? (s === "pending" ? "Not saved yet" : s === "typed" ? "Typed over by hand" : s === "eod" ? "From the End of Day report" : "From the workbook") : "";
         const tip = (FN_KEYS.has(l.key) ? eventTip(d.date, l.key === "fn_name" ? v : null) : "") + (note ? (FN_KEYS.has(l.key) && eventTip(d.date) ? "\n\n" : "") + note : "");
-        tds += `<td class="${edit ? "ed " : ""}${dayRow(d.date)?.actual ? "act " : ""}${s === "pending" ? "pend " : s === "typed" ? "ov " : s ? "srcw " : ""}${neg ? "neg" : ""}" data-d="${d.date}" data-k="${l.key}"${tip ? ` title="${esc(tip)}"` : ""}>${show(l, v)}</td>`;
+        tds += `<td class="${edit ? "ed " : ""}${dayRow(d.date)?.actual ? "act " : ""}${s === "pending" ? "pend " : s === "typed" ? "ov " : s ? "srcw " : ""}${cellFlag(l.key, d.date, lowSet)}${neg ? "neg" : ""}" data-d="${d.date}" data-k="${l.key}"${tip ? ` title="${esc(tip)}"` : ""}>${show(l, v)}</td>`;
       }
       const aggs = [...weekKeys.map(k => res.weeks[k]), ...(S.showWeekdays ? ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(k => res.weekdays[k]) : []), res.total];
       tds += aggs.map((a, i) => `<td class="agg${i === 0 || (S.showWeekdays && i === weekKeys.length) || i === aggs.length - 1 ? " sep" : ""}">${a && !["none","text"].includes(l.kind) ? show(l, a[l.key]) : ""}</td>`).join("");
@@ -326,7 +336,7 @@ function viewMonth(){
     <div class="tbar"><label><input type="checkbox" id="keyonly" ${keyOnly ? "checked" : ""}> Key lines only</label><label><input type="checkbox" id="showwd" ${S.showWeekdays ? "checked" : ""}> Weekday totals</label>
       <button class="linkbtn" id="expAll">Open all sections</button><button class="linkbtn" id="colAll">Close all</button><span class="spacer"></span>
       ${S.me.admin ? `<button class="btn small ghost" id="updBtn">Lock today's update</button> <button class="btn small ghost" id="lockBtn">Lock this forecast</button> <button class="btn small ghost" id="bobRateBtn" title="Sets each open day's Pickup Average Rate to its BOB Average Rate">Copy BOB rate to Pick up rate</button>` : ""}</div>
-    <div class="legend"><span><i style="background:#fff3c4"></i>Not saved yet</span><span><i style="background:var(--blue)"></i>Typed by hand</span><span><i style="background:var(--celadon)"></i>From the old workbook / End of Day</span><span><i style="background:var(--attention-bg)"></i>Finished day</span>${S.me.admin ? `<span class="muted">Click any figure to type over it; empty it to go back to the calculated figure.</span>` : ""}</div>
+    <div class="legend"><span><i style="background:#fff3c4"></i>Not saved yet</span><span><i style="background:var(--blue)"></i>Typed by hand</span><span><i style="background:var(--celadon)"></i>From the old workbook / End of Day</span><span><i style="background:var(--attention-bg)"></i>Finished day</span><span><i style="background:var(--alert-bg); box-shadow:inset 0 0 0 1px #e3c9c4"></i>Forecast rooms below the rooms on the books</span><span><i style="background:#fbf1de; box-shadow:inset 0 0 0 1px #ecd9b0"></i>Well away from the forecast</span>${S.me.admin ? `<span class="muted">Click any figure to type over it; empty it to go back to the calculated figure.</span>` : ""}</div>
     <div class="gridwrap" id="gridwrap"><table class="fg" style="width:${(window.innerWidth < 700 ? 150 : 230) + res.days.length * 68 + weekKeys.length * 84 + (S.showWeekdays ? 7 * 84 : 0) + 96}px"><colgroup><col style="width:${window.innerWidth < 700 ? 150 : 230}px">${res.days.map(() => `<col style="width:68px">`).join("")}${weekKeys.map(() => `<col style="width:84px">`).join("")}${S.showWeekdays ? "<col style='width:84px'>".repeat(7) : ""}<col style="width:96px"></colgroup>${head}<tbody>${body}${updRows}${lockRows}</tbody></table></div>`;
   bindMonth();
 }
@@ -1104,6 +1114,50 @@ async function viewHistory(){
   const bb = $("#hvBuild"); if (bb) bb.onclick = async () => { bb.disabled = true; bb.textContent = "Saving, this takes a minuteâ€¦"; try { const r = await buildHistory(); toast(`History saved: ${r.tile} finished days from the tile, and the old workbook months.`); again(); } catch (e) { toast(e.message, true); bb.disabled = false; } };
 }
 
+/* ------------------------------------------------------------------ colour: forecast rooms below the rooms already on the books */
+const LOW_KEYS = new Set(["rooms_target", "rooms_fc", "rooms_bob", "rooms_bob_in", "rooms_pickup", "pickup_needed"]);
+const VAR_KEYS = { rooms:["rooms_bob_in", "rooms_fc"], rooms_rev:["rev_rooms", "rev_rooms_comb"], food:["rev_food"], bev:["rev_bev"], total:["rev_total", "rev_total_sc"] };
+function lowRoomDays(res){
+  const m = new Map(); const today = todayYmd();
+  for (const d of res.days) { if (dayRow(d.date)?.actual || d.date < today) continue; const fc = Number(d.rooms_target), bob = Number(d.rooms_bob_in); if (isFinite(fc) && isFinite(bob) && fc < bob - 1e-9) m.set(d.date, { fc, bob }); }
+  return m;
+}
+function cellFlag(key, day, lowSet){
+  let c = "";
+  if (lowSet && lowSet.has(day) && LOW_KEYS.has(key)) c += "low ";
+  const e = S.flagDays && S.flagDays.get(day);
+  if (e && e.vr) for (const i of e.vr.items) if ((VAR_KEYS[i.key] || []).includes(key)) { c += "vflag "; break; }
+  return c;
+}
+/* Shown when a month is first opened, if any night's rooms forecast is below its rooms on the books. Not nagging: once it has been dismissed for today it does not return for the same list. */
+function maybeLowPopup(){
+  const ym = S.ym; if (!S.data || S.view !== "month" || S._lowShown === ym) return;
+  const res = calc(ym); if (!res) return;
+  const low = lowRoomDays(res); if (!low.size) { S._lowShown = ym; return; }
+  const sig = ym + ":" + [...low].map(([d, v]) => d + "=" + v.fc + "/" + v.bob).join(","), seen = lsGet("fc_lowseen", {});
+  S._lowShown = ym;
+  if (seen[ym] === sig + "|" + todayYmd()) return;
+  const back = document.createElement("div"); back.className = "mback"; back.id = "lowPop";
+  const rows = [...low].map(([d, v]) => `<tr><td>${esc(dayShort(d))}</td><td>${FMTS.n0(v.bob)}</td><td>${FMTS.n1(v.fc).replace(/\.0$/, "")}</td><td>${FMTS.n1(v.bob - v.fc).replace(/\.0$/, "")}</td></tr>`).join("");
+  back.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-label="Rooms forecast below the rooms on the books"><h3>Forecast below the rooms on the books</h3>
+    <div>The rooms forecast can never be lower than the rooms already booked. In ${esc(monthName(ym))}, ${low.size === 1 ? "this night is" : "these " + low.size + " nights are"} marked red:</div>
+    <table><thead><tr><th>Night</th><th>On the books</th><th>Forecast</th><th>Short by</th></tr></thead><tbody>${rows}</tbody></table>
+    <div class="mbtn"><button class="btn" id="lpOk">OK, I will look</button><button class="btn ghost" id="lpHide">Do not show this again today</button>${S.me.admin ? `<button class="btn ghost" id="lpFix">Raise the forecast to the rooms on the books</button>` : ""}</div></div>`;
+  document.body.appendChild(back);
+  const close = () => back.remove();
+  $("#lpOk").onclick = close; back.addEventListener("click", e => { if (e.target === back) close(); });
+  $("#lpHide").onclick = () => { seen[ym] = sig + "|" + todayYmd(); lsSet("fc_lowseen", seen); close(); };
+  const fx = $("#lpFix"); if (fx) fx.onclick = async () => {
+    if (!fx.dataset.sure) { fx.dataset.sure = "1"; fx.textContent = `Tap again: change ${low.size} night${low.size === 1 ? "" : "s"}`; fx.className = "btn gold"; return; }
+    fx.disabled = true;
+    try {
+      const changes = [...low].map(([d, v]) => ({ day: d, key: "rooms_target", value: v.bob })); await call("ov.save", { changes });
+      for (const ch of changes) { let r = dayRow(ch.day); if (!r) S.data.days.push(r = { day:ch.day, ov:{}, ov_src:{}, actual:false }); r.ov[ch.key] = ch.value; r.ov_src[ch.key] = "typed"; }
+      S.calcCache = {}; close(); toast(`Forecast rooms raised to the rooms on the books on ${changes.length} night${changes.length === 1 ? "" : "s"}.`); keepScroll(); viewMonth();
+    } catch (e) { toast(e.message, true); fx.disabled = false; }
+  };
+}
+
 /* ------------------------------------------------------------------ flags */
 /* A function that may not have been checked in at Rezlynx (its money did not reach the day), and finished days that came in well away from the forecast. */
 async function loadFlags(){
@@ -1112,6 +1166,7 @@ async function loadFlags(){
   for (const f of (S.flags?.function || [])) S.flagDays.set(f.day, { fn:f, vr:null });
   for (const v of (S.flags?.variance || [])) { const e = S.flagDays.get(v.day) || { fn:null, vr:null }; e.vr = v; S.flagDays.set(v.day, e); }
   renderFlagBar();
+  if (S.view === "month" && S.data && !S.pending.size && !document.querySelector(".cin") && S.flagDays.size) { keepScroll(); viewMonth(); }      // the day markers need the flags
 }
 const dayShort = d => new Date(d + "T12:00:00Z").toLocaleDateString("en-GB", { weekday:"short", day:"numeric", month:"short", timeZone:"UTC" });
 const flagSig = f => JSON.stringify([(f?.function || []).map(x => [x.day, x.gap]), (f?.variance || []).map(x => [x.day, x.total_diff])]);
@@ -1163,7 +1218,7 @@ async function goMonth(ym){
 async function go(v){
   S.view = v; $$(".tabbtn").forEach(b => b.setAttribute("aria-current", b.dataset.view === v ? "page" : "false")); closePop(); window.scrollTo(0, 0);
   if (!S.data) return;
-  if (v === "month") { await loadLock(); viewMonth(); }
+  if (v === "month") { await loadLock(); viewMonth(); maybeLowPopup(); }
   else if (v === "summary") viewSummary();
   else if (v === "periods") viewPeriods();
   else if (v === "imports") viewImports();
