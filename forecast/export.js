@@ -1,10 +1,10 @@
 // Builds the Excel copy of a month: the Forecast sheet laid out like the monthly workbook (same rows, same columns: days E:AI, weeks AK:AP, weekdays AR:AX, month AZ),
 // Month Set up, a Summary of every month, the report data the month used (the workbook's feeder sheets), and a list of everything typed over.
 // Figures are the values calculated online; formulas are not written (yet). ExcelJS is loaded by the page.
-import { LINES, WD } from "./engine.js?v=20261115d";
-import { rowMap, dayFormula, aggFormula, LABOUR_NAMES } from "./formulas.js?v=20261115d";
+import { LINES, WD } from "./engine.js?v=20261115g";
+import { rowMap, dayFormula, aggFormula, LABOUR_NAMES } from "./formulas.js?v=20261115g";
 
-const FMT = { n0: "#,##0", n1: "#,##0.0", n2: "#,##0.00", gbp: "Â£#,##0;[Red]-Â£#,##0", gbp2: "Â£#,##0.00;[Red]-Â£#,##0.00", pct: "0.0%", text: "@" };
+const FMT = { n0: "#,##0", n1: "#,##0.0", n2: "#,##0.00", gbp: "£#,##0;[Red]-£#,##0", gbp2: "£#,##0.00;[Red]-£#,##0.00", pct: "0.0%", text: "@" };
 export const TWO_DP = new Set(["arr", "arr_total", "revpar", "trevpar", "bfast_spend", "lunch_spend", "dinner_spend", "bev_lunch_spend", "bev_dinner_spend", "fn_spend", "rate_bob", "rate_pickup", "adr_comb", "py_arr", "covers_per_hour", "sleeper_ratio", "sd_dinner", "bfast_ratio"]);
 export const fmtOf = (l) => (l.fmt === "gbp" && TWO_DP.has(l.key) ? "gbp2" : l.fmt);
 const SECTION_ROWS = { 8: "Rooms", 21: "Breakfast", 26: "Restaurant", 33: "Restaurant - Beverage", 40: "Weddings & Events", 49: "Other Revenue", 59: "Daily Summary", 68: "KPIs", 98: "Gross P&L (Revenue - Wages)", 110: "Rooms detail", 125: "Daily Summary", 138: "Locked Forecast" };

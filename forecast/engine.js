@@ -252,6 +252,7 @@ export function computeDay(input, day) {
 
   // weddings & events
   P("fn_name", e0 ? e0.name : 0);
+  c.fn_is_forecast = e0 && e0.forecast ? 1 : 0;                  // a forecast wedding (not booked yet), not a real function
   P("fn_guests", e0 ? num(e0.guests) : 0);
   P("fn_food", e0 ? num(e0.food) + num(e0.ffb) : 0);
   P("fn_prebev", e0 ? num(e0.bev) : 0);

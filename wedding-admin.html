@@ -56,6 +56,17 @@ a{color:inherit}
 .wrap{max-width:1080px;margin:0 auto;padding:0 20px}
 .hide{display:none!important}
 .label{font-size:.6875rem;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:var(--sage-70)}
+.needt{width:100%;border-collapse:collapse;font-size:.9rem;font-variant-numeric:tabular-nums}
+.needt th{font-size:.6875rem;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--sage-70);text-align:right;padding:6px 8px;border-bottom:2px solid var(--celadon);white-space:normal}
+.needt td{padding:6px 8px;text-align:right;border-bottom:1px solid var(--mist);white-space:nowrap}
+.needt th:first-child,.needt td:first-child{text-align:left}
+.needt tr.yr td{background:var(--sage-10);font-weight:600}
+.needt td.short{color:var(--alert);font-weight:600} .needt td.over{color:var(--attention);font-weight:600}
+.needt input{width:64px;padding:4px 6px;border:1px solid var(--mist);border-radius:6px;text-align:right;font:inherit}
+.needk{display:flex;gap:12px;flex-wrap:wrap;margin:0 0 14px}
+.needk>div{flex:1;min-width:170px;background:var(--white);border-radius:10px;padding:12px 14px;box-shadow:0 1px 2px rgba(38,38,38,.06)}
+.needk .k{font-size:.6875rem;letter-spacing:.14em;text-transform:uppercase;color:var(--sage-70)} .needk .v{font-size:1.7rem;font-family:var(--display);color:var(--sage)} .needk .s{font-size:.8rem;color:var(--sage-70)}
+.needk .bad .v{color:var(--alert)}
 .num{font-variant-numeric:tabular-nums}
 .muted{color:var(--sage-70)}
 .center{text-align:center}
@@ -236,6 +247,7 @@ tr.snoozed > td{opacity:.62} tr.snoozed:hover > td{opacity:1}
     color:var(--sage-70);vertical-align:baseline}
   /* A blank cell says nothing worth a line of its own on a phone. */
   table.stack td.is-empty{display:none}
+
   .card--flush table.stack tr{padding:11px 14px}
 
   th,td{padding:9px 10px}
@@ -876,7 +888,7 @@ body.va-lock{overflow:hidden}
     </div>
     <div class="wrap navwrap">
       <nav id="nav">
-        <button data-view="overview" aria-current="page" data-group="overview,cal,tot">Overview</button>
+        <button data-view="overview" aria-current="page" data-group="overview,cal,tot,need">Overview</button>
         <button data-view="weddings" data-group="weddings,usage,add,bulk">Wedding App</button>
         <button data-view="messages" data-group="messages">Messages <span id="msgNavBadge"></span></button>
         <button data-view="outstanding" data-group="outstanding,reconcile">Payments <span id="recBadge"></span></button>
@@ -1421,7 +1433,7 @@ var TRACKER_VIEWS = ["todo", "enq", "cal", "tot"];
 // "add" pill for this level, same as its data-group entry on the nav
 // button above.
 var NAV_GROUPS = [
-  { items:[["overview","Overview"],["cal","Calendar"],["tot","Year totals"]] },
+  { items:[["overview","Overview"],["cal","Calendar"],["tot","Year totals"],["need","Weddings needed"]] },
   { items:[["weddings","Registered Weddings"],["usage","App Usage"],["add","Add a wedding"]] },
   { items:[["outstanding","Outstanding"],["reconcile","Payments to post"]] },
   { items:[["todo","To Do"],["enq","Enquiries"],["showrounds","Show-rounds"],["bonus","Bonus"]] },
@@ -1455,6 +1467,7 @@ function render(){
     case "overview":    v.innerHTML = '<div class="empty"><span class="spin"></span>' +
                           '<p style="margin-top:14px">Reading the forward book from Guestline…</p></div>';
                         loadForecast(); break;
+    case "need":        v.innerHTML = '<div class="empty"><span class="spin"></span><p style="margin-top:14px">Counting the weddings on the books…</p></div>'; loadNeed(); break;
     case "weddings":    v.innerHTML = '<div class="empty"><span class="spin"></span></div>'; loadList(); break;
     case "messages":    v.innerHTML = '<div class="empty"><span class="spin"></span></div>'; loadInbox(); break;
     case "usage":       v.innerHTML = '<div class="empty"><span class="spin"></span></div>'; loadUsage(); break;
@@ -1471,6 +1484,60 @@ function render(){
                         loadTickets(); break;
   }
 }
+
+
+/* ============================ WEDDINGS NEEDED ============================
+   Each month's target (the number of weddings the GM wants booked by the time it comes), what is confirmed now, what is still needed and the booking pace that takes,
+   against the pace weddings are really being secured at. The same targets drive the forecast weddings in the Forecast tile (months more than 6 months ahead are given
+   the weddings still needed, with an estimated bill each). Provisional weddings are shown but do not count as booked. */
+var NEED = { d:null, edits:{} };
+async function loadNeed(){
+  try {
+    var d = await call("need.get");
+    if (!stillWanted("need")) return;
+    NEED.d = d; NEED.edits = {}; clearErr();
+    $("views").innerHTML = viewNeed();
+  } catch (e) {
+    if (stillWanted("need")) { $("views").innerHTML = ""; showErr(e.message); }
+  }
+}
+function needMonthName(m){ return new Date(m + "T12:00:00Z").toLocaleDateString("en-GB", { month:"short", year:"numeric", timeZone:"UTC" }); }
+function viewNeed(){
+  var d = NEED.d, pace = d.pace, nd = d.pace_needed, edit = !!d.can_edit;
+  var rows = d.rows, h = "", yr = null, ys = null;
+  function flush(){ if (ys) h += '<tr class="yr"><td>' + yr + ' total</td><td>' + ys.t + '</td><td>' + ys.b + '</td><td>' + ys.p + '</td><td class="' + (ys.n ? "short" : "") + '">' + ys.n + '</td><td>' + ys.f + '</td><td></td><td></td><td></td></tr>'; }
+  rows.forEach(function(r){
+    var y = r.month.slice(0, 4);
+    if (y !== yr) { flush(); yr = y; ys = { t:0, b:0, p:0, n:0, f:0 }; }
+    ys.t += r.target; ys.b += r.booked; ys.p += r.provisional; ys.n += r.needed; ys.f += r.forecast;
+    var tv = edit ? '<input type="number" min="0" max="60" data-need="' + esc(r.month) + '" value="' + esc(r.target) + '">' : esc(r.target);
+    h += '<tr><td title="' + esc(r.note || "") + '">' + esc(needMonthName(r.month)) + '</td><td>' + tv + '</td><td>' + r.booked + '</td><td>' + (r.provisional || "") + '</td>' +
+      '<td class="' + (r.needed ? "short" : "") + '">' + r.needed + '</td><td>' + (r.forecast || "") + '</td><td>' + r.pace.toFixed(1) + '</td><td>' + (r.opens_in ? 'opens in ' + r.opens_in + ' month' + (r.opens_in === 1 ? '' : 's') : 'open') + '</td><td>' + r.cum_pace.toFixed(1) + '</td></tr>';
+  });
+  flush();
+  var bars = pace.months.map(function(m){ return '<div style="display:flex;align-items:center;gap:8px;font-size:.8rem"><span style="width:62px">' + esc(needMonthName(m.month + "-01")) + '</span><span style="display:inline-block;height:10px;background:var(--sage);border-radius:3px;width:' + (m.n * 14) + 'px"></span><span>' + m.n + '</span></div>'; }).join("");
+  var behind = nd.all > pace.last6, nowBehind = nd.open > pace.last6;
+  var kp = '<div class="needk">' +
+    '<div><div class="k">Booking pace, last 6 months</div><div class="v">' + pace.last6 + '</div><div class="s">weddings secured a month (contract and deposit in)</div></div>' +
+    '<div><div class="k">Since April 2026</div><div class="v">' + pace.since_apr + '</div><div class="s">a month</div></div>' +
+    '<div class="' + (nowBehind ? "bad" : "") + '"><div class="k">Pace needed now</div><div class="v">' + nd.open + '</div><div class="s">a month, for the months that can be booked today</div></div>' +
+    '<div class="' + (behind ? "bad" : "") + '"><div class="k">Pace needed when every month is open</div><div class="v">' + nd.all + '</div><div class="s">a month, as couples do not book more than about two years ahead' + (behind ? " - above the pace so far" : "") + '</div></div></div>';
+  return '<div class="pagehead"><h2>Weddings needed</h2><div class="hint">Each month\'s target against the confirmed weddings, and the booking pace needed to get there.</div></div>' + kp +
+    '<div class="card"><div class="card-body"><div style="overflow-x:auto"><table class="needt"><thead><tr><th>Month</th><th>Target</th><th>Confirmed</th><th>Provisional</th><th>Still needed</th><th>In the forecast</th><th>Needs a month</th><th>Booking</th><th>Running pace</th></tr></thead><tbody>' + h + '</tbody></table></div>' +
+    (edit ? '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:12px"><button class="btn" id="needSave">Save targets</button><span class="muted" style="font-size:.85rem" id="needMsg"></span></div>' : '<p class="muted" style="font-size:.85rem;margin:10px 0 0">An administrator can change the targets.</p>') +
+    '<p class="muted" style="font-size:.85rem;margin:12px 0 0"><b>Confirmed</b> counts Confirmed, Resident and Checked Out weddings in Guestline; Provisional ones are shown but not counted. <b>Needs a month</b> is what is still needed spread over the months left for it to be booked (not more than 24 ahead); <b>Running pace</b> adds up those paces to that month, since the months are booked side by side. <b>In the forecast</b> is how many forecast weddings the Forecast tile has put on dates for that month (only months more than ' + esc(d.horizon_months) + ' months away, from ' + esc(needMonthName(d.horizon_from)) + '), each with an estimated bill.</p></div></div>' +
+    '<div class="card"><div class="card-body"><h3 style="margin:0 0 8px">Weddings secured each month</h3>' + bars + '</div></div>';
+}
+document.addEventListener("click", async function(ev){
+  var b = ev.target && ev.target.closest ? ev.target.closest("#needSave") : null; if (!b) return;
+  var targets = [].map.call(document.querySelectorAll("input[data-need]"), function(i){ return { month:i.dataset.need, target:i.value === "" ? null : Number(i.value) }; });
+  var cur = {}; NEED.d.rows.forEach(function(r){ cur[r.month] = r.target; });
+  var changed = targets.filter(function(t){ return t.target !== cur[t.month]; });
+  if (!changed.length) { $("needMsg").textContent = "Nothing has changed."; return; }
+  b.disabled = true; $("needMsg").textContent = "Saving…";
+  try { await call("need.save", { targets:changed }); clearErr(); await loadNeed(); var m = $("needMsg"); if (m) m.textContent = "Saved. The Forecast tile has been updated."; }
+  catch (e) { showErr(e.message); b.disabled = false; $("needMsg").textContent = ""; }
+});
 
 /* ============================ TICKET SALES ============================
    Live tickets-sold per TicketSource event. The server (ticketsource-api)
