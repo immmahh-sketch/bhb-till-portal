@@ -131,9 +131,9 @@ const fmtDay = d => { try { return new Date(d+"T12:00:00Z").toLocaleDateString("
 const iso = d => d.toISOString().slice(0,10);
 function londonToday(){ const p = new Intl.DateTimeFormat("en-CA",{ timeZone:"Europe/London", year:"numeric", month:"2-digit", day:"2-digit" }).format(new Date()); return p; }
 function defaultDate(){
-  // Written after midnight for the night before? Before 5am counts as yesterday.
-  const hour = +new Intl.DateTimeFormat("en-GB",{ timeZone:"Europe/London", hour:"2-digit", hour12:false }).format(new Date());
-  const t = londonToday(); if (hour >= 5) return t;
+  // Written after midnight for the night before (a late function)? Before 3am counts as yesterday, the same cut-off as the cash up (Floats & Tills).
+  const hour = +new Intl.DateTimeFormat("en-GB",{ timeZone:"Europe/London", hour:"2-digit", hour12:false }).format(new Date()) % 24;
+  const t = londonToday(); if (hour >= 3) return t;
   const d = new Date(t+"T12:00:00Z"); d.setUTCDate(d.getUTCDate()-1); return iso(d);
 }
 function toast(msg, bad){ const t=$("#toast"); t.textContent=msg; t.className="toast on"+(bad?" bad":""); clearTimeout(toast._t); toast._t=setTimeout(()=>{t.className="toast";}, bad?5200:2600); }

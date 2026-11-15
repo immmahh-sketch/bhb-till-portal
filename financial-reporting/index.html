@@ -371,7 +371,15 @@ const $$ = s => Array.from(document.querySelectorAll(s));
 const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 const money = n => "£" + (Number(n)||0).toLocaleString("en-GB",{minimumFractionDigits:2,maximumFractionDigits:2});
 const round2 = n => Math.round(((Number(n)||0) + Number.EPSILON) * 100) / 100;
-function todayIso(){ return new Intl.DateTimeFormat("en-CA",{timeZone:"Europe/London"}).format(new Date()); }
+// The trading day runs until 3am: a late function means the cash up and the hand over are done after midnight, and they still belong to the day before.
+const TRADING_DAY_CUTOFF_HOUR = 3;
+function tradingDay(now){
+  const day = new Intl.DateTimeFormat("en-CA",{timeZone:"Europe/London"}).format(now);
+  const hour = +new Intl.DateTimeFormat("en-GB",{timeZone:"Europe/London",hour:"2-digit",hour12:false}).format(now) % 24;
+  if (hour >= TRADING_DAY_CUTOFF_HOUR) return day;
+  const d = new Date(day + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() - 1); return d.toISOString().slice(0,10);
+}
+function todayIso(){ return tradingDay(new Date()); }
 function ukDate(iso){
   const p = String(iso||"").slice(0,10).split("-"); if (p.length!==3) return "";
   return `${p[2]}/${p[1]}/${p[0]}`;
