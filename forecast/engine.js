@@ -190,7 +190,11 @@ export function computeDay(input, day) {
   const PF = (k, v) => { c[k] = v; return v; };
   const fin = actual && !!bobRow, PA = fin ? PF : P;
   PA("rooms_bob_in", bobRow ? num(bobRow.rooms) : 0);
-  PA("rooms_target", actual ? c.rooms_bob_in : S(SETUP_COLS.rooms_forecast));
+  // The default rooms forecast is the learned one (feed.auto, worked out by forecast-api) when there is one, never below the rooms on the books and never above the rooms in the
+  // house; otherwise the Month Set up figure for the weekday. Anything typed over (ov) still wins, and a finished day is simply what happened.
+  const au = feed.auto?.[date];
+  const autoRooms = au && isNum(au.rooms) ? Math.max(c.rooms_bob_in, Math.min(c.rooms_avail, Math.round(au.rooms))) : null;
+  PA("rooms_target", actual ? c.rooms_bob_in : (autoRooms !== null ? autoRooms : S(SETUP_COLS.rooms_forecast)));
   P("rooms_target_ai", 0);
   P("pickup_needed", c.rooms_target - c.rooms_bob_in);
   P("rooms_bob", c.rooms_bob_in);
@@ -232,7 +236,8 @@ export function computeDay(input, day) {
   if (actual) {
     P("lunch_covers", booked("lunch")); P("dinner_covers", booked("dinner"));
   } else {
-    const f = (k, col) => (ot && isNum(ot[k]) ? (S(col) < ot[k] ? ot[k] : S(col)) : S(col));          // the greater of the set-up figure and what is booked
+    // the greater of the base figure (the learned forecast when there is one, else the set-up figure) and what is booked
+    const f = (k, col) => { const base = au && isNum(au[k]) ? Math.round(au[k]) : S(col); return ot && isNum(ot[k]) ? (base < ot[k] ? ot[k] : base) : base; };
     P("lunch_covers", f("lunch", SETUP_COLS.lunch_covers)); P("dinner_covers", f("dinner", SETUP_COLS.dinner_covers));
   }
   P("lunch_spend", S(SETUP_COLS.lunch_spend)); P("dinner_spend", S(SETUP_COLS.dinner_spend));

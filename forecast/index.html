@@ -99,6 +99,7 @@ table.fg td.ov{color:var(--blue); font-weight:700; box-shadow:inset 3px 0 0 var(
 table.fg td.srcw{color:#3F2F28; box-shadow:inset 3px 0 0 var(--celadon)}
 table.fg td.pend{background:#fff3c4 !important; box-shadow:inset 3px 0 0 var(--attention)}
 table.fg td.neg{color:var(--alert)}
+table.fg td.auto{box-shadow:inset 3px 0 0 #9ab59a}
 table.fg td.low{background:var(--alert-bg); color:var(--alert); font-weight:700; box-shadow:inset 0 0 0 1px #e3c9c4}
 table.fg td.vflag{background:#fbf1de; box-shadow:inset 0 0 0 1px #ecd9b0}
 table.fg thead th.lowd{color:var(--alert)}
@@ -195,9 +196,9 @@ table.xg td.hit{background:#fff0a8 !important} table.xg td.hitcur{background:#ff
 </div>
 <div class="toast" id="toast"></div>
 <script type="module">
-import { LINES, computeMonth, monthDates, WD, SETUP_COLS, addDays } from "./engine.js?v=20261115c";
-import { parseFile } from "./parse.js?v=20261115c";
-import { buildWorkbook, fmtOf, SETUP_NAMES } from "./export.js?v=20261115c";
+import { LINES, computeMonth, monthDates, WD, SETUP_COLS, addDays } from "./engine.js?v=20261115d";
+import { parseFile } from "./parse.js?v=20261115d";
+import { buildWorkbook, fmtOf, SETUP_NAMES } from "./export.js?v=20261115d";
 
 const CFG = { URL:"https://safcrtrfdzsnftghibot.supabase.co/functions/v1/forecast-api", KEY:"sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU",
   SHEETJS:"https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js", EXCELJS:"https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js" };
@@ -320,7 +321,7 @@ function viewMonth(){
       for (const d of res.days) {
         const s = srcOf(d.date, l.key), v = d[l.key], neg = isNum(v) && v < 0 && l.fmt !== "text";
         const note = s ? (s === "pending" ? "Not saved yet" : s === "typed" ? "Typed over by hand" : s === "eod" ? "From the End of Day report" : "From the workbook") : "";
-        const tip = (FN_KEYS.has(l.key) ? eventTip(d.date, l.key === "fn_name" ? v : null) : "") + (note ? (FN_KEYS.has(l.key) && eventTip(d.date) ? "\n\n" : "") + note : "");
+        const tip = (FN_KEYS.has(l.key) ? eventTip(d.date, l.key === "fn_name" ? v : null) : "") + (note ? (FN_KEYS.has(l.key) && eventTip(d.date) ? "\n\n" : "") + note : "") + autoTip(d.date, l.key);
         tds += `<td class="${edit ? "ed " : ""}${dayRow(d.date)?.actual ? "act " : ""}${s === "pending" ? "pend " : s === "typed" ? "ov " : s ? "srcw " : ""}${cellFlag(l.key, d.date, lowSet)}${neg ? "neg" : ""}" data-d="${d.date}" data-k="${l.key}"${tip ? ` title="${esc(tip)}"` : ""}>${show(l, v)}</td>`;
       }
       const aggs = [...weekKeys.map(k => res.weeks[k]), ...(S.showWeekdays ? ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(k => res.weekdays[k]) : []), res.total];
@@ -336,7 +337,7 @@ function viewMonth(){
     <div class="tbar"><label><input type="checkbox" id="keyonly" ${keyOnly ? "checked" : ""}> Key lines only</label><label><input type="checkbox" id="showwd" ${S.showWeekdays ? "checked" : ""}> Weekday totals</label>
       <button class="linkbtn" id="expAll">Open all sections</button><button class="linkbtn" id="colAll">Close all</button><span class="spacer"></span>
       ${S.me.admin ? `<button class="btn small ghost" id="updBtn">Lock today's update</button> <button class="btn small ghost" id="lockBtn">Lock this forecast</button> <button class="btn small ghost" id="bobRateBtn" title="Sets each open day's Pickup Average Rate to its BOB Average Rate">Copy BOB rate to Pick up rate</button>` : ""}</div>
-    <div class="legend"><span><i style="background:#fff3c4"></i>Not saved yet</span><span><i style="background:var(--blue)"></i>Typed by hand</span><span><i style="background:var(--celadon)"></i>From the old workbook / End of Day</span><span><i style="background:var(--attention-bg)"></i>Finished day</span><span><i style="background:var(--alert-bg); box-shadow:inset 0 0 0 1px #e3c9c4"></i>Forecast rooms below the rooms on the books</span><span><i style="background:#fbf1de; box-shadow:inset 0 0 0 1px #ecd9b0"></i>Well away from the forecast</span>${S.me.admin ? `<span class="muted">Click any figure to type over it; empty it to go back to the calculated figure.</span>` : ""}</div>
+    <div class="legend"><span><i style="background:#fff3c4"></i>Not saved yet</span><span><i style="background:var(--blue)"></i>Typed by hand</span><span><i style="background:var(--celadon)"></i>From the old workbook / End of Day</span><span><i style="background:var(--attention-bg)"></i>Finished day</span><span><i style="background:#9ab59a"></i>From the learned forecast</span><span><i style="background:var(--alert-bg); box-shadow:inset 0 0 0 1px #e3c9c4"></i>Forecast rooms below the rooms on the books</span><span><i style="background:#fbf1de; box-shadow:inset 0 0 0 1px #ecd9b0"></i>Well away from the forecast</span>${S.me.admin ? `<span class="muted">Click any figure to type over it; empty it to go back to the calculated figure.</span>` : ""}</div>
     <div class="gridwrap" id="gridwrap"><table class="fg" style="width:${(window.innerWidth < 700 ? 150 : 230) + res.days.length * 68 + weekKeys.length * 84 + (S.showWeekdays ? 7 * 84 : 0) + 96}px"><colgroup><col style="width:${window.innerWidth < 700 ? 150 : 230}px">${res.days.map(() => `<col style="width:68px">`).join("")}${weekKeys.map(() => `<col style="width:84px">`).join("")}${S.showWeekdays ? "<col style='width:84px'>".repeat(7) : ""}<col style="width:96px"></colgroup>${head}<tbody>${body}${updRows}${lockRows}</tbody></table></div>`;
   bindMonth();
 }
@@ -588,10 +589,11 @@ function viewSetup(){
       <div class="field" style="flex:1; min-width:220px; margin:0"><label>Note</label><input id="suNote" value="${esc(draft.note || "")}" ${S.me.admin ? "" : "disabled"}></div>
       ${S.me.admin ? `<button class="btn" id="suSave">Save set up</button>` : ""}</div></div>
     <div id="rcHost"></div>
-    ${flagSettingsCard()}
+    ${autoCard()}${flagSettingsCard()}
     ${S.me.admin && m && later.length ? `<div class="card"><h3>Copy this set up forward</h3><p class="muted" style="margin:0 0 8px">Replaces the set up of the months you tick with this one.</p>
       <div class="tbar" id="cpList">${later.map(x => `<label><input type="checkbox" value="${x}"> ${esc(monthName(x).slice(0, 3) + " " + x.slice(2, 4))}</label>`).join("")}</div><button class="btn small ghost" id="cpGo">Copy</button></div>` : ""}`;
-  bindMonthBar(); fillReality(ym); bindFlagSettings();
+  bindMonthBar(); fillReality(ym); bindFlagSettings(); bindAutoCard();
+  if (!S.autoInfo) call("auto.get").then(r => { S.autoInfo = r; if (S.view === "setup") viewSetup(); }).catch(() => {});
   const so = $("#suOld"); if (so) so.onclick = () => { lsSet("fc_setup_old", !showOld); viewSetup(); };
   $$("table.su input").forEach(i => i.oninput = () => { const w = i.dataset.w, c = i.dataset.c; (draft.wd[w] ||= {}); if (i.value.trim() === "") delete draft.wd[w][c]; else draft.wd[w][c] = Number(i.value); });
   const sv = $("#suSave"); if (sv) sv.onclick = async () => {
@@ -846,7 +848,7 @@ async function makeWorkbook(ym){
   const res = calc(ym), inp = inputFor(ym);
   const months = S.data.months.map(m => m.month.slice(0, 7)).sort().map(m => ({ ym:m, res:calc(m) })).filter(x => x.res);
   const overrides = []; for (const x of S.data.days) if (x.day.slice(0, 7) === ym) for (const [k, v] of Object.entries(x.ov || {})) { const l = LINES.find(z => z.key === k); overrides.push({ day:x.day, label:l ? l.label : k, value:v, src:(x.ov_src && x.ov_src[k]) || "typed" }); }
-  const buf = await buildWorkbook(ExcelJS, { ym, res, setup:inp.setup, months, feed:S.data.feed, events:S.data.events, overrides, title:`Forecast - ${monthName(ym)}`, srcOf:(d, k) => srcOf(d, k) === "typed" || srcOf(d, k) === "pending", actualOf:d => dayRow(d)?.actual });
+  const buf = await buildWorkbook(ExcelJS, { ym, res, setup:inp.setup, months, feed:S.data.feed, events:S.data.events, overrides, title:`Forecast - ${monthName(ym)}`, srcOf:(d, k) => srcOf(d, k) === "typed" || srcOf(d, k) === "pending", ovOf:(d, k) => (srcOf(d, k) === "typed" || srcOf(d, k) === "pending" || autoApplies(d, k)) ? 1 : undefined, actualOf:d => dayRow(d)?.actual });
   return new Uint8Array(buf);
 }
 async function viewWorkbook(){
@@ -1122,8 +1124,21 @@ function lowRoomDays(res){
   for (const d of res.days) { if (dayRow(d.date)?.actual || d.date < today) continue; const fc = Number(d.rooms_target), bob = Number(d.rooms_bob_in); if (isFinite(fc) && isFinite(bob) && fc < bob - 1e-9) m.set(d.date, { fc, bob }); }
   return m;
 }
+const AUTO_KEYS = { rooms_target:"rooms", lunch_covers:"lunch", dinner_covers:"dinner" };
+function autoApplies(day, key){
+  const k = AUTO_KEYS[key]; if (!k || !S.data.autoOn) return false;
+  const r = dayRow(day); if (r && r.actual) return false;
+  if (r && r.ov && r.ov[key] !== undefined && r.ov[key] !== null && r.ov[key] !== "") return false;
+  if (S.pending.has(day + "|" + key)) return false;
+  const a = S.data.feed.auto && S.data.feed.auto[day]; return !!(a && isNum(a[k]));
+}
+function autoTip(day, key){
+  if (!autoApplies(day, key)) return "";
+  const w = S.data.autoWhy && S.data.autoWhy[day]; return "Learned forecast: " + ((w && w[AUTO_KEYS[key]]) || "worked out nightly") + (key === "rooms_target" ? ". Never below the rooms on the books." : ". The greater of this and what is booked.");
+}
 function cellFlag(key, day, lowSet){
   let c = "";
+  if (autoApplies(day, key)) c += "auto ";
   if (lowSet && lowSet.has(day) && LOW_KEYS.has(key)) c += "low ";
   const e = S.flagDays && S.flagDays.get(day);
   if (e && e.vr) for (const i of e.vr.items) if ((VAR_KEYS[i.key] || []).includes(key)) { c += "vflag "; break; }
@@ -1191,6 +1206,19 @@ function renderFlagBar(){
   $$("[data-fgo]").forEach(b => b.onclick = () => goMonth(b.dataset.fgo));
   const st = $("#flSet"); if (st) st.onclick = () => go("setup");
   const ml = $("#flMail"); if (ml) ml.onclick = async () => { ml.disabled = true; try { const r = await call("flags.email", {}); toast(r.sent ? "Sent to your email." : "Nothing to send."); } catch (e) { toast(e.message, true); } ml.disabled = false; };
+}
+function autoCard(){
+  const a = S.autoInfo; if (!a) return "";
+  const fmtL = l => (l.lead_from === l.lead_to ? "the night itself" : `${l.lead_from} to ${l.lead_to} days ahead`);
+  const rows = (a.pickup || []).map(p => `<tr><td>${p.grp === "weekend" ? "Fri and Sat" : "Sun to Thu"}</td><td>${fmtL(p)}</td><td>${(p.mean_pickup > 0 ? "+" : "") + p.mean_pickup}</td><td>${p.n}${p.n < 12 ? " (too few to use yet)" : ""}</td></tr>`).join("");
+  return `<div class="card"><h3>Learned forecast</h3><p class="muted" style="margin:0 0 10px">Every night the forecast works out its own figures for rooms and restaurant covers, for every month set up (at least 18 months ahead), from the rooms and covers on the books, the rates engine's forecast, the same weekdays last year (scaled to how this year is running) and how much each night picked up after each point in the past. It is only the starting figure: anything you type over wins, and rooms are never forecast below what is already on the books.</p>
+    <div style="display:flex; gap:14px; flex-wrap:wrap; align-items:center"><label style="font-size:14px"><input type="checkbox" id="auSw" ${a.auto_on ? "checked" : ""} ${S.me.admin ? "" : "disabled"}> Use the learned forecast as the starting figure</label>
+    ${S.me.admin ? `<button class="btn small ghost" id="auRun">Work it out now</button>` : ""}<span class="muted" style="font-size:12px">${a.run_at ? "Last worked out " + esc(fmtDT(a.run_at)) + (a.note ? ` · ${a.note.days} days · ${a.note.engine_days} nights from the rates engine · ${a.note.history_days} days of history` : "") : "Not worked out yet"}${a.history_since ? ` · history kept since ${esc(a.history_since)}` : ""}</span></div>
+    ${rows ? `<details style="margin-top:10px"><summary style="cursor:pointer; font-weight:600; color:var(--sage)">What the forecast has learned about pickup</summary><div class="scrollx"><table class="dt" style="margin-top:8px"><thead><tr><th>Nights</th><th>When</th><th>Rooms picked up from then to the night</th><th>Nights learned from</th></tr></thead><tbody>${rows}</tbody></table></div><p class="muted" style="font-size:12px; margin:6px 0 0">Pickup is learned from the rooms-on-the-books captures kept since 8 October 2026, so it only reaches a few weeks ahead so far; it grows as the history does. Weddings, rooms and covers on the books are saved every night for the same reason.</p></details>` : ""}</div>`;
+}
+function bindAutoCard(){
+  const sw = $("#auSw"); if (sw) sw.onchange = async () => { try { await call("auto.save", { auto_on: sw.checked }); await loadRange(S.ym); toast(sw.checked ? "The learned forecast is the starting figure." : "Back to the Month Set up figures as the starting figure."); viewSetup(); } catch (e) { toast(e.message, true); sw.checked = !sw.checked; } };
+  const rn = $("#auRun"); if (rn) rn.onclick = async () => { rn.disabled = true; rn.textContent = "Working it out…"; try { await call("auto.run", {}); await loadRange(S.ym); S.autoInfo = null; toast("Done."); viewSetup(); } catch (e) { toast(e.message, true); rn.disabled = false; rn.textContent = "Work it out now"; } };
 }
 function flagSettingsCard(){
   const t = S.flags?.settings; if (!t) return "";
