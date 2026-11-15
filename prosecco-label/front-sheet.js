@@ -4,39 +4,57 @@
    Used from Weddings and events > Overview: BHBFrontSheet.open(). */
 (function () {
   "use strict";
-  var W = 210, H = 297, PX = 300 / 25.4;
-  var INK = "#1F2A21", GREEN = "#4D604F", GREY = "#5F6A62", BAND = "#EAEEE8", RULE = "#C5CDC4", WARN = "#A0302A";
+  var W = 297, H = 210, PX = 300 / 25.4;   // the sheet is drawn LANDSCAPE; forPrinter() turns it onto the portrait page the print agent sends
+  var INK = "#1F2A21", GREEN = "#4D604F", GREY = "#5F6A62", BAND = "#E4EAE2", TINT = "#F3F6F1", RULE = "#B9C3B7", WARN = "#A0302A";
   var MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   var DOW = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   var FONT = "Raleway, 'Segoe UI', Arial, sans-serif";
 
   function parse(ymd) { var p = String(ymd).split("-"); return new Date(Date.UTC(+p[0], +p[1] - 1, +p[2], 12)); }
-  function longDay(ymd) { var d = parse(ymd); return DOW[d.getUTCDay()] + " " + d.getUTCDate() + " " + MONTHS[d.getUTCMonth()]; }
   function rangeText(from, to) {
     var a = parse(from), b = parse(to), same = a.getUTCFullYear() === b.getUTCFullYear(), sameM = same && a.getUTCMonth() === b.getUTCMonth();
-    return DOW[a.getUTCDay()] + " " + a.getUTCDate() + (sameM ? "" : " " + MONTHS[a.getUTCMonth()]) + (same ? "" : " " + a.getUTCFullYear()) + " – " +
+    return DOW[a.getUTCDay()] + " " + a.getUTCDate() + (sameM ? "" : " " + MONTHS[a.getUTCMonth()]) + (same ? "" : " " + a.getUTCFullYear()) + " \u2013 " +
       DOW[b.getUTCDay()] + " " + b.getUTCDate() + " " + MONTHS[b.getUTCMonth()] + " " + b.getUTCFullYear();
   }
   function shortRange(from, to) {
     var a = parse(from), b = parse(to);
-    return a.getUTCDate() + (a.getUTCMonth() === b.getUTCMonth() ? "" : " " + MONTHS[a.getUTCMonth()].slice(0, 3)) + " – " + b.getUTCDate() + " " + MONTHS[b.getUTCMonth()].slice(0, 3) + " " + b.getUTCFullYear();
+    return a.getUTCDate() + (a.getUTCMonth() === b.getUTCMonth() ? "" : " " + MONTHS[a.getUTCMonth()].slice(0, 3)) + " \u2013 " + b.getUTCDate() + " " + MONTHS[b.getUTCMonth()].slice(0, 3) + " " + b.getUTCFullYear();
   }
   function esc(v) { return String(v == null ? "" : v).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
 
-  /** Font that shrinks (down to 60%) and then trims with an ellipsis until the text fits the width (all sizes in mm). */
-  function fitText(ctx, text, maxW, mm, weight) {
-    var size = mm;
-    for (var i = 0; i < 12; i++) { ctx.font = weight + " " + (size * PX) + "px " + FONT; if (ctx.measureText(text).width <= maxW * PX || size <= mm * 0.6) break; size *= 0.92; }
-    var t = String(text);
-    while (t.length > 1 && ctx.measureText(t).width > maxW * PX) t = t.slice(0, -1);
-    return t === String(text) ? t : t.replace(/\s+$/, "") + "…";
+  function setFont(ctx, mm, weight) { ctx.font = weight + " " + (mm * PX) + "px " + FONT; }
+  function text(ctx, s, x, y, mm, weight, color, align, base) { setFont(ctx, mm, weight); ctx.fillStyle = color; ctx.textAlign = align || "left"; ctx.textBaseline = base || "middle"; ctx.fillText(s, x * PX, y * PX); }
+  function spaced(ctx, s, x, y, mm, weight, color, spacingEm, align) { try { ctx.letterSpacing = (spacingEm * mm * PX) + "px"; } catch (e) {} text(ctx, s, x, y, mm, weight, color, align || "left"); try { ctx.letterSpacing = "0px"; } catch (e) {} }
+  function rect(ctx, x, y, w, h, fill, stroke, lw) { if (fill) { ctx.fillStyle = fill; ctx.fillRect(x * PX, y * PX, w * PX, h * PX); } if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = (lw || 0.3) * PX; ctx.strokeRect(x * PX, y * PX, w * PX, h * PX); } }
+
+  /** Words wrapped to a width (mm); a word that is too long on its own is cut. At most maxLines, the last one ending "..." if there is more. */
+  function wrap(ctx, str, widthMm, mm, weight, maxLines) {
+    setFont(ctx, mm, weight);
+    var max = widthMm * PX, words = String(str).split(/\s+/).filter(Boolean), lines = [], cur = "";
+    function push(l) { lines.push(l); }
+    words.forEach(function (w) {
+      while (ctx.measureText(w).width > max && w.length > 1) { var k = w.length; while (k > 1 && ctx.measureText(w.slice(0, k)).width > max) k--; if (cur) { push(cur); cur = ""; } push(w.slice(0, k)); w = w.slice(k); }
+      var t = cur ? cur + " " + w : w;
+      if (ctx.measureText(t).width <= max) cur = t; else { if (cur) push(cur); cur = w; }
+    });
+    if (cur) push(cur);
+    if (lines.length > maxLines) { lines = lines.slice(0, maxLines); var l = lines[maxLines - 1]; while (l.length > 1 && ctx.measureText(l + "\u2026").width > max) l = l.slice(0, -1); lines[maxLines - 1] = l.replace(/\s+$/, "") + "\u2026"; }
+    return lines;
   }
-  function text(ctx, s, x, y, mm, weight, color, align) { ctx.font = weight + " " + (mm * PX) + "px " + FONT; ctx.fillStyle = color; ctx.textAlign = align || "left"; ctx.textBaseline = "middle"; ctx.fillText(s, x * PX, y * PX); }
-  function spaced(ctx, s, x, y, mm, weight, color, spacingEm) { try { ctx.letterSpacing = (spacingEm * mm * PX) + "px"; } catch (e) {} text(ctx, s, x, y, mm, weight, color, "left"); try { ctx.letterSpacing = "0px"; } catch (e) {} }
 
-  var COL = { left: 14, room: 17, name: 62, dayR: 164, eveR: 195, right: 196 };
+  var MARGIN = 10, VENUE_W = 31, MAINS = ["Marquee", "George Ridley"];
 
-  /** Draws the page and returns the canvas. sheet = the frontsheet.data result's sheet; opts.printedAt overrides "now" (tests). */
+  /** The rooms down the side: the two big rooms always, then any other room used this week (A-Z), then events with no room. */
+  function roomRows(sheet) {
+    var used = {}, noRoom = false;
+    sheet.days.forEach(function (d) { d.events.forEach(function (e) { if (e.room) used[e.room] = true; else noRoom = true; }); });
+    var others = Object.keys(used).filter(function (r) { return MAINS.indexOf(r) < 0; }).sort();
+    var rows = MAINS.concat(others).map(function (r) { return { key: r, label: r, warn: false }; });
+    if (noRoom) rows.push({ key: "", label: "Room not set", warn: true });
+    return rows;
+  }
+
+  /** Draws the page (landscape A4) and returns the canvas. sheet = frontsheet.data's sheet; opts.printedAt overrides "now" (tests). */
   function render(sheet, opts) {
     opts = opts || {};
     var cv = document.createElement("canvas"); cv.width = Math.round(W * PX); cv.height = Math.round(H * PX);
@@ -44,48 +62,82 @@
     ctx.fillStyle = "#FFFFFF"; ctx.fillRect(0, 0, cv.width, cv.height);
 
     // header
-    var y = 15;
-    spaced(ctx, "THE BLACK HORSE, BEAMISH", COL.left, y + 2, 3.6, 700, GREEN, 0.18);
-    text(ctx, "This week’s weddings & events", COL.left, y + 11.5, 9.5, 700, INK);
-    text(ctx, rangeText(sheet.from, sheet.to), COL.left, y + 21, 6.2, 600, GREEN);
-    ctx.fillStyle = GREEN; ctx.fillRect(COL.left * PX, (y + 27) * PX, (COL.right - COL.left) * PX, 0.8 * PX);
+    spaced(ctx, "THE BLACK HORSE, BEAMISH", MARGIN, MARGIN + 2, 3.4, 700, GREEN, 0.18);
+    text(ctx, "This week\u2019s weddings & events", MARGIN, MARGIN + 10, 9, 700, INK);
+    text(ctx, rangeText(sheet.from, sheet.to), W - MARGIN, MARGIN + 9.4, 6.4, 600, GREEN, "right");
 
-    // column heads
-    var headY = y + 32.5;
-    spaced(ctx, "ROOM", COL.room, headY, 3.2, 700, GREY, 0.14); spaced(ctx, "EVENT", COL.name, headY, 3.2, 700, GREY, 0.14);
-    text(ctx, "DAY", COL.dayR, headY, 3.2, 700, GREY, "right"); text(ctx, "EVENING", COL.eveR, headY, 3.2, 700, GREY, "right");
+    var gx = MARGIN + VENUE_W, gw = W - MARGIN - gx, colW = gw / 7, headY = MARGIN + 17, headH = 11.5, top = headY + headH, bottom = H - MARGIN - 7, avail = bottom - top;
+    var rows = roomRows(sheet);
 
-    // size everything to fit one page
-    var top = headY + 5, bottom = H - 14 - 10, avail = bottom - top;
-    var DH = 8.4, RH = 12.6, GAP = 2.2;
-    var need = sheet.days.reduce(function (s, d) { return s + DH + d.events.length * RH + GAP; }, 0);
-    var k = Math.max(0.42, Math.min(1.8, avail / Math.max(1, need)));   // row height scale
-    var fk = Math.min(k, 1.35);                                          // type scale: bigger than this and the columns collide, so a quiet week gets taller rows, not wider type
-    y = top;
-    sheet.days.forEach(function (d) {
-      var dh = DH * k;
-      ctx.fillStyle = BAND; ctx.fillRect(COL.left * PX, y * PX, (COL.right - COL.left) * PX, dh * PX);
-      text(ctx, longDay(d.date).toUpperCase(), COL.room, y + dh / 2, 4.6 * fk, 700, GREEN);
-      if (!d.events.length) text(ctx, "Nothing booked", COL.eveR - 1, y + dh / 2, 3.9 * fk, 500, GREY, "right");
-      y += dh;
-      d.events.forEach(function (e, i) {
-        var rh = RH * k, cy = y + rh / 2;
-        var room = e.room || "Room not set";
-        ctx.fillStyle = e.room ? GREEN : WARN; ctx.textAlign = "left"; ctx.textBaseline = "middle";
-        var rt = fitText(ctx, room, COL.name - COL.room - 3, 4.9 * fk, 700); ctx.fillText(rt, COL.room * PX, cy * PX);
-        var nt = fitText(ctx, e.name, COL.dayR - 22 - COL.name, 6.9 * fk, 700); ctx.fillStyle = INK; ctx.textAlign = "left"; ctx.fillText(nt, COL.name * PX, cy * PX);
-        text(ctx, e.guests_day == null ? "–" : String(e.guests_day), COL.dayR, cy, 7.4 * fk, 700, e.guests_day == null ? RULE : INK, "right");
-        text(ctx, e.guests_evening == null ? "–" : String(e.guests_evening), COL.eveR, cy, 7.4 * fk, 700, e.guests_evening == null ? RULE : INK, "right");
-        ctx.fillStyle = RULE; ctx.fillRect(COL.left * PX, (y + rh) * PX - 1, (COL.right - COL.left) * PX, 2);
-        y += rh;
+    // box layout at a given scale: name wrapped, then the day / evening totals
+    function box(e, s) {
+      var pad = 1.7 * s, inner = colW - 2 * pad - 2.4 - 1.4, nameMm = 5.1 * s;
+      var longest = String(e.name).split(/\s+/).reduce(function (m, w) { return w.length > m.length ? w : m; }, "");
+      for (var t = 0; t < 12; t++) { setFont(ctx, nameMm, 700); if (ctx.measureText(longest).width <= inner * PX) break; nameMm *= 0.93; }   // a word is never cut in half: the name gets smaller instead
+      var lh = nameMm * 1.17, lines = wrap(ctx, e.name, inner, nameMm, 700, 4), hasNum = e.guests_day != null || e.guests_evening != null;
+      return { e: e, lines: lines, nameMm: nameMm, lh: lh, pad: pad, hasNum: hasNum, h: pad * 2 + lines.length * lh + (hasNum ? 1.3 * s + 8.6 * s : 0) };
+    }
+    function layout(s) {
+      var gap = 1.4 * s, total = 0;
+      var need = rows.map(function (r) {
+        var cells = sheet.days.map(function (d) { var bs = d.events.filter(function (e) { return (e.room || "") === r.key; }).map(function (e) { return box(e, s); }); return bs; });
+        var h = Math.max.apply(null, cells.map(function (bs) { return bs.length ? bs.reduce(function (t, b) { return t + b.h + gap; }, gap) : 0; }).concat([18 * s]));
+        total += h; return { cells: cells, h: h, gap: gap };
       });
-      y += GAP * k;
+      return { need: need, total: total };
+    }
+    var s = 1.3, L = layout(s);
+    while (L.total > avail && s > 0.4) { s = Math.round((s - 0.05) * 100) / 100; L = layout(s); }
+    var extra = Math.max(0, avail - L.total) / rows.length;
+
+    // day header
+    rect(ctx, MARGIN, headY, VENUE_W, headH, GREEN);
+    spaced(ctx, "ROOM", MARGIN + 2.5, headY + headH / 2, 3.2, 700, "#FFFFFF", 0.14);
+    sheet.days.forEach(function (d, i) {
+      var x = gx + i * colW, dt = parse(d.date);
+      rect(ctx, x, headY, colW, headH, GREEN, "#FFFFFF", 0.3);
+      spaced(ctx, DOW[dt.getUTCDay()].toUpperCase(), x + colW / 2, headY + 4.1, 3.7, 700, "#FFFFFF", 0.1, "center");
+      text(ctx, dt.getUTCDate() + " " + MONTHS[dt.getUTCMonth()].slice(0, 3), x + colW / 2, headY + 8.5, 3.6, 500, "#FFFFFF", "center");
     });
 
-    // footer
+    // rows
+    var y = top;
+    rows.forEach(function (r, ri) {
+      var rh = L.need[ri].h + extra, gap = L.need[ri].gap;
+      rect(ctx, MARGIN, y, VENUE_W, rh, BAND, RULE, 0.3);
+      var vl = wrap(ctx, r.label, VENUE_W - 5, 5.2 * Math.min(1.1, Math.max(0.8, s)), 700, 3), vm = 5.2 * Math.min(1.1, Math.max(0.8, s));
+      vl.forEach(function (ln, i) { text(ctx, ln, MARGIN + 2.5, y + rh / 2 + (i - (vl.length - 1) / 2) * vm * 1.2, vm, 700, r.warn ? WARN : GREEN); });
+      sheet.days.forEach(function (d, i) {
+        var x = gx + i * colW; rect(ctx, x, y, colW, rh, "#FFFFFF", RULE, 0.3);
+        var by = y + gap, cell = L.need[ri].cells[i], bh = cell.length ? (rh - gap * (cell.length + 1)) / cell.length : 0;   // the boxes in a cell share its height
+        cell.forEach(function (b) {
+          var bx = x + 1.2, bw = colW - 2.4, h = Math.max(b.h, bh);
+          rect(ctx, bx, by, bw, h, TINT, GREEN, 0.3); rect(ctx, bx, by, 1.4, h, r.warn ? WARN : GREEN);
+          b.lines.forEach(function (ln, k) { text(ctx, ln, bx + 1.4 + b.pad, by + b.pad + b.lh * (k + 0.5), b.nameMm, 700, INK); });
+          if (b.hasNum) {
+            var half = (bw - 1.4 - b.pad) / 2, nx = bx + 1.4 + b.pad, ny = by + h - b.pad - 8.3 * s, lab = Math.min(3.0 * s, 2.8);
+            [["DAY", b.e.guests_day], ["EVENING", b.e.guests_evening]].forEach(function (c, k) {
+              if (c[1] == null) return;
+              var lm = lab; setFont(ctx, lm, 700); while (lm > 1.2 && ctx.measureText(c[0]).width > (half - 0.8) * PX * 0.92) { lm *= 0.93; setFont(ctx, lm, 700); }
+              spaced(ctx, c[0], nx + k * half, ny + 1.2 * s, lm, 700, GREY, 0.06);
+              text(ctx, String(c[1]), nx + k * half, ny + 5.6 * s, 5.8 * s, 700, INK);
+            });
+          }
+          by += h + gap;
+        });
+      });
+      y += rh;
+    });
+
     var when = opts.printedAt || new Date().toLocaleString("en-GB", { timeZone: "Europe/London", weekday: "short", day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
-    text(ctx, "Printed " + when + ", from the events tracker and Guestline.", COL.left, H - 17.5, 2.8, 500, GREY);
-    text(ctx, "Day and evening are separate totals: the evening figure usually includes the day guests who stay on.", COL.left, H - 14, 2.8, 500, GREY);
+    text(ctx, "Printed " + when + ", from the events tracker and Guestline. Day and evening are separate totals (the evening figure usually includes the day guests who stay on).", MARGIN, H - MARGIN + 1.5, 2.6, 500, GREY);
+    return cv;
+  }
+  /** The landscape sheet turned onto the portrait A4 page the print agent sends: the top of the sheet is the left edge of the page, so the sheet reads upright when held landscape. */
+  function forPrinter(land) {
+    var cv = document.createElement("canvas"); cv.width = land.height; cv.height = land.width;
+    var c = cv.getContext("2d"); c.fillStyle = "#FFFFFF"; c.fillRect(0, 0, cv.width, cv.height);
+    c.translate(0, cv.height); c.rotate(-Math.PI / 2); c.drawImage(land, 0, 0);
     return cv;
   }
   function pngBase64(cv) { return cv.toDataURL("image/png").replace(/^data:image\/png;base64,/, ""); }
@@ -131,7 +183,7 @@
       $("fsPrint").disabled = true;
       try {
         status("Sending to the printer…");
-        var r = await L.api("job.create", { kind: "sheet", names: "Weekly front sheet " + shortRange(st.sheet.from, st.sheet.to), date: st.sheet.from, page_png: pngBase64(st.cv), copies: 1, source: "wedding-admin" });
+        var r = await L.api("job.create", { kind: "sheet", names: "Weekly front sheet " + shortRange(st.sheet.from, st.sheet.to), date: st.sheet.from, page_png: pngBase64(forPrinter(st.cv)), copies: 1, source: "wedding-admin" });
         st.printedFrom = st.sheet.from; st.job = r.id; setPrintButton();
         status(r.agent_online ? "Sent to the " + (st.printer || "Office Printer") + ". Waiting for it to print…" : "Queued, but the print PC has not checked in just now, so it will print when that PC is on and the print program is running.", r.agent_online ? "" : "bad");
         poll(0);
@@ -161,5 +213,5 @@
     return { close: close };
   }
 
-  window.BHBFrontSheet = { open: open, render: render, rangeText: rangeText };
+  window.BHBFrontSheet = { open: open, render: render, forPrinter: forPrinter, rangeText: rangeText };
 })();
