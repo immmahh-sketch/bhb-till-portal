@@ -2449,6 +2449,7 @@ function viewOverview(){
   var h = '<div class="split" style="margin-bottom:6px"><h1>Overview</h1>' +
     '<span class="label">' + (held ? f.totalRegistered + ' in the app'
                                    : f.onTheBooks + ' still to come') + '</span>' +
+    '<button class="btn btn--sm btn--primary" onclick="printFrontSheet(this)">Print this week\'s front sheet</button>' +
     '<button class="btn btn--sm" onclick="refreshNow(this, loadForecast)">Refresh from Guestline</button></div>' +
     '<p class="muted" style="margin:0 0 10px">' +
     (held
@@ -6265,6 +6266,29 @@ function bonusAsk(title, text, yes, no){
     bg.querySelector("#baNo").onclick = function(){ done(false); };
     bg.querySelector("#baYes").focus();
   });
+}
+
+/* The weekly front sheet (Overview): everything booked in for the week, one A4 page for the wall, sent straight to the same printer as the prosecco labels. */
+function frontSheetCore(){
+  function load(src, ready){
+    if (ready()) return Promise.resolve();
+    return new Promise(function(res, rej){
+      var sc = document.createElement("script"); sc.src = src;
+      sc.onload = res; sc.onerror = function(){ rej(new Error("The printer could not be loaded just now.")); };
+      document.head.appendChild(sc);
+    });
+  }
+  return load("/prosecco-label/label-core.js?v=20261031", function(){ return !!window.BHBLabel; })
+    .then(function(){ return load("/prosecco-label/front-sheet.js?v=20261115", function(){ return !!window.BHBFrontSheet; }); });
+}
+async function printFrontSheet(btn){
+  var label = btn ? btn.textContent : "";
+  try {
+    if (btn) { btn.disabled = true; btn.textContent = "Getting the sheet ready..."; }
+    await frontSheetCore();
+    BHBFrontSheet.open({});
+  } catch (e) { showErr(e.message); }
+  if (btn) { btn.disabled = false; btn.textContent = label; }
 }
 
 function bonusLabelCore(){
