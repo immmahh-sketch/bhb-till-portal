@@ -201,9 +201,9 @@ table.xg td.hit{background:#fff0a8 !important} table.xg td.hitcur{background:#ff
 </div>
 <div class="toast" id="toast"></div>
 <script type="module">
-import { LINES, computeMonth, monthDates, WD, SETUP_COLS, addDays } from "./engine.js?v=20261116a";
-import { parseFile } from "./parse.js?v=20261116a";
-import { buildWorkbook, fmtOf, SETUP_NAMES } from "./export.js?v=20261116a";
+import { LINES, computeMonth, monthDates, WD, SETUP_COLS, addDays } from "./engine.js?v=20261116c";
+import { parseFile } from "./parse.js?v=20261116c";
+import { buildWorkbook, fmtOf, SETUP_NAMES } from "./export.js?v=20261116c";
 
 const CFG = { URL:"https://safcrtrfdzsnftghibot.supabase.co/functions/v1/forecast-api", KEY:"sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU",
   SHEETJS:"https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js", EXCELJS:"https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js" };
@@ -744,10 +744,43 @@ function bindMonthBar(){
 
 /* ------------------------------------------------------------------ imports */
 const KIND_ORDER = ["bob","opentable","mealplan","occ","events","eod"];
+/* ------------------------------------------------------------------ past events still Confirmed or Resident
+   A day that has gone should leave its events Checked Out, Lost, Cancelled or Provisional. Confirmed means it was never checked in; Resident means it was checked in but never out.
+   Events with no money on them (internal events) are left out. An event that is known about can be ticked "ignore this event next time"; it is kept by its reference. */
+async function loadPastEvents(){ try { S.pastEv = await call("events.past"); } catch (e) { S.pastEv = null; } return S.pastEv; }
+function renderPeLine(){
+  const box = $("#peLine"); if (!box) return; const n = S.pastEv ? S.pastEv.flagged.length : 0;
+  box.innerHTML = S.pastEv ? `<div class="notice" style="${n ? "" : "background:var(--good-bg)"}">${n ? `<b>${n} past event${n === 1 ? "" : "s"} to check:</b> the day has gone but ${n === 1 ? "it is" : "they are"} still Confirmed (not checked in) or Resident (not checked out). <button class="linkbtn" id="peOpen">Look at ${n === 1 ? "it" : "them"}</button>` : `No past events are waiting to be checked in or out.`}${S.pastEv.ignored.length ? ` <span class="muted">(${S.pastEv.ignored.length} ignored.${n ? "" : ` <button class="linkbtn" id="peOpen">Show</button>`})</span>` : ""}</div>` : "";
+  const o = $("#peOpen"); if (o) o.onclick = pastEventsPopup;
+}
+function pastEventsPopup(){
+  const d = S.pastEv; if (!d) return; closePastPop();
+  const fmtD = x => new Date(x + "T12:00:00Z").toLocaleDateString("en-GB", { weekday:"short", day:"numeric", month:"short", year:"numeric", timeZone:"UTC" });
+  const admin = S.me.admin, f = d.flagged;
+  const rows = f.map(e => `<tr><td>${admin ? `<input type="checkbox" data-pe="${esc(e.ref)}" aria-label="Ignore this event next time">` : ""}</td><td>${esc(fmtD(e.day))}</td><td style="text-align:left; white-space:normal; min-width:180px; max-width:300px; word-break:break-word">${esc(e.name)}<br><span class="muted" style="font-size:12px">${esc(e.type)} · ${esc(e.ref)}</span></td><td><span class="tag ${/resident/i.test(e.status) ? "blue" : "warn"}">${esc(e.status)}</span></td><td>${e.guests || ""}</td><td>${FMTS.gbp(e.revenue)}</td></tr>`).join("");
+  const ig = d.ignored.length ? `<details style="margin-top:12px"><summary style="cursor:pointer; font-weight:600; color:var(--sage)">${d.ignored.length} ignored event${d.ignored.length === 1 ? "" : "s"}</summary><table class="dt" style="margin-top:6px"><tbody>${d.ignored.map(r => `<tr><td>${admin ? `<input type="checkbox" data-peback="${esc(r.ref)}" aria-label="Flag this event again">` : ""}</td><td style="text-align:left">${esc(r.name || r.ref)}<br><span class="muted" style="font-size:12px">${esc(r.ref)}${r.day ? " · " + esc(fmtD(r.day)) : ""} · ignored by ${esc(r.ignored_by)} ${esc(fmtDT(r.ignored_at))}</span></td></tr>`).join("")}</tbody></table>${admin ? `<div class="muted" style="font-size:12px">Tick one and press Save to flag it again.</div>` : ""}</details>` : "";
+  const back = document.createElement("div"); back.className = "mback"; back.id = "pePop";
+  back.innerHTML = `<div class="modal" style="max-width:900px" role="dialog" aria-modal="true" aria-label="Past events to check"><h3>${f.length ? `${f.length} past event${f.length === 1 ? "" : "s"} to check` : "Nothing to check"}</h3>
+    <div>${f.length ? `These events are dated before today but are still <b>Confirmed</b> (never checked in) or <b>Resident</b> (checked in, never checked out). The only statuses for past dates should be Checked Out, Lost, Cancelled or Provisional. Events with no money on them are left out.` : "Every past event with money on it is Checked Out, Lost, Cancelled or Provisional."}</div>
+    ${f.length ? `<div class="scrollx"><table class="dt" style="margin:10px 0"><thead><tr><th>${admin ? "Ignore next time" : ""}</th><th>Date</th><th style="text-align:left">Event</th><th>Status</th><th>Guests</th><th>Revenue</th></tr></thead><tbody>${rows}</tbody></table></div>` : ""}${ig}
+    <div class="mbtn" style="margin-top:12px">${admin ? `<button class="btn" id="peSave">Save</button>` : ""}<button class="btn ghost" id="peClose">${admin ? "Close without saving" : "Close"}</button><span class="muted" style="font-size:12px">${admin ? "Ticked events are not flagged again. Revenue is the event's total (rooms, food, drink and hire)." : ""}</span></div></div>`;
+  document.body.appendChild(back);
+  $("#peClose").onclick = closePastPop; back.addEventListener("click", e => { if (e.target === back) closePastPop(); });
+  const sv = $("#peSave"); if (sv) sv.onclick = async () => {
+    const items = $$("#pePop [data-pe]:checked").map(i => { const e = f.find(x => x.ref === i.dataset.pe); return { ref:e.ref, day:e.day, name:e.name }; });
+    const restore = $$("#pePop [data-peback]:checked").map(i => i.dataset.peback);
+    if (!items.length && !restore.length) { toast("Nothing is ticked."); return; }
+    sv.disabled = true;
+    try { await call("events.ignore", { items, restore }); await loadPastEvents(); renderPeLine(); closePastPop(); toast(`${items.length ? items.length + " event" + (items.length === 1 ? "" : "s") + " will not be flagged again" : ""}${items.length && restore.length ? "; " : ""}${restore.length ? restore.length + " flagged again" : ""}.`); }
+    catch (e) { toast(e.message, true); sv.disabled = false; }
+  };
+}
+function closePastPop(){ const p = $("#pePop"); if (p) p.remove(); }
+
 function viewImports(){
   const imp = S.imp, meta = S.data.feedMeta || {};
   const st = (k, label) => meta[k] ? `<tr><td>${label}</td><td>${esc(fmtDT(meta[k].latest))}</td><td>${esc(meta[k].from)} to ${esc(meta[k].to)}</td><td class="muted">${esc(meta[k].source)}</td></tr>` : `<tr><td>${label}</td><td colspan="3" class="muted">nothing loaded</td></tr>`;
-  $("#views").innerHTML = `<div class="mbar"><h2 style="text-align:left">Imports</h2></div>
+  $("#views").innerHTML = `<div class="mbar"><h2 style="text-align:left">Imports</h2></div><div id="peLine"></div>
     ${S.me.admin ? `<div class="card"><h3>Add reports</h3>
       <p class="muted" style="margin:0 0 10px">Drop in as many as you have, in any order, straight from Rezlynx and ResDiary: Actual &amp; Forecast, Event Revenue Forecast, Booking Summary, Meal Plan, Occupancy Report and the End of Day (PeriodEnd) reports, plus the Reservations report and Sales and Marketing query that feed the guest feedback emails (add those two together). Nothing needs renaming or tidying. You see what each one holds before anything is saved.</p>
       <div class="drop" id="drop"><p>Drag the files here, or choose them</p><input type="file" id="pick" multiple accept=".csv,.xls,.xlsx"><button class="btn" id="pickBtn">Choose files</button></div>
@@ -757,7 +790,7 @@ function viewImports(){
       <tr><td>Rooms on the books, live</td><td colspan="3">${S.data.autoUsed ? `Guestline availability, ${S.data.autoUsed} nights (used when newer than the report)` : "no capture newer than the report"}</td></tr>
       <tr><td>Wages</td><td colspan="3" class="muted">Planday (worked), then the Archive, then the rota</td></tr></tbody></table></div></div>
       <div class="card"><h3>History</h3><div id="logbox" class="scrollx"><div class="muted">Loading…</div></div></div></div>`;
-  renderFiles(); loadLog();
+  renderFiles(); loadLog(); if (S.pastEv) renderPeLine(); loadPastEvents().then(renderPeLine);
   const drop = $("#drop"); if (!drop) return;
   const pick = $("#pick"); $("#pickBtn").onclick = () => pick.click(); pick.onchange = () => addFiles(pick.files);
   ["dragenter","dragover"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("over"); }));
@@ -854,7 +887,9 @@ async function runImport(){
   S.imp.busy = false; S.imp.result = out.join("<br>");
   try { await loadRange(S.ym); } catch (e) {}
   loadFlags();
+  const hadEvents = out.some(x => / events saved\./.test(x));
   toast(bad ? "Some reports did not import." : "Imported. The forecast has been recalculated.", bad); viewImports();
+  if (hadEvents) { const d = await loadPastEvents(); renderPeLine(); if (d && d.flagged.length) pastEventsPopup(); }
 }
 async function loadLog(){
   try { const d = await call("log.list", { limit:40 }); S.log = d.log; } catch (e) { S.log = []; }
