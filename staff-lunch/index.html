@@ -73,6 +73,25 @@ textarea{min-height:90px; resize:vertical}
 .tick input{width:22px; height:22px; margin:1px 0 0; accent-color:var(--sage); flex:none}
 .stickybar{position:sticky; bottom:0; padding:12px 0 14px; background:linear-gradient(to top, var(--bone) 70%, rgba(248,248,248,0))}
 .badge.late{background:var(--alert-bg); color:var(--alert)}
+.xx[hidden]{display:none}
+.card.chg{border-left:6px solid var(--attention); background:var(--attention-bg)}
+.card.chg h3{color:var(--brown)}
+.card.chg .btns{display:flex; gap:10px; flex-wrap:wrap; margin-top:14px}
+.card.chg .btns[hidden]{display:none}
+.card.chg .btns .btn{flex:1; min-width:160px}
+.card.chg .chgbox{margin-top:14px; padding-top:14px; border-top:1px solid #E8D9BC}
+.make.wait{border-left-color:var(--attention); background:var(--attention-bg)}
+.make.wait .n{color:var(--brown)}
+.chgcard{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); border-left:6px solid var(--attention); padding:14px 18px; margin-bottom:12px}
+.chgcard .t{font-size:13px; color:var(--sage-70)}
+.chgcard .names{font-size:14px; margin-top:6px}
+.modal{position:fixed; inset:0; background:rgba(38,38,38,.55); z-index:150; display:flex; align-items:center; justify-content:center; padding:16px}
+.modal[hidden]{display:none}
+.mbox{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); width:100%; max-width:540px; max-height:92vh; overflow:auto; padding:22px}
+.mbox h3{font-size:24px; color:var(--sage); margin-bottom:10px}
+.mbox .btns{display:flex; gap:10px; flex-wrap:wrap; margin-top:14px}
+.mbox .btns .btn{flex:1; min-width:140px}
+.inbox{width:100%; padding:11px 12px; border:1px solid var(--mist); border-radius:8px; font-size:16px; background:var(--white)}
 .testbox{display:flex; align-items:center; gap:8px; font-size:13px; color:var(--sage-70); margin:6px 0 14px}
 .sum{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-top:6px}
 .sum .k{font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70)}
@@ -180,6 +199,55 @@ function wireChoices(scope, onChange){
     if (onChange) onChange();
   }));
 }
+/* a small dialog that lives outside the page views, so the Chef's 30-second refresh does not wipe it */
+function openModal(html){
+  closeModal();
+  const m = document.createElement("div"); m.className = "modal"; m.id = "modal"; m.innerHTML = `<div class="mbox" role="dialog" aria-modal="true">${html}</div>`;
+  m.addEventListener("click", e => { if (e.target === m) closeModal(); });
+  document.body.appendChild(m); return m;
+}
+function closeModal(){ const m = document.getElementById("modal"); if (m) m.parentNode.removeChild(m); }
+const dayWord = (date, today) => date === today ? "today's" : new Date(date + "T12:00:00Z").toLocaleDateString("en-GB", { timeZone:"UTC", weekday:"long" }) + "'s";
+/* the card at the top of Order lunch: the chef changed the dish you ordered */
+function changeCards(list, today){
+  return list.map(c => {
+    const m = { main:null, soup:!!c.soup, soup_name:c.soup, sandwiches:c.sandwiches }, other = !!(c.soup || c.sandwiches);
+    return `<div class="card chg" data-order="${esc(c.order_no)}">
+      <span class="badge wait">Dish changed</span>
+      <h3 style="margin:10px 0 8px">The chef has changed ${esc(dayWord(c.date, today))} hot dish from ${esc(c.was)} to ${esc(c.now)}</h3>
+      ${c.reason ? `<p style="margin:0 0 6px">Reason: ${esc(c.reason)}</p>` : ""}
+      <p class="muted" style="margin:0;font-size:14px">This is your lunch for ${esc(longDay(c.date))}. Please choose below. If you do not reply, the kitchen will make ${esc(c.now)} for you.</p>
+      <div class="btns"><button class="btn" data-accept>Accept</button>${other ? `<button class="btn ghost" data-change>Change my order</button>` : ""}</div>
+      ${other ? `<div class="chgbox xx" hidden>
+        <div style="font-size:10px;letter-spacing:var(--track-label);text-transform:uppercase;color:var(--sage-70);margin-bottom:8px">Instead, I would like</div>
+        ${choiceBlock("chg_" + c.order_no, m, "chgsand_" + c.order_no)}
+        <div class="btns"><button class="btn" data-confirm>Change my order</button><button class="btn ghost" data-back>Back</button></div></div>` : `<p class="muted" style="margin:12px 0 0;font-size:14px">There is no soup or sandwich on that day. If the new dish does not suit you, please speak to the kitchen.</p>`}
+    </div>`;
+  }).join("");
+}
+function wireChangeCards(refresh){
+  $$(".card.chg").forEach(card => {
+    const no = card.dataset.order, box = card.querySelector(".chgbox");
+    const send = async (payload, btn) => {
+      btn.disabled = true;
+      try { const r = await call("change.reply", { order_no: no, ...payload }); toast(r.status === "accepted" ? "Thank you, your lunch is the new dish" : `Thank you, your lunch is now ${r.item}`); refresh(); }
+      catch(e){ toast(e.message, true); btn.disabled = false; }
+    };
+    card.querySelector("[data-accept]").addEventListener("click", e => send({ reply: "accept" }, e.currentTarget));
+    if (box) {
+      wireChoices(box);
+      const btns = card.querySelector(".btns");
+      card.querySelector("[data-change]").addEventListener("click", () => { box.hidden = false; btns.hidden = true; });
+      card.querySelector("[data-back]").addEventListener("click", () => { box.hidden = true; btns.hidden = false; });
+      card.querySelector("[data-confirm]").addEventListener("click", e => {
+        const sel = box.querySelector("input[type=radio]:checked");
+        if (!sel) return toast("Choose the soup or a sandwich.", true);
+        if (sel.value === "sandwich" && !box.querySelector(".sand").value.trim()) return toast("Type which sandwich you would like.", true);
+        send({ reply: sel.value, sandwich: box.querySelector(".sand") ? box.querySelector(".sand").value : "" }, e.currentTarget);
+      });
+    }
+  });
+}
 async function viewOrder(){
   const v = $("#views"); v.innerHTML = `<div class="loading">Loading…</div>`;
   let d; try { d = await call("order.status", { test: S.test }); } catch(e){ v.innerHTML = `<div class="notice bad">${esc(e.message)}</div>`; return; }
@@ -191,11 +259,12 @@ async function viewOrder(){
   } else {
     const by = s => d.days.filter(x => x.state === s);
     const ordered = by("ordered"), can = by("can_order"), closedToday = by("closed"), nomenu = by("no_menu"), cant = by("not_eligible");
+    if ((d.pending_changes || []).length) body += changeCards(d.pending_changes, d.today);
     if (closedToday.length) body += `<div class="notice warn"><b>Today's orders have closed</b>Orders for a day close at ${esc(clock12(d.cutoff))} that morning. If you have missed it, please speak to a manager.</div>`;
     if (ordered.length) {
       body += `<h3 class="sect">Your lunches</h3>` + ordered.map(x => {
-        const o = x.order, held = !o.print_queued_at && o.print_due_local;
-        return `<div class="card"><div class="split"><h3 style="margin:0">${esc(longDay(x.date))}</h3>${x.can_cancel ? `<button class="btn danger small" data-cancel="${esc(x.date)}">Cancel</button>` : ""}</div>
+        const o = x.order, held = !o.print_queued_at && o.print_due_local, waiting = o.change_status === "pending";
+        return `<div class="card"><div class="split"><h3 style="margin:0">${esc(longDay(x.date))}${waiting ? ` <span class="badge wait">Waiting for your reply</span>` : o.change_status === "accepted" ? ` <span class="badge done">New dish accepted</span>` : o.change_status === "changed" ? ` <span class="badge done">Changed after the dish change</span>` : ""}</h3>${x.can_cancel ? `<button class="btn danger small" data-cancel="${esc(x.date)}">Cancel</button>` : ""}</div>
           <div class="sum" style="margin-top:12px">
             <div><div class="k">${kindWord(o.choice)}</div><div class="v">${esc(o.item)}</div></div>
             <div><div class="k">Time</div><div class="v">${esc(timeLabel(o.requested_time))}</div></div>
@@ -220,6 +289,7 @@ async function viewOrder(){
   v.innerHTML = head + rulesCard(false) + testBox + body;
   const tb = $("#testmode"); if (tb) tb.addEventListener("change", () => { S.test = tb.checked; viewOrder(); });
   const rt = $("#retry"); if (rt) rt.addEventListener("click", viewOrder);
+  wireChangeCards(viewOrder);
   $$("[data-cancel]").forEach(b => b.addEventListener("click", async () => {
     if (!confirm(`Cancel your lunch for ${longDay(b.dataset.cancel)}?`)) return;
     b.disabled = true;
@@ -491,25 +561,124 @@ async function viewChefs(date){
   const v = $("#views");
   const keep = date || (v.querySelector("#cday") ? v.querySelector("#cday").value : "");
   if (!$("#cday")) v.innerHTML = `<div class="loading">Loading…</div>`;
-  let d; try { d = await call("chefs.day", { date: keep || undefined }); } catch(e){ v.innerHTML = `<div class="notice bad">${esc(e.message)}</div>`; return; }
+  let d, lg = { changes: [] }; try { [d, lg] = await Promise.all([call("chefs.day", { date: keep || undefined }), call("change.log").catch(() => ({ changes: [] }))]); } catch(e){ v.innerHTML = `<div class="notice bad">${esc(e.message)}</div>`; return; }
+  S.chefDay = d;
   const isToday = d.date === d.today;
+  const chById = {}; d.changes.forEach(c => { chById[c.id] = c; });
   const order = d.orders.slice().sort((a, b) => {
     const ka = slotRank(a.requested_time || "any"), kb = slotRank(b.requested_time || "any");
     return ka < kb ? -1 : ka > kb ? 1 : String(a.created_at).localeCompare(String(b.created_at));
   });
   const make = d.totals.map(t => `<div class="make"><div class="k">${kindName(t.choice)}</div><div class="n">${t.count}</div><div class="w">${esc(t.item)}</div></div>`).join("");
   const chips = Object.keys(d.slots).sort((a, b) => slotRank(a) < slotRank(b) ? -1 : 1).map(k => `<span class="chip"><b>${d.slots[k]}</b> ${esc(slotName(k))}</span>`).join("");
-  const state = o => (o.is_test ? `<span class="badge test">Test</span> ` : "") + (o.is_late ? `<span class="badge late">Late</span> ` : "");
+  const waitingMake = d.changes.filter(c => c.pending.length).map(c => `<div class="make wait"><div class="k">Waiting for a reply to the dish change</div><div class="n">${c.pending.length}</div><div class="w">ordered ${esc(c.old_dish)}. They get ${esc(c.new_dish)} if they do not answer</div></div>`).join("");
+  const state = o => (o.is_test ? `<span class="badge test">Test</span> ` : "") + (o.is_late ? `<span class="badge late">Late</span> ` : "")
+    + (o.change_status === "pending" ? `<span class="badge wait">Waiting for reply to dish change</span> ` : o.change_status === "accepted" ? `<span class="badge done">Accepted new dish</span> ` : o.change_status === "changed" ? `<span class="badge done">Changed their order</span> ` : "");
+  const chgNote = o => {
+    const c = chById[o.change_id]; if (!c || !o.change_status) return "";
+    if (o.change_status === "pending") return `<div class="msg" style="background:var(--attention-bg)">Ordered <strong>${esc(o.original_item || o.item)}</strong>. The dish is now <strong>${esc(c.new_dish)}</strong> and they have not answered.${o.print_queued_at ? " Their ticket has already gone to the kitchen." : ` If they do not answer, the ticket prints as ${esc(c.new_dish)} marked NOT CONFIRMED BY STAFF MEMBER.`}</div>`;
+    return `<div class="t" style="margin-top:4px">${o.change_status === "accepted" ? `Accepted ${esc(c.new_dish)}` : `Changed from ${esc(o.original_item || c.old_dish)}`}${o.responded_by_name ? ` · answered for them by ${esc(o.responded_by_name)}` : ""}</div>`;
+  };
+  const canAnswer = S.me.canSetMenu && d.date >= d.today;
+  const changeBlocks = d.changes.map(c => {
+    const nm = a => a.length ? esc(a.join(", ")) : "nobody";
+    return `<div class="chgcard"><div class="split"><div><b style="font-family:var(--display);font-size:20px;color:var(--sage)">Dish changed: ${esc(c.old_dish)} to ${esc(c.new_dish)}</b>${c.reason ? ` <span class="muted">(${esc(c.reason)})</span>` : ""}
+        <div class="t">${esc(new Date(c.changed_at).toLocaleTimeString("en-GB", { timeZone: "Europe/London", hour: "2-digit", minute: "2-digit" }))} by ${esc(c.changed_by_name)} · ${c.affected} asked to reply${c.pushed ? ` · ${c.pushed} by phone notification` : ""}${c.emailed ? ` · ${c.emailed} by email` : ""}${c.no_account ? ` · ${c.no_account} not in the app (tell them yourself)` : ""}</div></div>
+        ${canAnswer && c.pending.length ? `<button class="btn ghost small" data-remind="${esc(c.id)}">Remind everyone waiting</button>` : ""}</div>
+      <div class="names"><b>${c.pending.length} waiting:</b> ${nm(c.pending)}</div>
+      <div class="names"><b>${c.accepted.length} accepted:</b> ${nm(c.accepted)}</div>
+      <div class="names"><b>${c.changed.length} changed:</b> ${c.changed.length ? esc(c.changed.map(x => `${x.name} (${x.item})`).join(", ")) : "nobody"}</div></div>`;
+  }).join("");
+  const logRows = lg.changes.length ? lg.changes.map(c => `<div class="ord" style="grid-template-columns:150px 1fr"><div><div class="who2" style="font-size:18px">${esc(dow(c.date).slice(0, 3))} ${esc(dm(c.date))}</div><div class="t">${esc(new Date(c.at).toLocaleString("en-GB", { timeZone: "Europe/London", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }))}</div></div>
+      <div><b>${esc(c.old_dish)}</b> to <b>${esc(c.new_dish)}</b>${c.reason ? ` <span class="muted">(${esc(c.reason)})</span>` : ""}<div class="t" style="margin-top:4px">By ${esc(c.by)} · asked ${c.asked} · accepted ${c.accepted} · changed ${c.changed} · ${c.pending ? `${c.pending} still waiting` : "all answered"}${c.no_account ? ` · ${c.no_account} not in the app` : ""}</div></div></div>`).join("")
+    : `<div class="empty" style="padding:20px">No dish changes in the last 30 days.</div>`;
   const prn = o => o.print === "waiting" ? `<span class="badge wait">Prints at ${esc(clock12(o.prints_at))}</span>` : o.print === "printed" ? `<span class="badge done">Printed</span>` : `<span class="badge">Sent to printer</span>`;
   v.innerHTML = `<div class="pagehead"><h2>Chef's</h2><span class="hint">${esc(longDay(d.date))}${isToday ? " · today" : ""} · updates every 30 seconds</span></div>
-    <div class="row2" style="margin-bottom:16px"><div class="field"><label class="l" for="cday">Day</label><input type="date" id="cday" value="${esc(d.date)}" style="width:100%;padding:10px 12px;border:1px solid var(--mist);border-radius:8px;font-size:16px;background:var(--white)"></div><button class="btn ghost" id="cnow">Refresh</button></div>
-    ${d.total ? `<h3 style="color:var(--sage);font-size:20px;margin:0 0 8px">How much to make · ${d.total} order${d.total === 1 ? "" : "s"}</h3><div class="big">${make}</div><div class="chips">${chips}</div>` : `<div class="notice warn"><b>No orders yet</b>Nothing has been ordered for ${esc(longDay(d.date))}.</div>`}
+    <div class="row2" style="margin-bottom:16px"><div class="field"><label class="l" for="cday">Day</label><input type="date" id="cday" value="${esc(d.date)}" style="width:100%;padding:10px 12px;border:1px solid var(--mist);border-radius:8px;font-size:16px;background:var(--white)"></div><button class="btn ghost" id="cnow">Refresh</button>${d.can_change ? `<button class="btn" id="cchange">Change ${isToday ? "today's" : "this day's"} main dish</button>` : ""}</div>
+    ${changeBlocks}
+    ${d.total ? `<h3 style="color:var(--sage);font-size:20px;margin:0 0 8px">How much to make · ${d.total} order${d.total === 1 ? "" : "s"}</h3><div class="big">${make}${waitingMake}</div><div class="chips">${chips}</div>` : `<div class="notice warn"><b>No orders yet</b>Nothing has been ordered for ${esc(longDay(d.date))}.</div>`}
     ${order.length ? `<h3 style="color:var(--sage);font-size:20px;margin:18px 0 8px">The orders</h3>` + order.map(o => `<div class="ord"><div><div class="who2">${esc(o.person_name)}</div><div class="t">${esc(timeLabel(o.requested_time))}</div></div>
-      <div class="what"><b>${kindName(o.choice)}</b>${esc(o.item)}${o.ordered_by_name ? `<div class="t" style="margin-top:4px">${o.is_late ? "Late order, put through" : "Ordered on their behalf"} by ${esc(o.ordered_by_name)}</div>` : ""}${o.message ? `<div class="msg">${esc(o.message)}</div>` : ""}</div><div>${state(o)}${prn(o)}</div></div>`).join("") : ""}`;
+      <div class="what"><b>${kindName(o.choice)}</b>${esc(o.item)}${o.ordered_by_name ? `<div class="t" style="margin-top:4px">${o.is_late ? "Late order, put through" : "Ordered on their behalf"} by ${esc(o.ordered_by_name)}</div>` : ""}${chgNote(o)}${o.change_status === "pending" && o.no_account ? `<div class="t" style="margin-top:4px">They are not in the app, so tell them yourself.</div>` : ""}${o.message ? `<div class="msg">${esc(o.message)}</div>` : ""}</div><div>${state(o)}${prn(o)}${canAnswer && o.change_status === "pending" ? `<div style="margin-top:8px"><button class="btn ghost small" data-answer="${esc(o.order_no)}">Answer for them</button></div>` : ""}</div></div>`).join("") : ""}
+    <h3 style="color:var(--sage);font-size:20px;margin:26px 0 8px">Dish changes, last 30 days</h3>${logRows}`;
   $("#cday").addEventListener("change", e => viewChefs(e.target.value));
   $("#cnow").addEventListener("click", () => viewChefs());
+  const cc = $("#cchange"); if (cc) cc.addEventListener("click", () => openChange(d));
+  $$("[data-remind]").forEach(b => b.addEventListener("click", async () => {
+    if (!confirm("Send everyone still waiting a reminder (phone notification, or email if they have no notifications)?")) return;
+    b.disabled = true;
+    try { const r = await call("change.remind", { change_id: b.dataset.remind }); toast(`Reminder sent to ${r.asked} ${r.asked === 1 ? "person" : "people"}`); } catch(e){ toast(e.message, true); }
+    b.disabled = false;
+  }));
+  $$("[data-answer]").forEach(b => b.addEventListener("click", () => openAnswer(d, d.orders.find(o => String(o.order_no) === b.dataset.answer))));
   clearInterval(S.chefTimer);
   S.chefTimer = setInterval(() => { if (S.view === "chefs" && !document.hidden) viewChefs(); }, 30000);
+}
+
+/* The chef changes the day's main dish: pick from the bank or type a new one, say why, see how many people will be asked */
+async function openChange(d){
+  let dishes = [];
+  try { dishes = (await call("dishes.list")).dishes; } catch(e){ return toast(e.message, true); }
+  const day = d.date, old = d.menu_main;
+  const m = openModal(`<h3>Change ${esc(dayWord(day, d.today))} main dish</h3>
+    <p style="margin:0 0 12px">${esc(longDay(day))}. The dish on the menu now is <b>${esc(old)}</b>.</p>
+    <div class="field"><label class="l" for="cdish">New main dish</label><select id="cdish" class="inbox"><option value="">Choose from the dish bank</option>${dishes.filter(x => x.name.toLowerCase() !== old.toLowerCase()).map(x => `<option value="${esc(x.id)}">${esc(x.name)}</option>`).join("")}<option value="__new">Another dish, I will type it</option></select></div>
+    <div class="field xx" id="cnewbox" hidden><label class="l" for="cnew">Name of the new dish</label><input type="text" id="cnew" class="inbox" maxlength="120" placeholder="e.g. Sausage and mash"><div class="muted" style="font-size:13px;margin-top:4px">It is added to the dish bank too.</div></div>
+    <div class="field"><label class="l" for="creason">Reason, shown to staff (optional)</label><input type="text" id="creason" class="inbox" maxlength="80" placeholder="e.g. stock issue"></div>
+    <div class="notice warn" id="cprev" style="font-size:14px;margin:0"><span class="muted">Checking who has ordered…</span></div>
+    <div class="btns"><button class="btn" id="cgo" disabled>Change the dish</button><button class="btn ghost" id="ccancel">Cancel</button></div>`);
+  let prev = null;
+  const sel = m.querySelector("#cdish"), box = m.querySelector("#cnewbox"), go = m.querySelector("#cgo");
+  const ready = () => { const ok = sel.value && (sel.value !== "__new" || m.querySelector("#cnew").value.trim()); go.disabled = !ok || !prev; if (prev) go.textContent = prev.affected ? `Change the dish and tell ${prev.affected} ${prev.affected === 1 ? "person" : "people"}` : "Change the dish"; };
+  try {
+    prev = await call("change.preview", { date: day });
+    const parts = [];
+    if (!prev.affected) parts.push(`Nobody has ordered ${esc(prev.old_dish)} yet, so nobody needs telling.`);
+    else {
+      parts.push(`<strong>${prev.affected} ${prev.affected === 1 ? "person has" : "people have"} ordered ${esc(prev.old_dish)}</strong> and will be asked to Accept the new dish or change to the soup or a sandwich.`);
+      const how = []; if (prev.push) how.push(`${prev.push} by phone notification`); if (prev.email) how.push(`${prev.email} by email`);
+      if (how.length) parts.push(`They will be told ${how.join(" and ")}${prev.quiet ? " (it is between 9pm and 7am, so everyone gets an email rather than a notification)" : ""}, and see a number on the Staff Lunch tile.`);
+      if (prev.already_waiting) parts.push(`${prev.already_waiting} of them are still waiting on an earlier change.`);
+      if (prev.no_account) parts.push(`${prev.no_account} ordered in a name that is not in the app (${esc(prev.no_account_names.join(", "))}), so tell them yourself.`);
+    }
+    m.querySelector("#cprev").innerHTML = parts.join("<br>");
+  } catch(e){ m.querySelector("#cprev").innerHTML = esc(e.message); }
+  sel.addEventListener("change", () => { box.hidden = sel.value !== "__new"; if (sel.value === "__new") m.querySelector("#cnew").focus(); ready(); });
+  m.querySelector("#cnew").addEventListener("input", ready);
+  m.querySelector("#ccancel").addEventListener("click", closeModal);
+  ready();
+  go.addEventListener("click", async () => {
+    go.disabled = true; go.textContent = "Changing…";
+    try {
+      const r = await call("change.apply", { date: day, dish_id: sel.value !== "__new" ? sel.value : undefined, new_name: sel.value === "__new" ? m.querySelector("#cnew").value : undefined, reason: m.querySelector("#creason").value });
+      closeModal();
+      const bits = []; if (r.pushed) bits.push(`${r.pushed} by phone notification`); if (r.emailed) bits.push(`${r.emailed} by email`);
+      toast(r.asked ? `Dish changed. ${r.asked} asked to reply${bits.length ? ": " + bits.join(", ") : ""}` : "Dish changed");
+      if (r.email_failed && r.email_failed.length) setTimeout(() => toast(`${r.email_failed.length} email${r.email_failed.length === 1 ? "" : "s"} failed to send. Please chase them yourself.`, true), 2800);
+      viewChefs(day);
+    } catch(e){ toast(e.message, true); ready(); }
+  });
+}
+/* Answer for someone who has not replied (a phone call, in person) */
+function openAnswer(d, o){
+  if (!o) return;
+  const c = d.changes.find(x => x.id === o.change_id) || { new_dish: "the new dish" };
+  const hasOther = d.menu_soup || d.menu_sandwiches;
+  const m = openModal(`<h3>Answer for ${esc(o.person_name)}</h3>
+    <p style="margin:0 0 12px">They ordered <b>${esc(o.original_item || o.item)}</b>. The dish is now <b>${esc(c.new_dish)}</b>. This is logged as answered by you.</p>
+    <div id="ansopts"><label class="choice" data-c="accept"><input type="radio" name="ans" value="accept"><div><div class="k">Accept</div><div class="v">${esc(c.new_dish)}</div></div></label>
+    ${choiceBlock("ans", { main: null, soup: !!d.menu_soup, soup_name: d.menu_soup, sandwiches: d.menu_sandwiches }, "anssand")}</div>
+    ${hasOther ? "" : `<p class="muted" style="font-size:13px">There is no soup or sandwich on this day.</p>`}
+    <div class="btns"><button class="btn" id="ago" disabled>Save their answer</button><button class="btn ghost" id="acancel">Cancel</button></div>`);
+  const go = m.querySelector("#ago");
+  wireChoices(m, () => { go.disabled = false; });
+  m.querySelector("#acancel").addEventListener("click", closeModal);
+  go.addEventListener("click", async () => {
+    const sel = m.querySelector("input[name=ans]:checked"); if (!sel) return;
+    if (sel.value === "sandwich" && !m.querySelector(".sand").value.trim()) return toast("Type which sandwich they would like.", true);
+    go.disabled = true;
+    try { await call("change.reply_for", { order_no: o.order_no, reply: sel.value, sandwich: m.querySelector(".sand") ? m.querySelector(".sand").value : "" }); closeModal(); toast("Answer saved"); viewChefs(d.date); }
+    catch(e){ toast(e.message, true); go.disabled = false; }
+  });
 }
 
 /* ------------------------------------------------------------- shell */
