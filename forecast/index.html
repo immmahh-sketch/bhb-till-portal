@@ -106,6 +106,7 @@ table.fg .rvline:hover{background:var(--blue-bg)} table.fg .rvline.sure{backgrou
 table.fg thead th .rvd{display:block; font-size:10px; color:var(--blue); cursor:pointer; font-weight:700; line-height:1.1} table.fg thead th .rvd:hover{color:var(--brown)}
 table.fg td.fcw{background:#eef3f8; color:var(--blue); box-shadow:inset 3px 0 0 #8aa8cc}
 table.fg td.auto{box-shadow:inset 3px 0 0 #9ab59a}
+table.dt td.vflag{background:#fbf1de}
 table.fg td.low{background:var(--alert-bg); color:var(--alert); font-weight:700; box-shadow:inset 0 0 0 1px #e3c9c4}
 table.fg td.vflag{background:#fbf1de; box-shadow:inset 0 0 0 1px #ecd9b0}
 table.fg thead th.lowd{color:var(--alert)}
@@ -201,9 +202,9 @@ table.xg td.hit{background:#fff0a8 !important} table.xg td.hitcur{background:#ff
 </div>
 <div class="toast" id="toast"></div>
 <script type="module">
-import { LINES, computeMonth, monthDates, WD, SETUP_COLS, addDays } from "./engine.js?v=20261116c";
-import { parseFile } from "./parse.js?v=20261116c";
-import { buildWorkbook, fmtOf, SETUP_NAMES } from "./export.js?v=20261116c";
+import { LINES, computeMonth, monthDates, WD, SETUP_COLS, addDays } from "./engine.js?v=20261116f";
+import { parseFile } from "./parse.js?v=20261116f";
+import { buildWorkbook, fmtOf, SETUP_NAMES } from "./export.js?v=20261116f";
 
 const CFG = { URL:"https://safcrtrfdzsnftghibot.supabase.co/functions/v1/forecast-api", KEY:"sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU",
   SHEETJS:"https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js", EXCELJS:"https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js" };
@@ -340,6 +341,7 @@ function viewMonth(){
   const lockRows = lockTotal ? lockBlock(res, lockTotal, weekKeys) : "";
   const updRows = upd ? updBlock(res, upd, weekKeys) : "";
   box.innerHTML = monthBar() + `<div class="chips">${chips.join("")}</div>${kp}
+    <div id="varCard"></div>
     ${upd ? updSummary(res, upd) : (S.me.admin ? `<p class="muted" style="margin:0 0 10px; font-size:13px">No update has been locked for this month yet. After you have loaded the latest reports, press <b>Lock today's update</b>; next time you will see what changed since.</p>` : "")}
     <div class="savebar" id="savebar" ${S.pending.size ? "" : "hidden"}><b id="pcount">${S.pending.size} change${S.pending.size === 1 ? "" : "s"} not saved</b><span class="spacer"></span><button class="btn small" id="svBtn">Save changes</button><button class="btn small ghost" id="dcBtn">Discard</button></div>
     <div class="tbar"><label><input type="checkbox" id="keyonly" ${keyOnly ? "checked" : ""}> Key lines only</label><label><input type="checkbox" id="showwd" ${S.showWeekdays ? "checked" : ""}> Weekday totals</label>
@@ -347,7 +349,7 @@ function viewMonth(){
       ${S.me.admin ? `<button class="btn small ghost" id="updBtn">Lock today's update</button> <button class="btn small ghost" id="lockBtn">Lock this forecast</button> <button class="btn small ghost" id="bobRateBtn" title="Sets each open day's Pickup Average Rate to its BOB Average Rate">Copy BOB rate to Pick up rate</button>` : ""}</div>
     <div class="legend"><span><i style="background:#fff3c4"></i>Not saved yet</span><span><i style="background:var(--blue)"></i>Typed by hand</span><span><i style="background:var(--celadon)"></i>From the old workbook / End of Day</span><span><i style="background:var(--attention-bg)"></i>Finished day</span><span><i style="background:#eef3f8; box-shadow:inset 3px 0 0 #8aa8cc"></i>Forecast wedding (not booked yet)</span><span><i style="background:#9ab59a"></i>From the learned forecast</span><span><i style="background:var(--alert-bg); box-shadow:inset 0 0 0 1px #e3c9c4"></i>Forecast rooms below the rooms on the books</span><span><i style="background:#fbf1de; box-shadow:inset 0 0 0 1px #ecd9b0"></i>Well away from the forecast</span>${S.me.admin ? `<span class="muted">Click any figure to type over it; empty it to go back to the calculated figure.</span>` : ""}</div>
     <div class="gridwrap" id="gridwrap"><table class="fg" style="width:${(window.innerWidth < 700 ? 150 : 230) + res.days.length * 68 + weekKeys.length * 84 + (S.showWeekdays ? 7 * 84 : 0) + 96}px"><colgroup><col style="width:${window.innerWidth < 700 ? 150 : 230}px">${res.days.map(() => `<col style="width:68px">`).join("")}${weekKeys.map(() => `<col style="width:84px">`).join("")}${S.showWeekdays ? "<col style='width:84px'>".repeat(7) : ""}<col style="width:96px"></colgroup>${head}<tbody>${body}${updRows}${lockRows}</tbody></table></div>`;
-  bindMonth();
+  bindMonth(); renderVarCard(); loadVarCard();
 }
 function lockBlock(res, snap, weekKeys){
   const sec = `<tr class="sec"><td class="ln">Locked forecast</td><td class="fill" colspan="${res.days.length + weekKeys.length + 1}">${esc(snap.label || fmtDT(snap.taken_at))}</td></tr>`;
@@ -494,7 +496,7 @@ async function lockForecast(){
   res.days.forEach(d => { days[d.date] = { rooms:d.rooms_fc, rev_rooms:d.rev_rooms, rev_food:d.rev_food, rev_bev:d.rev_bev, rev_total:d.rev_total }; });
   const b = $("#lockBtn");
   if (!b.dataset.sure) { b.dataset.sure = "1"; b.textContent = "Tap again to lock"; b.className = "btn small gold"; setTimeout(() => { if (b.isConnected) { delete b.dataset.sure; b.textContent = "Lock this forecast"; b.className = "btn small ghost"; } }, 4000); return; }
-  try { await call("snapshot.save", { month:S.ym + "-01", label:"Locked " + new Date().toLocaleDateString("en-GB", { day:"numeric", month:"short", year:"numeric" }), kind:"lock", data:{ days } }); await loadLock(); toast("Forecast locked. Later changes are compared with it."); viewMonth(); } catch (e) { toast(e.message, true); }
+  try { await call("snapshot.save", { month:S.ym + "-01", label:"Locked " + new Date().toLocaleDateString("en-GB", { day:"numeric", month:"short", year:"numeric" }), kind:"lock", data:{ days } }); await loadLock(); toast("Forecast locked. Later changes are compared with it."); loadFlags(); viewMonth(); } catch (e) { toast(e.message, true); }
 }
 /* ---- "Lock today's update": a dated copy of every day's rooms and revenue, so the next visit shows what changed. Revenue that fell, or a day that finished
    below what was expected, is revenue we were counting on that has not been posted. ---- */
@@ -506,7 +508,7 @@ async function lockUpdate(){
   try {
     await call("snapshot.save", { month:S.ym + "-01", label:"Update " + new Date().toLocaleString("en-GB", { timeZone:"Europe/London", day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" }), kind:"update", data:{ days } });
     keepHistory(finishedRows(res, S.data));
-    await loadRange(S.ym); await loadLock(); toast("Update locked. Next time you will see what changed since now."); viewMonth();
+    await loadRange(S.ym); await loadLock(); loadFlags(); toast("Update locked. Next time you will see what changed since now."); viewMonth();
   } catch (e) { toast(e.message, true); b.dataset.sure = ""; }
 }
 const sgn = (v, f) => !v || Math.abs(v) < 0.5 && f !== "n1" ? "" : (v > 0 ? "+" : "") + FMTS[f](v);
@@ -1267,15 +1269,45 @@ function maybeLowPopup(){
 /* A function that may not have been checked in at Rezlynx (its money did not reach the day), and finished days that came in well away from the forecast. */
 async function loadFlags(){
   try { S.flags = await call("flags.get"); } catch (e) { S.flags = null; }
-  S.flagDays = new Map();
+  S.flagDays = new Map(); S.varMonth = {};
   for (const f of (S.flags?.function || [])) S.flagDays.set(f.day, { fn:f, vr:null });
   for (const v of (S.flags?.variance || [])) { const e = S.flagDays.get(v.day) || { fn:null, vr:null }; e.vr = v; S.flagDays.set(v.day, e); }
   renderFlagBar();
+  if (S.view === "month") loadVarCard();
   if (S.view === "month" && S.data && !S.pending.size && !document.querySelector(".cin") && S.flagDays.size) { keepScroll(); viewMonth(); }      // the day markers need the flags
 }
 const dayShort = d => new Date(d + "T12:00:00Z").toLocaleDateString("en-GB", { weekday:"short", day:"numeric", month:"short", timeZone:"UTC" });
 const flagSig = f => JSON.stringify([(f?.function || []).map(x => [x.day, x.gap]), (f?.variance || []).map(x => [x.day, x.total_diff])]);
 function varText(v){ return v.items.map(i => `${esc(i.label)} ${i.key === "rooms" ? `${i.forecast} forecast, ${i.actual} sold` : `${FMTS.gbp(i.forecast)} forecast, ${FMTS.gbp(i.actual)} actual`}`).join("; "); }
+const fmtLockDT = iso => new Date(iso).toLocaleString("en-GB", { timeZone:"Europe/London", weekday:"short", day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" }).replace(",", "");
+function basisText(f){
+  const b = f && f.basis || [];
+  return b.map(x => x.kind === "month" ? `Since the start of ${monthName(x.month.slice(0, 7))} (nothing locked yet)` : `Since the ${x.kind === "update" ? "update" : "forecast"} locked on ${fmtLockDT(x.at)}`).join(" · ");
+}
+/* "Variance this month": every finished day of the month so far, the forecast that stood against what happened, whatever has been locked. */
+async function loadVarCard(){
+  const ym = S.ym; S.varMonth = S.varMonth || {};
+  if (!S.varMonth[ym]) { try { S.varMonth[ym] = await call("variance.get", { month: ym + "-01" }); } catch (e) { return; } }
+  renderVarCard();
+}
+function renderVarCard(){
+  const box = $("#varCard"), v = S.varMonth && S.varMonth[S.ym]; if (!box || !v) return;
+  if (!v.days.length) { box.innerHTML = ""; return; }
+  const pctP = t => t.pct === null ? "" : `${t.pct > 0 ? "+" : ""}${t.pct}%`;
+  const dtxt = (k, x) => (k === "rooms" ? (x > 0 ? "+" : "") + Math.round(x) : (x > 0 ? "+" : x < 0 ? "-" : "") + FMTS.gbp(Math.abs(x)).replace("-", ""));
+  const T = v.totals, cls = x => x.diff < 0 ? "neg" : "";
+  const cell = (d, k) => { const f = d.f ? d.f[k] : null, a = d.a[k], fl = d.flagged.includes(k); const fm = x => x === null || x === undefined ? "–" : (k === "rooms" ? Math.round(x) : FMTS.gbp(Number(x))); return `<td class="${fl ? "vflag" : ""}" style="text-align:right">${fm(f)} → ${fm(a)}</td>`; };
+  const days = v.days.map(d => { const diff = d.f ? Number(d.a.total) - Number(d.f.total) : null; return `<tr><td>${esc(dayShort(d.day))}</td>${cell(d, "rooms")}${cell(d, "rooms_rev")}${cell(d, "food")}${cell(d, "bev")}${cell(d, "total")}<td style="text-align:right" class="${diff !== null && diff < 0 ? "neg" : ""}">${diff === null ? "–" : dtxt("total", diff)}</td></tr>`; }).join("");
+  const open = lsGet("fc_varopen", false);
+  box.innerHTML = `<div class="card" style="padding:12px 16px"><div style="display:flex; gap:14px; flex-wrap:wrap; align-items:baseline"><h3 style="margin:0">Variance this month</h3>
+    <span class="muted" style="font-size:13px">${v.counted} finished day${v.counted === 1 ? "" : "s"} so far, forecast against actual</span><span style="flex:1"></span>
+    <span><b>Total revenue:</b> forecast ${FMTS.gbp(T.total.forecast)}, actual ${FMTS.gbp(T.total.actual)}, <span class="${cls(T.total)}"><b>${dtxt("total", T.total.diff)}${pctP(T.total) ? " (" + pctP(T.total) + ")" : ""}</b></span></span></div>
+    <div style="font-size:13px; margin-top:4px" class="muted">Rooms sold ${Math.round(T.rooms.forecast)} → ${Math.round(T.rooms.actual)} (${dtxt("rooms", T.rooms.diff)}${pctP(T.rooms) ? ", " + pctP(T.rooms) : ""}) · Rooms revenue ${FMTS.gbp(T.rooms_rev.forecast)} → ${FMTS.gbp(T.rooms_rev.actual)} (${dtxt("rev", T.rooms_rev.diff)}${pctP(T.rooms_rev) ? ", " + pctP(T.rooms_rev) : ""}) · Food ${FMTS.gbp(T.food.forecast)} → ${FMTS.gbp(T.food.actual)} (${dtxt("rev", T.food.diff)}${pctP(T.food) ? ", " + pctP(T.food) : ""}) · Beverage ${FMTS.gbp(T.bev.forecast)} → ${FMTS.gbp(T.bev.actual)} (${dtxt("rev", T.bev.diff)}${pctP(T.bev) ? ", " + pctP(T.bev) : ""})</div>
+    <details id="varDet" ${open ? "open" : ""} style="margin-top:8px"><summary style="cursor:pointer; font-weight:600; color:var(--sage)">Day by day</summary>
+    <div class="scrollx"><table class="dt" style="margin-top:6px"><thead><tr><th>Day</th><th style="text-align:right">Rooms sold</th><th style="text-align:right">Rooms revenue</th><th style="text-align:right">Food</th><th style="text-align:right">Beverage</th><th style="text-align:right">Total</th><th style="text-align:right">Difference</th></tr></thead><tbody>${days}</tbody></table></div>
+    <p class="muted" style="font-size:12px; margin:6px 0 0">Forecast → actual. Shaded where a figure is further out than the limits on Month set up. The forecast is the one that stood before each day finished; days with no forecast on record are shown but left out of the totals. This stays all month; the "Needs a look" box above starts again each time an update is locked.</p></details></div>`;
+  const det = $("#varDet"); if (det) det.ontoggle = () => lsSet("fc_varopen", det.open);
+}
 function flagDayTip(day){
   const e = S.flagDays && S.flagDays.get(day); if (!e) return "";
   const out = [];
@@ -1291,7 +1323,7 @@ function renderFlagBar(){
   if (hide && hide.date === today && hide.sig === sig) { box.innerHTML = `<div class="muted" style="font-size:12px">${fn.length + vr.length} thing${fn.length + vr.length === 1 ? "" : "s"} flagged, hidden for today. <button class="linkbtn" id="flShow" style="font-size:12px">Show</button></div>`; $("#flShow").onclick = () => { lsSet("fc_flaghide", null); renderFlagBar(); }; return; }
   const fnHtml = fn.map(x => `<div class="fl"><b>${esc(dayShort(x.day))}: the function may not have been checked in.</b> ${FMTS.gbp(x.expected)} was expected from ${x.events.length ? x.events.map(e => `${esc(e.name)} (${esc(e.status)})`).join("; ") : "the day's functions"}, and ${FMTS.gbp(x.posted)} reached the End of Day report. Check it in at Rezlynx; once it is checked in the event moves to that day and this goes by itself.<button class="linkbtn" data-fgo="${x.day.slice(0, 7)}" style="margin-left:8px; font-size:12px">Open ${esc(monthName(x.day.slice(0, 7)))}</button></div>`).join("");
   const vrHtml = vr.length ? `<details ${fn.length ? "" : "open"}><summary>${vr.length} finished day${vr.length === 1 ? "" : "s"} came in well away from the forecast</summary>${vr.map(v => `<div class="fl v"><b>${esc(dayShort(v.day))}</b> · ${varText(v)}</div>`).join("")}</details>` : "";
-  box.innerHTML = `<div class="flagbox"><h4>Needs a look</h4>${fnHtml}${vrHtml}<div class="fr"><button class="btn small ghost" id="flHide">Hide until tomorrow</button>${S.me.admin ? `<button class="linkbtn" id="flSet" style="font-size:12px">Change how sensitive these are</button><button class="linkbtn" id="flMail" style="font-size:12px">Email me this list</button>` : ""}<span class="muted">Last ${esc(String(f.settings.days))} days · function gap over ${FMTS.gbp(f.settings.fn_gap)}</span></div></div>`;
+  box.innerHTML = `<div class="flagbox"><h4>Needs a look</h4>${fnHtml}${vrHtml}<div class="fr"><button class="btn small ghost" id="flHide">Hide until tomorrow</button>${S.me.admin ? `<button class="linkbtn" id="flSet" style="font-size:12px">Change how sensitive these are</button><button class="linkbtn" id="flMail" style="font-size:12px">Email me this list</button>` : ""}<span class="muted">${esc(basisText(f))}${fn.length ? ` · function check: last ${esc(String(f.settings.days))} days, gap over ${FMTS.gbp(f.settings.fn_gap)}` : ""}</span></div></div>`;
   $("#flHide").onclick = () => { lsSet("fc_flaghide", { date:today, sig }); renderFlagBar(); };
   $$("[data-fgo]").forEach(b => b.onclick = () => goMonth(b.dataset.fgo));
   const st = $("#flSet"); if (st) st.onclick = () => go("setup");
