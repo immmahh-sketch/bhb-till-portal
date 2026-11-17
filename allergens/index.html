@@ -213,6 +213,12 @@ function render(){
   document.getElementById("results").innerHTML = h;
 }
 render();
+/* When framed on the website, tell the page around us how tall we are so it can size the frame */
+if (window.parent !== window) {
+  var last = 0, tell = function(){ var h = document.documentElement.scrollHeight; if (h !== last) { last = h; try { window.parent.postMessage({ bhbAllergenH: h }, "*"); } catch (e) {} } };
+  if (window.ResizeObserver) new ResizeObserver(tell).observe(document.body); else setInterval(tell, 500);
+  window.addEventListener("load", tell); tell();
+}
 })();
 </script>
 </body>
