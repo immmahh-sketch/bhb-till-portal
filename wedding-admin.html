@@ -2465,7 +2465,10 @@ function toggleHeld(on){ S.showHeld = !!on; $("views").innerHTML = viewOverview(
    types: a wake or a birthday on the tracker is not a wedding. */
 function overviewMerged(f0){
   if (!f0) return f0;
-  var base = f0.allWeddings || f0.weddings || [];
+  /* Only weddings that are actually in count. Guestline holds provisional, lost and cancelled bookings against a
+     registered couple too; they are not on the books, and the Weddings needed page leaves them out. */
+  var base0 = f0.allWeddings || f0.weddings || [];
+  var base = base0.filter(function(w){ return !/^(provisional|lost|cancelled|canceled|declined|enquiry)$/i.test(String(w.status || "").trim()); });
   var inApp = {};
   base.forEach(function(w){ if (w.event_id) inApp[String(w.event_id).toUpperCase()] = true; });
   var extra = (BT.rows || []).filter(function(r){
@@ -2478,7 +2481,7 @@ function overviewMerged(f0){
     return { id: null, bonus_id: r.id, source: "tracker", salutation: r.booking_name || (r.partner1_name ? r.partner1_name + (r.partner2_name ? " & " + r.partner2_name : "") : ""),
              event_id: r.event_ref || "", wedding_date: String(r.event_date).slice(0, 10), guests: null, value: Number(r.revenue) || 0 };
   });
-  if (!extra.length) return f0;
+  if (!extra.length && base.length === base0.length) return f0;
   var all = base.concat(extra);
   var f = {};
   for (var k in f0) f[k] = f0[k];
