@@ -229,7 +229,7 @@ function render(){
   '<section><div class="wrap"><div class="band"><figure><img src="img/house.jpg" alt="The Red Row cottages at Black Horse Beamish" loading="lazy"><figcaption>Red Row, Beamish</figcaption></figure><figure><img src="img/hero.jpg" alt="Afternoon tea board beside the fire" loading="lazy"><figcaption>By the fire</figcaption></figure><figure><img src="img/bath.jpg" alt="Copper bath in a Red Row room" loading="lazy" style="object-position:50% 70%"><figcaption>Your room awaits</figcaption></figure></div></div></section>' +
   '<section><div class="wrap terms"><h2>Good to know</h2><ul>' +
     '<li><b>Buy your voucher online first. Once you have it, phone us on <a href="' + TEL + '">' + PHONE + '</a> to book and quote your voucher number.</b> Bookings are made by phone only.</li>' +
-    '<li>The overnight stay is available to book until <b>' + esc(longDate(I.stay_book_by)) + '</b>.</li>' +
+    '<li>The overnight stay and the hot tub suite night are available to book until <b>' + esc(longDate(I.stay_book_by)) + '</b>.</li>' +
     '<li>All other vouchers are valid for <b>' + I.expiry_months + ' months</b> from the day you buy them.</li>' +
     '<li>Gift vouchers must be used in one transaction.</li>' +
     '<li>Vouchers can only be used at Black Horse Beamish.</li>' +
@@ -305,7 +305,7 @@ async function paidPage(tries){
         (v.kind === "money" ? '<br>Worth ' + gbp(v.face_value) + ' to spend on anything at Black Horse Beamish, in one transaction' : "") +
         (v.status === "redeemed" ? '<br><b>Used</b>' : v.status === "voided" ? '<br><b>Cancelled</b>' : "") + '</div></div></div>').join("") +
       '<p style="text-align:center" class="noprint"><button class="cta" type="button" onclick="window.print()">Print ' + (many ? "vouchers" : "voucher") + '</button></p>' +
-      '<div class="terms" style="margin:20px auto 40px"><ul><li>Vouchers can only be used at Black Horse Beamish. Bookings are made by phone, quoting your voucher number.</li>' + (d.vouchers.some(v => v.kind === "stay") ? '<li>The overnight stay is available to book until ' + esc(longDate(d.stay_book_by)) + '.</li>' : "") +
+      '<div class="terms" style="margin:20px auto 40px"><ul><li>Vouchers can only be used at Black Horse Beamish. Bookings are made by phone, quoting your voucher number.</li>' + (d.vouchers.some(v => v.kind === "stay") ? '<li>Stay vouchers are available to book until ' + esc(longDate(d.stay_book_by)) + '.</li>' : "") +
         (d.vouchers.some(v => v.kind !== "stay") ? '<li>Other vouchers are valid for ' + d.expiry_months + ' months from the day they were bought.</li>' : "") + (d.terms_extra ? d.terms_extra.split(/\n+/).map(t => '<li>' + esc(t) + '</li>').join("") : "") + '</ul></div></div>';
   } else if (d.status === "pending" && d.pay_url) {
     app.innerHTML = '<div class="thanks"><h1>Waiting for your payment</h1><p>We have not had confirmation of your payment yet. If you have just paid, give it a minute and look again. Otherwise you can finish paying now.</p><p><a class="cta" href="' + esc(d.pay_url) + '" target="_top">Pay ' + gbp(d.amount) + '</a> <button class="cta" style="background:transparent;color:#fff;border:1px solid #fff" onclick="paidPage(0)">Look again</button></p></div>';
