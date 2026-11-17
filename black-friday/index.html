@@ -180,8 +180,10 @@ const Q = new URLSearchParams(location.search);
 const ORDER = Q.get("o") || "";
 const EMBED = Q.get("embed") === "1";      // shown inside the website: tells the page around it how tall it is
 if (EMBED) document.body.classList.add("embed");
-const tellHeight = () => { if (EMBED && parent !== window) parent.postMessage({ bhbHeight: document.documentElement.scrollHeight }, "*"); };
-if (EMBED && window.ResizeObserver) new ResizeObserver(tellHeight).observe(document.body);
+/* Measure the content itself: documentElement.scrollHeight can never be smaller than the frame it sits in, so the frame would never shrink back (a short order screen left a huge blank area under it). */
+const contentHeight = () => { const a = document.getElementById("app"); return a ? Math.ceil(a.getBoundingClientRect().height) : document.documentElement.scrollHeight; };
+const tellHeight = () => { if (EMBED && parent !== window) parent.postMessage({ bhbHeight: contentHeight() }, "*"); };
+if (EMBED && window.ResizeObserver) new ResizeObserver(tellHeight).observe(document.getElementById("app"));
 const $ = s => document.querySelector(s);
 /* On the website this page sits in a very tall frame, so the page around it does the scrolling: tell it how far down the frame to go (bhbY). Old copies of the website's code only know bhbTop (the top of the frame). */
 function goTo(y){ if (EMBED && parent !== window) parent.postMessage(y > 0 ? { bhbY:y } : { bhbY:0, bhbTop:true }, "*"); else window.scrollTo({ top:y, behavior:"smooth" }); }
