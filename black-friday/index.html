@@ -27,6 +27,7 @@ img{display:block;max-width:100%}
 .hero h1{font-size:clamp(46px,10vw,104px);line-height:.95;margin:18px 0 0;text-transform:uppercase;letter-spacing:.02em}
 .hero h1 span{display:block;font-size:.42em;letter-spacing:.34em;color:var(--olive);margin-top:10px}
 .hero .sub{max-width:620px;margin:20px auto 0;font-size:18px;color:#fff;text-shadow:0 1px 12px rgba(0,0,0,.8)}
+.hero .until{margin:14px auto 0;font-size:17px;color:#fff;text-shadow:0 1px 12px rgba(0,0,0,.8)}.hero .until b{color:var(--olive)}
 .burst{display:inline-grid;place-items:center;text-align:center;margin:26px auto 0;width:150px;height:150px;border-radius:50%;background:var(--olive);color:#111;position:relative;box-shadow:0 0 0 6px rgba(204,205,180,.25),0 12px 40px rgba(0,0,0,.5);transform:rotate(-6deg)}
 .burst b{display:block;font-family:var(--display);font-size:54px;line-height:.9}
 .burst small{display:block;font-weight:800;font-size:11px;letter-spacing:.2em;text-transform:uppercase}
@@ -211,10 +212,11 @@ function render(){
   '<header class="hero">' + (EMBED ? "" : '<a href="https://www.blackhorsebeamish.co.uk" target="_top"><img class="logo" src="../app/logo-light.png" alt="Black Horse Beamish"></a>') +
     '<span class="kicker">Black Horse Beamish</span><h1>Black Friday<span>Event</span></h1>' +
     '<p class="sub">Overnight stays, dinner, afternoon tea and gift vouchers for less. Buy your voucher online and we email it to you straight away. Once you have it, phone us to book.</p>' +
+    (open() && I.sale.closes_text ? '<p class="until">The Black Friday Event runs until the end of <b>' + esc(I.sale.closes_text) + '</b>. Buy before it ends.</p>' : "") +
     '<div class="burst"><div><em>Save up to</em><b>' + maxSave + '%</b><small>Black Friday</small></div></div><br>' +
-    '<span class="state' + (open() ? "" : " off") + '"><i></i>' + (open() ? "On sale now" : esc(I.sale.message)) + '</span><br>' +
+    '<span class="state' + (open() ? "" : " off") + '"><i></i>' + (open() ? "On sale now" + (I.sale.closes_text ? " until " + esc(I.sale.closes_text) : "") : esc(I.sale.message)) + '</span><br>' +
     (open() ? '<a class="cta" href="#vouchers">See the vouchers</a>' : "") + '</header>' +
-  '<div class="strip"><div class="wrap"><span>Buy online by card</span><span>Voucher emailed to you</span><span>Then phone to book</span></div></div>' +
+  '<div class="strip"><div class="wrap"><span>Buy online by card</span><span>Voucher emailed to you</span><span>Then phone to book</span>' + (open() && I.sale.closes_text ? '<span>Ends ' + esc(I.sale.closes_text) + '</span>' : '') + '</div></div>' +
   '<section id="vouchers"><div class="wrap"><div class="head"><h2>The Black Friday vouchers</h2><p>Seven ways to treat yourself, or someone you love. The gift vouchers can be spent on anything at Black Horse Beamish.</p></div>' +
     '<div class="grid">' + card(feat, true) + rest.map(p => card(p, false)).join("") + '</div></div></section>' +
   '<section id="pay" style="display:none"><div class="wrap"><div id="checkout"></div></div></section>' +
