@@ -55,6 +55,8 @@ section{padding:56px 0 8px}
 .card .pic{position:relative;aspect-ratio:4/3;overflow:hidden;background:#222}
 .card .pic img{width:100%;height:100%;object-fit:cover;transition:transform .5s}
 .card:hover .pic img{transform:scale(1.04)}
+.card .pic img.inset{position:absolute;z-index:2;right:14px;bottom:14px;width:36%;height:auto;aspect-ratio:4/3;border:3px solid #fff;border-radius:12px;box-shadow:0 6px 20px rgba(0,0,0,.5);transition:none}
+.card:hover .pic img.inset{transform:none}
 .card .pic::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 55%,rgba(0,0,0,.55) 100%)}
 .save{position:absolute;z-index:2;left:14px;top:14px;background:var(--olive);color:#111;font-weight:800;font-size:12px;letter-spacing:.14em;text-transform:uppercase;padding:9px 14px;border-radius:999px;box-shadow:0 4px 14px rgba(0,0,0,.35)}
 .save b{font-size:15px}
@@ -198,7 +200,7 @@ const count = () => Object.values(BASKET).reduce((t, n) => t + n, 0);
 function card(p, feat, rev){
   const left = Math.round((p.normal_price - p.price) * 100) / 100, q = BASKET[p.key] || 0, max = I.max_per_voucher;
   return '<article class="card' + (feat ? " feature" : "") + (rev ? " rev" : "") + '" id="c-' + p.key + '">' +
-    '<div class="pic"><img src="img/' + esc(p.photo) + '" style="object-position:' + (POS[p.key] || "50% 50%") + '" alt="' + esc(p.title) + '" loading="lazy"><span class="save">Save up to <b>' + p.save_pct + '%</b></span><span class="tag">' + tagFor(p) + '</span></div>' +
+    '<div class="pic"><img src="img/' + esc(p.photo.split(",")[0]) + '" style="object-position:' + (POS[p.key] || "50% 50%") + '" alt="' + esc(p.title) + '" loading="lazy">' + (p.photo.split(",")[1] ? '<img class="inset" src="img/' + esc(p.photo.split(",")[1]) + '" alt="The hot tub" loading="lazy">' : "") + '<span class="save">Save up to <b>' + p.save_pct + '%</b></span><span class="tag">' + tagFor(p) + '</span></div>' +
     '<div class="body"><h3>' + esc(p.title) + '</h3><div class="subt">' + esc(p.subtitle) + '</div>' +
     '<ul>' + p.includes.map(x => '<li>' + esc(x) + '</li>').join("") + '</ul>' +
     '<div class="valid"><b>' + esc(p.valid_text) + '</b>. Buy online first, then phone us to book.</div>' +
