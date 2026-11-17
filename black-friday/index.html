@@ -183,6 +183,8 @@ if (EMBED) document.body.classList.add("embed");
 const tellHeight = () => { if (EMBED && parent !== window) parent.postMessage({ bhbHeight: document.documentElement.scrollHeight }, "*"); };
 if (EMBED && window.ResizeObserver) new ResizeObserver(tellHeight).observe(document.body);
 const $ = s => document.querySelector(s);
+/* On the website this page sits in a very tall frame, so the page around it does the scrolling: tell it how far down the frame to go (bhbY). Old copies of the website's code only know bhbTop (the top of the frame). */
+function goTo(y){ if (EMBED && parent !== window) parent.postMessage(y > 0 ? { bhbY:y } : { bhbY:0, bhbTop:true }, "*"); else window.scrollTo({ top:y, behavior:"smooth" }); }
 const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
 const gbp = n => "£" + Number(n).toLocaleString("en-GB", { minimumFractionDigits: Math.round(Number(n) * 100) % 100 ? 2 : 0, maximumFractionDigits: 2 });
 const PHONE = "01207 232 569", TEL = "tel:01207232569";
@@ -220,7 +222,7 @@ function render(){
     (open() && I.sale.closes_text ? '<p class="until">The Black Friday Event runs until the end of <b>' + esc(I.sale.closes_text) + '</b>. Buy before it ends.</p>' : "") +
     '<div class="burst"><div><em>Save up to</em><b>' + maxSave + '%</b><small>Black Friday</small></div></div><br>' +
     '<span class="state' + (open() ? "" : " off") + '"><i></i>' + (open() ? "On sale now" + (I.sale.closes_text ? " until " + esc(I.sale.closes_text) : "") : esc(I.sale.message)) + '</span><br>' +
-    (open() ? '<a class="cta" href="#vouchers">See the vouchers</a>' : "") + '</header>' +
+    (open() ? '<button class="cta" type="button" data-go="vouchers">See the vouchers</button>' : "") + '</header>' +
   '<div class="strip"><div class="wrap"><span>Buy online by card</span><span>Voucher emailed to you</span><span>Then phone to book</span>' + (open() && I.sale.closes_text ? '<span>Ends ' + esc(I.sale.closes_text) + '</span>' : '') + '</div></div>' +
   '<section id="vouchers"><div class="wrap"><div class="head"><h2>The Black Friday vouchers</h2><p>Seven ways to treat yourself, or someone you love. The gift vouchers can be spent on anything at Black Horse Beamish.</p></div>' +
     '<div class="grid">' + card(feat, true) + rest.map(p => card(p, false)).join("") + '</div></div></section>' +
@@ -257,7 +259,7 @@ function checkout(){
   if (!count()) return;
   renderCheckout();
   window.scrollTo(0, 0);
-  if (EMBED && parent !== window) parent.postMessage({ bhbTop:true }, "*");
+  setTimeout(() => goTo(0), 150);      // after the frame has shrunk to the order screen
 }
 /* The order screen replaces the whole page (like the booking page), so on the website the frame is short and the page above scrolls straight to it. */
 function renderCheckout(){
@@ -280,7 +282,7 @@ function renderCheckout(){
   $("#more").addEventListener("click", backToList);
   tellHeight();
 }
-function backToList(){ render(); window.scrollTo(0, 0); if (EMBED && parent !== window) parent.postMessage({ bhbTop:true }, "*"); }
+function backToList(){ render(); window.scrollTo(0, 0); setTimeout(() => goTo($("#vouchers").offsetTop - 10), 150); }
 async function pay(){
   if (BUSY) return; const msg = $("#msg"); msg.innerHTML = "";
   const name = $("#nm").value.trim(), email = $("#em").value.trim(), phone = $("#ph").value.trim();
@@ -300,6 +302,7 @@ async function pay(){
 document.addEventListener("click", e => {
   const q = e.target.closest("[data-q]"); if (q) { setQty(q.dataset.k, q.dataset.q === "+" ? 1 : -1); return; }
   const b = e.target.closest("[data-buy]"); if (b && !b.disabled) { if (!BASKET[b.dataset.buy]) setQty(b.dataset.buy, 1); checkout(); return; }
+  const g = e.target.closest("[data-go]"); if (g) { const t = $("#" + g.dataset.go); if (t) goTo(Math.max(0, t.offsetTop - 10)); return; }
   const c = e.target.closest("[data-cq]"); if (c && !c.disabled) {
     const k = c.dataset.k, n = Math.max(0, Math.min(I.max_per_voucher, (BASKET[k] || 0) + (c.dataset.cq === "+" ? 1 : -1))); BASKET[k] = n; if (!n) delete BASKET[k];
     if (!count()) return backToList(); renderCheckout();
