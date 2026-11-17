@@ -131,14 +131,14 @@ function rowsHtml() {
   return rows.map(function (v) {
     var acts = "";
     if (S.me.edit) {
-      if (v.status === "valid" || v.status === "part_used") acts += '<button class="btn sm" data-act="redeem" data-id="' + v.id + '">' + (v.kind === "money" ? "Use £" : "Mark redeemed") + "</button> ";
+      if (v.status === "valid" || v.status === "part_used") acts += '<button class="btn sm" data-act="redeem" data-id="' + v.id + '">Mark redeemed</button> ';
       if (v.status === "redeemed" || v.status === "part_used" || v.status === "voided") acts += '<button class="btn sm ghost" data-act="undo" data-id="' + v.id + '">Put back</button> ';
       if (v.status === "valid" || v.status === "part_used") acts += '<button class="btn sm danger" data-act="void" data-id="' + v.id + '">Void</button> ';
       if (v.email) acts += '<button class="btn sm ghost" data-act="resend" data-id="' + v.id + '">Resend email</button> ';
     }
     acts += '<button class="btn sm ghost" data-act="history" data-id="' + v.id + '">History</button>';
     return "<tr><td><span class=\"code\">" + esc(v.code) + "</span>" + (v.is_test ? ' <span class="pill warn">Test</span>' : "") + "<br>" + statusPill(v) + "</td>" +
-      "<td><b>" + esc(v.title) + "</b><br><span class=\"muted small\">" + gbp(v.price) + (v.kind === "money" ? " for " + gbp(v.face_value) + (v.status !== "voided" ? " &middot; " + gbp(v.balance) + " left" : "") : "") + "</span></td>" +
+      "<td><b>" + esc(v.title) + "</b><br><span class=\"muted small\">" + gbp(v.price) + (v.kind === "money" ? " for a " + gbp(v.face_value) + " voucher" : "") + "</span></td>" +
       "<td>" + esc(v.buyer) + "<br><span class=\"muted small\">" + esc(v.phone) + (v.email ? "<br>" + esc(v.email) : "") + "</span></td>" +
       "<td class=\"small\">" + esc(when(v.paid_at || v.created_at)) + "<br><span class=\"muted\">" + (v.source === "staff" ? "By " + esc(v.recorded_by) + " (" + esc(String(v.pay_method).replace(/_/g, " ")) + ")" : "Online") + "</span></td>" +
       "<td class=\"small\">" + (v.kind === "stay" ? "Book by " : "Until ") + esc(day(v.expires_on)) + (v.redeemed_at ? "<br><span class=\"muted\">Used " + esc(when(v.redeemed_at)) + " by " + esc(v.redeemed_by) + "</span>" : "") + "</td>" +
@@ -182,7 +182,7 @@ function byId(id) { return S.rows.filter(function (x) { return x.id === id; })[0
 async function doAct(a, id) {
   var v = byId(id); if (!v) return;
   if (a === "redeem") {
-    var money = v.kind === "money";
+    var money = false;
     modal("<h3>" + (money ? "Spend from this voucher" : "Mark as redeemed") + '</h3><p><span class="code">' + esc(v.code) + "</span><br>" + esc(v.title) + "<br>" + esc(v.buyer) + "</p>" +
       (v.expired ? '<div class="notice warn">This voucher ' + (v.kind === "stay" ? "is past its book-by date" : "has expired") + " (" + esc(day(v.expires_on)) + "). Only carry on if the GM has agreed.</div>" : "") +
       (money ? '<div class="f"><label for="amt">How much has been spent (balance ' + gbp(v.balance) + ')</label><input id="amt" type="number" min="0.01" step="0.01" max="' + v.balance + '" value="' + v.balance + '" inputmode="decimal"></div>' : "") +
