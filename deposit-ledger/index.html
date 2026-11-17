@@ -232,9 +232,43 @@ const isoDate = d => d.toISOString().slice(0, 10);
 const addD = (iso, n) => { const d = new Date(iso + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return isoDate(d); };
 async function viewMovement(){
   const v = $("#views"); if (!S.mv) { const to = S.today; S.mv = { from: addD(to, -30), to, mode: "day" }; }
-  const m = S.mv; v.innerHTML = `<div class="loading">Loading…</div>`;
+  const m = S.mv; if (m.mode === "single") return viewSingle();
+  v.innerHTML = `<div class="loading">Loading…</div>`;
   let d; try { d = await call("movement.get", { from: m.from, to: m.to }); } catch(e){ v.innerHTML = `<div class="notice bad">${esc(e.message)}</div>`; return; }
   m.data = d; renderMovement();
+}
+/* One day: pick any day, see the balance move and every individual movement behind it */
+const modeButtons = mode => `<button class="btn small" data-mode="day" aria-pressed="${mode === "day"}">By day</button><button class="btn small" data-mode="month" aria-pressed="${mode === "month"}">By month</button><button class="btn small" data-mode="single" aria-pressed="${mode === "single"}">One day</button>`;
+function wireModes(){ $$("[data-mode]").forEach(b => b.addEventListener("click", () => { S.mv.mode = b.dataset.mode; if (S.mv.mode === "single") viewSingle(); else viewMovement(); })); }
+async function viewSingle(){
+  const m = S.mv; if (!m.day) m.day = S.today;
+  const day = m.day, v = $("#views");
+  v.innerHTML = `<div class="loading">Loading…</div>`;
+  let g, l; try { [g, l] = await Promise.all([call("movement.get", { from: day, to: day }), call("movement.day", { date: day })]); } catch(e){ v.innerHTML = `<div class="notice bad">${esc(e.message)}</div>`; return; }
+  const x = g.rows[0], lines = l.lines;
+  const groups = [["Deposit received", "Deposits received"], ["Refund paid", "Refunds paid"], ["Released", "Released (comes off the balance)"]];
+  const part = (title, ls) => !ls.length ? "" : `<h3 class="sect">${esc(title)} · ${ls.length}</h3><div class="tw"><table class="dt"><thead><tr><th>Time</th><th>Type</th><th>Reference</th><th>Guest / event</th><th class="r">Amount</th><th>Method</th><th>Note</th></tr></thead><tbody>${ls.map(z => `<tr><td>${esc(z.time || "")}</td><td>${esc(z.type)}${z.what.startsWith("Released") ? `<br><span class="muted" style="font-size:12px">${esc(z.what)}</span>` : ""}</td><td><span class="ref">${esc(z.ref)}</span></td><td>${esc(z.guest)}</td><td class="r"><b>${gbpc(z.amount)}</b></td><td>${esc(z.method)}</td><td class="muted">${esc(z.comment)}</td></tr>`).join("")}<tr class="sub"><td colspan="4">Total</td><td class="r">${gbp(Math.round(ls.reduce((t, z) => t + z.amount, 0) * 100) / 100)}</td><td colspan="2"></td></tr></tbody></table></div>`;
+  const body = groups.map(([k, title]) => part(title, lines.filter(z => k === "Released" ? z.what.startsWith("Released") : z.what === k))).join("");
+  const split = (a, b) => `rooms ${gbp(a)} · events ${gbp(b)}`;
+  v.innerHTML = `<div class="pagehead"><h2>Daily Movement</h2><span class="hint">Pick a day to see every deposit received, refund paid and booking or event released on it.</span></div>
+    <div class="bar"><div><label class="l" for="sday">Day</label><input type="date" id="sday" value="${esc(day)}" max="${esc(S.today)}"></div>
+      <button class="btn ghost small" id="sprev">&larr; Previous day</button><button class="btn ghost small" id="snext" ${day >= S.today ? "disabled" : ""}>Next day &rarr;</button><button class="btn ghost small" id="stoday">Today</button><button class="btn ghost small" id="syest">Yesterday</button>
+      <span style="flex:1"></span>${modeButtons("single")}<button class="btn ghost small" id="sexport">Download CSV</button></div>
+    <p style="margin:0 0 12px;font-family:var(--display);font-size:22px;color:var(--sage)">${esc(new Date(day + "T12:00:00Z").toLocaleDateString("en-GB", { timeZone: "UTC", weekday: "long", day: "numeric", month: "long", year: "numeric" }))}</p>
+    <div class="kpis"><div class="kpi"><div class="k">Opening balance</div><div class="v">${gbp(x.opening)}</div><div class="s">${split(x.rooms.opening, x.events.opening)}</div></div>
+      <div class="kpi"><div class="k">Received</div><div class="v">${gbp(x.received)}</div><div class="s">${split(x.rooms.received, x.events.received)}</div></div>
+      <div class="kpi"><div class="k">Refunded</div><div class="v">${gbp(x.refunded)}</div><div class="s">${split(x.rooms.refunded, x.events.refunded)}</div></div>
+      <div class="kpi"><div class="k">Released</div><div class="v">${gbp(x.released)}</div><div class="s">${split(x.rooms.released, x.events.released)}</div></div>
+      <div class="kpi warn"><div class="k">Closing balance</div><div class="v">${gbp(x.closing)}</div><div class="s">${split(x.rooms.closing, x.events.closing)}</div></div></div>
+    ${body || `<div class="card empty">Nothing moved on this day.</div>`}`;
+  const go = d => { m.day = d; viewSingle(); };
+  $("#sday").addEventListener("change", e => { if (e.target.value) go(e.target.value > S.today ? S.today : e.target.value); });
+  $("#sprev").addEventListener("click", () => go(addD(day, -1)));
+  $("#snext").addEventListener("click", () => { if (day < S.today) go(addD(day, 1)); });
+  $("#stoday").addEventListener("click", () => go(S.today));
+  $("#syest").addEventListener("click", () => go(addD(S.today, -1)));
+  $("#sexport").addEventListener("click", () => csv(`deposit-movement-${day}.csv`, ["Day","Movement","Time","Type","Reference","Guest / event","Amount","Method","Note"], lines.map(z => [day, z.what, z.time || "", z.type, z.ref, z.guest, z.amount, z.method, z.comment])));
+  wireModes();
 }
 function monthRows(rows){
   const by = {}; for (const r of rows) { const k = r.date.slice(0, 7), x = by[k] || (by[k] = { date: k, rooms: { received:0, refunded:0, released:0, closing:0 }, events: { received:0, refunded:0, released:0, closing:0 }, received:0, refunded:0, released:0, closing:0 });
@@ -251,7 +285,7 @@ function renderMovement(){
   $("#views").innerHTML = `<div class="pagehead"><h2>Daily Movement</h2><span class="hint">Deposits that go on the balance (received), refunds and what comes off (rooms checked out, events held) each day.</span></div>
     <div class="bar"><div><label class="l" for="mfrom">From</label><input type="date" id="mfrom" value="${esc(m.from)}"></div><div><label class="l" for="mto">To</label><input type="date" id="mto" value="${esc(m.to)}"></div>
       <button class="btn ghost small" data-q="30">Last 31 days</button><button class="btn ghost small" data-q="month">This month</button><button class="btn ghost small" data-q="lastmonth">Last month</button><button class="btn ghost small" data-q="ytd">This year</button>
-      <span style="flex:1"></span><button class="btn small" data-mode="day" aria-pressed="${!monthly}">By day</button><button class="btn small" data-mode="month" aria-pressed="${monthly}">By month</button><button class="btn ghost small" id="export">Download CSV</button></div>
+      <span style="flex:1"></span>${modeButtons(monthly ? "month" : "day")}<button class="btn ghost small" id="export">Download CSV</button></div>
     <div class="kpis"><div class="kpi"><div class="k">Opening balance</div><div class="v">${gbp(d.opening)}</div><div class="s">${esc(dshort(d.from))}</div></div>
       <div class="kpi"><div class="k">Received</div><div class="v">${gbp(t.received)}</div><div class="s">rooms ${gbp(t.rooms_received)} · events ${gbp(t.events_received)}</div></div>
       <div class="kpi"><div class="k">Refunded</div><div class="v">${gbp(t.refunded)}</div></div>
@@ -265,7 +299,7 @@ function renderMovement(){
   const go = () => { m.from = $("#mfrom").value; m.to = $("#mto").value; if (m.from && m.to) viewMovement(); };
   $("#mfrom").addEventListener("change", go); $("#mto").addEventListener("change", go);
   $$("[data-q]").forEach(b => b.addEventListener("click", () => { const q = b.dataset.q, t0 = S.today; if (q === "30") { m.from = addD(t0, -30); m.to = t0; } else if (q === "month") { m.from = t0.slice(0, 8) + "01"; m.to = t0; } else if (q === "lastmonth") { const f = new Date(t0.slice(0, 8) + "01T12:00:00Z"); f.setUTCMonth(f.getUTCMonth() - 1); m.from = isoDate(f); m.to = addD(t0.slice(0, 8) + "01", -1); } else { m.from = t0.slice(0, 4) + "-01-01"; m.to = t0; } viewMovement(); }));
-  $$("[data-mode]").forEach(b => b.addEventListener("click", () => { m.mode = b.dataset.mode; renderMovement(); }));
+  $$("[data-mode]").forEach(b => b.addEventListener("click", () => { m.mode = b.dataset.mode; if (m.mode === "single") viewSingle(); else renderMovement(); }));
   const qz = $("#quiet"); if (qz) qz.addEventListener("change", () => { m.quiet = qz.checked; renderMovement(); });
   $("#export").addEventListener("click", () => csv(`deposit-movement-${m.from}-to-${m.to}.csv`, [monthly ? "Month" : "Day","Rooms received","Rooms refunded","Rooms released","Rooms balance","Events received","Events refunded","Events released","Events balance","Total received","Total refunded","Total released","Total balance"],
     rows.map(r => [r.date, r.rooms.received, r.rooms.refunded, r.rooms.released, r.rooms.closing, r.events.received, r.events.refunded, r.events.released, r.events.closing, r.received, r.refunded, r.released, r.closing])));
