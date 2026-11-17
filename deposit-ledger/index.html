@@ -240,27 +240,34 @@ async function viewMovement(){
 /* One day: pick any day, see the balance move and every individual movement behind it */
 const modeButtons = mode => `<button class="btn small" data-mode="day" aria-pressed="${mode === "day"}">By day</button><button class="btn small" data-mode="month" aria-pressed="${mode === "month"}">By month</button><button class="btn small" data-mode="single" aria-pressed="${mode === "single"}">One day</button>`;
 function wireModes(){ $$("[data-mode]").forEach(b => b.addEventListener("click", () => { S.mv.mode = b.dataset.mode; if (S.mv.mode === "single") viewSingle(); else viewMovement(); })); }
+/* One day, two separate blocks: Rooms and Weddings & events, each with its own balances and its own list of movements */
+function dayParts(x, lines){
+  const groups = [["Deposit received", "Deposits received"], ["Refund paid", "Refunds paid"], ["Released", "Released (comes off the balance)"]];
+  const table = ls => `<div class="tw"><table class="dt"><thead><tr><th>Time</th><th>Reference</th><th>Guest / event</th><th class="r">Amount</th><th>Method</th><th>Note</th></tr></thead><tbody>${ls.map(z => `<tr><td>${esc(z.time || "")}</td><td><span class="ref">${esc(z.ref)}</span>${z.what.startsWith("Released") ? `<br><span class="muted" style="font-size:12px">${esc(z.what)}</span>` : ""}</td><td>${esc(z.guest)}</td><td class="r"><b>${gbpc(z.amount)}</b></td><td>${esc(z.method)}</td><td class="muted">${esc(z.comment)}</td></tr>`).join("")}<tr class="sub"><td colspan="3">Total</td><td class="r">${gbp(Math.round(ls.reduce((t, z) => t + z.amount, 0) * 100) / 100)}</td><td colspan="2"></td></tr></tbody></table></div>`;
+  const block = (title, g, kind) => {
+    const mine = lines.filter(z => z.type === kind), b = x[g];
+    const parts = groups.map(([k, t]) => { const ls = mine.filter(z => k === "Released" ? z.what.startsWith("Released") : z.what === k); return ls.length ? `<h4 style="margin:14px 0 6px;font-family:var(--body);font-size:12px;letter-spacing:var(--track-label);text-transform:uppercase;color:var(--sage-70)">${esc(t)} · ${ls.length}</h4>${table(ls)}` : ""; }).join("");
+    return `<h3 class="sect" style="margin-top:26px">${title}</h3>
+      <div class="kpis"><div class="kpi"><div class="k">Opening balance</div><div class="v">${gbp(b.opening)}</div></div><div class="kpi"><div class="k">Received</div><div class="v">${gbp(b.received)}</div></div><div class="kpi"><div class="k">Refunded</div><div class="v">${gbp(b.refunded)}</div></div><div class="kpi"><div class="k">Released</div><div class="v">${gbp(b.released)}</div></div><div class="kpi warn"><div class="k">Closing balance</div><div class="v">${gbp(b.closing)}</div></div></div>
+      ${parts || `<div class="card empty" style="padding:22px">Nothing moved on this day.</div>`}`;
+  };
+  return block("Rooms", "rooms", "Room") + block("Weddings &amp; events", "events", "Wedding / event");
+}
 async function viewSingle(){
   const m = S.mv; if (!m.day) m.day = S.today;
   const day = m.day, v = $("#views");
   v.innerHTML = `<div class="loading">Loading…</div>`;
   let g, l; try { [g, l] = await Promise.all([call("movement.get", { from: day, to: day }), call("movement.day", { date: day })]); } catch(e){ v.innerHTML = `<div class="notice bad">${esc(e.message)}</div>`; return; }
   const x = g.rows[0], lines = l.lines;
-  const groups = [["Deposit received", "Deposits received"], ["Refund paid", "Refunds paid"], ["Released", "Released (comes off the balance)"]];
-  const part = (title, ls) => !ls.length ? "" : `<h3 class="sect">${esc(title)} · ${ls.length}</h3><div class="tw"><table class="dt"><thead><tr><th>Time</th><th>Type</th><th>Reference</th><th>Guest / event</th><th class="r">Amount</th><th>Method</th><th>Note</th></tr></thead><tbody>${ls.map(z => `<tr><td>${esc(z.time || "")}</td><td>${esc(z.type)}${z.what.startsWith("Released") ? `<br><span class="muted" style="font-size:12px">${esc(z.what)}</span>` : ""}</td><td><span class="ref">${esc(z.ref)}</span></td><td>${esc(z.guest)}</td><td class="r"><b>${gbpc(z.amount)}</b></td><td>${esc(z.method)}</td><td class="muted">${esc(z.comment)}</td></tr>`).join("")}<tr class="sub"><td colspan="4">Total</td><td class="r">${gbp(Math.round(ls.reduce((t, z) => t + z.amount, 0) * 100) / 100)}</td><td colspan="2"></td></tr></tbody></table></div>`;
-  const body = groups.map(([k, title]) => part(title, lines.filter(z => k === "Released" ? z.what.startsWith("Released") : z.what === k))).join("");
-  const split = (a, b) => `rooms ${gbp(a)} · events ${gbp(b)}`;
+  const body = dayParts(x, lines);
+
   v.innerHTML = `<div class="pagehead"><h2>Daily Movement</h2><span class="hint">Pick a day to see every deposit received, refund paid and booking or event released on it.</span></div>
     <div class="bar"><div><label class="l" for="sday">Day</label><input type="date" id="sday" value="${esc(day)}" max="${esc(S.today)}"></div>
       <button class="btn ghost small" id="sprev">&larr; Previous day</button><button class="btn ghost small" id="snext" ${day >= S.today ? "disabled" : ""}>Next day &rarr;</button><button class="btn ghost small" id="stoday">Today</button><button class="btn ghost small" id="syest">Yesterday</button>
       <span style="flex:1"></span>${modeButtons("single")}<button class="btn ghost small" id="sexport">Download CSV</button></div>
     <p style="margin:0 0 12px;font-family:var(--display);font-size:22px;color:var(--sage)">${esc(new Date(day + "T12:00:00Z").toLocaleDateString("en-GB", { timeZone: "UTC", weekday: "long", day: "numeric", month: "long", year: "numeric" }))}</p>
-    <div class="kpis"><div class="kpi"><div class="k">Opening balance</div><div class="v">${gbp(x.opening)}</div><div class="s">${split(x.rooms.opening, x.events.opening)}</div></div>
-      <div class="kpi"><div class="k">Received</div><div class="v">${gbp(x.received)}</div><div class="s">${split(x.rooms.received, x.events.received)}</div></div>
-      <div class="kpi"><div class="k">Refunded</div><div class="v">${gbp(x.refunded)}</div><div class="s">${split(x.rooms.refunded, x.events.refunded)}</div></div>
-      <div class="kpi"><div class="k">Released</div><div class="v">${gbp(x.released)}</div><div class="s">${split(x.rooms.released, x.events.released)}</div></div>
-      <div class="kpi warn"><div class="k">Closing balance</div><div class="v">${gbp(x.closing)}</div><div class="s">${split(x.rooms.closing, x.events.closing)}</div></div></div>
-    ${body || `<div class="card empty">Nothing moved on this day.</div>`}`;
+    <div class="kpis"><div class="kpi"><div class="k">Total balance, rooms and events together</div><div class="v">${gbp(x.closing)}</div><div class="s">opening ${gbp(x.opening)}, received ${gbp(x.received)}, refunded ${gbp(x.refunded)}, released ${gbp(x.released)}</div></div></div>
+    ${body}`;
   const go = d => { m.day = d; viewSingle(); };
   $("#sday").addEventListener("change", e => { if (e.target.value) go(e.target.value > S.today ? S.today : e.target.value); });
   $("#sprev").addEventListener("click", () => go(addD(day, -1)));
@@ -309,7 +316,7 @@ function renderMovement(){
     det.hidden = false; tr.lastElementChild.textContent = "▾"; const cellEl = det.firstElementChild; cellEl.innerHTML = `<span class="muted">Loading…</span>`;
     try {
       const r = await call("movement.day", { date: tr.dataset.day });
-      cellEl.innerHTML = r.lines.length ? `<table class="dt" style="font-size:13.5px"><thead><tr><th>What</th><th>Type</th><th>Reference</th><th>Guest / event</th><th class="r">Amount</th><th>Method</th><th>Note</th></tr></thead><tbody>${r.lines.map(l => `<tr><td>${esc(l.what)}</td><td>${esc(l.type)}</td><td><span class="ref">${esc(l.ref)}</span></td><td>${esc(l.guest)}</td><td class="r">${gbpc(l.amount)}</td><td>${esc(l.method)}</td><td class="muted">${esc(l.comment)}</td></tr>`).join("")}</tbody></table>` : `<span class="muted">Nothing moved on this day.</span>`;
+      const row = m.data.rows.find(z => z.date === tr.dataset.day); cellEl.innerHTML = row ? dayParts(row, r.lines) : `<span class="muted">Nothing moved on this day.</span>`;
     } catch(e){ cellEl.innerHTML = `<span class="neg">${esc(e.message)}</span>`; }
   }));
 }
