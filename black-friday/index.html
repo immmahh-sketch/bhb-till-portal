@@ -180,8 +180,8 @@ const $ = s => document.querySelector(s);
 const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
 const gbp = n => "£" + Number(n).toLocaleString("en-GB", { minimumFractionDigits: Math.round(Number(n) * 100) % 100 ? 2 : 0, maximumFractionDigits: 2 });
 const PHONE = "01207 232 569", TEL = "tel:01207232569";
-const POS = { stay:"50% 62%", tea:"50% 38%", steak:"50% 50%", sunday:"50% 66%", money:"50% 45%", money50:"50% 50%" };
-const tagFor = p => p.key === "stay" ? "Best saving" : p.kind === "money" ? "Gift voucher" : "For two";
+const POS = { stay:"50% 62%", tea:"50% 38%", steak:"50% 50%", sunday:"50% 66%", money:"50% 45%", money50:"50% 50%", hottub:"50% 55%" };
+const tagFor = p => p.key === "stay" ? "Best saving" : p.key === "hottub" ? "Romantic stay" : p.kind === "money" ? "Gift voucher" : "For two";
 let I = null, BASKET = {}, BUSY = false;
 
 async function call(action, payload){
@@ -215,8 +215,8 @@ function render(){
     '<span class="state' + (open() ? "" : " off") + '"><i></i>' + (open() ? "On sale now" : esc(I.sale.message)) + '</span><br>' +
     (open() ? '<a class="cta" href="#vouchers">See the vouchers</a>' : "") + '</header>' +
   '<div class="strip"><div class="wrap"><span>Buy online by card</span><span>Voucher emailed to you</span><span>Then phone to book</span></div></div>' +
-  '<section id="vouchers"><div class="wrap"><div class="head"><h2>The Black Friday vouchers</h2><p>Six ways to treat yourself, or someone you love. The stay, afternoon tea, steak and Sunday lunch vouchers are each for two people. The gift vouchers can be spent on anything.</p></div>' +
-    '<div class="grid">' + card(feat, true) + rest.map((p, i) => i === 2 ? card(p, true, true) : card(p, false)).join("") + '</div></div></section>' +
+  '<section id="vouchers"><div class="wrap"><div class="head"><h2>The Black Friday vouchers</h2><p>Seven ways to treat yourself, or someone you love. The gift vouchers can be spent on anything at Black Horse Beamish.</p></div>' +
+    '<div class="grid">' + card(feat, true) + rest.map(p => card(p, false)).join("") + '</div></div></section>' +
   '<section id="pay" style="display:none"><div class="wrap"><div id="checkout"></div></div></section>' +
   '<section><div class="wrap"><div class="head"><h2>How it works</h2></div><div class="steps">' +
     '<div class="step"><h3>Buy your voucher online</h3><p>Choose your voucher and pay securely by card on this page. It takes a couple of minutes.</p></div>' +
