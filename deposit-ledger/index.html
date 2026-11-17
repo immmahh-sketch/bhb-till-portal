@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script src="/shared/auth.js"></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Deposit Ledger — Black Horse Beamish</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;500;600;700&family=Cormorant+Garamond:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --sage:#4D604F; --sage-70:#7B887C; --sage-10:#EDEFED; --sage-dark:#3F2F28;
+  --bone:#F8F8F8; --celadon:#CCCDB4; --mist:#E7E7E7; --white:#fff; --ink:#262626; --olive:#CCCDB4; --brown:#3F2F28;
+  --attention:#B08D57; --attention-bg:#F7F0E4; --alert:#8C4A3F; --alert-bg:#F6EAE8; --good:#4F6B4F; --good-bg:#EDF2ED;
+  --display:"Orpheus Pro","Cormorant Garamond",Georgia,serif; --body:Raleway,"Helvetica Neue",Arial,sans-serif;
+  --track-label:.18em; --radius:10px; --shadow:0 1px 2px rgba(38,38,38,.06),0 8px 24px rgba(38,38,38,.07); --maxw:1240px;
+}
+*{box-sizing:border-box} html,body{margin:0;padding:0}
+body{font-family:var(--body); color:var(--ink); background:var(--bone); font-size:15px; line-height:1.5; -webkit-text-size-adjust:100%}
+h1,h2,h3{font-family:var(--display); font-weight:600; margin:0; letter-spacing:.01em}
+button,input,select{font:inherit; color:inherit}
+.shell{max-width:var(--maxw); margin:0 auto; padding:0 20px 64px}
+#gate{position:fixed; inset:0; background:var(--sage); z-index:100; display:flex; align-items:center; justify-content:center; padding:24px}
+#gate[hidden]{display:none}
+.gatecard{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); width:100%; max-width:380px; padding:32px 28px; text-align:center}
+.gatecard h1{font-size:26px; color:var(--sage); line-height:1.15}
+.gatecard .sub{font-size:11px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); margin:6px 0 22px}
+.gateerr{color:var(--alert); font-size:13px; min-height:18px; margin-top:8px}
+#app[hidden]{display:none}
+header.top{background:var(--sage); color:var(--white)}
+.topin{max-width:var(--maxw); margin:0 auto; padding:14px 20px; display:flex; align-items:center; gap:18px; flex-wrap:wrap}
+.brand{font-family:var(--display); font-size:21px; line-height:1.1}
+.brand small{display:block; font-family:var(--body); font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; opacity:.75}
+.who{margin-left:auto; display:flex; align-items:center; gap:10px; font-size:12px; opacity:.9}
+.who button{background:transparent; border:1px solid rgba(255,255,255,.4); color:var(--white); border-radius:6px; padding:5px 10px; cursor:pointer; font-size:11px; letter-spacing:.06em; text-transform:uppercase}
+nav.tabs{background:var(--sage-dark)}
+.tabsin{max-width:var(--maxw); margin:0 auto; padding:0 20px; display:flex; gap:2px; overflow-x:auto}
+.tabbtn{background:transparent; border:0; cursor:pointer; color:rgba(255,255,255,.72); padding:12px 16px; font-size:12px; font-weight:600; white-space:nowrap; letter-spacing:var(--track-label); text-transform:uppercase; border-bottom:3px solid transparent}
+.tabbtn[aria-current="page"]{color:var(--white); border-bottom-color:var(--olive)}
+.pagehead{display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; margin:24px 0 14px}
+.pagehead h2{font-size:26px; color:var(--sage)}
+.pagehead .hint{font-size:13px; color:var(--sage-70)}
+.btn{border:1px solid var(--sage); background:var(--sage); color:var(--white); border-radius:8px; padding:9px 16px; cursor:pointer; font-size:12px; font-weight:600; letter-spacing:var(--track-label); text-transform:uppercase; min-height:40px}
+.btn.ghost{background:var(--white); color:var(--sage)} .btn.ghost:hover{background:var(--sage-10)}
+.btn.small{min-height:34px; padding:5px 12px; font-size:11px}
+.btn[aria-pressed="true"]{background:var(--sage-10); color:var(--sage)}
+.card{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); padding:16px 18px; margin-bottom:14px}
+.notice{border-radius:var(--radius); padding:14px 16px; margin-bottom:14px; font-size:14.5px}
+.notice.warn{background:var(--attention-bg); color:#6d5320; border:1px solid #E8D9BC}
+.notice.bad{background:var(--alert-bg); color:var(--alert); border:1px solid #E5C9C4}
+.notice.good{background:var(--good-bg); color:var(--good); border:1px solid #CFE0CF}
+.notice strong{font-weight:700}
+.bar{display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; margin-bottom:14px}
+.bar label.l{display:block; font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70); margin-bottom:3px}
+.bar input,.bar select{padding:9px 11px; border:1px solid var(--mist); border-radius:8px; background:var(--white); font-size:15px; min-height:40px}
+.bar .grow{flex:1; min-width:200px} .bar .grow input{width:100%}
+.kpis{display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:12px; margin-bottom:16px}
+.kpi{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); padding:12px 16px; border-left:5px solid var(--sage)}
+.kpi .k{font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; color:var(--sage-70)}
+.kpi .v{font-family:var(--display); font-size:28px; line-height:1.1; color:var(--sage)}
+.kpi .s{font-size:12px; color:var(--sage-70)}
+.kpi.warn{border-left-color:var(--attention)} .kpi.warn .v{color:var(--brown)}
+.tw{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); overflow-x:auto; margin-bottom:16px}
+table.dt{border-collapse:collapse; width:100%; font-size:14px}
+table.dt th{background:var(--sage-10); color:var(--sage); font-size:10px; letter-spacing:var(--track-label); text-transform:uppercase; text-align:left; padding:9px 10px; white-space:nowrap; position:sticky; top:0}
+table.dt th.r,table.dt td.r{text-align:right; font-variant-numeric:tabular-nums}
+table.dt td{padding:8px 10px; border-top:1px solid var(--mist); vertical-align:top}
+table.dt tr.row{cursor:pointer} table.dt tr.row:hover td{background:var(--bone)}
+table.dt tr.sub td{background:var(--sage-10); font-weight:600; color:var(--sage)}
+table.dt tr.tot td{background:var(--sage); color:var(--white); font-weight:700; border-top:0}
+table.dt tr.det td{background:var(--bone); padding:10px 14px 12px}
+table.dt tr.det[hidden]{display:none}
+.ref{font-weight:600; white-space:nowrap}
+.muted{color:var(--sage-70)} .neg{color:var(--alert)}
+.badge{display:inline-block; border-radius:999px; padding:2px 9px; font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; white-space:nowrap; background:var(--sage-10); color:var(--sage)}
+.badge.warn{background:var(--attention-bg); color:#6d5320} .badge.bad{background:var(--alert-bg); color:var(--alert)} .badge.good{background:var(--good-bg); color:var(--good)}
+.pl{margin:0; padding:0; list-style:none; font-size:13.5px}
+.pl li{display:flex; gap:10px; padding:2px 0; flex-wrap:wrap}
+.pl .d{min-width:104px; color:var(--sage-70)} .pl .a{min-width:84px; text-align:right; font-variant-numeric:tabular-nums; font-weight:600}
+.pl .t{color:var(--sage-70)}
+.chip{display:inline-block; background:var(--sage-10); border-radius:6px; padding:1px 7px; margin:0 4px 3px 0; font-size:12.5px; white-space:nowrap}
+.chip.refund{background:var(--alert-bg); color:var(--alert)}
+.empty{padding:40px 20px; text-align:center; color:var(--sage-70)} .loading{padding:60px; text-align:center; color:var(--sage-70)}
+.sect{font-family:var(--display); font-size:22px; color:var(--sage); margin:22px 0 10px; font-weight:600}
+.toast{position:fixed; left:50%; bottom:26px; transform:translate(-50%,20px); background:var(--ink); color:var(--white); padding:12px 20px; border-radius:8px; z-index:200; opacity:0; transition:.2s; pointer-events:none; font-size:14px; max-width:90vw}
+.toast.on{opacity:1; transform:translate(-50%,0)} .toast.bad{background:var(--alert)}
+@media (max-width:640px){ .shell{padding:0 12px 48px} .topin,.tabsin{padding-left:12px;padding-right:12px} .pagehead h2{font-size:22px} }
+</style>
+</head>
+<body>
+<div id="gate"><div class="gatecard"><h1>Deposit Ledger</h1><div class="sub">Black Horse Beamish</div>
+  <p style="margin:0 0 16px;font-size:14px;color:var(--sage-70)">This opens from the Staff Portal, which knows who you are and what you can see.</p>
+  <a href="https://app.blackhorsebeamish.co.uk/portal/app.html" style="display:block;padding:12px;border-radius:8px;background:var(--sage);color:#fff;text-decoration:none;font-weight:600;letter-spacing:var(--track-label);text-transform:uppercase;font-size:12px">Open the Staff Portal</a>
+  <div class="gateerr" id="gerr"></div></div></div>
+<div id="app" hidden>
+  <header class="top"><div class="topin"><div class="brand">Deposit Ledger<small>Black Horse Beamish</small></div>
+    <div class="who"><span id="whoname"></span><button id="signout">Sign out</button></div></div></header>
+  <nav class="tabs"><div class="tabsin" role="tablist" id="tabs"></div></nav>
+  <div class="shell"><div id="status"></div><div id="views"></div></div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+const CFG = { SUPABASE_URL:"https://safcrtrfdzsnftghibot.supabase.co", SUPABASE_KEY:"sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU" };
+const S = { me:null, view:"rooms", today:"", year:0, boot:null, cache:{}, open:{}, limit:200 };
+const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
+const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const gbp = n => (n == null || n === "" ? "" : (n < 0 ? "-" : "") + "£" + Math.abs(Number(n)).toLocaleString("en-GB", { minimumFractionDigits:2, maximumFractionDigits:2 }));
+const gbpc = n => n == null || n === "" ? "" : `<span class="${n < 0 ? "neg" : ""}">${gbp(n)}</span>`;
+const dshort = d => d ? new Date(d + "T12:00:00Z").toLocaleDateString("en-GB", { timeZone:"UTC", day:"numeric", month:"short", year:"numeric" }) : "";
+const dday = d => d ? new Date(d + "T12:00:00Z").toLocaleDateString("en-GB", { timeZone:"UTC", weekday:"short", day:"numeric", month:"short" }) : "";
+const mlong = m => new Date(m + "-01T12:00:00Z").toLocaleDateString("en-GB", { timeZone:"UTC", month:"long", year:"numeric" });
+const nights = (a, d) => a && d ? Math.round((Date.parse(d) - Date.parse(a)) / 864e5) : "";
+function toast(msg, bad){ const t=$("#toast"); t.textContent=msg; t.className="toast on"+(bad?" bad":""); clearTimeout(toast._t); toast._t=setTimeout(()=>{t.className="toast";}, bad?5200:2600); }
+function staffEmail(){ try { return sessionStorage.getItem("bhb_staff_email") || ""; } catch(e){ return ""; } }
+async function call(action, payload){
+  const r = await fetch(CFG.SUPABASE_URL + "/functions/v1/deposit-api", { method:"POST", headers:{ "Content-Type":"application/json", Authorization:"Bearer "+CFG.SUPABASE_KEY, apikey:CFG.SUPABASE_KEY }, body: JSON.stringify({ action, staff_email: staffEmail(), ...(payload||{}) }) });
+  let d = {}; try { d = await r.json(); } catch(e){}
+  if (!r.ok || d.error) throw new Error(d.error || `Request failed (${r.status})`);
+  return d;
+}
+function csv(name, head, rows){
+  const q = v => { const s = String(v ?? ""); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  const text = "﻿" + [head, ...rows].map(r => r.map(q).join(",")).join("\r\n");
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text], { type:"text/csv" })); a.download = name; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+}
+const statusBadge = s => { const x = String(s || ""); const c = /checked out/i.test(x) ? "good" : /cancel|no show|lost/i.test(x) ? "bad" : /provisional|resident/i.test(x) ? "warn" : ""; return `<span class="badge ${c}">${esc(x || "Unknown")}</span>`; };
+const payList = pays => `<ul class="pl">${pays.map(p => `<li><span class="d">${esc(dshort(p[0]))} ${esc(p[1])}</span><span class="a ${p[2] < 0 ? "neg" : ""}">${gbp(p[2])}</span><span>${esc(p[3])}${p[5] ? ` <span class="muted">room ${esc(p[5])}</span>` : ""}</span><span class="t">${p[6] ? "deposit" : "other payment"} · ${esc(p[4])}</span></li>`).join("")}</ul>`;
+const chips = pays => pays.filter(p => p[6]).map(p => `<span class="chip ${p[2] < 0 ? "refund" : ""}" title="${esc(p[3] + " · " + p[4])}">${gbp(p[2])} on ${esc(dshort(p[0]))}</span>`).join("");
+
+/* ------------------------------------------------------------- the data strip under the tabs */
+function statusStrip(){
+  const b = S.boot; if (!b) return "";
+  const u = b.unknown, bits = [];
+  bits.push(b.payments_from ? `Payments loaded from <b>${esc(dshort(b.payments_from))}</b> to <b>${esc(dshort(b.payments_to))}</b>.` : `<b>No payments have been loaded yet.</b> Upload the Payment Analysis report in Forecast &gt; Imports.`);
+  const warn = [];
+  if (u.rooms) warn.push(`${u.rooms} room booking${u.rooms === 1 ? "" : "s"} (${gbp(u.rooms_amount)} of deposits) with no stay dates yet: ${esc(u.room_refs.slice(0, 8).join(", "))}${u.rooms > 8 ? "…" : ""}. They are not in the held totals until a Reservations report that includes them is uploaded in Forecast &gt; Imports.`);
+  if (u.events) warn.push(`${u.events} event${u.events === 1 ? "" : "s"} (${gbp(u.events_amount)}) not in the Event Revenue Forecast: ${esc(u.event_refs.slice(0, 8).join(", "))}${u.events > 8 ? "…" : ""}.`);
+  return `<div class="notice ${warn.length || !b.payments_from ? "warn" : "good"}" style="margin-top:16px;font-size:13.5px">${bits.join(" ")}${warn.length ? "<br>" + warn.join("<br>") : ""}${b.payments_from && b.payments_from > "2026-01-01" ? "" : `<br><span class="muted">The balance counts deposits taken from ${esc(dshort(b.payments_from || "2026-01-01"))}. Deposits taken before that for later stays are not in it until an earlier Payment Analysis report is uploaded.</span>`}</div>`;
+}
+
+/* ------------------------------------------------------------- Historic Rooms / Historic Weddings & Events */
+function histTable(kind, d){
+  const isRoom = kind === "rooms", f = (S.filter || "").trim().toLowerCase();
+  const rows = d.rows.filter(r => !f || (r.ref + " " + r.guest + " " + r.status + " " + (r.type || "")).toLowerCase().includes(f));
+  const shown = rows.slice(0, S.limit);
+  const head = isRoom ? ["Booking","Guest","Rooms","Arrived","Checked out","Nights","Status","Booking total","Deposits","Other payments","Paid in total","Last paid",""] : ["Event","Name","Type","Event date","Status","Guests","Deposits","Other payments","Paid in total","First deposit","Last paid",""];
+  const line = r => {
+    const id = kind + ":" + r.ref, open = !!S.open[id];
+    const cells = isRoom
+      ? [`<span class="ref">${esc(r.ref)}</span>`, esc(r.guest), r.rooms || "", esc(dshort(r.arrival)), `<b>${esc(dshort(r.departure))}</b>`, nights(r.arrival, r.departure), statusBadge(r.status), gbp(r.total), gbpc(r.deposits), gbpc(r.other), `<b>${gbp(r.paid)}</b>`, esc(dshort(r.last_paid)), r.pays.length ? (open ? "▾" : "▸") : ""]
+      : [`<span class="ref">${esc(r.ref)}</span>`, esc(r.guest), esc(r.type), `<b>${esc(dshort(r.arrival))}</b>`, statusBadge(r.status), r.guests || "", gbpc(r.deposits), gbpc(r.other), `<b>${gbp(r.paid)}</b>`, esc(dshort(r.first_paid)), esc(dshort(r.last_paid)), r.pays.length ? (open ? "▾" : "▸") : ""];
+    const num = isRoom ? [7,8,9,10] : [6,7,8];
+    return `<tr class="row" data-id="${esc(id)}">${cells.map((c, i) => `<td class="${num.includes(i) ? "r" : ""}">${c}</td>`).join("")}</tr>
+      <tr class="det" data-det="${esc(id)}" ${open ? "" : "hidden"}><td colspan="${cells.length}">${r.pays.length ? payList(r.pays) : '<span class="muted">No payments on this booking in the report.</span>'}</td></tr>`;
+  };
+  const t = d.totals;
+  const tot = isRoom ? `<tr class="tot"><td colspan="7">${rows.length} booking${rows.length === 1 ? "" : "s"}${f ? " shown" : ""}</td><td class="r">${gbp(sumOf(rows, "total"))}</td><td class="r">${gbp(sumOf(rows, "deposits"))}</td><td class="r">${gbp(sumOf(rows, "other"))}</td><td class="r">${gbp(sumOf(rows, "paid"))}</td><td colspan="2"></td></tr>`
+    : `<tr class="tot"><td colspan="6">${rows.length} event${rows.length === 1 ? "" : "s"}${f ? " shown" : ""}</td><td class="r">${gbp(sumOf(rows, "deposits"))}</td><td class="r">${gbp(sumOf(rows, "other"))}</td><td class="r">${gbp(sumOf(rows, "paid"))}</td><td colspan="3"></td></tr>`;
+  return { rows, html: `<div class="tw"><table class="dt"><thead><tr>${head.map((h, i) => `<th class="${(isRoom ? [7,8,9,10] : [6,7,8]).includes(i) ? "r" : ""}">${h}</th>`).join("")}</tr></thead><tbody>${shown.map(line).join("")}${tot}</tbody></table></div>
+    ${rows.length > shown.length ? `<div style="text-align:center;margin-bottom:16px"><button class="btn ghost" id="more">Show ${Math.min(300, rows.length - shown.length)} more (${rows.length - shown.length} not shown)</button></div>` : ""}` };
+}
+const sumOf = (rows, k) => Math.round(rows.reduce((t, r) => t + (Number(r[k]) || 0), 0) * 100) / 100;
+function wireHist(kind, d){
+  $$("tr.row").forEach(tr => tr.addEventListener("click", () => { const id = tr.dataset.id, det = document.querySelector(`[data-det="${CSS.escape(id)}"]`); if (!det) return; S.open[id] = det.hidden; det.hidden = !det.hidden; const last = tr.lastElementChild; if (last.textContent.trim()) last.textContent = det.hidden ? "▸" : "▾"; }));
+  const more = $("#more"); if (more) more.addEventListener("click", () => { S.limit += 300; renderHist(kind, d); });
+  const find = $("#find"); if (find) find.addEventListener("input", e => { S.filter = e.target.value; S.limit = 200; const pos = e.target.selectionStart; renderHist(kind, d); const n = $("#find"); n.focus(); n.setSelectionRange(pos, pos); });
+  const yr = $("#year"); if (yr) yr.addEventListener("change", () => { S.year = Number(yr.value); S.limit = 200; S.open = {}; viewHist(kind); });
+  const ex = $("#export"); if (ex) ex.addEventListener("click", () => exportHist(kind, d));
+}
+function exportHist(kind, d){
+  const f = (S.filter || "").trim().toLowerCase(), rows = d.rows.filter(r => !f || (r.ref + " " + r.guest + " " + r.status + " " + (r.type || "")).toLowerCase().includes(f));
+  if (kind === "rooms") csv(`room-deposits-${d.year}.csv`, ["Booking","Guest","Rooms","Arrived","Checked out","Nights","Status","Booking total","Deposits","Other payments","Paid in total","First paid","Last paid","Payments (date amount method)"],
+    rows.map(r => [r.ref, r.guest, r.rooms, r.arrival, r.departure, nights(r.arrival, r.departure), r.status, r.total ?? "", r.deposits, r.other, r.paid, r.first_paid || "", r.last_paid || "", r.pays.map(p => `${p[0]} ${p[2]} ${p[3]}${p[6] ? "" : " (other)"}`).join("; ")]));
+  else csv(`event-deposits-${d.year}.csv`, ["Event","Name","Type","Event date","Status","Guests","Deposits","Other payments","Paid in total","First deposit","Last paid","Payments (date amount method)"],
+    rows.map(r => [r.ref, r.guest, r.type, r.arrival, r.status, r.guests || "", r.deposits, r.other, r.paid, r.first_paid || "", r.last_paid || "", r.pays.map(p => `${p[0]} ${p[2]} ${p[3]}${p[6] ? "" : " (other)"}`).join("; ")]));
+}
+function renderHist(kind, d){
+  const isRoom = kind === "rooms", t = d.totals, h = histTable(kind, d);
+  $("#views").innerHTML = `<div class="pagehead"><h2>${isRoom ? "Historic Rooms" : "Historic Weddings &amp; Events"}</h2><span class="hint">${isRoom ? "Every room booking that has checked out in the year, with what was paid and when. A cancelled or no-show room counts on its arrival date." : "Every wedding and event that has taken place in the year, with what was paid and when."} Click a row to see each payment.</span></div>
+    <div class="bar"><div><label class="l" for="year">Year</label><select id="year">${d.years.map(y => `<option ${y === d.year ? "selected" : ""}>${y}</option>`).join("")}</select></div>
+      <div class="grow"><label class="l" for="find">Search</label><input type="search" id="find" placeholder="${isRoom ? "Booking reference, guest or status" : "Event reference, name, type or status"}" value="${esc(S.filter || "")}"></div><button class="btn ghost" id="export">Download CSV</button></div>
+    <div class="kpis"><div class="kpi"><div class="k">${isRoom ? "Bookings" : "Events"}</div><div class="v">${(isRoom ? t.bookings : t.events).toLocaleString("en-GB")}</div><div class="s">${t.with_payments.toLocaleString("en-GB")} with payments in the report</div></div>
+      <div class="kpi"><div class="k">Deposits received</div><div class="v">${gbp(t.deposits)}</div><div class="s">net of refunds</div></div>
+      <div class="kpi"><div class="k">Other payments</div><div class="v">${gbp(t.other)}</div><div class="s">taken during or after the stay</div></div>
+      <div class="kpi"><div class="k">Paid in total</div><div class="v">${gbp(t.paid)}</div>${isRoom ? `<div class="s">against ${gbp(t.total)} of bookings</div>` : ""}</div></div>
+    ${isRoom ? `<p class="muted" style="font-size:13px;margin:-4px 0 12px">Payments here are the ones in the Payment Analysis report that name the booking. Room bills paid at the till are not tied to a booking in that report, so "Paid in total" can be lower than the booking total.</p>` : ""}
+    ${h.rows.length ? h.html : `<div class="card empty">Nothing matches.</div>`}`;
+  wireHist(kind, d);
+}
+async function viewHist(kind){
+  const v = $("#views"); v.innerHTML = `<div class="loading">Loading…</div>`;
+  const key = kind + ":" + (S.year || "now");
+  try { const d = await call(kind === "rooms" ? "rooms.history" : "events.history", S.year ? { year: S.year } : {}); S.year = d.year; S.cache[key] = d; renderHist(kind, d); }
+  catch(e){ v.innerHTML = `<div class="notice bad">${esc(e.message)}</div>`; }
+}
+
+/* ------------------------------------------------------------- Future Deposits */
+function futureSection(title, rows, isRoom, byMonth){
+  const f = (S.filter || "").trim().toLowerCase(), list = rows.filter(r => !f || (r.ref + " " + r.guest + " " + r.status).toLowerCase().includes(f));
+  if (!list.length) return `<h3 class="sect">${title}</h3><div class="card empty" style="padding:24px">${rows.length ? "Nothing matches." : "Nothing held."}</div>`;
+  const months = [...new Set(list.map(r => String(r.release).slice(0, 7)))];
+  const head = isRoom ? ["Booking","Guest","Arrives","Checks out","Status","Held","When it was paid"] : ["Event","Name","Event date","Status","Held","When it was paid"];
+  const body = months.map(m => {
+    const rs = list.filter(r => String(r.release).slice(0, 7) === m), total = sumOf(rs, "held");
+    return `<tr class="sub"><td colspan="${head.length - (isRoom ? 2 : 2)}">${esc(mlong(m))} · ${rs.length} ${isRoom ? "booking" : "event"}${rs.length === 1 ? "" : "s"}</td><td class="r">${gbp(total)}</td><td></td></tr>` + rs.map(r => {
+      const odd = /cancel|no show|lost/i.test(r.status) ? ` <span class="badge bad" title="Cancelled or no-show: check whether this deposit was refunded or kept">check</span>` : "";
+      return isRoom ? `<tr><td><span class="ref">${esc(r.ref)}</span></td><td>${esc(r.guest)}</td><td>${esc(dshort(r.arrival))}</td><td>${esc(dshort(r.departure))}</td><td>${statusBadge(r.status)}${odd}</td><td class="r"><b>${gbp(r.held)}</b></td><td>${chips(r.pays)}</td></tr>`
+        : `<tr><td><span class="ref">${esc(r.ref)}</span></td><td>${esc(r.guest)}${r.type ? ` <span class="muted">· ${esc(r.type)}</span>` : ""}</td><td><b>${esc(dshort(r.arrival))}</b></td><td>${statusBadge(r.status)}${odd}</td><td class="r"><b>${gbp(r.held)}</b></td><td>${chips(r.pays)}</td></tr>`;
+    }).join("");
+  }).join("");
+  return `<h3 class="sect">${title}</h3><div class="tw"><table class="dt"><thead><tr>${head.map(h => `<th class="${h === "Held" ? "r" : ""}">${h}</th>`).join("")}</tr></thead><tbody>${body}<tr class="tot"><td colspan="${head.length - 2}">${list.length} ${isRoom ? "booking" : "event"}${list.length === 1 ? "" : "s"}</td><td class="r">${gbp(sumOf(list, "held"))}</td><td></td></tr></tbody></table></div>`;
+}
+const futureSections = d => futureSection("Room deposits", d.rooms, true) + futureSection("Wedding &amp; event deposits", d.events, false);
+async function viewFuture(){
+  const v = $("#views"); if (!S.future) v.innerHTML = `<div class="loading">Loading…</div>`;
+  try { S.future = await call("future.get"); } catch(e){ v.innerHTML = `<div class="notice bad">${esc(e.message)}</div>`; return; }
+  const d = S.future, t = d.totals;
+  v.innerHTML = `<div class="pagehead"><h2>Future Deposits</h2><span class="hint">What is held today for stays and events still to come, with when each payment was made. It comes off when the room checks out or the event has taken place.</span></div>
+    <div class="kpis"><div class="kpi"><div class="k">Held for rooms</div><div class="v">${gbp(t.rooms)}</div><div class="s">${t.rooms_count} booking${t.rooms_count === 1 ? "" : "s"}</div></div>
+      <div class="kpi"><div class="k">Held for weddings &amp; events</div><div class="v">${gbp(t.events)}</div><div class="s">${t.events_count} event${t.events_count === 1 ? "" : "s"}</div></div>
+      <div class="kpi warn"><div class="k">Total held</div><div class="v">${gbp(t.rooms + t.events)}</div><div class="s">as at ${esc(dshort(d.today))}</div></div></div>
+    <div class="bar"><div class="grow"><label class="l" for="find">Search</label><input type="search" id="find" placeholder="Reference, guest or status" value="${esc(S.filter || "")}"></div><button class="btn ghost" id="export">Download CSV</button></div>
+    <div id="fsecs">${futureSections(d)}</div>`;
+  $("#find").addEventListener("input", e => { S.filter = e.target.value; $("#fsecs").innerHTML = futureSections(d); });
+  $("#export").addEventListener("click", () => csv("deposits-held.csv", ["Type","Reference","Guest / event","Arrives / event date","Checks out","Status","Held","Payments (date amount method)"],
+    [...d.rooms.map(r => ["Room", r.ref, r.guest, r.arrival, r.departure, r.status, r.held, r.pays.filter(p => p[6]).map(p => `${p[0]} ${p[2]} ${p[3]}`).join("; ")]), ...d.events.map(r => ["Event", r.ref, r.guest, r.arrival, "", r.status, r.held, r.pays.filter(p => p[6]).map(p => `${p[0]} ${p[2]} ${p[3]}`).join("; ")])]));
+}
+/* ------------------------------------------------------------- Daily Movement */
+const isoDate = d => d.toISOString().slice(0, 10);
+const addD = (iso, n) => { const d = new Date(iso + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return isoDate(d); };
+async function viewMovement(){
+  const v = $("#views"); if (!S.mv) { const to = S.today; S.mv = { from: addD(to, -30), to, mode: "day" }; }
+  const m = S.mv; v.innerHTML = `<div class="loading">Loading…</div>`;
+  let d; try { d = await call("movement.get", { from: m.from, to: m.to }); } catch(e){ v.innerHTML = `<div class="notice bad">${esc(e.message)}</div>`; return; }
+  m.data = d; renderMovement();
+}
+function monthRows(rows){
+  const by = {}; for (const r of rows) { const k = r.date.slice(0, 7), x = by[k] || (by[k] = { date: k, rooms: { received:0, refunded:0, released:0, closing:0 }, events: { received:0, refunded:0, released:0, closing:0 }, received:0, refunded:0, released:0, closing:0 });
+    for (const g of ["rooms","events"]) for (const f of ["received","refunded","released"]) x[g][f] += r[g][f]; for (const f of ["received","refunded","released"]) x[f] += r[f]; x.rooms.closing = r.rooms.closing; x.events.closing = r.events.closing; x.closing = r.closing; }
+  return Object.values(by).map(x => { const rd = o => { for (const k in o) o[k] = Math.round(o[k] * 100) / 100; return o; }; rd(x.rooms); rd(x.events); x.received = Math.round(x.received*100)/100; x.refunded = Math.round(x.refunded*100)/100; x.released = Math.round(x.released*100)/100; return x; });
+}
+function renderMovement(){
+  const m = S.mv, d = m.data, monthly = m.mode === "month";
+  const rows = monthly ? monthRows(d.rows) : d.rows.slice().reverse();
+  const quiet = r => !monthly && !r.received && !r.refunded && !r.released;
+  const shown = rows.filter(r => monthly || m.quiet || !quiet(r));
+  const cell = (r, g) => `<td class="r">${r[g].received ? gbpc(r[g].received) : ""}</td><td class="r">${r[g].refunded ? gbpc(-r[g].refunded) : ""}</td><td class="r">${r[g].released ? gbpc(-r[g].released) : ""}</td><td class="r"><b>${gbp(r[g].closing)}</b></td>`;
+  const t = d.totals;
+  $("#views").innerHTML = `<div class="pagehead"><h2>Daily Movement</h2><span class="hint">Deposits that go on the balance (received), refunds and what comes off (rooms checked out, events held) each day.</span></div>
+    <div class="bar"><div><label class="l" for="mfrom">From</label><input type="date" id="mfrom" value="${esc(m.from)}"></div><div><label class="l" for="mto">To</label><input type="date" id="mto" value="${esc(m.to)}"></div>
+      <button class="btn ghost small" data-q="30">Last 31 days</button><button class="btn ghost small" data-q="month">This month</button><button class="btn ghost small" data-q="lastmonth">Last month</button><button class="btn ghost small" data-q="ytd">This year</button>
+      <span style="flex:1"></span><button class="btn small" data-mode="day" aria-pressed="${!monthly}">By day</button><button class="btn small" data-mode="month" aria-pressed="${monthly}">By month</button><button class="btn ghost small" id="export">Download CSV</button></div>
+    <div class="kpis"><div class="kpi"><div class="k">Opening balance</div><div class="v">${gbp(d.opening)}</div><div class="s">${esc(dshort(d.from))}</div></div>
+      <div class="kpi"><div class="k">Received</div><div class="v">${gbp(t.received)}</div><div class="s">rooms ${gbp(t.rooms_received)} · events ${gbp(t.events_received)}</div></div>
+      <div class="kpi"><div class="k">Refunded</div><div class="v">${gbp(t.refunded)}</div></div>
+      <div class="kpi"><div class="k">Released</div><div class="v">${gbp(t.released)}</div><div class="s">rooms ${gbp(t.rooms_released)} · events ${gbp(t.events_released)}</div></div>
+      <div class="kpi warn"><div class="k">Closing balance</div><div class="v">${gbp(d.closing)}</div><div class="s">${esc(dshort(d.to))}</div></div></div>
+    ${monthly ? "" : `<label style="display:flex;gap:8px;align-items:center;font-size:13px;margin:0 0 10px;color:var(--sage-70)"><input type="checkbox" id="quiet" ${m.quiet ? "checked" : ""}> Show days with no movement</label>`}
+    <div class="tw"><table class="dt"><thead><tr><th rowspan="2">${monthly ? "Month" : "Day"}</th><th colspan="4" style="text-align:center">Rooms</th><th colspan="4" style="text-align:center">Weddings &amp; events</th><th colspan="3" style="text-align:center">Total</th></tr>
+      <tr><th class="r">Received</th><th class="r">Refunded</th><th class="r">Released</th><th class="r">Balance</th><th class="r">Received</th><th class="r">Refunded</th><th class="r">Released</th><th class="r">Balance</th><th class="r">Net movement</th><th class="r">Balance</th><th></th></tr></thead>
+      <tbody>${shown.map(r => { const net = Math.round((r.received - r.refunded - r.released) * 100) / 100; return `<tr class="${monthly ? "" : "row"}" data-day="${esc(r.date)}"><td><b>${esc(monthly ? mlong(r.date) : dday(r.date))}</b></td>${cell(r, "rooms")}${cell(r, "events")}<td class="r">${net ? gbpc(net) : ""}</td><td class="r"><b>${gbp(r.closing)}</b></td><td>${monthly ? "" : (quiet(r) ? "" : "▸")}</td></tr>${monthly ? "" : `<tr class="det" data-det="${esc(r.date)}" hidden><td colspan="12"></td></tr>`}`; }).join("") || `<tr><td colspan="12" class="empty">Nothing in these dates.</td></tr>`}</tbody></table></div>
+    <p class="muted" style="font-size:13px">Received is money in, refunded is money paid back, released is the balance that comes off when a room checks out (a cancelled or no-show room, or a deposit the hotel kept, comes off on its arrival or retained date) or an event has taken place. Click a day to see the bookings behind it.</p>`;
+  const go = () => { m.from = $("#mfrom").value; m.to = $("#mto").value; if (m.from && m.to) viewMovement(); };
+  $("#mfrom").addEventListener("change", go); $("#mto").addEventListener("change", go);
+  $$("[data-q]").forEach(b => b.addEventListener("click", () => { const q = b.dataset.q, t0 = S.today; if (q === "30") { m.from = addD(t0, -30); m.to = t0; } else if (q === "month") { m.from = t0.slice(0, 8) + "01"; m.to = t0; } else if (q === "lastmonth") { const f = new Date(t0.slice(0, 8) + "01T12:00:00Z"); f.setUTCMonth(f.getUTCMonth() - 1); m.from = isoDate(f); m.to = addD(t0.slice(0, 8) + "01", -1); } else { m.from = t0.slice(0, 4) + "-01-01"; m.to = t0; } viewMovement(); }));
+  $$("[data-mode]").forEach(b => b.addEventListener("click", () => { m.mode = b.dataset.mode; renderMovement(); }));
+  const qz = $("#quiet"); if (qz) qz.addEventListener("change", () => { m.quiet = qz.checked; renderMovement(); });
+  $("#export").addEventListener("click", () => csv(`deposit-movement-${m.from}-to-${m.to}.csv`, [monthly ? "Month" : "Day","Rooms received","Rooms refunded","Rooms released","Rooms balance","Events received","Events refunded","Events released","Events balance","Total received","Total refunded","Total released","Total balance"],
+    rows.map(r => [r.date, r.rooms.received, r.rooms.refunded, r.rooms.released, r.rooms.closing, r.events.received, r.events.refunded, r.events.released, r.events.closing, r.received, r.refunded, r.released, r.closing])));
+  if (!monthly) $$("tr.row").forEach(tr => tr.addEventListener("click", async () => {
+    const det = document.querySelector(`[data-det="${CSS.escape(tr.dataset.day)}"]`); if (!det) return;
+    if (!det.hidden) { det.hidden = true; tr.lastElementChild.textContent = "▸"; return; }
+    det.hidden = false; tr.lastElementChild.textContent = "▾"; const cellEl = det.firstElementChild; cellEl.innerHTML = `<span class="muted">Loading…</span>`;
+    try {
+      const r = await call("movement.day", { date: tr.dataset.day });
+      cellEl.innerHTML = r.lines.length ? `<table class="dt" style="font-size:13.5px"><thead><tr><th>What</th><th>Type</th><th>Reference</th><th>Guest / event</th><th class="r">Amount</th><th>Method</th><th>Note</th></tr></thead><tbody>${r.lines.map(l => `<tr><td>${esc(l.what)}</td><td>${esc(l.type)}</td><td><span class="ref">${esc(l.ref)}</span></td><td>${esc(l.guest)}</td><td class="r">${gbpc(l.amount)}</td><td>${esc(l.method)}</td><td class="muted">${esc(l.comment)}</td></tr>`).join("")}</tbody></table>` : `<span class="muted">Nothing moved on this day.</span>`;
+    } catch(e){ cellEl.innerHTML = `<span class="neg">${esc(e.message)}</span>`; }
+  }));
+}
+
+/* ------------------------------------------------------------- shell */
+const TABS = [["rooms", "Historic Rooms"], ["events", "Historic Weddings & Events"], ["future", "Future Deposits"], ["movement", "Daily Movement"]];
+function goView(v){
+  S.view = v; S.filter = ""; S.limit = 200; S.future = null;
+  $$(".tabbtn").forEach(b => b.setAttribute("aria-current", b.dataset.view === v ? "page" : "false"));
+  if (v === "rooms" || v === "events") { S.year = 0; viewHist(v); } else if (v === "future") viewFuture(); else viewMovement();
+  window.scrollTo(0, 0);
+}
+function openGate(msg){ $("#gate").hidden = false; $("#app").hidden = true; if (msg) $("#gerr").textContent = msg; }
+$("#signout").addEventListener("click", ()=>{ try { sessionStorage.removeItem("bhb_staff_email"); } catch(e){} openGate(); });
+async function boot(){
+  $("#app").hidden = false; $("#views").innerHTML = `<div class="loading">Loading…</div>`;
+  let d;
+  try { d = await call("bootstrap"); } catch(e){ $("#views").innerHTML = `<div class="empty">${esc(e.message)}<br><br><span class="muted">Open this from the Staff Portal so it knows who you are.</span></div>`; return; }
+  S.me = d.me; S.today = d.today; S.boot = d; $("#whoname").textContent = S.me.name; $("#status").innerHTML = statusStrip();
+  const tabs = TABS.filter(t => S.me.tabs.includes(t[0]));
+  $("#tabs").innerHTML = tabs.map(t => `<button class="tabbtn" data-view="${t[0]}">${esc(t[1])}</button>`).join("");
+  $$(".tabbtn").forEach(b => b.addEventListener("click", () => goView(b.dataset.view)));
+  if (!tabs.length) { $("#views").innerHTML = `<div class="empty">You don't have any Deposit Ledger tabs yet.</div>`; return; }
+  goView(tabs[0][0]);
+}
+(function(){ if (staffEmail()) { $("#gate").hidden = true; boot(); } else openGate(); })();
+</script>
+</body>
+</html>

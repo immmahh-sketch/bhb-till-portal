@@ -784,7 +784,7 @@ function viewImports(){
   const st = (k, label) => meta[k] ? `<tr><td>${label}</td><td>${esc(fmtDT(meta[k].latest))}</td><td>${esc(meta[k].from)} to ${esc(meta[k].to)}</td><td class="muted">${esc(meta[k].source)}</td></tr>` : `<tr><td>${label}</td><td colspan="3" class="muted">nothing loaded</td></tr>`;
   $("#views").innerHTML = `<div class="mbar"><h2 style="text-align:left">Imports</h2></div><div id="peLine"></div>
     ${S.me.admin ? `<div class="card"><h3>Add reports</h3>
-      <p class="muted" style="margin:0 0 10px">Drop in as many as you have, in any order, straight from Rezlynx and ResDiary: Actual &amp; Forecast, Event Revenue Forecast, Booking Summary, Meal Plan, Occupancy Report and the End of Day (PeriodEnd) reports, plus the Reservations report and Sales and Marketing query that feed the guest feedback emails (add those two together). Nothing needs renaming or tidying. You see what each one holds before anything is saved.</p>
+      <p class="muted" style="margin:0 0 10px">Drop in as many as you have, in any order, straight from Rezlynx and ResDiary: Actual &amp; Forecast, Event Revenue Forecast, Booking Summary, Meal Plan, Occupancy Report and the End of Day (PeriodEnd) reports, plus the Reservations report and Sales and Marketing query that feed the guest feedback emails (add those two together). The <b>Payment Analysis</b> report (CSV) feeds the Deposit Ledger, and the Reservations report also gives it the stay dates. Nothing needs renaming or tidying. You see what each one holds before anything is saved.</p>
       <div class="drop" id="drop"><p>Drag the files here, or choose them</p><input type="file" id="pick" multiple accept=".csv,.xls,.xlsx"><button class="btn" id="pickBtn">Choose files</button></div>
       <div id="flist" style="margin-top:12px"></div></div>` : ""}
     <div class="cols2"><div class="card"><h3>What is loaded</h3><div class="scrollx"><table class="dt"><thead><tr><th>Report</th><th>Last imported</th><th>Days</th><th>File</th></tr></thead><tbody>
@@ -810,6 +810,7 @@ async function addFiles(list){
 function diffInfo(f){
   if (f.kind === "stay_res" || f.kind === "stay_mail") return f.kind === "stay_res" ? `${f.stay.length} bookings` : `${f.stay.length} email records`;
   if (f.kind === "events") return `${f.days.length} event${f.days.length === 1 ? "" : "s"}`;
+  if (f.kind === "payments") return `${f.pay.length} payments on bookings and events`;
   if (f.kind === "eod") return `${f.days.length} day${f.days.length === 1 ? "" : "s"}, ${f.days.reduce((a, d) => a + d.codes.length, 0)} codes`;
   const cur = S.data.feed[f.kind] || {}; let n = 0, ch = 0, same = 0, out = 0;
   for (const d of f.days) { if (d.day < S.range.from + "-01" || d.day > addMonths(S.range.to, 1) + "-01") { out++; continue; } const c = cur[d.day]; if (!c) n++; else if (JSON.stringify(Object.keys(d.data).map(k => d.data[k])) !== JSON.stringify(Object.keys(d.data).map(k => c[k]))) ch++; else same++; }
@@ -857,8 +858,29 @@ async function importUpsellArrivals(res, mail, out){
     out.push(`Upsell arrivals: <b>${d.kept}</b> confirmed room stays still to come (${d.added} new${d.gone ? `, ${d.gone} taken off` : ""}); ${d.no_email} have no email address.`);
   } catch (e) { out.push(`<span class="muted">Upsell arrivals were not updated: ${esc(e.message)}</span>`); }
 }
+/* The Deposit Ledger app: payments on bookings and events (Payment Analysis), and the stay dates from the Reservations report. Its own call, so the Reservations report feeds it even without the email query. */
+async function callDeposit(action, payload){
+  const r = await fetch(CFG.URL.replace("/forecast-api", "/deposit-api"), { method:"POST", headers:{ "Content-Type":"application/json", Authorization:"Bearer " + CFG.KEY, apikey:CFG.KEY }, body: JSON.stringify({ action, staff_email: staffEmail(), ...(payload || {}) }) });
+  let d = {}; try { d = await r.json(); } catch (e) {}
+  if (!r.ok || d.error) throw new Error(d.error || `Request failed (${r.status})`);
+  return d;
+}
+async function importDepositStays(res, out){
+  try {
+    const r = await callDeposit("stays.import", { bookings: res.stay.map(b => ({ ref:b.full_ref || b.ref, guest:b.guest, room_type:b.room_type, room_no:b.room_id, package:b.package, arrival:b.arrival, departure:b.departure, status:b.status, total:b.total })), filename: res.name });
+    out.push(`Deposit Ledger: <b>${r.rows}</b> room bookings updated with their stay dates.`);
+  } catch (e) { out.push(`<span class="muted">Deposit Ledger stay dates were not updated: ${esc(e.message)}</span>`); }
+}
+async function importPayments(f, out){
+  try {
+    const r = await callDeposit("payments.import", { rows: f.pay, from: f.from, to: f.to, filename: f.name });
+    out.push(`${esc(f.name)}: Deposit Ledger payments for ${esc(r.from)} to ${esc(r.to)} replaced (${r.rows} payments on ${r.rooms} room bookings and ${r.events} events${r.replaced ? `; ${r.replaced} earlier lines were replaced` : ""}).`);
+    S.imp.files = S.imp.files.filter(x => x.id !== f.id); return true;
+  } catch (e) { out.push(`<span class="err">${esc(f.name)}: ${esc(e.message)}</span>`); return false; }
+}
 async function importStays(out){
   const res = S.imp.files.find(f => !f.error && f.kind === "stay_res"), mail = S.imp.files.find(f => !f.error && f.kind === "stay_mail");
+  if (res) await importDepositStays(res, out);
   if (!res && !mail) return false;
   if (!res || !mail) { out.push(`<span class="err">${esc((res || mail).name)}: the guest feedback emails need both the Reservations report and the Sales and Marketing query. Add the other one as well.</span>`); return true; }
   await importPrearrival(res, mail, out);
@@ -874,7 +896,8 @@ async function importStays(out){
 async function runImport(){
   S.imp.busy = true; renderFiles(); const out = []; let bad = false;
   if (await importStays(out)) bad = true;
-  const files = S.imp.files.filter(f => !f.error && f.kind !== "stay_res" && f.kind !== "stay_mail").sort((a, b) => KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind));
+  for (const f of S.imp.files.filter(f => !f.error && f.kind === "payments")) { if (!(await importPayments(f, out))) bad = true; }
+  const files = S.imp.files.filter(f => !f.error && f.kind !== "stay_res" && f.kind !== "stay_mail" && f.kind !== "payments").sort((a, b) => KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind));
   for (const f of files) {
     try {
       if (f.kind === "events") { const r = await call("import.events", { rows:f.days, filename:f.name }); out.push(`${esc(f.name)}: ${r.rows} events saved.`); }

@@ -6,6 +6,7 @@
 //   Meal Plan (xls/xlsx)         -> adults / children / infants on meal plan per night
 //   End of Day (PeriodEnd xls, or the combined xlsx) -> revenue by code for one finished day
 //   Occupancy Report (csv)       -> occupancy per room type per night
+//   Payment Analysis (csv)       -> payments on bookings and events, for the Deposit Ledger app
 // parseFile(XLSX, name, arrayBuffer) -> { kind, label, days:[...], from, to, notes:[] } or { error }
 
 const pad = (n) => String(n).padStart(2, "0");
@@ -183,6 +184,26 @@ function stayEmails(rows) {
   return { kind: "stay_mail", label: "Rezlynx Sales and Marketing query (guest emails, for the guest feedback emails)", days: [], from: null, to: null, stay: emails, notes: [`${emails.length} bookings with email details. Added to the Guest Feedback > Stays list together with the Reservations report.`] };
 }
 
+// ---- Payment Analysis (csv) -> the Deposit Ledger. The report is every payment taken (about 60,000 lines a year, mostly till takings); only the lines that carry a booking (BK...) or
+// event (EVNT...) reference matter, so those are kept and the rest dropped here. The report's whole date range goes with them so a re-upload replaces exactly the days it covers.
+function paymentAnalysis(rows) {
+  const h = rows[0], c = {};
+  for (const k of ["Section", "Timestamp", "GuestName", "BookRef", "Room", "DocID", "PaymentCode", "GrossAmount", "Operator", "Comment"]) c[k] = idx(h, k);
+  const miss = Object.entries(c).filter(([, v]) => v < 0).map(([k]) => k);
+  if (miss.length) return { error: "The Payment Analysis report is missing: " + miss.join(", ") + "." };
+  const pay = []; let from = "", to = "", all = 0;
+  for (const r of rows.slice(1)) {
+    const day = toYmd(r[c.Timestamp]); if (!day) continue;
+    all++; if (!from || day < from) from = day; if (!to || day > to) to = day;
+    const ref = String(r[c.BookRef] || "").trim();
+    if (!/^(BK|EVNT)\d/i.test(ref)) continue;
+    pay.push({ ts: String(r[c.Timestamp]).trim(), guest: String(r[c.GuestName] || "").trim(), ref, room: String(r[c.Room] || "").trim(), code: String(r[c.PaymentCode] || "").trim(), section: String(r[c.Section] || "").trim(), gross: String(r[c.GrossAmount] || "").trim(), comment: String(r[c.Comment] || "").trim(), operator: String(r[c.Operator] || "").trim(), doc: String(r[c.DocID] || "").trim() });
+  }
+  if (!all) return { error: "No payments were found in that Payment Analysis report." };
+  const dep = pay.filter((p) => /^deposit/i.test(p.comment)).length;
+  return { kind: "payments", label: "Payment Analysis (deposits and payments, for the Deposit Ledger)", days: [], from, to, pay, notes: [`${all.toLocaleString("en-GB")} payment lines, ${pay.length} on a booking or event (${dep} are deposits). Replaces the Deposit Ledger's payments for ${from} to ${to}.`] };
+}
+
 // ------------------------------------------------------------------------------------------------ the front door
 export async function parseFile(XLSX, name, buf) {
   const lower = name.toLowerCase();
@@ -195,8 +216,9 @@ export async function parseFile(XLSX, name, buf) {
       if (h.includes("EventRef") && h.includes("Start")) return events(rows);
       if (h.includes("Grouping Type")) return covers(rows, name);
       if (h[0] === "RoomType") return occupancy(rows);
+      if (h.includes("BookRef") && h.includes("GrossAmount") && h.includes("PaymentCode")) return paymentAnalysis(rows);
       if (h.includes("BookRef") && h.includes("Email")) return stayEmails(rows);
-      return { error: "I do not recognise that report. It should be Actual & Forecast, Event Revenue Forecast, the ResDiary Booking Summary or the Occupancy Report." };
+      return { error: "I do not recognise that report. It should be Actual & Forecast, Event Revenue Forecast, the ResDiary Booking Summary, the Occupancy Report or the Payment Analysis." };
     }
     if (!XLSX) throw new Error("The spreadsheet reader has not loaded.");
     const wb = XLSX.read(buf, { type: "array" });
