@@ -99,12 +99,14 @@ function paint(){
   $("#go").textContent = PREVIEW ? "Preview only" : S.busy ? "One moment…" : t >= 1 ? "Pay " + gbp(t) + " by card" : "Choose something";
   d.extras.forEach(e => { const el = document.querySelector('.ex[data-id="' + e.id + '"]'); if (!el) return; const q = S.qty[e.id] || 0; el.classList.toggle("on", q > 0); el.querySelector("output").textContent = q; el.querySelector(".minus").disabled = q < 1; el.querySelector(".plus").disabled = q >= e.max_qty; });
 }
+const MAY_GO = "Upgraded rooms and extra nights can be booked by other guests at any time, so the one you want may not be available by the time we process your upgrade. If that happens after your payment has been taken, your payment will be refunded.";
+const mayGoNote = (hurry) => `<div class="banner" style="margin:14px 0">${hurry ? "<b>Hurry! Rooms and nights can be booked by someone else at any time.</b><br>" : "<b>Please note:</b> "}${esc(MAY_GO)}</div>`;
 function bidBanner(d){
   const b = d.open_bid; if (!b || d.upgraded) return "";
-  if (b.status === "review") return `<div class="done" style="margin:16px 0;text-align:left;border-top-color:var(--gold)"><b>Your offer of ${gbp(b.bid)} for ${esc(b.item)} is with our team.</b><br>We will email you as soon as we have looked at it. You are welcome to put in a different offer below.</div>`;
+  if (b.status === "review") return `<div class="done" style="margin:16px 0;text-align:left;border-top-color:var(--gold)"><b>Your offer of ${gbp(b.bid)} for ${esc(b.item)} is with our team.</b><br>We will email you as soon as we have looked at it. You are welcome to put in a different offer below.${mayGoNote(false)}</div>`;
   const amt = b.status === "countered" ? b.counter : b.bid;
-  return `<div class="done" id="bidbox" style="margin:16px 0;text-align:left"><b>${b.status === "countered" ? `We would love to say yes to ${esc(b.item)} for ${gbp(amt)}.` : `Good news! Your offer of ${gbp(amt)} for ${esc(b.item)} has been accepted.`}</b><br>${b.status === "countered" ? "That is very close to your offer. You can accept it here, or put in a different offer below." : "We are keeping it for you. Pay securely by card to confirm it."}${b.expires_at ? `<br><span style="font-size:13px;color:var(--sage-70)">Kept for you until ${esc(new Date(b.expires_at).toLocaleString("en-GB", { weekday:"long", day:"numeric", month:"long", hour:"2-digit", minute:"2-digit" }))}.</span>` : ""}
-    <div style="margin-top:12px"><button class="go" id="paybid" ${PREVIEW ? "disabled" : ""}>${PREVIEW ? "Preview only" : "Pay " + gbp(amt) + " and confirm"}</button></div><div id="biderr"></div></div>`;
+  return `<div class="done" id="bidbox" style="margin:16px 0;text-align:left"><b>${b.status === "countered" ? `We would love to say yes to ${esc(b.item)} for ${gbp(amt)}.` : `Good news! Your offer of ${gbp(amt)} for ${esc(b.item)} has been accepted.`}</b><br>${b.status === "countered" ? "That is very close to your offer. You can accept it here, or put in a different offer below." : "Pay securely by card to confirm it."}${b.expires_at ? `<br><span style="font-size:13px;color:var(--sage-70)">This offer stays open until ${esc(new Date(b.expires_at).toLocaleString("en-GB", { weekday:"long", day:"numeric", month:"long", hour:"2-digit", minute:"2-digit" }))}.</span>` : ""}
+    ${mayGoNote(false)}<div style="margin-top:12px"><button class="go" id="paybid" ${PREVIEW ? "disabled" : ""}>${PREVIEW ? "Preview only" : "Pay " + gbp(amt) + " and confirm"}</button></div><div id="biderr"></div></div>`;
 }
 function render(){
   const d = S.d, stayLine = `<div class="stay">Your stay: <b>${esc(d.arrival_day)}</b> to <b>${esc(d.departure_day)}</b> (${d.nights} night${d.nights === 1 ? "" : "s"}) in a <b>${esc(d.room)}</b><br><span style="color:var(--sage-70);font-size:13px">Booking ${esc(d.ref)}</span></div>`;
@@ -113,6 +115,7 @@ function render(){
   h += stayLine + bidBanner(d);
   if (d.upgraded) h += `<div class="done" style="margin-top:16px"><div class="tick">&#10003;</div><h2 style="margin-top:0">You are already upgraded</h2><p>Thank you, your room upgrade is booked and we cannot wait to welcome you.</p></div>`;
   if (d.unavailable) h += `<div class="bad">We cannot check which rooms are free just now. Please try again in a few minutes, or email <a href="mailto:stay@blackhorsebeamish.co.uk">stay@blackhorsebeamish.co.uk</a>.</div>`;
+  if ((d.options.length || d.night) && !d.upgraded) h += mayGoNote(true);
   if (d.options.length) {
     h += `<h2>${esc(d.upgrades_heading || "Which room would you like?")}</h2><p class="lead">${esc(d.upgrades_intro || "")}</p>`;
     h += d.options.map(o => `<div class="opt" data-id="${esc(o.id)}" style="padding-left:18px;cursor:default"><div class="tag">Name your own price</div><div class="name">${esc(o.title)}</div>${o.blurb ? `<div class="blurb">${esc(o.blurb)}</div>` : ""}<div class="was">Usual price for the extra over your ${o.nights === 1 ? "night" : o.nights + " nights"}</div><div class="price">${gbp(o.price)}</div>${o.nights > 1 ? `<div class="per">About ${gbp(o.per_night)} a night</div>` : ""}
