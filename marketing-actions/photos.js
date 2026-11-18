@@ -27,6 +27,13 @@
 .pl .tile:hover .cap,.pl .tile:focus-visible .cap{opacity:1}
 .pl .note{background:var(--attention-bg,#F7F0E4); border-radius:8px; padding:10px 14px; margin:0 0 12px; font-size:14px}
 .pl .plprog{height:8px; background:var(--mist,#e7e7e7); border-radius:4px; overflow:hidden; margin:8px 0 10px} .pl .plprog i{display:block; height:100%; background:var(--sage,#4D604F); transition:width .3s}
+.pl .tile .plchk{position:absolute; top:6px; left:6px; width:24px; height:24px; border-radius:6px; border:2px solid #fff; background:rgba(0,0,0,.35); z-index:2; opacity:0; transition:opacity .12s; display:flex; align-items:center; justify-content:center}
+.pl .tile:hover .plchk,.pl .tile:focus-visible .plchk,.pl .selecting .tile .plchk{opacity:1}
+@media (hover:none){ .pl .tile .plchk{opacity:1} }
+.pl .tile.on .plchk{background:var(--sage,#4D604F); opacity:1} .pl .tile.on .plchk::after{content:'✓'; color:#fff; font-size:15px; line-height:1}
+.pl .tile.on img{outline:3px solid var(--sage,#4D604F); outline-offset:-3px; opacity:.85}
+.pl .plsel{position:sticky; top:0; z-index:5; display:flex; gap:8px; align-items:center; flex-wrap:wrap; background:var(--white,#fff); border:1px solid var(--sage,#4D604F); border-radius:10px; padding:8px 12px; margin:0 0 10px; box-shadow:var(--shadow)}
+.pl .plsel b{margin-right:6px}
 .pl .more{text-align:center; margin:18px 0}
 .pl .drop{border:2px dashed var(--sage-70,#7B887C); border-radius:10px; padding:26px 16px; text-align:center; color:var(--sage-70,#7B887C); margin:0 0 14px; background:var(--white,#fff)}
 .pl .drop.over{background:var(--sage-10,#EDEFED); border-color:var(--sage,#4D604F); color:var(--sage,#4D604F)}
@@ -74,7 +81,7 @@
 
   function mount(el, ctx) {
     if (!document.getElementById('pl-css')) { const s = document.createElement('style'); s.id = 'pl-css'; s.textContent = CSS; document.head.appendChild(s); }
-    const st = { dead: false, boot: null, photos: [], total: 0, q: '', folder: '', sort: 'new', shelf: false, scan: null, untagged: false, loading: false, seq: 0, lb: null, uploads: [], showUp: false, upFolder: 'Uploads' };
+    const st = { dead: false, boot: null, photos: [], total: 0, q: '', folder: '', sort: 'new', shelf: false, scan: null, sel: new Set(), selAll: false, lastSel: -1, bulkBusy: false, untagged: false, loading: false, seq: 0, lb: null, uploads: [], showUp: false, upFolder: 'Uploads' };
     el.innerHTML = `<div class="pl"><div class="loading">Loading the library…</div></div>`;
     let lbEl = null, keyFn = null, searchTimer = null;
 
@@ -88,7 +95,7 @@
     }
     async function load(reset) {
       const seq = ++st.seq; st.loading = true;
-      if (reset) { st.photos = []; }
+      if (reset) { st.photos = []; st.sel.clear(); st.selAll = false; st.lastSel = -1; }
       try {
         const r = await post('list', { q: st.q, folder: st.folder, sort: st.sort, shelf: st.shelf ? 'only' : 'main', untagged: st.untagged, offset: reset ? 0 : st.photos.length });
         if (st.dead || seq !== st.seq) return;
@@ -143,11 +150,63 @@
       if (!st.photos.length && st.loading) { g.innerHTML = `<div class="loading">Searching…</div>`; return; }
       if (!st.photos.length) { g.innerHTML = `<div class="empty">${st.shelf ? 'Nothing here. Pictures put in "Unlikely to be used again" show up in this list.' : st.boot.total ? 'No pictures match that. Try fewer or simpler words.' : 'No pictures yet. Press Add pictures to put the first ones in.'}</div>`; return; }
       g.innerHTML = `<div class="count">${st.total.toLocaleString('en-GB')} ${st.total === 1 ? 'picture' : 'pictures'}${st.q || st.folder ? ' found' : ''}</div>
-        <div class="grid">${st.photos.map((p, i) => `<button class="tile" data-i="${i}" title="${esc(p.name)}"><img loading="lazy" decoding="async" src="${esc(p.thumb || '')}" alt="${esc(p.caption || p.name)}"><span class="cap">${esc(p.caption || p.name)}</span></button>`).join('')}</div>
+        <div id="plSelBar">${selBar()}</div>
+        <div class="grid">${st.photos.map((p, i) => `<button class="tile${st.sel.has(p.id) ? ' on' : ''}" data-i="${i}" title="${esc(p.name)}"><span class="plchk" data-chk="${i}" role="checkbox" aria-checked="${st.sel.has(p.id)}" aria-label="Select ${esc(p.name)}"></span><img loading="lazy" decoding="async" src="${esc(p.thumb || '')}" alt="${esc(p.caption || p.name)}"><span class="cap">${esc(p.caption || p.name)}</span></button>`).join('')}</div>
         ${st.photos.length < st.total ? `<div class="more"><button class="btn ghost" id="plMore">${st.loading ? 'Loading…' : 'Show more'}</button></div>` : ''}`;
-      g.querySelectorAll('.tile').forEach(b => b.onclick = () => openLb(+b.dataset.i));
+      g.querySelectorAll('.tile').forEach(b => b.onclick = e => {
+        const i = +b.dataset.i;
+        if (e.target.closest('[data-chk]') || st.sel.size) { e.preventDefault(); toggleSel(i, e.shiftKey); } else openLb(i);
+      });
       const m = g.querySelector('#plMore'); if (m) m.onclick = () => { if (!st.loading) { m.textContent = 'Loading…'; load(false); } };
       g.querySelectorAll('img').forEach(im => im.onerror = () => { im.onerror = null; im.style.opacity = '.25'; });
+    }
+
+    // ------------------------------------------------------------ selecting several pictures and acting on them together
+    function selBar() {
+      const n = st.selAll ? st.total : st.sel.size; if (!n) return '';
+      const loaded = st.photos.length, canAll = !st.selAll && st.total > loaded;
+      return `<div class="plsel"><b>${n.toLocaleString('en-GB')} selected</b>
+        <button class="btn ghost small" id="plSelLoaded">Select all ${loaded.toLocaleString('en-GB')} shown</button>
+        ${canAll ? `<button class="btn ghost small" id="plSelAll">Select all ${st.total.toLocaleString('en-GB')} matching</button>` : ''}
+        <button class="btn ghost small" id="plSelShelve" ${st.bulkBusy ? 'disabled' : ''}>${st.shelf ? 'Bring back to the library' : 'Unlikely to be used again'}</button>
+        <button class="btn danger small" id="plSelDel" ${st.bulkBusy ? 'disabled' : ''}>Delete</button>
+        <button class="btn ghost small" id="plSelClear">Clear</button></div>`;
+    }
+    function paintSel() {
+      const b = el.querySelector('#plSelBar'); if (!b) return; b.innerHTML = selBar();
+      el.querySelectorAll('.tile').forEach((t, i) => { const p = st.photos[i]; const on = st.selAll || (p && st.sel.has(p.id)); t.classList.toggle('on', !!on); const c = t.querySelector('[data-chk]'); if (c) c.setAttribute('aria-checked', String(!!on)); });
+      el.querySelector('#plGrid').classList.toggle('selecting', !!(st.selAll || st.sel.size));
+      const q = s => b.querySelector(s);
+      const a = q('#plSelLoaded'); if (a) a.onclick = () => { st.selAll = false; st.photos.forEach(p => st.sel.add(p.id)); paintSel(); };
+      const m = q('#plSelAll'); if (m) m.onclick = () => { st.selAll = true; st.photos.forEach(p => st.sel.add(p.id)); paintSel(); };
+      const c = q('#plSelClear'); if (c) c.onclick = () => { st.sel.clear(); st.selAll = false; paintSel(); };
+      const sh = q('#plSelShelve'); if (sh) sh.onclick = () => bulk(st.shelf ? 'unshelve' : 'shelve');
+      const d = q('#plSelDel'); if (d) d.onclick = () => {
+        const n = st.selAll ? st.total : st.sel.size;
+        if (!d.dataset.sure) { d.dataset.sure = '1'; d.textContent = 'Delete ' + n.toLocaleString('en-GB') + ' pictures? Tap again'; setTimeout(() => { if (d.isConnected) { delete d.dataset.sure; d.textContent = 'Delete'; } }, 5000); return; }
+        bulk('delete');
+      };
+    }
+    function toggleSel(i, range) {
+      const p = st.photos[i]; if (!p) return;
+      if (st.selAll) { st.selAll = false; st.sel.clear(); }                     // changing the pick after "select all matching" starts a normal pick again
+      if (range && st.lastSel >= 0) { const a = Math.min(st.lastSel, i), b = Math.max(st.lastSel, i); for (let k = a; k <= b; k++) st.sel.add(st.photos[k].id); }
+      else if (st.sel.has(p.id)) st.sel.delete(p.id); else st.sel.add(p.id);
+      st.lastSel = i; paintSel();
+    }
+    async function bulk(op) {
+      if (st.bulkBusy) return; st.bulkBusy = true; paintSel();
+      const all = st.selAll, n = all ? st.total : st.sel.size;
+      try {
+        const body = all ? { op, all_matching: true, q: st.q, folder: st.folder, shelf: st.shelf ? 'only' : 'main', untagged: st.untagged } : { op, ids: [...st.sel] };
+        let done = 0, skipped = 0;
+        if (all || st.sel.size <= 500) { const r = await post('photos.bulk', body); done = r.done; skipped = r.skipped; }
+        else { const ids = [...st.sel]; for (let i = 0; i < ids.length; i += 500) { const r = await post('photos.bulk', { op, ids: ids.slice(i, i + 500) }); done += r.done; skipped += r.skipped; } }
+        ctx.toast(op === 'delete' ? done + (done === 1 ? ' picture deleted.' : ' pictures deleted.') + (skipped ? ' ' + skipped + ' not yours to delete were left.' : '')
+          : op === 'shelve' ? done + ' moved to Unlikely to be used again.' : done + ' brought back to the library.');
+      } catch (e) { ctx.toast(e.message, true); }
+      st.bulkBusy = false; st.sel.clear(); st.selAll = false; st.lastSel = -1;
+      await refreshFacets(); if (st.dead) return; draw(); await load(true);
     }
 
     // ------------------------------------------------------------ re-scan: Claude looks again at the main library and shelves what is unlikely to be used again
