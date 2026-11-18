@@ -1,7 +1,14 @@
-/* HOD Actions > Project Timeline.
+/* Project Timeline: HOD Actions > Project Timeline, and the same page as the Marketing Actions "Project Timeline" tab (one file, one set of data).
    A project has a launch date; every task is dated by counting back from it. Shown as a Gantt chart or as a countdown list,
-   filterable by person. Uses the page's own S, call(), esc(), toast() and friends (index.html loads this after them). */
+   filterable by person.
+   window.ProjectTimeline(host) returns { open, stop }. host = { S, call, esc, toast, $, fmtDT, active(), marketing }:
+   S.me = { email, name, isAdmin }; call(action, payload) talks to hod-actions-api; active() says whether the page is still on this view; marketing = true inside Marketing Actions.
+   HOD Actions loads this after its own script, so the last line wires it to the page's own S, call(), esc(), toast() and friends. */
 "use strict";
+window.ProjectTimeline = function(host){
+const { S, call, esc, toast, $, fmtDT } = host;
+const isActive = host.active || (() => S.view === "timeline");
+const IN_MARKETING = host.marketing === true;
 const TL = { loaded:false, projects:[], templates:[], roles:{}, people:[], today:"", person:"all", project:"all", mode:"gantt", zoom:"weeks", status:"all", finished:false, collapsed:{}, sure:null, np:null };
 try { Object.assign(TL, JSON.parse(localStorage.getItem("hod_tl_prefs") || "{}")); } catch(e){}
 const tlSave = () => { try { localStorage.setItem("hod_tl_prefs", JSON.stringify({ mode:TL.mode, zoom:TL.zoom, finished:TL.finished })); } catch(e){} };
@@ -80,11 +87,11 @@ const peopleOpts = (sel, blank) => opt("", blank || "Nobody yet", sel) + TL.peop
 async function viewTimeline(){
   $("#views").innerHTML = `<div class="loading">Loading…</div>`;
   try { await tlLoad(); } catch(e){ $("#views").innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
-  if (S.view !== "timeline") return;
+  if (!isActive()) return;
   renderTL(); tlAfter();
 }
 function renderTL(){
-  if (S.view !== "timeline") return;
+  if (!isActive()) return;
   const vs = visible();
   // numbers for the person chosen (ignoring the status filter)
   const pool = TL.projects.filter(p => TL.project === "all" || p.id === TL.project).flatMap(p => p.tasks).filter(t => {
@@ -181,15 +188,18 @@ function bucketOf(due, launch){
 function listHtml(p){
   const pc = pPct(p), open = p.tasks.filter(t => t.percent < 100).length, lateN = p.tasks.filter(tLate).length;
   const dl = dDiff(TL.today, p.launch_date);
-  const sub = dl > 0 ? `Launch ${dLong(p.launch_date)} · in ${plural(dl, "day")}` : dl === 0 ? `Launches today · ${dLong(p.launch_date)}` : `Launched ${dLong(p.launch_date)}`;
+  const sub = (dl > 0 ? `Launch ${dLong(p.launch_date)} · in ${plural(dl, "day")}` : dl === 0 ? `Launches today · ${dLong(p.launch_date)}` : `Launched ${dLong(p.launch_date)}`)
+    + (p.in_marketing && !IN_MARKETING ? " · in Marketing Actions" : "");
   const groups = new Map();
   for (const t of p.vis) { const [k, label] = bucketOf(t.due_date, p.launch_date); (groups.get(k) || groups.set(k, { label, items:[] }).get(k)).items.push(t); }
   const body = Array.from(groups.keys()).sort((a, b) => a - b).map(k => { const g = groups.get(k); return `<div class="tlgrp">${esc(g.label)}</div>${g.items.map(t => taskRow(t, p)).join("")}`; }).join("")
     || `<div class="tl-empty" style="padding:20px">No tasks match.</div>`;
   return `<section class="card tlp"><div class="tlp-head"><div><h3>${esc(p.name)}</h3><div class="sub">${esc(sub)}${p.owner_name ? " · owner " + esc(p.owner_name) : ""}</div></div>
       <div class="tlp-prog" title="${pc}% complete"><i style="width:${pc}%"></i></div><div class="sub"><b>${pc}%</b> · ${open} to do${lateN ? ` · <span style="color:var(--alert);font-weight:700">${lateN} overdue</span>` : ""}</div>
-      <div class="tlp-tools">${p.can_manage ? `<button class="btn small" data-tladd="${esc(p.id)}">Add task</button><button class="btn ghost small" data-tlproj="${esc(p.id)}">Edit project</button>` : ""}</div></div>${body}</section>`;
+      <div class="tlp-tools">${p.can_manage ? `<button class="btn small" data-tladd="${esc(p.id)}">Add task</button><button class="btn ghost small" data-tlproj="${esc(p.id)}">Edit project</button>` : ""}${shareBtn(p)}</div></div>${body}</section>`;
 }
+/* "Add to Marketing Actions": shares the project with the Marketing Actions tab (the same rows, read and write there). Only the GM / the project's owner see it, and not inside Marketing Actions itself. */
+const shareBtn = p => IN_MARKETING || !p.is_manager ? "" : `<button class="btn ghost small${p.in_marketing ? " on" : ""}" data-tlshare="${esc(p.id)}" data-on="${p.in_marketing ? 1 : 0}" title="${p.in_marketing ? "The Marketing Actions team can see and edit this project. Click to stop sharing it." : "Share this project with the Marketing Actions Project Timeline tab"}">${p.in_marketing ? "In Marketing Actions &#10003;" : "Add to Marketing Actions"}</button>`;
 function taskRow(t, p){
   const late = tLate(t), done = t.percent >= 100;
   const dueTxt = late ? `<span class="over">Overdue · was due ${esc(dShort(t.due_date))}</span>` : `Due ${esc(dLong(t.due_date))}`;
@@ -271,7 +281,8 @@ function openProject(id){
       <div class="field"><label for="pm_owner">Owner</label><select id="pm_owner">${peopleOpts(p.owner_email, "Nobody")}</select></div></div>
     <label class="tl-tick" style="margin-bottom:10px"><input type="checkbox" id="pm_shift" checked> If the launch date moves, move every task by the same number of days</label>
     <div class="field"><label for="pm_notes">Notes</label><textarea id="pm_notes" maxlength="2000">${esc(p.notes || "")}</textarea></div>
-    <div class="tlm-foot"><button class="btn" data-tlsaveproj="${esc(p.id)}">Save</button><button class="btn ghost" data-tlclose>Cancel</button><span class="spacer"></span><button class="btn danger small" data-tlrmproj="${esc(p.id)}">Delete project</button></div>`);
+    ${!IN_MARKETING && p.is_manager ? `<div class="field"><label>Marketing Actions</label>${shareBtn(p)}<div class="note" style="margin:6px 0 0">${p.in_marketing ? "The Marketing Actions team can see and edit this project in their Project Timeline tab." : "Puts this project in the Marketing Actions Project Timeline tab so the marketing team can see and edit it. It is the same project, not a copy."}</div></div>` : ""}
+    <div class="tlm-foot"><button class="btn" data-tlsaveproj="${esc(p.id)}">Save</button><button class="btn ghost" data-tlclose>Cancel</button><span class="spacer"></span>${p.is_manager ? `<button class="btn danger small" data-tlrmproj="${esc(p.id)}">Delete project</button>` : ""}</div>`);
 }
 async function saveProject(btn){
   btn.disabled = true;
@@ -397,10 +408,18 @@ document.addEventListener("input", e => {
   if (e.target.id === "np_name" && TL.np) { TL.np.name = e.target.value; TL.np.touched = true; }
 });
 document.addEventListener("click", async e => {
-  const t = e.target.closest("[data-tl],[data-tlmode],[data-tlzoom],[data-tltoggle],[data-tltask],[data-tlproj],[data-tladd],[data-tlcheck],[data-tlclose],[data-tlpct],[data-tlsavetask],[data-tlrmtask],[data-tlsaveproj],[data-tlrmproj],[data-tlpick],[data-tlcreate],[data-tltedit],[data-tltdup],[data-tladdrow],[data-tlrowup],[data-tlrowdn],[data-tlrowrm],[data-tlsavetpl],[data-tlrmtpl]");
+  const t = e.target.closest("[data-tl],[data-tlmode],[data-tlzoom],[data-tltoggle],[data-tltask],[data-tlproj],[data-tladd],[data-tlcheck],[data-tlclose],[data-tlpct],[data-tlsavetask],[data-tlrmtask],[data-tlsaveproj],[data-tlrmproj],[data-tlpick],[data-tlcreate],[data-tltedit],[data-tltdup],[data-tladdrow],[data-tlrowup],[data-tlrowdn],[data-tlrowrm],[data-tlsavetpl],[data-tlrmtpl],[data-tlshare]");
   if (!t) return;
   const d = t.dataset;
   if (d.tlclose !== undefined) return closeModal();
+  if (d.tlshare) {
+    const on = d.on === "1", key = "share" + d.tlshare;
+    if (on && TL.sure !== key) { TL.sure = key; t.textContent = "Tap again to stop sharing"; t.classList.add("sure"); clearTimeout(TL._st); TL._st = setTimeout(() => { TL.sure = null; if (t.isConnected) { t.innerHTML = "In Marketing Actions &#10003;"; t.classList.remove("sure"); } }, 4000); return; }
+    TL.sure = null; t.disabled = true;
+    try { await call("tl.project.share", { id: d.tlshare, share: !on }); closeModal(); toast(on ? "Taken out of Marketing Actions." : "Added to Marketing Actions. The marketing team can now see and edit it."); await tlRefresh(); }
+    catch(err){ toast(err.message, true); t.disabled = false; }
+    return;
+  }
   if (d.tlmode) { TL.mode = d.tlmode; tlSave(); return renderTL(), tlAfter(); }
   if (d.tlzoom) { TL.zoom = d.tlzoom; tlSave(); return renderTL(), tlAfter(); }
   if (d.tl === "newproject") return openNewProject();
@@ -440,3 +459,7 @@ document.addEventListener("click", async e => {
     try { await call("tl.template.remove", { key: d.tlrmtpl }); toast("Template deleted."); await tlRefresh(); openTemplates(); } catch(err){ toast(err.message, true); }
   }
 });
+return { open: viewTimeline, stop: closeModal };
+};
+// HOD Actions: wire it to the page's own globals now. Marketing Actions loads this before its own script runs, so it calls window.ProjectTimeline itself.
+if (typeof S !== "undefined" && typeof call === "function") window.viewTimeline = window.ProjectTimeline({ S, call, esc, toast, $, fmtDT }).open;
