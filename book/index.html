@@ -100,6 +100,7 @@ const KEY = "sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU";
 const Q = new URLSearchParams(location.search);
 const PAID = Q.get("paid") || "";
 const STAFF = Q.get("staff") || "";      // a staff ticket link: the event shows its staff price (the server checks the code)
+let VCODE = (Q.get("voucher") || "").trim();      // a voucher code from the link, or typed in the voucher box (the server checks it)
 const EMBED = Q.get("embed") === "1";      // shown inside the website: no header or footer, and it tells the page around it how tall it is
 if (EMBED) document.body.classList.add("embed");
 const tellHeight = () => { if (EMBED && parent !== window) parent.postMessage({ bhbHeight: document.documentElement.scrollHeight }, "*"); };
@@ -145,12 +146,25 @@ function picker(){
     '<label class="f" for="ev">Event</label><select id="ev"><option value="">Choose an event...</option>' + I.events.map(e => '<option value="' + esc(e.date_id) + '">' + esc(e.title) + ' - ' + esc(e.short) + (e.state !== "open" ? " (not available)" : "") + '</option>').join("") + '</select></div>' +
     '<div id="detail"></div>';
 }
+function voucherBox(e){
+  return '<div class="note" id="vbox"><b>Have a voucher code?</b><div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"><input type="text" id="vcode" maxlength="40" autocapitalize="characters" autocomplete="off" placeholder="Type your code" style="flex:1 1 160px;min-width:0" value="' + esc(VCODE) + '"><button type="button" class="btn ghost" id="vapply" style="padding:10px 20px">Apply</button></div>' +
+    (e.voucher_bad ? '<div class="err" style="margin:10px 0 0">That voucher code is not valid. Please check it and try again.</div>' : "") + '</div>';
+}
+async function applyVoucher(){
+  const code = val("vcode"), id = EV && EV.date_id; if (!code) return;
+  const b = $("#vapply"); if (b) { b.disabled = true; b.textContent = "Checking..."; }
+  try { VCODE = code; I = await call("web.info", { staff_code: STAFF, voucher_code: VCODE }); pickEvent(id); }
+  catch (e) { if (b) { b.disabled = false; b.textContent = "Apply"; } const box = $("#vbox"); if (box) box.insertAdjacentHTML("beforeend", '<div class="err" style="margin:10px 0 0">' + esc(e.message) + '</div>'); }
+}
+document.addEventListener("click", e => { if (e.target && e.target.id === "vapply") applyVoucher(); });
+document.addEventListener("keydown", e => { if (e.target && e.target.id === "vcode" && e.key === "Enter") { e.preventDefault(); applyVoucher(); } });
 function infoCard(e){
   const p = e.prices;
   const price = e.kind === "day" ? gbp(p.adult) + ' per adult, ' + gbp(p.child) + ' per child (under 12). Under 3s are free when eating from adults\' plates, or ' + gbp(p.infant) + ' for their own main course.' : gbp(p.adult) + ' per ticket.';
   return '<div class="card"><h2 class="c">' + esc(e.title) + '</h2>' + ORN + '<p class="tag c">' + esc(e.tagline) + '</p>' + pics(e) + e.info.map(t => '<p style="margin:0 0 10px">' + esc(t) + '</p>').join("") +
     (e.includes.length ? '<p style="margin:14px 0 2px"><b>' + (e.kind === "day" ? "Included" : "Your ticket includes") + '</b></p><ul class="inc">' + e.includes.map(t => '<li>' + esc(t) + '</li>').join("") + '</ul>' : "") +
-    (e.staff ? '<div class="note"><b>Staff price: ' + gbp(e.staff.price) + ' per ticket</b> (usual price ' + gbp(e.staff.usual) + '). You pay in full when you book.</div><div class="note"><b>Staff ticket terms</b><ul class="inc" style="margin:6px 0 0">' + e.staff.terms.map(t => '<li>' + esc(t) + '</li>').join("") + '</ul></div>' : '<div class="note"><b>Price:</b> ' + esc(price) + ' You pay in full when you book.</div>') +
+    (e.staff ? '<div class="note"><b>Staff price: ' + gbp(e.staff.price) + ' per ticket</b> (usual price ' + gbp(e.staff.usual) + '). You pay in full when you book.</div><div class="note"><b>Staff ticket terms</b><ul class="inc" style="margin:6px 0 0">' + e.staff.terms.map(t => '<li>' + esc(t) + '</li>').join("") + '</ul></div>' : e.voucher ? '<div class="note"><b>Voucher applied: ' + gbp(e.voucher.price) + ' per ticket</b> (usual price ' + gbp(e.voucher.usual) + ')' + (e.voucher.drink ? ', and every ticket includes a free drink: ' + esc(e.voucher.drinks.join(", ").replace(/, ([^,]*)$/, " or $1").toLowerCase()) + '. You choose it on the pre-order form we email you' : '') + '. You pay in full when you book.</div>' + (e.voucher.terms.length ? '<div class="note"><b>Voucher terms</b><ul class="inc" style="margin:6px 0 0">' + e.voucher.terms.map(t => '<li>' + esc(t) + '</li>').join("") + '</ul></div>' : "")
+      : '<div class="note"><b>Price:</b> ' + esc(price) + ' You pay in full when you book.</div>' + (e.has_voucher ? voucherBox(e) : "")) +
     (e.few ? '<div class="warn"><b>Only ' + e.few + ' place' + (e.few === 1 ? "" : "s") + ' left.</b></div>' : "") + '</div>';
 }
 function closedCard(e){
@@ -251,7 +265,7 @@ async function submit(ev){
   const btn = $("#go"); BUSY = true; btn.disabled = true; btn.textContent = "One moment...";
   try {
     const c = counts();
-    const r = await call("web.start", { date_id: EV.date_id, name: val("name"), email: val("email"), phone: val("phone"), adults: c.adults, children: c.children, infants: c.infants, slot: val("slot"), access: accessNow(), notes: val("notes"), website: val("website"), staff_code: STAFF, consent: true });
+    const r = await call("web.start", { date_id: EV.date_id, name: val("name"), email: val("email"), phone: val("phone"), adults: c.adults, children: c.children, infants: c.infants, slot: val("slot"), access: accessNow(), notes: val("notes"), website: val("website"), staff_code: STAFF, voucher_code: EV.voucher ? VCODE : "", consent: true });
     if (!r.url) { BUSY = false; return; }
     $("#app").innerHTML = '<div class="card" style="text-align:center"><h2>Taking you to the payment page</h2><p class="lead">' + (EV.kind === "day" ? 'Your table is held for ' + I.hold_minutes + ' minutes. ' : '') + 'If nothing happens, press the button.</p><p><a class="btn" id="paygo" href="' + esc(r.url) + '" target="_top">Pay ' + gbp(r.amount) + ' now</a></p></div>';
     window.scrollTo({ top:0 }); if (EMBED && parent !== window) parent.postMessage({ bhbTop:true, bhbPay:r.url }, "*"); else location.href = r.url;
@@ -268,7 +282,7 @@ async function paidView(){
     $("#app").innerHTML = '<div class="card"><h2>Thank you, ' + esc(d.first) + '</h2><div class="ok">Your payment has been received and your booking is confirmed.</div>' + sum +
       (d.steps ? '<div class="warn"><b>Please note: your table is in the George Ridley Room, which has steps.</b> If anyone in your party finds steps difficult, phone us on ' + esc(d.contact.phone) + ' and we will move you.</div>' : "") +
       '<p class="lead">We have emailed your confirmation to <b>' + esc(d.email) + '</b>. Please look in your junk folder if you cannot see it.</p>' +
-      (d.form_url ? '<div class="note"><b>One more thing: choose your meals.</b> The email has a link to your pre-order form, or you can go straight there now.</div><p><a class="btn" href="' + esc(d.form_url) + '" target="_top">Choose your meals</a></p>' : "") + '</div>';
+      (d.form_url ? '<div class="note"><b>One more thing: choose your meals' + (d.voucher ? ' and your free drinks' : '') + '.</b> The email has a link to your pre-order form, or you can go straight there now.</div><p><a class="btn" href="' + esc(d.form_url) + '" target="_top">Choose your meals' + (d.voucher ? ' and drinks' : '') + '</a></p>' : "") + '</div>';
   } else if (d.status === "pending" && d.pay_url) {
     $("#app").innerHTML = '<div class="card"><h2>Your payment has not gone through yet</h2><p class="lead">' + esc(d.event) + ', ' + esc(d.party) + (d.arrival ? ', arriving ' + esc(d.arrival) : "") + ', ' + gbp(d.amount) + '.</p><p class="lead">We are still holding your booking for a few minutes. Press the button to try the payment again.</p><p><a class="btn" href="' + esc(d.pay_url) + '" target="_top">Pay ' + gbp(d.amount) + '</a></p><p class="lead">If your card is declined, phone us on ' + esc(d.contact.phone) + ' and we will help.</p></div>';
   } else {
@@ -278,7 +292,7 @@ async function paidView(){
 (async function(){
   try {
     if (PAID) { await paidView(); return; }
-    I = await call("web.info", { staff_code: STAFF });
+    I = await call("web.info", { staff_code: STAFF, voucher_code: VCODE });
     if (!I.events.length) { $("#app").innerHTML = '<div class="card"><h2>Bookings are closed at the moment</h2><p class="lead">Please phone us on ' + esc(I.contact.phone) + ' or email ' + esc(I.contact.email) + '.</p></div>'; return; }
     $("#app").innerHTML = picker();
     $("#ev").addEventListener("change", e => pickEvent(e.target.value));

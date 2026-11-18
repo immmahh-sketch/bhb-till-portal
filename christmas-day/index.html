@@ -204,9 +204,9 @@ async function load(){
     document.title = EV().title + " pre-order | Black Horse Beamish"; const sub = document.querySelector(".top .sub"); if (sub) sub.textContent = EV().title + " pre-order";
     const have = {}; (d.answers.guests || []).forEach(g => { have[g.seq] = g; });
     S.guests = []; let seq = 0;
-    for (let i = 0; i < d.booking.adults; i++) { seq++; const g = have[seq] || {}; S.guests.push({ seq, kind:"adult", n:i + 1, name:g.name || "", starter:g.starter || "", main:g.main || "", dessert:g.dessert || "", dietary:g.dietary || "" }); }
-    for (let i = 0; i < d.booking.children; i++) { seq++; const g = have[seq] || {}; S.guests.push({ seq, kind:"child", n:i + 1, name:g.name || "", starter:g.starter || "", main:g.main || "", dessert:g.dessert || "", dietary:g.dietary || "" }); }
-    for (let i = 0; i < (d.booking.infants || 0); i++) { seq++; const g = have[seq] || {}; S.guests.push({ seq, kind:"infant", n:i + 1, name:g.name || "", starter:"", main:g.main || "", dessert:"", dietary:g.dietary || "" }); }
+    for (let i = 0; i < d.booking.adults; i++) { seq++; const g = have[seq] || {}; S.guests.push({ seq, kind:"adult", n:i + 1, name:g.name || "", starter:g.starter || "", main:g.main || "", dessert:g.dessert || "", dietary:g.dietary || "", comp:g.comp_drink || "" }); }
+    for (let i = 0; i < d.booking.children; i++) { seq++; const g = have[seq] || {}; S.guests.push({ seq, kind:"child", n:i + 1, name:g.name || "", starter:g.starter || "", main:g.main || "", dessert:g.dessert || "", dietary:g.dietary || "", comp:g.comp_drink || "" }); }
+    for (let i = 0; i < (d.booking.infants || 0); i++) { seq++; const g = have[seq] || {}; S.guests.push({ seq, kind:"infant", n:i + 1, name:g.name || "", starter:"", main:g.main || "", dessert:"", dietary:g.dietary || "", comp:g.comp_drink || "" }); }
     S.time = d.answers.preferred_time || "none"; S.pref = S.time === "none" ? "any" : "pref"; S.ack = S.time && S.time !== "none" ? S.time : ""; S.areapref = d.answers.area_pref || ""; S.access = d.answers.access_needs === true ? "yes" : d.answers.access_needs === false ? "no" : ""; S.accessNote = d.answers.access_note || ""; S.tcomment = d.answers.time_comment || ""; S.dietary = d.answers.dietary || ""; S.notes = d.answers.notes || ""; S.under3 = d.answers.under3 || 0; S.chairs = d.answers.high_chairs || 0;
     render();
     const paidId = new URLSearchParams(location.search).get("paid");                                  // back from the card payment page
@@ -235,13 +235,20 @@ function dishHtml(g, course, dish){
 }
 const KID_ONLY = ["mozzarella_sticks", "tomato_soup", "tomato_pasta", "brownie", "ice_cream"];
 const isKidOnly = d => KID_ONLY.indexOf(d.key) >= 0;
+// A voucher booking is owed one free drink per ticket (the first N guests): chosen here, counted on the drinks report
+const owesComp = g => !!(S.d.comp && g.seq <= S.d.comp.count);
+function compHtml(g){
+  if (!owesComp(g)) return "";
+  return '<div class="course" id="comp' + g.seq + '"><b>Free drink (included with your ticket)</b>' + S.d.comp.options.map(o => { const id = "g" + g.seq + "_comp_" + o.key, on = g.comp === o.key;
+    return '<label class="opt' + (on ? " on" : "") + '" for="' + id + '"><input type="radio" id="' + id + '" name="g' + g.seq + '_comp" value="' + esc(o.key) + '" data-seq="' + g.seq + '" data-comp="1"' + (on ? " checked" : "") + '><span><span class="n">' + esc(o.label) + '</span></span></label>'; }).join("") + '</div>';
+}
 function guestHtml(g){
   const m = S.d.menu[g.kind], first = S.guests.find(x => x.kind === g.kind), label = (g.kind === "infant" ? "Under 3 (eating) " : kindWord(g)) + g.n;
   const copy = first && first.seq !== g.seq ? '<button type="button" class="btn ghost small" data-copy="' + g.seq + '">Same choices as ' + (g.kind === "infant" ? "Under 3 " : kindWord(g)) + first.n + '</button>' : "";
   return '<div class="guest" id="guest' + g.seq + '"><header><h3>' + label + '</h3>' + copy + '</header>' +
     '<label class="f" for="nm' + g.seq + '">Name (optional)</label><input type="text" id="nm' + g.seq + '" data-seq="' + g.seq + '" data-field="name" maxlength="80" value="' + esc(g.name) + '" placeholder="So we can serve the right meal to the right person">' +
     (g.kind === "child" ? '<p class="muted small" style="margin:10px 0 0">Children can have a smaller portion of any adult dish, or one of the children\'s dishes.</p>' : g.kind === "infant" ? '<p class="muted small" style="margin:10px 0 0">A child under 3 who is eating has a main course: tomato pasta, or vegetables and gravy.</p>' : "") +
-    coursesOf(g).map(c => '<div class="course"><b>' + (c === "starter" ? "Starter" : c === "main" ? "Main" : "Dessert") + '</b>' + m[c].map(d => dishHtml(g, c, d)).join("") + '</div>').join("") +
+    coursesOf(g).map(c => '<div class="course"><b>' + (c === "starter" ? "Starter" : c === "main" ? "Main" : "Dessert") + '</b>' + m[c].map(d => dishHtml(g, c, d)).join("") + '</div>').join("") + compHtml(g) +
     '<label class="f" for="dt' + g.seq + '">Allergies or dietary needs for this guest (optional)</label><input type="text" id="dt' + g.seq + '" data-seq="' + g.seq + '" data-field="dietary" maxlength="300" value="' + esc(g.dietary) + '" placeholder="e.g. gluten free, nut allergy, vegan"></div>';
 }
 // Another booking made by this same person (same email): say it is linked to this one, and take them to its pre-order
@@ -314,7 +321,7 @@ function render(){
     '<label class="f" for="tcomment">Anything you would like us to know about your time? (optional)</label><textarea id="tcomment" maxlength="300" style="min-height:64px" placeholder="e.g. as late as possible, as early as possible, as close to 1pm as possible">' + esc(S.tcomment) + '</textarea>' +
     '<div class="note"><b>Table times are confirmed one month before, on 25 November.</b> If you have no preferred time, or there is no space left at the time you choose, we will give you a time that spreads our bookings across the day, so service runs smoothly for everyone.</div></div>') +
 
-    '<div class="card"><h2>Choose your meals</h2><p class="lead">' + (EV().key === "day" ? 'One choice for each guest. Festive canapés on arrival, a palate cleanser, and mince pies with tea or filter coffee to finish are included for everyone.' : 'One choice for each guest. Your ticket includes this two-course meal.') + '</p>' +
+    '<div class="card"><h2>Choose your meals</h2><p class="lead">' + (EV().key === "day" ? 'One choice for each guest. Festive canapés on arrival, a palate cleanser, and mince pies with tea or filter coffee to finish are included for everyone.' : 'One choice for each guest. Your ticket includes this two-course meal.') + (S.d.comp ? ' Your voucher also includes <b>a free drink for each ticket</b>: choose a bottle of beer, a glass of prosecco or a medium glass of wine for each guest.' : '') + '</p>' +
     (EV().key === "day" ? '<p class="muted small" style="margin:6px 0 0"><span class="tag">V</span> vegetarian <span class="tag">VE</span> vegan <span class="tag">GF</span> gluten free <span class="tag">GFA</span> gluten free available on request</p>' : '<p class="muted small" style="margin:6px 0 0"><span class="tag">V</span> vegetarian</p>') +
     S.guests.map(guestHtml).join("") + addPersonHtml() + '</div>' +
 
@@ -346,6 +353,7 @@ document.addEventListener("change", e => {
     if (t.value === "any") { S.time = "none"; S.ack = ""; } else { if (S.time === "none") S.time = ""; const sel = $("#tm"); if (sel) sel.value = S.time; }
     return;
   }
+  if (t.matches("input[type=radio][data-comp]")) { const g = S.guests.find(x => x.seq === Number(t.dataset.seq)); g.comp = t.value; t.closest(".course").querySelectorAll(".opt").forEach(o => o.classList.toggle("on", o.contains(t))); return; }
   if (t.matches("input[type=radio][data-seq]")) { const g = S.guests.find(x => x.seq === Number(t.dataset.seq)); g[t.dataset.course] = t.value; t.closest(".course").querySelectorAll(".opt").forEach(o => o.classList.toggle("on", o.contains(t))); return; }
   if (t.id === "tm") { S.time = t.value; if (t.value && S.ack !== t.value) askTime(t.value); }
 });
@@ -355,10 +363,10 @@ document.addEventListener("input", e => {
   if (t.id === "accessNote") S.accessNote = t.value; if (t.id === "tcomment") S.tcomment = t.value; if (t.id === "dietary") S.dietary = t.value; if (t.id === "notes") S.notes = t.value; if (t.id === "u3") S.under3 = Number(t.value) || 0; if (t.id === "hc") S.chairs = Number(t.value) || 0;
 });
 const msg = (id, cls, text) => { const el = $(id); if (el) el.innerHTML = text ? '<div class="' + cls + '">' + esc(text) + '</div>' : ""; };
-function payload(final){ return { final, access_needs:S.access === "yes" ? true : S.access === "no" ? false : null, access_note:S.access === "yes" ? S.accessNote : "", preferred_time:S.time, area_pref:S.areapref, time_comment:S.tcomment, dietary:S.dietary, notes:S.notes, under3:S.under3, high_chairs:S.chairs, guests:S.guests.map(g => ({ seq:g.seq, name:g.name, starter:g.starter, main:g.main, dessert:g.dessert, dietary:g.dietary })) }; }
+function payload(final){ return { final, access_needs:S.access === "yes" ? true : S.access === "no" ? false : null, access_note:S.access === "yes" ? S.accessNote : "", preferred_time:S.time, area_pref:S.areapref, time_comment:S.tcomment, dietary:S.dietary, notes:S.notes, under3:S.under3, high_chairs:S.chairs, guests:S.guests.map(g => ({ seq:g.seq, name:g.name, starter:g.starter, main:g.main, dessert:g.dessert, dietary:g.dietary, comp_drink:g.comp })) }; }
 const kindWord = g => g.kind === "adult" ? "Adult " : g.kind === "child" ? "Child " : "Under 3 ";
 const coursesOf = g => g.kind === "infant" ? ["main"] : EV().courses;       // a child under 3 who is eating has a main only
-function firstIncomplete(){ for (const g of S.guests) if (coursesOf(g).some(c => !g[c])) return g; return null; }
+function firstIncomplete(){ for (const g of S.guests) if (coursesOf(g).some(c => !g[c]) || (owesComp(g) && !g.comp)) return g; return null; }
 const noLinkAcked = () => { try { return localStorage.getItem("xmas_nolink_" + T) === "1"; } catch(e){ return false; } };
 async function save(final, btn, skipAsk, thenGo){
   msg("#saveMsg", "", "");
@@ -366,7 +374,7 @@ async function save(final, btn, skipAsk, thenGo){
   if (final && EV().show_times && !S.access) { msg("#saveMsg", "err", "Please tell us whether anyone in your party has accessibility needs (Yes or No)."); const el = $("#accessCard"); if (el) el.scrollIntoView({ behavior:"smooth", block:"center" }); return; }
   if (final) {
     const g = firstIncomplete();
-    if (g) { msg("#saveMsg", "err", "Please choose a " + joinWords(coursesOf(g).map(c => WORD[c])) + " for " + kindWord(g) + g.n + "."); const el = $("#guest" + g.seq); if (el) el.scrollIntoView({ behavior:"smooth", block:"start" }); return; }
+    if (g) { const need = coursesOf(g).filter(c => !g[c]).map(c => WORD[c]); if (owesComp(g) && !g.comp) need.push("free drink"); msg("#saveMsg", "err", "Please choose a " + joinWords(need) + " for " + kindWord(g) + g.n + "."); const el = $("#guest" + g.seq); if (el) el.scrollIntoView({ behavior:"smooth", block:"start" }); return; }
   }
   if (final && !skipAsk && !S.noLinkOk && !(S.d.linked || []).length && !noLinkAcked()) { S.askBtn = btn; $("#linkModal").classList.add("on"); const g = $("#lmLink"); if (g) g.focus(); return; }
   if (final && !skipAsk && S.d.drinks && S.d.drinks.open && !S.d.drinks.shots && !S.d.drinks.ordered) { S.askBtn = btn; $("#drinksModal").classList.add("on"); const g = $("#dmGo"); if (g) g.focus(); return; }
@@ -405,7 +413,7 @@ document.addEventListener("click", async e => {
   if (b.id === "final") return save(true, b);
   if (b.dataset.copy) {
     const to = S.guests.find(x => x.seq === Number(b.dataset.copy)), from = S.guests.find(x => x.kind === to.kind);
-    ["starter", "main", "dessert"].forEach(c => { to[c] = from[c]; });
+    ["starter", "main", "dessert"].forEach(c => { to[c] = from[c]; }); if (owesComp(to) && owesComp(from)) to.comp = from.comp;
     const scroll = window.scrollY; const keepTop = $("#guest" + to.seq).getBoundingClientRect().top; render(); window.scrollTo(0, scroll); const el = $("#guest" + to.seq); if (el) window.scrollBy(0, el.getBoundingClientRect().top - keepTop); return;
   }
   if (b.id === "lkBtn") {
