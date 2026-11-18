@@ -11,13 +11,13 @@
 (function (global) {
   'use strict';
   const CSS = `
-.pl .bar{display:flex; gap:8px 10px; align-items:center; flex-wrap:wrap; margin:0 0 12px}
-.pl .bar input[type=search],.pl .bar select{border:1px solid var(--mist,#e7e7e7); border-radius:8px; padding:9px 12px; font-size:15px; min-height:44px; background:var(--white,#fff); max-width:100%}
-.pl .bar input[type=search]{flex:1 1 260px; min-width:0}
-.pl .bar select{flex:0 1 220px}
-.pl .chips{display:flex; gap:6px; flex-wrap:wrap; margin:0 0 12px}
-.pl .chip{border:1px solid var(--mist,#e7e7e7); background:var(--white,#fff); border-radius:999px; padding:4px 12px; cursor:pointer; font-size:13px; min-height:32px}
-.pl .chip:hover{background:var(--sage-10,#EDEFED)}
+.pl .plbar{display:flex; gap:8px 10px; align-items:center; flex-wrap:wrap; margin:0 0 12px}
+.pl .plbar input[type=search],.pl .plbar select{border:1px solid var(--mist,#e7e7e7); border-radius:8px; padding:9px 12px; font-size:15px; min-height:44px; background:var(--white,#fff); max-width:100%}
+.pl .plbar input[type=search]{flex:1 1 260px; min-width:0}
+.pl .plbar select{flex:0 1 220px}
+.pl .plchips{display:flex; gap:6px; flex-wrap:wrap; margin:0 0 12px}
+.pl .plchip{border:1px solid var(--mist,#e7e7e7); background:var(--white,#fff); border-radius:999px; padding:4px 12px; cursor:pointer; font-size:13px; min-height:32px}
+.pl .plchip:hover{background:var(--sage-10,#EDEFED)}
 .pl .count{font-size:13px; color:var(--sage-70,#7B887C); margin:0 0 10px}
 .pl .grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:8px}
 .pl .tile{position:relative; padding:0; border:0; background:var(--mist,#e7e7e7); border-radius:8px; overflow:hidden; cursor:pointer; aspect-ratio:1; display:block; width:100%}
@@ -25,6 +25,7 @@
 .pl .tile:hover img,.pl .tile:focus-visible img{transform:scale(1.04)}
 .pl .tile .cap{position:absolute; left:0; right:0; bottom:0; padding:18px 8px 6px; font-size:11px; line-height:1.25; color:#fff; text-align:left; background:linear-gradient(transparent,rgba(0,0,0,.65)); opacity:0; transition:opacity .15s}
 .pl .tile:hover .cap,.pl .tile:focus-visible .cap{opacity:1}
+.pl .note{background:var(--attention-bg,#F7F0E4); border-radius:8px; padding:10px 14px; margin:0 0 12px; font-size:14px}
 .pl .more{text-align:center; margin:18px 0}
 .pl .drop{border:2px dashed var(--sage-70,#7B887C); border-radius:10px; padding:26px 16px; text-align:center; color:var(--sage-70,#7B887C); margin:0 0 14px; background:var(--white,#fff)}
 .pl .drop.over{background:var(--sage-10,#EDEFED); border-color:var(--sage,#4D604F); color:var(--sage,#4D604F)}
@@ -72,7 +73,7 @@
 
   function mount(el, ctx) {
     if (!document.getElementById('pl-css')) { const s = document.createElement('style'); s.id = 'pl-css'; s.textContent = CSS; document.head.appendChild(s); }
-    const st = { dead: false, boot: null, photos: [], total: 0, q: '', folder: '', sort: 'new', untagged: false, loading: false, seq: 0, lb: null, uploads: [], showUp: false, upFolder: 'Uploads' };
+    const st = { dead: false, boot: null, photos: [], total: 0, q: '', folder: '', sort: 'new', shelf: false, untagged: false, loading: false, seq: 0, lb: null, uploads: [], showUp: false, upFolder: 'Uploads' };
     el.innerHTML = `<div class="pl"><div class="loading">Loading the library…</div></div>`;
     let lbEl = null, keyFn = null, searchTimer = null;
 
@@ -88,13 +89,13 @@
       const seq = ++st.seq; st.loading = true;
       if (reset) { st.photos = []; }
       try {
-        const r = await post('list', { q: st.q, folder: st.folder, sort: st.sort, untagged: st.untagged, offset: reset ? 0 : st.photos.length });
+        const r = await post('list', { q: st.q, folder: st.folder, sort: st.sort, shelf: st.shelf ? 'only' : 'main', untagged: st.untagged, offset: reset ? 0 : st.photos.length });
         if (st.dead || seq !== st.seq) return;
         st.photos = reset ? r.photos : st.photos.concat(r.photos); st.total = r.total;
       } catch (e) { if (!st.dead && seq === st.seq) ctx.toast(e.message, true); }
       st.loading = false; if (!st.dead && seq === st.seq) drawGrid();
     }
-    async function refreshFacets() { try { const f = await post('facets'); st.boot.folders = f.folders; st.boot.tags = f.tags; st.boot.total = f.folders.reduce((n, x) => n + x.n, 0); } catch (e) { /* the chips just stay as they were */ } }
+    async function refreshFacets() { try { const f = await post('facets'); st.boot.folders = f.folders; st.boot.tags = f.tags; st.boot.shelved = f.shelved; st.boot.total = f.folders.reduce((n, x) => n + x.n, 0); } catch (e) { /* the chips just stay as they were */ } }
 
     // ------------------------------------------------------------ page
     const folderOptions = () => {
@@ -109,13 +110,15 @@
       const fo = folderOptions();
       el.innerHTML = `<div class="pl">
         <div class="pagehead"><h2>Photo library</h2></div>
-        <div class="bar">
+        <div class="plbar">
           <input type="search" id="plQ" placeholder="Search pictures: e.g. marquee wedding night, afternoon tea, christmas tree" value="${esc(st.q)}" aria-label="Search pictures">
           <select id="plF" aria-label="Folder"><option value="">All folders (${st.boot.total})</option>${fo.map(f => `<option value="${esc(f.folder)}" ${st.folder === f.folder ? 'selected' : ''}>${esc(folderLabel(f))}</option>`).join('')}</select>
           <select id="plS" aria-label="Order"><option value="new" ${st.sort === 'new' ? 'selected' : ''}>Newest first</option><option value="name" ${st.sort === 'name' ? 'selected' : ''}>Name A to Z</option></select>
+          <button class="btn ghost" id="plShelf" aria-pressed="${st.shelf}">${st.shelf ? 'Back to the library' : 'Unlikely to be used again (' + (st.boot.shelved || 0) + ')'}</button>
           <button class="btn" id="plAdd">Add pictures</button>
         </div>
-        ${st.boot.tags.length ? `<div class="chips" id="plChips">${st.boot.tags.slice(0, 24).map(t => `<button class="chip" data-tag="${esc(t.tag)}">${esc(t.tag)}</button>`).join('')}</div>` : ''}
+        ${st.shelf ? `<div class="note">These pictures are hidden from the main library because they are unlikely to be used again (old event posters, past offers, scans and so on). Open one to bring it back, or to delete it for good. Nothing here shows in searches of the main library.</div>` : ''}
+        ${st.boot.tags.length ? `<div class="plchips" id="plChips">${st.boot.tags.slice(0, 24).map(t => `<button class="plchip" data-tag="${esc(t.tag)}">${esc(t.tag)}</button>`).join('')}</div>` : ''}
         ${st.showUp ? uploadPanel() : ''}
         <div id="plGrid"></div></div>`;
       const q = s => el.querySelector(s);
@@ -124,6 +127,7 @@
       q('#plF').onchange = e => { st.folder = e.target.value; load(true); };
       q('#plS').onchange = e => { st.sort = e.target.value; load(true); };
       q('#plAdd').onclick = () => { st.showUp = !st.showUp; draw(); };
+      q('#plShelf').onclick = () => { st.shelf = !st.shelf; st.showUp = false; draw(); load(true); };
       el.querySelectorAll('[data-tag]').forEach(b => b.onclick = () => { st.q = b.dataset.tag; qi.value = st.q; load(true); });
       wireUpload();
       drawGrid();
@@ -132,7 +136,7 @@
       if (st.dead) return;
       const g = el.querySelector('#plGrid'); if (!g) return;
       if (!st.photos.length && st.loading) { g.innerHTML = `<div class="loading">Searching…</div>`; return; }
-      if (!st.photos.length) { g.innerHTML = `<div class="empty">${st.boot.total ? 'No pictures match that. Try fewer or simpler words.' : 'No pictures yet. Press Add pictures to put the first ones in.'}</div>`; return; }
+      if (!st.photos.length) { g.innerHTML = `<div class="empty">${st.shelf ? 'Nothing here. Pictures put in "Unlikely to be used again" show up in this list.' : st.boot.total ? 'No pictures match that. Try fewer or simpler words.' : 'No pictures yet. Press Add pictures to put the first ones in.'}</div>`; return; }
       g.innerHTML = `<div class="count">${st.total.toLocaleString('en-GB')} ${st.total === 1 ? 'picture' : 'pictures'}${st.q || st.folder ? ' found' : ''}</div>
         <div class="grid">${st.photos.map((p, i) => `<button class="tile" data-i="${i}" title="${esc(p.name)}"><img loading="lazy" decoding="async" src="${esc(p.thumb || '')}" alt="${esc(p.caption || p.name)}"><span class="cap">${esc(p.caption || p.name)}</span></button>`).join('')}</div>
         ${st.photos.length < st.total ? `<div class="more"><button class="btn ghost" id="plMore">${st.loading ? 'Loading…' : 'Show more'}</button></div>` : ''}`;
@@ -175,7 +179,8 @@
           <div class="blk"><h4>Search terms</h4><div class="tags">${(p.tags || []).map((t, k) => `<span class="tg">${esc(t)}<button data-rm="${k}" aria-label="Remove ${esc(t)}">&times;</button></span>`).join('') || '<span class="meta">None yet</span>'}</div>
             <input type="text" id="plTag" placeholder="Add a term and press Enter" maxlength="40"></div>
           <div class="blk"><h4>Folder</h4><input type="text" id="plFold" value="${esc(p.folder || '')}" maxlength="200" placeholder="e.g. Weddings/2025"></div>
-          <div class="blk btns"><button class="btn small" id="plSave">Save changes</button>${st.boot.ai ? `<button class="btn ghost small" id="plAi">Suggest terms again</button>` : ''}${p.can_delete ? `<button class="btn danger small" id="plDel">Delete</button>` : ''}</div>
+          ${p.shelved ? `<div class="blk"><h4>Unlikely to be used again</h4><div class="meta">${p.shelved_auto ? 'Moved here automatically: ' : 'Put here: '}${esc(p.shelved_reason || '')}</div></div>` : ''}
+          <div class="blk btns"><button class="btn small" id="plSave">Save changes</button><button class="btn ghost small" id="plShelve">${p.shelved ? 'Bring back to the library' : 'Unlikely to be used again'}</button>${st.boot.ai ? `<button class="btn ghost small" id="plAi">Suggest terms again</button>` : ''}${p.can_delete ? `<button class="btn danger small" id="plDel">Delete</button>` : ''}</div>
           <div class="meta">${p.width && p.height ? p.width + ' x ' + p.height + ' px · ' : ''}${p.bytes ? mb(p.bytes) + ' · ' : ''}added ${when(p.added_at)}${p.added_by && p.added_by.indexOf('@') > 0 ? ' by ' + esc(p.added_by.split('@')[0]) : ''}</div>
         </div></div>`;
       const q = s => lbEl.querySelector(s);
@@ -197,10 +202,20 @@
         try { const r = await post('tags.save', { id: p.id, caption: q('#plCap').value, tags, folder: q('#plFold').value }); Object.assign(p, r.photo, { thumb: p.thumb, web: undefined }); ctx.toast('Saved.'); drawLb(); refreshFacets(); }
         catch (err) { b.disabled = false; ctx.toast(err.message, true); }
       };
+      q('#plShelve').onclick = async e => {
+        const b = e.currentTarget; b.disabled = true;
+        try {
+          await post('photo.shelve', { id: p.id, shelve: !p.shelved });
+          const was = p.shelved; st.photos.splice(lb.i, 1); st.total--; st.boot.shelved = (st.boot.shelved || 0) + (was ? -1 : 1);
+          ctx.toast(was ? 'Back in the library.' : 'Moved to Unlikely to be used again.');
+          if (!st.photos.length) closeLb(); else { lb.i = Math.min(lb.i, st.photos.length - 1); drawLb(); ensureWeb(); }
+          drawGrid(); const sb = el.querySelector('#plShelf'); if (sb && !st.shelf) sb.textContent = 'Unlikely to be used again (' + st.boot.shelved + ')'; refreshFacets();
+        } catch (err) { b.disabled = false; ctx.toast(err.message, true); }
+      };
       const ai = q('#plAi'); if (ai) ai.onclick = async () => { ai.disabled = true; ai.textContent = 'Looking…'; try { const r = await post('photo.retag', { id: p.id }); Object.assign(p, r.photo, { thumb: p.thumb, web: undefined }); ctx.toast('Terms updated.'); drawLb(); refreshFacets(); } catch (err) { ai.disabled = false; ai.textContent = 'Suggest terms again'; ctx.toast(err.message, true); } };
       const dl = q('#plDel'); if (dl) dl.onclick = async () => {
         if (!dl.dataset.sure) { dl.dataset.sure = '1'; dl.textContent = 'Tap again to delete'; setTimeout(() => { if (dl.isConnected) { delete dl.dataset.sure; dl.textContent = 'Delete'; } }, 4000); return; }
-        try { await post('photo.delete', { id: p.id }); st.photos.splice(lb.i, 1); st.total--; st.boot.total--; ctx.toast('Deleted.'); if (!st.photos.length) { closeLb(); } else { lb.i = Math.min(lb.i, st.photos.length - 1); drawLb(); ensureWeb(); } drawGrid(); refreshFacets(); }
+        try { await post('photo.delete', { id: p.id }); st.photos.splice(lb.i, 1); st.total--; if (st.shelf) st.boot.shelved = Math.max(0, (st.boot.shelved || 0) - 1); else st.boot.total--; ctx.toast('Deleted.'); if (!st.photos.length) { closeLb(); } else { lb.i = Math.min(lb.i, st.photos.length - 1); drawLb(); ensureWeb(); } drawGrid(); refreshFacets(); }
         catch (err) { ctx.toast(err.message, true); }
       };
     }
