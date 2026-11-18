@@ -26,6 +26,7 @@
 .pl .tile .cap{position:absolute; left:0; right:0; bottom:0; padding:18px 8px 6px; font-size:11px; line-height:1.25; color:#fff; text-align:left; background:linear-gradient(transparent,rgba(0,0,0,.65)); opacity:0; transition:opacity .15s}
 .pl .tile:hover .cap,.pl .tile:focus-visible .cap{opacity:1}
 .pl .note{background:var(--attention-bg,#F7F0E4); border-radius:8px; padding:10px 14px; margin:0 0 12px; font-size:14px}
+.pl .plprog{height:8px; background:var(--mist,#e7e7e7); border-radius:4px; overflow:hidden; margin:8px 0 10px} .pl .plprog i{display:block; height:100%; background:var(--sage,#4D604F); transition:width .3s}
 .pl .more{text-align:center; margin:18px 0}
 .pl .drop{border:2px dashed var(--sage-70,#7B887C); border-radius:10px; padding:26px 16px; text-align:center; color:var(--sage-70,#7B887C); margin:0 0 14px; background:var(--white,#fff)}
 .pl .drop.over{background:var(--sage-10,#EDEFED); border-color:var(--sage,#4D604F); color:var(--sage,#4D604F)}
@@ -73,7 +74,7 @@
 
   function mount(el, ctx) {
     if (!document.getElementById('pl-css')) { const s = document.createElement('style'); s.id = 'pl-css'; s.textContent = CSS; document.head.appendChild(s); }
-    const st = { dead: false, boot: null, photos: [], total: 0, q: '', folder: '', sort: 'new', shelf: false, untagged: false, loading: false, seq: 0, lb: null, uploads: [], showUp: false, upFolder: 'Uploads' };
+    const st = { dead: false, boot: null, photos: [], total: 0, q: '', folder: '', sort: 'new', shelf: false, scan: null, untagged: false, loading: false, seq: 0, lb: null, uploads: [], showUp: false, upFolder: 'Uploads' };
     el.innerHTML = `<div class="pl"><div class="loading">Loading the library…</div></div>`;
     let lbEl = null, keyFn = null, searchTimer = null;
 
@@ -115,8 +116,10 @@
           <select id="plF" aria-label="Folder"><option value="">All folders (${st.boot.total})</option>${fo.map(f => `<option value="${esc(f.folder)}" ${st.folder === f.folder ? 'selected' : ''}>${esc(folderLabel(f))}</option>`).join('')}</select>
           <select id="plS" aria-label="Order"><option value="new" ${st.sort === 'new' ? 'selected' : ''}>Newest first</option><option value="name" ${st.sort === 'name' ? 'selected' : ''}>Name A to Z</option></select>
           <button class="btn ghost" id="plShelf" aria-pressed="${st.shelf}">${st.shelf ? 'Back to the library' : 'Unlikely to be used again (' + (st.boot.shelved || 0) + ')'}</button>
+          ${st.boot.ai ? `<button class="btn ghost" id="plScan" ${st.scan && st.scan.running ? 'disabled' : ''}>Re-scan for unlikely pictures</button>` : ''}
           <button class="btn" id="plAdd">Add pictures</button>
         </div>
+        <div id="plScanBox">${scanPanel()}</div>
         ${st.shelf ? `<div class="note">These pictures are hidden from the main library because they are unlikely to be used again (old event posters, past offers, scans and so on). Open one to bring it back, or to delete it for good. Nothing here shows in searches of the main library.</div>` : ''}
         ${st.boot.tags.length ? `<div class="plchips" id="plChips">${st.boot.tags.slice(0, 24).map(t => `<button class="plchip" data-tag="${esc(t.tag)}">${esc(t.tag)}</button>`).join('')}</div>` : ''}
         ${st.showUp ? uploadPanel() : ''}
@@ -127,6 +130,8 @@
       q('#plF').onchange = e => { st.folder = e.target.value; load(true); };
       q('#plS').onchange = e => { st.sort = e.target.value; load(true); };
       q('#plAdd').onclick = () => { st.showUp = !st.showUp; draw(); };
+      const sc = q('#plScan'); if (sc) sc.onclick = startScan;
+      wireScan();
       q('#plShelf').onclick = () => { st.shelf = !st.shelf; st.showUp = false; draw(); load(true); };
       el.querySelectorAll('[data-tag]').forEach(b => b.onclick = () => { st.q = b.dataset.tag; qi.value = st.q; load(true); });
       wireUpload();
@@ -143,6 +148,44 @@
       g.querySelectorAll('.tile').forEach(b => b.onclick = () => openLb(+b.dataset.i));
       const m = g.querySelector('#plMore'); if (m) m.onclick = () => { if (!st.loading) { m.textContent = 'Loading…'; load(false); } };
       g.querySelectorAll('img').forEach(im => im.onerror = () => { im.onerror = null; im.style.opacity = '.25'; });
+    }
+
+    // ------------------------------------------------------------ re-scan: Claude looks again at the main library and shelves what is unlikely to be used again
+    function scanPanel() {
+      const c = st.scan; if (!c) return '';
+      const pct = c.total ? Math.min(100, Math.round(c.checked / c.total * 100)) : 100;
+      return `<div class="up"><h3>${c.running ? 'Re-scanning the library…' : c.stopped ? 'Re-scan stopped' : 'Re-scan finished'}</h3>
+        <div class="meta">${c.checked.toLocaleString('en-GB')} of ${c.total.toLocaleString('en-GB')} pictures checked · ${c.moved.length} moved to Unlikely to be used again${c.failed ? ' · ' + c.failed + ' could not be read' : ''}</div>
+        ${c.running ? `<div class="plprog"><i style="width:${pct}%"></i></div><button class="btn ghost small" id="plScanStop">Stop</button>` : `<button class="btn ghost small" id="plScanClose">Close</button>`}
+        ${c.moved.length ? `<ul>${c.moved.slice(-40).reverse().map(m => `<li><span>${esc(m.name)}</span><span class="dup">${esc(m.reason || '')}</span></li>`).join('')}</ul>` : ''}</div>`;
+    }
+    function wireScan() {
+      const b = el.querySelector('#plScanBox'); if (!b) return;
+      const x = b.querySelector('#plScanStop'); if (x) x.onclick = () => { if (st.scan) st.scan.cancel = true; };
+      const c = b.querySelector('#plScanClose'); if (c) c.onclick = () => { st.scan = null; const bx = el.querySelector('#plScanBox'); if (bx) bx.innerHTML = ''; };
+    }
+    function paintScan() { const b = el.querySelector('#plScanBox'); if (b) { b.innerHTML = scanPanel(); wireScan(); } const sb = el.querySelector('#plScan'); if (sb) sb.disabled = !!(st.scan && st.scan.running); }
+    async function startScan() {
+      if (st.scan && st.scan.running) return;
+      st.scan = { running: true, cancel: false, stopped: false, checked: 0, total: 0, failed: 0, moved: [], after: '' };
+      paintScan();
+      const sc = st.scan;
+      try {
+        for (;;) {
+          if (st.dead) return;
+          if (sc.cancel) { sc.stopped = true; break; }
+          const r = await post('rescan.batch', { after: sc.after, limit: 8 });
+          if (st.dead) return;
+          if (r.total != null) sc.total = r.total;
+          sc.checked += r.checked; sc.failed += r.failed; sc.moved = sc.moved.concat(r.moved); sc.after = r.next;
+          if (sc.total < sc.checked) sc.total = sc.checked;
+          paintScan();
+          if (r.done) break;
+        }
+      } catch (e) { ctx.toast(e.message, true); sc.stopped = true; }
+      sc.running = false; paintScan();
+      ctx.toast(sc.moved.length ? sc.moved.length + ' ' + (sc.moved.length === 1 ? 'picture' : 'pictures') + ' moved to Unlikely to be used again.' : 'Nothing new to move.');
+      await refreshFacets(); if (!st.dead && !st.scan.running) { const keep = st.scan; draw(); st.scan = keep; paintScan(); await load(true); }
     }
 
     // ------------------------------------------------------------ one picture, full screen
