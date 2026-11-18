@@ -192,7 +192,29 @@ const gbp = n => "£" + Number(n).toLocaleString("en-GB", { minimumFractionDigit
 const PHONE = "01207 232 569", TEL = "tel:01207232569";
 const POS = { stay:"50% 62%", tea:"50% 38%", steak:"50% 50%", sunday:"50% 66%", money:"50% 45%", money50:"50% 50%", hottub:"50% 55%" };
 const tagFor = p => p.key === "stay" ? "Best saving" : p.key === "hottub" ? "Romantic stay" : p.kind === "money" ? "Gift voucher" : "For two";
-let I = null, BASKET = {}, BUSY = false;
+let I = null, BASKET = {}, BUSY = false, HITS = null;
+/* Hits of the 90s party night, at the voucher price (5 pounds off each ticket and a free drink with each). It is not a voucher to phone and book with: the button takes people to the booking page with the voucher code already applied, where they pick tickets and pay, and the booking goes straight onto the ticket sales list. Prices and availability come from the booking system, so the card only shows while tickets are on sale. */
+const XMAS_API = "https://safcrtrfdzsnftghibot.supabase.co/functions/v1/xmas-api", HITS_CODE = "HITS40", BOOK_URL = "https://app.blackhorsebeamish.co.uk/book/";
+async function loadHits(){
+  try {
+    const r = await fetch(XMAS_API, { method:"POST", headers:{ "Content-Type":"application/json", Authorization:"Bearer " + KEY, apikey:KEY }, body:JSON.stringify({ action:"web.info", voucher_code:HITS_CODE }) });
+    const j = await r.json(); const e = (j.events || []).find(x => x.title === "Hits of the 90s" && x.voucher);
+    HITS = e ? { e, state:e.state } : null;
+  } catch (err) { HITS = null; }
+  if (HITS && I) render();
+}
+function hitsSection(){
+  if (!HITS) return "";
+  const e = HITS.e, v = e.voucher, left = Math.round((v.usual - v.price) * 100) / 100, on = HITS.state === "open", url = BOOK_URL + "?event=" + encodeURIComponent(e.date_id) + "&voucher=" + HITS_CODE;
+  const drinks = v.drinks.join(", ").replace(/, ([^,]*)$/, " or $1").toLowerCase();
+  return '<section id="hits"><div class="wrap"><div class="head"><h2>Party night offer</h2><p>Not a voucher to phone and book with: book your tickets online now.</p></div>' +
+    '<div class="grid"><article class="card feature" id="c-hits"><div class="pic"><img src="img/hits.jpg" style="object-position:50% 40%" alt="Hits of the 90s poster" loading="lazy" onload="tellHeight()"><span class="save">Save <b>' + gbp(left) + '</b> a ticket</span><span class="tag">Party night</span></div>' +
+    '<div class="body"><h3>Hits of the 90s</h3><div class="subt">' + esc(e.tagline) + '</div>' +
+    '<ul><li>Two-course Christmas meal</li><li>Live 90s party night with Tyler&#39;s 90s</li><li>A free drink with every ticket: ' + esc(drinks) + '</li></ul>' +
+    '<div class="valid"><b>Book online, pay by card, and you are booked in.</b> We email you a link to choose your meals and your free drinks.</div>' +
+    '<div class="buy"><div class="price"><span class="now">' + gbp(v.price) + '</span><span class="was">Normally ' + gbp(v.usual) + '</span><span class="yousave">You save ' + gbp(left) + ' a ticket</span></div>' +
+    '<div class="actions">' + (on ? '<a class="btn" href="' + esc(url) + '" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:center;text-decoration:none">Book tickets</a>' : '<button class="btn" type="button" disabled>' + (HITS.state === "soldout" ? "Sold out" : "Not available") + '</button>') + '</div></div></div></article></div></div></section>';
+}
 
 async function call(action, payload){
   const r = await fetch(API, { method:"POST", headers:{ "Content-Type":"application/json", Authorization:"Bearer " + KEY, apikey:KEY }, body:JSON.stringify(Object.assign({ action }, payload || {})) });
@@ -226,7 +248,7 @@ function render(){
     '<span class="state' + (open() ? "" : " off") + '"><i></i>' + (open() ? "On sale now" + (I.sale.closes_text ? " until " + esc(I.sale.closes_text) : "") : esc(I.sale.message)) + '</span><br>' +
     (open() ? '<button class="cta" type="button" data-go="vouchers">See the vouchers</button>' : "") + '</header>' +
   '<div class="strip"><div class="wrap"><span>Buy online by card</span><span>Voucher emailed to you</span><span>Then phone to book</span>' + (open() && I.sale.closes_text ? '<span>Ends ' + esc(I.sale.closes_text) + '</span>' : '') + '</div></div>' +
-  '<section id="vouchers"><div class="wrap"><div class="head"><h2>The Black Friday vouchers</h2><p>Seven ways to treat yourself, or someone you love. The gift vouchers can be spent on anything at Black Horse Beamish.</p></div>' +
+  hitsSection() + '<section id="vouchers"><div class="wrap"><div class="head"><h2>The Black Friday vouchers</h2><p>Seven ways to treat yourself, or someone you love. The gift vouchers can be spent on anything at Black Horse Beamish.</p></div>' +
     '<div class="grid">' + card(feat, true) + rest.map(p => card(p, false)).join("") + '</div></div></section>' +
   '<section id="pay" style="display:none"><div class="wrap"><div id="checkout"></div></div></section>' +
   '<section><div class="wrap"><div class="head"><h2>How it works</h2></div><div class="steps">' +
@@ -339,7 +361,7 @@ async function paidPage(tries){
 
 (async function(){
   if (ORDER) return paidPage(0);
-  try { I = await call("info"); render(); }
+  try { I = await call("info"); render(); loadHits(); }
   catch (e) { $("#app").innerHTML = '<div class="thanks"><h1>Black Friday Event</h1><p>We could not load the vouchers just now. Please try again in a moment, or phone us on <a href="' + TEL + '">' + PHONE + '</a>.</p></div>'; tellHeight(); }
 })();
 </script>
