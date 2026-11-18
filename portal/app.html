@@ -1189,7 +1189,7 @@ function showNewAccess(){
 }
 function showNoticePopup(){
   const n = NP.list[NP.i]; if (!n) { $("#noticePop").hidden = true; return; }
-  const paras = String(n.body || "").split(/\n{2,}/).map(t => `<p>${esc(t).replace(/\n/g, "<br>")}</p>`).join("");
+  const paras = String(n.body || "").split(/\n{2,}/).map(t => `<p>${esc(t).replace(/\n/g, "<br>").replace(/(https?:\/\/[^\s<]+)/g, u => '<a href="' + u + '" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">Open the booking page</a>')}</p>`).join("");
   const when = n.posted_at ? new Date(n.posted_at).toLocaleDateString("en-GB", { day: "numeric", month: "long", timeZone: "Europe/London" }) : "";
   const ack = n.requires_ack && !n.already_acked;
   $("#noticePopCard").innerHTML = `<div class="welcome-top"><div class="eyebrow">Staff notice${NP.list.length > 1 ? ` &middot; ${NP.i + 1} of ${NP.list.length}` : ""}</div><h2 id="npTitle">${esc(n.title)}</h2></div>

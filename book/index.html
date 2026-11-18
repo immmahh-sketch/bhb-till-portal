@@ -99,6 +99,7 @@ const API = "https://safcrtrfdzsnftghibot.supabase.co/functions/v1/xmas-api";
 const KEY = "sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU";
 const Q = new URLSearchParams(location.search);
 const PAID = Q.get("paid") || "";
+const STAFF = Q.get("staff") || "";      // a staff ticket link: the event shows its staff price (the server checks the code)
 const EMBED = Q.get("embed") === "1";      // shown inside the website: no header or footer, and it tells the page around it how tall it is
 if (EMBED) document.body.classList.add("embed");
 const tellHeight = () => { if (EMBED && parent !== window) parent.postMessage({ bhbHeight: document.documentElement.scrollHeight }, "*"); };
@@ -149,7 +150,7 @@ function infoCard(e){
   const price = e.kind === "day" ? gbp(p.adult) + ' per adult, ' + gbp(p.child) + ' per child (under 12). Under 3s are free when eating from adults\' plates, or ' + gbp(p.infant) + ' for their own main course.' : gbp(p.adult) + ' per ticket.';
   return '<div class="card"><h2 class="c">' + esc(e.title) + '</h2>' + ORN + '<p class="tag c">' + esc(e.tagline) + '</p>' + pics(e) + e.info.map(t => '<p style="margin:0 0 10px">' + esc(t) + '</p>').join("") +
     (e.includes.length ? '<p style="margin:14px 0 2px"><b>' + (e.kind === "day" ? "Included" : "Your ticket includes") + '</b></p><ul class="inc">' + e.includes.map(t => '<li>' + esc(t) + '</li>').join("") + '</ul>' : "") +
-    '<div class="note"><b>Price:</b> ' + esc(price) + ' You pay in full when you book.</div>' +
+    (e.staff ? '<div class="note"><b>Staff price: ' + gbp(e.staff.price) + ' per ticket</b> (usual price ' + gbp(e.staff.usual) + '). You pay in full when you book.</div><div class="note"><b>Staff ticket terms</b><ul class="inc" style="margin:6px 0 0">' + e.staff.terms.map(t => '<li>' + esc(t) + '</li>').join("") + '</ul></div>' : '<div class="note"><b>Price:</b> ' + esc(price) + ' You pay in full when you book.</div>') +
     (e.few ? '<div class="warn"><b>Only ' + e.few + ' place' + (e.few === 1 ? "" : "s") + ' left.</b></div>' : "") + '</div>';
 }
 function closedCard(e){
@@ -173,7 +174,7 @@ function formCard(e){
     : "";
   return '<form class="card" id="form" novalidate><h2>Your booking</h2>' + who + when +
     '<div class="qrow"><label class="f" for="name">Your name<span class="req">*</span></label><input type="text" id="name" maxlength="80" autocomplete="name"></div>' +
-    '<div class="qrow"><label class="f" for="email">Email address<span class="req">*</span></label><p class="hint">Your confirmation is sent here.</p><input type="email" id="email" maxlength="120" autocomplete="email"></div>' +
+    '<div class="qrow"><label class="f" for="email">Email address<span class="req">*</span></label><p class="hint">' + (e.staff ? 'Staff tickets: use the work email address you sign in to the staff portal with. Your confirmation is sent here.' : 'Your confirmation is sent here.') + '</p><input type="email" id="email" maxlength="120" autocomplete="email"></div>' +
     '<div class="qrow"><label class="f" for="phone">Phone number<span class="req">*</span></label><input type="tel" id="phone" maxlength="30" autocomplete="tel" inputmode="tel"></div>' +
     '<label class="f" for="notes">Anything else we should know?</label><p class="hint">For example a special occasion' + (day ? ", or high chairs." : ".") + ' Allergies and meal choices come later, on the form we email you.</p><textarea id="notes" maxlength="600"></textarea>' +
     '<div class="hp" aria-hidden="true"><label>Leave this empty <input type="text" id="website" tabindex="-1" autocomplete="off"></label></div>' +
@@ -250,7 +251,7 @@ async function submit(ev){
   const btn = $("#go"); BUSY = true; btn.disabled = true; btn.textContent = "One moment...";
   try {
     const c = counts();
-    const r = await call("web.start", { date_id: EV.date_id, name: val("name"), email: val("email"), phone: val("phone"), adults: c.adults, children: c.children, infants: c.infants, slot: val("slot"), access: accessNow(), notes: val("notes"), website: val("website"), consent: true });
+    const r = await call("web.start", { date_id: EV.date_id, name: val("name"), email: val("email"), phone: val("phone"), adults: c.adults, children: c.children, infants: c.infants, slot: val("slot"), access: accessNow(), notes: val("notes"), website: val("website"), staff_code: STAFF, consent: true });
     if (!r.url) { BUSY = false; return; }
     $("#app").innerHTML = '<div class="card" style="text-align:center"><h2>Taking you to the payment page</h2><p class="lead">' + (EV.kind === "day" ? 'Your table is held for ' + I.hold_minutes + ' minutes. ' : '') + 'If nothing happens, press the button.</p><p><a class="btn" id="paygo" href="' + esc(r.url) + '" target="_top">Pay ' + gbp(r.amount) + ' now</a></p></div>';
     window.scrollTo({ top:0 }); if (EMBED && parent !== window) parent.postMessage({ bhbTop:true, bhbPay:r.url }, "*"); else location.href = r.url;
@@ -277,7 +278,7 @@ async function paidView(){
 (async function(){
   try {
     if (PAID) { await paidView(); return; }
-    I = await call("web.info");
+    I = await call("web.info", { staff_code: STAFF });
     if (!I.events.length) { $("#app").innerHTML = '<div class="card"><h2>Bookings are closed at the moment</h2><p class="lead">Please phone us on ' + esc(I.contact.phone) + ' or email ' + esc(I.contact.email) + '.</p></div>'; return; }
     $("#app").innerHTML = picker();
     $("#ev").addEventListener("change", e => pickEvent(e.target.value));
