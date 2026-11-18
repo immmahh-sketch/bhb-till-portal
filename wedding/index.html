@@ -2831,6 +2831,16 @@ function viewGuests(){
       '<input type="text" id="ivc_web" inputmode="url" autocomplete="url" placeholder="www.ourwedding.co.uk" value="' + esc(ws.invite_website || "") + '" onchange="setInviteWebsite(this.value)">' +
       '<span class="muted" style="display:block;font-size:.8125rem;margin-top:4px">If you add one, the email to your guests gives it as a button: &ldquo;View ' + esc(ws.partner1_name) + ' &amp; ' + esc(ws.partner2_name) + '&rsquo;s wedding website&rdquo;.</span></div>';
 
+    /* The daily summary of new replies: on or off from here, saved as soon as it is changed. */
+    var digestOn = ws.rsvp_digest !== false;
+    h += '<div class="field" style="margin:0 0 14px"><label style="display:flex;gap:10px;align-items:flex-start;cursor:pointer">' +
+      '<input type="checkbox" id="ivc_digest"' + (digestOn ? ' checked' : '') + ' onchange="setDigest(this.checked)" style="width:18px;height:18px;flex:0 0 18px;margin:2px 0 0;accent-color:#4D604F">' +
+      '<span style="font-size:.9375rem;line-height:1.5"><strong>Email me each morning when guests have replied</strong><br>' +
+      '<span class="muted" style="font-size:.8125rem">' + (digestOn
+        ? 'On. A short summary of the new replies, with allergies and dietary needs' + (ws.primary_email ? ', goes to ' + esc(ws.primary_email) : '') + '. Nothing is sent on days with no new replies.'
+        : 'Off. You will not be emailed when guests reply, so check your guest list for new answers.') +
+      '</span></span></label></div>';
+
     h += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">' +
       '<button class="btn btn--sm" onclick="previewInvite()">Preview the invitation</button>' +
       '<button class="btn btn--sm" onclick="editInviteWording()">Times, website &amp; wording</button>' +
@@ -3258,6 +3268,14 @@ async function setInviteTime(field, value){
     clearError();
   } catch (e) { showError(e.message); render(); }
 }
+/* The daily summary switch on the card saves as soon as it is changed. */
+async function setDigest(on){
+  try {
+    await api("invite.settings", { rsvp_digest: !!on });
+    S.data.wedding.rsvp_digest = !!on;
+    clearError(); render();
+  } catch (e) { showError(e.message); render(); }
+}
 /* The wedding website box on the card saves as soon as it is changed. The server checks it is a real web address. */
 async function setInviteWebsite(value){
   try {
@@ -3332,10 +3350,6 @@ function editInviteWording(){
       '<input type="checkbox" id="iv_close"' + (w.invite_rsvp_close ? ' checked' : '') + ' style="width:18px;height:18px;flex:0 0 18px;margin:2px 0 0;accent-color:#4D604F">' +
       '<span style="font-size:.9375rem;line-height:1.5">Stop replies after the reply-by date<br>' +
       '<span class="muted" style="font-size:.8125rem">From the day after, guests cannot reply or change their answer from their link. You can still mark a reply yourself on the guest list.</span></span></label></div>' +
-    '<div class="field"><label style="display:flex;gap:10px;align-items:flex-start;cursor:pointer">' +
-      '<input type="checkbox" id="iv_digest"' + (w.rsvp_digest === false ? '' : ' checked') + ' style="width:18px;height:18px;flex:0 0 18px;margin:2px 0 0;accent-color:#4D604F">' +
-      '<span style="font-size:.9375rem;line-height:1.5">Email me each morning when guests have replied<br>' +
-      '<span class="muted" style="font-size:.8125rem">A short summary of the new replies, with allergies and dietary needs' + (w.primary_email ? ', sent to ' + esc(w.primary_email) : '') + '. Nothing is sent on days with no new replies.</span></span></label></div>' +
     '<div class="field"><span class="label">Anything else</span>' +
       '<textarea id="iv_extra" placeholder="Parking, taxis, gifts…">' + esc(w.invite_extra_info||"") + '</textarea></div>' +
     '<div class="field"><span class="label">Your wedding website <span style="text-transform:none;letter-spacing:0">(optional)</span></span>' +
@@ -3445,7 +3459,6 @@ async function saveInviteWording(thenPreview){
       invite_style: chosen ? chosen.value : "invitation"
     };
     payload.invite_rsvp_close = !!$("iv_close").checked;
-    payload.rsvp_digest = !!$("iv_digest").checked;
     if (payload.invite_rsvp_close && !payload.invite_rsvp_by) {
       var m0 = "Choose a reply-by date, or untick Stop replies after the reply-by date.";
       if (bad) { bad.textContent = m0; bad.style.display = "block"; bad.scrollIntoView({ block:"center" }); } else showError(m0);
