@@ -23,6 +23,7 @@ body{font-family:var(--body); color:var(--ink); background:var(--bone); font-siz
 h1,h2,h3{font-family:var(--display); font-weight:600; margin:0; letter-spacing:.01em}
 button,input,textarea,select{font:inherit; color:inherit}
 .shell{max-width:var(--maxw); margin:0 auto; padding:0 20px 64px}
+.shell.tl-shell{max-width:900px}   /* Project Timeline tab: same page width as HOD Actions */
 #gate{position:fixed; inset:0; background:var(--sage); z-index:100; display:flex; align-items:center; justify-content:center; padding:24px}
 #gate[hidden]{display:none}
 .gatecard{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); width:100%; max-width:380px; padding:32px 28px; text-align:center}
@@ -229,7 +230,7 @@ table.tk tr.det td{background:var(--bone)}
 <script src="enquiries.js?v=2"></script>
 <script src="seo.js?v=1"></script>
 <link rel="stylesheet" href="../hod-actions/timeline.css?v=2">
-<script src="../hod-actions/timeline.js?v=2"></script>
+<script src="../hod-actions/timeline.js?v=3"></script>
 <script src="emaildb.js?v=3"></script>
 <script>
 const CFG = { SUPABASE_URL:"https://safcrtrfdzsnftghibot.supabase.co", SUPABASE_KEY:"sb_publishable_RGaIB8W145BFCWzOxamQvA_7VIkTHMU" };
@@ -953,10 +954,11 @@ async function refreshBadges(){
 const tlCall = (action, payload) => post("hod-actions-api", { action, app_key:"marketing-actions", staff_email: staffEmail(), ...(payload || {}) });
 let tlUnit = null;
 function viewTimeline(){
-  if (!tlUnit) tlUnit = ProjectTimeline({ S:{ view:"timeline", me:{ email:S.me.email, name:S.me.name, isAdmin:!!S.me.isAdmin } }, call:tlCall, esc, toast, $, fmtDT, active:() => S.view === "timeline", marketing:true });
+  if (!tlUnit) tlUnit = ProjectTimeline({ S:{ view:"timeline", me:{ email:S.me.email, name:S.me.name, isAdmin:!!S.me.isAdmin } }, call:tlCall, esc, toast, $, fmtDT, active:() => S.view === "timeline", marketing:true, prefsKey:"mk_tl_prefs" });
+  $(".shell").classList.add("tl-shell");          // same 900px page width as HOD Actions, so the chart looks the same
   tlUnit.open();
 }
-function tlStop(){ if (tlUnit) tlUnit.stop(); }
+function tlStop(){ const sh = $(".shell"); if (sh) sh.classList.remove("tl-shell"); if (tlUnit) tlUnit.stop(); }
 function markTab(){ $$(".tabbtn").forEach(b => b.setAttribute("aria-current", b.dataset.view === S.view ? "page" : "false")); }
 function goView(v){
   chatStop(); tkStop(); fsStop(); socialStop(); analyticsStop(); mailshotsStop(); adspendStop(); enquiriesStop(); seoStop(); emaildbStop(); tlStop();

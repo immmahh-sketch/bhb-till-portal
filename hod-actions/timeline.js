@@ -10,8 +10,9 @@ const { S, call, esc, toast, $, fmtDT } = host;
 const isActive = host.active || (() => S.view === "timeline");
 const IN_MARKETING = host.marketing === true;
 const TL = { loaded:false, projects:[], templates:[], roles:{}, people:[], today:"", person:"all", project:"all", mode:"gantt", zoom:"weeks", status:"all", finished:false, collapsed:{}, sure:null, np:null };
-try { Object.assign(TL, JSON.parse(localStorage.getItem("hod_tl_prefs") || "{}")); } catch(e){}
-const tlSave = () => { try { localStorage.setItem("hod_tl_prefs", JSON.stringify({ mode:TL.mode, zoom:TL.zoom, finished:TL.finished })); } catch(e){} };
+const PREFS = host.prefsKey || "hod_tl_prefs";      // each page remembers its own view (Gantt/list, zoom), so a choice made in one never changes the other
+try { Object.assign(TL, JSON.parse(localStorage.getItem(PREFS) || "{}")); } catch(e){}
+const tlSave = () => { try { localStorage.setItem(PREFS, JSON.stringify({ mode:TL.mode, zoom:TL.zoom, finished:TL.finished })); } catch(e){} };
 
 /* ---------------------------------------------------------------- dates */
 const dMs = d => Date.parse(d + "T12:00:00Z");
