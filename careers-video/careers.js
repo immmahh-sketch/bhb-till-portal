@@ -1,7 +1,7 @@
 /* Black Horse Beamish: Head Chef section for the website Careers page.
    Loaded by the Careers page's header code injection. Edit the INDEED link and wording here, push, and the page updates (cached ~10 minutes). */
 (function () {
-  var INDEED = 'https://uk.indeed.com/jobs?q=Head+Chef&l=Beamish%2C+Durham'; // replace with the live Indeed listing address when it exists
+  var INDEED = 'https://uk.indeed.com/job/head-chef-ef9bedfe5fbab1b5'; // the live Indeed listing
   var base = (document.currentScript && document.currentScript.src.replace(/[^\/]*$/, '')) || 'https://app.blackhorsebeamish.co.uk/careers-video/';
   function go() {
     if (document.querySelector('.bhb-hc')) return;
