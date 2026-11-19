@@ -1,6 +1,7 @@
 /* Black Horse Beamish: Head Chef section for the website Careers page.
    Loaded by the Careers page's header code injection. Edit the INDEED link and wording here, push, and the page updates (cached ~10 minutes). */
 (function () {
+  var POSTED = '19 November 2026'; // date the advert went live: change if the advert is renewed
   var INDEED = 'https://uk.indeed.com/job/head-chef-ef9bedfe5fbab1b5'; // the live Indeed listing
   var base = (document.currentScript && document.currentScript.src.replace(/[^\/]*$/, '')) || 'https://app.blackhorsebeamish.co.uk/careers-video/';
   function go() {
@@ -15,6 +16,8 @@
       '.bhb-hc .in{max-width:1080px;margin:0 auto}',
       '.bhb-hc .eyebrow{margin:0 0 10px!important;text-align:center;font:600 12px/1.4 Raleway,sans-serif!important;letter-spacing:.24em;text-transform:uppercase;color:#4D604F}',
       '.bhb-hc h2{margin:0 0 10px!important;text-align:center;color:#4D604F!important;text-transform:none!important;font:500 clamp(40px,6vw,68px)/1.05 "Orpheus Pro","Cormorant Garamond",Georgia,serif!important}',
+      '.bhb-hc .posted{margin:0 0 16px!important;text-align:center;font:600 11px/1.4 Raleway,sans-serif!important;letter-spacing:.2em;text-transform:uppercase;color:#6b5a52}',
+      '.bhb-hc .posted b{display:inline-block;background:#4D604F;color:#fff;font-weight:600;padding:3px 9px;margin-right:8px;letter-spacing:.16em}',
       '.bhb-hc .pay{margin:0 0 28px!important;text-align:center;font:600 clamp(15px,2vw,18px)/1.5 Raleway,sans-serif!important;letter-spacing:.04em;color:#3F2F28}',
       '.bhb-hc .vid{position:relative;aspect-ratio:16/9;background:#000;box-shadow:0 14px 44px rgba(63,47,40,.22)}',
       '.bhb-hc video{position:absolute;inset:0;width:100%;height:100%;display:block;background:#000}',
@@ -36,6 +39,7 @@
       '<div class="in">' +
       '<p class="eyebrow">An opportunity not to be missed</p>' +
       '<h2>Head Chef</h2>' +
+      '<p class="posted"><b>Now open</b>Posted ' + POSTED + '</p>' +
       '<p class="pay">£40,000 to £55,000 a year, depending on experience &middot; Full time, 45 hours a week</p>' +
       '<div class="vid"><video controls playsinline preload="metadata" poster="' + base + 'poster.jpg"><source src="' + base + 'head-chef.mp4" type="video/mp4"></video></div>' +
       '<div class="cols">' +
