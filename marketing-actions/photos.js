@@ -196,16 +196,20 @@
     }
     async function bulk(op) {
       if (st.bulkBusy) return; st.bulkBusy = true; paintSel();
-      const all = st.selAll, n = all ? st.total : st.sel.size;
+      const all = st.selAll;
+      let done = 0, skipped = 0, failed = null;
       try {
-        const body = all ? { op, all_matching: true, q: st.q, folder: st.folder, shelf: st.shelf ? 'only' : 'main', untagged: st.untagged } : { op, ids: [...st.sel] };
-        let done = 0, skipped = 0;
-        if (all || st.sel.size <= 500) { const r = await post('photos.bulk', body); done = r.done; skipped = r.skipped; }
-        else { const ids = [...st.sel]; for (let i = 0; i < ids.length; i += 500) { const r = await post('photos.bulk', { op, ids: ids.slice(i, i + 500) }); done += r.done; skipped += r.skipped; } }
-        ctx.toast(op === 'delete' ? done + (done === 1 ? ' picture deleted.' : ' pictures deleted.') + (skipped ? ' ' + skipped + ' not yours to delete were left.' : '')
-          : op === 'shelve' ? done + ' moved to Unlikely to be used again.' : done + ' brought back to the library.');
-      } catch (e) { ctx.toast(e.message, true); }
-      st.bulkBusy = false; st.sel.clear(); st.selAll = false; st.lastSel = -1;
+        if (all) { const r = await post('photos.bulk', { op, all_matching: true, q: st.q, folder: st.folder, shelf: st.shelf ? 'only' : 'main', untagged: st.untagged }); done = r.done; skipped = r.skipped; }
+        else {
+          // 100 at a time; whatever has been done is un-ticked, so a failure leaves the rest ticked to try again (nothing is lost)
+          const ids = [...st.sel];
+          for (let i = 0; i < ids.length; i += 100) { const part = ids.slice(i, i + 100); const r = await post('photos.bulk', { op, ids: part }); done += r.done; skipped += r.skipped; part.forEach(id => st.sel.delete(id)); }
+        }
+      } catch (e) { failed = e; }
+      const msg = op === 'delete' ? done + (done === 1 ? ' picture deleted.' : ' pictures deleted.') + (skipped ? ' ' + skipped + ' not yours to delete were left.' : '')
+        : op === 'shelve' ? done + ' moved to Unlikely to be used again.' : done + ' brought back to the library.';
+      if (failed) ctx.toast((done ? msg + ' ' : '') + 'Stopped: ' + failed.message + ' The rest are still ticked, press the button again to retry.', true); else ctx.toast(msg);
+      st.bulkBusy = false; if (!failed) { st.sel.clear(); st.selAll = false; st.lastSel = -1; }
       await refreshFacets(); if (st.dead) return; draw(); await load(true);
     }
 
