@@ -4,9 +4,10 @@
   var me = document.currentScript, base = me ? me.src.replace(/[^\/]*$/, '') : 'https://app.blackhorsebeamish.co.uk/gallery/';
   var host = document.getElementById('bhbGallery'); if (!host) return;
   function add(tag, attrs) { var e = document.createElement(tag); for (var k in attrs) e.setAttribute(k, attrs[k]); document.head.appendChild(e); }
-  add('link', { rel: 'stylesheet', href: base + 'gallery.css?v=3' });
+  add('link', { rel: 'stylesheet', href: base + 'gallery.css?v=4' });
   add('link', { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Raleway:wght@400;500;600&display=swap' });
-  var wrap = document.createElement('div'); wrap.className = 'wrap'; host.className = 'bhbg'; host.appendChild(wrap);
+  var head = document.createElement('div'); head.className = 'gtitle'; head.innerHTML = '<h1>Photo Gallery</h1>'; host.className = 'bhbg'; host.appendChild(head);
+  var wrap = document.createElement('div'); wrap.className = 'wrap'; host.appendChild(wrap);
   var lb = document.createElement('div'); lb.id = 'bhbLb'; lb.className = 'bhbg-lb'; lb.setAttribute('role', 'dialog'); lb.setAttribute('aria-modal', 'true'); lb.setAttribute('aria-label', 'Photo');
   lb.innerHTML = '<button class="x" aria-label="Close">&times;</button><button class="p" aria-label="Previous">&#8249;</button><img alt=""><button class="n" aria-label="Next">&#8250;</button><div class="c"></div>';
   document.body.appendChild(lb);
