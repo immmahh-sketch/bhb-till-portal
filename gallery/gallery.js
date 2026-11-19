@@ -4,7 +4,7 @@
   var me = document.currentScript, base = me ? me.src.replace(/[^\/]*$/, '') : 'https://app.blackhorsebeamish.co.uk/gallery/';
   var host = document.getElementById('bhbGallery'); if (!host) return;
   function add(tag, attrs) { var e = document.createElement(tag); for (var k in attrs) e.setAttribute(k, attrs[k]); document.head.appendChild(e); }
-  add('link', { rel: 'stylesheet', href: base + 'gallery.css?v=2' });
+  add('link', { rel: 'stylesheet', href: base + 'gallery.css?v=3' });
   add('link', { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Raleway:wght@400;500;600&display=swap' });
   var wrap = document.createElement('div'); wrap.className = 'wrap'; host.className = 'bhbg'; host.appendChild(wrap);
   var lb = document.createElement('div'); lb.id = 'bhbLb'; lb.className = 'bhbg-lb'; lb.setAttribute('role', 'dialog'); lb.setAttribute('aria-modal', 'true'); lb.setAttribute('aria-label', 'Photo');
