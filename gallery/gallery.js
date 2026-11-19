@@ -11,6 +11,12 @@
   var lb = document.createElement('div'); lb.id = 'bhbLb'; lb.className = 'bhbg-lb'; lb.setAttribute('role', 'dialog'); lb.setAttribute('aria-modal', 'true'); lb.setAttribute('aria-label', 'Photo');
   lb.innerHTML = '<button class="x" aria-label="Close">&times;</button><button class="p" aria-label="Previous">&#8249;</button><img alt=""><button class="n" aria-label="Next">&#8250;</button><div class="c"></div>';
   document.body.appendChild(lb);
+  // the website header floats over the page: start below it (measured, so it also suits the phone header and the announcement bar)
+  function clear() {
+    var h = document.querySelector('header'), pos = h ? getComputedStyle(h).position : '';
+    if (h && (pos === 'fixed' || pos === 'sticky' || pos === 'absolute')) host.style.paddingTop = (Math.max(0, h.getBoundingClientRect().bottom) + 40) + 'px';
+  }
+  clear(); window.addEventListener('resize', clear); window.addEventListener('load', clear); setTimeout(clear, 600);
   var lbi = lb.querySelector('img'), lbc = lb.querySelector('.c'), data = null, cur = 0, idx = 0;
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   fetch(base + 'manifest.json?v=' + Math.floor(Date.now() / 600000)).then(function (r) { return r.json(); }).then(function (d) { data = d; build(); })
