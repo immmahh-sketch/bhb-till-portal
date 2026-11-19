@@ -328,8 +328,9 @@
       const busy = st.uploads.some(u => u.state === 'wait' || u.state === 'work');
       return `<div class="up"><h3>Add pictures</h3>
         <div class="row"><input type="text" id="plUpF" list="plFolders" value="${esc(st.upFolder)}" maxlength="200" placeholder="Folder, e.g. Weddings/2025" aria-label="Folder for these pictures"><datalist id="plFolders">${names.map(n => `<option value="${esc(n)}">`).join('')}</datalist>
-          <button class="btn" id="plPick" ${busy ? 'disabled' : ''}>Choose pictures</button><input type="file" id="plFiles" accept="image/jpeg,image/png,image/webp,image/gif,image/avif" multiple hidden></div>
-        <div class="drop" id="plDrop">Or drop pictures here. They are filed in the folder above and given search terms automatically. Photos from a phone or camera as JPEG are best (iPhone photos set to "Most Compatible").</div>
+          <button class="btn" id="plPick" ${busy ? 'disabled' : ''}>Choose pictures</button><input type="file" id="plFiles" accept="image/jpeg,image/png,image/webp,image/gif,image/avif" multiple hidden>
+          <button class="btn" id="plPickDir" ${busy ? 'disabled' : ''}>Choose a folder</button><input type="file" id="plDir" webkitdirectory multiple hidden></div>
+        <div class="drop" id="plDrop">Or drop pictures or whole folders here. They are filed in the folder above and given search terms automatically. A folder keeps its own name and sub-folders inside it (clear the box above to file it at the top level); anything that is not a picture is skipped. Photos from a phone or camera as JPEG are best (iPhone photos set to "Most Compatible").</div>
         ${st.uploads.length ? `<ul>${st.uploads.map(u => `<li><span>${esc(u.name)}</span><span class="${u.state === 'done' ? 'ok' : u.state === 'dup' ? 'dup' : u.state === 'err' ? 'bad' : ''}">${esc(u.msg)}</span></li>`).join('')}</ul>` : ''}</div>`;
     }
     function wireUpload() {
@@ -337,19 +338,38 @@
       q('#plUpF').oninput = e => { st.upFolder = e.target.value; };
       q('#plPick').onclick = () => q('#plFiles').click();
       q('#plFiles').onchange = e => { addFiles([...e.target.files]); e.target.value = ''; };
+      q('#plPickDir').onclick = () => q('#plDir').click();
+      q('#plDir').onchange = e => { addFiles([...e.target.files].map(f => ({ file: f, rel: f.webkitRelativePath || '' })), true); e.target.value = ''; };
       const d = q('#plDrop');
       ['dragenter', 'dragover'].forEach(n => d.addEventListener(n, e => { e.preventDefault(); d.classList.add('over'); }));
       ['dragleave', 'drop'].forEach(n => d.addEventListener(n, e => { e.preventDefault(); d.classList.remove('over'); }));
-      d.addEventListener('drop', e => addFiles([...(e.dataTransfer.files || [])]));
+      d.addEventListener('drop', async e => {
+        const items = [...(e.dataTransfer.items || [])].map(i => i.webkitGetAsEntry && i.webkitGetAsEntry()).filter(Boolean);
+        if (items.some(x => x.isDirectory)) { const found = []; for (const en of items) await walk(en, '', found); addFiles(found, true); }
+        else addFiles([...(e.dataTransfer.files || [])]);
+      });
     }
     function redrawUploads() { if (st.dead) return; const box = el.querySelector('.up'); if (!box) return; const y = box.scrollTop; const fresh = document.createElement('div'); fresh.innerHTML = uploadPanel(); box.replaceWith(fresh.firstElementChild); wireUpload(); }
     let running = 0;
-    function addFiles(files) {
-      for (const f of files) {
-        const u = { name: f.name, file: f, state: 'wait', msg: 'Waiting…', folder: st.upFolder };
+    // a dropped folder: read every file in it and its sub-folders (readEntries hands back at most ~100 at a time)
+    async function walk(en, path, out) {
+      if (en.isFile) { const f = await new Promise(res => en.file(res, () => res(null))); if (f) out.push({ file: f, rel: path + en.name }); return; }
+      const rd = en.createReader(); let batch;
+      do { batch = await new Promise(res => rd.readEntries(res, () => res([]))); for (const c of batch) await walk(c, path + en.name + '/', out); } while (batch.length);
+    }
+    function addFiles(files, fromFolder) {
+      let skipped = 0;
+      for (const it of files) {
+        const f = fromFolder ? it.file : it;
+        // folder name = the box above + the picture's own folders; the picture's file name is dropped from the path
+        const rel = fromFolder ? it.rel.split('/').slice(0, -1).join('/') : '';
+        if (fromFolder && !IMG.test(f.type || '')) { skipped++; continue; }          // videos, Thumbs.db, documents... in a folder are simply left out
+        const base = (st.upFolder || '').trim().replace(/^\/+|\/+$/g, '');
+        const u = { name: f.name, file: f, state: 'wait', msg: 'Waiting…', folder: [base, rel].filter(Boolean).join('/') };
         if (!IMG.test(f.type || '')) { u.state = 'err'; u.msg = 'Not a picture this page can read. Save it as JPEG first.'; }
         st.uploads.push(u);
       }
+      if (skipped) ctx.toast(skipped + ' file' + (skipped === 1 ? '' : 's') + ' in the folder ' + (skipped === 1 ? 'was' : 'were') + ' not pictures and skipped.');
       redrawUploads(); pump();
     }
     function pump() {
