@@ -244,7 +244,7 @@ document.addEventListener("click", async function (e) {
     var r = await api("admin.record_sale", { name: name, phone: $("#rp").value, email: $("#re").value, pay_method: method, note: $("#rt").value, send_email: $("#rs").checked, items: S.cart });
     $("#views").innerHTML = '<div class="pagehead"><h2>Sale recorded</h2></div><div class="card"><div class="notice ok">' + gbp(r.amount) + " recorded for " + esc(name) + ". " + (r.emailed_buyer ? "The voucher has been emailed to them." : "No voucher email was sent to the buyer.") + (r.emailed_staff ? " The sale email has gone to the GM and stay@." : "") + "</div>" +
       r.vouchers.map(function (x) { return '<p style="margin:0 0 12px"><b>' + esc(x.title) + '</b><br><span class="code" style="font-size:26px;color:var(--sage)">' + esc(x.code) + "</span></p>"; }).join("") +
-      '<p class="muted">Give the buyer the voucher number to quote when they phone to book.</p><button class="btn" data-tab="record" type="button">Record another sale</button> <button class="btn ghost" data-tab="vouchers" type="button">See all vouchers</button></div>';
+      '<p class="muted">' + bookingNote(r.vouchers) + '</p><button class="btn" data-tab="record" type="button">Record another sale</button> <button class="btn ghost" data-tab="vouchers" type="button">See all vouchers</button></div>';
   } catch (err) { go.disabled = false; msg.textContent = err.message; }
 });
 
@@ -260,6 +260,12 @@ function ukToIso(d, t) {
   var p = ukParts(new Date(guess).toISOString()), g = p.d.split("-").map(Number), h = p.t.split(":").map(Number), shown = Date.UTC(g[0], g[1] - 1, g[2], h[0], h[1]);
   return new Date(guess - (shown - guess)).toISOString();
 }
+function bookingNote(vs) {
+  var sp = vs.filter(function (x) { return x.book_how; }), nm = vs.filter(function (x) { return !x.book_how; }), t = [];
+  if (nm.length) t.push("Give the buyer the voucher number to quote when they phone to book.");
+  if (sp.length) t.push("The " + esc(sp[0].title.replace(/ for one.*$/, "")) + " is not booked by phone to us: " + esc(sp[0].book_how) + " Aston Workshop is the contact for it (" + esc(sp[0].contact_phone) + ").");
+  return t.join(" ");
+}
 function astonCard(p, cl, ed) {
   var st = { free: '<span class="pill ok">Free</span>', held: '<span class="pill warn">Held while paying</span>', used: '<span class="pill dark">Sold</span>' };
   var rows = cl.codes.map(function (c) {
@@ -268,6 +274,7 @@ function astonCard(p, cl, ed) {
   }).join("");
   return '<div class="card"><h3>' + esc(p.title) + '</h3><div class="notice ' + (p.active ? "ok" : "warn") + '">' + (p.active ? "On sale on the website (when the website sale is on)." : "Not on sale yet. Check the codes below against the email from Aston Workshop, correct any that are wrong, then switch it on.") + " " + cl.remaining + " of " + cl.codes.length + " codes left.</div>" +
     '<div class="sw"><input type="checkbox" id="pon" data-pkey="' + esc(p.key) + '"' + (p.active ? " checked" : "") + (ed ? "" : " disabled") + '><label for="pon">The Aston Workshop tour voucher is on sale</label></div>' +
+    '<p class="small">How the buyer books: ' + esc(p.book_how) + ' Contact for the tour: ' + esc(p.contact_name) + ' on ' + esc(p.contact_phone) + ' (not us). The buyer email, the page and the sale email all say this.</p>' +
     '<p class="small muted">Each voucher sold takes the next free code, from the top of this list. A code is held for about 50 minutes while a buyer pays, and goes back on the list if they do not. A voided sale does not put its code back: check with Aston Workshop whether to cancel it. When the codes run out the voucher shows as sold out.</p>' +
     '<div class="tw"><table class="t"><thead><tr><th>#</th><th>Code</th><th>Status</th><th>Sold to</th><th></th></tr></thead><tbody>' + rows + "</tbody></table></div></div>";
 }

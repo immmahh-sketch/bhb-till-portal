@@ -154,6 +154,9 @@ footer b{color:#fff}
 .v .code{font-family:"Courier New",monospace;font-size:clamp(26px,7vw,40px);font-weight:700;letter-spacing:.12em;color:var(--green);margin-top:2px}
 .v .when{margin-top:14px;font-size:15px;color:#444}
 .v.used{opacity:.55}
+.v .how{margin-top:16px;padding-top:14px;border-top:1px solid #e3e5de;font-size:14px;line-height:1.5;color:#333}
+.v .how a:not(.cta){color:var(--green);font-weight:700}
+.v .how .cta{margin-top:10px;padding:12px 22px;font-size:12px;background:var(--green);color:#fff}
 .howto{background:rgba(204,205,180,.12);border:1px solid rgba(204,205,180,.4);border-radius:var(--radius);padding:18px;margin:6px 0 18px;text-align:left}
 .howto a{color:#fff;font-weight:800}
 .spin{display:inline-block;width:30px;height:30px;border:4px solid rgba(255,255,255,.2);border-top-color:var(--olive);border-radius:50%;animation:sp 1s linear infinite}
@@ -228,6 +231,10 @@ const open = () => I && I.sale.state === "open";
 /* most of one voucher in one order: the usual limit, or fewer when only a few supplied codes (the Aston Workshop tour) are left */
 const maxFor = p => p.code_pool ? Math.max(0, Math.min(I.max_per_voucher, p.remaining || 0)) : I.max_per_voucher;
 const WORDS = ["No", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve"];
+/* How each voucher is booked comes from the product: most are booked by phoning us; the Aston Workshop tour (book_how set) is booked on Aston Workshop's TicketSource page and Aston Workshop is the contact. */
+const telOf = n => "tel:" + String(n).replace(/\D/g, "");
+const shortTitle = p => p.title.replace(/ for one.*$/, "");
+const specialsIn = list => list.filter(p => p.book_how);
 const total = () => I.products.reduce((t, p) => t + (BASKET[p.key] || 0) * p.price, 0);
 const count = () => Object.values(BASKET).reduce((t, n) => t + n, 0);
 
@@ -237,7 +244,7 @@ function card(p, feat, rev){
     '<div class="pic"><img src="img/' + esc(p.photo.split(",")[0]) + '" style="object-position:' + (POS[p.key] || "50% 50%") + '" alt="' + esc(p.title) + '" loading="lazy">' + (p.photo.split(",")[1] ? '<img class="inset" src="img/' + esc(p.photo.split(",")[1]) + '" alt="The hot tub" loading="lazy">' : "") + '<span class="save">Save up to <b>' + p.save_pct + '%</b></span><span class="tag">' + tagFor(p) + '</span></div>' +
     '<div class="body"><h3>' + esc(p.title) + '</h3><div class="subt">' + esc(p.subtitle) + '</div>' +
     '<ul>' + p.includes.map(x => '<li>' + esc(x) + '</li>').join("") + '</ul>' +
-    '<div class="valid"><b>' + esc(p.valid_text) + '</b>. Buy online first, then phone us to book. <b>New bookings only.</b>' + (p.note ? '<div class="note">' + esc(p.note) + '</div>' : '') + (p.code_pool && p.remaining > 0 && p.remaining <= 10 ? '<div class="note few"><b>Only ' + p.remaining + ' left.</b></div>' : '') + '</div>' +
+    '<div class="valid"><b>' + esc(p.valid_text) + '</b>. ' + (p.book_how ? 'Buy online first. ' + esc(p.book_how) : 'Buy online first, then phone us to book.') + ' <b>New bookings only.</b>' + (p.note ? '<div class="note">' + esc(p.note) + '</div>' : '') + (p.book_how ? '<div class="note">Questions about the tour? Contact ' + esc(p.contact_name) + ' on <a href="' + telOf(p.contact_phone) + '">' + esc(p.contact_phone) + '</a>.</div>' : '') + (p.code_pool && p.remaining > 0 && p.remaining <= 10 ? '<div class="note few"><b>Only ' + p.remaining + ' left.</b></div>' : '') + '</div>' +
     '<div class="buy"><div class="price"><span class="now">' + gbp(p.price) + '</span><span class="was">Normally ' + gbp(p.normal_price) + '</span><span class="yousave">You save ' + gbp(left) + '</span></div>' +
     '<div class="actions"><div class="qty"><button type="button" data-q="-" data-k="' + p.key + '" aria-label="One fewer"' + (q <= 0 ? " disabled" : "") + '>&minus;</button><output id="q-' + p.key + '">' + q + '</output><button type="button" data-q="+" data-k="' + p.key + '" aria-label="One more"' + (q >= max || !open() ? " disabled" : "") + '>+</button></div>' +
     '<button class="btn" type="button" data-buy="' + p.key + '"' + (open() && !gone ? "" : " disabled") + '>' + (gone ? "Sold out" : open() ? "Buy now" : "Not on sale yet") + '</button></div></div></div></article>';
@@ -247,7 +254,7 @@ function render(){
   $("#app").innerHTML =
   '<header class="hero">' + (EMBED ? "" : '<a href="https://www.blackhorsebeamish.co.uk" target="_top"><img class="logo" src="../app/logo-light.png" alt="Black Horse Beamish"></a>') +
     '<span class="kicker">Black Horse Beamish</span><h1>Black Friday<span>Event</span></h1>' +
-    '<p class="sub">Overnight stays, dinner, afternoon tea and gift vouchers for less. Buy your voucher online and we email it to you straight away. Once you have it, phone us to book.</p>' +
+    '<p class="sub">Overnight stays, dinner, afternoon tea and gift vouchers for less. Buy your voucher online and we email it to you straight away. Once you have it, phone us to book.' + (specialsIn(ps).length ? ' The Aston Workshop tour is booked on Aston Workshop\'s TicketSource page instead.' : '') + '</p>' +
     (open() && I.sale.closes_text ? '<p class="until">The Black Friday Event runs until the end of <b>' + esc(I.sale.closes_text) + '</b>. Buy before it ends.</p>' : "") +
     '<div class="burst"><div><em>Save up to</em><b>' + maxSave + '%</b><small>Black Friday</small></div></div><br>' +
     '<span class="state' + (open() ? "" : " off") + '"><i></i>' + (open() ? "On sale now" + (I.sale.closes_text ? " until " + esc(I.sale.closes_text) : "") : esc(I.sale.message)) + '</span><br>' +
@@ -259,16 +266,16 @@ function render(){
   '<section><div class="wrap"><div class="head"><h2>How it works</h2></div><div class="steps">' +
     '<div class="step"><h3>Buy your voucher online</h3><p>Choose your voucher and pay securely by card on this page. It takes a couple of minutes.</p></div>' +
     '<div class="step"><h3>We email it to you</h3><p>Your voucher and its voucher number arrive by email as soon as your payment is confirmed.</p></div>' +
-    '<div class="step"><h3>Then phone us to book</h3><p>Once you have your voucher, ring us on<br><a href="' + TEL + '">' + PHONE + '</a><br>and quote your voucher number to make your booking. Vouchers are for new bookings only.</p></div></div><p class="fine" style="margin-top:16px">You need to have bought your voucher first: the voucher number is what we ask for when you call.</p></div></section>' +
+    '<div class="step"><h3>Then phone us to book</h3><p>Once you have your voucher, ring us on<br><a href="' + TEL + '">' + PHONE + '</a><br>and quote your voucher number to make your booking. Vouchers are for new bookings only.' + specialsIn(ps).map(p => '<br><br><b>' + esc(shortTitle(p)) + ':</b> ' + esc(p.book_how) + ' Contact ' + esc(p.contact_name) + ' on <a href="' + telOf(p.contact_phone) + '">' + esc(p.contact_phone) + '</a>, not us.').join("") + '</p></div></div><p class="fine" style="margin-top:16px">You need to have bought your voucher first: the voucher number is what we ask for when you call.</p></div></section>' +
   '<section><div class="wrap"><div class="band"><figure><img src="img/house.jpg" alt="The Red Row cottages at Black Horse Beamish" loading="lazy"><figcaption>Red Row, Beamish</figcaption></figure><figure><img src="img/hero.jpg" alt="Afternoon tea board beside the fire" loading="lazy"><figcaption>By the fire</figcaption></figure><figure><img src="img/bath.jpg" alt="Copper bath in a Red Row room" loading="lazy" style="object-position:50% 70%"><figcaption>Your room awaits</figcaption></figure></div></div></section>' +
   '<section><div class="wrap terms"><h2>Good to know</h2><ul>' +
-    '<li><b>Buy your voucher online first. Once you have it, phone us on <a href="' + TEL + '">' + PHONE + '</a> to book and quote your voucher number.</b> Bookings are made by phone only.</li>' +
+    '<li><b>Buy your voucher online first. Once you have it, phone us on <a href="' + TEL + '">' + PHONE + '</a> to book and quote your voucher number.</b> Bookings are made by phone only.' + (specialsIn(ps).length ? ' The one exception is the Aston Workshop tour, below.' : '') + '</li>' +
     '<li><b>The overnight stay and the hot tub suite night are valid for stays until ' + esc(longDate(I.stay_book_by)) + '.</b> The stay itself must be on or before that date, so you cannot use one for a summer date.</li>' +
     '<li>All other vouchers are valid for <b>' + I.expiry_months + ' months</b> from the day you buy them.</li>' +
     '<li>All vouchers are for new bookings only.</li>' +
     '<li>Gift vouchers must be used in one transaction.</li>' +
-    (ps.some(p => p.code_pool) ? '<li>The Aston Workshop tour is run by Aston Workshop, on the first Friday of every month. One tour voucher is for one person, can be used once, and is valid on any tour date.</li>' : '') +
-    '<li>Vouchers can only be used at Black Horse Beamish.</li>' +
+    specialsIn(ps).map(p => '<li><b>The ' + esc(shortTitle(p)) + ' is booked with ' + esc(p.contact_name) + ', not with us.</b> ' + esc(p.book_how) + ' ' + esc(p.note) + ' Contact ' + esc(p.contact_name) + ' on <a href="' + telOf(p.contact_phone) + '">' + esc(p.contact_phone) + '</a>.</li>').join("") +
+    '<li>' + (specialsIn(ps).length ? 'Except for the Aston Workshop tour, vouchers' : 'Vouchers') + ' can only be used at Black Horse Beamish.</li>' +
     (I.terms_extra ? I.terms_extra.split(/\n+/).map(t => '<li>' + esc(t) + '</li>').join("") : "") + '</ul></div></section>' +
   '<footer><div class="brandline"><b>Black Horse Beamish</b><br>Red Row Estate, Beamish, Co. Durham DH9 0RW</div>Questions? Phone <a href="' + TEL + '">' + PHONE + '</a> or email <a href="mailto:stay@blackhorsebeamish.co.uk">stay@blackhorsebeamish.co.uk</a>.</footer>';
   bar(); tellHeight();
@@ -308,10 +315,15 @@ function renderCheckout(){
     '<div class="hp" aria-hidden="true"><label>Website<input id="web" type="text" tabindex="-1" autocomplete="off"></label></div>' +
     '<label class="chk"><input id="ok" type="checkbox"' + (keep.ok ? " checked" : "") + '><span>I am happy for Black Horse Beamish to use these details to look after my order.</span></label>' +
     '<div id="msg"></div><button class="btn big" id="go" type="submit">Pay ' + gbp(total()) + ' by card</button>' +
-    '<p class="fine">You will be taken to SumUp\'s secure payment page. Nothing is charged until you pay there.<br>Once you have paid, your voucher is emailed to you. Then phone us on ' + PHONE + ' to book.</p></form></div></div></section>';
+    '<p class="fine">You will be taken to SumUp\'s secure payment page. Nothing is charged until you pay there.<br>' + afterPay() + '</p></form></div></div></section>';
   $("#form").addEventListener("submit", e => { e.preventDefault(); pay(); });
   $("#more").addEventListener("click", backToList);
   tellHeight();
+}
+/* what to do once paid, for what is in the basket: phone us for the ordinary vouchers, and each special voucher's own instruction */
+function afterPay(){
+  const bp = I.products.filter(p => BASKET[p.key]), sp = specialsIn(bp);
+  return 'Once you have paid, your voucher is emailed to you.' + (bp.some(p => !p.book_how) ? ' Then phone us on ' + PHONE + ' to book.' : '') + sp.map(p => ' For the ' + esc(shortTitle(p)) + ': ' + esc(p.book_how) + ' Contact ' + esc(p.contact_name) + ' on ' + esc(p.contact_phone) + '.').join("");
 }
 function backToList(){ render(); window.scrollTo(0, 0); setTimeout(() => goTo($("#vouchers").offsetTop - 10), 150); }
 async function pay(){
@@ -350,14 +362,14 @@ async function paidPage(tries){
     const many = d.vouchers.length > 1;
     app.innerHTML = '<header class="hero" style="padding-bottom:30px">' + (EMBED ? "" : '<img class="logo" src="../app/logo-light.png" alt="Black Horse Beamish">') + '<span class="kicker">Black Friday Event</span></header>' +
       '<div class="thanks"><h1>Thank you, ' + esc(d.first) + '</h1><p>Your payment of ' + gbp(d.amount) + ' has been received. ' + (d.email ? 'We have emailed your ' + (many ? "vouchers" : "voucher") + ' to <b>' + esc(d.email) + '</b>.' : "") + ' Keep ' + (many ? "these numbers" : "this number") + ' safe.</p>' +
-      '<div class="howto"><b>What happens next</b><br>Now that you have your ' + (many ? "vouchers" : "voucher") + ', phone us on <a href="' + TEL + '">' + d.phone + '</a> to make your booking, and quote your voucher number.</div></div>' +
+      (d.vouchers.some(v => !v.book_how) ? '<div class="howto"><b>What happens next</b><br>Now that you have your ' + (d.vouchers.filter(v => !v.book_how).length > 1 ? "vouchers" : "voucher") + ', phone us on <a href="' + TEL + '">' + d.phone + '</a> to make your booking, and quote your voucher number.</div>' : '') + '</div>' +
       '<div class="wrap" style="max-width:720px">' + d.vouchers.map(v =>
-        '<div class="v' + (v.status === "redeemed" || v.status === "voided" ? " used" : "") + '"><div class="top">Black Friday voucher</div><div class="mid"><h3>' + esc(v.title) + '</h3><div class="lab">Voucher number</div><div class="code">' + esc(v.code) + '</div><div class="when">' + esc(v.expires_text) +
-        (v.kind === "money" ? '<br>Worth ' + gbp(v.face_value) + ' to spend on anything at Black Horse Beamish, in one transaction' : "") + (v.note ? '<br>' + esc(v.note) : "") +
+        '<div class="v' + (v.status === "redeemed" || v.status === "voided" ? " used" : "") + '"><div class="top">Black Friday voucher</div><div class="mid"><h3>' + esc(v.title) + '</h3><div class="lab">' + (v.book_how ? "Voucher code" : "Voucher number") + '</div><div class="code">' + esc(v.code) + '</div><div class="when">' + esc(v.expires_text) +
+        (v.kind === "money" ? '<br>Worth ' + gbp(v.face_value) + ' to spend on anything at Black Horse Beamish, in one transaction' : "") + (v.note ? '<br>' + esc(v.note) : "") + (v.book_how ? '<div class="how"><b>How to book</b><br>' + esc(v.book_how) + (v.book_url ? '<br><a class="cta noprint" href="' + esc(v.book_url) + '" target="_top" rel="noopener">Go to the booking page</a>' : '') + '<br>Questions about the tour? Contact ' + esc(v.contact_name) + ' on <a href="' + telOf(v.contact_phone) + '">' + esc(v.contact_phone) + '</a>.</div>' : "") +
         (v.status === "redeemed" ? '<br><b>Used</b>' : v.status === "voided" ? '<br><b>Cancelled</b>' : "") + '</div></div></div>').join("") +
       '<p style="text-align:center" class="noprint"><button class="cta" type="button" onclick="window.print()">Print ' + (many ? "vouchers" : "voucher") + '</button></p>' +
-      '<div class="terms" style="margin:20px auto 40px"><ul><li>Vouchers can only be used at Black Horse Beamish. Bookings are made by phone, quoting your voucher number.</li><li>All vouchers are for new bookings only.</li>' + (d.vouchers.some(v => v.kind === "stay") ? '<li>Stay vouchers are valid for stays until ' + esc(longDate(d.stay_book_by)) + '. The stay itself must be on or before that date.</li>' : "") +
-        (d.vouchers.some(v => v.kind !== "stay") ? '<li>Other vouchers are valid for ' + d.expiry_months + ' months from the day they were bought.</li>' : "") + (d.terms_extra ? d.terms_extra.split(/\n+/).map(t => '<li>' + esc(t) + '</li>').join("") : "") + '</ul></div></div>';
+      '<div class="terms" style="margin:20px auto 40px"><ul>' + (d.vouchers.some(v => !v.book_how) ? '<li>Vouchers can only be used at Black Horse Beamish. Bookings are made by phone, quoting your voucher number.</li>' : '') + '<li>All vouchers are for new bookings only.</li>' + (d.vouchers.some(v => v.kind === "stay") ? '<li>Stay vouchers are valid for stays until ' + esc(longDate(d.stay_book_by)) + '. The stay itself must be on or before that date.</li>' : "") +
+        (d.vouchers.some(v => v.kind !== "stay") ? '<li>' + (d.vouchers.some(v => v.kind === "stay") ? "Other vouchers are" : "Vouchers are") + ' valid for ' + d.expiry_months + ' months from the day they were bought.</li>' : "") + (d.terms_extra ? d.terms_extra.split(/\n+/).map(t => '<li>' + esc(t) + '</li>').join("") : "") + '</ul></div></div>';
   } else if (d.status === "pending" && d.pay_url) {
     app.innerHTML = '<div class="thanks"><h1>Waiting for your payment</h1><p>We have not had confirmation of your payment yet. If you have just paid, give it a minute and look again. Otherwise you can finish paying now.</p><p><a class="cta" href="' + esc(d.pay_url) + '" target="_top">Pay ' + gbp(d.amount) + '</a> <button class="cta" style="background:transparent;color:#fff;border:1px solid #fff" onclick="paidPage(0)">Look again</button></p></div>';
   } else {
