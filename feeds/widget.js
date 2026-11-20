@@ -26,7 +26,7 @@
 .bhw-links{margin-top:auto;padding-top:10px;display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12px;letter-spacing:.14em;text-transform:uppercase}\
 .bhw-links a{color:#4D604F !important;text-decoration:none !important;border-bottom:1px solid #4D604F;padding-bottom:1px}\
 .bhw-links a:hover{opacity:.7}\
-.bhw-btn{position:absolute;top:34%;width:44px;height:44px;border-radius:50%;border:1px solid #fff !important;background:rgba(77,96,79,.92) !important;color:#fff !important;font-size:20px;line-height:1;cursor:pointer;z-index:3;display:flex;align-items:center;justify-content:center;padding:0}\
+.bhw-credit{margin:6px 0 0 !important;font-size:10px !important;line-height:1.3 !important;color:#8a928b !important;letter-spacing:.02em}.bhw-credit a{color:#8a928b !important;text-decoration:none !important}.bhw-btn{position:absolute;top:34%;width:44px;height:44px;border-radius:50%;border:1px solid #fff !important;background:rgba(77,96,79,.92) !important;color:#fff !important;font-size:20px;line-height:1;cursor:pointer;z-index:3;display:flex;align-items:center;justify-content:center;padding:0}\
 .bhw-btn:hover{background:#fff !important;color:#4D604F !important}\
 .bhw-prev{left:10px}.bhw-next{right:10px}\
 .bhw-foot{text-align:center;margin-top:22px;padding:0 24px;font-size:13px;opacity:.9}\
@@ -48,7 +48,9 @@
     var l = el('div', 'bhw-links');
     var a1 = el('a', '', 'Find out more'); a1.href = it.link; a1.target = '_blank'; a1.rel = 'noopener'; l.appendChild(a1);
     var a2 = el('a', '', 'Stay with us'); a2.href = ROOMS; a2.title = it.hook; l.appendChild(a2);
-    b.appendChild(l); c.appendChild(b); return c;
+    b.appendChild(l);
+    if (it.credit) { var cr = el('p', 'bhw-credit'); var ca = el('a', '', it.credit.text); ca.href = it.credit.url; ca.target = '_blank'; ca.rel = 'noopener'; cr.appendChild(ca); b.appendChild(cr); }
+    c.appendChild(b); return c;
   }
 
   function build(data) {

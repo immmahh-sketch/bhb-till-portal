@@ -51,11 +51,13 @@ for i in live:
     img, size = image(i)
     url = BASE + "img/" + img
     hook = HOOK.get(i["category"], HOOK["Christmas"])
-    plain = f'{when(i)}. {i["summary"]} {hook} Rooms and cottages: {LINK}'
+    cr = i.get("credit")
+    plain = f'{when(i)}. {i["summary"]} {hook} Rooms and cottages: {LINK}' + (f' ({cr["text"]}, via Wikimedia Commons)' if cr else '')
     html = (f'<p><img src="{url}" alt="{escape(i["title"])}" style="max-width:100%"/></p>'
             f'<p><strong>{escape(when(i))}.</strong> {escape(i["summary"])}</p>'
             f'<p>{escape(hook)} <a href="{LINK}">See our rooms and cottages</a></p>'
-            f'<p><a href="{escape(i["link"])}">Find out more from the organiser</a></p>')
+            f'<p><a href="{escape(i["link"])}">Find out more from the organiser</a></p>'
+            + (f'<p><small><a href="{escape(cr["url"])}">{escape(cr["text"])}</a> (Wikimedia Commons)</small></p>' if cr else ''))
     pub = rfc(min(max(dt.date.fromisoformat(i["start"]) - dt.timedelta(days=7), dt.date(2026, 11, 20)), today))
     out.append("<item>"
       f'<title>{escape(i["title"])} ({escape(i["area"])})</title>'
@@ -70,7 +72,7 @@ for i in live:
       f'<content:encoded><![CDATA[{html}]]></content:encoded></item>')
     js.append({"id": i["id"], "title": i["title"], "area": i["area"], "category": i["category"],
                "when": when(i), "start": i["start"], "end": i["end"], "summary": i["summary"],
-               "hook": hook, "link": i["link"], "image": url})
+               "hook": hook, "link": i["link"], "image": url, "credit": i.get("credit")})
 out.append("</channel></rss>")
 open(os.path.join(here, "whats-on.xml"), "w", encoding="utf-8").write("\n".join(out))
 json.dump({"built": today.isoformat(), "rooms": LINK, "items": js},
