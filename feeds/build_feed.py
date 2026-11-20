@@ -31,6 +31,21 @@ def when(i):
         return f'{s.day} {s.strftime("%b %Y")}'
     return f'{s.day} {s.strftime("%b")} to {e.day} {e.strftime("%b %Y")}'
 
+def thumb(name):
+    """360 px wide copy for the strip on /news (the full image stays for the RSS feed)."""
+    try:
+        from PIL import Image
+    except Exception:
+        return name
+    d = os.path.join(here, "img", "t"); os.makedirs(d, exist_ok=True)
+    src, dst = os.path.join(here, "img", name), os.path.join(d, name)
+    if not os.path.exists(dst) or os.path.getmtime(dst) < os.path.getmtime(src):
+        im = Image.open(src).convert("RGB")
+        if im.width > 360:
+            im = im.resize((360, round(im.height * 360 / im.width)))
+        im.save(dst, quality=80, optimize=True)
+    return "t/" + name
+
 def image(i):
     name = i.get("image") or DEFAULT_IMAGE
     if not os.path.exists(os.path.join(here, "img", name)):
@@ -72,7 +87,7 @@ for i in live:
       f'<content:encoded><![CDATA[{html}]]></content:encoded></item>')
     js.append({"id": i["id"], "title": i["title"], "area": i["area"], "category": i["category"],
                "when": when(i), "start": i["start"], "end": i["end"], "summary": i["summary"],
-               "hook": hook, "link": i["link"], "image": url, "credit": i.get("credit")})
+               "hook": hook, "link": i["link"], "image": url, "thumb": BASE + "img/" + thumb(img), "credit": i.get("credit")})
 out.append("</channel></rss>")
 open(os.path.join(here, "whats-on.xml"), "w", encoding="utf-8").write("\n".join(out))
 json.dump({"built": today.isoformat(), "rooms": LINK, "items": js},

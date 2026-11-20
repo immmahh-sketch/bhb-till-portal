@@ -47,7 +47,7 @@ article.sections>section.has-section-divider h3{font-size:clamp(14px,1.3vw,18px)
   function card(it) {
     var c = el('article', 'bhw-card');
     var ph = el('div', 'bhw-ph');
-    var im = el('img', 'bhw-img'); im.src = it.image; im.alt = it.title; im.loading = 'lazy'; im.draggable = false; ph.appendChild(im);
+    var im = el('img', 'bhw-img'); im.src = it.thumb || it.image; im.alt = it.title; im.loading = 'lazy'; im.decoding = 'async'; im.draggable = false; ph.appendChild(im);
     if (it.credit) { var cr = el('p', 'bhw-credit'); var ca = el('a', '', it.credit.text); ca.href = it.credit.url; ca.target = '_blank'; ca.rel = 'noopener'; cr.appendChild(ca); ph.appendChild(cr); }
     c.appendChild(ph);
     var b = el('div', 'bhw-body');
@@ -76,7 +76,7 @@ article.sections>section.has-section-divider h3{font-size:clamp(14px,1.3vw,18px)
     var fa = el('a', '', 'RSS feed'); fa.href = BASE + 'whats-on.xml'; head.appendChild(fa);
     box.appendChild(head);
     var wrap = el('div', 'bhw-wrap'); var row = el('div', 'bhw-row'); row.tabIndex = 0; row.setAttribute('aria-label', 'Scrolling list of events');
-    items.forEach(function (i) { row.appendChild(card(i)); });
+    items.forEach(function (i, n) { var c = card(i); if (n < 8) c.querySelector('img').loading = 'eager'; row.appendChild(c); });
     var firstCount = row.children.length;
     if (items.length > 3) items.forEach(function (i) { var c = card(i); c.setAttribute('aria-hidden', 'true'); c.querySelectorAll('a').forEach(function (a) { a.tabIndex = -1; }); row.appendChild(c); });
     wrap.appendChild(row);
