@@ -92,7 +92,9 @@ section{padding:56px 0 8px}
 .feature h3{font-size:34px}
 .feature .price .now{font-size:62px}
 .feature.rev{flex-direction:row-reverse}
-.feature .pic img{position:absolute;inset:0}
+.feature .pic img:not(.inset){position:absolute;inset:0}
+.card .note{margin:10px 0 0;font-size:13px;line-height:1.45;color:var(--soft)}
+.card .few{color:var(--olive)}
 
 /* basket bar */
 .bar{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(10,11,10,.96);border-top:1px solid rgba(204,205,180,.4);backdrop-filter:blur(8px);transform:translateY(110%);transition:transform .25s}
@@ -164,7 +166,7 @@ body.embed footer{padding-bottom:24px}
 .hero.mini{padding:30px 18px 26px}.qty.sm button{width:34px;height:36px}.qty.sm output{min-width:24px}.lines td .small{font-size:13px;color:var(--soft)}
 .lines td:nth-child(2){text-align:center;white-space:nowrap}
 .ln{display:flex;gap:12px;align-items:center}.thumb{flex:0 0 84px;width:84px;height:84px;object-fit:cover;border-radius:10px;border:1px solid rgba(255,255,255,.15)}@media (max-width:520px){.thumb{flex-basis:64px;width:64px;height:64px}}
-@media (max-width:820px){.feature,.feature.rev{flex-direction:column}.feature .pic{min-height:0;aspect-ratio:4/3;flex:none}.feature .pic img{position:static}.feature .body{padding:22px}.feature h3{font-size:28px}.feature .price .now{font-size:52px}.band{grid-template-columns:1fr}.band figure{min-height:200px}.steps{grid-template-columns:1fr}}
+@media (max-width:820px){.feature,.feature.rev{flex-direction:column}.feature .pic{min-height:0;aspect-ratio:4/3;flex:none}.feature .pic img:not(.inset){position:static}.feature .body{padding:22px}.feature h3{font-size:28px}.feature .price .now{font-size:52px}.band{grid-template-columns:1fr}.band figure{min-height:200px}.steps{grid-template-columns:1fr}}
 @media (max-width:640px){.grid{grid-template-columns:1fr}.hero{padding-bottom:44px}.hero .sub{font-size:16px}.burst{width:128px;height:128px}.burst b{font-size:44px}.bar .cta{padding:13px 18px}#checkout{padding:22px 16px}.price .now{font-size:40px}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}.spin{animation-duration:3s}}
 @media print{body{background:#fff;color:#000}.hero,.strip,.bar,footer,.noprint{display:none!important}.v{box-shadow:none;border:2px solid #000;break-inside:avoid}.thanks p{color:#333}}
@@ -190,8 +192,8 @@ function goTo(y){ if (EMBED && parent !== window) parent.postMessage(y > 0 ? { b
 const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
 const gbp = n => "£" + Number(n).toLocaleString("en-GB", { minimumFractionDigits: Math.round(Number(n) * 100) % 100 ? 2 : 0, maximumFractionDigits: 2 });
 const PHONE = "01207 232 569", TEL = "tel:01207232569";
-const POS = { stay:"50% 62%", tea:"50% 38%", steak:"50% 50%", sunday:"50% 66%", money:"50% 45%", money50:"50% 50%", hottub:"50% 55%" };
-const tagFor = p => p.key === "stay" ? "Best saving" : p.key === "hottub" ? "Romantic stay" : p.kind === "money" ? "Gift voucher" : "For two";
+const POS = { stay:"50% 62%", tea:"50% 38%", steak:"50% 50%", sunday:"50% 66%", money:"50% 45%", money50:"50% 50%", hottub:"50% 55%", aston:"50% 40%" };
+const tagFor = p => p.key === "stay" ? "Best saving" : p.key === "aston" ? "Aston Workshop" : p.key === "hottub" ? "Romantic stay" : p.kind === "money" ? "Gift voucher" : "For two";
 let I = null, BASKET = {}, BUSY = false, HITS = null;
 /* Hits of the 90s party night, at the voucher price (5 pounds off each ticket and a free drink with each). It is not a voucher to phone and book with: the button takes people to the booking page with the voucher code already applied, where they pick tickets and pay, and the booking goes straight onto the ticket sales list. Prices and availability come from the booking system, so the card only shows while tickets are on sale. */
 const XMAS_API = "https://safcrtrfdzsnftghibot.supabase.co/functions/v1/xmas-api", HITS_CODE = "HITS40", BOOK_URL = "https://app.blackhorsebeamish.co.uk/book/";
@@ -223,22 +225,25 @@ async function call(action, payload){
   return j;
 }
 const open = () => I && I.sale.state === "open";
+/* most of one voucher in one order: the usual limit, or fewer when only a few supplied codes (the Aston Workshop tour) are left */
+const maxFor = p => p.code_pool ? Math.max(0, Math.min(I.max_per_voucher, p.remaining || 0)) : I.max_per_voucher;
+const WORDS = ["No", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve"];
 const total = () => I.products.reduce((t, p) => t + (BASKET[p.key] || 0) * p.price, 0);
 const count = () => Object.values(BASKET).reduce((t, n) => t + n, 0);
 
 function card(p, feat, rev){
-  const left = Math.round((p.normal_price - p.price) * 100) / 100, q = BASKET[p.key] || 0, max = I.max_per_voucher;
+  const left = Math.round((p.normal_price - p.price) * 100) / 100, q = BASKET[p.key] || 0, max = maxFor(p), gone = p.code_pool && !max;
   return '<article class="card' + (feat ? " feature" : "") + (rev ? " rev" : "") + '" id="c-' + p.key + '">' +
     '<div class="pic"><img src="img/' + esc(p.photo.split(",")[0]) + '" style="object-position:' + (POS[p.key] || "50% 50%") + '" alt="' + esc(p.title) + '" loading="lazy">' + (p.photo.split(",")[1] ? '<img class="inset" src="img/' + esc(p.photo.split(",")[1]) + '" alt="The hot tub" loading="lazy">' : "") + '<span class="save">Save up to <b>' + p.save_pct + '%</b></span><span class="tag">' + tagFor(p) + '</span></div>' +
     '<div class="body"><h3>' + esc(p.title) + '</h3><div class="subt">' + esc(p.subtitle) + '</div>' +
     '<ul>' + p.includes.map(x => '<li>' + esc(x) + '</li>').join("") + '</ul>' +
-    '<div class="valid"><b>' + esc(p.valid_text) + '</b>. Buy online first, then phone us to book. <b>New bookings only.</b></div>' +
+    '<div class="valid"><b>' + esc(p.valid_text) + '</b>. Buy online first, then phone us to book. <b>New bookings only.</b>' + (p.note ? '<div class="note">' + esc(p.note) + '</div>' : '') + (p.code_pool && p.remaining > 0 && p.remaining <= 10 ? '<div class="note few"><b>Only ' + p.remaining + ' left.</b></div>' : '') + '</div>' +
     '<div class="buy"><div class="price"><span class="now">' + gbp(p.price) + '</span><span class="was">Normally ' + gbp(p.normal_price) + '</span><span class="yousave">You save ' + gbp(left) + '</span></div>' +
     '<div class="actions"><div class="qty"><button type="button" data-q="-" data-k="' + p.key + '" aria-label="One fewer"' + (q <= 0 ? " disabled" : "") + '>&minus;</button><output id="q-' + p.key + '">' + q + '</output><button type="button" data-q="+" data-k="' + p.key + '" aria-label="One more"' + (q >= max || !open() ? " disabled" : "") + '>+</button></div>' +
-    '<button class="btn" type="button" data-buy="' + p.key + '"' + (open() ? "" : " disabled") + '>' + (open() ? "Buy now" : "Not on sale yet") + '</button></div></div></div></article>';
+    '<button class="btn" type="button" data-buy="' + p.key + '"' + (open() && !gone ? "" : " disabled") + '>' + (gone ? "Sold out" : open() ? "Buy now" : "Not on sale yet") + '</button></div></div></div></article>';
 }
 function render(){
-  const ps = I.products, maxSave = I.max_save, feat = ps[0], rest = ps.slice(1);
+  const ps = I.products, maxSave = I.max_save, feats = ps.filter(p => p.kind === "stay"), others = ps.filter(p => p.kind !== "stay");
   $("#app").innerHTML =
   '<header class="hero">' + (EMBED ? "" : '<a href="https://www.blackhorsebeamish.co.uk" target="_top"><img class="logo" src="../app/logo-light.png" alt="Black Horse Beamish"></a>') +
     '<span class="kicker">Black Horse Beamish</span><h1>Black Friday<span>Event</span></h1>' +
@@ -248,8 +253,8 @@ function render(){
     '<span class="state' + (open() ? "" : " off") + '"><i></i>' + (open() ? "On sale now" + (I.sale.closes_text ? " until " + esc(I.sale.closes_text) : "") : esc(I.sale.message)) + '</span><br>' +
     (open() ? '<button class="cta" type="button" data-go="vouchers">See the vouchers</button>' : "") + '</header>' +
   '<div class="strip"><div class="wrap"><span>Buy online by card</span><span>Voucher emailed to you</span><span>Then phone to book</span><span>New bookings only</span>' + (open() && I.sale.closes_text ? '<span>Ends ' + esc(I.sale.closes_text) + '</span>' : '') + '</div></div>' +
-  hitsSection() + '<section id="vouchers"><div class="wrap"><div class="head"><h2>The Black Friday vouchers</h2><p>Seven ways to treat yourself, or someone you love. The gift vouchers can be spent on anything at Black Horse Beamish.</p></div>' +
-    '<div class="grid">' + card(feat, true) + rest.map(p => card(p, false)).join("") + '</div></div></section>' +
+  hitsSection() + '<section id="vouchers"><div class="wrap"><div class="head"><h2>The Black Friday vouchers</h2><p>' + WORDS[ps.length] + ' ways to treat yourself, or someone you love. The gift vouchers can be spent on anything at Black Horse Beamish.</p></div>' +
+    '<div class="grid">' + feats.map((p, i) => card(p, true, i % 2 === 1)).join("") + others.map(p => card(p, false)).join("") + '</div></div></section>' +
   '<section id="pay" style="display:none"><div class="wrap"><div id="checkout"></div></div></section>' +
   '<section><div class="wrap"><div class="head"><h2>How it works</h2></div><div class="steps">' +
     '<div class="step"><h3>Buy your voucher online</h3><p>Choose your voucher and pay securely by card on this page. It takes a couple of minutes.</p></div>' +
@@ -262,6 +267,7 @@ function render(){
     '<li>All other vouchers are valid for <b>' + I.expiry_months + ' months</b> from the day you buy them.</li>' +
     '<li>All vouchers are for new bookings only.</li>' +
     '<li>Gift vouchers must be used in one transaction.</li>' +
+    (ps.some(p => p.code_pool) ? '<li>The Aston Workshop tour is run by Aston Workshop, on the first Friday of every month. One tour voucher is for one person, can be used once, and is valid on any tour date.</li>' : '') +
     '<li>Vouchers can only be used at Black Horse Beamish.</li>' +
     (I.terms_extra ? I.terms_extra.split(/\n+/).map(t => '<li>' + esc(t) + '</li>').join("") : "") + '</ul></div></section>' +
   '<footer><div class="brandline"><b>Black Horse Beamish</b><br>Red Row Estate, Beamish, Co. Durham DH9 0RW</div>Questions? Phone <a href="' + TEL + '">' + PHONE + '</a> or email <a href="mailto:stay@blackhorsebeamish.co.uk">stay@blackhorsebeamish.co.uk</a>.</footer>';
@@ -275,7 +281,7 @@ function bar(){ return; /* the sticky bar is not used: on the website the frame 
   $("#barsum").innerHTML = n ? n + " voucher" + (n === 1 ? "" : "s") + "<small>Total " + gbp(total()) + "</small>" : "";
 }
 function setQty(k, d){
-  const max = I.max_per_voucher, q = Math.max(0, Math.min(max, (BASKET[k] || 0) + d)); BASKET[k] = q; if (!q) delete BASKET[k];
+  const max = maxFor(I.products.find(x => x.key === k)), q = Math.max(0, Math.min(max, (BASKET[k] || 0) + d)); BASKET[k] = q; if (!q) delete BASKET[k];
   const out = $("#q-" + k); if (out) out.textContent = q;
   const c = $("#c-" + k); if (c){ c.querySelector('[data-q="-"]').disabled = q <= 0; c.querySelector('[data-q="+"]').disabled = q >= max; }
   bar();
@@ -290,7 +296,7 @@ function checkout(){
 function renderCheckout(){
   const keep = { nm:($("#nm") || {}).value || "", em:($("#em") || {}).value || "", ph:($("#ph") || {}).value || "", ok:!!($("#ok") || {}).checked };
   const lines = I.products.filter(p => BASKET[p.key]).map(p => '<tr><td><div class="ln"><img class="thumb" src="img/' + esc(p.photo.split(",")[0]) + '" alt="" style="object-position:' + (POS[p.key] || "50% 50%") + '"><div><b>' + esc(p.title) + '</b><div class="small">' + gbp(p.price) + ' each</div></div></div></td>' +
-    '<td><div class="qty sm"><button type="button" data-cq="-" data-k="' + p.key + '" aria-label="One fewer">&minus;</button><output>' + BASKET[p.key] + '</output><button type="button" data-cq="+" data-k="' + p.key + '" aria-label="One more"' + (BASKET[p.key] >= I.max_per_voucher ? " disabled" : "") + '>+</button></div></td>' +
+    '<td><div class="qty sm"><button type="button" data-cq="-" data-k="' + p.key + '" aria-label="One fewer">&minus;</button><output>' + BASKET[p.key] + '</output><button type="button" data-cq="+" data-k="' + p.key + '" aria-label="One more"' + (BASKET[p.key] >= maxFor(p) ? " disabled" : "") + '>+</button></div></td>' +
     '<td>' + gbp(BASKET[p.key] * p.price) + '</td></tr>').join("");
   $("#app").innerHTML =
     '<header class="hero mini">' + (EMBED ? "" : '<a href="https://www.blackhorsebeamish.co.uk" target="_top"><img class="logo" src="../app/logo-light.png" alt="Black Horse Beamish"></a>') + '<span class="kicker">Black Friday Event</span></header>' +
@@ -329,7 +335,7 @@ document.addEventListener("click", e => {
   const b = e.target.closest("[data-buy]"); if (b && !b.disabled) { if (!BASKET[b.dataset.buy]) setQty(b.dataset.buy, 1); checkout(); return; }
   const g = e.target.closest("[data-go]"); if (g) { const t = $("#" + g.dataset.go); if (t) goTo(Math.max(0, t.offsetTop - 10)); return; }
   const c = e.target.closest("[data-cq]"); if (c && !c.disabled) {
-    const k = c.dataset.k, n = Math.max(0, Math.min(I.max_per_voucher, (BASKET[k] || 0) + (c.dataset.cq === "+" ? 1 : -1))); BASKET[k] = n; if (!n) delete BASKET[k];
+    const k = c.dataset.k, n = Math.max(0, Math.min(maxFor(I.products.find(x => x.key === k)), (BASKET[k] || 0) + (c.dataset.cq === "+" ? 1 : -1))); BASKET[k] = n; if (!n) delete BASKET[k];
     if (!count()) return backToList(); renderCheckout();
   }
 });
@@ -347,7 +353,7 @@ async function paidPage(tries){
       '<div class="howto"><b>What happens next</b><br>Now that you have your ' + (many ? "vouchers" : "voucher") + ', phone us on <a href="' + TEL + '">' + d.phone + '</a> to make your booking, and quote your voucher number.</div></div>' +
       '<div class="wrap" style="max-width:720px">' + d.vouchers.map(v =>
         '<div class="v' + (v.status === "redeemed" || v.status === "voided" ? " used" : "") + '"><div class="top">Black Friday voucher</div><div class="mid"><h3>' + esc(v.title) + '</h3><div class="lab">Voucher number</div><div class="code">' + esc(v.code) + '</div><div class="when">' + esc(v.expires_text) +
-        (v.kind === "money" ? '<br>Worth ' + gbp(v.face_value) + ' to spend on anything at Black Horse Beamish, in one transaction' : "") +
+        (v.kind === "money" ? '<br>Worth ' + gbp(v.face_value) + ' to spend on anything at Black Horse Beamish, in one transaction' : "") + (v.note ? '<br>' + esc(v.note) : "") +
         (v.status === "redeemed" ? '<br><b>Used</b>' : v.status === "voided" ? '<br><b>Cancelled</b>' : "") + '</div></div></div>').join("") +
       '<p style="text-align:center" class="noprint"><button class="cta" type="button" onclick="window.print()">Print ' + (many ? "vouchers" : "voucher") + '</button></p>' +
       '<div class="terms" style="margin:20px auto 40px"><ul><li>Vouchers can only be used at Black Horse Beamish. Bookings are made by phone, quoting your voucher number.</li><li>All vouchers are for new bookings only.</li>' + (d.vouchers.some(v => v.kind === "stay") ? '<li>Stay vouchers are valid for stays until ' + esc(longDate(d.stay_book_by)) + '. The stay itself must be on or before that date.</li>' : "") +

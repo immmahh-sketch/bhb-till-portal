@@ -196,7 +196,7 @@ async function doAct(a, id) {
       '<div class="notice warn">' + (undo ? "This changes a voucher that has already been marked used. " : "A void voucher can no longer be used. Use this for a refund or a voucher issued in error. ") + "A reason is needed and is kept.</div>" +
       '<div class="f"><label for="nt">Reason</label><input id="nt" maxlength="300"></div>' +
       '<div style="display:flex;gap:10px;margin-top:14px"><button class="btn danger" id="ok" type="button">' + (undo ? "Put back" : "Void voucher") + '</button><button class="btn ghost" data-close type="button">Cancel</button></div>',
-      function (m) { m.querySelector("#ok").onclick = async function () { var n = m.querySelector("#nt").value.trim(); if (!n) { toast("Please give a reason.", true); return; } this.disabled = true; try { await api(undo ? "admin.undo" : "admin.void", { id: id, note: n }); m.remove(); toast(undo ? "Put back." : "Voided."); showVouchers($("#views")); } catch (e) { this.disabled = false; toast(e.message, true); } }; });
+      function (m) { m.querySelector("#ok").onclick = async function () { var n = m.querySelector("#nt").value.trim(); if (!n) { toast("Please give a reason.", true); return; } this.disabled = true; try { var rr = await api(undo ? "admin.undo" : "admin.void", { id: id, note: n }); m.remove(); toast(undo ? "Put back." : "Voided."); if (rr && rr.code_note) modal('<h3>Please note</h3><p>' + esc(rr.code_note) + '</p><div style="margin-top:14px"><button class="btn" data-close type="button">OK</button></div>'); showVouchers($("#views")); } catch (e) { this.disabled = false; toast(e.message, true); } }; });
   } else if (a === "resend") {
     if (!confirm("Email " + (v.is_test ? "the GM" : v.email) + " this voucher again?")) return;
     try { var r2 = await api("admin.resend", { id: id }); toast("Sent to " + r2.to + "."); } catch (e) { toast(e.message, true); }
@@ -260,10 +260,22 @@ function ukToIso(d, t) {
   var p = ukParts(new Date(guess).toISOString()), g = p.d.split("-").map(Number), h = p.t.split(":").map(Number), shown = Date.UTC(g[0], g[1] - 1, g[2], h[0], h[1]);
   return new Date(guess - (shown - guess)).toISOString();
 }
+function astonCard(p, cl, ed) {
+  var st = { free: '<span class="pill ok">Free</span>', held: '<span class="pill warn">Held while paying</span>', used: '<span class="pill dark">Sold</span>' };
+  var rows = cl.codes.map(function (c) {
+    return "<tr><td>" + c.position + '</td><td><span class="code">' + esc(c.code) + "</span></td><td>" + (st[c.status] || esc(c.status)) + (c.voucher_status === "voided" ? ' <span class="pill bad">Void</span>' : "") + (c.is_test ? ' <span class="pill warn">Test</span>' : "") + "</td><td>" + esc(c.buyer) + "</td><td>" +
+      (ed && c.status === "free" ? '<button class="btn sm ghost" data-codefix="' + esc(c.code) + '" type="button">Correct</button>' : "") + "</td></tr>";
+  }).join("");
+  return '<div class="card"><h3>' + esc(p.title) + '</h3><div class="notice ' + (p.active ? "ok" : "warn") + '">' + (p.active ? "On sale on the website (when the website sale is on)." : "Not on sale yet. Check the codes below against the email from Aston Workshop, correct any that are wrong, then switch it on.") + " " + cl.remaining + " of " + cl.codes.length + " codes left.</div>" +
+    '<div class="sw"><input type="checkbox" id="pon" data-pkey="' + esc(p.key) + '"' + (p.active ? " checked" : "") + (ed ? "" : " disabled") + '><label for="pon">The Aston Workshop tour voucher is on sale</label></div>' +
+    '<p class="small muted">Each voucher sold takes the next free code, from the top of this list. A code is held for about 50 minutes while a buyer pays, and goes back on the list if they do not. A voided sale does not put its code back: check with Aston Workshop whether to cancel it. When the codes run out the voucher shows as sold out.</p>' +
+    '<div class="tw"><table class="t"><thead><tr><th>#</th><th>Code</th><th>Status</th><th>Sold to</th><th></th></tr></thead><tbody>' + rows + "</tbody></table></div></div>";
+}
 async function showSettings(v) {
   v.innerHTML = '<div class="pagehead"><h2>Settings</h2></div><p class="muted">Loading…</p>';
   try {
     var d = await api("admin.settings_get"), s = d.settings; S.settings = s; var o = ukParts(s.opens_at), c = ukParts(s.closes_at), ed = S.me.edit;
+    var pool = d.products.filter(function (p) { return p.code_pool; })[0], cl = pool ? await api("admin.codes_list", { product_key: pool.key }) : null;
     v.innerHTML = '<div class="pagehead"><h2>Settings</h2></div>' +
       '<div class="card"><h3>The website sale</h3><div class="notice ' + (d.sale.state === "open" ? "ok" : "warn") + '" id="state">' + (d.sale.state === "open" ? "The vouchers are on sale on the website now." : esc(d.sale.message)) + "</div>" +
       '<div class="sw"><input type="checkbox" id="son"' + (s.sale_on ? " checked" : "") + (ed ? "" : " disabled") + '><label for="son">Vouchers are on sale on the website</label></div>' +
@@ -276,9 +288,19 @@ async function showSettings(v) {
       '<div class="f" style="margin-top:12px"><label for="tx">Extra terms (shown on the page and in the voucher email)</label><textarea id="tx" placeholder="Leave blank until the wording is agreed. For example refunds, passing a voucher to someone else, dates it cannot be used.">' + esc(s.terms_extra || "") + '</textarea></div>' +
       (ed ? '<div style="margin-top:14px"><button class="btn" id="ssave" type="button">Save settings</button></div>' : "") + "</div>" +
       '<div class="card"><h3>Prices</h3><table class="t"><thead><tr><th>Voucher</th><th>Price</th><th>Normally</th><th>Shown as</th></tr></thead><tbody>' + d.products.map(function (p) { return "<tr><td>" + esc(p.title) + "</td><td>" + gbp(p.price) + "</td><td>" + gbp(p.normal_price) + "</td><td>Save up to " + p.save_pct + "%</td></tr>"; }).join("") + '</tbody></table><p class="small muted" style="margin:10px 0 0">The percentage is worked out from the two prices and rounded down. To change a price, ask for it to be changed.</p></div>' +
+      (pool ? astonCard(pool, cl, ed) : "") +
       '<div class="card"><h3>Links</h3><p style="margin:0">Website page: <a href="' + esc(d.page_url) + '" target="_blank" rel="noopener">' + esc(d.page_url) + '</a><br>The page the website shows: <a href="' + esc(d.app_page_url) + '" target="_blank" rel="noopener">' + esc(d.app_page_url) + "</a></p></div>";
   } catch (e) { v.innerHTML = '<div class="card"><b>' + esc(e.message) + "</b></div>"; }
 }
+document.addEventListener("change", async function (e) {
+  if (e.target.id !== "pon") return; var box = e.target;
+  try { await api("admin.product_set", { key: box.dataset.pkey, active: box.checked }); toast(box.checked ? "Switched on." : "Switched off."); showSettings($("#views")); } catch (err) { box.checked = !box.checked; toast(err.message, true); }
+});
+document.addEventListener("click", async function (e) {
+  var f = e.target.closest("[data-codefix]"); if (!f) return;
+  var nc = prompt("The correct code for " + f.dataset.codefix + ":", f.dataset.codefix); if (!nc || nc.trim().toUpperCase() === f.dataset.codefix) return;
+  try { await api("admin.code_set", { code: f.dataset.codefix, new_code: nc }); toast("Code changed."); showSettings($("#views")); } catch (err) { toast(err.message, true); }
+});
 document.addEventListener("click", async function (e) {
   if (e.target.id !== "ssave") return; var b = e.target; b.disabled = true;
   try {
