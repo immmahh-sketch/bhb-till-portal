@@ -26,7 +26,7 @@
 .bhw-chip{background:#4D604F !important;color:#fff !important;padding:2px 8px}\
 .bhw-card h3{margin:0 !important;color:#4D604F !important;font-size:16px !important;line-height:1.2 !important;font-weight:400 !important;text-transform:none !important;letter-spacing:0 !important;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}\
 .bhw-when{margin:0 !important;font-size:12px !important;color:#2b2f2b !important;font-weight:600;letter-spacing:.02em}\
-.bhw-links{margin-top:auto;display:flex;gap:4px 14px;font-size:10px;letter-spacing:.14em;text-transform:uppercase;white-space:nowrap}\
+.bhw-card h3{flex:0 0 auto !important}.bhw-meta{line-height:1.2 !important}.bhw-when{line-height:1.25 !important}.bhw-links{line-height:1.25 !important}\n.bhw-links{margin-top:auto;display:flex;gap:4px 14px;font-size:10px;letter-spacing:.14em;text-transform:uppercase;white-space:nowrap}\
 .bhw-links a{color:#4D604F !important;text-decoration:none !important;border-bottom:1px solid #4D604F;padding-bottom:1px}\
 .bhw-links a:hover{opacity:.7}\
 .bhw-btn{position:absolute;top:50%;margin-top:-18px;width:36px;height:36px;border-radius:50%;border:1px solid #fff !important;background:rgba(77,96,79,.92) !important;color:#fff !important;font-size:18px;line-height:1;cursor:pointer;z-index:3;display:flex;align-items:center;justify-content:center;padding:0}\
