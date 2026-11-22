@@ -82,6 +82,9 @@ table.dt tr.det[hidden]{display:none}
 .pl .t{color:var(--sage-70)}
 .chip{display:inline-block; background:var(--sage-10); border-radius:6px; padding:1px 7px; margin:0 4px 3px 0; font-size:12.5px; white-space:nowrap}
 .chip.refund{background:var(--alert-bg); color:var(--alert)}
+table.dt tr.su td{background:#F7F0E4}
+table.dt tr.su:hover td{background:#F1E6D0}
+.badge.su{background:var(--attention); color:#fff}
 .empty{padding:40px 20px; text-align:center; color:var(--sage-70)} .loading{padding:60px; text-align:center; color:var(--sage-70)}
 .sect{font-family:var(--display); font-size:22px; color:var(--sage); margin:22px 0 10px; font-weight:600}
 .toast{position:fixed; left:50%; bottom:26px; transform:translate(-50%,20px); background:var(--ink); color:var(--white); padding:12px 20px; border-radius:8px; z-index:200; opacity:0; transition:.2s; pointer-events:none; font-size:14px; max-width:90vw}
@@ -212,20 +215,37 @@ function futureSection(title, rows, isRoom, byMonth){
   }).join("");
   return `<h3 class="sect">${title}</h3><div class="tw"><table class="dt"><thead><tr>${head.map(h => `<th class="${h === "Held" ? "r" : ""}">${h}</th>`).join("")}</tr></thead><tbody>${body}<tr class="tot"><td colspan="${head.length - 2}">${list.length} ${isRoom ? "booking" : "event"}${list.length === 1 ? "" : "s"}</td><td class="r">${gbp(sumOf(list, "held"))}</td><td></td></tr></tbody></table></div>`;
 }
-const futureSections = d => futureSection("Room deposits", d.rooms, true) + futureSection("Wedding &amp; event deposits", d.events, false);
+/* SumUp online payments (Christmas, events, vouchers): taken outside Rezlynx, held until the event or until the voucher is redeemed */
+function sumupSection(d){
+  const f = (S.filter || "").trim().toLowerCase(), rows = d.sumup || [], list = rows.filter(r => !f || (r.ref + " " + r.guest + " " + r.what + " " + r.source + " " + r.txn).toLowerCase().includes(f));
+  const title = `<h3 class="sect">SumUp online deposits <span class="badge su" style="vertical-align:middle">SumUp</span></h3>`;
+  if (!list.length) return title + `<div class="card empty" style="padding:24px">${rows.length ? "Nothing matches." : "Nothing held."}</div>`;
+  const keyOf = r => r.release ? String(r.release).slice(0, 7) : "open", groups = [...new Set(list.map(keyOf))].sort((a, b) => a === "open" ? 1 : b === "open" ? -1 : a.localeCompare(b));
+  const body = groups.map(g => {
+    const rs = list.filter(r => keyOf(r) === g);
+    return `<tr class="sub"><td colspan="5">${g === "open" ? "Until redeemed (vouchers)" : esc(mlong(g))} · ${rs.length} payment${rs.length === 1 ? "" : "s"}</td><td class="r">${gbp(sumOf(rs, "amount"))}</td><td></td></tr>` +
+      rs.map(r => `<tr class="su"><td>${esc(dshort(r.paid_date))}<br><span class="muted" style="font-size:12px">${esc(r.time)}${r.backlog ? " · backlog" : ""}</span></td><td><span class="ref">${esc(r.ref)}</span> <span class="badge su">SumUp</span></td><td>${esc(r.guest)}</td><td>${esc(r.what)}<br><span class="muted" style="font-size:12px">${esc(r.source)}${r.note ? " · " + esc(r.note) : ""}</span></td><td>${r.release ? esc(dshort(r.release)) + `<br><span class="muted" style="font-size:12px">${esc(r.how)}</span>` : `<span class="muted">when redeemed</span>`}</td><td class="r"><b>${gbp(r.amount)}</b></td><td class="muted" style="font-size:12px">${esc(r.txn)}</td></tr>`).join("");
+  }).join("");
+  return title + `<div class="tw"><table class="dt"><thead><tr><th>Paid</th><th>Reference</th><th>Guest</th><th>For</th><th>Comes off</th><th class="r">Held</th><th>SumUp code</th></tr></thead><tbody>${body}<tr class="tot"><td colspan="5">${list.length} payment${list.length === 1 ? "" : "s"}</td><td class="r">${gbp(sumOf(list, "amount"))}</td><td></td></tr></tbody></table></div>`;
+}
+const futureSections = d => futureSection("Room deposits", d.rooms, true) + futureSection("Wedding &amp; event deposits", d.events, false) + sumupSection(d);
+const checkNotice = (list, warn) => (warn ? `<div class="notice warn">${esc(warn)}</div>` : "") + (list && list.length ? `<div class="notice warn"><strong>SumUp payments to check (not counted):</strong><ul style="margin:6px 0 0 18px;padding:0">${list.map(c => `<li>${esc(dshort(c.paid_date))} ${esc(c.time)} · <b>${gbp(c.amount)}</b> · ${esc(c.descr)} · ${esc(c.txn)}<br><span class="muted">${esc(c.why)}</span></li>`).join("")}</ul></div>` : "");
 async function viewFuture(){
   const v = $("#views"); if (!S.future) v.innerHTML = `<div class="loading">Loading…</div>`;
   try { S.future = await call("future.get"); } catch(e){ v.innerHTML = `<div class="notice bad">${esc(e.message)}</div>`; return; }
   const d = S.future, t = d.totals;
-  v.innerHTML = `<div class="pagehead"><h2>Future Deposits</h2><span class="hint">What is held today for stays and events still to come, with when each payment was made. It comes off when the room checks out or the event has taken place.</span></div>
+  v.innerHTML = `<div class="pagehead"><h2>Future Deposits</h2><span class="hint">What is held today for stays and events still to come, with when each payment was made. It comes off when the room checks out, the event has taken place, or (SumUp vouchers) the voucher is redeemed.</span></div>
     <div class="kpis"><div class="kpi"><div class="k">Held for rooms</div><div class="v">${gbp(t.rooms)}</div><div class="s">${t.rooms_count} booking${t.rooms_count === 1 ? "" : "s"}</div></div>
       <div class="kpi"><div class="k">Held for weddings &amp; events</div><div class="v">${gbp(t.events)}</div><div class="s">${t.events_count} event${t.events_count === 1 ? "" : "s"}</div></div>
-      <div class="kpi warn"><div class="k">Total held</div><div class="v">${gbp(t.rooms + t.events)}</div><div class="s">as at ${esc(dshort(d.today))}</div></div></div>
+      <div class="kpi" style="border-left-color:var(--attention)"><div class="k">Held from SumUp (online)</div><div class="v">${gbp(t.sumup)}</div><div class="s">${t.sumup_count} payment${t.sumup_count === 1 ? "" : "s"}: ${Object.entries(t.sumup_by_source || {}).map(([k, v]) => `${esc(k)} ${gbp(v)}`).join(" · ")}</div></div>
+      <div class="kpi warn"><div class="k">Total held</div><div class="v">${gbp(t.rooms + t.events + t.sumup)}</div><div class="s">as at ${esc(dshort(d.today))}</div></div></div>
+    ${checkNotice(d.sumup_check, d.sumup_warn)}
     <div class="bar"><div class="grow"><label class="l" for="find">Search</label><input type="search" id="find" placeholder="Reference, guest or status" value="${esc(S.filter || "")}"></div><button class="btn ghost" id="export">Download CSV</button></div>
     <div id="fsecs">${futureSections(d)}</div>`;
   $("#find").addEventListener("input", e => { S.filter = e.target.value; $("#fsecs").innerHTML = futureSections(d); });
   $("#export").addEventListener("click", () => csv("deposits-held.csv", ["Type","Reference","Guest / event","Arrives / event date","Checks out","Status","Held","Payments (date amount method)"],
-    [...d.rooms.map(r => ["Room", r.ref, r.guest, r.arrival, r.departure, r.status, r.held, r.pays.filter(p => p[6]).map(p => `${p[0]} ${p[2]} ${p[3]}`).join("; ")]), ...d.events.map(r => ["Event", r.ref, r.guest, r.arrival, "", r.status, r.held, r.pays.filter(p => p[6]).map(p => `${p[0]} ${p[2]} ${p[3]}`).join("; ")])]));
+    [...d.rooms.map(r => ["Room", r.ref, r.guest, r.arrival, r.departure, r.status, r.held, r.pays.filter(p => p[6]).map(p => `${p[0]} ${p[2]} ${p[3]}`).join("; ")]), ...d.events.map(r => ["Event", r.ref, r.guest, r.arrival, "", r.status, r.held, r.pays.filter(p => p[6]).map(p => `${p[0]} ${p[2]} ${p[3]}`).join("; ")]),
+      ...(d.sumup || []).map(r => ["SumUp: " + r.source, r.ref, r.guest, r.release || "when redeemed", "", r.what, r.amount, `${r.paid_date} ${r.amount} SumUp ${r.txn}`])]));
 }
 /* ------------------------------------------------------------- Daily Movement */
 const isoDate = d => d.toISOString().slice(0, 10);
@@ -243,7 +263,7 @@ function wireModes(){ $$("[data-mode]").forEach(b => b.addEventListener("click",
 /* One day, two separate blocks: Rooms and Weddings & events, each with its own balances and its own list of movements */
 function dayParts(x, lines){
   const groups = [["Deposit received", "Deposits received"], ["Refund paid", "Refunds paid"], ["Released", "Released (comes off the balance)"]];
-  const table = ls => `<div class="tw"><table class="dt"><thead><tr><th>Time</th><th>Reference</th><th>Guest / event</th><th class="r">Amount</th><th>Method</th><th>Note</th></tr></thead><tbody>${ls.map(z => `<tr><td>${esc(z.time || "")}</td><td><span class="ref">${esc(z.ref)}</span>${z.what.startsWith("Released") ? `<br><span class="muted" style="font-size:12px">${esc(z.what)}</span>` : ""}</td><td>${esc(z.guest)}</td><td class="r"><b>${gbpc(z.amount)}</b></td><td>${esc(z.method)}</td><td class="muted">${esc(z.comment)}</td></tr>`).join("")}<tr class="sub"><td colspan="3">Total</td><td class="r">${gbp(Math.round(ls.reduce((t, z) => t + z.amount, 0) * 100) / 100)}</td><td colspan="2"></td></tr></tbody></table></div>`;
+  const table = ls => `<div class="tw"><table class="dt"><thead><tr><th>Time</th><th>Reference</th><th>Guest / event</th><th class="r">Amount</th><th>Method</th><th>Note</th></tr></thead><tbody>${ls.map(z => `<tr class="${z.sumup ? "su" : ""}"><td>${z.sumup && z.backlog ? esc(dshort(z.paid_date)) + "<br>" : ""}${esc(z.time || "")}</td><td><span class="ref">${esc(z.ref)}</span>${z.sumup ? ` <span class="badge su">SumUp</span>` : ""}${z.what.startsWith("Released") ? `<br><span class="muted" style="font-size:12px">${esc(z.what)}</span>` : ""}</td><td>${esc(z.guest)}${z.sumup ? `<br><span class="muted" style="font-size:12px">For: ${esc(z.for)} · ${esc(z.source)}${z.backlog ? " · taken before today, added as backlog" : ""}</span>` : ""}</td><td class="r"><b>${gbpc(z.amount)}</b></td><td>${esc(z.method)}</td><td class="muted">${esc(z.comment)}${z.txn ? ` · ${esc(z.txn)}` : ""}</td></tr>`).join("")}<tr class="sub"><td colspan="3">Total</td><td class="r">${gbp(Math.round(ls.reduce((t, z) => t + z.amount, 0) * 100) / 100)}</td><td colspan="2"></td></tr></tbody></table></div>`;
   const block = (title, g, kind) => {
     const mine = lines.filter(z => z.type === kind), b = x[g];
     const parts = groups.map(([k, t]) => { const ls = mine.filter(z => k === "Released" ? z.what.startsWith("Released") : z.what === k); return ls.length ? `<h4 style="margin:14px 0 6px;font-family:var(--body);font-size:12px;letter-spacing:var(--track-label);text-transform:uppercase;color:var(--sage-70)">${esc(t)} · ${ls.length}</h4>${table(ls)}` : ""; }).join("");
@@ -251,7 +271,7 @@ function dayParts(x, lines){
       <div class="kpis"><div class="kpi"><div class="k">Opening balance</div><div class="v">${gbp(b.opening)}</div></div><div class="kpi"><div class="k">Received</div><div class="v">${gbp(b.received)}</div></div><div class="kpi"><div class="k">Refunded</div><div class="v">${gbp(b.refunded)}</div></div><div class="kpi"><div class="k">Released</div><div class="v">${gbp(b.released)}</div></div><div class="kpi warn"><div class="k">Closing balance</div><div class="v">${gbp(b.closing)}</div></div></div>
       ${parts || `<div class="card empty" style="padding:22px">Nothing moved on this day.</div>`}`;
   };
-  return block("Rooms", "rooms", "Room") + block("Weddings &amp; events", "events", "Wedding / event");
+  return block("Rooms", "rooms", "Room") + block("Weddings &amp; events", "events", "Wedding / event") + (x.sumup ? block("SumUp online payments (Christmas, events, vouchers)", "sumup", "SumUp") : "");
 }
 async function viewSingle(){
   const m = S.mv; if (!m.day) m.day = S.today;
@@ -261,13 +281,13 @@ async function viewSingle(){
   const x = g.rows[0], lines = l.lines;
   const body = dayParts(x, lines);
 
-  v.innerHTML = `<div class="pagehead"><h2>Daily Movement</h2><span class="hint">Pick a day to see every deposit received, refund paid and booking or event released on it.</span></div>
+  v.innerHTML = `<div class="pagehead"><h2>Daily Movement</h2><span class="hint">Pick a day to see every deposit received, refund paid and booking, event or voucher released on it. SumUp online payments are highlighted and say what they were for.</span></div>
     <div class="bar"><div><label class="l" for="sday">Day</label><input type="date" id="sday" value="${esc(day)}" max="${esc(S.today)}"></div>
       <button class="btn ghost small" id="sprev">&larr; Previous day</button><button class="btn ghost small" id="snext" ${day >= S.today ? "disabled" : ""}>Next day &rarr;</button><button class="btn ghost small" id="stoday">Today</button><button class="btn ghost small" id="syest">Yesterday</button>
       <span style="flex:1"></span>${modeButtons("single")}<button class="btn ghost small" id="sexport">Download CSV</button></div>
     <p style="margin:0 0 12px;font-family:var(--display);font-size:22px;color:var(--sage)">${esc(new Date(day + "T12:00:00Z").toLocaleDateString("en-GB", { timeZone: "UTC", weekday: "long", day: "numeric", month: "long", year: "numeric" }))}</p>
     <div class="kpis"><div class="kpi"><div class="k">Total balance, rooms and events together</div><div class="v">${gbp(x.closing)}</div><div class="s">opening ${gbp(x.opening)}, received ${gbp(x.received)}, refunded ${gbp(x.refunded)}, released ${gbp(x.released)}</div></div></div>
-    ${body}`;
+    ${checkNotice(g.sumup_check, g.sumup_warn)}${body}`;
   const go = d => { m.day = d; viewSingle(); };
   $("#sday").addEventListener("change", e => { if (e.target.value) go(e.target.value > S.today ? S.today : e.target.value); });
   $("#sprev").addEventListener("click", () => go(addD(day, -1)));
@@ -278,9 +298,9 @@ async function viewSingle(){
   wireModes();
 }
 function monthRows(rows){
-  const by = {}; for (const r of rows) { const k = r.date.slice(0, 7), x = by[k] || (by[k] = { date: k, rooms: { received:0, refunded:0, released:0, closing:0 }, events: { received:0, refunded:0, released:0, closing:0 }, received:0, refunded:0, released:0, closing:0 });
-    for (const g of ["rooms","events"]) for (const f of ["received","refunded","released"]) x[g][f] += r[g][f]; for (const f of ["received","refunded","released"]) x[f] += r[f]; x.rooms.closing = r.rooms.closing; x.events.closing = r.events.closing; x.closing = r.closing; }
-  return Object.values(by).map(x => { const rd = o => { for (const k in o) o[k] = Math.round(o[k] * 100) / 100; return o; }; rd(x.rooms); rd(x.events); x.received = Math.round(x.received*100)/100; x.refunded = Math.round(x.refunded*100)/100; x.released = Math.round(x.released*100)/100; return x; });
+  const by = {}; for (const r of rows) { const k = r.date.slice(0, 7), x = by[k] || (by[k] = { date: k, rooms: { received:0, refunded:0, released:0, closing:0 }, events: { received:0, refunded:0, released:0, closing:0 }, sumup: { received:0, refunded:0, released:0, closing:0 }, received:0, refunded:0, released:0, closing:0 });
+    for (const g of ["rooms","events","sumup"]) for (const f of ["received","refunded","released"]) x[g][f] += r[g][f]; for (const f of ["received","refunded","released"]) x[f] += r[f]; x.rooms.closing = r.rooms.closing; x.events.closing = r.events.closing; x.sumup.closing = r.sumup.closing; x.closing = r.closing; }
+  return Object.values(by).map(x => { const rd = o => { for (const k in o) o[k] = Math.round(o[k] * 100) / 100; return o; }; rd(x.rooms); rd(x.events); rd(x.sumup); x.received = Math.round(x.received*100)/100; x.refunded = Math.round(x.refunded*100)/100; x.released = Math.round(x.released*100)/100; return x; });
 }
 function renderMovement(){
   const m = S.mv, d = m.data, monthly = m.mode === "month";
@@ -294,22 +314,23 @@ function renderMovement(){
       <button class="btn ghost small" data-q="30">Last 31 days</button><button class="btn ghost small" data-q="month">This month</button><button class="btn ghost small" data-q="lastmonth">Last month</button><button class="btn ghost small" data-q="ytd">This year</button>
       <span style="flex:1"></span>${modeButtons(monthly ? "month" : "day")}<button class="btn ghost small" id="export">Download CSV</button></div>
     <div class="kpis"><div class="kpi"><div class="k">Opening balance</div><div class="v">${gbp(d.opening)}</div><div class="s">${esc(dshort(d.from))}</div></div>
-      <div class="kpi"><div class="k">Received</div><div class="v">${gbp(t.received)}</div><div class="s">rooms ${gbp(t.rooms_received)} · events ${gbp(t.events_received)}</div></div>
+      <div class="kpi"><div class="k">Received</div><div class="v">${gbp(t.received)}</div><div class="s">rooms ${gbp(t.rooms_received)} · events ${gbp(t.events_received)} · SumUp ${gbp(t.sumup_received)}</div></div>
       <div class="kpi"><div class="k">Refunded</div><div class="v">${gbp(t.refunded)}</div></div>
-      <div class="kpi"><div class="k">Released</div><div class="v">${gbp(t.released)}</div><div class="s">rooms ${gbp(t.rooms_released)} · events ${gbp(t.events_released)}</div></div>
+      <div class="kpi"><div class="k">Released</div><div class="v">${gbp(t.released)}</div><div class="s">rooms ${gbp(t.rooms_released)} · events ${gbp(t.events_released)} · SumUp ${gbp(t.sumup_released)}</div></div>
       <div class="kpi warn"><div class="k">Closing balance</div><div class="v">${gbp(d.closing)}</div><div class="s">${esc(dshort(d.to))}</div></div></div>
+    ${checkNotice(d.sumup_check, d.sumup_warn)}${d.rows.some(r => r.sumup && r.sumup.received && r.date === d.sumup_backlog_day) ? `<div class="notice good" style="font-size:14px">SumUp online payments taken before ${esc(dshort(d.sumup_backlog_day))} (Christmas, events, Black Friday vouchers) were added to the movement of ${esc(dday(d.sumup_backlog_day))} as one backlog. Click that day to see each payment, highlighted, with what it was for. From then on each one goes on the day it is paid.</div>` : ""}
     ${monthly ? "" : `<label style="display:flex;gap:8px;align-items:center;font-size:13px;margin:0 0 10px;color:var(--sage-70)"><input type="checkbox" id="quiet" ${m.quiet ? "checked" : ""}> Show days with no movement</label>`}
-    <div class="tw"><table class="dt"><thead><tr><th rowspan="2">${monthly ? "Month" : "Day"}</th><th colspan="4" style="text-align:center">Rooms</th><th colspan="4" style="text-align:center">Weddings &amp; events</th><th colspan="3" style="text-align:center">Total</th></tr>
-      <tr><th class="r">Received</th><th class="r">Refunded</th><th class="r">Released</th><th class="r">Balance</th><th class="r">Received</th><th class="r">Refunded</th><th class="r">Released</th><th class="r">Balance</th><th class="r">Net movement</th><th class="r">Balance</th><th></th></tr></thead>
-      <tbody>${shown.map(r => { const net = Math.round((r.received - r.refunded - r.released) * 100) / 100; return `<tr class="${monthly ? "" : "row"}" data-day="${esc(r.date)}"><td><b>${esc(monthly ? mlong(r.date) : dday(r.date))}</b></td>${cell(r, "rooms")}${cell(r, "events")}<td class="r">${net ? gbpc(net) : ""}</td><td class="r"><b>${gbp(r.closing)}</b></td><td>${monthly ? "" : (quiet(r) ? "" : "▸")}</td></tr>${monthly ? "" : `<tr class="det" data-det="${esc(r.date)}" hidden><td colspan="12"></td></tr>`}`; }).join("") || `<tr><td colspan="12" class="empty">Nothing in these dates.</td></tr>`}</tbody></table></div>
-    <p class="muted" style="font-size:13px">Received is money in, refunded is money paid back, released is the balance that comes off when a room checks out (a cancelled or no-show room, or a deposit the hotel kept, comes off on its arrival or retained date) or an event has taken place. Click a day to see the bookings behind it.</p>`;
+    <div class="tw"><table class="dt"><thead><tr><th rowspan="2">${monthly ? "Month" : "Day"}</th><th colspan="4" style="text-align:center">Rooms</th><th colspan="4" style="text-align:center">Weddings &amp; events</th><th colspan="4" style="text-align:center;background:#F7F0E4">SumUp online</th><th colspan="3" style="text-align:center">Total</th></tr>
+      <tr><th class="r">Received</th><th class="r">Refunded</th><th class="r">Released</th><th class="r">Balance</th><th class="r">Received</th><th class="r">Refunded</th><th class="r">Released</th><th class="r">Balance</th><th class="r">Received</th><th class="r">Refunded</th><th class="r">Released</th><th class="r">Balance</th><th class="r">Net movement</th><th class="r">Balance</th><th></th></tr></thead>
+      <tbody>${shown.map(r => { const net = Math.round((r.received - r.refunded - r.released) * 100) / 100; return `<tr class="${monthly ? "" : "row"}" data-day="${esc(r.date)}"><td><b>${esc(monthly ? mlong(r.date) : dday(r.date))}</b></td>${cell(r, "rooms")}${cell(r, "events")}${cell(r, "sumup")}<td class="r">${net ? gbpc(net) : ""}</td><td class="r"><b>${gbp(r.closing)}</b></td><td>${monthly ? "" : (quiet(r) ? "" : "▸")}</td></tr>${monthly ? "" : `<tr class="det" data-det="${esc(r.date)}" hidden><td colspan="16"></td></tr>`}`; }).join("") || `<tr><td colspan="16" class="empty">Nothing in these dates.</td></tr>`}</tbody></table></div>
+    <p class="muted" style="font-size:13px">Received is money in, refunded is money paid back, released is the balance that comes off when a room checks out (a cancelled or no-show room, or a deposit the hotel kept, comes off on its arrival or retained date) or an event has taken place. SumUp online payments (Christmas, events, Black Friday vouchers) are deposits Rezlynx never saw: they go on the day they are paid and come off on the event date, or when the voucher is redeemed. Click a day to see the bookings and payments behind it.</p>`;
   const go = () => { m.from = $("#mfrom").value; m.to = $("#mto").value; if (m.from && m.to) viewMovement(); };
   $("#mfrom").addEventListener("change", go); $("#mto").addEventListener("change", go);
   $$("[data-q]").forEach(b => b.addEventListener("click", () => { const q = b.dataset.q, t0 = S.today; if (q === "30") { m.from = addD(t0, -30); m.to = t0; } else if (q === "month") { m.from = t0.slice(0, 8) + "01"; m.to = t0; } else if (q === "lastmonth") { const f = new Date(t0.slice(0, 8) + "01T12:00:00Z"); f.setUTCMonth(f.getUTCMonth() - 1); m.from = isoDate(f); m.to = addD(t0.slice(0, 8) + "01", -1); } else { m.from = t0.slice(0, 4) + "-01-01"; m.to = t0; } viewMovement(); }));
   $$("[data-mode]").forEach(b => b.addEventListener("click", () => { m.mode = b.dataset.mode; if (m.mode === "single") viewSingle(); else renderMovement(); }));
   const qz = $("#quiet"); if (qz) qz.addEventListener("change", () => { m.quiet = qz.checked; renderMovement(); });
-  $("#export").addEventListener("click", () => csv(`deposit-movement-${m.from}-to-${m.to}.csv`, [monthly ? "Month" : "Day","Rooms received","Rooms refunded","Rooms released","Rooms balance","Events received","Events refunded","Events released","Events balance","Total received","Total refunded","Total released","Total balance"],
-    rows.map(r => [r.date, r.rooms.received, r.rooms.refunded, r.rooms.released, r.rooms.closing, r.events.received, r.events.refunded, r.events.released, r.events.closing, r.received, r.refunded, r.released, r.closing])));
+  $("#export").addEventListener("click", () => csv(`deposit-movement-${m.from}-to-${m.to}.csv`, [monthly ? "Month" : "Day","Rooms received","Rooms refunded","Rooms released","Rooms balance","Events received","Events refunded","Events released","Events balance","SumUp received","SumUp refunded","SumUp released","SumUp balance","Total received","Total refunded","Total released","Total balance"],
+    rows.map(r => [r.date, r.rooms.received, r.rooms.refunded, r.rooms.released, r.rooms.closing, r.events.received, r.events.refunded, r.events.released, r.events.closing, r.sumup.received, r.sumup.refunded, r.sumup.released, r.sumup.closing, r.received, r.refunded, r.released, r.closing])));
   if (!monthly) $$("tr.row").forEach(tr => tr.addEventListener("click", async () => {
     const det = document.querySelector(`[data-det="${CSS.escape(tr.dataset.day)}"]`); if (!det) return;
     if (!det.hidden) { det.hidden = true; tr.lastElementChild.textContent = "▸"; return; }
