@@ -783,8 +783,8 @@ async function createPasskey(o){
   return { id: c.id, rawId: b64e(c.rawId), type: c.type, authenticatorAttachment: c.authenticatorAttachment || undefined, clientExtensionResults: c.getClientExtensionResults ? c.getClientExtensionResults() : {},
     response: { clientDataJSON: b64e(c.response.clientDataJSON), attestationObject: b64e(c.response.attestationObject), transports: c.response.getTransports ? c.response.getTransports() : [] } };
 }
-async function getPasskey(o){
-  const c = await navigator.credentials.get({ publicKey: Object.assign({}, o, { challenge: b64d(o.challenge), allowCredentials: (o.allowCredentials || []).map(x => Object.assign({}, x, { id: b64d(x.id) })) }) });
+async function getPasskey(o, signal){
+  const c = await navigator.credentials.get({ signal, publicKey: Object.assign({}, o, { challenge: b64d(o.challenge), allowCredentials: (o.allowCredentials || []).map(x => Object.assign({}, x, { id: b64d(x.id) })) }) });
   return { id: c.id, rawId: b64e(c.rawId), type: c.type, authenticatorAttachment: c.authenticatorAttachment || undefined, clientExtensionResults: c.getClientExtensionResults ? c.getClientExtensionResults() : {},
     response: { clientDataJSON: b64e(c.response.clientDataJSON), authenticatorData: b64e(c.response.authenticatorData), signature: b64e(c.response.signature), userHandle: c.response.userHandle ? b64e(c.response.userHandle) : undefined } };
 }
@@ -838,35 +838,48 @@ function handleLoginReply(d){
   if(d.step === "enrol"){ startEmailFlow(false); return; }
   throw new Error("The portal did not understand the sign-in reply. Please refresh the page.");
 }
+let signingIn = false;                                  // one sign-in at a time: a second Enter or click must not start a second passkey request
 async function trySignIn(email, password){
+  if(signingIn) return;
   $("#gerr").textContent = "";
   $("#gerr").style.color = "";
   if(!email || !password){ $("#gerr").textContent = "Enter your email and password."; return; }
+  signingIn = true;
   try{
     const d = await api("login", { email, password, client_v: 2 });
     SEC.email = email; SEC.password = password;
     handleLoginReply(d);
   }catch(e){
     $("#gerr").textContent = e.message;
-  }
+  }finally{ signingIn = false; }
 }
 $("#gbtn").addEventListener("click", ()=> trySignIn($("#gemail").value.trim(), $("#gpw").value));
 $("#gpw").addEventListener("keydown", e=>{ if(e.key==="Enter") trySignIn($("#gemail").value.trim(), $("#gpw").value); });
 
 /* ----- step 2: passkey */
+let pkRun = null;                                        // the passkey request in progress, if any (Windows allows only one at a time)
+const wait = ms => new Promise(r => setTimeout(r, ms));
 async function runPasskey(){
+  if(pkRun) return;                                      // already asking: ignore a second click or a second automatic start
   $("#gpkErr").textContent = "";
   if(!pkOK() || !SEC.opts){ startEmailFlow(true); return; }
   $("#gpkBtn").disabled = true;
+  pkRun = new AbortController();
   try{
-    const resp = await getPasskey(SEC.opts);
+    let resp;
+    try{ resp = await getPasskey(SEC.opts, pkRun.signal); }
+    catch(e){
+      if(!e || e.name !== "OperationError") throw e;      // "A request is already pending": the browser or Windows still holds an earlier one. Let it clear, then ask once more.
+      await wait(900);
+      resp = await getPasskey(SEC.opts, pkRun.signal);
+    }
     finishSignIn(await api("second_passkey_verify", { challenge_id: SEC.cid, response: resp }));
   }catch(e){ $("#gpkErr").textContent = pkErr(e); }
-  finally{ $("#gpkBtn").disabled = false; }
+  finally{ pkRun = null; $("#gpkBtn").disabled = false; }
 }
 $("#gpkBtn").addEventListener("click", runPasskey);
 $("#gpkEmail").addEventListener("click", ()=> startEmailFlow(false));
-const backToSignIn = ()=>{ SEC.cid = ""; SEC.opts = null; SEC.regOpts = null; $("#gpw").value = ""; gateMode("login"); };
+const backToSignIn = ()=>{ if(pkRun) pkRun.abort(); SEC.cid = ""; SEC.opts = null; SEC.regOpts = null; $("#gpw").value = ""; gateMode("login"); };
 $("#gpkBack").addEventListener("click", backToSignIn);
 $("#geBack").addEventListener("click", backToSignIn);
 $("#gcBack").addEventListener("click", backToSignIn);
