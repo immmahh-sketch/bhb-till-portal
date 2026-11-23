@@ -261,7 +261,7 @@
         (two ? '<div class="field"><label class="label" for="f_signer">For</label><select id="f_signer"><option value="1">First person</option><option value="2">Second person</option></select></div>' : "") +
         '<div class="field"><button class="btn" id="f_place" onclick="CTR.togglePlace()">' + (CT.place ? "Click a page… (cancel)" : "Place") + '</button></div><div class="field" id="f_sel"></div><div class="field"><button class="btn btn--primary" id="f_save" onclick="CTR.saveFields()"' + (CT.dirty ? "" : " disabled") + ">Save the boxes</button></div></div>";
     } else {
-      h += '<p class="muted" style="margin:0 0 10px">' + (c.status === "signed" ? "This is the contract as the couple saw it, before signing." : "This is exactly what the couple sees.") + "</p>";
+      h += '<p class="muted" style="margin:0 0 10px">' + (c.status === "signed" ? "This is the signed contract, with the signatures, dates and the signing record on the last page." : "This is exactly what the couple sees.") + "</p>";
     }
     h += '<div id="cpages" style="max-width:760px"><span class="spin"></span></div></div>';
 
@@ -358,7 +358,8 @@
     var token = (CT.paintToken = (CT.paintToken || 0) + 1);
     try {
       await pdfReady();
-      var pdf = await pdfjsLib.getDocument({ url: CT.urls.base }).promise;
+      var signedView = CT.cur.status === "signed" && !!CT.urls.signed;   // once signed, the signed copy is what you see, not the original
+      var pdf = await pdfjsLib.getDocument({ url: signedView ? CT.urls.signed : CT.urls.base }).promise;
       if (token !== CT.paintToken) return;
       host.innerHTML = "";
       for (var n = 1; n <= pdf.numPages; n++) {
@@ -370,7 +371,7 @@
         await page.render({ canvasContext: cv.getContext("2d"), viewport: vp }).promise;
         if (token !== CT.paintToken) return;
         var box = wrap.querySelector(".ctpg"); box.dataset.n = n;
-        drawFields(box, n);
+        if (!signedView) drawFields(box, n);
         if (CT.cur.status === "draft") box.addEventListener("click", placeClick);
       }
     } catch (e) { host.innerHTML = '<div class="syncnote">The pages could not be shown: ' + esc(e.message || "") + "</div>"; }
