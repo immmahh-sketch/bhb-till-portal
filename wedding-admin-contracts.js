@@ -140,6 +140,7 @@
     var was = pre === "n_" ? (CT.pending && CT.pending.g) : CT.cur, ms = v("ms").trim(), changed = !was || String(was.min_spend == null ? "" : was.min_spend) !== ms.replace(/[\u00a3,\s]/g, "");
     var out = { title: v("title"), event_ref: v("ref"), event_date: v("date"), signer1_name: v("n1"), signer1_email: v("e1"), signer2_name: v("n2"), signer2_email: v("e2"), min_spend: ms };
     if (ms && changed) out.min_spend_source = "Entered by " + (staffEmail() || "staff");
+    else if (ms && was && was.min_spend_source) out.min_spend_source = was.min_spend_source;
     if (pre === "n_" && CT.prefill) out.enquiry_id = CT.prefill.enquiry_id;
     return out;
   }
