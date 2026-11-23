@@ -185,8 +185,11 @@ function refresh() {
   var left = todo(), bar = $("#barmsg"), nx = $("#next");
   if (!nx) return;
   if (left.length) {
-    var sigs = left.filter(function (f) { return f.type === "signature"; }).length, ini = left.filter(function (f) { return f.type === "initials"; }).length;
-    bar.textContent = (sigs ? sigs + " signature" + (sigs > 1 ? "s" : "") : "") + (sigs && ini ? " and " : "") + (ini ? ini + " initial" + (ini > 1 ? "s" : "") + " to add" : (sigs ? " to add" : left.length + " to fill in"));
+    var sigs = left.filter(function (f) { return f.type === "signature"; }).length, ini = left.filter(function (f) { return f.type === "initials"; }).length, oth = left.length - sigs - ini, parts = [];
+    if (sigs) parts.push(sigs + " signature" + (sigs > 1 ? "s" : ""));
+    if (ini) parts.push(ini + " initial" + (ini > 1 ? "s" : ""));
+    if (oth) parts.push(oth + " box" + (oth > 1 ? "es" : ""));
+    bar.textContent = parts.join(", ").replace(/, ([^,]*)$/, " and $1") + " to do";
     nx.textContent = "Next"; nx.disabled = false; nx.onclick = goNext;
     $("#finish").style.display = "none";
   } else {
