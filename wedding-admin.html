@@ -1006,6 +1006,7 @@ body.va-lock{overflow:hidden}
       <div class="dbody" id="dBody"></div>
       <div class="dfoot">
         <button class="btn" id="dSave">Save</button>
+        <button class="btn ghost" id="dContract">Send contract</button>
         <button class="btn ghost" id="dBonus" style="display:none">Add to bonus tracker</button>
         <button class="btn ghost" id="dWhats">WhatsApp</button>
         <button class="btn ghost" id="dCancel">Cancel</button>
@@ -8019,6 +8020,12 @@ var TrackerApp = (function(){
     if(BT.level !== "edit") return;
     b.textContent = "Add to bonus tracker"; b.style.display = ""; delete b.dataset.open;
   }
+  $("#dContract").onclick = () => {
+    const r = S.editing;
+    if(!r || !r.id){ toast("Save the enquiry first, then send the contract.", true); return; }
+    showDrawer(false);
+    if(window.contractFromEnquiry) window.contractFromEnquiry(r.id);   // uses the saved details; the Contracts tab does the rest
+  };
   $("#dBonus").onclick = async () => {
     const r = S.editing, b = $("#dBonus"); if(!r || !r.id) return;
     if(b.dataset.open){ const id = b.dataset.open; showDrawer(false); overviewOpenBonus(id); return; }

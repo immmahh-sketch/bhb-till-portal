@@ -5,7 +5,7 @@
 (function () {
   "use strict";
   var FN = "/functions/v1/contract-admin";
-  var CT = { rows: null, mode: "list", cur: null, urls: null, events: [], terms: null, hist: [], pending: null, dirty: false, sel: null, place: null, busy: "", note: "" };
+  var CT = { prefill: null, rows: null, mode: "list", cur: null, urls: null, events: [], terms: null, hist: [], pending: null, dirty: false, sel: null, place: null, busy: "", note: "" };
   window.CTR = {};
   var el = function (id) { return document.getElementById(id); };
   function toast(msg) {
@@ -84,8 +84,16 @@
       if (CT.mode === "list") paint(); else if (CT.mode === "open" && CT.cur) paint(); else if (CT.mode === "new" || CT.mode === "terms") paint(); else { CT.mode = "list"; paint(); }
     } catch (e) { if (view()) { $("views").innerHTML = ""; showErr(e.message); } }
   };
-  CTR.list = function () { CT.mode = "list"; CT.cur = null; CT.dirty = false; CT.place = null; CT.sel = null; window.loadContracts(); };
-  CTR.newOne = function () { CT.mode = "new"; CT.pending = null; paint(); };
+  CTR.list = function () { CT.prefill = null; CT.mode = "list"; CT.cur = null; CT.dirty = false; CT.place = null; CT.sel = null; window.loadContracts(); };
+  CTR.newOne = function () { CT.prefill = null; CT.mode = "new"; CT.pending = null; paint(); };
+  /* "Send contract" on a tracker enquiry: the details and the minimum spend come from the enquiry; only the Rezlynx PDF is still to upload. */
+  window.contractFromEnquiry = async function (id) {
+    try {
+      var d = await ccall("prefill", { enquiry_id: id });
+      CT.prefill = d; CT.mode = "new"; CT.pending = null; CT.busy = ""; clearErr();
+      goView("contracts");
+    } catch (e) { showErr(e.message || String(e)); }
+  };
   CTR.open = async function (id) {
     try {
       busy("Opening…");
@@ -123,21 +131,34 @@
   function detailsForm(g, pre) {
     return '<div class="row">' + fieldRow(pre + "title", "Contract title", g.title) + fieldRow(pre + "ref", "Booking reference", g.event_ref, "text", "EVNT002829") + fieldRow(pre + "date", "Event date", g.event_date, "date") + "</div>" +
       '<div class="row">' + fieldRow(pre + "n1", "First person", g.signer1_name) + fieldRow(pre + "e1", "Their email", g.signer1_email, "email") + "</div>" +
-      '<div class="row">' + fieldRow(pre + "n2", "Second person (if they sign too)", g.signer2_name) + fieldRow(pre + "e2", "Their email", g.signer2_email, "email") + "</div>";
+      '<div class="row">' + fieldRow(pre + "n2", "Second person (if they sign too)", g.signer2_name) + fieldRow(pre + "e2", "Their email", g.signer2_email, "email") + "</div>" +
+      '<div class="row">' + fieldRow(pre + "ms", "Minimum spend (\u00a3)", g.min_spend == null ? "" : g.min_spend, "text", "e.g. 12500") + "</div>" +
+      '<p class="muted" style="margin:-6px 0 12px;font-size:.85rem">' + (g.min_spend_source ? "Worked out from: " + esc(g.min_spend_source) + ". Change it if it is wrong." : "Printed in the contract under the minimum spend clause. Leave it empty and that line is left out.") + "</p>";
   }
   function readForm(pre) {
     var v = function (id) { return (el(pre + id) || {}).value || ""; };
-    return { title: v("title"), event_ref: v("ref"), event_date: v("date"), signer1_name: v("n1"), signer1_email: v("e1"), signer2_name: v("n2"), signer2_email: v("e2") };
+    var was = pre === "n_" ? (CT.pending && CT.pending.g) : CT.cur, ms = v("ms").trim(), changed = !was || String(was.min_spend == null ? "" : was.min_spend) !== ms.replace(/[\u00a3,\s]/g, "");
+    var out = { title: v("title"), event_ref: v("ref"), event_date: v("date"), signer1_name: v("n1"), signer1_email: v("e1"), signer2_name: v("n2"), signer2_email: v("e2"), min_spend: ms };
+    if (ms && changed) out.min_spend_source = "Entered by " + (staffEmail() || "staff");
+    if (pre === "n_" && CT.prefill) out.enquiry_id = CT.prefill.enquiry_id;
+    return out;
   }
 
   function viewNew() {
     var p = CT.pending, h = '<div class="split" style="margin-bottom:6px"><h1>New contract</h1><button class="btn btn--sm" onclick="CTR.list()">Back</button></div>';
+    var pf = CT.prefill;
+    if (pf) {
+      h += '<div class="card"><h3 style="margin:0 0 6px">Contract for ' + esc(pf.title) + '</h3><p style="margin:0 0 4px">' + esc([pf.signer1_name, pf.signer2_name].filter(Boolean).join(" and ")) + (pf.signer1_email ? " &middot; " + esc(pf.signer1_email) : " &middot; <strong>no email on the enquiry</strong>") + (pf.event_date ? " &middot; " + esc(ukDate(pf.event_date)) : "") + (pf.venue ? " &middot; " + esc(pf.venue) : "") + "</p>" +
+        '<p style="margin:0 0 4px">' + (pf.min_spend ? "<strong>Minimum spend \u00a3" + Number(pf.min_spend).toLocaleString("en-GB") + "</strong> <span class='muted'>(" + esc(pf.min_spend_source) + ")</span>" : "<strong>No minimum spend found.</strong> <span class='muted'>" + esc(pf.min_spend_reason || "") + " You can type it in on the next step.</span>") + "</p>" +
+        (pf.existing && pf.existing.length ? '<p class="muted" style="margin:6px 0 0">This enquiry already has: ' + pf.existing.map(function (x) { return '<a href="#" onclick="CTR.open(\'' + esc(x.id) + '\');return false">' + esc(x.title) + " (" + esc(x.status) + ")</a>"; }).join(", ") + ".</p>" : "") + "</div>";
+    }
     h += '<div class="card"><div class="field"><label class="label" for="nfile">The contract PDF from Rezlynx</label><input type="file" id="nfile" accept="application/pdf" onchange="CTR.picked(this)"></div>' +
       '<p class="muted" style="margin:0">We keep the pages about the booking exactly as they are and swap the standard terms for our own copy, so any wording change is made once, here. The standard terms can start on any page.</p><div id="ctBusy" class="muted" style="margin-top:8px">' + esc(CT.busy) + "</div></div>";
     if (!p) return h;
     var opts = ""; for (var i = 1; i <= p.pages + 1; i++) opts += '<option value="' + i + '"' + (i === p.from ? " selected" : "") + ">" + (i > p.pages ? "No standard terms found (keep every page)" : "Page " + i) + "</option>";
     h += '<div class="card"><h3 style="margin:0 0 4px">Check these details</h3><p class="muted" style="margin:0 0 12px">Read from the PDF (' + p.pages + ' pages). Correct anything that is wrong.</p>' +
       (p.from ? "" : '<div class="syncnote" style="margin-bottom:12px">The standard terms heading was not found. Choose the page they start on below.</div>') +
+      (p.warn ? '<div class="syncnote" style="margin-bottom:12px;color:var(--alert)"><strong>' + esc(p.warn) + "</strong></div>" : "") +
       detailsForm(p.g, "n_") +
       '<div class="field"><label class="label" for="n_from">The standard terms start on</label><select id="n_from">' + opts + "</select></div>" +
       '<label style="display:flex;gap:8px;align-items:center;margin:0 0 8px"><input type="checkbox" id="n_ini" checked> Ask the couple to initial every page</label>' +
@@ -150,7 +171,16 @@
     try {
       busy("Reading the PDF…");
       var buf = await f.arrayBuffer(), t = await pageTexts(buf), from = findTerms(t.texts);
-      CT.pending = { name: f.name, buf: buf, pages: t.pages, texts: t.texts, from: from || t.pages + 1, g: guess(t.texts, from) };
+      var g = guess(t.texts, from), warn = "", pf = CT.prefill;
+      if (pf) {
+        var pdfRef = g.event_ref;
+        if (pdfRef && pf.event_ref && pdfRef !== pf.event_ref) warn = "This PDF is for " + pdfRef + " but the enquiry is " + pf.event_ref + ". Check you chose the right file before going on.";
+        var first = String(pf.signer1_name || "").split(/\s+/)[0].toLowerCase(), fuller = g.signer1_name && first && g.signer1_name.toLowerCase().indexOf(first) === 0;
+        g = { title: pf.title || g.title, event_ref: pf.event_ref || g.event_ref, event_date: pf.event_date || g.event_date,
+              signer1_name: fuller ? g.signer1_name : (pf.signer1_name || g.signer1_name), signer1_email: pf.signer1_email || g.signer1_email,
+              signer2_name: pf.signer2_name || "", signer2_email: pf.signer2_email || "", min_spend: pf.min_spend, min_spend_source: pf.min_spend_source };
+      }
+      CT.pending = { name: f.name, buf: buf, pages: t.pages, texts: t.texts, from: from || t.pages + 1, g: g, warn: warn };
       CT.busy = ""; paint();
     } catch (e) { fail(new Error("That PDF could not be read. " + (e.message || ""))); }
   };
@@ -171,7 +201,7 @@
       '<p class="muted" style="margin:0 0 12px">The one copy every new contract starts from (currently version ' + t.version + ", last saved " + esc(ukDT(t.updated_at)) + " by " + esc(t.updated_by || "") + '). Saving changes it for contracts made from now on. A draft keeps its own copy until you reset it.</p>' +
       '<div class="card"><div class="field"><label class="label" for="tt">Heading</label><input type="text" id="tt" value="' + esc(t.title) + '"></div>' +
       '<div class="field"><label class="label" for="tb">Wording</label><textarea id="tb" rows="26" style="width:100%;font-family:ui-monospace,Consolas,monospace;font-size:13px;line-height:1.45">' + esc(t.body) + '</textarea></div>' +
-      '<p class="muted" style="margin:0 0 12px">A blank line starts a new paragraph. Put <code>**two stars**</code> round words to make them bold. Start a line with <code>- </code> for a bullet. Numbers are just typed ("3. DEPOSIT").</p>' +
+      '<p class="muted" style="margin:0 0 12px">A blank line starts a new paragraph. Put <code>**two stars**</code> round words to make them bold. Start a line with <code>- </code> for a bullet. Numbers are just typed ("3. DEPOSIT"). <code>{{minimum_spend}}</code> is replaced with the minimum spend of each contract.</p>' +
       '<button class="btn btn--primary" onclick="CTR.saveTerms()">Save as the new standard</button></div>';
     if (CT.hist.length) {
       h += '<div class="card"><h3 style="margin:0 0 8px">Earlier versions</h3><table><tbody>' + CT.hist.map(function (x) {
@@ -216,7 +246,7 @@
         '<p class="muted" style="margin:0 0 10px">' + (c.terms_amended ? "Changed from the standard." : "Same as the standard terms (version " + c.terms_master_version + ").") + ' Edit here for this contract only, or use the button underneath to make your wording the standard for every future contract.</p>' +
         '<div class="field"><input type="text" id="e_tt" value="' + esc(c.terms_title || "") + '"></div>' +
         '<textarea id="e_tb" rows="18" style="width:100%;font-family:ui-monospace,Consolas,monospace;font-size:13px;line-height:1.45">' + esc(c.terms_body || "") + '</textarea>' +
-        '<p class="muted" style="margin:6px 0 12px">Blank line = new paragraph. <code>**bold**</code>. Start a line with <code>- </code> for a bullet.</p>' +
+        '<p class="muted" style="margin:6px 0 12px">Blank line = new paragraph. <code>**bold**</code>. Start a line with <code>- </code> for a bullet. <code>{{minimum_spend}}</code> is replaced with the minimum spend of this contract.</p>' +
         '<div class="actions"><button class="btn btn--primary" onclick="CTR.saveTermsHere()">Save the wording</button> <button class="btn" onclick="CTR.resetTerms()">Start again from the standard terms</button> <button class="btn" onclick="CTR.promote()">Make this the standard for every contract</button></div></div>';
       h += '<div class="card"><h3 style="margin:0 0 4px">Replace the booking pages</h3><p class="muted" style="margin:0 0 10px">If the booking changed in Rezlynx, upload the new PDF. The wording above stays as it is.</p>' +
         '<div class="row"><div class="field"><input type="file" id="e_file" accept="application/pdf" onchange="CTR.pickedNew(this)"></div></div><div id="e_replace"></div></div>';
