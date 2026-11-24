@@ -739,6 +739,38 @@ details summary::-webkit-details-marker{color:var(--sage-70)}
 #trackerApp .evdot{font-size:13px; letter-spacing:1px}
 #trackerApp .legend{display:flex; gap:16px; flex-wrap:wrap; margin-top:12px; font-size:12px; color:var(--sage-70)}
 
+/* calendar list view: one long scroll of days */
+#trackerApp .calseg{display:inline-flex; border:1px solid var(--mist); border-radius:8px; overflow:hidden; margin-left:auto}
+#trackerApp .calseg button{border:0; background:var(--white); color:var(--sage); padding:9px 14px; font:inherit; font-size:13px; cursor:pointer}
+#trackerApp .calseg button + button{border-left:1px solid var(--mist)}
+#trackerApp .calseg button.on{background:var(--sage); color:var(--white)}
+#trackerApp .callistopts{display:inline-flex; gap:10px; align-items:center; flex-wrap:wrap}
+#trackerApp .callistopts[hidden]{display:none}
+#trackerApp .callistopts label{font-size:13px; color:var(--sage-70); display:inline-flex; gap:6px; align-items:center; cursor:pointer}
+#trackerApp .callist{background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden}
+#trackerApp .cmonth{background:var(--sage); color:var(--white); padding:10px 16px; font-family:"Orpheus Pro","Cormorant Garamond",Georgia,serif; font-size:18px;
+  display:flex; justify-content:space-between; align-items:baseline; position:sticky; top:0; z-index:2}
+#trackerApp .cmonth small{font-family:inherit; font-size:12px; opacity:.85; font-family:system-ui,sans-serif}
+#trackerApp .cday{display:flex; gap:14px; padding:9px 16px; border-bottom:1px solid var(--mist); align-items:flex-start}
+#trackerApp .cday.wknd{background:#FAFAF6}
+#trackerApp .cday.has{background:var(--sage-10)}
+#trackerApp .cday.bh{box-shadow:inset 4px 0 0 var(--olive, var(--attention))}
+#trackerApp .cday.today{outline:2px solid var(--attention); outline-offset:-2px}
+#trackerApp .cdate{flex:0 0 74px; line-height:1.25}
+#trackerApp .cdate b{display:block; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--sage-70)}
+#trackerApp .cday.wknd .cdate b{color:var(--attention)}
+#trackerApp .cdate span{font-size:15px; font-weight:600; color:var(--sage)}
+#trackerApp .cevs{flex:1; min-width:0; display:flex; flex-direction:column; gap:6px}
+#trackerApp .cnone{color:var(--sage-70); opacity:.55; font-size:13px}
+#trackerApp .cbh{font-size:11px; color:var(--attention); font-weight:600}
+#trackerApp .cev{display:flex; gap:10px; align-items:baseline; text-align:left; background:var(--white); border:1px solid var(--mist);
+  border-radius:8px; padding:7px 10px; font:inherit; cursor:pointer; color:inherit; width:100%}
+#trackerApp .cev:hover{border-color:var(--sage)}
+#trackerApp .cev .em{flex:0 0 auto}
+#trackerApp .cev .nm{font-weight:600; color:var(--sage)}
+#trackerApp .cev .mt{font-size:12px; color:var(--sage-70)}
+@media (max-width:600px){ #trackerApp .calseg{margin-left:0} #trackerApp .cdate{flex-basis:58px} }
+
 /* list drill-down (its own l* classes in the original, kept as-is) */
 #listveil{
   position:fixed; inset:0; background:rgba(38,38,38,.45); z-index:70; display:none;
@@ -961,10 +993,19 @@ body.va-lock{overflow:hidden}
           <button class="btn ghost" id="yPrev">&larr;</button>
           <select id="yearSel"></select>
           <button class="btn ghost" id="yNext">&rarr;</button>
+          <span class="calseg" role="group" aria-label="Calendar view">
+            <button type="button" class="on" id="calViewGrid" data-calview="grid">Year grid</button>
+            <button type="button" id="calViewList" data-calview="list">List</button>
+          </span>
+          <span class="callistopts" id="calListOpts" hidden>
+            <label class="hideempty"><input type="checkbox" id="calHideEmpty"> Hide days with nothing booked</label>
+            <button class="btn ghost" type="button" id="calToday">Jump to today</button>
+          </span>
         </div>
-        <div class="calwrap"><table class="cal" id="calTable"></table>
+        <div class="calwrap" id="calGridWrap"><table class="cal" id="calTable"></table>
           <div class="legend" id="calLegend"></div>
         </div>
+        <div class="callist" id="calList" hidden></div>
       </section>
 
       <!-- --------------------------------------------- Year Totals -->
@@ -8207,7 +8248,85 @@ var TrackerApp = (function(){
         }
       };
     });
+
+    renderCalList(y, byDate, bh);
+    applyCalView();
   }
+
+  /* ---------------------------------------- calendar: list view
+     One long scroll of every day in the chosen year, with every booking on
+     each day. The same confirmed-bookings rule as the year grid. */
+  const calPref = {
+    get(k, d){ try { const v = localStorage.getItem(k); return v === null ? d : v; } catch(e){ return d; } },
+    set(k, v){ try { localStorage.setItem(k, v); } catch(e){} },
+  };
+  S.calView = calPref.get("bhb_cal_view", "grid") === "list" ? "list" : "grid";
+  S.calHideEmpty = calPref.get("bhb_cal_hide_empty", "0") === "1";
+
+  function renderCalList(y, byDate, bh){
+    const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+    const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+    const todayKey = S.today || new Date().toISOString().slice(0,10);
+    let html = "";
+    for(let m=1; m<=12; m++){
+      const last = new Date(Date.UTC(y,m,0)).getUTCDate();
+      let inMonth = 0, rows = "";
+      for(let d=1; d<=last; d++){
+        const key = `${y}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+        const dow = new Date(Date.UTC(y,m-1,d)).getUTCDay();
+        const evs = (byDate[key] || []).slice().sort((a,b) => String(a.name||"").localeCompare(String(b.name||"")));
+        inMonth += evs.length;
+        if(S.calHideEmpty && !evs.length) continue;
+        const cls = ["cday", evs.length?"has":"", bh[key]?"bh":"", (dow===0||dow===6)?"wknd":"", key===todayKey?"today":""].filter(Boolean).join(" ");
+        const body = evs.length
+          ? evs.map(e => {
+              const waiting = norm(e.status) === WAITING;
+              const meta = [e.event_type, e.venue, waiting ? "waiting for the event" : ""].filter(Boolean).join(" · ");
+              return `<button type="button" class="cev" data-id="${esc(e.id)}"><span class="em">${emojiFor(e.event_type)}</span>`
+                   + `<span><span class="nm">${esc(e.name||"Untitled")}</span>${meta?` <span class="mt">${esc(meta)}</span>`:""}</span></button>`;
+            }).join("")
+          : `<span class="cnone">Nothing booked</span>`;
+        rows += `<div class="${cls}" id="cd-${key}"><div class="cdate"><b>${DAYS[dow]}</b><span>${d} ${MONTHS[m-1].slice(0,3)}</span></div>`
+              + `<div class="cevs">${bh[key]?`<span class="cbh">Bank holiday: ${esc(bh[key])}</span>`:""}${body}</div></div>`;
+      }
+      if(!rows) continue;
+      html += `<div class="cmonth"><span>${MONTHS[m-1]} ${y}</span><small>${inMonth} ${inMonth===1?"booking":"bookings"}</small></div>${rows}`;
+    }
+    const box = $("#calList");
+    box.innerHTML = html || `<div class="cday"><div class="cevs"><span class="cnone">No bookings in ${y}.</span></div></div>`;
+    box.querySelectorAll(".cev").forEach(b => {
+      b.onclick = () => {
+        const r = S.all.find(x => String(x.id) === b.dataset.id);
+        if(r) openDrawer(r);
+      };
+    });
+  }
+
+  function applyCalView(){
+    const list = S.calView === "list";
+    $("#calGridWrap").hidden = list;
+    $("#calList").hidden = !list;
+    $("#calListOpts").hidden = !list;
+    $("#calViewGrid").classList.toggle("on", !list);
+    $("#calViewList").classList.toggle("on", list);
+    $("#calHideEmpty").checked = S.calHideEmpty;
+  }
+  function scrollCalToToday(){
+    const el = document.getElementById("cd-" + (S.today || new Date().toISOString().slice(0,10)));
+    if(el) el.scrollIntoView({ block:"center", behavior:"smooth" });
+    else { const first = $("#calList .cday.has") || $("#calList .cday"); if(first) first.scrollIntoView({ block:"start", behavior:"smooth" }); }
+  }
+  $("#calViewGrid").onclick = () => { S.calView = "grid"; calPref.set("bhb_cal_view","grid"); applyCalView(); };
+  $("#calViewList").onclick = () => {
+    S.calView = "list"; calPref.set("bhb_cal_view","list"); applyCalView();
+    if(S.year === new Date().getFullYear()) scrollCalToToday();
+  };
+  $("#calHideEmpty").onchange = e => { S.calHideEmpty = e.target.checked; calPref.set("bhb_cal_hide_empty", S.calHideEmpty ? "1" : "0"); renderCalendar(); };
+  $("#calToday").onclick = () => {
+    const now = new Date().getFullYear();
+    if(S.year !== now){ S.year = now; renderYearPicker(); renderCalendar(); }
+    scrollCalToToday();
+  };
 
   /* ---------------------------------------------------- year totals */
   // Weddings: counted from the Wedding App's own live Guestline numbers
