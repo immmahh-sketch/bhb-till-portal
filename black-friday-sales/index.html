@@ -135,6 +135,7 @@ function rowsHtml() {
       if (v.status === "redeemed" || v.status === "part_used" || v.status === "voided") acts += '<button class="btn sm ghost" data-act="undo" data-id="' + v.id + '">Put back</button> ';
       if (v.status === "valid" || v.status === "part_used") acts += '<button class="btn sm danger" data-act="void" data-id="' + v.id + '">Void</button> ';
       if (v.email) acts += '<button class="btn sm ghost" data-act="resend" data-id="' + v.id + '">Resend email</button> ';
+      acts += '<button class="btn sm ghost" data-act="vat" data-id="' + v.id + '">' + (v.vat_receipt_sent_at ? "Resend VAT receipt" : "Send VAT receipt") + '</button> ';
     }
     acts += '<button class="btn sm ghost" data-act="history" data-id="' + v.id + '">History</button>';
     return "<tr><td><span class=\"code\">" + esc(v.code) + "</span>" + (v.is_test ? ' <span class="pill warn">Test</span>' : "") + "<br>" + statusPill(v) + "</td>" +
@@ -200,10 +201,17 @@ async function doAct(a, id) {
   } else if (a === "resend") {
     if (!confirm("Email " + (v.is_test ? "the GM" : v.email) + " this voucher again?")) return;
     try { var r2 = await api("admin.resend", { id: id }); toast("Sent to " + r2.to + "."); } catch (e) { toast(e.message, true); }
+  } else if (a === "vat") {
+    modal("<h3>" + (v.vat_receipt_sent_at ? "Send the VAT receipt again" : "Send a VAT receipt") + '</h3><p><span class="code">' + esc(v.code) + "</span><br>" + esc(v.buyer) + "</p>" +
+      '<p class="small muted">A PDF VAT receipt for the whole sale (every voucher the buyer bought together)' + (v.receipt_no ? ", number " + esc(v.receipt_no) : "") + ". Online buyers already get it with their voucher email." + (v.vat_receipt_sent_at ? " Last sent " + esc(when(v.vat_receipt_sent_at)) + " to " + esc(v.vat_receipt_to) + "." : "") + "</p>" +
+      (v.is_test ? '<div class="notice warn">This is a test sale, so it will go to the GM only.</div>' : "") +
+      '<div class="f"><label for="vto">Send to</label><input id="vto" type="email" value="' + esc(v.email) + '" placeholder="name@example.com" autocomplete="off"></div>' +
+      '<div style="display:flex;gap:10px;margin-top:14px"><button class="btn" id="ok" type="button">Send receipt</button><button class="btn ghost" data-close type="button">Cancel</button></div>',
+      function (m) { m.querySelector("#ok").onclick = async function () { var to = m.querySelector("#vto").value.trim(); if (!to) { toast("Enter an email address.", true); return; } this.disabled = true; try { var r3 = await api("admin.vat_receipt", { id: id, to: to }); m.remove(); toast("VAT receipt " + r3.receipt + " sent to " + r3.to + "."); showVouchers($("#views")); } catch (e) { this.disabled = false; toast(e.message, true); } }; });
   } else if (a === "history") {
     try {
       var d = await api("admin.history", { id: id });
-      var rows = d.log.map(function (l) { return "<tr><td class=\"small\">" + esc(when(l.at)) + "</td><td>" + esc(l.action === "redeem" ? "Redeemed" : l.action === "undo" ? "Put back" : l.action === "void" ? "Voided" : l.action) + (l.amount != null ? " " + gbp(l.amount) : "") + (l.undone_at ? ' <span class="pill">put back</span>' : "") + "</td><td>" + esc(l.by_name) + "</td><td class=\"small\">" + esc(l.note) + "</td></tr>"; }).join("");
+      var rows = d.log.map(function (l) { return "<tr><td class=\"small\">" + esc(when(l.at)) + "</td><td>" + esc(l.action === "redeem" ? "Redeemed" : l.action === "undo" ? "Put back" : l.action === "void" ? "Voided" : l.action === "vat_receipt" ? "VAT receipt sent" : l.action) + (l.amount != null ? " " + gbp(l.amount) : "") + (l.undone_at ? ' <span class="pill">put back</span>' : "") + "</td><td>" + esc(l.by_name) + "</td><td class=\"small\">" + esc(l.note) + "</td></tr>"; }).join("");
       modal("<h3>History</h3><p><span class=\"code\">" + esc(v.code) + "</span><br>" + esc(v.title) + "<br>Bought by " + esc(v.buyer) + " on " + esc(when(v.paid_at || v.created_at)) + "</p><div class=\"tw\"><table class=\"t\"><tbody>" + (rows || '<tr><td class="muted">Nothing has happened to this voucher since it was sold.</td></tr>') + '</tbody></table></div><div style="margin-top:14px"><button class="btn ghost" data-close type="button">Close</button></div>');
     } catch (e) { toast(e.message, true); }
   }
