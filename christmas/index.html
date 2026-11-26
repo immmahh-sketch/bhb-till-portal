@@ -545,7 +545,7 @@ function renderPre(loading){
   if (loading || !d) body = S.pre.err ? `<div class="flags"><b>Could not load</b>${esc(S.pre.err)}</div>` : `<div class="empty">Loading ${esc(ev ? ev.name : "")}…</div>`;
   else {
     const t = d.totals, e = d.event;
-    body = `<div class="pagehead" style="margin-top:6px"><h2>${esc(e.title)}</h2><span class="hint">${esc(e.when)}. Choices ${d.deadline.closed ? "closed" : "close"} ${esc(d.deadline.text)}.</span><span class="spacer"></span><button class="btn small ghost" data-act="emails">Emails</button> <button class="btn small ghost" data-act="auto">Automatic reminders</button> <button class="btn small ghost" data-act="drinkspdf">Drinks report (PDF)</button> <button class="btn small ghost" data-act="csv">Export (CSV)</button></div>
+    body = `<div class="pagehead" style="margin-top:6px"><h2>${esc(e.title)}</h2><span class="hint">${esc(e.when)}. Choices ${d.deadline.closed ? "closed" : "close"} ${esc(d.deadline.text)}.</span><span class="spacer"></span>${e.key === "day" ? `<button class="btn small" data-act="confirm">Final confirmation emails</button> ` : ""}<button class="btn small ghost" data-act="emails">Emails</button> <button class="btn small ghost" data-act="auto">Automatic reminders</button> <button class="btn small ghost" data-act="drinkspdf">Drinks report (PDF)</button> <button class="btn small ghost" data-act="csv">Export (CSV)</button></div>
       ${S.pre.note ? `<div class="flags" style="background:var(--good-bg);border-color:#cfe0cf;color:var(--good)">${esc(S.pre.note)}</div>` : ""}
       <div class="tiles"><div class="tile"><div class="v">${t.bookings}</div><div class="l">bookings</div><div class="s">${t.tickets} ticket${t.tickets === 1 ? "" : "s"}</div></div><div class="tile"><div class="v">${t.invited}</div><div class="l">invited</div><div class="s">of ${t.bookings}</div></div><div class="tile"><div class="v">${t.submitted}</div><div class="l">sent back</div><div class="s">${t.started} started · ${t.not_started} not started</div></div>${e.show_under3 ? `<div class="tile"><div class="v">${t.under3}</div><div class="l">under 3s</div><div class="s">${t.high_chairs} high chair${t.high_chairs === 1 ? "" : "s"}</div></div>` : ""}<div class="tile"><div class="v">${money(t.drinks_total)}</div><div class="l">drinks pre-ordered</div><div class="s">${t.drinks_orders} paid order${t.drinks_orders === 1 ? "" : "s"}</div></div>${t.balance_total !== undefined && d.rows.some(r => r.pay) ? `<div class="tile"><div class="v">${money(t.balance_total)}</div><div class="l">still to collect</div><div class="s">${t.paid_in_full} of ${t.bookings} paid in full</div></div>` : ""}<div class="tile"><div class="v">${t.tabled}</div><div class="l">given a table</div><div class="s">of ${t.bookings} bookings</div></div></div>
       ${preFunnel(d)}
@@ -603,11 +603,57 @@ async function preDrinksPdf(btn){
   } catch(e){ toast(e.message, true); }
   btn.disabled = false;
 }
+/* ---- the final confirmation email (Christmas Day): what we hold for each booking, sent once to each */
+async function preConfirm(){
+  const ed = canEdit(), id = S.pre.id;
+  openModal(`<h3 style="margin:0 0 4px">Final confirmation emails</h3><div id="cfBody" class="small muted">Loading…</div>`);
+  const load = async () => {
+    let r; try { r = await px("admin.confirm", { date_id:id, plan:true }); } catch(e){ $("#cfBody").textContent = e.message; return; }
+    const row = x => `<tr><td class="n">${esc(x.time || "")}</td><td><b>${esc(x.name)}</b> <span class="muted">${esc(x.ref)}</span>${x.sat_with.length ? `<div class="tiny muted">with ${esc(x.sat_with.join(", "))}</div>` : ""}</td><td class="small">${esc(x.where || "not placed")}</td><td class="n">${x.guests}</td><td class="n">${x.balance >= 1 ? money(x.balance) : ""}</td><td class="small">${x.sent_at ? `<span class="pill ok">Sent</span>` : x.email ? "" : `<span class="pill">No email</span>`}${x.off > 15 ? ` <span class="pill" title="Asked for ${esc(x.asked)}">Apology</span>` : ""}</td><td><button class="btn small ghost" data-cfp="${esc(x.booking_id)}">Preview</button> ${ed ? `<button class="btn small ghost" data-cft="${esc(x.booking_id)}">Test to me</button>` : ""}</td></tr>`;
+    $("#cfBody").className = "";
+    $("#cfBody").innerHTML = `<p class="small muted" style="margin:0 0 10px">One email per booking: the arrival time and where the table is, who they are sitting with, each guest's pre-order, the drinks already paid for, and any balance still to pay. Each booking is emailed once. ${r.sent} sent so far, ${r.waiting} waiting.${r.unplaced.length ? ` <b>Not placed in the diary (will be skipped):</b> ${esc(r.unplaced.join(", "))}.` : ""}${r.no_email.length ? ` <b>No email address (skipped):</b> ${esc(r.no_email.join(", "))}.` : ""}</p>
+      <div style="max-height:46vh;overflow:auto;margin:0 0 10px"><table class="t"><thead><tr><th>Arrive</th><th>Booking</th><th>Where</th><th>Guests</th><th>To pay</th><th></th><th></th></tr></thead><tbody>${r.rows.map(row).join("")}</tbody></table></div>
+      <div style="display:flex;gap:8px;justify-content:space-between;flex-wrap:wrap;align-items:center"><span class="tiny muted">Test emails go to ${esc(staffEmail())} only.</span><span style="display:flex;gap:8px">${ed && r.waiting ? `<button class="btn" id="cfAll">Send to the ${r.waiting} waiting…</button>` : ""}<button class="btn ghost" onclick="closeModal()">Close</button></span></div><div id="cfMsg" class="small" style="margin-top:8px"></div>`;
+    $$("[data-cfp]").forEach(b => b.onclick = async () => {
+      b.disabled = true;
+      try {
+        const m = await px("admin.confirm", { date_id:id, preview:true, booking_id:b.dataset.cfp });
+        const w = window.open("", "_blank"); if (w) { w.document.write(m.html); w.document.close(); } else toast("Allow pop-ups to see the preview.", true);
+      } catch(e){ toast(e.message, true); }
+      b.disabled = false;
+    });
+    $$("[data-cft]").forEach(b => b.onclick = async () => {
+      b.disabled = true;
+      try { const m = await px("admin.confirm", { date_id:id, test_to:staffEmail(), booking_id:b.dataset.cft }); toast(m.sent ? `Test sent to ${staffEmail()}.` : "Could not send: " + (m.error || ""), !m.sent); } catch(e){ toast(e.message, true); }
+      b.disabled = false;
+    });
+    const all = $("#cfAll");
+    if (all) all.onclick = () => {
+      $("#cfMsg").innerHTML = `<b>This emails ${r.waiting} guests their confirmed table time, pre-order and any balance. It cannot be undone.</b> <button class="btn small" id="cfYes">Yes, send them</button> <button class="btn small ghost" id="cfNo">Not yet</button>`;
+      $("#cfNo").onclick = () => { $("#cfMsg").textContent = ""; };
+      $("#cfYes").onclick = async () => {
+        $("#cfYes").disabled = true; let ok = 0; const bad = [];
+        try {
+          for (let i = 0; i < 12; i++) {
+            const m = await px("admin.confirm", { date_id:id });
+            for (const x of m.results) { if (x.ok) ok++; else bad.push(x.ref + " (" + x.error + ")"); }
+            $("#cfMsg").textContent = `Sent ${ok}…`;
+            if (!m.left) break;
+          }
+        } catch(e){ bad.push(e.message); }
+        toast(`Sent ${ok}.${bad.length ? " Problems: " + bad.join(", ") : ""}`, bad.length > 0);
+        load();
+      };
+    };
+  };
+  load();
+}
 async function preAct(act, btn){
   const d = S.pre.data; if (!d) return;
   if (act === "preview") return prePreview(d);
   if (act === "csv") return preCsv(d, btn);
   if (act === "drinkspdf") return preDrinksPdf(btn);
+  if (act === "confirm") return preConfirm();
   if (act === "emails") return preEmails();
   if (act === "auto") return preAuto();
   if (act === "test") {
