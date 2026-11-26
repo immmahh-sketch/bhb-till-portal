@@ -211,6 +211,7 @@ table.tk tr.det td{background:var(--bone)}
     <button class="tabbtn" data-view="adspend">Ad spend</button>
     <button class="tabbtn" data-view="enquiries">Enquiries</button>
     <button class="tabbtn" data-view="seo">SEO audit</button>
+    <button class="tabbtn" data-view="competitors" id="tab_competitors" hidden>Competitors</button>
     <button class="tabbtn" data-view="timeline" id="tab_timeline" hidden>Project Timeline</button>
     <button class="tabbtn" data-view="photos" id="tab_photos" hidden>Photo library</button>
     <button class="tabbtn" data-view="emaildb" id="tab_emaildb" hidden>Email database</button>
@@ -230,6 +231,7 @@ table.tk tr.det td{background:var(--bone)}
 <script src="adspend.js?v=3"></script>
 <script src="enquiries.js?v=2"></script>
 <script src="seo.js?v=2"></script>
+<script src="competitors.js?v=1"></script>
 <link rel="stylesheet" href="../hod-actions/timeline.css?v=2">
 <script src="../hod-actions/timeline.js?v=3"></script>
 <script src="emaildb.js?v=3"></script>
@@ -802,6 +804,15 @@ function viewSeo(){
 }
 function seoStop(){ if (seoHandle) { seoHandle.unmount(); seoHandle = null; } }
 
+/* Competitors: a sign-up mailbox on competitors' mailing lists, every email read and compared with our own mail shots (competitors.js, backend competitor-watch-api). */
+const cwCall = (action, payload) => post("competitor-watch-api", { action, staff_email: staffEmail(), ...(payload || {}) });
+let cwHandle = null;
+function viewCompetitors(){
+  $("#views").innerHTML = `<div id="cwmount"></div>`;
+  cwHandle = Competitors.mount($("#cwmount"), { call: cwCall, toast });
+}
+function cwStop(){ if (cwHandle) { cwHandle.unmount(); cwHandle = null; } }
+
 /* ============================================================ email database (administrators, Calvin and Jack only: the "emaildb" tab) */
 const edbCall = (action, payload) => post("email-db-api", { action, staff_email: staffEmail(), ...(payload || {}) });
 let emaildbHandle = null;
@@ -971,9 +982,9 @@ function viewPhotos(){
 function photosStop(){ if (photosHandle) { photosHandle.unmount(); photosHandle = null; } }
 function markTab(){ $$(".tabbtn").forEach(b => b.setAttribute("aria-current", b.dataset.view === S.view ? "page" : "false")); }
 function goView(v){
-  chatStop(); tkStop(); fsStop(); socialStop(); analyticsStop(); mailshotsStop(); adspendStop(); enquiriesStop(); seoStop(); emaildbStop(); tlStop(); photosStop();
+  chatStop(); tkStop(); fsStop(); socialStop(); analyticsStop(); mailshotsStop(); adspendStop(); enquiriesStop(); seoStop(); cwStop(); emaildbStop(); tlStop(); photosStop();
   S.view = v; markTab(); closeModal();
-  if (v === "plan") viewPlan(); else if (v === "mine") viewMine(); else if (v === "tickets") viewTickets(); else if (v === "files") viewFiles(); else if (v === "call") viewCall(); else if (v === "postcode") viewPostcode(); else if (v === "mailshots") viewMailshots(); else if (v === "social") viewSocial(); else if (v === "analytics") viewAnalytics(); else if (v === "adspend") viewAdspend(); else if (v === "enquiries") viewEnquiries(); else if (v === "seo") viewSeo(); else if (v === "emaildb") viewEmaildb(); else if (v === "timeline") viewTimeline(); else if (v === "photos") viewPhotos(); else viewChat();
+  if (v === "plan") viewPlan(); else if (v === "mine") viewMine(); else if (v === "tickets") viewTickets(); else if (v === "files") viewFiles(); else if (v === "call") viewCall(); else if (v === "postcode") viewPostcode(); else if (v === "mailshots") viewMailshots(); else if (v === "social") viewSocial(); else if (v === "analytics") viewAnalytics(); else if (v === "adspend") viewAdspend(); else if (v === "enquiries") viewEnquiries(); else if (v === "seo") viewSeo(); else if (v === "competitors") viewCompetitors(); else if (v === "emaildb") viewEmaildb(); else if (v === "timeline") viewTimeline(); else if (v === "photos") viewPhotos(); else viewChat();
   window.scrollTo(0, 0);
 }
 function openGate(msg){ $("#gate").hidden = false; $("#app").hidden = true; if (msg) $("#gerr").textContent = msg; }
@@ -987,6 +998,7 @@ async function boot(){
   $$(".tabbtn").forEach(b => b.addEventListener("click", () => goView(b.dataset.view)));
   edbCall("access").then(r => { if (r && r.ok) $("#tab_emaildb").hidden = false; }).catch(() => {});        // the tab only appears for the few people allowed it
   tlCall("tl.access").then(r => { if (r && r.ok) $("#tab_timeline").hidden = false; }).catch(() => {});        // the tab only appears for people who have it ticked
+  cwCall("access").then(r => { if (r && r.ok) $("#tab_competitors").hidden = false; }).catch(() => {});        // the tab only appears for people who have it ticked
   photoCall("access").then(r => { if (r && r.ok) $("#tab_photos").hidden = false; }).catch(() => {});        // the tab only appears for people who have it ticked
   goView("plan");
   startAutoRefresh();
