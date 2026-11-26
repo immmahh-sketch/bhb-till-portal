@@ -68,6 +68,7 @@ table.t{width:100%; border-collapse:collapse; font-size:14px} .t th{font-size:10
 .dgh{flex:0 0 34px;font-size:10px;color:var(--sage-70);text-align:left;padding:6px 0 0 3px;border-left:1px solid var(--mist);height:26px} .dgh.hr{color:var(--ink);font-weight:700;font-size:11px}
 .dgp{flex:0 0 34px;height:36px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;border-left:1px solid var(--mist)} .dgp.some{background:#E5EDE5;color:#2F5B31} .dgp.near{background:#F4EBCF;color:#7a5f36} .dgp.over{background:#F1D3CF;color:var(--red)}
 .dgs{background:var(--sage-10);font-family:var(--display);font-size:16px;color:var(--berry);padding:5px 10px;position:sticky;left:0;border-bottom:1px solid var(--mist)}
+th[data-sort]{cursor:pointer;user-select:none}th[data-sort]:hover{color:var(--ink,#262626)}th[data-sort][aria-sort=ascending]::after{content:" \25B2";font-size:9px}th[data-sort][aria-sort=descending]::after{content:" \25BC";font-size:9px}
 .dgb{position:absolute;top:3px;height:30px;border:0;border-radius:6px;color:#fff;font-size:12px;padding:0 7px;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,.25)} .dgb.ok{background:#2F5B31} .dgb.wait{background:#B08D57} .dgb.lock{outline:2px solid var(--ink);outline-offset:-2px} .dgb:hover{filter:brightness(1.12)}
 .dgkey{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-2px} .dgkey.ok{background:#2F5B31} .dgkey.wait{background:#B08D57}
 /* ---- print the table plan: a preview on screen, A4 landscape on paper. Times across, tables down, bars for the bookings (as the diary), then arrival sheets */
@@ -539,6 +540,48 @@ function cancelledCard(d){
   const tot = c.reduce((t, x) => t + x.deposit_kept, 0);
   return `<div class="card"><h3>Cancelled bookings (${c.length})</h3><p class="small muted" style="margin:0 0 6px">Kept here so they can be looked at later. Not in the diary, the guest counts or the kitchen numbers. The deposits stay in the revenue: ${money(tot)} in all. Press a reference to open the booking (it can be restored there).</p><div style="overflow-x:auto"><table class="t"><thead><tr><th>Ref</th><th>Booked by</th><th>Email</th><th>Tickets</th><th>Status</th><th class="n">Deposit kept</th><th>Cancelled</th><th>Note</th></tr></thead><tbody>${c.map(x => `<tr><td><a href="#" data-cxfull="${esc(x.booking_id)}">${esc(x.ref)}</a></td><td>${esc(x.name)}</td><td class="small">${esc(x.email)}</td><td class="small">${esc(x.tickets)}${x.booked_at ? `<div class="tiny muted">booked ${esc(fmtDT(x.booked_at))}</div>` : ""}</td><td><span class="pill warn">Cancelled</span></td><td class="n">${money(x.deposit_kept)}</td><td class="small">${esc(fmtDT(x.cancelled_at))}${x.by ? " by " + esc(x.by) : ""}</td><td class="small">${esc(x.note)}</td></tr>`).join("")}</tbody></table></div></div>`;
 }
+/* ---- order the Bookings list by a heading: click once to go up, again to go down, a third time for the original order. Blanks always go last. */
+const PRE_SORT_STAGE = { not_invited:0, sent:1, opened:2, started:3, submitted:4 };
+function preSortVal(r, k){
+  switch (k) {
+    case "ref": return r.ref || "";
+    case "name": return r.name || "";
+    case "email": return r.email || "";
+    case "guests": return r.adults + r.children;
+    case "status": return PRE_SORT_STAGE[r.stage] === undefined ? 9 : PRE_SORT_STAGE[r.stage];
+    case "invited": return r.invite_sent_at || "";
+    case "opened": return r.first_opened_at || "";
+    case "gtime": return /^\d/.test(r.preferred_time || "") ? r.preferred_time : "";
+    case "dining": return r.dining_time || "";
+    case "where": return r.area || "";
+    case "table": return r.table_number || "";
+    case "balance": return r.pay ? r.pay.balance : null;
+    case "drinks": return r.drinks_orders ? r.drinks_total : null;
+  }
+  return "";
+}
+function preSorted(rows){
+  const s = S.pre && S.pre.sort; if (!s) return rows;
+  const blank = v => v === "" || v === null || v === undefined;
+  return rows.map((r, i) => ({ r, i, v:preSortVal(r, s.key) })).sort((a, b) => {
+    if (blank(a.v) !== blank(b.v)) return blank(a.v) ? 1 : -1;
+    if (blank(a.v)) return a.i - b.i;
+    const c = typeof a.v === "number" && typeof b.v === "number" ? a.v - b.v : String(a.v).localeCompare(String(b.v), "en", { numeric:true, sensitivity:"base" });
+    return (c * s.dir) || (a.i - b.i);
+  }).map(x => x.r);
+}
+function sth(key, label, cls){
+  const s = S.pre && S.pre.sort, on = !!s && s.key === key;
+  return `<th data-sort="${key}"${cls ? ` class="${cls}"` : ""} role="button" tabindex="0" aria-sort="${on ? (s.dir > 0 ? "ascending" : "descending") : "none"}" title="Click to order the list by this heading">${label}</th>`;
+}
+function preSortClick(th){
+  if (!S.pre || !S.pre.data) return;
+  const k = th.dataset.sort, s = S.pre.sort;
+  S.pre.sort = s && s.key === k ? (s.dir > 0 ? { key:k, dir:-1 } : null) : { key:k, dir:1 };
+  renderPre();
+}
+document.addEventListener("click", e => { const th = e.target.closest && e.target.closest("th[data-sort]"); if (th) preSortClick(th); });
+document.addEventListener("keydown", e => { if (e.key !== "Enter" && e.key !== " ") return; const th = e.target.closest && e.target.closest("th[data-sort]"); if (th) { e.preventDefault(); preSortClick(th); } });
 function renderPre(loading){
   const ev = S.pre.events.find(e => e.date_id === S.pre.id), d = S.pre.data;
   let body = "";
@@ -550,7 +593,7 @@ function renderPre(loading){
       <div class="tiles"><div class="tile"><div class="v">${t.bookings}</div><div class="l">bookings</div><div class="s">${t.tickets} ticket${t.tickets === 1 ? "" : "s"}</div></div><div class="tile"><div class="v">${t.invited}</div><div class="l">invited</div><div class="s">of ${t.bookings}</div></div><div class="tile"><div class="v">${t.submitted}</div><div class="l">sent back</div><div class="s">${t.started} started · ${t.not_started} not started</div></div>${e.show_under3 ? `<div class="tile"><div class="v">${t.under3}</div><div class="l">under 3s</div><div class="s">${t.high_chairs} high chair${t.high_chairs === 1 ? "" : "s"}</div></div>` : ""}<div class="tile"><div class="v">${money(t.drinks_total)}</div><div class="l">drinks pre-ordered</div><div class="s">${t.drinks_orders} paid order${t.drinks_orders === 1 ? "" : "s"}</div></div>${t.balance_total !== undefined && d.rows.some(r => r.pay) ? `<div class="tile"><div class="v">${money(t.balance_total)}</div><div class="l">still to collect</div><div class="s">${t.paid_in_full} of ${t.bookings} paid in full</div></div>` : ""}<div class="tile"><div class="v">${t.tabled}</div><div class="l">given a table</div><div class="s">of ${t.bookings} bookings</div></div></div>
       ${preFunnel(d)}
       ${preSendBlock(d)}
-      ${cancelledCard(d)}<div class="card"><h3>Bookings</h3><div style="overflow-x:auto"><table class="t"><thead><tr><th>Ref</th><th>Booked by</th><th>Email</th><th class="n">Guests</th><th>Status</th><th>Invited</th><th>Opened</th>${e.show_times ? "<th>Guest's time</th>" : ""}<th>Dining</th><th>Where</th><th>Table</th>${d.rows.some(r => r.pay) ? `<th class="n">Balance</th>` : ""}<th class="n">Drinks</th><th></th></tr></thead><tbody>${d.rows.filter(r => !S.pre.filter || r.stage === S.pre.filter).map(r => {
+      ${cancelledCard(d)}<div class="card"><h3>Bookings</h3><div style="overflow-x:auto"><table class="t"><thead><tr>${sth("ref", "Ref")}${sth("name", "Booked by")}${sth("email", "Email")}${sth("guests", "Guests", "n")}${sth("status", "Status")}${sth("invited", "Invited")}${sth("opened", "Opened")}${e.show_times ? sth("gtime", "Guest's time") : ""}${sth("dining", "Dining")}${sth("where", "Where")}${sth("table", "Table")}${d.rows.some(r => r.pay) ? sth("balance", "Balance", "n") : ""}${sth("drinks", "Drinks", "n")}<th></th></tr></thead><tbody>${preSorted(d.rows.filter(r => !S.pre.filter || r.stage === S.pre.filter)).map(r => {
         const st = PRE_STATUS[r.status] || [r.status, ""], g = r.adults + r.children;
         return `<tr><td><a href="#" data-full="${esc(r.booking_id)}" title="Open this booking">${esc(r.ref)}</a></td><td><a href="#" data-full="${esc(r.booking_id)}" style="color:inherit;font-weight:600">${esc(r.name)}</a>${r.linked_with.length ? `<div class="tiny muted">with ${esc(r.linked_with.join(", "))}</div>` : ""}${r.has_dietary ? `<div class="tiny" style="color:var(--attn)">dietary notes</div>` : ""}</td><td class="small">${r.email ? esc(r.email) : `<span class="muted">none</span>`}</td><td class="n">${g}</td>
           <td><span class="pill ${st[1]}">${esc(st[0])}</span>${r.status !== "submitted" ? `<div class="tiny muted">${r.meals_done} of ${g} chosen</div>` : ""}</td><td class="small">${r.invite_sent_at ? esc(fmtDT(r.invite_sent_at)) : `<span class="muted">not yet</span>`}</td><td class="small">${r.first_opened_at ? esc(fmtDT(r.first_opened_at)) + `<div class="tiny muted">${r.open_count > 1 ? r.open_count + " visits, last " + esc(fmtDT(r.last_opened_at)) : "1 visit"}</div>` : (r.stage === "started" || r.stage === "submitted" ? `<span class="muted">not recorded</span>` : `<span class="muted">no</span>`)}</td>${e.show_times ? `<td class="small">${esc(r.preferred_time === "none" ? "any time" : r.preferred_time || "")}${r.time_comment ? `<div class="tiny" style="color:var(--attn)">${esc(r.time_comment)}</div>` : ""}</td>` : ""}
