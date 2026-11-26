@@ -80,6 +80,13 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--berry);outline-o
 .sum{width:100%;border-collapse:collapse;margin:12px 0}
 .sum td{padding:8px 4px;border-bottom:1px solid #E3E5DE;vertical-align:top}
 .sum td:last-child{text-align:right;font-weight:600}
+.guest{border:1px solid var(--celadon);border-radius:10px;padding:12px 13px;margin:0 0 12px;background:var(--white)}
+.guest h4{margin:0 0 8px;font-size:16px}
+.guest .cols{grid-template-columns:repeat(3,1fr);gap:10px}
+.guest .cols.one{grid-template-columns:1fr}
+@media (max-width:620px){.guest .cols{grid-template-columns:1fr}}
+.dnote{font-size:13px;color:var(--muted);margin:3px 0 0;min-height:1em}
+.guest .same{margin:8px 0 0;font-size:14px;padding:7px 14px}
 .hp{position:absolute;left:-5000px;width:1px;height:1px;overflow:hidden}
 .spin{display:inline-block;width:22px;height:22px;border:3px solid var(--celadon);border-top-color:var(--berry);border-radius:50%;animation:sp 1s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}
@@ -186,15 +193,20 @@ function formCard(e){
       '<label class="opt"><input type="radio" name="access" value="no"><span>No</span></label><label class="opt"><input type="radio" name="access" value="yes"><span>Yes</span></label>' +
       '<label class="f" for="slot">Arrival time<span class="req">*</span></label><p class="hint" id="slothint">Answer the question above and we will show the times we can give a party of your size.</p><select id="slot" disabled><option value="">Choose a time...</option></select><div id="slotmsg"></div>'
     : "";
-  return '<form class="card" id="form" novalidate><h2>Your booking</h2>' + who + when +
+  const mealsBlock = day
+    ? '<h3 style="margin:24px 0 4px">Everyone\'s meals</h3><p class="hint">Choose a starter, main and dessert for each guest. You can still change them until ' + esc(e.meals_deadline || "") + '.</p><div id="meals"></div>' +
+      '<div class="cols two" style="margin-top:6px"><div><label class="f" for="u3" style="font-size:14px">Under 3s not having their own meal (free)</label><select id="u3">' + nums(0, 10, 0) + '</select></div><div><label class="f" for="hc" style="font-size:14px">High chairs needed</label><select id="hc">' + nums(0, 10, 0) + '</select></div></div>' +
+      '<label class="f" for="dietary" style="margin-top:12px">Allergies or dietary needs for the whole party (optional)</label><textarea id="dietary" maxlength="1500"></textarea>'
+    : "";
+  return '<form class="card" id="form" novalidate><h2>Your booking</h2>' + who + when + mealsBlock +
     '<div class="qrow"><label class="f" for="name">Your name<span class="req">*</span></label><input type="text" id="name" maxlength="80" autocomplete="name"></div>' +
     '<div class="qrow"><label class="f" for="email">Email address<span class="req">*</span></label><p class="hint">' + (e.staff ? 'Staff tickets: use the work email address you sign in to the staff portal with. Your confirmation is sent here.' : 'Your confirmation is sent here.') + '</p><input type="email" id="email" maxlength="120" autocomplete="email"></div>' +
     '<div class="qrow"><label class="f" for="phone">Phone number<span class="req">*</span></label><input type="tel" id="phone" maxlength="30" autocomplete="tel" inputmode="tel"></div>' +
-    '<label class="f" for="notes">Anything else we should know?</label><p class="hint">For example a special occasion' + (day ? ", or high chairs." : ".") + ' Allergies and meal choices come later, on the form we email you.</p><textarea id="notes" maxlength="600"></textarea>' +
+    '<label class="f" for="notes">Anything else we should know?</label><p class="hint">For example a special occasion.' + (day ? "" : " Allergies and meal choices come later, on the form we email you.") + '</p><textarea id="notes" maxlength="600"></textarea>' +
     '<div class="hp" aria-hidden="true"><label>Leave this empty <input type="text" id="website" tabindex="-1" autocomplete="off"></label></div>' +
     '<label class="chk"><input type="checkbox" id="consent"><span>I am happy for Black Horse Beamish to use these details to look after my booking.</span></label>' +
     '<div class="total"><span>Total to pay now</span><b id="total"></b></div>' +
-    '<p class="hint" style="margin:8px 0 0">' + (day ? 'Your table is held for ' + I.hold_minutes + ' minutes while you pay. ' : '') + 'You pay by card on SumUp\'s secure page, and we email your confirmation straight away.</p>' +
+    '<p class="hint" style="margin:8px 0 0">' + (day ? 'Your table is held for ' + I.hold_minutes + ' minutes while you pay. ' : '') + (day ? 'Your table is only yours once you have chosen everyone\'s meals and paid in full. ' : '') + 'You pay by card on SumUp\'s secure page, and we email your confirmation straight away.</p>' +
     '<div id="msg"></div><p style="margin:18px 0 0"><button type="submit" class="btn" id="go">Pay and book</button></p></form>';
 }
 function val(id){ const el = $("#" + id); return el ? (el.value || "").trim() : ""; }
@@ -226,6 +238,37 @@ function slotChanged(){
   m.innerHTML = o && o.steps ? '<div class="warn"><b>Please note: this table is in the George Ridley Room, which has steps.</b> It is not suitable for anyone with accessibility needs. If that is you or someone in your party, change your answer above and we will show you step-free tables only.</div>' : "";
   tellHeight();
 }
+const WTOK = /^[0-9a-f]{32}$/.test(Q.get("w") || "") ? Q.get("w") : "";      // the link from the waiting-list email: it takes that guest off the list once they have booked
+let MEALSAVE = {};
+function guestKinds(){ const c = counts(); return [].concat(Array(c.adults).fill("adult"), Array(c.children).fill("child"), Array(c.infants).fill("infant")); }
+function guestLabel(kinds, i){ const kind = kinds[i], n = kinds.slice(0, i + 1).filter(k => k === kind).length; return (kind === "adult" ? "Adult " : kind === "child" ? "Child " : "Under 3 (eating) ") + n; }
+function dishOpts(list, sel){ return '<option value="">Choose...</option>' + list.map(d => '<option value="' + esc(d.key) + '"' + (d.key === sel ? " selected" : "") + '>' + esc(d.name) + (d.tags ? " (" + esc(d.tags) + ")" : "") + '</option>').join(""); }
+function saveMeals(){ const k = guestKinds().length; for (let i = 0; i < Math.max(k, 40); i++) { const el = $("#g" + i + "_main") || $("#g" + i + "_starter"); if (!el && i >= k) break; ["starter", "main", "dessert", "diet"].forEach(f => { const x = $("#g" + i + "_" + f); if (x) MEALSAVE[i + "|" + f] = x.value; }); } }
+function paintMeals(){
+  if (!EV || EV.kind !== "day" || !EV.menu) return; const box = $("#meals"); if (!box) return;
+  saveMeals(); const kinds = guestKinds();
+  box.innerHTML = kinds.map((kind, i) => {
+    const menu = EV.menu[kind], sv = f => MEALSAVE[i + "|" + f] || "", first = kinds.indexOf(kind);
+    const sel = (course, label) => '<div><label for="g' + i + '_' + course + '" style="font-size:14px">' + label + '</label><select id="g' + i + '_' + course + '" data-g="' + i + '">' + dishOpts(menu[course] || [], sv(course)) + '</select><div class="dnote" id="g' + i + '_' + course + '_n"></div></div>';
+    return '<div class="guest" data-i="' + i + '"><h4>' + esc(guestLabel(kinds, i)) + '</h4><div class="cols' + (kind === "infant" ? " one" : "") + '">' + (kind === "infant" ? sel("main", "Main course") : sel("starter", "Starter") + sel("main", "Main course") + sel("dessert", "Dessert")) + '</div>' +
+      '<label for="g' + i + '_diet" style="font-size:14px;display:block;margin-top:8px">Allergies or dietary needs for ' + esc(guestLabel(kinds, i)) + ' (optional)</label><input type="text" id="g' + i + '_diet" maxlength="300" value="' + esc(sv("diet")) + '">' +
+      (first !== i ? '<button type="button" class="btn ghost same" data-same="' + i + '" data-from="' + first + '">Same choices as ' + esc(guestLabel(kinds, first)) + '</button>' : "") + '</div>';
+  }).join("");
+  kinds.forEach((kind, i) => ["starter", "main", "dessert"].forEach(c => { const el = $("#g" + i + "_" + c); if (el) dishNote(el); }));
+  tellHeight();
+}
+function dishNote(el){
+  const m = /^g(\d+)_(starter|main|dessert)$/.exec(el.id); if (!m || !EV || !EV.menu) return;
+  const kind = guestKinds()[Number(m[1])], d = ((EV.menu[kind] || {})[m[2]] || []).find(x => x.key === el.value), n = $("#" + el.id + "_n"); if (n) n.textContent = d && d.note ? d.note : "";
+}
+function copyMeals(to, from){ ["starter", "main", "dessert"].forEach(c => { const a = $("#g" + from + "_" + c), b = $("#g" + to + "_" + c); if (a && b) { b.value = a.value; dishNote(b); } }); }
+function collectGuests(){ return guestKinds().map((kind, i) => ({ kind, starter: val("g" + i + "_starter"), main: val("g" + i + "_main"), dessert: val("g" + i + "_dessert"), dietary: val("g" + i + "_diet") })); }
+function missingMeal(){
+  if (!EV || EV.kind !== "day") return "";
+  const kinds = guestKinds();
+  for (let i = 0; i < kinds.length; i++) for (const c of (kinds[i] === "infant" ? ["main"] : ["starter", "main", "dessert"])) if (!val("g" + i + "_" + c)) return "Please choose a " + c + " for " + guestLabel(kinds, i) + ".";
+  return "";
+}
 function pickEvent(id){
   EV = I.events.find(e => e.date_id === id) || null; OPTS = [];
   const evSel = $("#ev"); if (evSel && evSel.value !== id) evSel.value = id;
@@ -239,11 +282,13 @@ function pickEvent(id){
     f.addEventListener("change", e => {
       if (e.target.name === "access") document.querySelectorAll('input[name="access"]').forEach(r => r.closest(".opt").classList.toggle("on", r.checked));
       if (e.target.id === "adults") { const w = $("#moreWrap"); if (w) { w.hidden = e.target.value !== "more"; if (!w.hidden) $("#adultsMore").focus(); tellHeight(); } }
-      if (["adults", "children", "infants", "adultsMore"].includes(e.target.id)) { paintTotal(); if (e.target.id !== "infants") loadTimes(); }
+      if (["adults", "children", "infants", "adultsMore"].includes(e.target.id)) { paintTotal(); paintMeals(); if (e.target.id !== "infants") loadTimes(); }
+      if (/^g\d+_(starter|main|dessert)$/.test(e.target.id)) dishNote(e.target);
       if (e.target.name === "access") loadTimes();
       if (e.target.id === "slot") slotChanged();
     });
-    paintTotal();
+    f.addEventListener("click", e => { const b = e.target.closest && e.target.closest("[data-same]"); if (b) { copyMeals(Number(b.dataset.same), Number(b.dataset.from)); } });
+    paintTotal(); paintMeals();
   }
   tellHeight();
 }
@@ -261,11 +306,12 @@ async function submit(ev){
     const n = counts().adults;
     if (n < 21 || n > EV.max) { msg.innerHTML = '<div class="err">Please type a number of tickets between 21 and ' + EV.max + '.</div>'; $("#adultsMore").scrollIntoView({ behavior:"smooth", block:"center" }); return; }
   }
+  const mm = missingMeal(); if (mm) { msg.innerHTML = '<div class="err">' + esc(mm) + '</div>'; const first = Array.from(document.querySelectorAll(".guest select")).find(x => !x.value); if (first) first.scrollIntoView({ behavior:"smooth", block:"center" }); return; }
   if (!$("#consent").checked) { msg.innerHTML = '<div class="err">Please tick the box to say we may use your details to look after your booking.</div>'; return; }
   const btn = $("#go"); BUSY = true; btn.disabled = true; btn.textContent = "One moment...";
   try {
     const c = counts();
-    const r = await call("web.start", { date_id: EV.date_id, name: val("name"), email: val("email"), phone: val("phone"), adults: c.adults, children: c.children, infants: c.infants, slot: val("slot"), access: accessNow(), notes: val("notes"), website: val("website"), staff_code: STAFF, voucher_code: EV.voucher ? VCODE : "", consent: true });
+    const r = await call("web.start", { date_id: EV.date_id, name: val("name"), email: val("email"), phone: val("phone"), adults: c.adults, children: c.children, infants: c.infants, slot: val("slot"), access: accessNow(), notes: val("notes"), website: val("website"), staff_code: STAFF, voucher_code: EV.voucher ? VCODE : "", consent: true, guests: EV.kind === "day" ? collectGuests() : undefined, dietary: val("dietary"), under3: Number(val("u3")) || 0, high_chairs: Number(val("hc")) || 0, wait_token: WTOK });
     if (!r.url) { BUSY = false; return; }
     $("#app").innerHTML = '<div class="card" style="text-align:center"><h2>Taking you to the payment page</h2><p class="lead">' + (EV.kind === "day" ? 'Your table is held for ' + I.hold_minutes + ' minutes. ' : '') + 'If nothing happens, press the button.</p><p><a class="btn" id="paygo" href="' + esc(r.url) + '" target="_top">Pay ' + gbp(r.amount) + ' now</a></p></div>';
     window.scrollTo({ top:0 }); if (EMBED && parent !== window) parent.postMessage({ bhbTop:true, bhbPay:r.url }, "*"); else location.href = r.url;
@@ -282,7 +328,7 @@ async function paidView(){
     $("#app").innerHTML = '<div class="card"><h2>Thank you, ' + esc(d.first) + '</h2><div class="ok">Your payment has been received and your booking is confirmed.</div>' + sum +
       (d.steps ? '<div class="warn"><b>Please note: your table is in the George Ridley Room, which has steps.</b> If anyone in your party finds steps difficult, phone us on ' + esc(d.contact.phone) + ' and we will move you.</div>' : "") +
       '<p class="lead">We have emailed your confirmation to <b>' + esc(d.email) + '</b>. Please look in your junk folder if you cannot see it.</p>' +
-      (d.form_url ? '<div class="note"><b>One more thing: choose your meals' + (d.voucher ? ' and your free drinks' : '') + '.</b> The email has a link to your pre-order form, or you can go straight there now.</div><p><a class="btn" href="' + esc(d.form_url) + '" target="_top">Choose your meals' + (d.voucher ? ' and drinks' : '') + '</a></p>' : "") + '</div>';
+      (d.meals_done ? '<div class="note"><b>Your meal choices are saved.</b> You can check or change them on your pre-order page, which is in your confirmation email, until the closing date.</div>' + (d.form_url ? '<p><a class="btn" href="' + esc(d.form_url) + '" target="_top">Check or change your meals</a></p>' : "") : d.form_url ? '<div class="note"><b>One more thing: choose your meals' + (d.voucher ? ' and your free drinks' : '') + '.</b> The email has a link to your pre-order form, or you can go straight there now.</div><p><a class="btn" href="' + esc(d.form_url) + '" target="_top">Choose your meals' + (d.voucher ? ' and drinks' : '') + '</a></p>' : "") + '</div>';
   } else if (d.status === "pending" && d.pay_url) {
     $("#app").innerHTML = '<div class="card"><h2>Your payment has not gone through yet</h2><p class="lead">' + esc(d.event) + ', ' + esc(d.party) + (d.arrival ? ', arriving ' + esc(d.arrival) : "") + ', ' + gbp(d.amount) + '.</p><p class="lead">We are still holding your booking for a few minutes. Press the button to try the payment again.</p><p><a class="btn" href="' + esc(d.pay_url) + '" target="_top">Pay ' + gbp(d.amount) + '</a></p><p class="lead">If your card is declined, phone us on ' + esc(d.contact.phone) + ' and we will help.</p></div>';
   } else {
@@ -297,7 +343,12 @@ async function paidView(){
     $("#app").innerHTML = picker();
     $("#ev").addEventListener("change", e => pickEvent(e.target.value));
     document.querySelectorAll(".tile").forEach(t => t.addEventListener("click", () => pickEvent(t.dataset.id)));
-    const pre = Q.get("event"); if (pre && I.events.some(e => e.date_id === pre)) { $("#ev").value = pre; pickEvent(pre); }
+    const pre = Q.get("event"); if (pre && I.events.some(e => e.date_id === pre)) {
+      $("#ev").value = pre; pickEvent(pre);
+      const setN = (id, v) => { const el = $("#" + id); v = Math.floor(Number(v)); if (el && v >= 0 && Array.from(el.options).some(o => Number(o.value) === v)) el.value = String(v); };
+      if (Q.get("adults")) setN("adults", Q.get("adults")); if (Q.get("children")) setN("children", Q.get("children")); if (Q.get("infants")) setN("infants", Q.get("infants"));
+      if (EV && EV.state === "open") { paintTotal(); paintMeals(); loadTimes(); }
+    }
   } catch (e) { $("#app").innerHTML = '<div class="card"><div class="err">' + esc(e.message) + '</div></div>'; }
 })();
 </script>
