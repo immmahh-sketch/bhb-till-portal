@@ -160,7 +160,7 @@ function voucherBox(e){
 async function applyVoucher(){
   const code = val("vcode"), id = EV && EV.date_id; if (!code) return;
   const b = $("#vapply"); if (b) { b.disabled = true; b.textContent = "Checking..."; }
-  try { VCODE = code; I = await call("web.info", { staff_code: STAFF, voucher_code: VCODE }); pickEvent(id); }
+  try { VCODE = code; I = await call("web.info", { staff_code: STAFF, voucher_code: VCODE, wait_token: WTOK }); pickEvent(id); }
   catch (e) { if (b) { b.disabled = false; b.textContent = "Apply"; } const box = $("#vbox"); if (box) box.insertAdjacentHTML("beforeend", '<div class="err" style="margin:10px 0 0">' + esc(e.message) + '</div>'); }
 }
 document.addEventListener("click", e => { if (e.target && e.target.id === "vapply") applyVoucher(); });
@@ -223,7 +223,7 @@ async function loadTimes(){
   if (acc === null) { sel.disabled = true; sel.innerHTML = '<option value="">Choose a time...</option>'; return; }
   sel.disabled = true; sel.innerHTML = '<option value="">Checking times...</option>';
   try {
-    const r = await call("web.times", { date_id: EV.date_id, adults: c.adults, children: c.children, access: acc });
+    const r = await call("web.times", { date_id: EV.date_id, adults: c.adults, children: c.children, access: acc, wait_token: WTOK });
     if (seq !== TIMES_SEQ) return;
     OPTS = r.options;
     if (!OPTS.length) { sel.innerHTML = '<option value="">No times available</option>'; hint.textContent = ""; msg.innerHTML = '<div class="warn"><b>We have nothing left for a party of ' + r.size + (acc ? ' that needs step-free access' : '') + ' at the moment.</b> You could try a different number of guests, join the waiting list, or phone us on ' + esc(ph(I)) + '.' + (EV.waiting_url ? ' <a href="' + esc(EV.waiting_url) + '" target="_top">Join the waiting list</a>' : '') + '</div>'; tellHeight(); return; }
@@ -338,7 +338,7 @@ async function paidView(){
 (async function(){
   try {
     if (PAID) { await paidView(); return; }
-    I = await call("web.info", { staff_code: STAFF, voucher_code: VCODE });
+    I = await call("web.info", { staff_code: STAFF, voucher_code: VCODE, wait_token: WTOK });
     if (!I.events.length) { $("#app").innerHTML = '<div class="card"><h2>Bookings are closed at the moment</h2><p class="lead">Please phone us on ' + esc(I.contact.phone) + ' or email ' + esc(I.contact.email) + '.</p></div>'; return; }
     $("#app").innerHTML = picker();
     $("#ev").addEventListener("change", e => pickEvent(e.target.value));

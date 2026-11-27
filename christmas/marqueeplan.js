@@ -39,10 +39,11 @@
   const sectionOf = (x) => (x < TEAM_X ? 0 : 1);      // which team a table belongs to, by where its centre stands
 
   // ---------------------------------------------------------------- which table each booking needs
-  /** The tables a party can sit at, best first. Trestles take the least floor space, so they come first from 5 guests up (joined end to end, seats 6n + 2); small tables for up to 4; a 6 ft round for 9 to 10, where it is no bigger than two trestles; rounds are the fall-back if the trestles run out. */
+  /** The tables a party can sit at, best first. Trestles take the least floor space, so they come first from 5 guests up (joined end to end, seats 6n + 2); small tables for up to 4; a 6 ft round for 8 to 10; rounds are the fall-back if the trestles run out. */
   function neededTypes(size) {
     if (size <= 4) return [{ type: "small4", n: 1 }];
-    if (size <= 8) return [{ type: "trestle", n: 1 }, { type: "round8", n: 1 }, { type: "round10", n: 1 }];
+    if (size <= 7) return [{ type: "trestle", n: 1 }, { type: "round8", n: 1 }, { type: "round10", n: 1 }];
+    if (size === 8) return [{ type: "round10", n: 1 }, { type: "trestle", n: 1 }, { type: "round8", n: 1 }];      // 8 to 10 guests sit at a 6ft round when there is room for one (the GM's rule, 27 Nov 2026)
     if (size <= 10) return [{ type: "round10", n: 1 }, { type: "trestle", n: 2 }];
     return [{ type: "trestle", n: Math.max(2, Math.ceil((size - 2) / 6)) }];
   }
